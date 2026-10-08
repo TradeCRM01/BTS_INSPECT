@@ -75,7 +75,8 @@ describe('createInvoiceFromJobBill — job sheet Invoice next', () => {
     expect(handleStart).toBeGreaterThan(-1);
     expect(handleEnd).toBeGreaterThan(handleStart);
     const handle = page.slice(handleStart, handleEnd);
-    expect(handle).toContain('invoiceFromJobBill.mutate()');
+    expect(handle).toContain('runInvoiceFromJobBill');
+    expect(page).toContain('countZeroLabourBeforeJobBillInvoice');
     expect(handle).not.toContain('invoiceFromQuote');
     expect(handle).not.toContain('convertQuoteToInvoice');
     expect(handle).not.toContain('acceptedQuote');
@@ -134,7 +135,7 @@ describe('createInvoiceFromJobBill — job sheet Invoice next', () => {
   it('G5 — GST line stays and shared Grafter SMTP is not rewritten', () => {
     const builder = src('src/lib/invoiceFromJobBill.ts');
     const send = src('src/lib/sendInvoice.ts');
-    expect(builder).toContain('calcDocumentTotals');
+    expect(builder).toContain('calcLineDocumentTotals');
     expect(builder).toContain('tax_amount: taxAmount');
     expect(builder).toContain('tax_rate: Number(input.taxRate)');
     expect(send).toContain('shared Grafter Resend');

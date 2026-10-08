@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { invalidateAllJobBillInvoicePreviews } from '../lib/jobBillInvoicePreviewQuery';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import {
@@ -847,6 +848,7 @@ export function TeamSettingsPage() {
     },
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['profile-expense-cost-model', vars.memberId] });
+      invalidateAllJobBillInvoicePreviews(queryClient);
     },
   });
 

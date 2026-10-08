@@ -1,5 +1,10 @@
 import type { JobStatus } from '../types/crm';
-import { JOB_BILL_INVOICE_EMPTY, jobBillInvoiceNextDetail } from './invoiceFromJobBill';
+import {
+  JOB_BILL_INVOICE_EMPTY,
+  JOB_BILL_INVOICE_PREVIEW_ERROR_DETAIL,
+  JOB_BILL_INVOICE_PREVIEW_LOADING_DETAIL,
+  type JobBillInvoicePreviewState,
+} from './invoiceFromJobBill';
 import { effectiveInvoiceStatus } from './invoiceStatus';
 import {
   ARRIVING_NEXT_LABEL,
@@ -44,6 +49,10 @@ export type JobActionContext = {
   billLineCount?: number;
   /** Job-bill charge total for Next detail. */
   billTotal?: number;
+  /** Inc-GST invoice preview money line — same string as the quoted invoice sheet. */
+  billInvoiceMoneyLine?: string;
+  /** When the shared invoice plan query is still loading or failed. */
+  billInvoicePreviewState?: JobBillInvoicePreviewState;
   clockedOn: boolean;
   /** Closed timesheet on this job — the van has clocked off. Optional for older callers. */
   clockedOff?: boolean;
@@ -111,6 +120,20 @@ function jobHasClockedOff(ctx: JobActionContext): boolean {
 }
 
 function jobInvoiceNext(ctx: JobActionContext): RecommendedJobAction {
+  if (ctx.billInvoicePreviewState === 'loading') {
+    return {
+      key: 'invoice',
+      label: 'Invoice',
+      detail: JOB_BILL_INVOICE_PREVIEW_LOADING_DETAIL,
+    };
+  }
+  if (ctx.billInvoicePreviewState === 'error') {
+    return {
+      key: 'invoice',
+      label: 'Invoice',
+      detail: JOB_BILL_INVOICE_PREVIEW_ERROR_DETAIL,
+    };
+  }
   if (ctx.billLineCount === 0) {
     return {
       key: 'invoice',
@@ -122,13 +145,13 @@ function jobInvoiceNext(ctx: JobActionContext): RecommendedJobAction {
     return {
       key: 'invoice',
       label: 'Invoice',
-      detail: jobBillInvoiceNextDetail(ctx.billLineCount, ctx.billTotal ?? 0),
+      detail: ctx.billInvoiceMoneyLine ?? '',
     };
   }
   return {
     key: 'invoice',
     label: 'Invoice',
-    detail: 'Draft invoice from the job bill.',
+    detail: '',
   };
 }
 
@@ -406,6 +429,8 @@ export function jobOpenNext(
     hasBillLines: sheet?.hasBillLines ?? false,
     billLineCount: sheet?.billLineCount,
     billTotal: sheet?.billTotal,
+    billInvoiceMoneyLine: sheet?.billInvoiceMoneyLine,
+    billInvoicePreviewState: sheet?.billInvoicePreviewState,
     clockedOn: sheet?.clockedOn ?? false,
     clockedOff: sheet?.clockedOff,
     arrivingWindow,

@@ -18,6 +18,8 @@ export const AUDIT_PO_ID = 'audit-po-send';
 export const AUDIT_REPORT_ID = 'audit-report-send';
 export const AUDIT_DOC_JOB_ID = 'audit-doc-job';
 export const AUDIT_DOC_CLIENT_ID = 'audit-doc-client';
+/** FIX-2 LOOK only — plumber-neutral client (does not replace AUDIT_DOC_CLIENT_ID elsewhere). */
+export const AUDIT_FIX2_CLIENT_ID = 'audit-fix2-client';
 export const AUDIT_PRICE_BOOK_ID = 'audit-price-book';
 export const AUDIT_LIST_DEF_ID = 'audit-list-def';
 export const AUDIT_CREW_ID = 'audit-crew-1';
@@ -77,7 +79,7 @@ export function getAuditEmptyList() {
 
 const AUDIT_P331_COST_MODEL_ID = 'audit-p331-loaded-hourly';
 
-function auditLookTag(): string | null {
+export function auditLookTag(): string | null {
   if (!isDevFieldAuditAuth()) return null;
   try {
     return new URLSearchParams(window.location.search).get('look');
@@ -106,6 +108,32 @@ function auditJobBillCostBase(): Omit<JobCost, 'id' | 'cost_type' | 'description
 export function getAuditJobBillCosts(): JobCost[] | null {
   const look = auditLookTag();
   if (!look || !isDevFieldAuditAuth()) return null;
+  if (
+    look === 'fix2-quoted'
+    || look === 'fix2-quoted-optin'
+    ||     look === 'fix2-unquoted-rate'
+    || look === 'fix2-unquoted-zero'
+    || look === 'fix2-clockoff-invoice'
+  ) {
+    return [];
+  }
+  if (look === 'fix2-zero-header') {
+    const base = auditJobBillCostBase();
+    return [{
+      ...base,
+      id: 'audit-fix2-zero-labour',
+      cost_type: 'labor',
+      description: 'Labour 2.0 h',
+      quantity: 2,
+      unit_cost: 0,
+      total_cost: 0,
+      markup_percent: 0,
+      unit_price: 0,
+      total_price: 0,
+      charge_type: 'Labour',
+      cost_model_id: null,
+    }];
+  }
   if (look !== 'p331-nocost' && look !== 'p331-cost-filled' && look !== 'p331-bill') return null;
   const base = auditJobBillCostBase();
   const labour: JobCost = {
@@ -131,6 +159,182 @@ export function getAuditJobBillCosts(): JobCost[] | null {
     }];
   }
   return [labour];
+}
+
+/** FIX-2 LOOK: timesheet hours only — not pre-loaded on job bill. */
+/** Same shape as production resolveLabourSell — not planned row unit_cost. */
+export function getAuditFix2LabourSell(): import('./hoursToJobBill').LabourSellResolution {
+  const look = auditLookTag();
+  if (look === 'fix2-unquoted-zero' || look === 'fix2-zero-header') {
+    return {
+      unitPrice: 0,
+      priceBookItemId: null,
+      needsRate: true,
+      needsPicker: false,
+      pickerItems: [],
+    };
+  }
+  return {
+    unitPrice: 95,
+    priceBookItemId: 'audit-fix2-pb',
+    needsRate: false,
+    needsPicker: false,
+    pickerItems: [],
+  };
+}
+
+export function getAuditFix2Client() {
+  return {
+    id: AUDIT_FIX2_CLIENT_ID,
+    company_id: DEV_AUDIT_COMPANY.id,
+    name: 'Harbour View Body Corporate',
+    contact_person: 'Building manager',
+    email: 'strata-manager@example.com',
+    phone: '07 3000 0000',
+    address: '42 Harbour Esplanade, Brisbane QLD 4000',
+    notes: null,
+    archived: false,
+    created_at: NOW,
+  };
+}
+
+export function getAuditFix2PlannedLabourPull(): import('./hoursToJobBill').JobCostFromHoursInsert[] | null {
+  const look = auditLookTag();
+  if (!isDevFieldAuditAuth() || !look?.startsWith('fix2-')) return null;
+  if (look === 'fix2-zero-header') {
+    return [{
+      company_id: DEV_AUDIT_COMPANY.id,
+      job_id: AUDIT_DOC_JOB_ID,
+      cost_type: 'labor',
+      description: 'Labour 2.0 h',
+      quantity: 2,
+      unit_cost: 0,
+      total_cost: 0,
+      markup_percent: 0,
+      unit_price: 0,
+      total_price: 0,
+      charge_type: 'Labour',
+      stock_item_id: null,
+      purchase_order_id: null,
+      cost_model_id: null,
+      created_by: DEV_AUDIT_PROFILE.id,
+      timesheet_entry_id: 'fix2-ts-zero',
+    }];
+  }
+  const unitPrice = look === 'fix2-unquoted-zero' ? 0 : 95;
+  let hours = 3.5;
+  if (look === 'fix2-clockoff-invoice') {
+    try {
+      hours = sessionStorage.getItem('fix2-clockoff-closed') === '1' ? 3.5 : 2;
+    } catch {
+      hours = 2;
+    }
+  }
+  return [{
+    company_id: DEV_AUDIT_COMPANY.id,
+    job_id: AUDIT_DOC_JOB_ID,
+    cost_type: 'labor',
+    description: `Labour ${hours} h @ $${unitPrice}`,
+    quantity: hours,
+    unit_cost: 45,
+    total_cost: hours * 45,
+    markup_percent: 0,
+    unit_price: unitPrice,
+    total_price: hours * unitPrice,
+    charge_type: 'Labour',
+    stock_item_id: null,
+    purchase_order_id: null,
+    cost_model_id: null,
+    created_by: DEV_AUDIT_PROFILE.id,
+    timesheet_entry_id: look === 'fix2-clockoff-invoice'
+      ? 'fix2-ts-running'
+      : look === 'fix2-unquoted-rate' || look === 'fix2-unquoted-zero'
+        ? 'fix2-ts-unquoted'
+        : 'fix2-ts-quoted',
+  }];
+}
+
+function auditFix2ClockoffSessionClosed(): boolean {
+  try {
+    return sessionStorage.getItem('fix2-clockoff-closed') === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** FIX-2 clock-off LOOK: 2 h closed (08:00–10:00 today) + 1.5 h run ending at `at` when closed. */
+export function getAuditFix2ClockoffTimesheetEntries(
+  jobId: string,
+  runningClosed?: boolean,
+  at = new Date(),
+) {
+  const closed = runningClosed ?? auditFix2ClockoffSessionClosed();
+  const y = at.getFullYear();
+  const m = at.getMonth();
+  const d = at.getDate();
+  const start = new Date(y, m, d, 8, 0, 0, 0);
+  const twoEnd = new Date(y, m, d, 10, 0, 0, 0);
+  const runEnd = new Date(at);
+  const runStart = new Date(at.getTime() - 90 * 60 * 1000);
+  return [
+    {
+      id: 'fix2-ts-2h-closed',
+      timesheet_id: 'fix2-ts-sheet',
+      job_id: jobId,
+      start_time: start.toISOString(),
+      end_time: twoEnd.toISOString(),
+      work_type: 'Plumbing',
+      billable: true,
+      notes: null,
+    },
+    {
+      id: 'fix2-ts-running',
+      timesheet_id: 'fix2-ts-sheet',
+      job_id: jobId,
+      start_time: runStart.toISOString(),
+      end_time: closed ? runEnd.toISOString() : null,
+      work_type: 'Plumbing',
+      billable: true,
+      notes: null,
+    },
+  ];
+}
+
+export function fix2LookActive(): boolean {
+  const look = auditLookTag();
+  return Boolean(look?.startsWith('fix2-'));
+}
+
+export function getAuditFix2AcceptedQuote(): {
+  quoteId: string;
+  quoteNumber: number;
+  quoteLineItems: import('../types/fsm').QuoteLineItem[];
+  isQuoted: boolean;
+} | null {
+  const look = auditLookTag();
+  if (!isDevFieldAuditAuth() || !look?.startsWith('fix2-')) return null;
+  if (
+    look === 'fix2-unquoted-rate'
+    || look === 'fix2-unquoted-zero'
+    || look === 'fix2-zero-header'
+    || look === 'fix2-clockoff-invoice'
+  ) {
+    return {
+      quoteId: 'look-quote-stale',
+      quoteNumber: 1,
+      quoteLineItems: [{ description: 'Empty scope', quantity: 0, unit_price: 100 }],
+      isQuoted: false,
+    };
+  }
+  return {
+    quoteId: 'look-quote-0002',
+    quoteNumber: 2,
+    quoteLineItems: [
+      { description: 'Call-out fee', quantity: 1, unit_price: 180, gst_rate: 10 },
+      { description: 'Re-pipe kitchen', quantity: 1, unit_price: 700, gst_rate: 0 },
+    ],
+    isQuoted: true,
+  };
 }
 
 /** Playwright: team look=p331-team-select | p331-team-empty */
@@ -237,6 +441,15 @@ export function getAuditJobs() {
   }];
 }
 
+/** Invoice editor client list in field-audit — includes fix2-only client when absent from Northside seed. */
+export function getAuditClientsForInvoiceEditor() {
+  const base = getAuditClients();
+  if (!base) return null;
+  const fix2 = getAuditFix2Client();
+  if (base.some(c => c.id === fix2.id)) return base;
+  return [...base, fix2];
+}
+
 export function getAuditClients() {
   if (!isDevFieldAuditAuth()) return null;
   return [{
@@ -262,7 +475,7 @@ export function getAuditJob(id: string) {
       id,
       company_id: DEV_AUDIT_COMPANY.id,
       client_id: AUDIT_DOC_CLIENT_ID,
-      title: 'Hot water swap',
+      title: 'Hot water replacement',
       description: 'Swap the failed unit and leave the old one for collection.',
       status: 'completed' as const,
       priority: 'medium' as const,
@@ -286,6 +499,9 @@ export function getAuditJob(id: string) {
 }
 
 export function getAuditClient(id: string) {
+  if (isDevFieldAuditAuth() && id === AUDIT_FIX2_CLIENT_ID) {
+    return getAuditFix2Client();
+  }
   const clients = getAuditClients();
   return clients?.find(c => c.id === id) ?? null;
 }
@@ -542,6 +758,26 @@ export function getAuditTemplates() {
 }
 
 export function getAuditInvoiceEditorRow(invoiceId: string) {
+  if (isDevFieldAuditAuth() && invoiceId === 'audit-fix2-invoice') {
+    try {
+      const raw = sessionStorage.getItem('audit-fix2-invoice-row');
+      if (raw) {
+        const row = JSON.parse(raw) as Record<string, unknown> & { client_id?: string | null };
+        const client = row.client_id ? getAuditClient(row.client_id) : null;
+        const job = getAuditJob(AUDIT_DOC_JOB_ID);
+        return {
+          ...row,
+          client_name: client?.name ?? null,
+          client_email: client?.email ?? null,
+          client_phone: client?.phone ?? null,
+          job_title: job?.title ?? 'Hot water replacement',
+          job_address: job?.address ?? client?.address ?? null,
+        };
+      }
+    } catch {
+      /* ignore */
+    }
+  }
   if (isDevFieldAuditAuth() && invoiceId === AUDIT_INVOICE_GST_ID) {
     return {
       id: AUDIT_INVOICE_GST_ID,

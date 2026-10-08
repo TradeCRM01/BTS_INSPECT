@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { invalidateAllJobBillInvoicePreviews } from '../../lib/jobBillInvoicePreviewQuery';
 import { format } from 'date-fns';
 import { Plus, Trash2, X, Users, Bookmark, Copy, Check } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -704,6 +705,7 @@ function ManageCostModelsModal({
     await refetch();
     onChanged();
     queryClient.invalidateQueries({ queryKey: ['expense-cost-models'] });
+    invalidateAllJobBillInvoicePreviews(queryClient);
   };
 
   const remove = async (id: string) => {

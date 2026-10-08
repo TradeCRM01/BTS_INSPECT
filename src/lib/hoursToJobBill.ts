@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { invalidateJobBillInvoicePreview } from './jobBillInvoicePreviewQuery';
 import { entryMinutes } from './timesheetJob';
 import type { ExpenseCostModel } from '../types/fsm';
 import type { InvoiceLineItem } from '../types/fsm';
@@ -328,6 +329,11 @@ export const jobBillHoursQueryKeys = {
 export function invalidateJobBillHoursQueries(queryClient: QueryClient, jobId: string): void {
   void queryClient.invalidateQueries({ queryKey: jobBillHoursQueryKeys.billed(jobId) });
   void queryClient.invalidateQueries({ queryKey: jobBillHoursQueryKeys.entries(jobId) });
+}
+
+export function invalidateJobBillAfterHoursChange(queryClient: QueryClient, jobId: string): void {
+  invalidateJobBillHoursQueries(queryClient, jobId);
+  invalidateJobBillInvoicePreview(queryClient, jobId);
 }
 
 export function zeroLabourInvoiceConfirmMessage(count: number): string {

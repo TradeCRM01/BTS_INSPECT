@@ -1,12 +1,14 @@
 import type { InvoiceLineItem } from '../types/fsm';
-import { formatMoney } from '../types/fsm';
-import { calcDocumentTotals } from './gst';
+import { calcLineDocumentTotals } from './gst';
 import { INVOICE_SOURCE_JOB_BILL, pickReusableInvoice } from './invoiceFromQuote';
 import { VAN_TIME_ZONE, todayYmd } from './jobReminder';
 
 export const JOB_BILL_INVOICE_NO_CLIENT = 'Assign a client before invoicing this job';
 export const JOB_BILL_INVOICE_NO_LINES = 'Add bill lines before invoicing this job';
 export const JOB_BILL_INVOICE_EMPTY = 'Job bill is empty — add lines before invoicing';
+export const JOB_BILL_INVOICE_PREVIEW_LOADING_DETAIL = '';
+export const JOB_BILL_INVOICE_PREVIEW_ERROR_DETAIL =
+  'Could not load the invoice preview. Tap Invoice to continue.';
 export const JOB_BILL_INVOICE_CREATED = 'Draft invoice created from this job bill';
 export const JOB_BILL_INVOICE_READY_TOAST = 'Invoice ready — see Invoices on this job';
 export const JOB_BILL_INVOICE_EXISTS = 'Invoice already exists for this job';
@@ -16,20 +18,21 @@ export const JOB_BILL_DUE_DAYS = 7;
 /** Existing invoice-face copy — PDF/sheet prints this next to due_date. */
 export const JOB_BILL_PAYMENT_TERMS = '7 days';
 
-/** Sheet Next when Invoice actually runs the job-bill path. */
-export function jobBillInvoiceNextDetail(lines: number, total: number): string {
-  return `Draft invoice from the job bill · ${lines} ${lines === 1 ? 'line' : 'lines'} · ${formatMoney(total)}`;
-}
+export type JobBillInvoicePreviewState = 'loading' | 'error' | 'ready';
 
-/** Empty-bill block only after totals load. Undefined/null must not toast. */
+/** Empty-bill block only after the invoice plan has resolved. Loading/error must not block. */
 export function jobBillInvoiceBlocked(
   costTotals: { lines: number } | null | undefined,
+  invoicePreview?: { lineCount: number } | null,
+  previewState: JobBillInvoicePreviewState = 'ready',
 ): boolean {
+  if (previewState === 'loading' || previewState === 'error') return false;
+  if (invoicePreview != null) return invoicePreview.lineCount === 0;
   return costTotals != null && costTotals.lines === 0;
 }
 
 export const JOB_COST_INVOICE_SELECT =
-  'description, quantity, unit_price, unit_cost, markup_percent, charge_type, stock_item_id, cost_model_id, created_at';
+  'description, quantity, unit_price, unit_cost, markup_percent, charge_type, stock_item_id, cost_model_id, created_at, cost_type, timesheet_entry_id';
 
 export type JobBillCostLine = {
   description?: string | null;
@@ -40,6 +43,8 @@ export type JobBillCostLine = {
   charge_type?: string | null;
   stock_item_id?: string | null;
   cost_model_id?: string | null;
+  cost_type?: string | null;
+  timesheet_entry_id?: string | null;
 };
 
 export type JobBillInvoiceDecision =
@@ -57,7 +62,9 @@ export function invoiceLinesFromJobCosts(
       const description = (c.description ?? '').trim() || (c.charge_type ?? '').trim();
       const quantity = Number(c.quantity) || 0;
       const unitCost = Number(c.unit_cost) || 0;
-      const unitPrice = Number(c.unit_price) || unitCost;
+      const unitPrice = c.unit_price != null && c.unit_price !== ''
+        ? Number(c.unit_price)
+        : unitCost;
       return {
         description,
         quantity,
@@ -86,14 +93,14 @@ export function buildInvoiceFromJobBill(input: {
   jobId: string;
   taxRate: number;
   lines: InvoiceLineItem[];
+  quoteId?: string | null;
   now?: Date;
 }) {
-  const rawSubtotal = input.lines.reduce((s, li) => s + li.quantity * li.unit_price, 0);
-  const { subtotal, taxAmount, total } = calcDocumentTotals(rawSubtotal, input.taxRate);
+  const { subtotal, taxAmount, total } = calcLineDocumentTotals(input.lines, input.taxRate);
   return {
     client_id: input.clientId,
     job_id: input.jobId,
-    quote_id: null,
+    quote_id: input.quoteId ?? null,
     source: INVOICE_SOURCE_JOB_BILL,
     status: 'draft' as const,
     line_items: input.lines,

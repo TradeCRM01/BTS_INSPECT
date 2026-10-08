@@ -64,7 +64,13 @@ import {
   LETTERHEAD_LOOK,
 } from '../lib/companyLogo';
 import { CompanyLetterheadMark } from '../lib/CompanyLetterheadMark';
-import { AUDIT_INVOICE_ID, getAuditClients, getAuditInvoiceEditorRow } from '../lib/devFieldAuditDocs';
+import {
+  AUDIT_DOC_JOB_ID,
+  AUDIT_FIX2_CLIENT_ID,
+  AUDIT_INVOICE_ID,
+  getAuditClientsForInvoiceEditor,
+  getAuditInvoiceEditorRow,
+} from '../lib/devFieldAuditDocs';
 import { companyPaymentMethodsForDocument } from '../lib/companyPaymentMethods';
 import {
   jobClientEmailRow,
@@ -121,7 +127,7 @@ function invoiceRef(invoice: { invoice_number?: number | null }): string {
 
 function invoiceMoney(total: number | string | null | undefined): string | null {
   const n = Number(total ?? 0);
-  return n > 0 ? formatMoney(n) : null;
+  return Number.isFinite(n) && n >= 0 ? formatMoney(n) : null;
 }
 
 function suburbFromSite(site: string): string {
@@ -199,6 +205,18 @@ export function InvoicesPage() {
     queryKey: ['invoices', lookLetterhead ? LETTERHEAD_LOOK : 'live', paymentProof, money4PartPaidLook, money4PartPaidOverdueLook],
     queryFn: async () => {
       if (isDevFieldAuditAuth()) {
+        try {
+          const fix2Raw = sessionStorage.getItem('audit-fix2-invoice-row');
+          if (fix2Raw) {
+            const parsed = JSON.parse(fix2Raw) as { id?: string };
+            const fix2Row = parsed.id ? getAuditInvoiceEditorRow(parsed.id) : null;
+            if (fix2Row) {
+              return [fix2Row as InvoiceWithDetails];
+            }
+          }
+        } catch {
+          /* ignore */
+        }
         const row = getAuditInvoiceEditorRow(AUDIT_INVOICE_ID);
         if (row) {
           const merged = mergeAuditInvoicePaymentRow(row);
@@ -897,9 +915,16 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
 
   useEffect(() => {
     if (!profile?.company_id) return;
-    const auditClients = getAuditClients();
+    const auditClients = getAuditClientsForInvoiceEditor();
     if (auditClients) {
       setClients(auditClients as Client[]);
+      setJobs([{
+        id: AUDIT_DOC_JOB_ID,
+        company_id: auditClients[0]?.company_id ?? '',
+        client_id: AUDIT_FIX2_CLIENT_ID,
+        title: 'Hot water replacement',
+        address: '42 Harbour Esplanade, Brisbane QLD 4000',
+      }] as Job[]);
       setClientsLoaded(true);
       return;
     }
@@ -1686,7 +1711,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
           {editorMoney ? (
             <div className="hub-invoice-totalbar">
               <span>Total (inc GST)</span>
-              <span className="hub-invoice-display-total">{editorMoney}</span>
+              <span className="hub-invoice-display-total" data-invoice-total-inc-gst>{editorMoney}</span>
             </div>
           ) : null}
           {recordedPaid > 0 ? (

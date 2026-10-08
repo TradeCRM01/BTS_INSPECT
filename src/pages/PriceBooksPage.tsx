@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { invalidateAllJobBillInvoicePreviews } from '../lib/jobBillInvoicePreviewQuery';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
@@ -96,7 +97,11 @@ export function PriceBooksPage() {
       const { error } = await supabase.from('price_book_items').delete().eq('id', id).eq('company_id', profile!.company_id);
       if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['price-book-items', selectedBookId] }); showToast('Item deleted'); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['price-book-items', selectedBookId] });
+      invalidateAllJobBillInvoicePreviews(queryClient);
+      showToast('Item deleted');
+    },
   });
 
   const filteredItems = useMemo(() => {
@@ -335,7 +340,12 @@ export function PriceBooksPage() {
           priceBookId={selectedBookId}
           onClose={() => setShowItemForm(false)}
           onDelete={editingItem ? () => { setShowItemForm(false); setDeleteItemTarget(editingItem); } : undefined}
-          onSaved={() => { setShowItemForm(false); queryClient.invalidateQueries({ queryKey: ['price-book-items', selectedBookId] }); showToast(editingItem ? 'Item updated' : 'Item added'); }}
+          onSaved={() => {
+            setShowItemForm(false);
+            queryClient.invalidateQueries({ queryKey: ['price-book-items', selectedBookId] });
+            invalidateAllJobBillInvoicePreviews(queryClient);
+            showToast(editingItem ? 'Item updated' : 'Item added');
+          }}
         />
       )}
 

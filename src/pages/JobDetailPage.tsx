@@ -31,9 +31,39 @@ import {
   jobInvoicesAfterCreate,
   jobQuoteInvoiceButton,
 } from '../lib/invoiceFromQuote';
-import { AUDIT_DOC_JOB_ID, AUDIT_INVOICE_ID, crew2LookOn, getAuditClient, getAuditEmptyList, getAuditJob, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
-import { createInvoiceFromJobBill } from '../lib/createInvoiceFromJobBill';
-import { invalidateJobBillHoursQueries } from '../lib/hoursToJobBill';
+import {
+  AUDIT_DOC_JOB_ID,
+  AUDIT_INVOICE_ID,
+  crew2LookOn,
+  fix2LookActive,
+  getAuditClient,
+  getAuditEmptyList,
+  getAuditFix2LabourSell,
+  getAuditFix2PlannedLabourPull,
+  getAuditFix2ClockoffTimesheetEntries,
+  AUDIT_FIX2_CLIENT_ID,
+  getAuditJob,
+  getAuditJobBillCosts,
+  getAuditTeamMembers,
+} from '../lib/devFieldAuditDocs';
+import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
+import { isJobBillQuoted, pickMostRecentlyAcceptedQuote } from '../lib/acceptedQuotePick';
+import { createInvoiceFromJobBill, loadJobBillInvoicePreview } from '../lib/createInvoiceFromJobBill';
+import { invalidateJobBillAfterHoursChange, invalidateJobBillHoursQueries } from '../lib/hoursToJobBill';
+import {
+  invalidateJobBillInvoicePreview,
+  jobBillInvoicePreviewQueryKeyWithDims,
+} from '../lib/jobBillInvoicePreviewQuery';
+import type { JobBillInvoicePreviewState } from '../lib/invoiceFromJobBill';
+import { countZeroLabourBeforeJobBillInvoice } from '../lib/requestJobBillInvoice';
+import {
+  jobBillInvoicePreviewFromLines,
+  jobBillLoggedHoursNotBilledNote,
+  planJobBillInvoiceLines,
+  totalLoggedBillableHoursOnJob,
+} from '../lib/jobBillInvoicePlan';
+import { JobBillZeroLabourConfirmSheet } from '../components/jobs/JobBillZeroLabourConfirmSheet';
+import { JobBillQuotedInvoiceSheet } from '../components/jobs/JobBillQuotedInvoiceSheet';
 import {
   JOB_BILL_INVOICE_READY_TOAST,
   JOB_BILL_INVOICE_EMPTY,
@@ -206,6 +236,7 @@ type JobQuote = {
   status: string;
   total: number;
   created_at: string;
+  line_items?: import('../types/fsm').QuoteLineItem[] | null;
 };
 
 type JobInvoice = {
@@ -277,6 +308,12 @@ const P307_LOOK = 'p307';
 const P307_REUSE_LOOK = 'p307-reuse';
 /** Playwright: quote Invoice becomes Open invoice after any-source invoice. */
 const P307_QUOTED_LOOK = 'p307-quoted';
+const FIX2_QUOTED_LOOK = 'fix2-quoted';
+const FIX2_QUOTED_OPTIN_LOOK = 'fix2-quoted-optin';
+const FIX2_UNQUOTED_RATE_LOOK = 'fix2-unquoted-rate';
+const FIX2_UNQUOTED_ZERO_LOOK = 'fix2-unquoted-zero';
+const FIX2_ZERO_HEADER_LOOK = 'fix2-zero-header';
+const FIX2_CLOCKOFF_INVOICE_LOOK = 'fix2-clockoff-invoice';
 const LOOK_PHOTO_DIR = '/look/photos';
 
 function lookSearchParam(): string | null {
@@ -317,11 +354,23 @@ function p305LookKind(): 'bill' | 'empty' | null {
   return null;
 }
 
+function fix2LookKind(): 'quoted' | 'unquoted-rate' | 'unquoted-zero' | 'zero-header' | null {
+  const look = lookSearchParam();
+  if (look === FIX2_QUOTED_LOOK || look === FIX2_QUOTED_OPTIN_LOOK) return 'quoted';
+  if (look === FIX2_UNQUOTED_RATE_LOOK) return 'unquoted-rate';
+  if (look === FIX2_UNQUOTED_ZERO_LOOK || look === FIX2_ZERO_HEADER_LOOK) return 'unquoted-zero';
+  return null;
+}
+
+function fix2ClockoffInvoiceLook(): boolean {
+  return lookSearchParam() === FIX2_CLOCKOFF_INVOICE_LOOK;
+}
+
 function p307LookKind(): 'agree' | 'reuse' | 'quoted' | null {
   const look = lookSearchParam();
   if (look === P307_LOOK) return 'agree';
   if (look === P307_REUSE_LOOK) return 'reuse';
-  if (look === P307_QUOTED_LOOK) return 'quoted';
+  if (look === P307_QUOTED_LOOK || look === FIX2_QUOTED_LOOK || look === FIX2_QUOTED_OPTIN_LOOK) return 'quoted';
   try {
     if (window.location.pathname.endsWith('/look-job-p307')) return 'agree';
   } catch {
@@ -1516,6 +1565,12 @@ export function JobDetailPage() {
   const [lightboxKey, setLightboxKey] = useState<string | null>(null);
   const [arrivingSent, setArrivingSent] = useState(false);
   const [arrivingBusy, setArrivingBusy] = useState(false);
+  const [quotedInvoiceSheetOpen, setQuotedInvoiceSheetOpen] = useState(false);
+  const [addLoggedHoursExtra, setAddLoggedHoursExtra] = useState(
+    () => lookSearchParam() === FIX2_QUOTED_OPTIN_LOOK,
+  );
+  const [zeroLabourConfirmCount, setZeroLabourConfirmCount] = useState(0);
+  const [pendingInvoiceExtra, setPendingInvoiceExtra] = useState(false);
   const visitPhotoRef = useRef<HTMLInputElement>(null);
   const visitGalleryRef = useRef<HTMLInputElement>(null);
   const visitAttachSeq = useRef(0);
@@ -1534,7 +1589,8 @@ export function JobDetailPage() {
       if (mock) {
         const p305 = p305LookKind();
         const p307 = p307LookKind();
-        if (mock.id === AUDIT_DOC_JOB_ID || testingDueLookKind() || visitNotesLookOn() || p305 || p307 || crew2LookOn()) {
+        const fix2On = fix2LookActive();
+        if (mock.id === AUDIT_DOC_JOB_ID || testingDueLookKind() || visitNotesLookOn() || p305 || p307 || fix2On || crew2LookOn()) {
           return {
             ...mock,
             scheduled_date: crew2LookOn() ? '2026-10-08' : lookVanTodayYmd(),
@@ -1546,7 +1602,13 @@ export function JobDetailPage() {
               job_number: 18,
               title: 'Board leak p2b-ch9t — delete ok',
             } : {}),
-            ...(p305 || p307 ? { status: 'completed' as const } : {}),
+            ...(p305 || p307 || fix2On ? { status: 'completed' as const } : {}),
+            ...(fix2On ? {
+              title: 'Hot water replacement',
+              description: 'Replace the failed hot water unit and test the system.',
+              client_id: AUDIT_FIX2_CLIENT_ID,
+              address: '42 Harbour Esplanade, Brisbane QLD 4000',
+            } : {}),
             ...(p307 === 'agree' || p307 === 'reuse' ? { assigned_team: [] } : {}),
           } as Job;
         }
@@ -1794,20 +1856,24 @@ export function JobDetailPage() {
   const { data: quotes, isPending: quotesPending, isError: quotesError, refetch: refetchQuotes } = useQuery<JobQuote[]>({
     queryKey: ['job-quotes', id],
     queryFn: async () => {
-      if (p307LookKind() === 'quoted') {
+      if (p307LookKind() === 'quoted' || fix2LookKind() === 'quoted') {
         return [{
           id: 'look-quote-0002',
           quote_number: 2,
           status: 'accepted',
-          total: 880,
+          total: 898,
           created_at: '2026-09-01T00:00:00.000Z',
+          line_items: [
+            { description: 'Call-out fee', quantity: 1, unit_price: 180, gst_rate: 10 },
+            { description: 'Re-pipe kitchen', quantity: 1, unit_price: 700, gst_rate: 0 },
+          ],
         }] as JobQuote[];
       }
       const empty = getAuditEmptyList();
       if (empty) return empty as JobQuote[];
       const { data, error } = await supabase
         .from('quotes')
-        .select('id, quote_number, status, total, created_at')
+        .select('id, quote_number, status, total, created_at, line_items')
         .eq('job_id', id!)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -1820,6 +1886,7 @@ export function JobDetailPage() {
     queryKey: ['job-invoices', id],
     queryFn: async () => {
       const p307 = p307LookKind();
+      if (fix2LookActive()) return [] as JobInvoice[];
       if (p307 === 'quoted') {
         return [{
           id: AUDIT_INVOICE_ID,
@@ -1847,6 +1914,26 @@ export function JobDetailPage() {
   const { data: timesheets, isPending: timesheetsPending, isError: timesheetsError, refetch: refetchTimesheets } = useQuery<JobTimesheet[]>({
     queryKey: ['job-timesheets', id],
     queryFn: async () => {
+      if (fix2LookActive()) {
+        const hours = 3.5;
+        const start = new Date('2026-10-06T08:00:00.000Z');
+        if (fix2ClockoffInvoiceLook()) {
+          return getAuditFix2ClockoffTimesheetEntries(id!) as JobTimesheet[];
+        }
+        const end = new Date(start.getTime() + hours * 60 * 60 * 1000);
+        return [{
+          id: fix2LookKind() === 'unquoted-rate' || fix2LookKind() === 'unquoted-zero'
+            ? 'fix2-ts-unquoted'
+            : 'fix2-ts-quoted',
+          timesheet_id: 'fix2-ts-sheet',
+          job_id: id!,
+          start_time: start.toISOString(),
+          end_time: end.toISOString(),
+          work_type: 'Plumbing',
+          billable: true,
+          notes: null,
+        }] as JobTimesheet[];
+      }
       if (jobHoursLookOn()) return lookJobTimesheets(id!);
       const empty = getAuditEmptyList();
       if (empty) return empty as JobTimesheet[];
@@ -1981,6 +2068,18 @@ export function JobDetailPage() {
   const { data: myTimesheets } = useQuery<Timesheet[]>({
     queryKey: ['timesheets-job-clock', profile?.id],
     queryFn: async () => {
+      if (fix2ClockoffInvoiceLook() && profile) {
+        return [{
+          id: 'fix2-ts-sheet',
+          company_id: profile.company_id,
+          employee_id: profile.id,
+          date: localDateIso(new Date()),
+          clock_in: '08:00',
+          clock_out: null,
+          total_minutes: 0,
+          status: 'open',
+        }] as Timesheet[];
+      }
       const empty = getAuditEmptyList();
       if (empty) return empty as Timesheet[];
       const from = localDateIso(addDays(new Date(), -14));
@@ -2003,6 +2102,9 @@ export function JobDetailPage() {
     queryFn: async () => {
       const p305 = p305LookKind();
       const p307 = p307LookKind();
+      if (fix2LookActive() && !fix2ClockoffInvoiceLook()) {
+        return { cost: 0, charge: 0, lines: 0 };
+      }
       if (p305 === 'bill' || p307 === 'agree' || p307 === 'reuse' || p307 === 'quoted') {
         return { cost: 400, charge: 545, lines: 2 };
       }
@@ -2060,13 +2162,14 @@ export function JobDetailPage() {
   });
 
   const invoiceFromJobBill = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (includeLoggedHoursExtra: boolean) => {
       if (!profile?.id || !profile.company_id || !id) throw new Error('Not signed in');
       return createInvoiceFromJobBill({
         jobId: id,
         companyId: profile.company_id,
         profileId: profile.id,
         taxRate: Number(company?.default_tax_rate) || DEFAULT_TAX_RATE,
+        includeLoggedHoursExtra,
       });
     },
     onSuccess: (result) => {
@@ -2077,6 +2180,7 @@ export function JobDetailPage() {
       }
       queryClient.invalidateQueries({ queryKey: ['job-invoices', id] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      if (id) invalidateJobBillInvoicePreview(queryClient, id);
       if (id) invalidateJobBillHoursQueries(queryClient, id);
       const reuse = result.existing ? invoiceReuseOpen(result.id) : null;
       if (reuse) {
@@ -2246,6 +2350,7 @@ export function JobDetailPage() {
     queryClient.invalidateQueries({ queryKey: ['timesheets-job-clock', profile?.id] });
     queryClient.invalidateQueries({ queryKey: ['timesheets'] });
     queryClient.invalidateQueries({ queryKey: ['timesheet-entries'] });
+    if (id) invalidateJobBillAfterHoursChange(queryClient, id);
   };
 
   const myTimesheetIds = new Set((myTimesheets ?? []).map(t => t.id));
@@ -2329,6 +2434,9 @@ export function JobDetailPage() {
   const clockOffJob = useMutation({
     mutationFn: async () => {
       if (!id) throw new Error('Missing job');
+      if (fix2ClockoffInvoiceLook() && isDevFieldAuditAuth()) {
+        return { auditClockOff: true as const };
+      }
       const running = (timesheets ?? []).find(e => e.end_time == null && myTimesheetIds.has(e.timesheet_id));
       if (!running) throw new Error('No running time on this job');
       const ts = (myTimesheets ?? []).find(t => t.id === running.timesheet_id);
@@ -2347,7 +2455,21 @@ export function JobDetailPage() {
         .eq('id', running.timesheet_id);
       if (tsErr) throw tsErr;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (result && typeof result === 'object' && 'auditClockOff' in result && id) {
+        try {
+          sessionStorage.setItem('fix2-clockoff-closed', '1');
+        } catch {
+          /* ignore */
+        }
+        queryClient.setQueryData<JobTimesheet[]>(
+          ['job-timesheets', id],
+          getAuditFix2ClockoffTimesheetEntries(id, true, new Date()) as JobTimesheet[],
+        );
+        invalidateTime();
+        showToast('Clocked off');
+        return;
+      }
       invalidateTime();
       showToast('Clocked off');
     },
@@ -2370,6 +2492,109 @@ export function JobDetailPage() {
     return () => window.clearTimeout(t);
   }, [job, rescheduleAsked, navigate]);
 
+  const acceptedQuoteEarly = useMemo(
+    () => pickMostRecentlyAcceptedQuote((quotes ?? []).filter(q => q.status === 'accepted')),
+    [quotes],
+  );
+  const hasAcceptedQuoteLines = isJobBillQuoted(acceptedQuoteEarly?.line_items);
+  const jobBillTaxRate = Number(company?.default_tax_rate) || DEFAULT_TAX_RATE;
+  const loggedHoursOnJob = useMemo(
+    () => totalLoggedBillableHoursOnJob(timesheets ?? [], id ?? ''),
+    [timesheets, id],
+  );
+  const loggedHoursNotBilledNote = hasAcceptedQuoteLines
+    ? jobBillLoggedHoursNotBilledNote(loggedHoursOnJob, addLoggedHoursExtra)
+    : null;
+  const quotedLookOn = p307LookKind() === 'quoted' || fix2LookKind() === 'quoted';
+  const fix2MemoPreviewOn = fix2LookActive() && !fix2ClockoffInvoiceLook();
+  const fix2LookOn = fix2MemoPreviewOn;
+  const jobBillPreviewQueryEnabled = !!id && !!profile?.company_id && !!profile.id && !!job
+    && !quotedLookOn && !fix2MemoPreviewOn;
+  const {
+    data: jobBillInvoicePreview,
+    isPending: jobBillPreviewPending,
+    isError: jobBillPreviewError,
+  } = useQuery({
+    queryKey: jobBillInvoicePreviewQueryKeyWithDims(id ?? '', {
+      addLoggedHoursExtra,
+      hasAcceptedQuoteLines,
+      jobBillTaxRate,
+    }),
+    queryFn: async () => {
+      if (!profile?.company_id || !profile.id || !id) throw new Error('No company');
+      return loadJobBillInvoicePreview({
+        jobId: id,
+        companyId: profile.company_id,
+        profileId: profile.id,
+        taxRate: jobBillTaxRate,
+        includeLoggedHoursExtra: addLoggedHoursExtra,
+      });
+    },
+    enabled: jobBillPreviewQueryEnabled,
+    staleTime: 0,
+  });
+  const jobBillPreviewState: JobBillInvoicePreviewState = quotedLookOn || fix2MemoPreviewOn
+    ? 'ready'
+    : !jobBillPreviewQueryEnabled
+      ? 'ready'
+      : jobBillPreviewPending
+        ? 'loading'
+        : jobBillPreviewError
+          ? 'error'
+          : 'ready';
+  const quotedLookLabourSell = useMemo(
+    () => (fix2LookOn ? getAuditFix2LabourSell() : {
+      unitPrice: 95,
+      priceBookItemId: 'look-pb',
+      needsRate: false,
+      needsPicker: false,
+      pickerItems: [],
+    }),
+    [fix2LookOn],
+  );
+  const auditLookBillCosts = useMemo((): import('../lib/invoiceFromJobBill').JobBillCostLine[] => {
+    if (!fix2LookOn && !quotedLookOn) return [];
+    return (getAuditJobBillCosts() ?? []) as import('../lib/invoiceFromJobBill').JobBillCostLine[];
+  }, [fix2LookOn, quotedLookOn]);
+  const auditLookPlannedPull = useMemo(
+    () => (fix2LookOn ? getAuditFix2PlannedLabourPull() ?? [] : []),
+    [fix2LookOn],
+  );
+  const auditLookPreview = useMemo(() => {
+    if ((!quotedLookOn && !fix2LookOn) || !profile) return null;
+    const quoteLineItems = fix2LookKind() === 'quoted' || p307LookKind() === 'quoted'
+      ? acceptedQuoteEarly?.line_items
+      : null;
+    const lines = planJobBillInvoiceLines({
+      quoteLineItems,
+      costs: auditLookBillCosts,
+      plannedLabourPull: auditLookPlannedPull,
+      includeLoggedHoursExtra: addLoggedHoursExtra,
+      labourSell: quotedLookLabourSell,
+    });
+    return jobBillInvoicePreviewFromLines(lines, jobBillTaxRate, {
+      quoteNumber: acceptedQuoteEarly?.quote_number ?? null,
+      quoteLineItems,
+      costs: auditLookBillCosts,
+      plannedLabourPull: auditLookPlannedPull,
+      includeLoggedHoursExtra: addLoggedHoursExtra,
+      labourSell: quotedLookLabourSell,
+    });
+  }, [
+    quotedLookOn,
+    fix2LookOn,
+    acceptedQuoteEarly?.line_items,
+    acceptedQuoteEarly?.quote_number,
+    addLoggedHoursExtra,
+    auditLookBillCosts,
+    auditLookPlannedPull,
+    quotedLookLabourSell,
+    jobBillTaxRate,
+    profile,
+  ]);
+  const invoicePreviewForNext = auditLookPreview ?? jobBillInvoicePreview;
+  const quotedInvoiceSheetMoneyLine = invoicePreviewForNext?.moneyLine ?? '';
+
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
   if (error || !job) return <AppShell><PageError message="Could not load this job" /></AppShell>;
 
@@ -2385,7 +2610,6 @@ export function JobDetailPage() {
     cost_code: job.cost_code,
     parent_job_number: parentJob?.job_number ?? null,
   });
-  const acceptedQuote = (quotes ?? []).find(q => q.status === 'accepted');
   const stages = childJobs ?? [];
 
   const jhaStartHref = (templateId: string) => {
@@ -2420,6 +2644,24 @@ export function JobDetailPage() {
     navigate(take5FillPath(parent.id));
   };
 
+  const runInvoiceFromJobBill = async (includeLoggedHoursExtra: boolean) => {
+    if (!profile?.company_id || !profile.id || !id) return;
+    const zeroCount = await countZeroLabourBeforeJobBillInvoice({
+      client: supabase,
+      jobId: id,
+      companyId: profile.company_id,
+      profileId: profile.id,
+      hasAcceptedQuote: isJobBillQuoted(acceptedQuoteEarly?.line_items),
+      includeLoggedHoursExtra,
+    });
+    if (zeroCount > 0) {
+      setPendingInvoiceExtra(includeLoggedHoursExtra);
+      setZeroLabourConfirmCount(zeroCount);
+      return;
+    }
+    invoiceFromJobBill.mutate(includeLoggedHoursExtra);
+  };
+
   const handleInvoice = () => {
     if (p307LookKind() === 'reuse') {
       const reuse = invoiceReuseOpen(AUDIT_INVOICE_ID);
@@ -2427,13 +2669,17 @@ export function JobDetailPage() {
       navigate(reuse.href);
       return;
     }
-    if (jobBillInvoiceBlocked(costTotals)) {
+    if (jobBillInvoiceBlocked(costTotals, invoicePreviewForNext, jobBillPreviewState)) {
       showToast(JOB_BILL_INVOICE_EMPTY, 'info');
       setBillOpen(true);
       revealSection('job-bill');
       return;
     }
-    invoiceFromJobBill.mutate();
+    if (hasAcceptedQuoteLines) {
+      setQuotedInvoiceSheetOpen(true);
+      return;
+    }
+    void runInvoiceFromJobBill(false);
   };
 
   const handleSend = () => {
@@ -2460,10 +2706,15 @@ export function JobDetailPage() {
     jhaCount: (jhas ?? []).length,
     inspectionCount: (inspections ?? []).length,
     ...jobInvoiceActionFlags(invoices ?? []),
-    hasAcceptedQuote: !!acceptedQuote,
-    hasBillLines: (costTotals?.lines ?? 0) > 0,
-    billLineCount: costTotals?.lines,
-    billTotal: costTotals?.charge,
+    hasAcceptedQuote: hasAcceptedQuoteLines,
+    hasBillLines: (costTotals?.lines ?? 0) > 0
+      || hasAcceptedQuoteLines
+      || (jobBillPreviewState === 'ready' && (invoicePreviewForNext?.lineCount ?? 0) > 0),
+    billLineCount: jobBillPreviewState === 'ready'
+      ? (invoicePreviewForNext?.lineCount ?? costTotals?.lines)
+      : undefined,
+    billInvoiceMoneyLine: jobBillPreviewState === 'ready' ? invoicePreviewForNext?.moneyLine : undefined,
+    billInvoicePreviewState: jobBillPreviewState,
     clockedOn: !!runningEntry,
     clockedOff: (timesheets ?? []).some(e => e.end_time != null),
     arrivingSent,
@@ -2784,45 +3035,63 @@ export function JobDetailPage() {
               ))}
             </select>
 
-            <div className="hub-jobs-tools">
-              {headerPrimaryHeld ? (
-                <button
-                  type="button"
-                  className="btn-primary ops-next-control-block"
-                  disabled
-                  aria-busy="true"
-                  data-job-next-held="1"
-                >
-                  <span className="skeleton inline-block h-4 w-24 rounded bg-white/30" />
-                </button>
-              ) : next.key === 'inspect' && !arrivingPrimary ? (
-                <Link to={inspectHref} className="btn-primary ops-next-control-block" title={next.detail}>{nextLabel}</Link>
-              ) : next.key !== 'none' || arrivingPrimary ? (
-                <button
-                  type="button"
-                  className="btn-primary ops-next-control-block"
-                  title={next.detail}
-                  disabled={nextBusy}
-                  onClick={runNext}
-                >
-                  {nextLabel}
-                </button>
-              ) : (
+            {(() => {
+              const nextTools = (
+                <div className="hub-jobs-tools">
+                  {headerPrimaryHeld ? (
+                    <button
+                      type="button"
+                      className="btn-primary ops-next-control-block"
+                      disabled
+                      aria-busy="true"
+                      data-job-next-held="1"
+                    >
+                      <span className="skeleton inline-block h-4 w-24 rounded bg-white/30" />
+                    </button>
+                  ) : next.key === 'inspect' && !arrivingPrimary ? (
+                    <Link to={inspectHref} className="btn-primary ops-next-control-block" title={next.detail}>{nextLabel}</Link>
+                  ) : next.key !== 'none' || arrivingPrimary ? (
+                    <button
+                      type="button"
+                      className="btn-primary ops-next-control-block"
+                      title={next.detail}
+                      disabled={nextBusy}
+                      onClick={runNext}
+                    >
+                      {nextLabel}
+                    </button>
+                  ) : (
+                    <>
+                      <button type="button" className="btn-primary ops-next-control-block" onClick={openPostUpdate}>
+                        Post update
+                      </button>
+                      <span className="ops-next-control-done">{nextLabel}</span>
+                    </>
+                  )}
+                </div>
+              );
+              const nextDetail = headerPrimaryHeld ? (
+                <p className="ops-next-detail" data-job-next-detail data-job-next-detail-held="1">
+                  <span className="skeleton inline-block h-4 w-40 rounded" />
+                </p>
+              ) : jobSheetHeaderPrimaryDetail(false, next.detail) ? (
+                <p className="ops-next-detail" data-job-next-detail>{next.detail}</p>
+              ) : null;
+              if (next.key === 'invoice') {
+                return (
+                  <div className="hub-job-invoice-next-preview" data-job-invoice-preview>
+                    {nextTools}
+                    {nextDetail}
+                  </div>
+                );
+              }
+              return (
                 <>
-                  <button type="button" className="btn-primary ops-next-control-block" onClick={openPostUpdate}>
-                    Post update
-                  </button>
-                  <span className="ops-next-control-done">{nextLabel}</span>
+                  {nextTools}
+                  {nextDetail}
                 </>
-              )}
-            </div>
-            {headerPrimaryHeld ? (
-              <p className="ops-next-detail" data-job-next-detail data-job-next-detail-held="1">
-                <span className="skeleton inline-block h-4 w-40 rounded" />
-              </p>
-            ) : jobSheetHeaderPrimaryDetail(false, next.detail) ? (
-              <p className="ops-next-detail" data-job-next-detail>{next.detail}</p>
-            ) : null}
+              );
+            })()}
 
             <div className="job-sheet-tabs" role="tablist" aria-label="Job sections">
               {JOB_SHEET_TABS.map(t => (
@@ -3943,6 +4212,28 @@ export function JobDetailPage() {
           </div>
         </article>
       </div>
+      <JobBillQuotedInvoiceSheet
+        open={quotedInvoiceSheetOpen}
+        loggedHoursNote={loggedHoursNotBilledNote}
+        moneyLine={quotedInvoiceSheetMoneyLine}
+        addLoggedHoursExtra={addLoggedHoursExtra}
+        onAddLoggedHoursExtraChange={setAddLoggedHoursExtra}
+        onClose={() => setQuotedInvoiceSheetOpen(false)}
+        onCreate={() => {
+          setQuotedInvoiceSheetOpen(false);
+          void runInvoiceFromJobBill(addLoggedHoursExtra);
+        }}
+        pending={invoiceFromJobBill.isPending}
+      />
+      <JobBillZeroLabourConfirmSheet
+        open={zeroLabourConfirmCount > 0}
+        count={zeroLabourConfirmCount}
+        onClose={() => setZeroLabourConfirmCount(0)}
+        onCreateAnyway={() => {
+          setZeroLabourConfirmCount(0);
+          invoiceFromJobBill.mutate(pendingInvoiceExtra);
+        }}
+      />
       {showEdit && (
         <JobFormModal
           job={job}

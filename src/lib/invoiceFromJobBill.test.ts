@@ -14,7 +14,6 @@ import {
   invoiceLinesFromJobCosts,
   jobBillDueDate,
   jobBillInvoiceBlocked,
-  jobBillInvoiceNextDetail,
   reuseAfterUniqueConflict,
 } from './invoiceFromJobBill';
 import { VAN_TIME_ZONE, todayYmd } from './jobReminder';
@@ -88,6 +87,20 @@ describe('invoiceLinesFromJobCosts', () => {
     ]);
     expect(lines).toHaveLength(1);
     expect(lines[0].unit_price).toBe(0);
+  });
+
+  it('does not replace a zero labour sell with unit_cost on the invoice line', () => {
+    const lines = invoiceLinesFromJobCosts([
+      {
+        description: 'Labour 3.5 h @ $0',
+        quantity: 3.5,
+        unit_price: 0,
+        unit_cost: 45,
+        charge_type: 'Labour',
+      },
+    ]);
+    expect(lines[0].unit_price).toBe(0);
+    expect(lines[0].description).toBe('Labour 3.5 h @ $0');
   });
 
   it('returns nothing when the bill is empty', () => {
@@ -302,10 +315,10 @@ describe('named toasts', () => {
     expect(JOB_BILL_INVOICE_EMPTY).toBe('Job bill is empty — add lines before invoicing');
     expect(jobBillInvoiceBlocked(undefined)).toBe(false);
     expect(jobBillInvoiceBlocked(null)).toBe(false);
-    expect(jobBillInvoiceBlocked({ lines: 0 })).toBe(true);
+    expect(jobBillInvoiceBlocked({ lines: 0 }, null, 'ready')).toBe(true);
     expect(jobBillInvoiceBlocked({ lines: 2 })).toBe(false);
-    expect(jobBillInvoiceNextDetail(2, 545)).toBe('Draft invoice from the job bill · 2 lines · $545.00');
-    expect(jobBillInvoiceNextDetail(1, 120)).toBe('Draft invoice from the job bill · 1 line · $120.00');
+    expect(jobBillInvoiceBlocked({ lines: 0 }, null, 'loading')).toBe(false);
+    expect(jobBillInvoiceBlocked({ lines: 0 }, { lineCount: 0 }, 'ready')).toBe(true);
     expect(JOB_BILL_INVOICE_CREATED).toMatch(/draft invoice/i);
     expect(JOB_BILL_INVOICE_EXISTS).toMatch(/already exists/i);
     expect(JOB_BILL_INVOICE_NOTES).toMatch(/^From job bill/i);

@@ -21,10 +21,17 @@ import {
 import { asModelLines, modelHourlyCost } from '../expenses/ExpenseModelsModals';
 import { DEFAULT_TAX_RATE } from '../../lib/gst';
 import { Link } from 'react-router-dom';
-import { createInvoiceFromJobBill } from '../../lib/createInvoiceFromJobBill';
+import { createInvoiceFromJobBill, loadJobBillInvoicePreview } from '../../lib/createInvoiceFromJobBill';
+import { countZeroLabourBeforeJobBillInvoice } from '../../lib/requestJobBillInvoice';
+import { isJobBillQuoted, pickMostRecentlyAcceptedQuote } from '../../lib/acceptedQuotePick';
+import {
+  jobBillLoggedHoursNotBilledNote,
+  totalLoggedBillableHoursOnJob,
+} from '../../lib/jobBillInvoicePlan';
+import { JobBillQuotedInvoiceSheet } from './JobBillQuotedInvoiceSheet';
 import { readPickedLabourPriceBookId, writePickedLabourPriceBookId } from '../../lib/labourPriceBookPick';
 import {
-  countZeroLabourLinesForJobBillInvoice,
+  invalidateJobBillAfterHoursChange,
   invalidateJobBillHoursQueries,
   jobBillHoursQueryKeys,
   lineNeedsLabourRate,
@@ -37,6 +44,10 @@ import {
 import { LabourRatePickerSheet } from './LabourRatePickerSheet';
 import { JobBillZeroLabourConfirmSheet } from './JobBillZeroLabourConfirmSheet';
 import { JOB_BILL_INVOICE_NO_CLIENT } from '../../lib/invoiceFromJobBill';
+import {
+  invalidateJobBillInvoicePreview,
+  jobBillInvoicePreviewQueryKeyWithDims,
+} from '../../lib/jobBillInvoicePreviewQuery';
 import { jobInvoicesAfterCreate, type JobInvoiceListRow } from '../../lib/invoiceFromQuote';
 import {
   Plus, Package, Trash2, DollarSign, Layers, HardHat, Wrench,
@@ -121,22 +132,63 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     },
   });
 
-  const { data: linkedQuote } = useQuery<{ id: string; quote_number: number | null; total: number } | null>({
-    queryKey: ['job-linked-quote', jobId],
+  const { data: acceptedQuote } = useQuery<{
+    id: string;
+    quote_number: number | null;
+    total: number;
+    line_items: import('../../types/fsm').QuoteLineItem[] | null;
+  } | null>({
+    queryKey: ['job-accepted-quote', jobId],
     queryFn: async () => {
       const empty = getAuditEmptyList();
       if (empty) return null;
       const { data, error } = await supabase
         .from('quotes')
-        .select('id, quote_number, total')
+        .select('id, quote_number, total, line_items, created_at')
         .eq('job_id', jobId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .eq('status', 'accepted')
+        .order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      const picked = pickMostRecentlyAcceptedQuote(data ?? []);
+      if (!picked) return null;
+      return picked;
     },
   });
+  const hasAcceptedQuoteLines = isJobBillQuoted(acceptedQuote?.line_items);
+
+  const [addLoggedHoursExtra, setAddLoggedHoursExtra] = useState(false);
+  const [quotedInvoiceSheetOpen, setQuotedInvoiceSheetOpen] = useState(false);
+  const [pendingInvoiceExtra, setPendingInvoiceExtra] = useState(false);
+
+  const jobBillTaxRate = Number(company?.default_tax_rate) || DEFAULT_TAX_RATE;
+  const { data: jobBillInvoicePreview } = useQuery({
+    queryKey: jobBillInvoicePreviewQueryKeyWithDims(jobId, {
+      addLoggedHoursExtra,
+      hasAcceptedQuoteLines,
+      jobBillTaxRate,
+    }),
+    queryFn: async () => {
+      if (!profile?.company_id || !profile.id) throw new Error('No company');
+      return loadJobBillInvoicePreview({
+        jobId,
+        companyId: profile.company_id,
+        profileId: profile.id,
+        taxRate: jobBillTaxRate,
+        includeLoggedHoursExtra: addLoggedHoursExtra,
+      });
+    },
+    enabled: !!profile?.company_id && !!profile.id,
+    staleTime: 0,
+  });
+
+  const loggedHoursNotBilledNote = hasAcceptedQuoteLines
+    ? jobBillLoggedHoursNotBilledNote(
+      totalLoggedBillableHoursOnJob(timesheetEntries, jobId),
+      addLoggedHoursExtra,
+    )
+    : null;
+
+  const quotedInvoiceMoneyLine = jobBillInvoicePreview?.moneyLine ?? '';
 
   const costTotal = useMemo(
     () => costs.reduce((s, c) => s + Number(c.total_cost), 0),
@@ -191,7 +243,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
       }
       setLabourPickerItems(null);
       await queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
-      invalidateJobBillHoursQueries(queryClient, jobId);
+      invalidateJobBillAfterHoursChange(queryClient, jobId);
       await queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
     } finally {
       setPullingHours(false);
@@ -282,6 +334,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
       queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
+      invalidateJobBillInvoicePreview(queryClient, jobId);
       resetForm();
     },
     onError: (e: Error) => setFormErr(e.message),
@@ -309,6 +362,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
       queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
+      invalidateJobBillInvoicePreview(queryClient, jobId);
       resetForm();
     },
     onError: (e: Error) => setFormErr(e.message),
@@ -362,11 +416,12 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
       queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
+      invalidateJobBillInvoicePreview(queryClient, jobId);
     },
   });
 
   const createInvoice = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (includeLoggedHoursExtra: boolean) => {
       if (!profile?.company_id || !profile.id) throw new Error('No company context');
       if (!clientId) throw new Error(JOB_BILL_INVOICE_NO_CLIENT);
       return createInvoiceFromJobBill({
@@ -374,6 +429,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
         companyId: profile.company_id,
         profileId: profile.id,
         taxRate: Number(company?.default_tax_rate) || DEFAULT_TAX_RATE,
+        includeLoggedHoursExtra,
       });
     },
     onSuccess: (result) => {
@@ -385,6 +441,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
       invalidateJobBillHoursQueries(queryClient, jobId);
       void queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
       void queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
+      invalidateJobBillInvoicePreview(queryClient, jobId);
       onInvoiceCreated?.(result);
       void queryClient.invalidateQueries({ queryKey: ['invoices'] });
       void queryClient.invalidateQueries({ queryKey: ['job-invoices', jobId] });
@@ -392,21 +449,31 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     onError: (e: Error) => setInvoiceMsg(e.message),
   });
 
-  async function requestCreateInvoiceFromBill() {
+  async function runCreateInvoiceFromBill(includeLoggedHoursExtra: boolean) {
     if (!profile?.company_id || !profile.id) return;
     setInvoiceMsg('');
-    const picked = readPickedLabourPriceBookId(profile.company_id);
-    const zeroCount = await countZeroLabourLinesForJobBillInvoice(supabase, {
+    const zeroCount = await countZeroLabourBeforeJobBillInvoice({
+      client: supabase,
       jobId,
       companyId: profile.company_id,
       profileId: profile.id,
-      pickedPriceBookItemId: picked,
+      hasAcceptedQuote: hasAcceptedQuoteLines,
+      includeLoggedHoursExtra,
     });
     if (zeroCount > 0) {
+      setPendingInvoiceExtra(includeLoggedHoursExtra);
       setZeroLabourConfirmCount(zeroCount);
       return;
     }
-    createInvoice.mutate();
+    createInvoice.mutate(includeLoggedHoursExtra);
+  }
+
+  async function requestCreateInvoiceFromBill() {
+    if (hasAcceptedQuoteLines) {
+      setQuotedInvoiceSheetOpen(true);
+      return;
+    }
+    await runCreateInvoiceFromBill(false);
   }
 
   // Stock allocation
@@ -459,6 +526,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
       queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
+      invalidateJobBillInvoicePreview(queryClient, jobId);
       queryClient.invalidateQueries({ queryKey: ['stock-items'] });
       setSelectedItem(null); setAllocQty('1'); setAllocErr(''); setShowPicker(false);
     },
@@ -478,11 +546,11 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
 
   return (
     <div className="space-y-4">
-      {linkedQuote && (
+      {acceptedQuote && (
         <div className="rounded-lg border border-[#D6E8F7] bg-[#EFF6FF] px-3 py-2 text-sm text-[#1e40af]">
           Linked quote{' '}
-          <span className="font-semibold">#{String(linkedQuote.quote_number ?? 0).padStart(4, '0')}</span>
-          {' '}· quoted total {formatMoney(Number(linkedQuote.total))}
+          <span className="font-semibold">#{String(acceptedQuote.quote_number ?? 0).padStart(4, '0')}</span>
+          {' '}· quoted total {formatMoney(Number(acceptedQuote.total))}
         </div>
       )}
 
@@ -540,13 +608,27 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
         onPick={(itemId) => { void runPullLabourHours(itemId); }}
       />
 
+      <JobBillQuotedInvoiceSheet
+        open={quotedInvoiceSheetOpen}
+        loggedHoursNote={loggedHoursNotBilledNote}
+        moneyLine={quotedInvoiceMoneyLine}
+        addLoggedHoursExtra={addLoggedHoursExtra}
+        onAddLoggedHoursExtraChange={setAddLoggedHoursExtra}
+        onClose={() => setQuotedInvoiceSheetOpen(false)}
+        onCreate={() => {
+          setQuotedInvoiceSheetOpen(false);
+          void runCreateInvoiceFromBill(addLoggedHoursExtra);
+        }}
+        pending={createInvoice.isPending}
+      />
+
       <JobBillZeroLabourConfirmSheet
         open={zeroLabourConfirmCount > 0}
         count={zeroLabourConfirmCount}
         onClose={() => setZeroLabourConfirmCount(0)}
         onCreateAnyway={() => {
           setZeroLabourConfirmCount(0);
-          createInvoice.mutate();
+          createInvoice.mutate(pendingInvoiceExtra);
         }}
       />
 

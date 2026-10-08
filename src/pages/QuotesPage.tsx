@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { invalidateJobBillInvoicePreview } from '../lib/jobBillInvoicePreviewQuery';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -834,6 +835,7 @@ function QuoteNextControl({ quote, onOpen, onSend }: { quote: QuoteListItem; onO
           .eq('id', quote.id);
         if (error) throw error;
         queryClient.invalidateQueries({ queryKey: ['quotes'] });
+        if (quote.job_id) invalidateJobBillInvoicePreview(queryClient, quote.job_id);
         showToast('Quote accepted');
       });
       return;

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { invalidateAllJobBillInvoicePreviews } from '../lib/jobBillInvoicePreviewQuery';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 import { supabase } from '../lib/supabase';
@@ -472,6 +473,7 @@ const defaultReportTheme: ReportTheme = {
 };
 
 export function CompanySettingsPage() {
+  const queryClient = useQueryClient();
   const { company: authCompany, profile, refreshProfile } = useAuth();
   const [searchParams] = useSearchParams();
   const company = companyWithLetterheadLookMark(authCompany, searchParams.get('look')) ?? authCompany;
@@ -820,6 +822,7 @@ export function CompanySettingsPage() {
       setError(error.message);
     } else {
       await refreshProfile();
+      invalidateAllJobBillInvoicePreviews(queryClient);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     }

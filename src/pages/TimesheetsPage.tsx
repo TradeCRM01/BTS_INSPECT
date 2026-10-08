@@ -35,6 +35,7 @@ import {
   timesheetListWeekStart,
   type TimesheetListFilter,
 } from '../lib/timesheetsList';
+import { invalidateJobBillInvoicePreview } from '../lib/jobBillInvoicePreviewQuery';
 
 export function TimesheetsPage() {
   const { profile } = useAuth();
@@ -177,8 +178,9 @@ export function TimesheetsPage() {
     mutationFn: async () => {
       const today = localDateIso();
       const existing = (timesheets ?? []).find(t => t.employee_id === selectedEmployee && t.date === today);
-      if (!existing || !existing.clock_in) return;
+      if (!existing || !existing.clock_in) return { jobIds: [] as string[] };
       const running = (entries ?? []).filter(entry => entry.timesheet_id === existing.id && entry.end_time == null);
+      const jobIds = [...new Set(running.map(entry => entry.job_id).filter(Boolean))] as string[];
       const plan = planTimesheetClockOff({
         clockIn: existing.clock_in,
         now: new Date(),
@@ -193,10 +195,14 @@ export function TimesheetsPage() {
       }
       const { error } = await supabase.from('timesheets').update(plan.timesheetUpdate).eq('id', existing.id);
       if (error) throw error;
+      return { jobIds };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['timesheets'] });
       queryClient.invalidateQueries({ queryKey: ['timesheet-entries'] });
+      for (const jobId of result?.jobIds ?? []) {
+        invalidateJobBillInvoicePreview(queryClient, jobId);
+      }
       showToast('Clocked out');
     },
   });
