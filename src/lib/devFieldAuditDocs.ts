@@ -254,12 +254,19 @@ export function getAuditFix2PlannedLabourPull(): import('./hoursToJobBill').JobC
   }];
 }
 
-/** FIX-2 clock-off LOOK: 2 h closed + 1.5 h running until audit clock-off closes the run. */
-export function getAuditFix2ClockoffTimesheetEntries(jobId: string, runningClosed = false) {
-  const start = new Date('2026-10-06T08:00:00.000Z');
-  const twoEnd = new Date(start.getTime() + 2 * 60 * 60 * 1000);
-  const runStart = twoEnd;
-  const runEnd = new Date(runStart.getTime() + 1.5 * 60 * 60 * 1000);
+/** FIX-2 clock-off LOOK: 2 h closed (08:00–10:00 today) + 1.5 h run ending at `at` when closed. */
+export function getAuditFix2ClockoffTimesheetEntries(
+  jobId: string,
+  runningClosed = false,
+  at = new Date(),
+) {
+  const y = at.getFullYear();
+  const m = at.getMonth();
+  const d = at.getDate();
+  const start = new Date(y, m, d, 8, 0, 0, 0);
+  const twoEnd = new Date(y, m, d, 10, 0, 0, 0);
+  const runEnd = new Date(at);
+  const runStart = new Date(at.getTime() - 90 * 60 * 1000);
   return [
     {
       id: 'fix2-ts-2h-closed',

@@ -1586,7 +1586,6 @@ export function JobDetailPage() {
       if (mock) {
         const p305 = p305LookKind();
         const p307 = p307LookKind();
-        const fix2 = fix2LookKind();
         const fix2On = fix2LookActive();
         if (mock.id === AUDIT_DOC_JOB_ID || testingDueLookKind() || visitNotesLookOn() || p305 || p307 || fix2On || crew2LookOn()) {
           return {
@@ -2462,7 +2461,7 @@ export function JobDetailPage() {
         }
         queryClient.setQueryData<JobTimesheet[]>(
           ['job-timesheets', id],
-          getAuditFix2ClockoffTimesheetEntries(id, true) as JobTimesheet[],
+          getAuditFix2ClockoffTimesheetEntries(id, true, new Date()) as JobTimesheet[],
         );
         invalidateTime();
         showToast('Clocked off');

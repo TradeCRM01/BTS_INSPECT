@@ -224,7 +224,7 @@ html,body{margin:0;padding:0;width:${paneWidth}px;height:${paneHeight}px;backgro
 .hours img{display:block;width:100%;height:auto;border-radius:8px;border:1px solid #e2d9cc;}
 </style></head><body><div class="strip">
 <div class="card"><p class="kicker">Before clock off</p><p class="money">${beforeMoney.replace(/</g, '&lt;')}</p></div>
-<div class="card event"><strong>Clock off</strong> — 1.5 h logged on this job (now 3.5 h billable)</div>
+<div class="card event"><span class="kicker">Capture annotation</span> Clock off — 1.5 h logged on this job (invoice preview 2 h → 3.5 h)</div>
 <div class="card hours"><img src="data:image/png;base64,${hoursB64}" alt="Time on this job"/></div>
 <div class="card"><p class="kicker">After clock off</p><p class="money">${afterMoney.replace(/</g, '&lt;')}</p></div>
 </div></body></html>`);
@@ -280,6 +280,11 @@ async function captureClockoffInvoice390() {
 
   await page.locator('[role="tab"][data-tab="schedule"]').click();
   await page.locator('#job-hours').waitFor({ state: 'visible', timeout: 15000 });
+  await page.waitForFunction(() => {
+    const root = document.querySelector('#job-hours');
+    const text = root?.textContent ?? '';
+    return text.includes('3h 30m') && !/\brunning\b/i.test(text);
+  }, { timeout: 15000 });
   const hoursPath = `${OUT}/.tmp-${state}-hours-${width}.png`;
   await page.locator('#job-hours').screenshot({ path: hoursPath });
   await page.locator('[role="tab"][data-tab="paperwork"]').click();
