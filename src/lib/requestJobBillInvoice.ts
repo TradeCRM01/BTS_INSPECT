@@ -21,11 +21,12 @@ export async function countZeroLabourBeforeJobBillInvoice(
   input: RequestJobBillInvoiceInput,
 ): Promise<number> {
   const look = auditLookTag();
-  if (isDevFieldAuditAuth() && (look === 'fix2-zero-header' || look === 'fix2-unquoted-zero')) {
+  if (isDevFieldAuditAuth() && look?.startsWith('fix2-')) {
+    const fullZero = look === 'fix2-unquoted-zero' || look === 'fix2-zero-header' ? 1 : 0;
     return zeroLabourLineCountForInvoicePlan({
       hasAcceptedQuote: input.hasAcceptedQuote,
       includeLoggedHoursExtra: input.includeLoggedHoursExtra,
-      fullZeroCount: 1,
+      fullZeroCount: fullZero,
     });
   }
   const picked = readPickedLabourPriceBookId(input.companyId);

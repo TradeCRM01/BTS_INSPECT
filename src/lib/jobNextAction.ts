@@ -410,6 +410,7 @@ export function jobOpenNext(
     hasBillLines: sheet?.hasBillLines ?? false,
     billLineCount: sheet?.billLineCount,
     billTotal: sheet?.billTotal,
+    billInvoiceMoneyLine: sheet?.billInvoiceMoneyLine,
     clockedOn: sheet?.clockedOn ?? false,
     clockedOff: sheet?.clockedOff,
     arrivingWindow,

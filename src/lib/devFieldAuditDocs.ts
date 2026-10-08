@@ -651,14 +651,16 @@ export function getAuditInvoiceEditorRow(invoiceId: string) {
     try {
       const raw = sessionStorage.getItem('audit-fix2-invoice-row');
       if (raw) {
-        const row = JSON.parse(raw) as Record<string, unknown>;
+        const row = JSON.parse(raw) as Record<string, unknown> & { client_id?: string | null };
+        const client = row.client_id ? getAuditClient(row.client_id) : null;
+        const job = getAuditJob(AUDIT_DOC_JOB_ID);
         return {
           ...row,
-          client_name: 'Northside Electrical',
-          client_email: 'accounts@northside.example',
-          client_phone: '0412 000 111',
-          job_title: 'Hot water replacement',
-          job_address: '12 Workshop Rd, Perth WA 6000',
+          client_name: client?.name ?? null,
+          client_email: client?.email ?? null,
+          client_phone: client?.phone ?? null,
+          job_title: job?.title ?? 'Hot water replacement',
+          job_address: job?.address ?? client?.address ?? null,
         };
       }
     } catch {

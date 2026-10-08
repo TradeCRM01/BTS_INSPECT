@@ -32,6 +32,7 @@ import {
   fix2LookActive,
   getAuditFix2AcceptedQuote,
   getAuditFix2PlannedLabourPull,
+  getAuditJob,
   getAuditJobBillCosts,
 } from './devFieldAuditDocs';
 
@@ -141,7 +142,15 @@ export async function loadJobBillInvoiceLinePlan(
       profileId: input.profileId,
       pickedPriceBookItemId: pickedPb,
     });
-  const labourSell = await resolveLabourSellForJobBill(client, input.companyId);
+  const labourSell = auditFix2
+    ? {
+      unitPrice: (getAuditFix2PlannedLabourPull()?.[0]?.unit_price ?? 95) as number,
+      priceBookItemId: 'audit-fix2-pb',
+      needsRate: false,
+      needsPicker: false,
+      pickerItems: [],
+    }
+    : await resolveLabourSellForJobBill(client, input.companyId);
   const lines = planJobBillInvoiceLines({
     quoteLineItems: input.quote.quoteLineItems,
     costs,
@@ -265,12 +274,14 @@ export async function createInvoiceFromJobBill(input: {
       lines,
       quoteId: quote.isQuoted ? quote.quoteId : null,
     });
+    const auditJob = getAuditJob(input.jobId);
     const auditRow = {
       id: 'audit-fix2-invoice',
       company_id: input.companyId,
       invoice_number: 9102,
       client_id: job.client_id,
       job_id: input.jobId,
+      job_title: fix2LookActive() ? 'Hot water replacement' : auditJob?.title ?? null,
       quote_id: quote.quoteId,
       source: payload.source,
       status: 'draft' as const,

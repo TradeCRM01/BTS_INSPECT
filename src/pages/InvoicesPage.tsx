@@ -199,6 +199,18 @@ export function InvoicesPage() {
     queryKey: ['invoices', lookLetterhead ? LETTERHEAD_LOOK : 'live', paymentProof, money4PartPaidLook, money4PartPaidOverdueLook],
     queryFn: async () => {
       if (isDevFieldAuditAuth()) {
+        try {
+          const fix2Raw = sessionStorage.getItem('audit-fix2-invoice-row');
+          if (fix2Raw) {
+            const parsed = JSON.parse(fix2Raw) as { id?: string };
+            const fix2Row = parsed.id ? getAuditInvoiceEditorRow(parsed.id) : null;
+            if (fix2Row) {
+              return [fix2Row as InvoiceWithDetails];
+            }
+          }
+        } catch {
+          /* ignore */
+        }
         const row = getAuditInvoiceEditorRow(AUDIT_INVOICE_ID);
         if (row) {
           const merged = mergeAuditInvoicePaymentRow(row);
@@ -1686,7 +1698,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
           {editorMoney ? (
             <div className="hub-invoice-totalbar">
               <span>Total (inc GST)</span>
-              <span className="hub-invoice-display-total">{editorMoney}</span>
+              <span className="hub-invoice-display-total" data-invoice-total-inc-gst>{editorMoney}</span>
             </div>
           ) : null}
           {recordedPaid > 0 ? (
