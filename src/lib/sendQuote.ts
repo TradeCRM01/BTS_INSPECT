@@ -112,6 +112,7 @@ export type QuoteSendBundle = {
   sharedSmtp?: SmtpSettingsRow | null;
   company: QuoteSendCompany;
   existingPdf?: QuotePdfAttachment | null;
+  priceBookCodesByItemId?: Map<string, string>;
 };
 
 export const QUOTE_SEND_QUOTE_COLUMNS =
@@ -512,7 +513,7 @@ export function commercialPdfDataForQuote(bundle: QuoteSendBundle, now = new Dat
     exclusions: asStringList(quote.exclusions),
     description: quote.description?.trim() || null,
     scopeOfWorks: quote.scope_of_works?.trim() || null,
-    lines: linesFromQuoteItems(lines),
+    lines: linesFromQuoteItems(lines, 'quote', bundle.priceBookCodesByItemId),
     subtotal: Number(quote.subtotal) || 0,
     taxRate: Number(quote.tax_rate) || 0,
     taxAmount: Number(quote.tax_amount) || 0,

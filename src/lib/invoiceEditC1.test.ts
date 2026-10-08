@@ -40,7 +40,7 @@ describe('INVOICE-EDIT C1', () => {
     const quoteLines = linesFromQuoteItems([
       { description: 'PB-9 — LED batten', quantity: 1, unit_price: 42 },
     ], 'quote');
-    expect(quoteLines[0]?.description).toBe('PB-9 — LED batten');
+    expect(quoteLines[0]?.description).toBe('LED batten');
   });
 
   it('spaces To-contact phone and email on laptop invoice sheet', () => {

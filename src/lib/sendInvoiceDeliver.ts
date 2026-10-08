@@ -33,6 +33,10 @@ import {
 import { generateCommercialPdf } from '../reports/commercial/generateCommercialPdf';
 import type { InvoiceWithDetails } from '../types/fsm';
 import { getAuditInvoiceEditorRow, getAuditInvoiceSendBundle } from './devFieldAuditDocs';
+import {
+  fetchPriceBookItemCodes,
+  priceBookItemIdsFromLines,
+} from './priceBookItemCodesForLines';
 
 export type DeliverInvoiceResult =
   | { ok: true; to: string; markedSent: true; message: string; sms: SmsSendResult | null; xero: XeroAfterSendResult }
@@ -90,6 +94,11 @@ export async function loadInvoiceSendBundle(
   if (jobRes.error) throw jobRes.error;
   if (smtpRes.error) throw smtpRes.error;
 
+  const priceBookCodesByItemId = await fetchPriceBookItemCodes(
+    supabase,
+    priceBookItemIdsFromLines(invoice?.line_items ?? []),
+  );
+
   return {
     invoice,
     client: (clientRes.data ?? null) as InvoiceSendBundle['client'],
@@ -97,6 +106,7 @@ export async function loadInvoiceSendBundle(
     smtp: (smtpRes.data ?? null) as SmtpSettingsRow | null,
     company,
     existingPdf,
+    priceBookCodesByItemId,
   };
 }
 
