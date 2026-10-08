@@ -254,12 +254,21 @@ export function getAuditFix2PlannedLabourPull(): import('./hoursToJobBill').JobC
   }];
 }
 
+function auditFix2ClockoffSessionClosed(): boolean {
+  try {
+    return sessionStorage.getItem('fix2-clockoff-closed') === '1';
+  } catch {
+    return false;
+  }
+}
+
 /** FIX-2 clock-off LOOK: 2 h closed (08:00–10:00 today) + 1.5 h run ending at `at` when closed. */
 export function getAuditFix2ClockoffTimesheetEntries(
   jobId: string,
-  runningClosed = false,
+  runningClosed?: boolean,
   at = new Date(),
 ) {
+  const closed = runningClosed ?? auditFix2ClockoffSessionClosed();
   const y = at.getFullYear();
   const m = at.getMonth();
   const d = at.getDate();
@@ -283,7 +292,7 @@ export function getAuditFix2ClockoffTimesheetEntries(
       timesheet_id: 'fix2-ts-sheet',
       job_id: jobId,
       start_time: runStart.toISOString(),
-      end_time: runningClosed ? runEnd.toISOString() : null,
+      end_time: closed ? runEnd.toISOString() : null,
       work_type: 'Plumbing',
       billable: true,
       notes: null,

@@ -1915,7 +1915,7 @@ export function JobDetailPage() {
         const hours = 3.5;
         const start = new Date('2026-10-06T08:00:00.000Z');
         if (fix2ClockoffInvoiceLook()) {
-          return getAuditFix2ClockoffTimesheetEntries(id!, false) as JobTimesheet[];
+          return getAuditFix2ClockoffTimesheetEntries(id!) as JobTimesheet[];
         }
         const end = new Date(start.getTime() + hours * 60 * 60 * 1000);
         return [{
