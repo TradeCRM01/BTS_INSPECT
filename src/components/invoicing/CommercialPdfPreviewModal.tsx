@@ -85,7 +85,7 @@ export function CommercialPdfPreviewModal({ data, onClose }: CommercialPdfPrevie
             </div>
           </div>
 
-          <div className={`flex-1 min-h-0 p-3 ${creamLook ? 'bg-[#F5F0E6]' : 'bg-[#E5E7EB]'} ${quoteLook ? 'hub-quote-pdf-frame' : invoiceLook ? 'hub-invoice-pdf-frame' : ''}`}>
+          <div className={`flex-1 min-h-0 p-3 ${creamLook ? 'bg-[#F5F0E6]' : 'bg-[#E5E7EB]'} ${quoteLook ? 'hub-quote-pdf-frame' : ''}`}>
             {loading && (
               <div className="flex flex-col items-center justify-center h-[70vh] text-[#4A5568]">
                 <Loader2 size={28} className="animate-spin mb-2 text-[#2E75B6]" />
@@ -99,7 +99,7 @@ export function CommercialPdfPreviewModal({ data, onClose }: CommercialPdfPrevie
             )}
             {url && !loading && (
               <iframe
-                src={creamLook ? `${url}#toolbar=0&navpanes=0&view=FitH` : url}
+                src={quoteLook ? `${url}#toolbar=0&navpanes=0&view=FitH` : url}
                 title="Document PDF preview"
                 className="w-full rounded-md bg-white shadow-sm"
                 style={{ height: '75vh' }}
