@@ -73,6 +73,32 @@ export function applyTimeFieldDigitBatch(
   return { hourDigits: h, minuteDigits: m };
 }
 
+/** Key order on native time fields: fill hour (2 digits) then minute (2 digits). */
+export function applySequentialTimeFieldKeyDigit(
+  hourDigits: number,
+  minuteDigits: number,
+): { hourDigits: number; minuteDigits: number } {
+  if (hourDigits < 2) {
+    return { hourDigits: hourDigits + 1, minuteDigits };
+  }
+  return { hourDigits, minuteDigits: Math.min(2, minuteDigits + 1) };
+}
+
+export function applySequentialTimeFieldKeyDigits(
+  hourDigits: number,
+  minuteDigits: number,
+  digitCount: number,
+): { hourDigits: number; minuteDigits: number } {
+  let h = hourDigits;
+  let m = minuteDigits;
+  for (let i = 0; i < digitCount; i++) {
+    const next = applySequentialTimeFieldKeyDigit(h, m);
+    h = next.hourDigits;
+    m = next.minuteDigits;
+  }
+  return { hourDigits: h, minuteDigits: m };
+}
+
 export function timeFieldHintMessage(kind: TimeFieldHintKind): string | null {
   if (kind === 'ampm') return TIME_FIELD_ADD_AM_PM;
   if (kind === 'incomplete') return TIME_FIELD_INCOMPLETE;

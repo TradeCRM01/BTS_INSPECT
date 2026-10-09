@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type Ref } from 'react';
 import { timeFieldRendersMeridiem } from '../../lib/timeFieldMeridiemProbe';
 import {
-  applyTimeFieldDigitBatch,
+  applySequentialTimeFieldKeyDigits,
   isValidCompleteTimeValue,
   shouldBlockTimeFieldEnter,
-  timeFieldActiveSegment,
   timeFieldHintKind,
   timeFieldHintMessage,
   timeFieldHintRendersLine,
@@ -88,13 +87,11 @@ export function TimeFieldInput({
     meridiemEngagedRef.current = false;
   }, []);
 
-  const applyDigits = useCallback((el: HTMLInputElement, digitCount: number) => {
+  const applyDigits = useCallback((digitCount: number) => {
     if (digitCount <= 0) return;
-    const start = timeFieldActiveSegment(el);
-    const next = applyTimeFieldDigitBatch(
+    const next = applySequentialTimeFieldKeyDigits(
       hourDigitsRef.current,
       minuteDigitsRef.current,
-      start,
       digitCount,
     );
     hourDigitsRef.current = next.hourDigits;
@@ -149,14 +146,20 @@ export function TimeFieldInput({
         }}
         onInput={e => {
           const ie = e.nativeEvent as InputEvent;
-          if (ie.data) {
-            applyDigits(e.currentTarget, countDigitsInText(ie.data));
+          const pastedDigits = ie.data ? countDigitsInText(ie.data) : 0;
+          // Chromium often emits keydown only for time fields; batch paste still arrives on input.
+          if (pastedDigits > 1) {
+            applyDigits(pastedDigits);
           }
           commitFromElement(e.currentTarget, { blur: false });
         }}
         onKeyDown={e => {
           if (isMeridiemKey(e.key)) {
             meridiemEngagedRef.current = true;
+          }
+          if (/^\d$/.test(e.key)) {
+            applyDigits(1);
+            syncHint(e.currentTarget);
           }
           if (!shouldBlockTimeFieldEnter(e.key)) return;
           e.preventDefault();

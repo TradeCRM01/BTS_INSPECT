@@ -6,7 +6,7 @@ import {
   resetTimeFieldRendersMeridiemProbeCache,
 } from './timeFieldMeridiemProbe';
 import {
-  applyTimeFieldDigitBatch,
+  applySequentialTimeFieldKeyDigits,
   timeFieldHintKind,
   timeFieldHintRendersLine,
   TIME_FIELD_ADD_AM_PM,
@@ -45,12 +45,12 @@ describe('FIX-5c C12 — segment persistence (blur, refocus, save refocus)', () 
   it('split session end state (09 then 30) → AM/PM', () => {
     let h = 0;
     let m = 0;
-    ({ hourDigits: h, minuteDigits: m } = applyTimeFieldDigitBatch(h, m, 'hour', 2));
+    ({ hourDigits: h, minuteDigits: m } = applySequentialTimeFieldKeyDigits(h, m, 2));
     expect(timeFieldHintKind({
       ...base,
       segments: { hourFilled: h >= 2, minuteFilled: m >= 2 },
     })).toBe('incomplete');
-    ({ hourDigits: h, minuteDigits: m } = applyTimeFieldDigitBatch(h, m, 'minute', 2));
+    ({ hourDigits: h, minuteDigits: m } = applySequentialTimeFieldKeyDigits(h, m, 2));
     expect(timeFieldHintKind({
       ...base,
       segments: { hourFilled: h >= 2, minuteFilled: m >= 2 },
@@ -61,6 +61,11 @@ describe('FIX-5c C12 — segment persistence (blur, refocus, save refocus)', () 
     const field = src('src/components/ui/TimeFieldInput.tsx');
     expect(field).toMatch(/onFocus=\{[^}]*syncHint/);
     expect(field).not.toMatch(/onFocus=\{[^}]*resetTypingSession/);
+  });
+
+  it('TimeFieldInput applies segment digits on keydown (Chromium time fields)', () => {
+    const field = src('src/components/ui/TimeFieldInput.tsx');
+    expect(field).toMatch(/onKeyDown[\s\S]*applyDigits/);
   });
 });
 
