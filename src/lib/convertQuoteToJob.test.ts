@@ -35,17 +35,23 @@ describe('jobFieldsFromQuote', () => {
       priority: 'medium',
       scheduled_date: null,
       assigned_team: [],
+      start_time: '08:00',
+      end_time: '16:00',
     });
   });
 
-  it('copies a job date and crew when the quote has them', () => {
+  it('copies a job date, crew, and times when the quote has them', () => {
     const fields = jobFieldsFromQuote({
       ...base,
       scheduled_date: '2026-08-22T09:00:00.000Z',
       assigned_team: ['crew-1', '', 'crew-2'],
+      start_time: '09:30',
+      end_time: '14:00',
     }, null);
     expect(fields.scheduled_date).toBe('2026-08-22');
     expect(fields.assigned_team).toEqual(['crew-1', 'crew-2']);
+    expect(fields.start_time).toBe('09:30');
+    expect(fields.end_time).toBe('14:00');
     expect(jobFieldsFromQuote({ ...base, scheduled_date: '2026-08-22' }, null).scheduled_date).toBe('2026-08-22');
   });
 
@@ -72,25 +78,30 @@ describe('jobFieldsFromQuote', () => {
   });
 });
 
-describe('G4 G5 — Convert needs date and crew on the same tap', () => {
-  const datedCrew = { scheduled_date: '2026-09-03', assigned_team: ['crew-1'] };
+describe('G4 G5 — Convert needs date, crew, and times on the same tap', () => {
+  const datedCrew = {
+    scheduled_date: '2026-09-03',
+    assigned_team: ['crew-1'],
+    start_time: '08:00',
+    end_time: '12:00',
+  };
 
-  it('blocks Convert when date or crew is empty — no job row', () => {
+  it('blocks Convert when date, crew, or time is empty — no job row', () => {
     expect(convertQuoteHasDateAndCrew({})).toBe(false);
     expect(convertQuoteHasDateAndCrew({ scheduled_date: '2026-09-03', assigned_team: [] })).toBe(false);
     expect(convertQuoteHasDateAndCrew({ scheduled_date: '', assigned_team: ['crew-1'] })).toBe(false);
     expect(convertQuoteHasDateAndCrew({ scheduled_date: '  ', assigned_team: ['crew-1'] })).toBe(false);
+    expect(convertQuoteHasDateAndCrew({ scheduled_date: '2026-09-03', assigned_team: ['crew-1'] })).toBe(false);
     expect(CONVERT_QUOTE_NEED_DATE_CREW).toMatch(/date and crew/i);
 
     const convert = src('src/lib/convertQuoteToJob.ts');
     expect(convert).toContain('if (latest?.job_id) return latest.job_id as string;');
     expect(convert).toContain('if (!convertQuoteHasDateAndCrew(quote))');
-    expect(convert).toContain('throw new Error(CONVERT_QUOTE_NEED_DATE_CREW)');
+    expect(convert).toContain('quoteConvertMissing');
     expect(convert.indexOf('if (!convertQuoteHasDateAndCrew(quote))')).toBeLessThan(convert.indexOf(".from('jobs')"));
-    expect(convert.indexOf('throw new Error(CONVERT_QUOTE_NEED_DATE_CREW)')).toBeLessThan(convert.indexOf(".from('jobs')"));
   });
 
-  it('writes date and crew onto the job when Convert has both', () => {
+  it('writes date, crew, and times onto the job when Convert is ready', () => {
     expect(convertQuoteHasDateAndCrew(datedCrew)).toBe(true);
     const fields = jobFieldsFromQuote({
       quote_number: 4,
@@ -102,11 +113,15 @@ describe('G4 G5 — Convert needs date and crew on the same tap', () => {
     }, null);
     expect(fields.scheduled_date).toBe('2026-09-03');
     expect(fields.assigned_team).toEqual(['crew-1']);
+    expect(fields.start_time).toBe('08:00');
+    expect(fields.end_time).toBe('12:00');
 
     const convert = src('src/lib/convertQuoteToJob.ts');
     expect(convert).toContain('...fields');
     expect(convert).toContain('scheduled_date');
     expect(convert).toContain('assigned_team');
+    expect(convert).toContain('start_time');
+    expect(convert).toContain('end_time');
   });
 });
 

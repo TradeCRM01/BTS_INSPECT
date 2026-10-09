@@ -185,7 +185,9 @@ function UnscheduledJobCards({
               <div className="flex items-start justify-between gap-2 mb-1">
                 <p className="hub-schedule-ref truncate">{formatJobRef(job)} | {site}</p>
                 <div className="flex items-center gap-1 shrink-0">
-                  <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+                  <OpsStatus className={JOB_STATUS_STYLES[job.status]}>
+                    {!job.scheduled_date ? 'Needs date' : JOB_STATUS_LABELS[job.status]}
+                  </OpsStatus>
                   {onOpenJob ? (
                     <a
                       href={scheduleJobHref(job.id)}
@@ -333,6 +335,8 @@ function WeekJobChip({
 }) {
   const chip = weekBoardChip(job, familyJobs);
   const ink = getReadableText(chip.color);
+  const clock = scheduleChipClock(job.start_time, job.end_time);
+  const timed = clock !== TIME_NOT_SET_LABEL;
   return (
     <div
       role="button"
@@ -349,11 +353,16 @@ function WeekJobChip({
       }}
       data-schedule-job={job.id}
       data-week-chip={job.id}
+      data-chip-clock={clock}
       className={`hub-week-chip ${dragging ? 'is-dragging' : ''}`}
       style={{ background: chip.color, color: ink }}
     >
-      <span className="hub-week-chip-ref">{chip.ref}</span>
-      {chip.description ? <span className="hub-week-chip-desc">{chip.description}</span> : null}
+      <span className="hub-week-chip-ref">{timed ? `${clock} · ${chip.ref}` : chip.ref}</span>
+      {chip.description ? (
+        <span className="hub-week-chip-desc">
+          {timed ? chip.description : [TIME_NOT_SET_LABEL, chip.description].filter(Boolean).join(' · ')}
+        </span>
+      ) : null}
     </div>
   );
 }

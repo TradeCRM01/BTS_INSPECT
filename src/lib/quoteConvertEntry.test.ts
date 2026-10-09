@@ -38,7 +38,12 @@ describe('quoteConvertEntry', () => {
   it('sends More and list Convert to the convert date when date or crew is missing', () => {
     expect(quoteConvertEntry({ scheduled_date: null, assigned_team: [] })).toBe('focus_convert');
     expect(quoteConvertEntry({ scheduled_date: '2026-10-05', assigned_team: [] })).toBe('focus_convert');
-    expect(quoteConvertEntry({ scheduled_date: '2026-10-05', assigned_team: ['crew-1'] })).toBe('convert');
+    expect(quoteConvertEntry({
+      scheduled_date: '2026-10-05',
+      assigned_team: ['crew-1'],
+      start_time: '08:00',
+      end_time: '16:00',
+    })).toBe('convert');
 
     const quotes = src('src/pages/QuotesPage.tsx');
     const editor = quotes.split('function QuoteEditorModal')[1] ?? '';
@@ -138,6 +143,8 @@ describe('quoteConvertEntry', () => {
       profileId: 'p1',
       scheduled_date: '2026-10-05',
       assigned_team: ['crew-1'],
+      start_time: '08:00',
+      end_time: '16:00',
     };
     const convert = quoteConvertTap(ready);
     expect(convert).toEqual({ action: 'convert' });

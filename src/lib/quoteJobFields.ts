@@ -26,15 +26,86 @@ export function assignedTeamFromQuote(value: unknown): string[] {
   return value.filter((id): id is string => typeof id === 'string' && id.trim().length > 0);
 }
 
-/** Convert must have both on the same tap. Accept may create the job without either. */
+export const QUOTE_CONVERT_DEFAULT_START = '08:00';
+export const QUOTE_CONVERT_DEFAULT_END = '16:00';
+
+/** HH:MM for jobs.start_time / jobs.end_time. Empty or junk → null. */
+export function normalizeJobTime(value: string | null | undefined): string | null {
+  const raw = (value ?? '').trim();
+  if (!raw) return null;
+  const match = raw.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return null;
+  }
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+export function jobTimesFromQuote(
+  start?: string | null,
+  end?: string | null,
+  opts?: { fallbackDefault?: boolean },
+): { start_time: string | null; end_time: string | null } {
+  const start_time = normalizeJobTime(start);
+  const end_time = normalizeJobTime(end);
+  if (start_time && end_time) return { start_time, end_time };
+  if (opts?.fallbackDefault) {
+    return {
+      start_time: start_time ?? QUOTE_CONVERT_DEFAULT_START,
+      end_time: end_time ?? QUOTE_CONVERT_DEFAULT_END,
+    };
+  }
+  return { start_time, end_time };
+}
+
+export type QuoteConvertMissing = 'date' | 'crew' | 'time';
+
+/** First missing convert field (date before crew before time). */
+export function quoteConvertMissing(quote: {
+  scheduled_date?: string | null;
+  assigned_team?: unknown;
+  start_time?: string | null;
+  end_time?: string | null;
+}): QuoteConvertMissing | null {
+  const noDate = !scheduledDateFromQuote(quote.scheduled_date);
+  const noCrew = assignedTeamFromQuote(quote.assigned_team).length === 0;
+  const times = jobTimesFromQuote(quote.start_time, quote.end_time);
+  const noTime = !times.start_time || !times.end_time;
+  if (noDate) return 'date';
+  if (noCrew) return 'crew';
+  if (noTime) return 'time';
+  return null;
+}
+
+export const CONVERT_QUOTE_NEED_DATE = 'Set a job date before converting.';
+export const CONVERT_QUOTE_NEED_CREW = 'Pick a crew before converting.';
+export const CONVERT_QUOTE_NEED_TIME = 'Set start and end times before converting.';
+export const CONVERT_QUOTE_NEED_DATE_CREW = 'Set a date and crew on this tap before converting.';
+
+export function convertQuoteNeedMessage(missing: QuoteConvertMissing, quote?: {
+  scheduled_date?: string | null;
+  assigned_team?: unknown;
+}): string {
+  if (missing === 'date' && quote) {
+    const noCrew = assignedTeamFromQuote(quote.assigned_team).length === 0;
+    if (noCrew) return CONVERT_QUOTE_NEED_DATE_CREW;
+  }
+  if (missing === 'date') return CONVERT_QUOTE_NEED_DATE;
+  if (missing === 'crew') return CONVERT_QUOTE_NEED_CREW;
+  return CONVERT_QUOTE_NEED_TIME;
+}
+
+/** Convert must have date, crew, and times on the same tap. Accept may create the job without them. */
 export function convertQuoteHasDateAndCrew(quote: {
   scheduled_date?: string | null;
   assigned_team?: unknown;
+  start_time?: string | null;
+  end_time?: string | null;
 }): boolean {
-  return !!scheduledDateFromQuote(quote.scheduled_date) && assignedTeamFromQuote(quote.assigned_team).length > 0;
+  return quoteConvertMissing(quote) === null;
 }
-
-export const CONVERT_QUOTE_NEED_DATE_CREW = 'Set a date and crew on this tap before converting.';
 
 export type QuoteConvertEntry = 'convert' | 'focus_convert';
 
@@ -46,6 +117,7 @@ export function quoteConvertEntry(quote: {
 }
 
 export const CONVERT_QUOTE_BLOCKED = 'Could not convert this quote.';
+export const CONVERT_QUOTE_JOB_SAVED = 'Job booked from quote.';
 
 export type QuoteConvertTap =
   | { action: 'focus_convert' }
@@ -58,6 +130,8 @@ export function quoteConvertTap(input: {
   profileId?: string | null;
   scheduled_date?: string | null;
   assigned_team?: unknown;
+  start_time?: string | null;
+  end_time?: string | null;
 }): QuoteConvertTap {
   if (quoteConvertEntry(input) === 'focus_convert') return { action: 'focus_convert' };
   if (!input.id || input.status !== 'accepted' || !input.profileId) {
@@ -95,21 +169,35 @@ export function scrollQuoteConvertIntoView(section: HTMLElement): number {
 export const QUOTE_CONVERT_DATE_FOCUS = 'is-quote-convert-focus';
 
 export function focusQuoteConvertDate(root: ParentNode): HTMLInputElement | null {
+  return focusQuoteConvertField(root, 'date') as HTMLInputElement | null;
+}
+
+export function focusQuoteConvertField(
+  root: ParentNode,
+  field: QuoteConvertMissing,
+): HTMLElement | null {
   const section = root instanceof Element && root.classList.contains('hub-quote-convert')
     ? root
     : root.querySelector('.hub-quote-convert');
   if (!(section instanceof HTMLElement)) return null;
   scrollQuoteConvertIntoView(section);
-  const date = section.querySelector<HTMLInputElement>('#quote-convert-date, input[type="date"]');
-  if (!date) return null;
-  date.classList.add(QUOTE_CONVERT_DATE_FOCUS);
-  const clear = () => {
-    date.classList.remove(QUOTE_CONVERT_DATE_FOCUS);
-    date.removeEventListener('blur', clear);
-  };
-  date.addEventListener('blur', clear);
-  date.focus();
-  return date;
+  const selector = field === 'date'
+    ? '#quote-convert-date, input[type="date"]'
+    : field === 'crew'
+      ? '#quote-convert-crew'
+      : '#quote-convert-start';
+  const el = section.querySelector<HTMLElement>(selector);
+  if (!el) return null;
+  if (field === 'date' && el instanceof HTMLInputElement) {
+    el.classList.add(QUOTE_CONVERT_DATE_FOCUS);
+    const clear = () => {
+      el.classList.remove(QUOTE_CONVERT_DATE_FOCUS);
+      el.removeEventListener('blur', clear);
+    };
+    el.addEventListener('blur', clear);
+  }
+  el.focus();
+  return el;
 }
 
 export function takeQuoteConvertLock(lock: { current: boolean }): boolean {
@@ -131,6 +219,8 @@ export function jobFieldsFromQuote(
     total: number | null;
     scheduled_date?: string | null;
     assigned_team?: unknown;
+    start_time?: string | null;
+    end_time?: string | null;
   },
   clientAddress: string | null,
 ): {
@@ -143,6 +233,8 @@ export function jobFieldsFromQuote(
   priority: 'medium';
   scheduled_date: string | null;
   assigned_team: string[];
+  start_time: string | null;
+  end_time: string | null;
 } {
   const title = quote.description?.trim() || `Job from Quote #${padQuoteNumber(quote.quote_number)}`;
   const description = quote.scope_of_works?.trim() || null;
@@ -159,5 +251,6 @@ export function jobFieldsFromQuote(
     priority: 'medium',
     scheduled_date: scheduledDateFromQuote(quote.scheduled_date),
     assigned_team: assignedTeamFromQuote(quote.assigned_team),
+    ...jobTimesFromQuote(quote.start_time, quote.end_time, { fallbackDefault: true }),
   };
 }

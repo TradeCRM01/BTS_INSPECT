@@ -24,7 +24,9 @@ describe('quote editor Convert LOOK — Job date + Crew on paper', () => {
     expect(editor).toContain('Field label="Job date"');
     expect(editor).toContain('Field label="Crew"');
     expect(editor).toContain('No crew yet');
-    expect(editor).toContain('Date and crew on this tap.');
+    expect(editor).toContain('Date, crew, and times on this tap.');
+    expect(editor).toContain('id="quote-convert-start"');
+    expect(editor).toContain('CONVERT_QUOTE_NEED_CREW');
     expect(editor).toContain('CONVERT_QUOTE_NEED_DATE_CREW');
     expect(editor).toContain('hub-quote-convert-miss');
     expect(editor).toContain("next.key === 'convert_job'");

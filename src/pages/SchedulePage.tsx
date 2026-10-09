@@ -21,7 +21,7 @@ import {
 import { asTeamIds, placePickedHint, placePickedOnCell, rememberDraggedJob, rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
 import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
-import { attachJobClients, hydrateJobParentNumbers, jobMatchesSearch, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
+import { attachJobClients, auditJobsWithPatches, hydrateJobParentNumbers, jobMatchesSearch, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
 import { parseScheduleDateParam, parseScheduleView, scheduleDateKey, scheduleDayKey, scheduleJobHref, scheduleSheetSavePayload, SCHEDULE_WEEK_STARTS_ON, type ScheduleSheetInput, type ScheduleViewMode } from '../lib/scheduleBoard';
 import { matchQuickBookJobs, parseQuickBook, resolveQuickBook, spokenSheetFields, type QuickBookNewJobDraft, type SpokenSheetFields } from '../lib/quickBook';
 import type { JobFormFromBooking } from '../components/crm/JobFormModal';
@@ -549,9 +549,9 @@ export function SchedulePage() {
   const { data: jobs, isLoading, error } = useQuery<JobWithClient[]>({
     queryKey: ['jobs', rangeStart, rangeEnd],
     queryFn: async () => {
-      const mock = getAuditJobs();
+      const mock = auditJobsWithPatches();
       if (mock) {
-        return withScheduleJobPatches(attachJobClients(mock as Job[], getAuditClients() ?? []));
+        return attachJobClients(mock as Job[], getAuditClients() ?? []);
       }
       const [rangedRes, undatedRes] = await Promise.all([
         supabase

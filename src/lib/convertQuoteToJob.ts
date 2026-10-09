@@ -1,9 +1,13 @@
+import { isDevFieldAuditAuth } from './devFieldAuditAuth';
+import { getAuditClients } from './devFieldAuditDocs';
+import { mergeScheduleJobPatch } from './scheduleJobPatchStore';
 import { supabase } from './supabase';
 import type { QuoteLineItem } from '../types/fsm';
 import {
-  CONVERT_QUOTE_NEED_DATE_CREW,
   convertQuoteHasDateAndCrew,
+  convertQuoteNeedMessage,
   jobFieldsFromQuote,
+  quoteConvertMissing,
 } from './quoteJobFields';
 
 export {
@@ -36,10 +40,47 @@ export type ConvertibleQuote = {
   scheduled_date?: string | null;
   /** Crew ids. Copied onto jobs.assigned_team when present; never invented. */
   assigned_team?: unknown;
+  start_time?: string | null;
+  end_time?: string | null;
 };
 
 /** Creates a job from an accepted quote, or returns the existing job if already converted. */
 export async function convertQuoteToJob(quote: ConvertibleQuote, profileId: string): Promise<string> {
+  if (!convertQuoteHasDateAndCrew(quote)) {
+    const missing = quoteConvertMissing(quote);
+    throw new Error(missing ? convertQuoteNeedMessage(missing, quote) : 'Set date, crew, and times before converting.');
+  }
+
+  if (isDevFieldAuditAuth()) {
+    const clientAddress = quote.client_id
+      ? getAuditClients()?.find(c => c.id === quote.client_id)?.address ?? null
+      : null;
+    const fields = jobFieldsFromQuote(quote, clientAddress);
+    const jobId = quote.id === 'audit-quote-convert' ? 'audit-quote-convert-job' : `audit-job-from-${quote.id}`;
+    mergeScheduleJobPatch(jobId, {
+      id: jobId,
+      company_id: quote.company_id,
+      client_id: quote.client_id,
+      title: fields.title,
+      description: fields.description,
+      address: fields.address,
+      status: fields.status,
+      priority: fields.priority,
+      scheduled_date: fields.scheduled_date,
+      start_time: fields.start_time,
+      end_time: fields.end_time,
+      assigned_team: fields.assigned_team,
+      budget: fields.budget,
+      job_number: quote.quote_number ?? 2002,
+      inspection_id: null,
+      created_by: profileId,
+      color: null,
+      parent_job_id: null,
+      cost_code: null,
+    });
+    return jobId;
+  }
+
   const { data: latest, error: latestErr } = await supabase
     .from('quotes')
     .select('job_id')
@@ -47,10 +88,6 @@ export async function convertQuoteToJob(quote: ConvertibleQuote, profileId: stri
     .maybeSingle();
   if (latestErr) throw latestErr;
   if (latest?.job_id) return latest.job_id as string;
-
-  if (!convertQuoteHasDateAndCrew(quote)) {
-    throw new Error(CONVERT_QUOTE_NEED_DATE_CREW);
-  }
 
   let clientAddress: string | null = null;
   if (quote.client_id) {
