@@ -113,10 +113,8 @@ export function Modal({
 
   if (!open) return null;
 
-  const backdropClass = size === 'sm' ? 'overlay-backdrop overlay-confirm-layer' : 'overlay-backdrop';
-
   return createPortal(
-    <div className={backdropClass}>
+    <div className="overlay-backdrop">
       <div
         ref={panelRef}
         role="dialog"

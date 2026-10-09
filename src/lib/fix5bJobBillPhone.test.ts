@@ -35,10 +35,15 @@ describe('FIX-5b C6 — phone job bill edit reachability', () => {
 
   it('asks before deleting a bill line', () => {
     const panel = src('src/components/jobs/JobCostingPanel.tsx');
-    expect(panel).toContain('Delete this line?');
-    expect(panel).toContain('confirmDisabled={deleteCost.isPending}');
-    expect(panel).toContain("showToast(e.message, 'error')");
-    expect(src('src/components/ui/Modal.tsx')).toContain('overlay-confirm-layer');
-    expect(src('src/index.css')).toContain('z-index: 200');
+    expect(panel).toContain('JobBillLineDeleteConfirm');
+    expect(panel).not.toContain('<ConfirmDialog');
+    const confirm = src('src/components/jobs/JobBillLineDeleteConfirm.tsx');
+    expect(confirm).toContain('Delete this line?');
+    expect(confirm).toContain('ConfirmDialog');
+    expect(confirm).toContain("showToast(e.message, 'error')");
+    const timesheet = src('src/components/timesheets/TimesheetEntryDeleteControl.tsx');
+    expect(confirm).toContain('ConfirmDialog');
+    expect(timesheet).toContain('ConfirmDialog');
+    expect(src('src/components/ui/Modal.tsx')).not.toContain('overlay-confirm-layer');
   });
 });

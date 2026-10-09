@@ -1,14 +1,9 @@
 import { useMemo, useState } from 'react';
-import { ConfirmDialog, useToast } from '../ui';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import {
-  getAuditEmptyList,
-  getAuditJobBillCosts,
-  hideAuditJobBillLine,
-} from '../../lib/devFieldAuditDocs';
-import { isDevFieldAuditAuth } from '../../lib/devFieldAuditAuth';
+import { getAuditEmptyList, getAuditJobBillCosts } from '../../lib/devFieldAuditDocs';
+import { JobBillLineDeleteConfirm } from './JobBillLineDeleteConfirm';
 import {
   JOB_BILL_INCOMPLETE_MARGIN_LABEL,
   JOB_BILL_NO_COST_RATE_LABEL,
@@ -224,7 +219,6 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formErr, setFormErr] = useState('');
   const [deleteLineId, setDeleteLineId] = useState<string | null>(null);
-  const { showToast } = useToast();
   const [invoiceMsg, setInvoiceMsg] = useState('');
   const [pullingHours, setPullingHours] = useState(false);
   const [labourPickerItems, setLabourPickerItems] = useState<PriceBookItemForLabour[] | null>(null);
@@ -421,27 +415,6 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     });
   };
 
-  const deleteCost = useMutation({
-    mutationFn: async (id: string) => {
-      if (isDevFieldAuditAuth() && getAuditJobBillCosts()) {
-        hideAuditJobBillLine(id);
-        return;
-      }
-      const { error } = await supabase.from('job_costs').delete().eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      setDeleteLineId(null);
-      showToast('Line removed');
-      queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
-      queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
-      invalidateJobBillInvoicePreview(queryClient, jobId);
-    },
-    onError: (e: Error) => {
-      showToast(e.message, 'error');
-    },
-  });
-
   const createInvoice = useMutation({
     mutationFn: async (includeLoggedHoursExtra: boolean) => {
       if (!profile?.company_id || !profile.id) throw new Error('No company context');
@@ -567,6 +540,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   const previewCost = (parseFloat(form.quantity) || 0) * (parseFloat(form.unit_cost) || 0);
 
   return (
+    <>
     <div className="space-y-4">
       {acceptedQuote && (
         <div className="rounded-lg border border-[#D6E8F7] bg-[#EFF6FF] px-3 py-2 text-sm text-[#1e40af]">
@@ -993,17 +967,12 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
         )}
       </div>
 
-      <ConfirmDialog
-        open={deleteLineId !== null}
-        title="Delete this line?"
-        message="Delete this line?"
-        confirmLabel="Delete"
-        onConfirm={() => {
-          if (deleteLineId) deleteCost.mutate(deleteLineId);
-        }}
-        onCancel={() => setDeleteLineId(null)}
-        confirmDisabled={deleteCost.isPending}
-      />
     </div>
+    <JobBillLineDeleteConfirm
+      lineId={deleteLineId}
+      jobId={jobId}
+      onClose={() => setDeleteLineId(null)}
+    />
+    </>
   );
 }
