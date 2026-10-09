@@ -1,25 +1,28 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   browserUses12HourTime,
-  infer24hFrom12hNativeValue,
   timeFieldNeedsAmPm,
   TIME_FIELD_ADD_AM_PM,
   timeFieldValidationMessage,
 } from './timeFieldInput';
 
-describe('FIX-5c AM/PM — pure rules', () => {
+function src(rel: string): string {
+  return readFileSync(resolve(process.cwd(), rel), 'utf8');
+}
+
+describe('FIX-5c AM/PM — hint only (no value re-inference)', () => {
   it('detects 12h locales', () => {
     expect(browserUses12HourTime('en-AU')).toBe(true);
     expect(browserUses12HourTime('en-GB')).toBe(false);
   });
 
-  it('infers 24h from native committed 12h clock values', () => {
-    expect(infer24hFrom12hNativeValue('09:30')).toBe('09:30');
-    expect(infer24hFrom12hNativeValue('02:30')).toBe('14:30');
-    expect(infer24hFrom12hNativeValue('07:00')).toBe('07:00');
-    expect(infer24hFrom12hNativeValue('06:00')).toBe('18:00');
-    expect(infer24hFrom12hNativeValue('12:00')).toBe('12:00');
-    expect(infer24hFrom12hNativeValue('21:30')).toBeNull();
+  it('TimeFieldInput does not re-infer committed native values', () => {
+    const field = src('src/components/ui/TimeFieldInput.tsx');
+    expect(field).not.toContain('infer24hFrom12hNativeValue');
+    expect(field).not.toContain('digitBufferRef');
+    expect(field).toContain('time-field-am-pm-hint');
   });
 
   it('shows hint when badInput and value incomplete in 12h', () => {
@@ -40,10 +43,11 @@ describe('FIX-5c AM/PM — pure rules', () => {
     expect(
       timeFieldNeedsAmPm({
         value: '',
-        validity: { badInput: true },
-        uses12Hour: false,
+        validity: { badInput: false },
+        uses12Hour: true,
+        incompleteTouch: true,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('blocks validation with Add AM or PM when incomplete', () => {

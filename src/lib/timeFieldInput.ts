@@ -28,34 +28,19 @@ export function browserUses12HourTime(locale?: string | string[]): boolean {
   }
 }
 
-/**
- * After the browser commits a native time value in 12h locales, reinterpret hours 1–12
- * with coach rules (1–6 → PM, 7–11 → AM, 12 → PM). Skips 00 and 13–23 (already 24h).
- */
-export function infer24hFrom12hNativeValue(value: string): string | null {
-  const m = /^(\d{2}):(\d{2})$/.exec(value);
-  if (!m) return null;
-  const hour12 = Number(m[1]);
-  const mm = Number(m[2]);
-  if (!Number.isFinite(hour12) || !Number.isFinite(mm) || mm > 59) return null;
-  if (hour12 < 1 || hour12 > 12) return null;
-  let hour24: number;
-  if (hour12 >= 1 && hour12 <= 6) hour24 = hour12 + 12;
-  else if (hour12 >= 7 && hour12 <= 11) hour24 = hour12;
-  else hour24 = 12;
-  return `${String(hour24).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
-}
-
 export function timeFieldNeedsAmPm(input: {
   value: string;
   validity: { badInput: boolean };
   uses12Hour: boolean;
+  /** User edited but blur left value empty (AM/PM never committed). */
+  incompleteTouch?: boolean;
 }): boolean {
-  const { value, validity, uses12Hour } = input;
+  const { value, validity, uses12Hour, incompleteTouch } = input;
   if (!uses12Hour) return false;
   if (isValidCompleteTimeValue(value)) return false;
-  if (!value) return validity.badInput;
-  return validity.badInput;
+  if (validity.badInput) return true;
+  if (!value && incompleteTouch) return true;
+  return false;
 }
 
 export function timeFieldValidationMessage(
