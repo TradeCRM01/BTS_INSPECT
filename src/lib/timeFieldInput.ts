@@ -4,6 +4,8 @@ export function shouldBlockTimeFieldEnter(key: string): boolean {
 }
 
 export const TIME_FIELD_ADD_AM_PM = 'Add AM or PM';
+export const TIME_FIELD_INCOMPLETE =
+  'Enter a complete time (hours and minutes).';
 
 /** True when value is a complete 24h time (rejects 24:00 and partial strings). */
 export function isValidCompleteTimeValue(value: string): boolean {
@@ -16,40 +18,38 @@ export function isValidCompleteTimeValue(value: string): boolean {
   return true;
 }
 
-/** Browser locale uses 12-hour clock (AM/PM segment in native time inputs). */
-export function browserUses12HourTime(locale?: string | string[]): boolean {
-  try {
-    const parts = new Intl.DateTimeFormat(locale, { hour: 'numeric' }).formatToParts(
-      new Date(2024, 0, 1, 13, 30),
-    );
-    return parts.some(p => p.type === 'dayPeriod');
-  } catch {
-    return false;
-  }
+export type TimeFieldHintKind = 'none' | 'ampm' | 'incomplete';
+
+export function timeFieldHintMessage(kind: TimeFieldHintKind): string | null {
+  if (kind === 'ampm') return TIME_FIELD_ADD_AM_PM;
+  if (kind === 'incomplete') return TIME_FIELD_INCOMPLETE;
+  return null;
 }
 
 /**
- * Show the AM/PM hint only when the user typed time digits and the native control
- * reports badInput (meridiem missing in a 12h field). No navigator.language branch:
- * 24h fields do not surface this state.
+ * Field hint under native time input. AM/PM copy only when badInput and the user
+ * typed at least four digits (hour + minute segments). No locale check.
  */
-export function timeFieldNeedsAmPm(input: {
+export function timeFieldHintKind(input: {
   value: string;
   validity: { badInput: boolean };
-  hasTypedDigits: boolean;
-}): boolean {
-  const { value, validity, hasTypedDigits } = input;
-  if (isValidCompleteTimeValue(value)) return false;
-  if (!hasTypedDigits) return false;
-  return validity.badInput;
+  typedDigitCount: number;
+}): TimeFieldHintKind {
+  const { value, validity, typedDigitCount } = input;
+  if (isValidCompleteTimeValue(value)) return 'none';
+  if (typedDigitCount === 0 && !validity.badInput && !value) return 'none';
+  if (validity.badInput && typedDigitCount >= 4) return 'ampm';
+  if (typedDigitCount > 0 || validity.badInput || value) return 'incomplete';
+  return 'none';
 }
 
 export function timeFieldValidationMessage(
   value: string,
-  needsAmPm = false,
+  fieldHint: TimeFieldHintKind = 'none',
 ): string | null {
-  if (needsAmPm) return TIME_FIELD_ADD_AM_PM;
-  if (!value) return 'Enter a complete time (hours and minutes).';
+  const hintMsg = timeFieldHintMessage(fieldHint);
+  if (hintMsg) return hintMsg;
+  if (!value) return TIME_FIELD_INCOMPLETE;
   if (!isValidCompleteTimeValue(value)) {
     return 'Enter a valid time as hh:mm (hours 00–23, minutes 00–59).';
   }
@@ -58,24 +58,26 @@ export function timeFieldValidationMessage(
 
 export type TimeFieldSaveFocus = 'start' | 'end';
 
-/** Block save/create when AM/PM hint is active or required times are incomplete. */
+/** Block save/create when a time hint is active or required times are incomplete. */
 export function timeFieldsSaveValidation(input: {
   start: string;
   end: string;
-  startNeedsAmPm: boolean;
-  endNeedsAmPm: boolean;
+  startHint: TimeFieldHintKind;
+  endHint: TimeFieldHintKind;
   requireBothTimes?: boolean;
 }): { message: string; focus: TimeFieldSaveFocus } | null {
-  if (input.startNeedsAmPm) {
-    return { message: TIME_FIELD_ADD_AM_PM, focus: 'start' };
+  const startHintMsg = timeFieldHintMessage(input.startHint);
+  if (startHintMsg) {
+    return { message: startHintMsg, focus: 'start' };
   }
-  if (input.endNeedsAmPm) {
-    return { message: TIME_FIELD_ADD_AM_PM, focus: 'end' };
+  const endHintMsg = timeFieldHintMessage(input.endHint);
+  if (endHintMsg) {
+    return { message: endHintMsg, focus: 'end' };
   }
   if (input.requireBothTimes) {
-    const startMsg = timeFieldValidationMessage(input.start, false);
+    const startMsg = timeFieldValidationMessage(input.start, 'none');
     if (startMsg) return { message: startMsg, focus: 'start' };
-    const endMsg = timeFieldValidationMessage(input.end, false);
+    const endMsg = timeFieldValidationMessage(input.end, 'none');
     if (endMsg) return { message: endMsg, focus: 'end' };
   }
   return null;
@@ -87,9 +89,12 @@ export function focusTimeFieldInput(container: ParentNode | null | undefined): v
   input?.focus();
 }
 
-/** AM/PM is shown under the field; form-level banners only carry non-meridiem errors. */
+/** Hints are shown under the field; form-level banners only carry other errors. */
 export function timeFieldSaveFormError(message: string): string | null {
-  return message === TIME_FIELD_ADD_AM_PM ? null : message;
+  if (message === TIME_FIELD_ADD_AM_PM || message === TIME_FIELD_INCOMPLETE) {
+    return null;
+  }
+  return message;
 }
 
 export function applyTimeFieldsSaveBlock(

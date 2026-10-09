@@ -11,7 +11,12 @@ import {
 import { X, Trash2, GitBranch } from 'lucide-react';
 import { OverlayPortal } from '../ui/OverlayPortal';
 import { TimeFieldInput } from '../ui/TimeFieldInput';
-import { applyTimeFieldsSaveBlock, focusTimeFieldInput, timeFieldsSaveValidation } from '../../lib/timeFieldInput';
+import {
+  applyTimeFieldsSaveBlock,
+  focusTimeFieldInput,
+  timeFieldsSaveValidation,
+  type TimeFieldHintKind,
+} from '../../lib/timeFieldInput';
 import { ClientForm } from '../../pages/ClientsPage';
 import { jobFormSelectNewClient, jobSiteAddressFromClient, visibleClientContacts } from '../../lib/clientRecords';
 import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
@@ -92,8 +97,8 @@ export function JobFormModal({
   const [clientErr, setClientErr] = useState('');
   const clientNameRef = useRef<HTMLInputElement>(null);
   const clientErrRef = useRef<HTMLParagraphElement>(null);
-  const [startNeedsAmPm, setStartNeedsAmPm] = useState(false);
-  const [endNeedsAmPm, setEndNeedsAmPm] = useState(false);
+  const [startTimeHint, setStartTimeHint] = useState<TimeFieldHintKind>('none');
+  const [endTimeHint, setEndTimeHint] = useState<TimeFieldHintKind>('none');
   const startFieldRef = useRef<HTMLDivElement>(null);
   const endFieldRef = useRef<HTMLDivElement>(null);
   const startCheck = assumedTradeTag(fromBooking?.startTrade, presetStartTime, startEdited);
@@ -220,8 +225,8 @@ export function JobFormModal({
       const block = timeFieldsSaveValidation({
         start: form.start_time ?? '',
         end: form.end_time ?? '',
-        startNeedsAmPm,
-        endNeedsAmPm,
+        startHint: startTimeHint,
+        endHint: endTimeHint,
       });
       if (block) {
         applyTimeFieldsSaveBlock(block, {
@@ -476,7 +481,7 @@ export function JobFormModal({
                       setForm(f => ({ ...f, start_time: v }));
                       setStartEdited(true);
                     }}
-                    onIncompleteAmPmChange={setStartNeedsAmPm}
+                    onTimeFieldHintChange={setStartTimeHint}
                     className="form-input"
                   />
                 </div>
@@ -487,7 +492,7 @@ export function JobFormModal({
                   <TimeFieldInput
                     value={form.end_time ?? ''}
                     onChange={v => setForm(f => ({ ...f, end_time: v }))}
-                    onIncompleteAmPmChange={setEndNeedsAmPm}
+                    onTimeFieldHintChange={setEndTimeHint}
                     className="form-input"
                   />
                 </div>

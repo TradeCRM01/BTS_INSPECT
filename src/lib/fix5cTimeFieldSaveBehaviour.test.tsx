@@ -10,6 +10,8 @@ import {
   timeFieldSaveFormError,
   timeFieldsSaveValidation,
   TIME_FIELD_ADD_AM_PM,
+  TIME_FIELD_INCOMPLETE,
+  type TimeFieldHintKind,
 } from './timeFieldInput';
 
 let container: HTMLDivElement;
@@ -29,18 +31,18 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('FIX-5c C4 shared save guard', () => {
-  it('does not duplicate AM/PM at form level', () => {
+describe('FIX-5c C6 shared save guard', () => {
+  it('does not duplicate field hints at form level', () => {
     expect(timeFieldSaveFormError(TIME_FIELD_ADD_AM_PM)).toBeNull();
-    expect(timeFieldSaveFormError('Enter a complete time (hours and minutes).')).toMatch(/complete time/i);
+    expect(timeFieldSaveFormError(TIME_FIELD_INCOMPLETE)).toBeNull();
   });
 
   it('blocks start AM/PM without treating blank end as AM/PM', () => {
     const block = timeFieldsSaveValidation({
       start: '',
       end: '',
-      startNeedsAmPm: true,
-      endNeedsAmPm: false,
+      startHint: 'ampm',
+      endHint: 'none',
     });
     expect(block?.focus).toBe('start');
     let formErr = 'unset';
@@ -52,34 +54,44 @@ describe('FIX-5c C4 shared save guard', () => {
     expect(formErr).toBe('null');
   });
 
+  it('blocks incomplete generic hint on start', () => {
+    const block = timeFieldsSaveValidation({
+      start: '',
+      end: '16:00',
+      startHint: 'incomplete',
+      endHint: 'none',
+    });
+    expect(block?.message).toBe(TIME_FIELD_INCOMPLETE);
+  });
+
   it('allows save when times are complete and no hint', () => {
     expect(timeFieldsSaveValidation({
       start: '09:30',
       end: '16:00',
-      startNeedsAmPm: false,
-      endNeedsAmPm: false,
+      startHint: 'none',
+      endHint: 'none',
     })).toBeNull();
   });
 });
 
 let mockTimeFieldSlot = 0;
-let mockStartNeedsAmPm = false;
+let mockStartHint: TimeFieldHintKind = 'none';
 
 vi.mock('../components/ui', async importOriginal => {
   const actual = await importOriginal<typeof import('../components/ui')>();
   const MockTimeFieldInput = ({
-    onIncompleteAmPmChange,
+    onTimeFieldHintChange,
     onChange,
     value,
   }: {
-    onIncompleteAmPmChange?: (needs: boolean) => void;
+    onTimeFieldHintChange?: (hint: TimeFieldHintKind) => void;
     onChange: (v: string) => void;
     value: string;
   }) => {
     const slot = mockTimeFieldSlot++;
     useEffect(() => {
-      if (slot === 0) onIncompleteAmPmChange?.(mockStartNeedsAmPm);
-    }, [onIncompleteAmPmChange, slot]);
+      if (slot === 0) onTimeFieldHintChange?.(mockStartHint);
+    }, [onTimeFieldHintChange, slot]);
     return (
       <input
         type="time"
@@ -118,11 +130,10 @@ const auditJob = {
   client_address: null,
 };
 
-describe('FIX-5c C4 ScheduleJobSheet behaviour', () => {
+describe('FIX-5c C6 ScheduleJobSheet behaviour', () => {
   it('does not call onSave when start needs AM/PM', async () => {
-    mockStartNeedsAmPm = true;
+    mockStartHint = 'ampm';
     const onSave = vi.fn();
-    // Override start via prefill path: mount real sheet and set start through mock by re-render
     await act(async () => {
       root.render(
         <ScheduleJobSheet
@@ -142,8 +153,29 @@ describe('FIX-5c C4 ScheduleJobSheet behaviour', () => {
     expect(document.querySelector('.hub-schedule-job-sheet-body > p.text-fail')).toBeNull();
   });
 
+  it('does not call onSave when start has generic incomplete hint', async () => {
+    mockStartHint = 'incomplete';
+    const onSave = vi.fn();
+    await act(async () => {
+      root.render(
+        <ScheduleJobSheet
+          job={auditJob}
+          teamMembers={[{ id: '1', name: 'Sam' }]}
+          viewedDate="2026-08-25"
+          prefill={{ startTime: '07:30' }}
+          onClose={() => {}}
+          onSave={onSave}
+        />,
+      );
+    });
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('.hub-editor-sticky-save')?.click();
+    });
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
   it('calls onSave with 09:30 when times are complete', async () => {
-    mockStartNeedsAmPm = false;
+    mockStartHint = 'none';
     const onSave = vi.fn();
     await act(async () => {
       root.render(

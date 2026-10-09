@@ -1021,8 +1021,12 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
   const [priceBookItems, setPriceBookItems] = useState<PriceBookItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [converting, setConverting] = useState(false);
-  const [convertStartNeedsAmPm, setConvertStartNeedsAmPm] = useState(false);
-  const [convertEndNeedsAmPm, setConvertEndNeedsAmPm] = useState(false);
+  const [convertStartTimeHint, setConvertStartTimeHint] = useState<
+    import('../lib/timeFieldInput').TimeFieldHintKind
+  >('none');
+  const [convertEndTimeHint, setConvertEndTimeHint] = useState<
+    import('../lib/timeFieldInput').TimeFieldHintKind
+  >('none');
   const [invoicing, setInvoicing] = useState(false);
   const [showPreview, setShowPreview] = useState(searchParams.get('print') === '1');
   const [showEdit, setShowEdit] = useState(!quote);
@@ -1396,13 +1400,13 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
 
   const handleConvert = async () => {
     if (!takeQuoteConvertLock(convertingLock)) return;
-    if (convertStartNeedsAmPm) {
+    if (convertStartTimeHint !== 'none') {
       setErr('');
       focusQuoteConvertField(convertSectionRef.current ?? document, 'start');
       releaseQuoteConvertLock(convertingLock);
       return;
     }
-    if (convertEndNeedsAmPm) {
+    if (convertEndTimeHint !== 'none') {
       setErr('');
       focusQuoteConvertField(convertSectionRef.current ?? document, 'end');
       releaseQuoteConvertLock(convertingLock);
@@ -1943,7 +1947,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                       convertTimesLive.current.start_time = start_time;
                       setForm(f => ({ ...f, start_time }));
                     }}
-                    onIncompleteAmPmChange={setConvertStartNeedsAmPm}
+                    onTimeFieldHintChange={setConvertStartTimeHint}
                     className="form-input"
                   />
                 </Field>
@@ -1955,7 +1959,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                       convertTimesLive.current.end_time = end_time;
                       setForm(f => ({ ...f, end_time }));
                     }}
-                    onIncompleteAmPmChange={setConvertEndNeedsAmPm}
+                    onTimeFieldHintChange={setConvertEndTimeHint}
                     className="form-input"
                   />
                 </Field>

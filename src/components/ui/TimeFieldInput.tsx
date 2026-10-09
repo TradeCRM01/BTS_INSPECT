@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState, type Ref } from 'react';
 import {
   isValidCompleteTimeValue,
   shouldBlockTimeFieldEnter,
-  TIME_FIELD_ADD_AM_PM,
-  timeFieldNeedsAmPm,
+  timeFieldHintKind,
+  timeFieldHintMessage,
+  type TimeFieldHintKind,
 } from '../../lib/timeFieldInput';
 
 function assignRef<T>(ref: Ref<T> | undefined, value: T | null) {
@@ -12,12 +13,16 @@ function assignRef<T>(ref: Ref<T> | undefined, value: T | null) {
   else (ref as { current: T | null }).current = value;
 }
 
+function countDigitsInText(text: string): number {
+  return (text.match(/\d/g) ?? []).length;
+}
+
 export function TimeFieldInput({
   id,
   value,
   onChange,
   onBlurCommit,
-  onIncompleteAmPmChange,
+  onTimeFieldHintChange,
   inputRef,
   className,
 }: {
@@ -25,57 +30,60 @@ export function TimeFieldInput({
   value: string;
   onChange: (next: string) => void;
   onBlurCommit?: (value: string) => void;
-  onIncompleteAmPmChange?: (needs: boolean) => void;
+  onTimeFieldHintChange?: (hint: TimeFieldHintKind) => void;
   inputRef?: Ref<HTMLInputElement | null>;
   className?: string;
 }) {
   const localInputRef = useRef<HTMLInputElement | null>(null);
-  const hasTypedDigitsRef = useRef(false);
-  const [needsAmPm, setNeedsAmPm] = useState(false);
+  const typedDigitCountRef = useRef(0);
+  const [hintKind, setHintKind] = useState<TimeFieldHintKind>('none');
 
-  const publishIncomplete = useCallback(
-    (needs: boolean) => {
-      setNeedsAmPm(needs);
-      onIncompleteAmPmChange?.(needs);
+  const publishHint = useCallback(
+    (hint: TimeFieldHintKind) => {
+      setHintKind(hint);
+      onTimeFieldHintChange?.(hint);
     },
-    [onIncompleteAmPmChange],
+    [onTimeFieldHintChange],
   );
 
-  const syncIncomplete = useCallback(
+  const syncHint = useCallback(
     (el: HTMLInputElement) => {
-      const needs = timeFieldNeedsAmPm({
+      const hint = timeFieldHintKind({
         value: el.value,
         validity: el.validity,
-        hasTypedDigits: hasTypedDigitsRef.current,
+        typedDigitCount: typedDigitCountRef.current,
       });
-      publishIncomplete(needs);
+      publishHint(hint);
       el.setCustomValidity('');
     },
-    [publishIncomplete],
+    [publishHint],
   );
 
   const commitFromElement = useCallback(
     (el: HTMLInputElement, { blur }: { blur: boolean }) => {
       const next = el.value;
       if (isValidCompleteTimeValue(next)) {
-        hasTypedDigitsRef.current = false;
+        typedDigitCountRef.current = 0;
       } else if (!next && !el.validity.badInput) {
-        hasTypedDigitsRef.current = false;
+        typedDigitCountRef.current = 0;
       }
-      syncIncomplete(el);
+      syncHint(el);
       if (next !== value) onChange(next);
       if (blur) onBlurCommit?.(next);
       return next;
     },
-    [onBlurCommit, onChange, syncIncomplete, value],
+    [onBlurCommit, onChange, syncHint, value],
   );
 
   useEffect(() => {
     if (isValidCompleteTimeValue(value)) {
-      hasTypedDigitsRef.current = false;
-      publishIncomplete(false);
+      typedDigitCountRef.current = 0;
+      publishHint('none');
     }
-  }, [value, publishIncomplete]);
+  }, [value, publishHint]);
+
+  const hintVisible = hintKind !== 'none';
+  const hintText = timeFieldHintMessage(hintKind) ?? '\u00a0';
 
   return (
     <div className="time-field-input-wrap">
@@ -87,11 +95,20 @@ export function TimeFieldInput({
         id={id}
         type="time"
         value={value}
+        onFocus={() => {
+          typedDigitCountRef.current = 0;
+          const el = localInputRef.current;
+          if (el) syncHint(el);
+        }}
         onInput={e => {
+          const ie = e.nativeEvent as InputEvent;
+          if (ie.data) {
+            typedDigitCountRef.current += countDigitsInText(ie.data);
+          }
           commitFromElement(e.currentTarget, { blur: false });
         }}
         onKeyDown={e => {
-          if (/^\d$/.test(e.key)) hasTypedDigitsRef.current = true;
+          if (/^\d$/.test(e.key)) typedDigitCountRef.current += 1;
           if (!shouldBlockTimeFieldEnter(e.key)) return;
           e.preventDefault();
           e.stopPropagation();
@@ -102,11 +119,11 @@ export function TimeFieldInput({
         className={className}
       />
       <p
-        className={`time-field-am-pm-hint text-sm text-fail mt-1${needsAmPm ? ' is-visible' : ''}`}
-        role={needsAmPm ? 'alert' : undefined}
-        aria-hidden={!needsAmPm}
+        className={`time-field-am-pm-hint text-sm text-fail mt-1${hintVisible ? ' is-visible' : ''}`}
+        role={hintVisible ? 'alert' : undefined}
+        aria-hidden={!hintVisible}
       >
-        {needsAmPm ? TIME_FIELD_ADD_AM_PM : '\u00a0'}
+        {hintText}
       </p>
     </div>
   );

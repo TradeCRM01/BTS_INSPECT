@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { AppDialog, EditorStickyFooter, TimeFieldInput } from '../ui';
-import { applyTimeFieldsSaveBlock, focusTimeFieldInput, timeFieldsSaveValidation } from '../../lib/timeFieldInput';
+import {
+  applyTimeFieldsSaveBlock,
+  focusTimeFieldInput,
+  timeFieldsSaveValidation,
+  type TimeFieldHintKind,
+} from '../../lib/timeFieldInput';
 import type { JobWithClient } from '../../types/crm';
 import { scheduleDayKey, type ScheduleSheetInput } from '../../lib/scheduleBoard';
 import { jobsListSite, jobsListSuburbFromSite } from '../../lib/jobsListRow';
@@ -57,8 +62,8 @@ export function ScheduleJobSheet({
   const [jobEdited, setJobEdited] = useState(false);
   const appliedJobId = useRef<string | null>(null);
   const appliedBooking = useRef(fromBooking);
-  const [startNeedsAmPm, setStartNeedsAmPm] = useState(false);
-  const [endNeedsAmPm, setEndNeedsAmPm] = useState(false);
+  const [startTimeHint, setStartTimeHint] = useState<TimeFieldHintKind>('none');
+  const [endTimeHint, setEndTimeHint] = useState<TimeFieldHintKind>('none');
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const startFieldRef = useRef<HTMLDivElement>(null);
   const endFieldRef = useRef<HTMLDivElement>(null);
@@ -103,8 +108,8 @@ export function ScheduleJobSheet({
             const block = timeFieldsSaveValidation({
               start: startTime,
               end: endTime,
-              startNeedsAmPm,
-              endNeedsAmPm,
+              startHint: startTimeHint,
+              endHint: endTimeHint,
             });
             if (block) {
               applyTimeFieldsSaveBlock(block, {
@@ -191,7 +196,7 @@ export function ScheduleJobSheet({
                 setStartEdited(true);
                 setSaveErr(null);
               }}
-              onIncompleteAmPmChange={setStartNeedsAmPm}
+              onTimeFieldHintChange={setStartTimeHint}
             />
           </div>
         </label>
@@ -205,7 +210,7 @@ export function ScheduleJobSheet({
                 setEndTime(v);
                 setSaveErr(null);
               }}
-              onIncompleteAmPmChange={setEndNeedsAmPm}
+              onTimeFieldHintChange={setEndTimeHint}
             />
           </div>
         </label>

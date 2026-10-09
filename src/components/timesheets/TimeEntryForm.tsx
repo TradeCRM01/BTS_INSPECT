@@ -11,6 +11,7 @@ import {
   applyTimeFieldsSaveBlock,
   focusTimeFieldInput,
   timeFieldsSaveValidation,
+  type TimeFieldHintKind,
 } from '../../lib/timeFieldInput';
 import { LIST_KEYS } from '../../lib/useManagedList';
 import {
@@ -65,8 +66,8 @@ export function TimeEntryForm({
   }));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [startNeedsAmPm, setStartNeedsAmPm] = useState(false);
-  const [endNeedsAmPm, setEndNeedsAmPm] = useState(false);
+  const [startTimeHint, setStartTimeHint] = useState<TimeFieldHintKind>('none');
+  const [endTimeHint, setEndTimeHint] = useState<TimeFieldHintKind>('none');
   const startFieldRef = useRef<HTMLDivElement>(null);
   const endFieldRef = useRef<HTMLDivElement>(null);
   const saveLock = useRef(false);
@@ -77,8 +78,8 @@ export function TimeEntryForm({
     const block = timeFieldsSaveValidation({
       start: form.start_time,
       end: form.end_time,
-      startNeedsAmPm,
-      endNeedsAmPm,
+      startHint: startTimeHint,
+      endHint: endTimeHint,
       requireBothTimes: true,
     });
     if (block) {
@@ -191,7 +192,7 @@ export function TimeEntryForm({
                   <TimeFieldInput
                     value={form.start_time}
                     onChange={start_time => setForm(f => ({ ...f, start_time }))}
-                    onIncompleteAmPmChange={setStartNeedsAmPm}
+                    onTimeFieldHintChange={setStartTimeHint}
                     className="form-input"
                   />
                 </div>
@@ -201,7 +202,7 @@ export function TimeEntryForm({
                   <TimeFieldInput
                     value={form.end_time}
                     onChange={end_time => setForm(f => ({ ...f, end_time }))}
-                    onIncompleteAmPmChange={setEndNeedsAmPm}
+                    onTimeFieldHintChange={setEndTimeHint}
                     className="form-input"
                   />
                 </div>

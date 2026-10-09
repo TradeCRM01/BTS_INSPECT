@@ -3871,12 +3871,6 @@
     background: #F5F0E6 !important;
   }
 
-  /* Schedule sheet: dim the live board behind the tray (not a full cream mask). */
-  .overlay-backdrop:has(.hub-schedule-job-sheet) {
-    background: rgba(10, 37, 64, 0.42) !important;
-    align-items: flex-end;
-  }
-
   body:has(.hub-editor-sticky-footer) .shell-bottom-nav {
     display: none !important;
   }
