@@ -103,7 +103,8 @@ describe('schedule page week/day board', () => {
     const board = src('src/components/crm/BoardViews.tsx');
     expect(page).toContain('PhoneUnscheduledTray');
     expect(page).toContain('data-schedule-phone-section="booked"');
-    expect(page).toContain('hub-phone-unscheduled-mount');
+    expect(page).toContain('agendaFooter');
+    expect(page).toContain('data-schedule-unscheduled-after-week="1"');
     expect(page).toContain('className="hidden lg:block"');
     expect(board).toContain('export const PhoneUnscheduledTray');
     expect(board).toContain('PHONE_UNSCHEDULED_EXPANDED_DEFAULT');
@@ -111,12 +112,15 @@ describe('schedule page week/day board', () => {
     expect(board).toContain('data-schedule-unscheduled-chip="1"');
     expect(board).toContain('aria-expanded={expanded}');
     expect(board).toContain('setExpanded(open => !open)');
-    const bookedAt = page.indexOf('data-schedule-phone-section="booked"');
-    const phoneTrayAt = page.indexOf('hub-phone-unscheduled-mount');
-    const desktopRailAt = page.indexOf('className="hidden lg:block"');
-    expect(bookedAt).toBeGreaterThan(-1);
-    expect(phoneTrayAt).toBeGreaterThan(bookedAt);
-    expect(desktopRailAt).toBeGreaterThan(phoneTrayAt);
+    const phoneWeek = board.slice(
+      board.indexOf('export const PhoneWeekList'),
+      board.indexOf('// ── Day Board View'),
+    );
+    const lastDayAt = phoneWeek.lastIndexOf('data-agenda-day=');
+    const footerAt = phoneWeek.indexOf('data-schedule-unscheduled-after-week="1"');
+    expect(lastDayAt).toBeGreaterThan(-1);
+    expect(footerAt).toBeGreaterThan(lastDayAt);
+    expect(page).toContain('FIX3A_UNSCHEDULED_SEED');
   });
 
   it('groups the phone week from existing scheduled_date fields', () => {

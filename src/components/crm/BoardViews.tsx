@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, memo, useEffect, Fragment } from 'react';
+import { useState, useMemo, useRef, memo, useEffect, Fragment, type ReactNode } from 'react';
 import type { JobWithClient } from '../../types/crm';
 import { JOB_STATUS_LABELS, JOB_STATUS_RAIL, JOB_STATUS_STYLES } from '../../types/crm';
 import { getReadableText, pickEmployeeColor } from '../../lib/jobColors';
@@ -360,12 +360,13 @@ export const PhoneDayList = memo(function PhoneDayList({
 });
 
 export const PhoneWeekList = memo(function PhoneWeekList({
-  jobs, teamMembers, currentDate, onJobClick,
+  jobs, teamMembers, currentDate, onJobClick, agendaFooter = null,
 }: {
   jobs: JobWithClient[];
   teamMembers?: TeamMember[];
   currentDate: Date;
   onJobClick: (job: JobWithClient) => void;
+  agendaFooter?: ReactNode;
 }) {
   const days = useMemo(
     () => scheduleWeekAgenda(jobs, currentDate),
@@ -422,6 +423,14 @@ export const PhoneWeekList = memo(function PhoneWeekList({
           </section>
         );
       })}
+      {agendaFooter ? (
+        <div
+          className="hub-phone-unscheduled-footer"
+          data-schedule-unscheduled-after-week="1"
+        >
+          {agendaFooter}
+        </div>
+      ) : null}
     </div>
   );
 });

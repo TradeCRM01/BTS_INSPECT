@@ -33,7 +33,7 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(page).toContain('--hub-week-more-shift');
     expect(page).toContain('All crews');
     expect(page).toContain('className="btn-primary"');
-    expect(page).toContain("look') === WEEK_BOARD_LOOK");
+    expect(page).toContain('lookParam === WEEK_BOARD_LOOK');
     expect(page).toContain("name: 'Dave Hale'");
     expect(page).toContain("name: 'Jack Wieland'");
     expect(page).toContain("name: 'Sam Ortiz'");

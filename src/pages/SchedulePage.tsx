@@ -172,19 +172,47 @@ function weekBoardLookJobs(): JobWithClient[] {
   ];
 }
 
+const FIX3A_UNSCHEDULED_SEED: {
+  title: string;
+  client_name: string;
+  address: string;
+  status: JobWithClient['status'];
+}[] = [
+  { title: 'Leak under kitchen sink', client_name: 'Valley Apartments', address: '55 Vulture Street, West End QLD 4101', status: 'scheduled' },
+  { title: 'Split-system regas', client_name: 'Harbour Club', address: '4 Wharf Parade, Brisbane QLD 4000', status: 'in_progress' },
+  { title: 'Deck board replace', client_name: 'PWD Group', address: '22 Logan Road, Woolloongabba QLD 4102', status: 'scheduled' },
+  { title: 'Emergency make-safe', client_name: 'Metro Retail', address: '90 Queen Street, Brisbane QLD 4000', status: 'in_progress' },
+  { title: 'Downpipe clear-out', client_name: 'Northside Body Corp', address: '18 Ferry Street, Kangaroo Point QLD 4169', status: 'scheduled' },
+  { title: 'Oven circuit check', client_name: 'Valley Apartments', address: '12 Merivale Street, South Brisbane QLD 4101', status: 'scheduled' },
+  { title: 'Door closer adjust', client_name: 'Harbour Club', address: '31 Duncan Street, West End QLD 4101', status: 'in_progress' },
+  { title: 'Gutter guard quote visit', client_name: 'PWD Group', address: '88 Melbourne Street, South Brisbane QLD 4101', status: 'scheduled' },
+  { title: 'Tapware swap — ensuite', client_name: 'Metro Retail', address: '200 Adelaide Street, Brisbane QLD 4000', status: 'scheduled' },
+  { title: 'Aircon filter service', client_name: 'Northside Body Corp', address: '6 Skyring Terrace, Newstead QLD 4006', status: 'in_progress' },
+  { title: 'Stair balustrade measure', client_name: 'Valley Apartments', address: '44 Cordelia Street, South Brisbane QLD 4101', status: 'scheduled' },
+  { title: 'Hot water element test', client_name: 'Harbour Club', address: '15 Boundary Street, West End QLD 4101', status: 'scheduled' },
+  { title: 'Patch plaster — water stain', client_name: 'PWD Group', address: '3 Stanley Street, Woolloongabba QLD 4102', status: 'in_progress' },
+  { title: 'Exhaust fan install', client_name: 'Metro Retail', address: '111 Eagle Street, Brisbane QLD 4000', status: 'scheduled' },
+  { title: 'Lockset changeover', client_name: 'Northside Body Corp', address: '27 Gladstone Road, Highgate Hill QLD 4101', status: 'scheduled' },
+  { title: 'Ducted return grille clean', client_name: 'Valley Apartments', address: '70 Grey Street, South Brisbane QLD 4101', status: 'in_progress' },
+  { title: 'Fence post reset', client_name: 'Harbour Club', address: '9 Hockings Street, West End QLD 4101', status: 'scheduled' },
+];
+
 function fix3aLookJob(
-  over: Partial<JobWithClient> & Pick<JobWithClient, 'id' | 'title' | 'job_number'>,
+  seed: typeof FIX3A_UNSCHEDULED_SEED[number],
+  index: number,
 ): JobWithClient {
   return weekBoardLookJob({
+    id: `fix3a-unscheduled-${index + 1}`,
+    job_number: 700 + index,
+    title: seed.title,
     scheduled_date: null,
     assigned_team: [],
-    status: 'scheduled',
+    status: seed.status,
     start_time: null,
     end_time: null,
-    client_name: 'Northside Body Corp',
-    address: '18 Ferry Street, Brisbane QLD 4000',
-    client_address: '18 Ferry Street, Brisbane QLD 4000',
-    ...over,
+    client_name: seed.client_name,
+    address: seed.address,
+    client_address: seed.address,
   });
 }
 
@@ -225,12 +253,7 @@ function fix3aLookJobs(): JobWithClient[] {
       color: WEEK_LOOK_FIT,
     }),
   ];
-  const unscheduled = Array.from({ length: 17 }, (_, index) => fix3aLookJob({
-    id: `fix3a-unscheduled-${index + 1}`,
-    title: `Callback ${index + 1} — follow-up visit`,
-    job_number: 700 + index,
-    client_name: index % 2 === 0 ? 'Northside Body Corp' : 'Valley Apartments',
-  }));
+  const unscheduled = FIX3A_UNSCHEDULED_SEED.map((seed, index) => fix3aLookJob(seed, index));
   return [...booked, ...unscheduled];
 }
 
@@ -1273,6 +1296,16 @@ export function SchedulePage() {
                         teamMembers={boardCrew}
                         currentDate={currentDate}
                         onJobClick={job => openJob(job.id)}
+                        agendaFooter={(
+                          <PhoneUnscheduledTray
+                            jobs={needsDate}
+                            teamMembers={boardCrew}
+                            selectedId={pickedJob?.id ?? null}
+                            onJobClick={handlePickJob}
+                            onOpenJob={job => openJob(job.id)}
+                            onDragStart={handleRailDragStart}
+                          />
+                        )}
                       />
                     </div>
                     <div className="hidden lg:flex hub-week-mount">
@@ -1291,7 +1324,7 @@ export function SchedulePage() {
                 ) : (
                   <>
                     <div
-                      className="lg:hidden hub-week-mount"
+                      className="lg:hidden hub-week-mount hub-phone-board-scroll"
                       data-schedule-phone-section="booked"
                     >
                       <PhoneDayList
@@ -1303,6 +1336,16 @@ export function SchedulePage() {
                         onJobDrop={placeExisting}
                         onJobResize={(jobId, startTime, endTime) => resizeJob.mutate({ jobId, startTime, endTime })}
                       />
+                      <div data-schedule-unscheduled-after-week="1">
+                        <PhoneUnscheduledTray
+                          jobs={needsDate}
+                          teamMembers={boardCrew}
+                          selectedId={pickedJob?.id ?? null}
+                          onJobClick={handlePickJob}
+                          onOpenJob={job => openJob(job.id)}
+                          onDragStart={handleRailDragStart}
+                        />
+                      </div>
                     </div>
                     <div className="hidden lg:flex hub-week-mount">
                       <DayBoardView
@@ -1318,16 +1361,6 @@ export function SchedulePage() {
                     </div>
                   </>
                 )}
-                <div className="lg:hidden hub-phone-unscheduled-mount">
-                  <PhoneUnscheduledTray
-                    jobs={needsDate}
-                    teamMembers={boardCrew}
-                    selectedId={pickedJob?.id ?? null}
-                    onJobClick={handlePickJob}
-                    onOpenJob={job => openJob(job.id)}
-                    onDragStart={handleRailDragStart}
-                  />
-                </div>
                 <NeedsDateRail
                   className="hidden lg:block"
                   jobs={needsDate}
