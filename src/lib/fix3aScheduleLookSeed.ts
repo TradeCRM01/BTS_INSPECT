@@ -80,7 +80,15 @@ function fix3aUnscheduledJob(
   });
 }
 
-export function fix3aLookJobs(): JobWithClient[] {
+/** LOOK-only query `unscheduled` on `?look=fix3a-schedule` (e.g. 0, 60). Omit for default 17. */
+export function fix3aUnscheduledLookCount(param: string | null): number | undefined {
+  if (param === null || param === '') return undefined;
+  const n = Number.parseInt(param, 10);
+  if (!Number.isFinite(n) || n < 0) return undefined;
+  return n;
+}
+
+export function fix3aLookJobs(unscheduledCount?: number): JobWithClient[] {
   const booked: JobWithClient[] = [
     fix3aLookBase({
       id: 'fix3a-booked-1',
@@ -117,6 +125,11 @@ export function fix3aLookJobs(): JobWithClient[] {
       color: FIX3A_LOOK_FIT,
     }),
   ];
-  const unscheduled = FIX3A_UNSCHEDULED_SEED.map((seed, index) => fix3aUnscheduledJob(seed, index));
+  const count = unscheduledCount ?? FIX3A_UNSCHEDULED_SEED.length;
+  if (count === 0) return booked;
+  const unscheduled = Array.from({ length: count }, (_, index) => {
+    const seed = FIX3A_UNSCHEDULED_SEED[index % FIX3A_UNSCHEDULED_SEED.length];
+    return fix3aUnscheduledJob(seed, index);
+  });
   return [...booked, ...unscheduled];
 }
