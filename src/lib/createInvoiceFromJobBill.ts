@@ -263,20 +263,6 @@ export async function createInvoiceFromJobBill(input: {
   });
 
   if (auditFix2Create) {
-    try {
-      const stored = sessionStorage.getItem('audit-fix2-invoice-row');
-      if (stored) {
-        const auditRow = JSON.parse(stored) as Record<string, unknown>;
-        return {
-          id: String(auditRow.id),
-          existing: true,
-          invoice: asJobInvoiceListRow(auditRow),
-          labourToast: null,
-        };
-      }
-    } catch {
-      /* ignore */
-    }
     if (sessionStorage.getItem('fix2b-fail-create') === '1') {
       throw new Error('Could not create invoice');
     }
