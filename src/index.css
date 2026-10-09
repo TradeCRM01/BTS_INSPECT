@@ -6447,8 +6447,6 @@
       font-family: Rajdhani, sans-serif;
       font-size: 11px;
       font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
       color: #5B6B7C;
     }
 
@@ -7810,7 +7808,7 @@
       flex-direction: column;
       min-height: 0;
       box-sizing: border-box;
-      padding-bottom: calc(var(--shell-bottom-nav-h, 0px) + 8px);
+      padding-bottom: var(--shell-bottom-nav-h, 0px);
     }
 
     .hub-board-cal.is-week-doc .hub-week-document .hub-week-board {
@@ -7890,10 +7888,17 @@
     .hub-phone-unscheduled-footer {
       flex: 0 0 auto;
       margin-top: 8px;
-      margin-bottom: var(--shell-bottom-nav-h, 0px);
       padding-top: 12px;
       padding-bottom: 8px;
       border-top: 1px solid #E2D9CC;
+    }
+
+    .hub-phone-week-list:has([data-schedule-unscheduled-list="1"]) .hub-phone-unscheduled-footer {
+      flex: 1 1 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
 
     .hub-phone-unscheduled-chip {
@@ -7921,8 +7926,12 @@
     }
 
     .hub-phone-unscheduled-list {
-      max-height: min(50vh, calc(360px - var(--shell-bottom-nav-h, 0px) - 12px));
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: min(50vh, 360px);
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
       padding-left: 12px;
       padding-right: 12px;
     }
@@ -7933,6 +7942,12 @@
       min-height: 0;
       flex: 1 1 0;
       overflow: hidden;
+    }
+
+    .hub-phone-week-list:has([data-schedule-unscheduled-list="1"]) > .hub-week-agenda {
+      flex: 0 1 28%;
+      max-height: 28%;
+      min-height: 0;
     }
 
     .hub-phone-week-list > .hub-week-agenda {

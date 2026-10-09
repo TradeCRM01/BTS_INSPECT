@@ -45,7 +45,7 @@ describe('schedule phone week footer (soft 1)', () => {
   it('clears the phone week mount above the shell bottom nav', () => {
     const css = src('src/index.css');
     expect(css).toMatch(
-      /\.hub-board-cal\.is-week-doc \.hub-week-mount\.lg\\:hidden[\s\S]{0,220}padding-bottom: calc\(var\(--shell-bottom-nav-h/,
+      /\.hub-board-cal\.is-week-doc \.hub-week-mount\.lg\\:hidden[\s\S]{0,220}padding-bottom: var\(--shell-bottom-nav-h/,
     );
     expect(css).toContain('.hub-phone-week-list > .hub-week-agenda');
   });
