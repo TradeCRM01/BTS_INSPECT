@@ -3,7 +3,6 @@ import { timeFieldRendersMeridiem } from '../../lib/timeFieldMeridiemProbe';
 import {
   isValidCompleteTimeValue,
   shouldBlockTimeFieldEnter,
-  timeFieldDigitSequenceKey,
   timeFieldHintKind,
   timeFieldHintMessage,
   type TimeFieldHintKind,
@@ -42,7 +41,6 @@ export function TimeFieldInput({
 }) {
   const localInputRef = useRef<HTMLInputElement | null>(null);
   const typedDigitCountRef = useRef(0);
-  const digitSequenceRef = useRef('');
   const meridiemEngagedRef = useRef(false);
   const [hintKind, setHintKind] = useState<TimeFieldHintKind>('none');
   const [rendersMeridiem, setRendersMeridiem] = useState(false);
@@ -66,7 +64,6 @@ export function TimeFieldInput({
         validity: el.validity,
         typedDigitCount: typedDigitCountRef.current,
         rendersMeridiem,
-        digitSequence: digitSequenceRef.current,
         meridiemEngagedSinceFocus: meridiemEngagedRef.current,
       });
       publishHint(hint);
@@ -77,7 +74,6 @@ export function TimeFieldInput({
 
   const resetTypingSession = useCallback(() => {
     typedDigitCountRef.current = 0;
-    digitSequenceRef.current = '';
     meridiemEngagedRef.current = false;
   }, []);
 
@@ -131,9 +127,6 @@ export function TimeFieldInput({
           const ie = e.nativeEvent as InputEvent;
           if (ie.data) {
             typedDigitCountRef.current += countDigitsInText(ie.data);
-            digitSequenceRef.current = timeFieldDigitSequenceKey(
-              digitSequenceRef.current + ie.data,
-            );
           }
           commitFromElement(e.currentTarget, { blur: false });
         }}
@@ -143,9 +136,6 @@ export function TimeFieldInput({
           }
           if (/^\d$/.test(e.key)) {
             typedDigitCountRef.current += 1;
-            digitSequenceRef.current = timeFieldDigitSequenceKey(
-              digitSequenceRef.current + e.key,
-            );
           }
           if (!shouldBlockTimeFieldEnter(e.key)) return;
           e.preventDefault();

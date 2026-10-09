@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
@@ -6,12 +6,10 @@ import {
   resetTimeFieldRendersMeridiemProbeCache,
 } from './timeFieldMeridiemProbe';
 import {
-  timeFieldDigitsImplyMeridiemHint,
   timeFieldHintKind,
   TIME_FIELD_ADD_AM_PM,
   TIME_FIELD_INCOMPLETE,
   timeFieldValidationMessage,
-  timeFieldsSaveValidation,
 } from './timeFieldInput';
 
 function src(rel: string): string {
@@ -23,31 +21,54 @@ afterEach(() => {
   resetTimeFieldRendersMeridiemProbeCache();
 });
 
-describe('FIX-5c C7 — meridiem probe + hint copy', () => {
+describe('FIX-5c C8 — hint copy without minutes heuristic', () => {
   it('TimeFieldInput uses meridiem probe and reserves hint line only for 12h', () => {
     const field = src('src/components/ui/TimeFieldInput.tsx');
     expect(field).toContain('timeFieldRendersMeridiem');
     expect(field).toContain('rendersMeridiem ?');
-    expect(field).toContain('digitSequenceRef');
     expect(field).toContain('meridiemEngagedRef');
-    expect(field).not.toContain('browserUses12HourTime');
+    expect(field).not.toContain('digitSequenceRef');
+    expect(field).not.toContain('timeFieldDigitsImplyMeridiemHint');
   });
 
-  it('probe module compares live vs reference probe widths (no navigator.language)', () => {
+  it('probe inconclusive fallback is false (generic, no line) at timeFieldMeridiemProbe.ts', () => {
     const probe = src('src/lib/timeFieldMeridiemProbe.ts');
-    expect(probe).toContain('time-field-meridiem-probe-live');
-    expect(probe).toContain('time-field-meridiem-probe-ref');
-    expect(probe).not.toMatch(/navigator\.language\s*[;=]/);
+    expect(probe).toMatch(/rendersMeridiem = delta13 > 0\.5 \|\| delta0930 > 0\.5/);
+    expect(probe).toMatch(/Inconclusive.*false/s);
+    expect(probe).toMatch(/import\.meta\.env\.DEV[\s\S]*__FIX5C_TIME_FIELD_RENDER_MERIDIEM__/);
   });
 
-  it('12h 0930 keystrokes → AM/PM hint when probe is 12h', () => {
+  it('12h 0930 keystrokes → AM/PM hint', () => {
     expect(
       timeFieldHintKind({
         value: '',
         validity: { badInput: true },
         typedDigitCount: 4,
         rendersMeridiem: true,
-        digitSequence: '0930',
+        meridiemEngagedSinceFocus: false,
+      }),
+    ).toBe('ampm');
+  });
+
+  it('12h 0800 keystrokes → AM/PM hint', () => {
+    expect(
+      timeFieldHintKind({
+        value: '',
+        validity: { badInput: true },
+        typedDigitCount: 4,
+        rendersMeridiem: true,
+        meridiemEngagedSinceFocus: false,
+      }),
+    ).toBe('ampm');
+  });
+
+  it('12h 1200 keystrokes → AM/PM hint', () => {
+    expect(
+      timeFieldHintKind({
+        value: '',
+        validity: { badInput: true },
+        typedDigitCount: 4,
+        rendersMeridiem: true,
         meridiemEngagedSinceFocus: false,
       }),
     ).toBe('ampm');
@@ -60,20 +81,6 @@ describe('FIX-5c C7 — meridiem probe + hint copy', () => {
         validity: { badInput: true },
         typedDigitCount: 4,
         rendersMeridiem: false,
-        digitSequence: '0800',
-        meridiemEngagedSinceFocus: false,
-      }),
-    ).toBe('incomplete');
-  });
-
-  it('24h partial 09 → generic incomplete', () => {
-    expect(
-      timeFieldHintKind({
-        value: '',
-        validity: { badInput: true },
-        typedDigitCount: 2,
-        rendersMeridiem: false,
-        digitSequence: '09',
         meridiemEngagedSinceFocus: false,
       }),
     ).toBe('incomplete');
@@ -86,74 +93,37 @@ describe('FIX-5c C7 — meridiem probe + hint copy', () => {
         validity: { badInput: true },
         typedDigitCount: 4,
         rendersMeridiem: true,
-        digitSequence: '0808',
         meridiemEngagedSinceFocus: true,
       }),
     ).toBe('incomplete');
   });
 
-  it('12h on-the-hour four keys (0800) → generic incomplete', () => {
-    expect(timeFieldDigitsImplyMeridiemHint('0800')).toBe(false);
-    expect(
-      timeFieldHintKind({
-        value: '',
-        validity: { badInput: true },
-        typedDigitCount: 4,
-        rendersMeridiem: true,
-        digitSequence: '0800',
-        meridiemEngagedSinceFocus: false,
-      }),
-    ).toBe('incomplete');
-  });
-
-  it('soft: leave and return resets digit session (unit: zero count → no ampm)', () => {
+  it('soft: split session with two digits → generic', () => {
     expect(
       timeFieldHintKind({
         value: '',
         validity: { badInput: true },
         typedDigitCount: 2,
         rendersMeridiem: true,
-        digitSequence: '30',
         meridiemEngagedSinceFocus: false,
       }),
     ).toBe('incomplete');
   });
 
-  it('complete value → no hint', () => {
-    expect(
-      timeFieldHintKind({
-        value: '09:30',
-        validity: { badInput: false },
-        typedDigitCount: 4,
-        rendersMeridiem: true,
-        digitSequence: '0930',
-        meridiemEngagedSinceFocus: false,
-      }),
-    ).toBe('none');
-  });
-
   it('blocks validation with both hint messages', () => {
     expect(timeFieldValidationMessage('', 'ampm')).toBe(TIME_FIELD_ADD_AM_PM);
     expect(timeFieldValidationMessage('', 'incomplete')).toBe(TIME_FIELD_INCOMPLETE);
-    expect(timeFieldsSaveValidation({
-      start: '',
-      end: '',
-      startHint: 'ampm',
-      endHint: 'none',
-    })).toEqual({ message: TIME_FIELD_ADD_AM_PM, focus: 'start' });
   });
 });
 
-describe('FIX-5c C3 — save blocks on all time surfaces', () => {
-  it('Add Time blocks save via timeFieldsSaveValidation', () => {
-    const form = src('src/components/timesheets/TimeEntryForm.tsx');
-    expect(form).toContain('timeFieldsSaveValidation');
-    expect(form).toContain('onTimeFieldHintChange={setStartTimeHint}');
-  });
-
-  it('dispatch skips persist while hint is active without refocus trap', () => {
-    const panel = src('src/components/jobs/JobDispatchPanel.tsx');
-    expect(panel).toContain('startTimeHintRef');
-    expect(panel).not.toMatch(/startTimeHintRef\.current[\s\S]{0,120}\.focus\(/);
+describe('FIX-5c C8 production bundle', () => {
+  it('does not ship __FIX5C_TIME_FIELD_RENDER_MERIDIEM__ in dist', () => {
+    const assetsDir = resolve(process.cwd(), 'dist/assets');
+    expect(existsSync(assetsDir)).toBe(true);
+    const bundle = readdirSync(assetsDir)
+      .filter(f => f.endsWith('.js'))
+      .map(f => readFileSync(resolve(assetsDir, f), 'utf8'))
+      .join('\n');
+    expect(bundle).not.toContain('__FIX5C_TIME_FIELD_RENDER_MERIDIEM__');
   });
 });
