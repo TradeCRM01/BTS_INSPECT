@@ -12,7 +12,8 @@ import {
 } from '../lib/devFieldAuditAuth';
 import {
   AUDIT_DOC_CLIENT_ID,
-  AUDIT_DOC_JOB_ID,
+  AUDIT_FINISHED_JOB_ID,
+  AUDIT_OPEN_JOB_ID,
   AUDIT_QUOTE_ID,
   getAuditClients,
   getAuditTeamMembers,
@@ -199,7 +200,7 @@ function fieldAuditOpenJobQuote(): QuoteListItem | null {
     company_id: DEV_AUDIT_COMPANY.id,
     quote_number: 42,
     client_id: AUDIT_DOC_CLIENT_ID,
-    job_id: AUDIT_DOC_JOB_ID,
+    job_id: AUDIT_OPEN_JOB_ID,
     status: 'accepted',
     description: 'Main panel upgrade (converted)',
     scope_of_works: 'Complete the agreed site works.',
@@ -222,6 +223,40 @@ function fieldAuditOpenJobQuote(): QuoteListItem | null {
     job_title: 'Main panel upgrade',
     job_address: '12 Workshop Rd, Perth WA 6000',
     job_status: 'scheduled',
+    invoice_id: null,
+  };
+}
+
+function fieldAuditCreateInvoiceQuote(): QuoteListItem | null {
+  if (!isDevFieldAuditAuth()) return null;
+  return {
+    id: 'audit-quote-create-invoice',
+    company_id: DEV_AUDIT_COMPANY.id,
+    quote_number: 44,
+    client_id: AUDIT_DOC_CLIENT_ID,
+    job_id: AUDIT_FINISHED_JOB_ID,
+    status: 'accepted',
+    description: 'Site wrap-up (job done)',
+    scope_of_works: 'Complete the agreed site works.',
+    line_items: [{ description: 'Final labour', quantity: 6, unit_price: 110 }],
+    subtotal: 660,
+    tax_rate: 10,
+    tax_amount: 66,
+    total: 726,
+    validity_date: '2026-10-20',
+    notes: null,
+    inclusions: [] as string[],
+    exclusions: [] as string[],
+    scheduled_date: '2026-09-10',
+    assigned_team: [DEV_AUDIT_PROFILE.id],
+    created_by: DEV_AUDIT_PROFILE.id,
+    created_at: '2026-09-05T00:00:00.000Z',
+    updated_at: '2026-09-12T00:00:00.000Z',
+    client_name: 'Northside Electrical',
+    client_email: 'accounts@northside.example',
+    job_title: 'Site wrap-up',
+    job_address: '12 Workshop Rd, Perth WA 6000',
+    job_status: 'completed',
     invoice_id: null,
   };
 }
@@ -401,7 +436,8 @@ export function QuotesPage() {
         const shareQuote = fieldAuditShareQuote();
         const gstQuote = fieldAuditGstQuote();
         const openJobQuote = fieldAuditOpenJobQuote();
-        return [convertQuote, shareQuote, gstQuote, openJobQuote, ...fieldAuditChaseQuotes()]
+        const createInvoiceQuote = fieldAuditCreateInvoiceQuote();
+        return [convertQuote, shareQuote, gstQuote, openJobQuote, createInvoiceQuote, ...fieldAuditChaseQuotes()]
           .filter((row): row is QuoteListItem => !!row);
       }
       const { data, error } = await supabase
@@ -1521,6 +1557,27 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                 className="btn-primary"
               >
                 {saving ? 'Saving...' : 'Mark accepted'}
+              </button>
+            )}
+            {next.key === 'open_job' && form.job_id && (
+              <button
+                type="button"
+                className="btn-primary"
+                title={next.detail}
+                onClick={() => navigate(`/jobs/${form.job_id}`)}
+              >
+                Open job
+              </button>
+            )}
+            {next.key === 'invoice' && (
+              <button
+                type="button"
+                className="btn-primary"
+                title={next.detail}
+                onClick={() => { void handleInvoice(); }}
+                disabled={saving || invoicing}
+              >
+                {invoicing ? 'Creating…' : 'Create invoice'}
               </button>
             )}
             <details ref={moreRef} className="hub-quote-more">

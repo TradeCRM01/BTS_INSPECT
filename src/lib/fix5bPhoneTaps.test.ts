@@ -28,6 +28,8 @@ describe('FIX-5b phone taps — guards', () => {
     expect(panel).toContain('job-bill-lines-table');
     expect(css).toContain('#job-bill .job-bill-lines-table th:nth-child(8)');
     expect(css).toContain('#job-bill .job-bill-lines-table th:nth-child(9)');
+    expect(css).toContain('table-layout: fixed');
+    expect(css).toContain('overflow-x: hidden');
   });
 
   it('P1-6: converted quote with open job shows Open job on list and editor', () => {
@@ -45,6 +47,8 @@ describe('FIX-5b phone taps — guards', () => {
     expect(page).toContain('job_status:');
     expect(page).toContain("next.key === 'open_job' && quote.job_id");
     expect(page).toContain('navigate(`/jobs/${quote.job_id}`)');
+    expect(page).toContain("next.key === 'open_job' && form.job_id");
+    expect(page).toContain('btn-primary');
   });
 
   it('P1-7: untimed booked jobs show Add a time and open the schedule sheet', () => {
@@ -55,6 +59,11 @@ describe('FIX-5b phone taps — guards', () => {
     expect(schedule).toContain('openBoardJob');
     expect(schedule).toContain('if (!job.start_time)');
     expect(schedule).toContain('openScheduleSheet(job)');
+    const dispatchTest = src('src/lib/dispatch.test.ts');
+    expect(dispatchTest).toContain('placePickedOnCell');
+    expect(dispatchTest).toContain('rescheduleJobPatch');
+    expect(dispatchTest).toContain('start_time: null');
+    expect(dispatchTest).toContain("scheduled_date: '2026-08-25'");
   });
 
   it('P2: dispatch blur reverts blank time without saving', () => {

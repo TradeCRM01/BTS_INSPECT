@@ -5,6 +5,7 @@ import { entryMinutes } from './timesheetJob';
 import {
   AUDIT_TIMESHEET_ENTRY_ID,
   hideAuditTimesheetEntry,
+  isAuditTimesheetEntryHidden,
   recomputeAuditTimesheetTotalMinutes,
 } from './timesheetsList';
 
@@ -50,6 +51,9 @@ export function timesheetEntryDeleteUiState(
   entry: { id: string; end_time: string | null },
   gate: TimesheetEntryDeleteGate,
 ): { disabled: boolean; lockMessage: string | null } {
+  if (isDevFieldAuditAuth() && isAuditTimesheetEntryHidden(entry.id)) {
+    return { disabled: true, lockMessage: TIMESHEET_ENTRY_DELETE_ALREADY };
+  }
   if (!entry.end_time) {
     return { disabled: true, lockMessage: TIMESHEET_ENTRY_DELETE_RUNNING };
   }
@@ -137,6 +141,9 @@ export async function deleteUnbilledTimesheetEntry(
     throw new Error(TIMESHEET_ENTRY_DELETE_RUNNING);
   }
   if (isDevFieldAuditAuth()) {
+    if (isAuditTimesheetEntryHidden(entry.id)) {
+      throw new Error(TIMESHEET_ENTRY_DELETE_ALREADY);
+    }
     hideAuditTimesheetEntry(entry.id);
     recomputeAuditTimesheetTotalMinutes(entry.timesheet_id);
     return { deleted: true };

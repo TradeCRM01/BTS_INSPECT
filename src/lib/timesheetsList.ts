@@ -317,6 +317,7 @@ const auditTimesheetTotals = new Map<string, number>();
 export function recomputeAuditTimesheetTotalMinutes(timesheetId: string): number {
   let total = 0;
   for (const row of auditTimesheetEntryRows()) {
+    if (hiddenAuditTimesheetEntryIds.has(row.id)) continue;
     if (row.timesheet_id === timesheetId && row.end_time) {
       total += entryMinutes(row.start_time, row.end_time);
     }
@@ -380,11 +381,17 @@ function auditTimesheetEntryRows(now = new Date()): TimesheetEntry[] {
     notes: null,
     created_at: `${date}T10:00:00.000Z`,
   }];
-  return [...rows, ...addedAuditTimesheetEntries].filter(row => !hiddenAuditTimesheetEntryIds.has(row.id));
+  const merged = [...rows, ...addedAuditTimesheetEntries];
+  if (isDevFieldAuditAuth()) return merged;
+  return merged.filter(row => !hiddenAuditTimesheetEntryIds.has(row.id));
 }
 
 export function hideAuditTimesheetEntry(entryId: string): void {
   hiddenAuditTimesheetEntryIds.add(entryId);
+}
+
+export function isAuditTimesheetEntryHidden(entryId: string): boolean {
+  return hiddenAuditTimesheetEntryIds.has(entryId);
 }
 
 export function resetAuditTimesheetEntryHides(): void {

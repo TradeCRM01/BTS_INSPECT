@@ -5339,7 +5339,13 @@
 
   @media (max-width: 639px) {
     #job-bill .job-bill-lines-wrap {
-      overflow-x: visible;
+      overflow-x: hidden;
+      max-width: 100%;
+    }
+
+    #job-bill .job-bill-lines-table {
+      width: 100%;
+      table-layout: fixed;
     }
 
     #job-bill .job-bill-lines-table th:nth-child(1),
@@ -5348,10 +5354,14 @@
     #job-bill .job-bill-lines-table td:nth-child(2),
     #job-bill .job-bill-lines-table th:nth-child(3),
     #job-bill .job-bill-lines-table td:nth-child(3),
+    #job-bill .job-bill-lines-table th:nth-child(5),
+    #job-bill .job-bill-lines-table td:nth-child(5),
     #job-bill .job-bill-lines-table th:nth-child(6),
     #job-bill .job-bill-lines-table td:nth-child(6),
     #job-bill .job-bill-lines-table th:nth-child(7),
-    #job-bill .job-bill-lines-table td:nth-child(7) {
+    #job-bill .job-bill-lines-table td:nth-child(7),
+    #job-bill .job-bill-lines-table th:nth-child(10),
+    #job-bill .job-bill-lines-table td:nth-child(10) {
       display: none;
     }
 
@@ -5378,8 +5388,12 @@
 
   @media (max-width: 639px) {
     #job-bill .job-bill-line-desc {
-      min-width: 9.75rem;
-      max-width: 10.75rem;
+      min-width: 0;
+      max-width: none;
+    }
+
+    #job-bill .job-bill-line-desc-text {
+      overflow-wrap: anywhere;
     }
   }
 

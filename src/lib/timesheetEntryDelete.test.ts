@@ -15,6 +15,8 @@ import {
 } from './timesheetEntryDelete';
 import {
   AUDIT_TIMESHEET_ENTRY_OTHER_ID,
+  AUDIT_TIMESHEET_ENTRY_UNBILLED_ID,
+  AUDIT_TIMESHEET_ID,
   AUDIT_TIMESHEET_OTHER_ID,
   getAuditTimesheetTotalMinutes,
   hideAuditTimesheetEntry,
@@ -182,6 +184,21 @@ describe('timesheet entry delete — FIX-5a C4', () => {
         end_time: '2026-10-06T09:00:00.000Z',
       }),
     ).rejects.toThrow(TIMESHEET_ENTRY_DELETE_ALREADY);
+  });
+
+  it('audit delete throws Already deleted on a second confirm', async () => {
+    vi.mocked(devFieldAuditAuth.isDevFieldAuditAuth).mockReturnValue(true);
+    resetAuditTimesheetEntryHides();
+    const entry = {
+      id: AUDIT_TIMESHEET_ENTRY_UNBILLED_ID,
+      timesheet_id: AUDIT_TIMESHEET_ID,
+      start_time: '2026-10-06T11:00:00.000Z',
+      end_time: '2026-10-06T12:00:00.000Z',
+    };
+    await deleteUnbilledTimesheetEntry({} as never, entry);
+    await expect(deleteUnbilledTimesheetEntry({} as never, entry)).rejects.toThrow(
+      TIMESHEET_ENTRY_DELETE_ALREADY,
+    );
   });
 
   it('audit delete keeps another worker timesheet total from remaining entries', () => {
