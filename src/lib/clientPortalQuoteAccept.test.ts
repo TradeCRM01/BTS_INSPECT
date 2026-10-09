@@ -11,7 +11,7 @@ import {
   quoteSmsBody,
   quoteStatusAfterClientAccept,
 } from './sendQuote';
-import { portalDocumentRef } from './quoteJobFields';
+import { jobFieldsFromQuote, portalDocumentRef } from './quoteJobFields';
 import {
   acceptClientPortalAuditQuote,
   canAcceptPortalQuote,
@@ -20,10 +20,6 @@ import {
   PORTAL_QUOTE_ACCEPT_ACTION,
   portalQuoteAcceptBody,
 } from '../pages/ClientPortalPublicPage';
-import {
-  convertQuoteHasDateAndCrew,
-  jobFieldsFromQuote,
-} from './quoteJobFields';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
