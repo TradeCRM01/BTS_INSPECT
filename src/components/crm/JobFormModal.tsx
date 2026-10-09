@@ -11,7 +11,7 @@ import {
 import { X, Trash2, GitBranch } from 'lucide-react';
 import { OverlayPortal } from '../ui/OverlayPortal';
 import { TimeFieldInput } from '../ui/TimeFieldInput';
-import { focusTimeFieldInput, timeFieldsSaveValidation } from '../../lib/timeFieldInput';
+import { applyTimeFieldsSaveBlock, focusTimeFieldInput, timeFieldsSaveValidation } from '../../lib/timeFieldInput';
 import { ClientForm } from '../../pages/ClientsPage';
 import { jobFormSelectNewClient, jobSiteAddressFromClient, visibleClientContacts } from '../../lib/clientRecords';
 import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
@@ -224,10 +224,11 @@ export function JobFormModal({
         endNeedsAmPm,
       });
       if (block) {
-        setErr(block.message);
-        focusTimeFieldInput(
-          block.focus === 'start' ? startFieldRef.current : endFieldRef.current,
-        );
+        applyTimeFieldsSaveBlock(block, {
+          setFormError: m => setErr(m ?? ''),
+          focusStart: () => focusTimeFieldInput(startFieldRef.current),
+          focusEnd: () => focusTimeFieldInput(endFieldRef.current),
+        });
         return;
       }
     }

@@ -86,3 +86,21 @@ export function focusTimeFieldInput(container: ParentNode | null | undefined): v
   const input = root.querySelector<HTMLInputElement>('input[type="time"]');
   input?.focus();
 }
+
+/** AM/PM is shown under the field; form-level banners only carry non-meridiem errors. */
+export function timeFieldSaveFormError(message: string): string | null {
+  return message === TIME_FIELD_ADD_AM_PM ? null : message;
+}
+
+export function applyTimeFieldsSaveBlock(
+  block: { message: string; focus: TimeFieldSaveFocus },
+  handlers: {
+    setFormError: (message: string | null) => void;
+    focusStart: () => void;
+    focusEnd: () => void;
+  },
+): void {
+  handlers.setFormError(timeFieldSaveFormError(block.message));
+  if (block.focus === 'start') handlers.focusStart();
+  else handlers.focusEnd();
+}

@@ -7,7 +7,11 @@ import { appendAuditTimesheetEntry, AUDIT_TIMESHEET_ID } from '../../lib/timeshe
 import { OverlayPortal } from '../ui/OverlayPortal';
 import { ManagedSelect } from '../ui/ManagedSelect';
 import { TimeFieldInput } from '../ui/TimeFieldInput';
-import { focusTimeFieldInput, timeFieldsSaveValidation } from '../../lib/timeFieldInput';
+import {
+  applyTimeFieldsSaveBlock,
+  focusTimeFieldInput,
+  timeFieldsSaveValidation,
+} from '../../lib/timeFieldInput';
 import { LIST_KEYS } from '../../lib/useManagedList';
 import {
   applyTimeEntryDurationChip,
@@ -78,10 +82,11 @@ export function TimeEntryForm({
       requireBothTimes: true,
     });
     if (block) {
-      setErr(block.message);
-      focusTimeFieldInput(
-        block.focus === 'start' ? startFieldRef.current : endFieldRef.current,
-      );
+      applyTimeFieldsSaveBlock(block, {
+        setFormError: msg => setErr(msg),
+        focusStart: () => focusTimeFieldInput(startFieldRef.current),
+        focusEnd: () => focusTimeFieldInput(endFieldRef.current),
+      });
       return;
     }
     if (!profile?.company_id) return;

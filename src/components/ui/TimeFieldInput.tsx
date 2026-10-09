@@ -9,7 +9,7 @@ import {
 function assignRef<T>(ref: Ref<T> | undefined, value: T | null) {
   if (!ref) return;
   if (typeof ref === 'function') ref(value);
-  else ref.current = value;
+  else (ref as { current: T | null }).current = value;
 }
 
 export function TimeFieldInput({

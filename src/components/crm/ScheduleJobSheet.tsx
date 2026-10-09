@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AppDialog, EditorStickyFooter, TimeFieldInput } from '../ui';
-import { focusTimeFieldInput, timeFieldsSaveValidation } from '../../lib/timeFieldInput';
+import { applyTimeFieldsSaveBlock, focusTimeFieldInput, timeFieldsSaveValidation } from '../../lib/timeFieldInput';
 import type { JobWithClient } from '../../types/crm';
 import { scheduleDayKey, type ScheduleSheetInput } from '../../lib/scheduleBoard';
 import { jobsListSite, jobsListSuburbFromSite } from '../../lib/jobsListRow';
@@ -107,10 +107,11 @@ export function ScheduleJobSheet({
               endNeedsAmPm,
             });
             if (block) {
-              setSaveErr(block.message);
-              focusTimeFieldInput(
-                block.focus === 'start' ? startFieldRef.current : endFieldRef.current,
-              );
+              applyTimeFieldsSaveBlock(block, {
+                setFormError: m => setSaveErr(m),
+                focusStart: () => focusTimeFieldInput(startFieldRef.current),
+                focusEnd: () => focusTimeFieldInput(endFieldRef.current),
+              });
               return;
             }
             setSaveErr(null);
