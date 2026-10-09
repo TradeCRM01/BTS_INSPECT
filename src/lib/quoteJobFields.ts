@@ -45,6 +45,24 @@ export function normalizeJobTime(value: string | null | undefined): string | nul
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
+export type QuoteConvertTimes = {
+  start_time: string;
+  end_time: string;
+};
+
+/**
+ * Convert tap can run in the same event turn as TimeFieldInput onChange (blur then click).
+ * `live` is updated synchronously in onChange; `form` may still hold the previous render.
+ */
+export function mergeQuoteConvertTimes(
+  form: QuoteConvertTimes,
+  live: Partial<QuoteConvertTimes> | null | undefined,
+): QuoteConvertTimes {
+  const start_time = normalizeJobTime(live?.start_time) ?? normalizeJobTime(form.start_time) ?? '';
+  const end_time = normalizeJobTime(live?.end_time) ?? normalizeJobTime(form.end_time) ?? '';
+  return { start_time, end_time };
+}
+
 export function jobTimesFromQuote(
   start?: string | null,
   end?: string | null,

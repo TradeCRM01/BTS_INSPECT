@@ -38,5 +38,7 @@ describe('FIX-5b C6 — phone job bill edit reachability', () => {
     expect(panel).toContain('Delete this line?');
     expect(panel).toContain('confirmDisabled={deleteCost.isPending}');
     expect(panel).toContain("showToast(e.message, 'error')");
+    expect(src('src/components/ui/Modal.tsx')).toContain('overlay-confirm-layer');
+    expect(src('src/index.css')).toContain('z-index: 200');
   });
 });

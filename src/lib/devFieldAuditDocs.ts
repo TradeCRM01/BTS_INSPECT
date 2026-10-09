@@ -110,6 +110,34 @@ function auditJobBillCostBase(): Omit<JobCost, 'id' | 'cost_type' | 'description
   };
 }
 
+const AUDIT_BILL_HIDDEN_KEY = 'grafter-audit-hidden-bill-lines';
+
+function auditBillHiddenIds(): Set<string> {
+  if (!isDevFieldAuditAuth() || typeof sessionStorage === 'undefined') return new Set();
+  try {
+    const raw = sessionStorage.getItem(AUDIT_BILL_HIDDEN_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as string[];
+    return new Set(parsed.filter(id => typeof id === 'string'));
+  } catch {
+    return new Set();
+  }
+}
+
+/** DEV audit — hide a job bill line after delete confirm (Playwright proof). */
+export function hideAuditJobBillLine(id: string): void {
+  if (!isDevFieldAuditAuth() || typeof sessionStorage === 'undefined') return;
+  const hidden = auditBillHiddenIds();
+  hidden.add(id);
+  sessionStorage.setItem(AUDIT_BILL_HIDDEN_KEY, JSON.stringify([...hidden]));
+}
+
+function filterAuditJobBillCosts(lines: JobCost[]): JobCost[] {
+  const hidden = auditBillHiddenIds();
+  if (hidden.size === 0) return lines;
+  return lines.filter(line => !hidden.has(line.id));
+}
+
 /** Playwright: /jobs/audit-doc-job?auditAuth=1&look=p331-nocost|p331-cost-filled|p331-bill */
 export function getAuditJobBillCosts(): JobCost[] | null {
   const look = auditLookTag();
@@ -126,7 +154,7 @@ export function getAuditJobBillCosts(): JobCost[] | null {
   }
   if (look === 'fix2-zero-header') {
     const base = auditJobBillCostBase();
-    return [{
+    return filterAuditJobBillCosts([{
       ...base,
       id: 'audit-fix2-zero-labour',
       cost_type: 'labor',
@@ -139,7 +167,7 @@ export function getAuditJobBillCosts(): JobCost[] | null {
       total_price: 0,
       charge_type: 'Labour',
       cost_model_id: null,
-    }];
+    }]);
   }
   if (look !== 'p331-nocost' && look !== 'p331-cost-filled' && look !== 'p331-bill') return null;
   const base = auditJobBillCostBase();
@@ -158,12 +186,12 @@ export function getAuditJobBillCosts(): JobCost[] | null {
     cost_model_id: null,
   };
   if (look === 'p331-cost-filled') {
-    return [{
+    return filterAuditJobBillCosts([{
       ...labour,
       unit_cost: 52,
       total_cost: 104,
       cost_model_id: AUDIT_P331_COST_MODEL_ID,
-    }];
+    }]);
   }
   if (look === 'p331-bill') {
     const longDesc =
@@ -196,9 +224,9 @@ export function getAuditJobBillCosts(): JobCost[] | null {
       charge_type: 'Materials',
       cost_model_id: null,
     };
-    return [materialA, materialB, labour];
+    return filterAuditJobBillCosts([materialA, materialB, labour]);
   }
-  return [labour];
+  return filterAuditJobBillCosts([labour]);
 }
 
 /** FIX-2 LOOK: timesheet hours only — not pre-loaded on job bill. */

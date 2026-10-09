@@ -2201,6 +2201,16 @@
     @apply fixed inset-0 z-50 flex items-stretch sm:items-center justify-center bg-black/50 overflow-y-auto p-0 sm:p-3;
   }
 
+  /* Confirm dialogs (delete line, time entry, etc.) above app chrome and nested sheets */
+  .overlay-backdrop.overlay-confirm-layer {
+    z-index: 200;
+  }
+
+  .overlay-backdrop.overlay-confirm-layer .overlay-panel-sm {
+    position: relative;
+    z-index: 1;
+  }
+
   /* Wide panels: fill width, grow with content, scroll only when needed */
   .overlay-panel,
   .overlay-panel-lg,

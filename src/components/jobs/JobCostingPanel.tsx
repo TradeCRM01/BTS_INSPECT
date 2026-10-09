@@ -3,7 +3,12 @@ import { ConfirmDialog, useToast } from '../ui';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { getAuditEmptyList, getAuditJobBillCosts } from '../../lib/devFieldAuditDocs';
+import {
+  getAuditEmptyList,
+  getAuditJobBillCosts,
+  hideAuditJobBillLine,
+} from '../../lib/devFieldAuditDocs';
+import { isDevFieldAuditAuth } from '../../lib/devFieldAuditAuth';
 import {
   JOB_BILL_INCOMPLETE_MARGIN_LABEL,
   JOB_BILL_NO_COST_RATE_LABEL,
@@ -418,17 +423,21 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
 
   const deleteCost = useMutation({
     mutationFn: async (id: string) => {
+      if (isDevFieldAuditAuth() && getAuditJobBillCosts()) {
+        hideAuditJobBillLine(id);
+        return;
+      }
       const { error } = await supabase.from('job_costs').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       setDeleteLineId(null);
+      showToast('Line removed');
       queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
       queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
       invalidateJobBillInvoicePreview(queryClient, jobId);
     },
     onError: (e: Error) => {
-      setDeleteLineId(null);
       showToast(e.message, 'error');
     },
   });

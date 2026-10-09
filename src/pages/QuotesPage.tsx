@@ -40,6 +40,7 @@ import {
   focusQuoteConvertField,
   assignedTeamFromQuote,
   focusQuoteConvertDate,
+  mergeQuoteConvertTimes,
   quoteConvertMissing,
   quoteConvertTap,
   releaseQuoteConvertLock,
@@ -1123,6 +1124,11 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
   }));
 
   const convertSectionRef = useRef<HTMLDivElement | null>(null);
+  const convertTimesLive = useRef({ start_time: form.start_time, end_time: form.end_time });
+  useEffect(() => {
+    convertTimesLive.current.start_time = form.start_time;
+    convertTimesLive.current.end_time = form.end_time;
+  }, [form.start_time, form.end_time]);
   const convertFocusDoneRef = useRef(false);
   const convertingLock = useRef(false);
   const stopConvertFocusRef = useRef<(() => void) | null>(null);
@@ -1403,11 +1409,15 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
       releaseQuoteConvertLock(convertingLock);
       return;
     }
+    const { start_time, end_time } = mergeQuoteConvertTimes(
+      { start_time: form.start_time, end_time: form.end_time },
+      convertTimesLive.current,
+    );
     const convertInput = {
       scheduled_date: form.scheduled_date,
       assigned_team: form.assigned_team,
-      start_time: form.start_time,
-      end_time: form.end_time,
+      start_time,
+      end_time,
     };
     const tap = quoteConvertTap({
       id: savedId ?? quote?.id,
@@ -1447,8 +1457,8 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
         total: grandTotal,
         scheduled_date: form.scheduled_date || null,
         assigned_team: form.assigned_team,
-        start_time: form.start_time,
-        end_time: form.end_time,
+        start_time,
+        end_time,
       }, profile.id);
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
@@ -1930,7 +1940,10 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                   <TimeFieldInput
                     id="quote-convert-start"
                     value={form.start_time}
-                    onChange={start_time => setForm(f => ({ ...f, start_time }))}
+                    onChange={start_time => {
+                      convertTimesLive.current.start_time = start_time;
+                      setForm(f => ({ ...f, start_time }));
+                    }}
                     onIncompleteAmPmChange={setConvertStartNeedsAmPm}
                     className="form-input"
                   />
@@ -1939,7 +1952,10 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                   <TimeFieldInput
                     id="quote-convert-end"
                     value={form.end_time}
-                    onChange={end_time => setForm(f => ({ ...f, end_time }))}
+                    onChange={end_time => {
+                      convertTimesLive.current.end_time = end_time;
+                      setForm(f => ({ ...f, end_time }));
+                    }}
                     onIncompleteAmPmChange={setConvertEndNeedsAmPm}
                     className="form-input"
                   />
