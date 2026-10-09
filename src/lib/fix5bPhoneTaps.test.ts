@@ -75,6 +75,13 @@ describe('FIX-5b phone taps — guards', () => {
     expect(panel).toContain('setStartDraft(server)');
   });
 
+  it('P2: job bill header totals use audit bill costs when seeded', () => {
+    const page = src('src/pages/JobDetailPage.tsx');
+    expect(page).toContain("queryKey: ['job-cost-totals', id]");
+    expect(page).toContain('getAuditJobBillCosts()');
+    expect(page).toContain('lines: auditBill.length');
+  });
+
   it('P2: delete copy and confirm lock', () => {
     expect(TIMESHEET_ENTRY_DELETE_BILLING_CHECK).toBe("Couldn't check billing, try again");
     const ui = timesheetEntryDeleteUiState(
@@ -84,6 +91,8 @@ describe('FIX-5b phone taps — guards', () => {
     expect(ui.lockMessage).toBe(TIMESHEET_ENTRY_DELETE_BILLING_CHECK);
     const ctl = src('src/components/timesheets/TimesheetEntryDeleteControl.tsx');
     expect(ctl).toContain('confirmDisabled={deleteMutation.isPending}');
+    expect(ctl).toContain('TIMESHEET_ENTRY_DELETE_ALREADY');
+    expect(ctl).toContain('setConfirmOpen(false)');
   });
 
   it('P2: convert validation shows once in the convert section', () => {
