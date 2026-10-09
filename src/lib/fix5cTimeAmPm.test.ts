@@ -6,13 +6,19 @@ import {
   resetTimeFieldRendersMeridiemProbeCache,
 } from './timeFieldMeridiemProbe';
 import {
-  applySequentialTimeFieldKeyDigits,
   timeFieldHintKind,
   timeFieldHintRendersLine,
   TIME_FIELD_ADD_AM_PM,
   TIME_FIELD_INCOMPLETE,
   timeFieldValidationMessage,
 } from './timeFieldInput';
+import {
+  applyTimeFieldSegmentBackspace,
+  applyTimeFieldSegmentDigitBatch,
+  createTimeFieldSegmentState,
+  shiftTimeFieldSegmentActive,
+  timeFieldSegmentProgressFromState,
+} from './timeFieldSegmentFocus';
 
 const bothSegments = { hourFilled: true, minuteFilled: true };
 const hourOnly = { hourFilled: true, minuteFilled: false };
@@ -43,17 +49,17 @@ describe('FIX-5c C12 — segment persistence (blur, refocus, save refocus)', () 
   });
 
   it('split session end state (09 then 30) → AM/PM', () => {
-    let h = 0;
-    let m = 0;
-    ({ hourDigits: h, minuteDigits: m } = applySequentialTimeFieldKeyDigits(h, m, 2));
+    let s = createTimeFieldSegmentState('hour');
+    s = applyTimeFieldSegmentDigitBatch(s, true, 2);
     expect(timeFieldHintKind({
       ...base,
-      segments: { hourFilled: h >= 2, minuteFilled: m >= 2 },
+      segments: timeFieldSegmentProgressFromState(s),
     })).toBe('incomplete');
-    ({ hourDigits: h, minuteDigits: m } = applySequentialTimeFieldKeyDigits(h, m, 2));
+    s = { ...s, active: 'minute' };
+    s = applyTimeFieldSegmentDigitBatch(s, true, 2);
     expect(timeFieldHintKind({
       ...base,
-      segments: { hourFilled: h >= 2, minuteFilled: m >= 2 },
+      segments: timeFieldSegmentProgressFromState(s),
     })).toBe('ampm');
   });
 
@@ -65,7 +71,49 @@ describe('FIX-5c C12 — segment persistence (blur, refocus, save refocus)', () 
 
   it('TimeFieldInput applies segment digits on keydown (Chromium time fields)', () => {
     const field = src('src/components/ui/TimeFieldInput.tsx');
-    expect(field).toMatch(/onKeyDown[\s\S]*applyDigits/);
+    expect(field).toMatch(/onKeyDown[\s\S]*applyTimeFieldSegmentDigit/);
+    expect(field).toContain('timeFieldSegmentFromClientX');
+  });
+});
+
+describe('FIX-5c C14 — segment focus (not order-only counting)', () => {
+  const base = {
+    value: '',
+    validity: { badInput: true },
+    rendersMeridiem: true,
+    meridiemEngagedSinceFocus: false,
+  };
+
+  const hint = (segments: { hourFilled: boolean; minuteFilled: boolean }) =>
+    timeFieldHintKind({ ...base, segments });
+
+  it('(1) 09, return to hour, 10 → generic (minute missing)', () => {
+    let s = applyTimeFieldSegmentDigitBatch(createTimeFieldSegmentState('hour'), true, 2);
+    s = { ...s, active: 'hour' };
+    s = applyTimeFieldSegmentDigitBatch(s, true, 2);
+    expect(hint(timeFieldSegmentProgressFromState(s))).toBe('incomplete');
+  });
+
+  it('(2) 0930 then backspace in hour → generic', () => {
+    let s = applyTimeFieldSegmentDigitBatch(createTimeFieldSegmentState('hour'), true, 4);
+    s = { ...s, active: 'hour' };
+    s = applyTimeFieldSegmentBackspace(s);
+    expect(hint(timeFieldSegmentProgressFromState(s))).toBe('incomplete');
+  });
+
+  it('(3) minutes first 0800 → generic (hour missing)', () => {
+    let s = createTimeFieldSegmentState('minute');
+    s = applyTimeFieldSegmentDigitBatch(s, true, 4);
+    expect(hint(timeFieldSegmentProgressFromState(s))).toBe('incomplete');
+  });
+
+  it('headline 0930 in order → AM/PM', () => {
+    const s = applyTimeFieldSegmentDigitBatch(createTimeFieldSegmentState('hour'), true, 4);
+    expect(hint(timeFieldSegmentProgressFromState(s))).toBe('ampm');
+  });
+
+  it('arrow left from minute lands on hour segment', () => {
+    expect(shiftTimeFieldSegmentActive('minute', 'left', true)).toBe('hour');
   });
 });
 

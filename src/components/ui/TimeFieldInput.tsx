@@ -1,15 +1,26 @@
 import { useCallback, useEffect, useRef, useState, type Ref } from 'react';
 import { timeFieldRendersMeridiem } from '../../lib/timeFieldMeridiemProbe';
 import {
-  applySequentialTimeFieldKeyDigits,
   isValidCompleteTimeValue,
   shouldBlockTimeFieldEnter,
   timeFieldHintKind,
   timeFieldHintMessage,
   timeFieldHintRendersLine,
-  timeFieldSegmentProgressFromCounts,
   type TimeFieldHintKind,
 } from '../../lib/timeFieldInput';
+import {
+  applyTimeFieldSegmentBackspace,
+  applyTimeFieldSegmentDigit,
+  applyTimeFieldSegmentDigitBatch,
+  clearTimeFieldSegmentClickLayoutCache,
+  createTimeFieldSegmentState,
+  measureTimeFieldSegmentClickLayout,
+  shiftTimeFieldSegmentActive,
+  timeFieldSegmentFromClientX,
+  timeFieldSegmentProgressFromState,
+  type TimeFieldSegment,
+  type TimeFieldSegmentState,
+} from '../../lib/timeFieldSegmentFocus';
 
 function assignRef<T>(ref: Ref<T> | undefined, value: T | null) {
   if (!ref) return;
@@ -43,8 +54,7 @@ export function TimeFieldInput({
   className?: string;
 }) {
   const localInputRef = useRef<HTMLInputElement | null>(null);
-  const hourDigitsRef = useRef(0);
-  const minuteDigitsRef = useRef(0);
+  const segmentStateRef = useRef<TimeFieldSegmentState>(createTimeFieldSegmentState());
   const meridiemEngagedRef = useRef(false);
   const [hintKind, setHintKind] = useState<TimeFieldHintKind>('none');
   const [rendersMeridiem, setRendersMeridiem] = useState(false);
@@ -52,11 +62,6 @@ export function TimeFieldInput({
   useEffect(() => {
     setRendersMeridiem(timeFieldRendersMeridiem());
   }, []);
-
-  const segmentProgress = useCallback(
-    () => timeFieldSegmentProgressFromCounts(hourDigitsRef.current, minuteDigitsRef.current),
-    [],
-  );
 
   const publishHint = useCallback(
     (hint: TimeFieldHintKind) => {
@@ -71,31 +76,25 @@ export function TimeFieldInput({
       const hint = timeFieldHintKind({
         value: el.value,
         validity: el.validity,
-        segments: segmentProgress(),
+        segments: timeFieldSegmentProgressFromState(segmentStateRef.current),
         rendersMeridiem,
         meridiemEngagedSinceFocus: meridiemEngagedRef.current,
       });
       publishHint(hint);
       el.setCustomValidity('');
     },
-    [publishHint, rendersMeridiem, segmentProgress],
+    [publishHint, rendersMeridiem],
   );
 
   const resetTypingSession = useCallback(() => {
-    hourDigitsRef.current = 0;
-    minuteDigitsRef.current = 0;
+    segmentStateRef.current = createTimeFieldSegmentState();
     meridiemEngagedRef.current = false;
+    const el = localInputRef.current;
+    if (el) clearTimeFieldSegmentClickLayoutCache(el);
   }, []);
 
-  const applyDigits = useCallback((digitCount: number) => {
-    if (digitCount <= 0) return;
-    const next = applySequentialTimeFieldKeyDigits(
-      hourDigitsRef.current,
-      minuteDigitsRef.current,
-      digitCount,
-    );
-    hourDigitsRef.current = next.hourDigits;
-    minuteDigitsRef.current = next.minuteDigits;
+  const setActiveSegment = useCallback((segment: TimeFieldSegment) => {
+    segmentStateRef.current = { ...segmentStateRef.current, active: segment };
   }, []);
 
   const commitFromElement = useCallback(
@@ -140,6 +139,13 @@ export function TimeFieldInput({
         id={id}
         type="time"
         value={value}
+        onPointerDown={e => {
+          if (e.button !== 0) return;
+          const el = e.currentTarget;
+          clearTimeFieldSegmentClickLayoutCache(el);
+          const layout = measureTimeFieldSegmentClickLayout(el);
+          setActiveSegment(timeFieldSegmentFromClientX(el, e.clientX, rendersMeridiem, layout));
+        }}
         onFocus={() => {
           const el = localInputRef.current;
           if (el) syncHint(el);
@@ -147,19 +153,45 @@ export function TimeFieldInput({
         onInput={e => {
           const ie = e.nativeEvent as InputEvent;
           const pastedDigits = ie.data ? countDigitsInText(ie.data) : 0;
-          // Chromium often emits keydown only for time fields; batch paste still arrives on input.
           if (pastedDigits > 1) {
-            applyDigits(pastedDigits);
+            segmentStateRef.current = applyTimeFieldSegmentDigitBatch(
+              segmentStateRef.current,
+              rendersMeridiem,
+              pastedDigits,
+            );
           }
           commitFromElement(e.currentTarget, { blur: false });
         }}
         onKeyDown={e => {
+          const el = e.currentTarget;
           if (isMeridiemKey(e.key)) {
             meridiemEngagedRef.current = true;
+            setActiveSegment('meridiem');
+          }
+          if (e.key === 'ArrowLeft') {
+            setActiveSegment(shiftTimeFieldSegmentActive(
+              segmentStateRef.current.active,
+              'left',
+              rendersMeridiem,
+            ));
+          }
+          if (e.key === 'ArrowRight') {
+            setActiveSegment(shiftTimeFieldSegmentActive(
+              segmentStateRef.current.active,
+              'right',
+              rendersMeridiem,
+            ));
+          }
+          if (e.key === 'Backspace' || e.key === 'Delete') {
+            segmentStateRef.current = applyTimeFieldSegmentBackspace(segmentStateRef.current);
+            syncHint(el);
           }
           if (/^\d$/.test(e.key)) {
-            applyDigits(1);
-            syncHint(e.currentTarget);
+            segmentStateRef.current = applyTimeFieldSegmentDigit(
+              segmentStateRef.current,
+              rendersMeridiem,
+            );
+            syncHint(el);
           }
           if (!shouldBlockTimeFieldEnter(e.key)) return;
           e.preventDefault();
