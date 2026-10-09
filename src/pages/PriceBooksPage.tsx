@@ -28,6 +28,7 @@ import {
   priceBookItemsChrome,
   priceBookPhoneRow,
   priceBooksLookItems,
+  setPbLookLabourActive,
 } from '../lib/priceBookToolbar';
 
 export function PriceBooksPage() {
@@ -495,6 +496,11 @@ function PriceBookItemForm({ item, priceBookId, onClose, onDelete, onSaved }: { 
         gst_rate: parseFloat(form.gst_rate) || 0,
         is_active: form.is_active,
       };
+      if (import.meta.env.DEV && item?.id === 'look-pb-labour') {
+        setPbLookLabourActive(form.is_active);
+        onSaved();
+        return;
+      }
       if (item) {
         const { error } = await supabase.from('price_book_items').update(payload).eq('id', item.id).eq('company_id', profile!.company_id);
         if (error) throw error;

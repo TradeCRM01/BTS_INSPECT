@@ -8,6 +8,7 @@ import type { PurchaseOrderSendBundle, PurchaseOrderSendCompany } from './sendPu
 import type { ReportSendBundle, ReportSendCompany } from './sendReport';
 import type { JhaStep, JhaTemplateSchema } from '../types/jha';
 import type { PriceBook, PriceBookItem, ServiceContract, ServiceContractWithClient } from '../types/fsm';
+import { readPbLookLabourActive } from './priceBookToolbar';
 import type { ContractVisitReminderBundle, ContractVisitReminderCompany } from './contractVisitReminder';
 
 export const AUDIT_INSPECTION_ID = 'audit-inspection-fill';
@@ -233,6 +234,19 @@ export function getAuditJobBillCosts(): JobCost[] | null {
 /** Same shape as production resolveLabourSell — not planned row unit_cost. */
 export function getAuditFix2LabourSell(): import('./hoursToJobBill').LabourSellResolution {
   const look = auditLookTag();
+  if (
+    import.meta.env.DEV
+    && readPbLookLabourActive() === false
+    && (look?.startsWith('fix2-') || look?.startsWith('fix2b-'))
+  ) {
+    return {
+      unitPrice: 0,
+      priceBookItemId: null,
+      needsRate: true,
+      needsPicker: false,
+      pickerItems: [],
+    };
+  }
   if (look === 'fix2b-d-norate' || look === 'fix2-unquoted-zero' || look === 'fix2-zero-header') {
     return {
       unitPrice: 0,
@@ -309,7 +323,10 @@ export function getAuditFix2PlannedLabourPull(): import('./hoursToJobBill').JobC
       timesheet_entry_id: 'fix2-ts-zero',
     }];
   }
-  const unitPrice = look === 'fix2-unquoted-zero' ? 0 : 95;
+  let unitPrice = look === 'fix2-unquoted-zero' ? 0 : 95;
+  if (import.meta.env.DEV && readPbLookLabourActive() === false && look === 'fix2-quoted-optin') {
+    unitPrice = 0;
+  }
   let hours = 3.5;
   if (look === 'fix2-clockoff-invoice') {
     try {

@@ -3,6 +3,30 @@ import { formatMoney, type PriceBookItem } from '../types/fsm';
 export const PRICE_BOOKS_SUBTITLE = 'Your prices for quick, consistent quotes.';
 export const PRICE_BOOKS_LOOK = 'price-books';
 
+/** DEV look=price-books: persist Site labour active toggle for Playwright proof (no live SQL). */
+export const PB_LOOK_LABOUR_ACTIVE_KEY = 'pb-look-labour-active';
+
+export function setPbLookLabourActive(active: boolean): void {
+  if (!import.meta.env.DEV) return;
+  try {
+    sessionStorage.setItem(PB_LOOK_LABOUR_ACTIVE_KEY, active ? '1' : '0');
+  } catch {
+    // sessionStorage may be unavailable
+  }
+}
+
+export function readPbLookLabourActive(): boolean | null {
+  if (!import.meta.env.DEV) return null;
+  try {
+    const v = sessionStorage.getItem(PB_LOOK_LABOUR_ACTIVE_KEY);
+    if (v === '1') return true;
+    if (v === '0') return false;
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
 /** Toolbar chrome from the book's total count, not the filtered list. */
 export function priceBookItemsChrome(totalItemCount: number): {
   showSearch: boolean;
@@ -17,6 +41,7 @@ export function priceBookItemsChrome(totalItemCount: number): {
 
 export function priceBooksLookItems(bookId: string, companyId: string): PriceBookItem[] {
   const stamp = '2026-10-05T00:00:00.000Z';
+  const labourActive = readPbLookLabourActive();
   return [
     {
       id: 'look-pb-labour',
@@ -29,7 +54,7 @@ export function priceBooksLookItems(bookId: string, companyId: string): PriceBoo
       unit_price: 95,
       cost_price: 55,
       gst_rate: 10,
-      is_active: true,
+      is_active: labourActive ?? true,
       created_at: stamp,
     },
     {
