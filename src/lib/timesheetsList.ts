@@ -307,6 +307,7 @@ export const AUDIT_TIMESHEET_ENTRY_ID = 'audit-timesheet-entry';
 export const AUDIT_TIMESHEET_ENTRY_UNBILLED_ID = 'audit-timesheet-entry-unbilled';
 export const AUDIT_TIMESHEET_OTHER_ID = 'audit-timesheet-other';
 export const AUDIT_TIMESHEET_ENTRY_OTHER_ID = 'audit-timesheet-entry-other';
+export const AUDIT_TIMESHEET_ENTRY_OTHER_REMAIN_ID = 'audit-timesheet-entry-other-remain';
 export const AUDIT_OTHER_EMPLOYEE_ID = 'audit-other-employee';
 
 const hiddenAuditTimesheetEntryIds = new Set<string>();
@@ -367,6 +368,17 @@ function auditTimesheetEntryRows(now = new Date()): TimesheetEntry[] {
     billable: true,
     notes: null,
     created_at: `${date}T13:00:00.000Z`,
+  }, {
+    id: AUDIT_TIMESHEET_ENTRY_OTHER_REMAIN_ID,
+    timesheet_id: AUDIT_TIMESHEET_OTHER_ID,
+    company_id: DEV_AUDIT_COMPANY.id,
+    job_id: AUDIT_DOC_JOB_ID,
+    start_time: `${date}T10:00:00.000Z`,
+    end_time: `${date}T11:00:00.000Z`,
+    work_type: 'Other crew — keep',
+    billable: true,
+    notes: null,
+    created_at: `${date}T10:00:00.000Z`,
   }];
   return [...rows, ...addedAuditTimesheetEntries].filter(row => !hiddenAuditTimesheetEntryIds.has(row.id));
 }
@@ -417,6 +429,17 @@ export function getAuditTimesheets(now = new Date()): Timesheet[] | null {
     updated_at: `${date}T00:00:00.000Z`,
   }];
   return sheets;
+}
+
+/** DEV audit — remaining entries on a sheet (for proofs and tests). */
+export function getAuditTimesheetEntrySummaries(timesheetId: string, now = new Date()) {
+  return auditTimesheetEntryRows(now)
+    .filter(row => row.timesheet_id === timesheetId)
+    .map(row => ({
+      id: row.id,
+      work_type: row.work_type,
+      minutes: row.end_time ? entryMinutes(row.start_time, row.end_time) : 0,
+    }));
 }
 
 export function getAuditTimesheetEntries(now = new Date()): TimesheetEntry[] | null {

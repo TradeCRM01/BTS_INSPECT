@@ -2320,8 +2320,25 @@
   }
 
   @media (max-width: 639px) {
+    .hub-ops-form-sheet {
+      max-height: calc(100dvh - var(--shell-bottom-nav-h, 56px) - 16px);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .hub-ops-form-sheet form.overlay-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+    }
+
     .hub-ops-form-sheet .hub-ops-form-footer {
-      padding-bottom: calc(var(--shell-bottom-nav-h, 56px) + 12px);
+      position: sticky;
+      bottom: 0;
+      z-index: 2;
+      margin-top: auto;
+      background: #FFFDF8;
+      padding-bottom: calc(var(--shell-bottom-nav-h, 56px) + 16px);
     }
   }
 
@@ -10962,7 +10979,7 @@
     justify-content: flex-start;
   }
 
-  .hub-jobs-document #job-hours .job-hours-entry-row {
+  .hub-jobs-document #job-hours .job-hours-entry-row.ops-related-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: start;
@@ -10973,23 +10990,18 @@
 
   .hub-jobs-document #job-hours .job-hours-entry-row .ops-related-main {
     grid-column: 1;
+    grid-row: 1;
     min-width: 0;
+    width: 100%;
     padding: 8px 0;
   }
 
   .hub-jobs-document #job-hours .job-hours-entry-row .hub-timesheets-entry-delete {
     grid-column: 2;
-    grid-row: 1 / span 2;
+    grid-row: 1;
     width: auto;
     align-self: start;
-    align-items: flex-end;
-  }
-
-  .hub-jobs-document #job-hours .job-hours-entry-row:has(.hub-timesheets-delete-lock) .hub-timesheets-entry-delete {
-    grid-column: 2;
-    grid-row: 1;
-    align-items: flex-end;
-    width: auto;
+    justify-self: end;
   }
 
   .hub-jobs-document #job-hours .job-hours-entry-row .hub-timesheets-delete-lock {
@@ -10997,7 +11009,7 @@
     grid-row: 2;
     max-width: 100%;
     margin: 0;
-    padding-bottom: 8px;
+    padding: 0 12px 8px;
   }
 
   .hub-jobs-bill-head {

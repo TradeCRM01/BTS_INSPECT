@@ -56,23 +56,28 @@ describe('timesheet entry delete — FIX-5a C4', () => {
     expect(total).toBe(180);
   });
 
-  it('refuses delete when job_costs references the entry (0 rows deleted)', async () => {
+  it('server guard: job_costs count > 0 → 0 rows deleted and billed message (check-then-delete)', async () => {
+    let deleteCalled = false;
+    const jobCostsCount = 1;
     const client = {
       from: (table: string) => {
         if (table === 'job_costs') {
           return {
             select: () => ({
-              eq: () => ({ count: 1, error: null }),
+              eq: () => Promise.resolve({ count: jobCostsCount, error: null }),
             }),
           };
         }
         if (table === 'timesheet_entries') {
           return {
-            delete: () => ({
-              eq: () => ({
-                select: async () => ({ data: [], error: null }),
-              }),
-            }),
+            delete: () => {
+              deleteCalled = true;
+              return {
+                eq: () => ({
+                  select: async () => ({ data: [], error: null }),
+                }),
+              };
+            },
           };
         }
         throw new Error(`unexpected ${table}`);
@@ -86,16 +91,18 @@ describe('timesheet entry delete — FIX-5a C4', () => {
         end_time: '2026-10-06T09:00:00.000Z',
       }),
     ).rejects.toThrow(TIMESHEET_ENTRY_DELETE_BILLED);
+    expect(jobCostsCount).toBe(1);
+    expect(deleteCalled).toBe(false);
   });
 
-  it('audit delete keeps another worker timesheet total correct', () => {
+  it('audit delete keeps another worker timesheet total from remaining entries', () => {
     vi.mocked(devFieldAuditAuth.isDevFieldAuditAuth).mockReturnValue(true);
     const before = getAuditTimesheetTotalMinutes(AUDIT_TIMESHEET_OTHER_ID);
-    expect(before).toBe(90);
+    expect(before).toBe(150);
     hideAuditTimesheetEntry(AUDIT_TIMESHEET_ENTRY_OTHER_ID);
     recomputeAuditTimesheetTotalMinutes(AUDIT_TIMESHEET_OTHER_ID);
     const after = getAuditTimesheetTotalMinutes(AUDIT_TIMESHEET_OTHER_ID);
-    expect(after).toBe(0);
+    expect(after).toBe(60);
     expect(before - after).toBe(90);
   });
 

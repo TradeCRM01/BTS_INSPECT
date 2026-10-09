@@ -66,8 +66,8 @@ export function TimesheetEntryDeleteControl({
         >
           Delete
         </button>
-        {ui.lockMessage ? <p className="hub-timesheets-delete-lock" role="status">{ui.lockMessage}</p> : null}
       </div>
+      {ui.lockMessage ? <p className="hub-timesheets-delete-lock" role="status">{ui.lockMessage}</p> : null}
       <ConfirmDialog
         open={confirmOpen}
         title="Delete time entry?"
