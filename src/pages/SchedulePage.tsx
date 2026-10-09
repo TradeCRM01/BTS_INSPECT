@@ -42,6 +42,7 @@ import {
   FIX3A_LOOK_ANCHOR,
   FIX3A_SCHEDULE_LOOK,
   fix3aLookJobs,
+  fix3aUnscheduledLookCount,
 } from '../lib/fix3aScheduleLookSeed';
 
 /** Signed week-board frame seed — Schedule look only, not a live company. */
@@ -389,6 +390,9 @@ export function SchedulePage() {
   const lookParam = searchParams.get('look');
   const lookWeekBoard = lookParam === WEEK_BOARD_LOOK;
   const lookFix3aBoard = lookParam === FIX3A_SCHEDULE_LOOK;
+  const fix3aUnscheduledCount = lookFix3aBoard
+    ? fix3aUnscheduledLookCount(searchParams.get('unscheduled'))
+    : undefined;
   const boardLookActive = lookWeekBoard || lookFix3aBoard;
   const lookEarlyBar = lookWeekBoard && searchParams.get('early') === '1';
   const [currentDate, setCurrentDate] = useState(() => {
@@ -595,10 +599,10 @@ export function SchedulePage() {
 
   const lookSearchHits = useMemo(() => {
     if (!boardLookActive || !debouncedQuery) return [];
-    const seed = lookFix3aBoard ? fix3aLookJobs() : weekBoardLookJobs();
+    const seed = lookFix3aBoard ? fix3aLookJobs(fix3aUnscheduledCount) : weekBoardLookJobs();
     return withScheduleJobPatches(seed)
       .filter(job => jobMatchesSearch(job, debouncedQuery));
-  }, [boardLookActive, lookFix3aBoard, debouncedQuery]);
+  }, [boardLookActive, fix3aUnscheduledCount, lookFix3aBoard, debouncedQuery]);
 
   const { data: liveSearchHits = [], isFetching: searchLoading } = useQuery({
     queryKey: ['schedule-job-search', debouncedQuery],
@@ -812,12 +816,12 @@ export function SchedulePage() {
 
   const boardJobs = useMemo(
     () => {
-      if (lookFix3aBoard) return withScheduleJobPatches(fix3aLookJobs());
+      if (lookFix3aBoard) return withScheduleJobPatches(fix3aLookJobs(fix3aUnscheduledCount));
       if (!lookWeekBoard) return jobs ?? [];
       const seed = withScheduleJobPatches(weekBoardLookJobs());
       return lookEarlyBar ? [...seed, ...weekBoardLookEarlyJobs()] : seed;
     },
-    [lookFix3aBoard, lookWeekBoard, lookEarlyBar, jobs],
+    [fix3aUnscheduledCount, lookFix3aBoard, lookWeekBoard, lookEarlyBar, jobs],
   );
   const boardCrew = boardLookActive ? WEEK_BOARD_LOOK_CREW : (teamMembers ?? []);
 
@@ -851,7 +855,7 @@ export function SchedulePage() {
           let extra: JobWithClient[] = [];
           try {
             extra = boardLookActive
-              ? withScheduleJobPatches(lookFix3aBoard ? fix3aLookJobs() : weekBoardLookJobs()).filter(job => (
+              ? withScheduleJobPatches(lookFix3aBoard ? fix3aLookJobs(fix3aUnscheduledCount) : weekBoardLookJobs()).filter(job => (
                 jobMatchesSearch(job, parsed.subjectToken ?? '')
               ))
               : await searchScheduleJobs(parsed.subjectToken);
@@ -926,7 +930,7 @@ export function SchedulePage() {
     } finally {
       setVoiceApplying(false);
     }
-  }, [boardCrew, boardJobs, boardLookActive, lookFix3aBoard, openScheduleSheet]);
+  }, [boardCrew, boardJobs, boardLookActive, fix3aUnscheduledCount, lookFix3aBoard, openScheduleSheet]);
 
   const pickVoiceJob = useCallback((jobId: string) => {
     const job = voiceJobPicks.find(item => item.id === jobId);
@@ -1213,6 +1217,7 @@ export function SchedulePage() {
                         teamMembers={boardCrew}
                         currentDate={currentDate}
                         onJobClick={job => openJob(job.id)}
+                        unscheduledCount={needsDate.length}
                         agendaFooter={(
                           <PhoneUnscheduledTray
                             jobs={needsDate}
@@ -1279,7 +1284,7 @@ export function SchedulePage() {
                   </>
                 )}
                 <NeedsDateRail
-                  className="hidden lg:block"
+                  className="hidden lg:block hub-schedule-needs-date-rail"
                   jobs={needsDate}
                   teamMembers={boardCrew}
                   selectedId={pickedJob?.id ?? null}

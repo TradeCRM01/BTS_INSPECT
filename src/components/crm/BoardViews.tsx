@@ -360,13 +360,14 @@ export const PhoneDayList = memo(function PhoneDayList({
 });
 
 export const PhoneWeekList = memo(function PhoneWeekList({
-  jobs, teamMembers, currentDate, onJobClick, agendaFooter = null,
+  jobs, teamMembers, currentDate, onJobClick, agendaFooter = null, unscheduledCount = 0,
 }: {
   jobs: JobWithClient[];
   teamMembers?: TeamMember[];
   currentDate: Date;
   onJobClick: (job: JobWithClient) => void;
   agendaFooter?: ReactNode;
+  unscheduledCount?: number;
 }) {
   const days = useMemo(
     () => scheduleWeekAgenda(jobs, currentDate),
@@ -423,7 +424,7 @@ export const PhoneWeekList = memo(function PhoneWeekList({
           </section>
         );
       })}
-      {agendaFooter ? (
+      {unscheduledCount > 0 && agendaFooter ? (
         <div
           className="hub-phone-unscheduled-footer"
           data-schedule-unscheduled-after-week="1"

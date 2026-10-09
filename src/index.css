@@ -6376,15 +6376,49 @@
   }
 
   @media (min-width: 1024px) {
+    .hub-board-cal.is-week-doc .hub-week-identity-row {
+      align-items: flex-start;
+      gap: 8px 16px;
+      margin-bottom: 2px;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-track {
+      margin-top: 10px;
+      padding-top: 8px;
+      padding-bottom: 8px;
+      flex: 0 0 auto;
+    }
+
     .hub-board-cal.is-week-doc .hub-week-mount.lg\:flex {
       flex: 1 1 0;
       display: flex;
       flex-direction: column;
-      min-height: 0;
+      min-height: min(52vh, 480px);
     }
 
     .hub-board-cal.is-week-doc .hub-week-mount.lg\:hidden {
       display: none;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-document .hub-week-board.ops-board {
+      flex: 1 1 auto;
+      min-height: 280px;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-document .hub-day-board.ops-board {
+      flex: 1 1 auto;
+      min-height: 280px;
+    }
+
+    .hub-week-document .hub-schedule-needs-date-rail {
+      flex: 0 0 auto;
+      max-height: min(34vh, 300px);
+      overflow: hidden;
+    }
+
+    .hub-week-document .hub-schedule-needs-date-rail > .max-h-\[70vh\] {
+      max-height: min(30vh, 260px);
+      overflow-y: auto;
     }
   }
 
