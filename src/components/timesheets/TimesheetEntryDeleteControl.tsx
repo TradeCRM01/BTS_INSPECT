@@ -75,6 +75,7 @@ export function TimesheetEntryDeleteControl({
         confirmLabel="Delete"
         onConfirm={() => deleteMutation.mutate()}
         onCancel={() => setConfirmOpen(false)}
+        confirmDisabled={deleteMutation.isPending}
       />
     </>
   );

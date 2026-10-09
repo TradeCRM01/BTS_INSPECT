@@ -5,6 +5,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as devFieldAuditAuth from './devFieldAuditAuth';
 import {
   TIMESHEET_ENTRY_DELETE_BILLED,
+  TIMESHEET_ENTRY_DELETE_BILLING_CHECK,
+  TIMESHEET_ENTRY_DELETE_ALREADY,
+  TIMESHEET_ENTRY_DELETE_PERMISSION,
   TIMESHEET_ENTRY_DELETE_RUNNING,
   deleteUnbilledTimesheetEntry,
   recomputeTimesheetTotalMinutes,
@@ -95,6 +98,92 @@ describe('timesheet entry delete — FIX-5a C4', () => {
     expect(deleteCalled).toBe(false);
   });
 
+  it('surfaces billing check, permission, and already-deleted errors', async () => {
+    const billingFailClient = {
+      from: (table: string) => {
+        if (table === 'job_costs') {
+          return {
+            select: () => ({
+              eq: () => Promise.resolve({
+                count: null,
+                error: { code: 'PGRST204', message: 'column timesheet_entry_id does not exist' },
+              }),
+            }),
+          };
+        }
+        throw new Error(`unexpected ${table}`);
+      },
+    };
+    await expect(
+      deleteUnbilledTimesheetEntry(billingFailClient as never, {
+        id: 'e1',
+        timesheet_id: 'ts-1',
+        start_time: '2026-10-06T08:00:00.000Z',
+        end_time: '2026-10-06T09:00:00.000Z',
+      }),
+    ).rejects.toThrow(TIMESHEET_ENTRY_DELETE_BILLING_CHECK);
+
+    const permClient = {
+      from: (table: string) => {
+        if (table === 'job_costs') {
+          return {
+            select: () => ({
+              eq: () => Promise.resolve({ count: 0, error: null }),
+            }),
+          };
+        }
+        if (table === 'timesheet_entries') {
+          return {
+            delete: () => ({
+              eq: () => ({
+                select: async () => ({ data: null, error: { code: '42501', message: 'denied' } }),
+              }),
+            }),
+          };
+        }
+        throw new Error(`unexpected ${table}`);
+      },
+    };
+    await expect(
+      deleteUnbilledTimesheetEntry(permClient as never, {
+        id: 'e1',
+        timesheet_id: 'ts-1',
+        start_time: '2026-10-06T08:00:00.000Z',
+        end_time: '2026-10-06T09:00:00.000Z',
+      }),
+    ).rejects.toThrow(TIMESHEET_ENTRY_DELETE_PERMISSION);
+
+    const goneClient = {
+      from: (table: string) => {
+        if (table === 'job_costs') {
+          return {
+            select: () => ({
+              eq: () => Promise.resolve({ count: 0, error: null }),
+            }),
+          };
+        }
+        if (table === 'timesheet_entries') {
+          return {
+            delete: () => ({
+              eq: () => ({
+                select: async () => ({ data: [], error: null }),
+              }),
+            }),
+          };
+        }
+        throw new Error(`unexpected ${table}`);
+      },
+    };
+    await expect(
+      deleteUnbilledTimesheetEntry(goneClient as never, {
+        id: 'e1',
+        timesheet_id: 'ts-1',
+        start_time: '2026-10-06T08:00:00.000Z',
+        end_time: '2026-10-06T09:00:00.000Z',
+      }),
+    ).rejects.toThrow(TIMESHEET_ENTRY_DELETE_ALREADY);
+  });
+
   it('audit delete keeps another worker timesheet total from remaining entries', () => {
     vi.mocked(devFieldAuditAuth.isDevFieldAuditAuth).mockReturnValue(true);
     const before = getAuditTimesheetTotalMinutes(AUDIT_TIMESHEET_OTHER_ID);
@@ -118,7 +207,7 @@ describe('timesheet entry delete — FIX-5a C4', () => {
         { id: 'e1', end_time: '2026-10-06T10:00:00.000Z' },
         { loaded: true, billingCheckOk: false, ids: new Set() },
       ).lockMessage,
-    ).toBe(TIMESHEET_ENTRY_DELETE_BILLED);
+    ).toBe(TIMESHEET_ENTRY_DELETE_BILLING_CHECK);
   });
 
   it('blocks running entries without end time', () => {

@@ -257,7 +257,8 @@ describe('scheduleAgendaClock', () => {
   it('prints stored times and says No time set when the job has none', () => {
     expect(scheduleAgendaClock('08:30:00', '16:00:00')).toBe('08:30 – 16:00');
     expect(scheduleAgendaClock(null, null)).toBe('No time set');
-    expect(scheduleAgendaClock(null, null)).toBe(AGENDA_NO_TIME_LABEL);
+    expect(scheduleAgendaClock(null, null, null)).toBe(AGENDA_NO_TIME_LABEL);
+    expect(scheduleAgendaClock(null, null, '2026-10-09')).toContain('Add a time');
     expect(scheduleAgendaClock(null, null)).not.toBe('—');
     expect(scheduleAgendaClock(null, null)).not.toBe(TIME_NOT_SET_LABEL);
   });
@@ -267,6 +268,7 @@ describe('scheduleChipClock', () => {
   it('keeps stored times and labels untimed chips honestly', () => {
     expect(scheduleChipClock('09:00:00', '12:00:00')).toBe('09:00 – 12:00');
     expect(scheduleChipClock(null, null)).toBe(TIME_NOT_SET_LABEL);
+    expect(scheduleChipClock(null, null, '2026-10-09')).toContain('Add a time');
   });
 });
 

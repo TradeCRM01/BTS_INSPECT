@@ -109,9 +109,10 @@ describe('recommendQuoteAction', () => {
     expect(recommendQuoteAction({ ...accepted, invoiceId: 'inv-1' }).key).toBe('convert_job');
   });
 
-  it('invoices once the job exists, and does not nag after both exist', () => {
-    expect(recommendQuoteAction({ ...accepted, jobId: 'job-1' }).key).toBe('invoice');
-    expect(recommendQuoteAction({ ...accepted, jobId: 'job-1', invoiceId: 'inv-1' }).key).toBe('open_job');
+  it('opens the job while work is still in progress, then invoices when completed', () => {
+    expect(recommendQuoteAction({ ...accepted, jobId: 'job-1', jobFinished: false }).key).toBe('open_job');
+    expect(recommendQuoteAction({ ...accepted, jobId: 'job-1', jobFinished: true }).key).toBe('invoice');
+    expect(recommendQuoteAction({ ...accepted, jobId: 'job-1', invoiceId: 'inv-1', jobFinished: true }).key).toBe('open_job');
   });
 
   it('leaves declined and expired alone', () => {
@@ -244,8 +245,18 @@ describe('quoteActionContext / quoteCardHint', () => {
       job_id: 'job-1',
       invoice_id: null,
     });
-    expect(ctx).toMatchObject({ hasClient: true, hasLines: true, jobId: 'job-1', invoiceId: null });
-    expect(quoteCardHint(ctx)).toBe('Create invoice');
+    expect(ctx).toMatchObject({ hasClient: true, hasLines: true, jobId: 'job-1', invoiceId: null, jobFinished: false });
+    expect(quoteCardHint(ctx)).toBe('Open job');
+
+    const readyToInvoice = quoteActionContext({
+      status: 'accepted',
+      client_id: 'c1',
+      line_items: [{ description: 'Board', quantity: 1 }],
+      job_id: 'job-1',
+      invoice_id: null,
+      job_status: 'completed',
+    });
+    expect(quoteCardHint(readyToInvoice)).toBe('Create invoice');
 
     const noEmail = quoteActionContext({
       status: 'draft',

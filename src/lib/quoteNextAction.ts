@@ -20,7 +20,12 @@ export type QuoteActionContext = {
   hasLines: boolean;
   jobId: string | null | undefined;
   invoiceId: string | null | undefined;
+  jobFinished?: boolean;
 };
+
+export function quoteJobIsFinished(jobStatus: string | null | undefined): boolean {
+  return jobStatus === 'completed';
+}
 
 export type RecommendedQuoteAction = {
   key: QuoteActionKey;
@@ -41,6 +46,7 @@ export function quoteActionContext(quote: {
   line_items?: { description?: string | null; quantity?: number | string | null }[] | null;
   job_id?: string | null;
   invoice_id?: string | null;
+  job_status?: string | null;
 }): QuoteActionContext {
   const hasClient = !!quote.client_id;
   const emailKnown = quote.client_email !== undefined;
@@ -51,6 +57,7 @@ export function quoteActionContext(quote: {
     hasLines: quoteHasChargeableLines(quote.line_items),
     jobId: quote.job_id ?? null,
     invoiceId: quote.invoice_id ?? null,
+    jobFinished: quote.job_id ? quoteJobIsFinished(quote.job_status) : true,
   };
 }
 
@@ -93,6 +100,13 @@ export function recommendQuoteAction(ctx: QuoteActionContext): RecommendedQuoteA
       key: 'convert_job',
       label: 'Convert to job',
       detail: 'Create the job from this quote. You can invoice it next.',
+    };
+  }
+  if (ctx.jobFinished === false) {
+    return {
+      key: 'open_job',
+      label: 'Open job',
+      detail: 'Finish the job on site, then invoice from the quote or job.',
     };
   }
   if (!ctx.invoiceId) {

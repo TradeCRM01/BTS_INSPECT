@@ -25,7 +25,9 @@ describe('schedule page week/day board', () => {
     const search = src('src/components/crm/ScheduleJobSearch.tsx');
     expect(page).toContain('scheduleJobHref');
     expect(page).toContain('onOpenJob={job => openJob(job.id)}');
-    expect(page).toContain('onJobClick={job => openJob(job.id)}');
+    expect(page).toContain('onJobClick={openBoardJob}');
+    expect(page).toContain('openBoardJob');
+    expect(page).toContain('if (!job.start_time)');
     expect(page).toContain('onJobClick={handlePickJob}');
     expect(page).toContain('placePickedOnCell');
     expect(page).toContain('onJobDrop={placeExisting}');

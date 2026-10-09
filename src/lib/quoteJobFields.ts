@@ -92,6 +92,17 @@ export const CONVERT_QUOTE_NEED_CREW = 'Pick a crew before converting.';
 export const CONVERT_QUOTE_NEED_TIME = 'Set start and end times before converting.';
 export const CONVERT_QUOTE_NEED_DATE_CREW = 'Set a date and crew on this tap before converting.';
 
+export const CONVERT_QUOTE_HELPER = 'Pick a day, crew and start time.';
+
+export function quoteConvertShowsInline(err: string | null): boolean {
+  if (!err) return false;
+  return err === CONVERT_QUOTE_NEED_DATE_CREW
+    || err === CONVERT_QUOTE_NEED_DATE
+    || err === CONVERT_QUOTE_NEED_CREW
+    || err === CONVERT_QUOTE_NEED_TIME
+    || err === CONVERT_QUOTE_END_BEFORE_START;
+}
+
 export function convertQuoteNeedMessage(missing: QuoteConvertMissing, quote?: {
   scheduled_date?: string | null;
   assigned_team?: unknown;

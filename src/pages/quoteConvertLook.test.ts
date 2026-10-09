@@ -24,7 +24,8 @@ describe('quote editor Convert LOOK — Job date + Crew on paper', () => {
     expect(editor).toContain('Field label="Job date"');
     expect(editor).toContain('Field label="Crew"');
     expect(editor).toContain('No crew yet');
-    expect(editor).toContain('Date, crew, and times on this tap.');
+    expect(editor).toContain('CONVERT_QUOTE_HELPER');
+    expect(src('src/lib/quoteJobFields.ts')).toContain('Pick a day, crew and start time.');
     expect(editor).toContain('id="quote-convert-start"');
     expect(editor).toContain('CONVERT_QUOTE_NEED_CREW');
     expect(editor).toContain('CONVERT_QUOTE_NEED_DATE_CREW');
@@ -73,7 +74,7 @@ describe('quote editor Convert LOOK — Job date + Crew on paper', () => {
     expect(editor).toContain('quoteConvertTap');
     expect(editor).toContain('CONVERT_QUOTE_NEED_DATE_CREW');
     expect(editor.indexOf("=== 'focus_convert'")).toBeLessThan(editor.indexOf('await convertQuoteToJob'));
-    expect(editor).toContain('err !== CONVERT_QUOTE_NEED_DATE_CREW');
+    expect(editor).toContain('quoteConvertShowsInline');
     expect(src('src/lib/quoteJobFields.ts')).toContain("CONVERT_QUOTE_NEED_DATE_CREW = 'Set a date and crew on this tap before converting.'");
     expect(src('src/pages/ClientPortalPublicPage.tsx')).not.toContain('hub-quote-convert');
     expect(src('src/pages/JobDetailPage.tsx')).not.toContain('hub-quote-convert');

@@ -844,6 +844,14 @@ export function SchedulePage() {
     setSheetJob(job);
   }, []);
 
+  const openBoardJob = useCallback((job: JobWithClient) => {
+    if (!job.start_time) {
+      openScheduleSheet(job);
+      return;
+    }
+    openJob(job.id);
+  }, [openJob, openScheduleSheet]);
+
   const applyQuickBook = useCallback(async (phrase: string) => {
     setVoiceApplying(true);
     try {
@@ -1216,7 +1224,7 @@ export function SchedulePage() {
                         jobs={onBoard}
                         teamMembers={boardCrew}
                         currentDate={currentDate}
-                        onJobClick={job => openJob(job.id)}
+                        onJobClick={openBoardJob}
                         unscheduledCount={needsDate.length}
                         agendaFooter={(
                           <PhoneUnscheduledTray
@@ -1236,7 +1244,7 @@ export function SchedulePage() {
                         jobs={onBoard}
                         teamMembers={boardCrew}
                         currentDate={currentDate}
-                        onJobClick={job => openJob(job.id)}
+                        onJobClick={openBoardJob}
                         onDayClick={handleDayClick}
                         onSelectDay={date => applySchedule('day', date)}
                         onJobDrop={placeExisting}
@@ -1254,7 +1262,7 @@ export function SchedulePage() {
                         jobs={onBoard}
                         teamMembers={boardCrew}
                         currentDate={currentDate}
-                        onJobClick={job => openJob(job.id)}
+                        onJobClick={openBoardJob}
                         onDayClick={handlePhoneDayClick}
                         onJobDrop={placeExisting}
                         onJobResize={(jobId, startTime, endTime) => resizeJob.mutate({ jobId, startTime, endTime })}
@@ -1276,7 +1284,7 @@ export function SchedulePage() {
                         jobs={onBoard}
                         teamMembers={boardCrew}
                         currentDate={currentDate}
-                        onJobClick={job => openJob(job.id)}
+                        onJobClick={openBoardJob}
                         onDayClick={handleDayClick}
                         onJobDrop={placeExisting}
                         onJobResize={(jobId, startTime, endTime) => resizeJob.mutate({ jobId, startTime, endTime })}

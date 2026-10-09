@@ -5337,6 +5337,38 @@
     font-weight: 600;
   }
 
+  @media (max-width: 639px) {
+    #job-bill .job-bill-lines-wrap {
+      overflow-x: visible;
+    }
+
+    #job-bill .job-bill-lines-table th:nth-child(1),
+    #job-bill .job-bill-lines-table td:nth-child(1),
+    #job-bill .job-bill-lines-table th:nth-child(2),
+    #job-bill .job-bill-lines-table td:nth-child(2),
+    #job-bill .job-bill-lines-table th:nth-child(3),
+    #job-bill .job-bill-lines-table td:nth-child(3),
+    #job-bill .job-bill-lines-table th:nth-child(6),
+    #job-bill .job-bill-lines-table td:nth-child(6),
+    #job-bill .job-bill-lines-table th:nth-child(7),
+    #job-bill .job-bill-lines-table td:nth-child(7) {
+      display: none;
+    }
+
+    #job-bill .job-bill-lines-table th,
+    #job-bill .job-bill-lines-table td {
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    #job-bill .job-bill-lines-table th:nth-child(8),
+    #job-bill .job-bill-lines-table th:nth-child(9),
+    #job-bill .job-bill-lines-table td:nth-child(8),
+    #job-bill .job-bill-lines-table td:nth-child(9) {
+      white-space: nowrap;
+    }
+  }
+
   #job-bill .job-bill-line-desc,
   .job-bill-line-desc {
     min-width: 9.25rem;
@@ -9841,7 +9873,19 @@
     }
 
     .hub-quote-totalbar {
-      margin: 0 16px 24px;
+      margin: 0 12px 24px;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      align-items: flex-end;
+    }
+
+    .hub-quote-totalbar .hub-quote-display-total {
+      min-width: 0;
+      max-width: 100%;
+      flex: 1 1 auto;
+      text-align: right;
+      font-size: clamp(28px, 9.5vw, 40px);
+      overflow-wrap: anywhere;
     }
 
     .hub-quote-convert {

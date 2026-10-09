@@ -29,8 +29,10 @@ import {
   CONVERT_QUOTE_NEED_DATE,
   CONVERT_QUOTE_NEED_DATE_CREW,
   CONVERT_QUOTE_NEED_TIME,
+  CONVERT_QUOTE_HELPER,
   CONVERT_QUOTE_JOB_SAVED,
   convertQuoteNeedMessage,
+  quoteConvertShowsInline,
   focusQuoteConvertField,
   assignedTeamFromQuote,
   focusQuoteConvertDate,
@@ -131,7 +133,11 @@ import { format, parseISO, addDays } from 'date-fns';
 
 type StatusFilter = 'all' | typeof QUOTE_CHASE_FILTER | QuoteStatus;
 
-type QuoteListItem = QuoteWithDetails & { invoice_id: string | null; client_email?: string | null };
+type QuoteListItem = QuoteWithDetails & {
+  invoice_id: string | null;
+  client_email?: string | null;
+  job_status?: string | null;
+};
 
 function visibleSite(...parts: Array<string | null | undefined>): string {
   for (const part of parts) {
@@ -373,7 +379,9 @@ export function QuotesPage() {
       const quoteIds = list.map(q => q.id);
       const [clientsRes, jobsRes, quoteInvoicesRes, jobInvoicesRes] = await Promise.all([
         clientIds.length ? supabase.from('clients').select('id, name, email, contact_person').in('id', clientIds) : Promise.resolve({ data: [] as { id: string; name: string; email: string | null; contact_person: string | null }[] }),
-        jobIds.length ? supabase.from('jobs').select('id, title, address').in('id', jobIds) : Promise.resolve({ data: [] as { id: string; title: string; address: string | null }[] }),
+        jobIds.length
+          ? supabase.from('jobs').select('id, title, address, status').in('id', jobIds)
+          : Promise.resolve({ data: [] as { id: string; title: string; address: string | null; status: string }[] }),
         quoteIds.length
           ? supabase.from('invoices').select('id, quote_id, job_id, status').in('quote_id', quoteIds)
           : Promise.resolve({ data: [] as { id: string; quote_id: string | null; job_id: string | null; status: string }[] }),
@@ -394,6 +402,7 @@ export function QuotesPage() {
         client_email: q.client_id ? clientMap.get(q.client_id)?.email ?? null : null,
         job_title: q.job_id ? jobMap.get(q.job_id)?.title ?? null : null,
         job_address: q.job_id ? jobMap.get(q.job_id)?.address ?? null : null,
+        job_status: q.job_id ? jobMap.get(q.job_id)?.status ?? null : null,
         invoice_id: quoteListInvoiceId(
           quoteInvoices.filter(inv => inv.quote_id === q.id),
           q.job_id ? jobInvoices.filter(inv => inv.job_id === q.job_id) : [],
@@ -1029,6 +1038,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
     line_items: form.line_items,
     job_id: form.job_id || null,
     invoice_id: invoiceId,
+    job_status: quote?.job_status ?? null,
   }));
 
   const convertSectionRef = useRef<HTMLDivElement | null>(null);
@@ -1587,7 +1597,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
           </div>
         </div>
         {manualCopyUrl ? <DocumentShareManualLink url={manualCopyUrl} /> : null}
-        {err && err !== CONVERT_QUOTE_NEED_DATE_CREW ? <p className="hub-quote-err">{err}</p> : null}
+        {err && !quoteConvertShowsInline(err) ? <p className="hub-quote-err">{err}</p> : null}
 
         <div className="hub-quote-sheet">
           <header className="hub-quote-masthead">
@@ -1827,7 +1837,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                 || err === CONVERT_QUOTE_NEED_TIME
                 || err === CONVERT_QUOTE_END_BEFORE_START
                 ? <p className="hub-quote-convert-miss">{err}</p>
-                : <p className="hub-quote-convert-whisper">Date, crew, and times on this tap.</p>}
+                : <p className="hub-quote-convert-whisper">{CONVERT_QUOTE_HELPER}</p>}
               <button
                 type="button"
                 className="btn-primary"

@@ -632,8 +632,8 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
         }}
       />
 
-      <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden job-bill-lines-wrap">
+        <table className="w-full text-sm job-bill-lines-table">
           <thead className="bg-[#F9FAFB] text-[#4A5568] text-xs">
             <tr>
               <th className="text-left font-medium px-3 py-2">Date</th>
