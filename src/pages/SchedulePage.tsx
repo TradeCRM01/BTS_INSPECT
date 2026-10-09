@@ -1362,7 +1362,7 @@ export function SchedulePage() {
                   </>
                 )}
                 <NeedsDateRail
-                  className="hidden lg:block"
+                  className="hidden lg:block hub-schedule-needs-date-rail"
                   jobs={needsDate}
                   teamMembers={boardCrew}
                   selectedId={pickedJob?.id ?? null}

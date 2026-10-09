@@ -105,7 +105,8 @@ describe('schedule page week/day board', () => {
     expect(page).toContain('data-schedule-phone-section="booked"');
     expect(page).toContain('agendaFooter');
     expect(page).toContain('data-schedule-unscheduled-after-week="1"');
-    expect(page).toContain('className="hidden lg:block"');
+    expect(page).toContain('hub-schedule-needs-date-rail');
+    expect(page).toContain('hidden lg:block');
     expect(board).toContain('export const PhoneUnscheduledTray');
     expect(board).toContain('PHONE_UNSCHEDULED_EXPANDED_DEFAULT');
     expect(board).toContain('phoneUnscheduledChipLabel');

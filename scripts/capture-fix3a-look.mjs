@@ -1,7 +1,6 @@
-// FIX-3a LOOK: phone unscheduled chip after full week + desktop parity frame.
-// Run: node scripts/capture-fix3a-look.mjs (needs `npm run dev` on this branch).
-// Main desktop compare: node scripts/capture-fix3a-look.mjs --main-1280
-//   (uses week-board look — fix3a-schedule seed exists only on this branch).
+// FIX-3a LOOK — phone agenda element shots + 1280×800 viewport (app chrome).
+// Run: node scripts/capture-fix3a-look.mjs
+// Main compare (same seed on origin/main worktree): node scripts/capture-fix3a-look.mjs --main-1280
 import { createHash } from 'node:crypto';
 import { copyFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
@@ -10,9 +9,7 @@ const BASE = process.env.LOOK_BASE_URL || 'http://127.0.0.1:5173';
 const OUT = process.env.LOOK_OUT_DIR || '/opt/cursor/artifacts';
 const STORE = process.env.LOOK_STORE_DIR || '/cursor/stores/self/artifacts';
 const mainOnly = process.argv.includes('--main-1280');
-const PATH = mainOnly
-  ? '/schedule?auditAuth=1&look=week-board'
-  : '/schedule?auditAuth=1&look=fix3a-schedule';
+const PATH = '/schedule?auditAuth=1&look=fix3a-schedule';
 
 mkdirSync(OUT, { recursive: true });
 mkdirSync(STORE, { recursive: true });
@@ -29,6 +26,46 @@ function saveBoth(file) {
 
 const browser = await chromium.launch({ headless: true });
 
+/** Let .hub-week-agenda paint at full scroll height (inner scroll, not document). */
+async function expandPhoneAgenda(page) {
+  await page.evaluate(() => {
+    const agenda = document.querySelector('[data-week-agenda="1"]');
+    if (!agenda) return;
+    const chain = [agenda];
+    let parent = agenda.parentElement;
+    while (parent) {
+      chain.push(parent);
+      if (parent.classList.contains('hub-week-document')) break;
+      parent = parent.parentElement;
+    }
+    for (const el of chain) {
+      el.style.overflow = 'visible';
+      el.style.maxHeight = 'none';
+      el.style.height = 'auto';
+    }
+    agenda.style.height = `${agenda.scrollHeight}px`;
+    agenda.style.overflow = 'visible';
+  });
+  await page.waitForTimeout(150);
+}
+
+async function assertAgendaHas(page, checks) {
+  const text = await page.locator('[data-week-agenda="1"]').innerText();
+  for (const needle of checks) {
+    if (!text.includes(needle)) throw new Error(`agenda missing "${needle}" in:\n${text.slice(0, 500)}`);
+  }
+}
+
+async function shotAgenda(page, file) {
+  await expandPhoneAgenda(page);
+  const loc = page.locator('[data-week-agenda="1"]');
+  await loc.waitFor({ state: 'visible', timeout: 15000 });
+  await loc.screenshot({ path: `${OUT}/${file}`, type: 'png' });
+  const md5 = saveBoth(file);
+  console.log('wrote', file, md5);
+  return md5;
+}
+
 async function openPhone(width, height) {
   const ctx = await browser.newContext({
     viewport: { width, height },
@@ -40,23 +77,11 @@ async function openPhone(width, height) {
   });
   const page = await ctx.newPage();
   await page.goto(`${BASE}${PATH}`, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('[data-week-sheet="1"]', { timeout: 30000 });
+  await page.waitForSelector('[data-week-agenda="1"]', { timeout: 30000 });
   await page.waitForSelector('[data-schedule-unscheduled-chip="1"]', { timeout: 30000 });
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(300);
   return { ctx, page };
-}
-
-async function shot(page, file, opts = {}) {
-  const { clip, ...rest } = opts;
-  await page.screenshot({
-    path: `${OUT}/${file}`,
-    type: 'png',
-    ...(clip ? { clip } : rest),
-  });
-  const md5 = saveBoth(file);
-  console.log('wrote', file, md5);
-  return md5;
 }
 
 async function captureDesktop1280(file) {
@@ -75,29 +100,31 @@ async function captureDesktop1280(file) {
   ), { timeout: 20000 });
   const layout = await page.evaluate(() => {
     const chip = document.querySelector('[data-schedule-unscheduled-chip="1"]');
-    const rail = document.querySelector('[data-schedule-rail="1"]');
     const board = [...document.querySelectorAll('[data-week-board="1"]')]
       .find((el) => el.getBoundingClientRect().width > 0);
     const chipBox = chip?.getBoundingClientRect();
     const boardBox = board?.getBoundingClientRect();
-    const railBox = rail?.getBoundingClientRect();
     return {
+      viewportW: window.innerWidth,
+      viewportH: window.innerHeight,
       chipVisible: !!chipBox && chipBox.width > 0 && chipBox.height > 0,
-      railVisible: !!railBox && railBox.width > 0 && railBox.height > 0,
       boardWidth: boardBox?.width ?? 0,
       boardHeight: boardBox?.height ?? 0,
-      viewportW: window.innerWidth,
+      boardTop: boardBox?.top ?? 0,
     };
   });
-  if (layout.viewportW !== 1280) throw new Error(`viewport not 1280: ${layout.viewportW}`);
-  if (layout.chipVisible) throw new Error(`desktop chip visible ${JSON.stringify(layout)}`);
-  if (!layout.railVisible && !mainOnly) throw new Error(`desktop rail missing ${JSON.stringify(layout)}`);
-  if (layout.boardWidth < 600) throw new Error(`week board too narrow ${JSON.stringify(layout)}`);
+  if (layout.viewportW !== 1280 || layout.viewportH !== 800) {
+    throw new Error(`viewport mismatch ${JSON.stringify(layout)}`);
+  }
+  if (layout.chipVisible) throw new Error(`phone chip visible on desktop ${JSON.stringify(layout)}`);
+  if (layout.boardWidth < 400 || layout.boardHeight < 200) {
+    throw new Error(`week board not visible in viewport ${JSON.stringify(layout)}`);
+  }
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(300);
-  const box = await page.locator('[data-week-sheet="1"]').boundingBox();
-  if (!box) throw new Error('week sheet missing bounding box');
-  const md5 = await shot(page, file, { clip: box });
+  await page.screenshot({ path: `${OUT}/${file}`, type: 'png', fullPage: false });
+  const md5 = saveBoth(file);
+  console.log('wrote', file, md5, layout);
   await ctx.close();
   return md5;
 }
@@ -109,39 +136,48 @@ if (mainOnly) {
 } else {
   {
     const { ctx, page } = await openPhone(375, 812);
-    const booked = await page.evaluate(() => {
-      const row = document.querySelector('[data-schedule-job="fix3a-booked-1"]');
-      const chip = document.querySelector('[data-schedule-unscheduled-chip="1"]');
-      const lastDay = [...document.querySelectorAll('[data-agenda-day]')].pop();
-      if (!row || !chip || !lastDay) return { ok: false };
-      const order = row.compareDocumentPosition(chip) & Node.DOCUMENT_POSITION_FOLLOWING;
-      const afterWeek = lastDay.compareDocumentPosition(chip) & Node.DOCUMENT_POSITION_FOLLOWING;
-      return { ok: order > 0 && afterWeek > 0 };
-    });
-    if (!booked.ok) throw new Error('375 DOM order: chip must follow booked rows and last day');
-    md5s.collapsed375 = await shot(page, 'fix3a-collapsed-375.png', { fullPage: true });
+    const collapsed = await page.locator('[data-schedule-unscheduled-chip="1"]').getAttribute('aria-expanded');
+    if (collapsed === 'true') throw new Error('375 chip should start collapsed');
+    await assertAgendaHas(page, ['Heat pump service', 'Unscheduled · 17']);
+    md5s.collapsed375 = await shotAgenda(page, 'fix3a-collapsed-375.png');
     await ctx.close();
   }
 
   {
     const { ctx, page } = await openPhone(390, 844);
-    md5s.collapsed390 = await shot(page, 'fix3a-collapsed-390.png', { fullPage: true });
+    await assertAgendaHas(page, ['Bathroom rough-in', 'Unscheduled · 17']);
+    md5s.collapsed390 = await shotAgenda(page, 'fix3a-collapsed-390.png');
     await ctx.close();
   }
 
   {
     const { ctx, page } = await openPhone(390, 844);
-    await page.locator('[data-schedule-unscheduled-chip="1"]').click();
-    await page.waitForSelector('[data-schedule-unscheduled-list="1"]', { timeout: 10000 });
-    const row = await page.evaluate(() => {
-      const card = document.querySelector('[data-schedule-rail-job="fix3a-unscheduled-1"]');
-      return {
-        client: card?.textContent?.includes('Valley Apartments') ?? false,
-        title: card?.textContent?.includes('Leak under kitchen sink') ?? false,
-      };
+    const chip = page.locator('[data-schedule-unscheduled-chip="1"]');
+    await chip.scrollIntoViewIfNeeded();
+    await chip.click({ force: true });
+    await page.waitForFunction(() => (
+      document.querySelector('[data-schedule-unscheduled-chip="1"]')?.getAttribute('aria-expanded') === 'true'
+    ), { timeout: 10000 });
+    await page.waitForSelector('[data-schedule-unscheduled-list="1"]', { state: 'visible', timeout: 10000 });
+    await assertAgendaHas(page, [
+      'Unscheduled · 17',
+      'Leak under kitchen sink',
+      'Split-system regas',
+    ]);
+    const listCount = await page.locator('[data-schedule-rail-job]').count();
+    if (listCount < 2) throw new Error(`expected ≥2 rail jobs, got ${listCount}`);
+    const heights = await page.evaluate(() => ({
+      collapsedH: document.querySelector('[data-week-agenda="1"]')?.scrollHeight ?? 0,
+      listH: document.querySelector('[data-schedule-unscheduled-list="1"]')?.scrollHeight ?? 0,
+    }));
+    if (heights.listH < 80) throw new Error(`expanded list too short ${JSON.stringify(heights)}`);
+    await page.locator('.hub-phone-unscheduled').scrollIntoViewIfNeeded();
+    await page.locator('.hub-phone-unscheduled').screenshot({
+      path: `${OUT}/fix3a-expanded-390.png`,
+      type: 'png',
     });
-    if (!row.client || !row.title) throw new Error(`390 expanded row fail ${JSON.stringify(row)}`);
-    md5s.expanded390 = await shot(page, 'fix3a-expanded-390.png', { fullPage: true });
+    md5s.expanded390 = saveBoth('fix3a-expanded-390.png');
+    console.log('wrote fix3a-expanded-390.png', md5s.expanded390);
     await ctx.close();
   }
 
@@ -157,4 +193,4 @@ if (!mainOnly) {
   }
 }
 
-console.log(JSON.stringify({ md5s, mainOnly, path: PATH }, null, 2));
+console.log(JSON.stringify({ md5s, mainOnly, path: PATH, base: BASE }, null, 2));
