@@ -6396,7 +6396,7 @@
     }
 
     .hub-board-cal.is-week-doc .hub-week-mount.lg\:flex {
-      flex: 1 1 0;
+      flex: 0 0 auto;
       display: flex;
       flex-direction: column;
       min-height: 0;
@@ -6407,8 +6407,12 @@
     }
 
     .hub-board-cal.is-week-doc .hub-week-document .hub-week-board.ops-board {
-      flex: 1 1 auto;
+      flex: 0 0 auto;
       min-height: 280px;
+      height: auto;
+      max-height: none;
+      overflow-x: auto;
+      overflow-y: hidden;
     }
 
     .hub-board-cal.is-week-doc .hub-week-document .hub-day-board.ops-board {
@@ -6425,6 +6429,35 @@
     .hub-week-document .hub-schedule-needs-date-rail > .max-h-\[70vh\] {
       max-height: min(30vh, 260px);
       overflow-y: auto;
+    }
+
+    .hub-week-document .hub-schedule-needs-date-rail > .ops-tray-head {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 8px;
+      width: 100%;
+      padding: 8px 0 10px;
+      border-bottom: 1px solid #E2D9CC;
+    }
+
+    .hub-week-document .hub-schedule-needs-date-rail > .ops-tray-head .ops-card-kicker {
+      flex: 0 1 auto;
+      margin: 0;
+      font-family: Rajdhani, sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #5B6B7C;
+    }
+
+    .hub-week-document .hub-schedule-needs-date-rail > .ops-tray-head .ops-meta {
+      flex: 0 0 auto;
+      margin: 0;
+      font-size: 12px;
+      font-weight: 600;
+      color: #0A2540;
     }
   }
 
