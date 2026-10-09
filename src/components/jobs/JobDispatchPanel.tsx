@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { TimeFieldInput } from '../ui/TimeFieldInput';
+import { isValidCompleteTimeValue } from '../../lib/timeFieldInput';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Calendar, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -84,6 +86,32 @@ export function JobDispatchPanel({
   };
 
   const crewHelper = crewAssignmentHelper(assigned, teamMembers);
+  const [startDraft, setStartDraft] = useState(() => toTimeInput(job.start_time));
+  const [endDraft, setEndDraft] = useState(() => toTimeInput(job.end_time));
+
+  useEffect(() => {
+    setStartDraft(toTimeInput(job.start_time));
+    setEndDraft(toTimeInput(job.end_time));
+  }, [job.id, job.start_time, job.end_time]);
+
+  const commitJobTime = (field: 'start_time' | 'end_time', raw: string) => {
+    const server = field === 'start_time' ? toTimeInput(job.start_time) : toTimeInput(job.end_time);
+    if (raw === server) return;
+    if (raw && !isValidCompleteTimeValue(raw)) {
+      if (field === 'start_time') setStartDraft(server);
+      else setEndDraft(server);
+      return;
+    }
+    if (import.meta.env.DEV) {
+      try {
+        const w = window as Window & { __fix5aDispatchTimeSaves?: number };
+        w.__fix5aDispatchTimeSaves = (w.__fix5aDispatchTimeSaves ?? 0) + 1;
+      } catch {
+        // ignore
+      }
+    }
+    save.mutate({ [field]: raw || null });
+  };
 
   return (
     <div className="ops-tray mb-5">
@@ -112,19 +140,19 @@ export function JobDispatchPanel({
           </label>
           <label className="block">
             <span className="ops-field-label">Start</span>
-            <input
-              type="time"
-              value={toTimeInput(job.start_time)}
-              onChange={e => save.mutate({ start_time: e.target.value || null })}
+            <TimeFieldInput
+              value={startDraft}
+              onChange={setStartDraft}
+              onBlurCommit={v => commitJobTime('start_time', v)}
               className="form-input"
             />
           </label>
           <label className="block">
             <span className="ops-field-label">End</span>
-            <input
-              type="time"
-              value={toTimeInput(job.end_time)}
-              onChange={e => save.mutate({ end_time: e.target.value || null })}
+            <TimeFieldInput
+              value={endDraft}
+              onChange={setEndDraft}
+              onBlurCommit={v => commitJobTime('end_time', v)}
               className="form-input"
             />
           </label>

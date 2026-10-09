@@ -1,9 +1,13 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { isDevFieldAuditAuth } from '../../lib/devFieldAuditAuth';
+import { appendAuditTimesheetEntry, AUDIT_TIMESHEET_ID } from '../../lib/timesheetsList';
 import { OverlayPortal } from '../ui/OverlayPortal';
 import { ManagedSelect } from '../ui/ManagedSelect';
+import { TimeFieldInput } from '../ui/TimeFieldInput';
+import { timeFieldValidationMessage } from '../../lib/timeFieldInput';
 import { LIST_KEYS } from '../../lib/useManagedList';
 import {
   applyTimeEntryDurationChip,
@@ -57,14 +61,19 @@ export function TimeEntryForm({
   }));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const saveLock = useRef(false);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    if (saveLock.current || saving) return;
     if (!profile?.company_id) return;
-    if (!form.start_time || !form.end_time) {
-      setErr('Enter start and end times, or tap a duration chip.');
+    const startMsg = timeFieldValidationMessage(form.start_time);
+    const endMsg = timeFieldValidationMessage(form.end_time);
+    if (startMsg || endMsg) {
+      setErr(startMsg ?? endMsg ?? 'Enter start and end times, or tap a duration chip.');
       return;
     }
+    saveLock.current = true;
     setSaving(true);
     setErr(null);
     try {
@@ -72,6 +81,29 @@ export function TimeEntryForm({
       let endDateTime = form.end_time ? new Date(`${form.date}T${form.end_time}`) : null;
       if (endDateTime && endDateTime <= startDateTime) {
         endDateTime = new Date(endDateTime.getTime() + 86400000);
+      }
+
+      if (isDevFieldAuditAuth()) {
+        const startDateTime = new Date(`${form.date}T${form.start_time}`);
+        let endDateTime = form.end_time ? new Date(`${form.date}T${form.end_time}`) : null;
+        if (endDateTime && endDateTime <= startDateTime) {
+          endDateTime = new Date(endDateTime.getTime() + 86400000);
+        }
+        const auditId = `audit-time-add-${Date.now()}`;
+        appendAuditTimesheetEntry({
+          id: auditId,
+          timesheet_id: timesheets.find(t => t.date === form.date)?.id ?? AUDIT_TIMESHEET_ID,
+          company_id: profile.company_id,
+          job_id: form.job_id || null,
+          start_time: startDateTime.toISOString(),
+          end_time: endDateTime?.toISOString() ?? null,
+          work_type: form.work_type,
+          billable: form.billable,
+          notes: form.notes,
+          created_at: new Date().toISOString(),
+        });
+        onSaved();
+        return;
       }
 
       const existing = timesheets.find(t => t.date === form.date);
@@ -109,7 +141,10 @@ export function TimeEntryForm({
       onSaved();
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Failed to save');
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+      saveLock.current = false;
+    }
   }
 
   return (
@@ -135,18 +170,16 @@ export function TimeEntryForm({
             </Field>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Start Time">
-                <input
-                  type="time"
+                <TimeFieldInput
                   value={form.start_time}
-                  onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))}
+                  onChange={start_time => setForm(f => ({ ...f, start_time }))}
                   className="form-input"
                 />
               </Field>
               <Field label="End Time">
-                <input
-                  type="time"
+                <TimeFieldInput
                   value={form.end_time}
-                  onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))}
+                  onChange={end_time => setForm(f => ({ ...f, end_time }))}
                   className="form-input"
                 />
               </Field>
@@ -209,7 +242,7 @@ export function TimeEntryForm({
               Billable time
             </label>
             {err && <p className="text-sm text-fail">{err}</p>}
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#E2D9CC]">
+            <div className="hub-ops-form-footer flex justify-end gap-2 pt-2 border-t border-[#E2D9CC]">
               <button type="button" onClick={onClose} className="btn-secondary min-h-[44px]">Cancel</button>
               <button type="submit" disabled={saving} className="btn-primary min-h-[44px] disabled:opacity-50">
                 {saving ? 'Saving...' : 'Save'}

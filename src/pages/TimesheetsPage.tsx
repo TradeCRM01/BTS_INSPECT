@@ -36,6 +36,8 @@ import {
   type TimesheetListFilter,
 } from '../lib/timesheetsList';
 import { invalidateJobBillInvoicePreview } from '../lib/jobBillInvoicePreviewQuery';
+import { loadBilledTimesheetEntryIdsForJobs } from '../lib/timesheetEntryDelete';
+import { TimesheetEntryDeleteControl } from '../components/timesheets/TimesheetEntryDeleteControl';
 
 export function TimesheetsPage() {
   const { profile } = useAuth();
@@ -133,6 +135,35 @@ export function TimesheetsPage() {
     },
     enabled: !!selectedEmployee && !!timesheets,
   });
+
+  const jobIdsForEntries = useMemo(
+    () => [...new Set((entries ?? []).map(e => e.job_id).filter(Boolean))] as string[],
+    [entries],
+  );
+
+  const billedEntryQuery = useQuery({
+    queryKey: ['billed-timesheet-entry-ids', jobIdsForEntries.join(',')],
+    queryFn: async () => loadBilledTimesheetEntryIdsForJobs(supabase, jobIdsForEntries),
+    enabled: jobIdsForEntries.length > 0 && !!profile,
+  });
+  const billedEntryGate = useMemo(() => {
+    if (jobIdsForEntries.length === 0) {
+      return { loaded: true, billingCheckOk: true, ids: new Set<string>() };
+    }
+    return {
+      loaded: billedEntryQuery.isFetched && !billedEntryQuery.isPending,
+      billingCheckOk: billedEntryQuery.isError
+        ? false
+        : (billedEntryQuery.data?.billingCheckOk ?? false),
+      ids: billedEntryQuery.data?.ids ?? new Set<string>(),
+    };
+  }, [
+    jobIdsForEntries.length,
+    billedEntryQuery.isFetched,
+    billedEntryQuery.isPending,
+    billedEntryQuery.isError,
+    billedEntryQuery.data,
+  ]);
 
   const { data: jobs } = useQuery({
     queryKey: ['jobs-for-timesheets'],
@@ -297,6 +328,10 @@ export function TimesheetsPage() {
     </div>
   );
 
+  const renderEntryDelete = (entry: TimesheetEntry) => (
+    <TimesheetEntryDeleteControl entry={entry} billedGate={billedEntryGate} />
+  );
+
   const renderLedger = () => (
     <div className="hub-timesheets-ledger">
       <div className="hub-timesheets-ledger-head">
@@ -338,6 +373,7 @@ export function TimesheetsPage() {
                 {duration > 0 ? timesheetListHoursLabel(duration) : '—'}
                 {jobTitle !== '—' ? ` • ${jobTitle}` : ''}
               </span>
+              {renderEntryDelete(entry)}
             </div>
           );
         })
@@ -398,6 +434,7 @@ export function TimesheetsPage() {
                 {entry.billable ? ' · Billable' : ' · Non-billable'}
               </span>
               <span className="hub-timesheets-hours">{duration > 0 ? formatDuration(duration) : '—'}</span>
+              {renderEntryDelete(entry)}
             </div>
           );
         })
@@ -551,6 +588,7 @@ export function TimesheetsPage() {
           jobs={jobs ?? []}
           employeeId={selectedEmployee}
           presetJobId={presetJobId ?? undefined}
+          blankTimesOnOpen
           onClose={() => {
             setShowEntryForm(false);
             if (presetJobId) {
