@@ -35,8 +35,8 @@ describe('jobFieldsFromQuote', () => {
       priority: 'medium',
       scheduled_date: null,
       assigned_team: [],
-      start_time: '08:00',
-      end_time: '16:00',
+      start_time: null,
+      end_time: null,
     });
   });
 

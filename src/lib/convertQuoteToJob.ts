@@ -46,10 +46,7 @@ export type ConvertibleQuote = {
 
 /** Creates a job from an accepted quote, or returns the existing job if already converted. */
 export async function convertQuoteToJob(quote: ConvertibleQuote, profileId: string): Promise<string> {
-  if (!convertQuoteHasDateAndCrew(quote)) {
-    const missing = quoteConvertMissing(quote);
-    throw new Error(missing ? convertQuoteNeedMessage(missing, quote) : 'Set date, crew, and times before converting.');
-  }
+  if (quote.job_id) return quote.job_id;
 
   if (isDevFieldAuditAuth()) {
     const clientAddress = quote.client_id
@@ -88,6 +85,11 @@ export async function convertQuoteToJob(quote: ConvertibleQuote, profileId: stri
     .maybeSingle();
   if (latestErr) throw latestErr;
   if (latest?.job_id) return latest.job_id as string;
+
+  if (!convertQuoteHasDateAndCrew(quote)) {
+    const missing = quoteConvertMissing(quote);
+    throw new Error(missing ? convertQuoteNeedMessage(missing, quote) : 'Set date, crew, and times before converting.');
+  }
 
   let clientAddress: string | null = null;
   if (quote.client_id) {

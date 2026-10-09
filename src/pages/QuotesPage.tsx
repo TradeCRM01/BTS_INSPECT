@@ -24,6 +24,7 @@ import { convertQuoteToJob } from '../lib/convertQuoteToJob';
 import { afterDialogInitialFocus } from '../lib/dialogFocus';
 import {
   CONVERT_QUOTE_BLOCKED,
+  CONVERT_QUOTE_END_BEFORE_START,
   CONVERT_QUOTE_NEED_CREW,
   CONVERT_QUOTE_NEED_DATE,
   CONVERT_QUOTE_NEED_DATE_CREW,
@@ -848,33 +849,7 @@ function QuoteNextControl({ quote, onOpen, onSend }: { quote: QuoteListItem; onO
       return;
     }
     if (next.key === 'convert_job') {
-      const tap = quoteConvertTap({
-        id: quote.id,
-        status: quote.status,
-        profileId: profile?.id,
-        scheduled_date: quote.scheduled_date,
-        assigned_team: quote.assigned_team,
-        start_time: '08:00',
-        end_time: '16:00',
-      });
-      if (tap.action === 'focus_convert') {
-        onOpen({ focusConvert: true });
-        return;
-      }
-      void run('convert_job', async () => {
-        const jobId = await convertQuoteToJob({
-          ...quote,
-          scheduled_date: quote.scheduled_date ?? null,
-          assigned_team: assignedTeamFromQuote(quote.assigned_team),
-          start_time: '08:00',
-          end_time: '16:00',
-        }, profile!.id);
-        queryClient.invalidateQueries({ queryKey: ['quotes'] });
-        queryClient.invalidateQueries({ queryKey: ['jobs'] });
-        queryClient.invalidateQueries({ queryKey: ['job', jobId] });
-        showToast(CONVERT_QUOTE_JOB_SAVED);
-        navigate(`/jobs/${jobId}`);
-      });
+      onOpen({ focusConvert: true });
       return;
     }
     if (next.key === 'invoice') {
@@ -1355,6 +1330,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
     }
     setErr('');
     const id = savedId ?? quote?.id ?? '';
+    let converted = false;
     try {
       const jobId = await convertQuoteToJob({
         id,
@@ -1375,12 +1351,13 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['job', jobId] });
       showToast(CONVERT_QUOTE_JOB_SAVED);
+      converted = true;
       navigate(`/jobs/${jobId}`);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Conversion failed');
     } finally {
       setConverting(false);
-      releaseQuoteConvertLock(convertingLock);
+      if (!converted) releaseQuoteConvertLock(convertingLock);
     }
   };
 
@@ -1848,6 +1825,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                 || err === CONVERT_QUOTE_NEED_DATE
                 || err === CONVERT_QUOTE_NEED_CREW
                 || err === CONVERT_QUOTE_NEED_TIME
+                || err === CONVERT_QUOTE_END_BEFORE_START
                 ? <p className="hub-quote-convert-miss">{err}</p>
                 : <p className="hub-quote-convert-whisper">Date, crew, and times on this tap.</p>}
               <button
