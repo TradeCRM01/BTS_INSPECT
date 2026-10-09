@@ -24,9 +24,17 @@ import { convertQuoteToJob } from '../lib/convertQuoteToJob';
 import { afterDialogInitialFocus } from '../lib/dialogFocus';
 import {
   CONVERT_QUOTE_BLOCKED,
+  CONVERT_QUOTE_END_BEFORE_START,
+  CONVERT_QUOTE_NEED_CREW,
+  CONVERT_QUOTE_NEED_DATE,
   CONVERT_QUOTE_NEED_DATE_CREW,
+  CONVERT_QUOTE_NEED_TIME,
+  CONVERT_QUOTE_JOB_SAVED,
+  convertQuoteNeedMessage,
+  focusQuoteConvertField,
   assignedTeamFromQuote,
   focusQuoteConvertDate,
+  quoteConvertMissing,
   quoteConvertTap,
   releaseQuoteConvertLock,
   takeQuoteConvertLock,
@@ -153,7 +161,7 @@ function fieldAuditConvertQuote(): QuoteListItem | null {
     client_id: AUDIT_DOC_CLIENT_ID,
     job_id: null,
     status: 'accepted',
-    description: 'Quoted site works',
+    description: 'Quoted site works — delete ok',
     scope_of_works: 'Labour and materials on site.',
     line_items: [{ description: 'Site labour', quantity: 8, unit_price: 95 }],
     subtotal: 760,
@@ -164,7 +172,7 @@ function fieldAuditConvertQuote(): QuoteListItem | null {
     notes: null,
     inclusions: [],
     exclusions: [],
-    scheduled_date: '2026-09-03',
+    scheduled_date: '2026-10-08',
     assigned_team: [DEV_AUDIT_PROFILE.id],
     created_by: DEV_AUDIT_PROFILE.id,
     created_at: '2026-08-24T00:00:00.000Z',
@@ -841,27 +849,7 @@ function QuoteNextControl({ quote, onOpen, onSend }: { quote: QuoteListItem; onO
       return;
     }
     if (next.key === 'convert_job') {
-      const tap = quoteConvertTap({
-        id: quote.id,
-        status: quote.status,
-        profileId: profile?.id,
-        scheduled_date: quote.scheduled_date,
-        assigned_team: quote.assigned_team,
-      });
-      if (tap.action === 'focus_convert') {
-        onOpen({ focusConvert: true });
-        return;
-      }
-      void run('convert_job', async () => {
-        const jobId = await convertQuoteToJob({
-          ...quote,
-          scheduled_date: quote.scheduled_date ?? null,
-          assigned_team: assignedTeamFromQuote(quote.assigned_team),
-        }, profile!.id);
-        queryClient.invalidateQueries({ queryKey: ['quotes'] });
-        queryClient.invalidateQueries({ queryKey: ['jobs'] });
-        navigate(`/jobs/${jobId}`);
-      });
+      onOpen({ focusConvert: true });
       return;
     }
     if (next.key === 'invoice') {
@@ -912,6 +900,8 @@ interface EditorState {
   inclusions: string[]; exclusions: string[];
   scheduled_date: string;
   assigned_team: string[];
+  start_time: string;
+  end_time: string;
 }
 
 function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert, onFocusedConvert, onClose, onSaved, onRequestSend }: {
@@ -971,6 +961,8 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
     exclusions: asStringList(quote?.exclusions),
     scheduled_date: quote?.scheduled_date?.slice(0, 10) ?? '',
     assigned_team: assignedTeamFromQuote(quote?.assigned_team),
+    start_time: '08:00',
+    end_time: '16:00',
   });
 
   useEffect(() => {
@@ -1308,16 +1300,24 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
 
   const handleConvert = async () => {
     if (!takeQuoteConvertLock(convertingLock)) return;
+    const convertInput = {
+      scheduled_date: form.scheduled_date,
+      assigned_team: form.assigned_team,
+      start_time: form.start_time,
+      end_time: form.end_time,
+    };
     const tap = quoteConvertTap({
       id: savedId ?? quote?.id,
       status: form.status,
       profileId: profile?.id,
-      scheduled_date: form.scheduled_date,
-      assigned_team: form.assigned_team,
+      ...convertInput,
     });
     if (tap.action === 'focus_convert') {
-      setErr(CONVERT_QUOTE_NEED_DATE_CREW);
-      focusQuoteConvertDate(convertSectionRef.current ?? document);
+      const missing = quoteConvertMissing(convertInput);
+      const message = missing ? convertQuoteNeedMessage(missing, convertInput) : CONVERT_QUOTE_NEED_DATE_CREW;
+      setErr(message);
+      if (missing) focusQuoteConvertField(convertSectionRef.current ?? document, missing);
+      else focusQuoteConvertDate(convertSectionRef.current ?? document);
       releaseQuoteConvertLock(convertingLock);
       return;
     }
@@ -1330,6 +1330,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
     }
     setErr('');
     const id = savedId ?? quote?.id ?? '';
+    let converted = false;
     try {
       const jobId = await convertQuoteToJob({
         id,
@@ -1343,15 +1344,20 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
         total: grandTotal,
         scheduled_date: form.scheduled_date || null,
         assigned_team: form.assigned_team,
+        start_time: form.start_time,
+        end_time: form.end_time,
       }, profile.id);
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['job', jobId] });
+      showToast(CONVERT_QUOTE_JOB_SAVED);
+      converted = true;
       navigate(`/jobs/${jobId}`);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Conversion failed');
     } finally {
       setConverting(false);
-      releaseQuoteConvertLock(convertingLock);
+      if (!converted) releaseQuoteConvertLock(convertingLock);
     }
   };
 
@@ -1785,6 +1791,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                 </Field>
                 <Field label="Crew">
                   <select
+                    id="quote-convert-crew"
                     value={form.assigned_team[0] ?? ''}
                     onChange={e => setForm(f => ({ ...f, assigned_team: e.target.value ? [e.target.value] : [] }))}
                     className="form-input cursor-pointer"
@@ -1795,10 +1802,32 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                     ))}
                   </select>
                 </Field>
+                <Field label="Start">
+                  <input
+                    id="quote-convert-start"
+                    type="time"
+                    value={form.start_time}
+                    onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))}
+                    className="form-input"
+                  />
+                </Field>
+                <Field label="End">
+                  <input
+                    id="quote-convert-end"
+                    type="time"
+                    value={form.end_time}
+                    onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))}
+                    className="form-input"
+                  />
+                </Field>
               </div>
               {err === CONVERT_QUOTE_NEED_DATE_CREW
-                ? <p className="hub-quote-convert-miss">{CONVERT_QUOTE_NEED_DATE_CREW}</p>
-                : <p className="hub-quote-convert-whisper">Date and crew on this tap.</p>}
+                || err === CONVERT_QUOTE_NEED_DATE
+                || err === CONVERT_QUOTE_NEED_CREW
+                || err === CONVERT_QUOTE_NEED_TIME
+                || err === CONVERT_QUOTE_END_BEFORE_START
+                ? <p className="hub-quote-convert-miss">{err}</p>
+                : <p className="hub-quote-convert-whisper">Date, crew, and times on this tap.</p>}
               <button
                 type="button"
                 className="btn-primary"

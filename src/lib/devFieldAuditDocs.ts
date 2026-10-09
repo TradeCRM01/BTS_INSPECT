@@ -1,4 +1,5 @@
 import { DEV_AUDIT_COMPANY, DEV_AUDIT_PROFILE, isDevFieldAuditAuth } from './devFieldAuditAuth';
+import { withScheduleJobPatches } from './scheduleJobPatchStore';
 import type { ExpenseCostModel, JobCost } from '../types/fsm';
 import type { InvoiceSendBundle, InvoiceSendCompany } from './sendInvoice';
 import type { QuoteSendBundle, QuoteSendCompany } from './sendQuote';
@@ -463,6 +464,28 @@ export function getAuditJobs() {
     parent_job_id: null,
     cost_code: null,
   }, {
+    id: 'audit-quote-convert-job',
+    company_id: DEV_AUDIT_COMPANY.id,
+    client_id: AUDIT_DOC_CLIENT_ID,
+    title: 'Quoted site works — delete ok',
+    description: 'Labour and materials on site.',
+    status: 'scheduled' as const,
+    priority: 'medium' as const,
+    scheduled_date: null,
+    start_time: null,
+    end_time: null,
+    address: '12 Workshop Rd, Perth WA 6000',
+    assigned_team: [],
+    inspection_id: null,
+    created_by: DEV_AUDIT_PROFILE.id,
+    created_at: NOW,
+    updated_at: NOW,
+    job_number: 2002,
+    color: null,
+    budget: 836,
+    parent_job_id: null,
+    cost_code: null,
+  }, {
     id: 'audit-stage-job',
     company_id: DEV_AUDIT_COMPANY.id,
     client_id: AUDIT_DOC_CLIENT_ID,
@@ -515,7 +538,10 @@ export function getAuditClients() {
 export function getAuditJob(id: string) {
   const jobs = getAuditJobs();
   const found = jobs?.find(j => j.id === id) ?? null;
-  if (found || !isDevFieldAuditAuth()) return found;
+  if (found) {
+    return withScheduleJobPatches([found])[0] as typeof found;
+  }
+  if (!isDevFieldAuditAuth()) return found;
   if (id === 'look-job-bayswater' || id === 'look-job-p307') {
     return {
       id,

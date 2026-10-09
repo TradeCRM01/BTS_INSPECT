@@ -11,7 +11,7 @@ import {
   quoteSmsBody,
   quoteStatusAfterClientAccept,
 } from './sendQuote';
-import { portalDocumentRef } from './quoteJobFields';
+import { jobFieldsFromQuote, portalDocumentRef } from './quoteJobFields';
 import {
   acceptClientPortalAuditQuote,
   canAcceptPortalQuote,
@@ -20,10 +20,6 @@ import {
   PORTAL_QUOTE_ACCEPT_ACTION,
   portalQuoteAcceptBody,
 } from '../pages/ClientPortalPublicPage';
-import {
-  convertQuoteHasDateAndCrew,
-  jobFieldsFromQuote,
-} from './quoteJobFields';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -196,7 +192,8 @@ describe('portal quote Accept — same write as office Mark accepted', () => {
     const bookedJob = jobFieldsFromQuote(sentQuote, '14 Smith Street');
     expect(bookedJob.scheduled_date).toBe('2026-09-24');
     expect(bookedJob.assigned_team).toEqual(['crew-7']);
-    expect(convertQuoteHasDateAndCrew(bookedJob)).toBe(true);
+    expect(bookedJob.start_time).toBeNull();
+    expect(bookedJob.end_time).toBeNull();
 
     const edge = src('supabase/functions/client-portal/index.ts');
     expect(edge).toContain('scheduled_date: scheduledDateFromQuote(quote.scheduled_date)');
@@ -356,10 +353,9 @@ describe('isolation — list Next Convert empty date/crew stays on the editor', 
       listNext.indexOf("next.key === 'invoice'"),
     );
 
-    expect(convertBlock).toContain('quoteConvertTap');
     expect(convertBlock).toContain('onOpen({ focusConvert: true })');
-    expect(convertBlock.indexOf("=== 'focus_convert'")).toBeLessThan(convertBlock.indexOf('await convertQuoteToJob'));
-    expect(convertBlock.indexOf('onOpen({ focusConvert: true })')).toBeLessThan(convertBlock.indexOf('await convertQuoteToJob'));
+    expect(convertBlock).not.toContain('await convertQuoteToJob');
+    expect(convertBlock).not.toContain('quoteConvertTap');
     expect(listNext).toContain("next.key === 'send' ? 'btn-primary' : 'hub-next'");
     expect(row).not.toContain('Field label="Job date"');
     expect(row).not.toContain('Field label="Crew"');

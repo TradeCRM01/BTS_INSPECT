@@ -38,7 +38,12 @@ describe('quoteConvertEntry', () => {
   it('sends More and list Convert to the convert date when date or crew is missing', () => {
     expect(quoteConvertEntry({ scheduled_date: null, assigned_team: [] })).toBe('focus_convert');
     expect(quoteConvertEntry({ scheduled_date: '2026-10-05', assigned_team: [] })).toBe('focus_convert');
-    expect(quoteConvertEntry({ scheduled_date: '2026-10-05', assigned_team: ['crew-1'] })).toBe('convert');
+    expect(quoteConvertEntry({
+      scheduled_date: '2026-10-05',
+      assigned_team: ['crew-1'],
+      start_time: '08:00',
+      end_time: '16:00',
+    })).toBe('convert');
 
     const quotes = src('src/pages/QuotesPage.tsx');
     const editor = quotes.split('function QuoteEditorModal')[1] ?? '';
@@ -56,9 +61,9 @@ describe('quoteConvertEntry', () => {
 
     const listNext = quotes.slice(quotes.indexOf('function QuoteNextControl'), quotes.indexOf('interface EditorState'));
     const listConvert = listNext.slice(listNext.indexOf("next.key === 'convert_job'"), listNext.indexOf("next.key === 'invoice'"));
-    expect(listConvert).toContain('quoteConvertTap');
     expect(listConvert).toContain('onOpen({ focusConvert: true })');
-    expect(listConvert.indexOf("=== 'focus_convert'")).toBeLessThan(listConvert.indexOf('await convertQuoteToJob'));
+    expect(listConvert).not.toContain('await convertQuoteToJob');
+    expect(listConvert).not.toContain('quoteConvertTap');
     expect(listNext).toContain('takeQuoteConvertLock');
     expect(listNext).not.toContain('onPointerDown');
     expect(listNext).toContain('onClick={handle}');
@@ -138,6 +143,8 @@ describe('quoteConvertEntry', () => {
       profileId: 'p1',
       scheduled_date: '2026-10-05',
       assigned_team: ['crew-1'],
+      start_time: '08:00',
+      end_time: '16:00',
     };
     const convert = quoteConvertTap(ready);
     expect(convert).toEqual({ action: 'convert' });
@@ -161,5 +168,6 @@ describe('quoteConvertEntry', () => {
     expect(handleConvert.indexOf('setConverting(true)')).toBeLessThan(handleConvert.indexOf('await convertQuoteToJob'));
     expect(handleConvert.indexOf('tap.action === \'blocked\'')).toBeLessThan(handleConvert.indexOf('await convertQuoteToJob'));
     expect(handleConvert).toContain('setConverting(true)');
+    expect(handleConvert).toContain('if (!converted) releaseQuoteConvertLock');
   });
 });

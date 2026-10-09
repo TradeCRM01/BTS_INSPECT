@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import { getAuditClients, getAuditJobs } from './devFieldAuditDocs';
 import type { Client, Job, JobWithClient } from '../types/crm';
 import { formatJobRef, withParentJobNumbers } from './jobRef';
+import { withScheduleJobPatches } from './scheduleJobPatchStore';
 
 export const SCHEDULE_SEARCH_LIMIT = 15;
 
@@ -42,18 +43,17 @@ export function attachJobClients(
   })));
 }
 
-const scheduleJobPatches = new Map<string, Partial<JobWithClient>>();
+export {
+  getScheduleJobPatch,
+  mergeScheduleJobPatch,
+  withScheduleJobPatches,
+} from './scheduleJobPatchStore';
 
-export function mergeScheduleJobPatch(jobId: string, patch: Partial<JobWithClient>) {
-  scheduleJobPatches.set(jobId, { ...(scheduleJobPatches.get(jobId) ?? {}), ...patch });
-}
-
-export function withScheduleJobPatches<T extends { id: string }>(jobs: T[]): T[] {
-  if (scheduleJobPatches.size === 0) return jobs;
-  return jobs.map(j => {
-    const patch = scheduleJobPatches.get(j.id);
-    return patch ? { ...j, ...patch } : j;
-  });
+/** Field-audit jobs with in-session schedule/convert patches applied. */
+export function auditJobsWithPatches(): Job[] | null {
+  const base = getAuditJobs();
+  if (!base) return null;
+  return withScheduleJobPatches(base);
 }
 
 export async function hydrateJobParentNumbers(jobs: JobWithClient[]): Promise<JobWithClient[]> {
