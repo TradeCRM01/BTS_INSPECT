@@ -210,9 +210,11 @@ describe('schedule page week/day board', () => {
     expect(page).toContain('withScheduleJobPatches(weekBoardLookJobs())');
     expect(page).toContain('jobMatchesSearch');
     expect(src('src/components/jobs/JobDispatchPanel.tsx')).toContain("save.mutate({ scheduled_date:");
-    expect(src('src/components/jobs/JobDispatchPanel.tsx')).toContain("save.mutate({ start_time:");
-    expect(src('src/components/jobs/JobDispatchPanel.tsx')).toContain("save.mutate({ end_time:");
-    expect(src('src/components/jobs/JobDispatchPanel.tsx')).toContain('assigned_team:');
+    const dispatch = src('src/components/jobs/JobDispatchPanel.tsx');
+    expect(dispatch).toContain('commitJobTime');
+    expect(dispatch).toContain("onBlurCommit={v => commitJobTime('start_time', v)}");
+    expect(dispatch).toContain("onBlurCommit={v => commitJobTime('end_time', v)}");
+    expect(dispatch).toContain('assigned_team:');
   });
 });
 

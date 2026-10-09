@@ -102,6 +102,14 @@ export function JobDispatchPanel({
       else setEndDraft(server);
       return;
     }
+    if (import.meta.env.DEV) {
+      try {
+        const w = window as Window & { __fix5aDispatchTimeSaves?: number };
+        w.__fix5aDispatchTimeSaves = (w.__fix5aDispatchTimeSaves ?? 0) + 1;
+      } catch {
+        // ignore
+      }
+    }
     save.mutate({ [field]: raw || null });
   };
 

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isDevFieldAuditAuth } from './devFieldAuditAuth';
+import { isDevAuditBillingFetchFail, isDevFieldAuditAuth } from './devFieldAuditAuth';
 import { isSchemaColumnMissingError, loadBilledTimesheetEntryIds } from './hoursToJobBill';
 import { entryMinutes } from './timesheetJob';
 import {
@@ -55,6 +55,9 @@ export async function loadBilledTimesheetEntryIdsForJobs(
   jobIds: string[],
 ): Promise<BilledTimesheetEntryIdsState> {
   if (isDevFieldAuditAuth() && jobIds.length > 0) {
+    if (isDevAuditBillingFetchFail()) {
+      return { ids: new Set(), billingCheckOk: false };
+    }
     return { ids: new Set([AUDIT_TIMESHEET_ENTRY_ID]), billingCheckOk: true };
   }
   const billed = new Set<string>();

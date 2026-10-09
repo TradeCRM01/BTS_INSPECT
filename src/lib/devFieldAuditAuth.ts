@@ -71,6 +71,17 @@ export function enableDevFieldAuditAuth(): void {
   }
 }
 
+/** DEV-only: simulate billed-id fetch failure (empty set, billingCheckOk false). */
+export function isDevAuditBillingFetchFail(): boolean {
+  if (!import.meta.env.DEV || !isDevFieldAuditAuth()) return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('auditBillingFail') === '1';
+  } catch {
+    return false;
+  }
+}
+
 /** True when a failed list query should hide the page. Never in the DEV field-audit session. */
 export function pageQueryBlocked(error: unknown): boolean {
   return Boolean(error) && !isDevFieldAuditAuth();
