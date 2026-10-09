@@ -31,10 +31,11 @@ describe('FIX-5c C8 — hint copy without minutes heuristic', () => {
     expect(field).not.toContain('timeFieldDigitsImplyMeridiemHint');
   });
 
-  it('probe inconclusive fallback is false (generic, no line) at timeFieldMeridiemProbe.ts', () => {
+  it('probe compares time input width to plain text (not time vs time)', () => {
     const probe = src('src/lib/timeFieldMeridiemProbe.ts');
-    expect(probe).toMatch(/rendersMeridiem = delta13 > 0\.5 \|\| delta0930 > 0\.5/);
-    expect(probe).toMatch(/Inconclusive.*false/s);
+    expect(probe).toContain('time-field-meridiem-probe-text-ref');
+    expect(probe).toContain('rendersMeridiemFromProbeDeltas');
+    expect(probe).not.toContain('time-field-meridiem-probe-ref');
     expect(probe).toMatch(/import\.meta\.env\.DEV[\s\S]*__FIX5C_TIME_FIELD_RENDER_MERIDIEM__/);
   });
 

@@ -3,6 +3,9 @@ let cachedRendersMeridiem: boolean | null = null;
 
 let probeOverride: boolean | undefined;
 
+/** Min px wider than plain hh:mm text before we treat the native control as 12h. */
+export const TIME_FIELD_MERIDIEM_PROBE_MIN_DELTA = 8;
+
 /** Vitest / Playwright can pin probe result without touching navigator locale. */
 export function setTimeFieldRendersMeridiemProbeOverride(value: boolean | undefined): void {
   probeOverride = value;
@@ -16,65 +19,96 @@ export function resetTimeFieldRendersMeridiemProbeCache(): void {
 type ProbeWindow = Window & { __FIX5C_TIME_FIELD_RENDER_MERIDIEM__?: boolean };
 
 export type TimeFieldMeridiemProbeMeasurement = {
-  live13: number;
-  ref13: number;
-  live0930: number;
-  ref0930: number;
+  time13Width: number;
+  text13Width: number;
+  time0930Width: number;
+  text0930Width: number;
   delta13: number;
   delta0930: number;
   rendersMeridiem: boolean;
 };
 
-/** Run width probe once and return measurements (for diagnostics). */
+/** Pure width-delta decision (unit-tested with mocked widths). */
+export function rendersMeridiemFromProbeDeltas(delta13: number, delta0930: number): boolean {
+  return (
+    delta13 > TIME_FIELD_MERIDIEM_PROBE_MIN_DELTA
+    || delta0930 > TIME_FIELD_MERIDIEM_PROBE_MIN_DELTA
+  );
+}
+
+function syncTextRefStyle(time: HTMLInputElement, text: HTMLElement): void {
+  const cs = getComputedStyle(time);
+  text.style.font = cs.font;
+  text.style.letterSpacing = cs.letterSpacing;
+  text.style.padding = cs.padding;
+  text.style.border = cs.border;
+  text.style.boxSizing = cs.boxSizing;
+}
+
+function measureTimeAgainstText(
+  time: HTMLInputElement,
+  text: HTMLElement,
+  timeValue: string,
+  textLabel: string,
+): { timeWidth: number; textWidth: number; delta: number } {
+  time.value = timeValue;
+  void time.offsetWidth;
+  syncTextRefStyle(time, text);
+  text.textContent = textLabel;
+  void text.offsetWidth;
+  const timeWidth = time.getBoundingClientRect().width;
+  const textWidth = text.getBoundingClientRect().width;
+  return { timeWidth, textWidth, delta: timeWidth - textWidth };
+}
+
+/**
+ * Compare native time input min-content width to plain text hh:mm in the same font.
+ * 12h controls include an extra meridiem segment (+ padding), so the time input is wider.
+ */
 export function measureTimeFieldMeridiemProbe(doc?: Document): TimeFieldMeridiemProbeMeasurement | null {
   const root = doc ?? (typeof document !== 'undefined' ? document : undefined);
   if (!root?.body) return null;
 
   const host = root.createElement('div');
   host.className = 'time-field-meridiem-probe-host';
-  const live = root.createElement('input');
-  live.type = 'time';
-  live.className = 'form-input time-field-meridiem-probe-live';
-  live.setAttribute('aria-hidden', 'true');
-  live.tabIndex = -1;
+  const time = root.createElement('input');
+  time.type = 'time';
+  time.className = 'form-input time-field-meridiem-probe-live';
+  time.setAttribute('aria-hidden', 'true');
+  time.tabIndex = -1;
 
-  const reference = root.createElement('input');
-  reference.type = 'time';
-  reference.className = 'form-input time-field-meridiem-probe-ref';
-  reference.setAttribute('aria-hidden', 'true');
-  reference.tabIndex = -1;
+  const text = root.createElement('span');
+  text.className = 'time-field-meridiem-probe-text-ref';
+  text.setAttribute('aria-hidden', 'true');
 
-  host.append(live, reference);
+  host.append(time, text);
   root.body.appendChild(host);
 
-  const measure = (el: HTMLInputElement, value: string) => {
-    el.value = value;
-    void el.offsetWidth;
-    return el.getBoundingClientRect().width;
-  };
-
-  const live13 = measure(live, '13:00');
-  const ref13 = measure(reference, '13:00');
-  const live0930 = measure(live, '09:30');
-  const ref0930 = measure(reference, '09:30');
+  const at13 = measureTimeAgainstText(time, text, '13:00', '13:00');
+  const at0930 = measureTimeAgainstText(time, text, '09:30', '09:30');
 
   root.body.removeChild(host);
 
-  const delta13 = Math.abs(live13 - ref13);
-  const delta0930 = Math.abs(live0930 - ref0930);
-  const rendersMeridiem = delta13 > 0.5 || delta0930 > 0.5;
+  const delta13 = at13.delta;
+  const delta0930 = at0930.delta;
+  const rendersMeridiem = rendersMeridiemFromProbeDeltas(delta13, delta0930);
 
-  return { live13, ref13, live0930, ref0930, delta13, delta0930, rendersMeridiem };
+  return {
+    time13Width: at13.timeWidth,
+    text13Width: at13.textWidth,
+    time0930Width: at0930.timeWidth,
+    text0930Width: at0930.textWidth,
+    delta13,
+    delta0930,
+    rendersMeridiem,
+  };
 }
 
 /**
- * Detect 12h time fields from the control itself: compare rendered width of a live
- * probe input at 13:00 against an offscreen reference probe (same class).
- * No navigator.language / Intl checks.
+ * Detect 12h time fields from the control itself. No navigator.language / Intl checks.
  *
- * When width deltas are inconclusive (≤ 0.5px), returns **false** (24h-safe): generic
- * hint copy only and no reserved hint line — see measureTimeFieldMeridiemProbe /
- * cached assignment below.
+ * When width deltas are inconclusive (≤ TIME_FIELD_MERIDIEM_PROBE_MIN_DELTA), returns
+ * **false** (24h-safe): generic hint copy only and no reserved hint line.
  */
 export function timeFieldRendersMeridiem(doc?: Document): boolean {
   if (probeOverride !== undefined) return probeOverride;
@@ -103,7 +137,6 @@ export function timeFieldRendersMeridiem(doc?: Document): boolean {
     return false;
   }
 
-  // Inconclusive (deltas ≤ 0.5): false → generic copy, no hint line reserved.
   cachedRendersMeridiem = measured.rendersMeridiem;
   return cachedRendersMeridiem;
 }

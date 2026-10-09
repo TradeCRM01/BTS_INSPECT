@@ -5489,6 +5489,12 @@
     min-width: 0;
   }
 
+  .time-field-meridiem-probe-text-ref {
+    display: inline-block;
+    width: min-content;
+    white-space: nowrap;
+  }
+
   .time-field-am-pm-hint {
     min-height: 1.25rem;
     line-height: 1.25rem;

@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   measureTimeFieldMeridiemProbe,
+  rendersMeridiemFromProbeDeltas,
   resetTimeFieldRendersMeridiemProbeCache,
   setTimeFieldRendersMeridiemProbeOverride,
+  TIME_FIELD_MERIDIEM_PROBE_MIN_DELTA,
   timeFieldRendersMeridiem,
 } from './timeFieldMeridiemProbe';
 
@@ -11,22 +13,28 @@ afterEach(() => {
   resetTimeFieldRendersMeridiemProbeCache();
 });
 
-describe('FIX-5c C7 meridiem probe (mocked)', () => {
-  it('mocked 12h drives true', () => {
-    setTimeFieldRendersMeridiemProbeOverride(true);
-    expect(timeFieldRendersMeridiem()).toBe(true);
+describe('FIX-5c C9 meridiem probe deltas', () => {
+  it('12h-style wider time control → true', () => {
+    expect(rendersMeridiemFromProbeDeltas(12, 0)).toBe(true);
+    expect(rendersMeridiemFromProbeDeltas(0, 10)).toBe(true);
   });
 
-  it('mocked 24h drives false', () => {
+  it('equal widths → false (inconclusive / 24h-safe)', () => {
+    expect(rendersMeridiemFromProbeDeltas(0, 0)).toBe(false);
+    expect(rendersMeridiemFromProbeDeltas(TIME_FIELD_MERIDIEM_PROBE_MIN_DELTA, 0)).toBe(false);
+  });
+
+  it('mocked override still drives hint wiring', () => {
+    setTimeFieldRendersMeridiemProbeOverride(true);
+    expect(timeFieldRendersMeridiem()).toBe(true);
     setTimeFieldRendersMeridiemProbeOverride(false);
     expect(timeFieldRendersMeridiem()).toBe(false);
   });
 
-  it('inconclusive width deltas yield rendersMeridiem false', () => {
+  it('live measure on jsdom is inconclusive → false', () => {
     const m = measureTimeFieldMeridiemProbe();
     if (!m) return;
-    if (m.delta13 <= 0.5 && m.delta0930 <= 0.5) {
-      expect(m.rendersMeridiem).toBe(false);
+    if (!m.rendersMeridiem) {
       expect(timeFieldRendersMeridiem()).toBe(false);
     }
   });
