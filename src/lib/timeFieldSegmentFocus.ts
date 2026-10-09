@@ -8,6 +8,8 @@ export type TimeFieldSegmentState = {
   minuteDigits: number;
   hourFilled: boolean;
   minuteFilled: boolean;
+  /** First hour digit while the hour segment is still open (Chrome 1x / 0x paths). */
+  hourLeadDigit: number | null;
 };
 
 export function createTimeFieldSegmentState(
@@ -19,7 +21,111 @@ export function createTimeFieldSegmentState(
     minuteDigits: 0,
     hourFilled: false,
     minuteFilled: false,
+    hourLeadDigit: null,
   };
+}
+
+function hourSingleDigitCompletes(digit: number, rendersMeridiem: boolean): boolean {
+  if (rendersMeridiem) return digit >= 2 && digit <= 9;
+  return digit >= 3 && digit <= 9;
+}
+
+function minuteSingleDigitCompletes(digit: number): boolean {
+  return digit >= 6 && digit <= 9;
+}
+
+function nextActiveAfterMinute(filled: boolean, rendersMeridiem: boolean): TimeFieldSegment {
+  if (!filled) return 'minute';
+  return rendersMeridiem ? 'meridiem' : 'minute';
+}
+
+/** Apply one digit key in the active segment (mirrors Chrome auto-advance). */
+export function applyTimeFieldSegmentDigitKey(
+  state: TimeFieldSegmentState,
+  digit: number,
+  rendersMeridiem: boolean,
+): TimeFieldSegmentState {
+  if (state.active === 'meridiem' || digit < 0 || digit > 9) return state;
+
+  if (state.active === 'hour') {
+    if (state.hourDigits === 0) {
+      if (hourSingleDigitCompletes(digit, rendersMeridiem)) {
+        return {
+          ...state,
+          hourDigits: 1,
+          hourFilled: true,
+          hourLeadDigit: digit,
+          active: 'minute',
+        };
+      }
+      return {
+        ...state,
+        hourDigits: 1,
+        hourLeadDigit: digit,
+        active: 'hour',
+      };
+    }
+
+    if (!state.hourFilled && state.hourLeadDigit === 1 && rendersMeridiem) {
+      if (digit <= 2) {
+        return {
+          ...state,
+          hourDigits: 2,
+          hourFilled: true,
+          active: 'minute',
+        };
+      }
+      return {
+        ...state,
+        hourDigits: 1,
+        hourFilled: true,
+        hourLeadDigit: 1,
+        minuteDigits: 1,
+        minuteFilled: false,
+        active: 'minute',
+      };
+    }
+
+    const hourDigits = Math.min(2, state.hourDigits + 1);
+    const hourFilled = hourDigits >= 2;
+    return {
+      ...state,
+      hourDigits,
+      hourFilled,
+      active: hourFilled ? 'minute' : 'hour',
+    };
+  }
+
+  if (state.minuteDigits === 0 && minuteSingleDigitCompletes(digit)) {
+    return {
+      ...state,
+      minuteDigits: 1,
+      minuteFilled: true,
+      active: nextActiveAfterMinute(true, rendersMeridiem),
+    };
+  }
+
+  const minuteDigits = Math.min(2, state.minuteDigits + 1);
+  const minuteFilled = minuteDigits >= 2;
+  return {
+    ...state,
+    minuteDigits,
+    minuteFilled,
+    active: nextActiveAfterMinute(minuteFilled, rendersMeridiem),
+  };
+}
+
+export function applyTimeFieldSegmentDigitKeys(
+  state: TimeFieldSegmentState,
+  rendersMeridiem: boolean,
+  digits: string,
+): TimeFieldSegmentState {
+  let next = state;
+  for (const ch of digits) {
+    if (!/^\d$/.test(ch)) continue;
+    next = applyTimeFieldSegmentDigitKey(next, Number(ch), rendersMeridiem);
+  }
+  return next;
 }
 
 export function timeFieldSegmentProgressFromState(
@@ -42,50 +148,33 @@ export function shiftTimeFieldSegmentActive(
   return order[Math.min(order.length - 1, idx + 1)];
 }
 
-export function applyTimeFieldSegmentDigit(
-  state: TimeFieldSegmentState,
-  rendersMeridiem: boolean,
-): TimeFieldSegmentState {
-  if (state.active === 'meridiem') return state;
-  if (state.active === 'hour') {
-    const hourDigits = Math.min(2, state.hourDigits + 1);
-    const hourFilled = hourDigits >= 2;
-    return {
-      ...state,
-      hourDigits,
-      hourFilled,
-      active: hourFilled ? 'minute' : 'hour',
-    };
-  }
-  const minuteDigits = Math.min(2, state.minuteDigits + 1);
-  const minuteFilled = minuteDigits >= 2;
-  return {
-    ...state,
-    minuteDigits,
-    minuteFilled,
-    active: minuteFilled && rendersMeridiem ? 'meridiem' : 'minute',
-  };
-}
-
-export function applyTimeFieldSegmentDigitBatch(
-  state: TimeFieldSegmentState,
-  rendersMeridiem: boolean,
-  digitCount: number,
-): TimeFieldSegmentState {
-  let next = state;
-  for (let i = 0; i < digitCount; i++) {
-    next = applyTimeFieldSegmentDigit(next, rendersMeridiem);
-  }
-  return next;
-}
-
 export function applyTimeFieldSegmentBackspace(
   state: TimeFieldSegmentState,
 ): TimeFieldSegmentState {
   if (state.active === 'meridiem') return state;
   if (state.active === 'hour') {
+    if (state.hourFilled && state.hourDigits <= 1) {
+      return {
+        ...state,
+        hourDigits: 0,
+        hourFilled: false,
+        hourLeadDigit: null,
+      };
+    }
     const hourDigits = Math.max(0, state.hourDigits - 1);
-    return { ...state, hourDigits, hourFilled: hourDigits >= 2 };
+    return {
+      ...state,
+      hourDigits,
+      hourFilled: hourDigits >= 2,
+      hourLeadDigit: hourDigits > 0 ? state.hourLeadDigit : null,
+    };
+  }
+  if (state.minuteFilled && state.minuteDigits <= 1) {
+    return {
+      ...state,
+      minuteDigits: 0,
+      minuteFilled: false,
+    };
   }
   const minuteDigits = Math.max(0, state.minuteDigits - 1);
   return { ...state, minuteDigits, minuteFilled: minuteDigits >= 2 };

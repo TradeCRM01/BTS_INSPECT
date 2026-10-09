@@ -10,8 +10,8 @@ import {
 } from '../../lib/timeFieldInput';
 import {
   applyTimeFieldSegmentBackspace,
-  applyTimeFieldSegmentDigit,
-  applyTimeFieldSegmentDigitBatch,
+  applyTimeFieldSegmentDigitKey,
+  applyTimeFieldSegmentDigitKeys,
   clearTimeFieldSegmentClickLayoutCache,
   createTimeFieldSegmentState,
   measureTimeFieldSegmentClickLayout,
@@ -153,11 +153,11 @@ export function TimeFieldInput({
         onInput={e => {
           const ie = e.nativeEvent as InputEvent;
           const pastedDigits = ie.data ? countDigitsInText(ie.data) : 0;
-          if (pastedDigits > 1) {
-            segmentStateRef.current = applyTimeFieldSegmentDigitBatch(
+          if (pastedDigits > 1 && ie.data) {
+            segmentStateRef.current = applyTimeFieldSegmentDigitKeys(
               segmentStateRef.current,
               rendersMeridiem,
-              pastedDigits,
+              ie.data,
             );
           }
           commitFromElement(e.currentTarget, { blur: false });
@@ -187,8 +187,9 @@ export function TimeFieldInput({
             syncHint(el);
           }
           if (/^\d$/.test(e.key)) {
-            segmentStateRef.current = applyTimeFieldSegmentDigit(
+            segmentStateRef.current = applyTimeFieldSegmentDigitKey(
               segmentStateRef.current,
+              Number(e.key),
               rendersMeridiem,
             );
             syncHint(el);
