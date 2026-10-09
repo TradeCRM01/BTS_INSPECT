@@ -26,19 +26,53 @@ export function timeFieldHintMessage(kind: TimeFieldHintKind): string | null {
   return null;
 }
 
+/** Last four digit keys in order (for hint copy, not keystroke total). */
+export function timeFieldDigitSequenceKey(digits: string): string {
+  return digits.replace(/\D/g, '').slice(-4);
+}
+
 /**
- * Field hint under native time input. AM/PM copy only when badInput and the user
- * typed at least four digits (hour + minute segments). No locale check.
+ * AM/PM hint targets hour+minute entry missing meridiem, not on-the-hour mis-clicks
+ * (e.g. four keys landing as 08:00 with meridiem already visible).
+ */
+export function timeFieldDigitsImplyMeridiemHint(digitSequence: string): boolean {
+  const seq = timeFieldDigitSequenceKey(digitSequence);
+  if (seq.length < 4) return false;
+  const mm = Number(seq.slice(2, 4));
+  return mm > 0;
+}
+
+/**
+ * Field hint under native time input. AM/PM only on 12h-rendered fields when badInput,
+ * four digit keys, meridiem not engaged via a/p, and minutes segment is non-zero.
  */
 export function timeFieldHintKind(input: {
   value: string;
   validity: { badInput: boolean };
   typedDigitCount: number;
+  rendersMeridiem: boolean;
+  digitSequence: string;
+  meridiemEngagedSinceFocus: boolean;
 }): TimeFieldHintKind {
-  const { value, validity, typedDigitCount } = input;
+  const {
+    value,
+    validity,
+    typedDigitCount,
+    rendersMeridiem,
+    digitSequence,
+    meridiemEngagedSinceFocus,
+  } = input;
   if (isValidCompleteTimeValue(value)) return 'none';
   if (typedDigitCount === 0 && !validity.badInput && !value) return 'none';
-  if (validity.badInput && typedDigitCount >= 4) return 'ampm';
+
+  const ampmCandidate =
+    rendersMeridiem
+    && validity.badInput
+    && typedDigitCount >= 4
+    && !meridiemEngagedSinceFocus
+    && timeFieldDigitsImplyMeridiemHint(digitSequence);
+
+  if (ampmCandidate) return 'ampm';
   if (typedDigitCount > 0 || validity.badInput || value) return 'incomplete';
   return 'none';
 }

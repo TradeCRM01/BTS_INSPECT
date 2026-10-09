@@ -5472,6 +5472,23 @@
     line-height: 1.35;
   }
 
+  .time-field-meridiem-probe-host {
+    position: absolute;
+    left: -10000px;
+    top: 0;
+    width: min-content;
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .time-field-meridiem-probe-host input {
+    display: inline-block;
+    width: min-content;
+    min-width: 0;
+  }
+
   .time-field-am-pm-hint {
     min-height: 1.25rem;
     line-height: 1.25rem;

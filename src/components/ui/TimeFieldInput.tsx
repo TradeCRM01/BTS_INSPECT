@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type Ref } from 'react';
+import { timeFieldRendersMeridiem } from '../../lib/timeFieldMeridiemProbe';
 import {
   isValidCompleteTimeValue,
   shouldBlockTimeFieldEnter,
+  timeFieldDigitSequenceKey,
   timeFieldHintKind,
   timeFieldHintMessage,
   type TimeFieldHintKind,
@@ -15,6 +17,10 @@ function assignRef<T>(ref: Ref<T> | undefined, value: T | null) {
 
 function countDigitsInText(text: string): number {
   return (text.match(/\d/g) ?? []).length;
+}
+
+function isMeridiemKey(key: string): boolean {
+  return /^[aApP]$/.test(key);
 }
 
 export function TimeFieldInput({
@@ -36,7 +42,14 @@ export function TimeFieldInput({
 }) {
   const localInputRef = useRef<HTMLInputElement | null>(null);
   const typedDigitCountRef = useRef(0);
+  const digitSequenceRef = useRef('');
+  const meridiemEngagedRef = useRef(false);
   const [hintKind, setHintKind] = useState<TimeFieldHintKind>('none');
+  const [rendersMeridiem, setRendersMeridiem] = useState(false);
+
+  useEffect(() => {
+    setRendersMeridiem(timeFieldRendersMeridiem());
+  }, []);
 
   const publishHint = useCallback(
     (hint: TimeFieldHintKind) => {
@@ -52,37 +65,51 @@ export function TimeFieldInput({
         value: el.value,
         validity: el.validity,
         typedDigitCount: typedDigitCountRef.current,
+        rendersMeridiem,
+        digitSequence: digitSequenceRef.current,
+        meridiemEngagedSinceFocus: meridiemEngagedRef.current,
       });
       publishHint(hint);
       el.setCustomValidity('');
     },
-    [publishHint],
+    [publishHint, rendersMeridiem],
   );
+
+  const resetTypingSession = useCallback(() => {
+    typedDigitCountRef.current = 0;
+    digitSequenceRef.current = '';
+    meridiemEngagedRef.current = false;
+  }, []);
 
   const commitFromElement = useCallback(
     (el: HTMLInputElement, { blur }: { blur: boolean }) => {
       const next = el.value;
       if (isValidCompleteTimeValue(next)) {
-        typedDigitCountRef.current = 0;
+        resetTypingSession();
       } else if (!next && !el.validity.badInput) {
-        typedDigitCountRef.current = 0;
+        resetTypingSession();
       }
       syncHint(el);
       if (next !== value) onChange(next);
       if (blur) onBlurCommit?.(next);
       return next;
     },
-    [onBlurCommit, onChange, syncHint, value],
+    [onBlurCommit, onChange, resetTypingSession, syncHint, value],
   );
 
   useEffect(() => {
     if (isValidCompleteTimeValue(value)) {
-      typedDigitCountRef.current = 0;
+      resetTypingSession();
       publishHint('none');
     }
-  }, [value, publishHint]);
+  }, [value, publishHint, resetTypingSession]);
 
-  const hintVisible = hintKind !== 'none';
+  useEffect(() => {
+    const el = localInputRef.current;
+    if (el) syncHint(el);
+  }, [rendersMeridiem, syncHint]);
+
+  const hintVisible = rendersMeridiem && hintKind !== 'none';
   const hintText = timeFieldHintMessage(hintKind) ?? '\u00a0';
 
   return (
@@ -96,7 +123,7 @@ export function TimeFieldInput({
         type="time"
         value={value}
         onFocus={() => {
-          typedDigitCountRef.current = 0;
+          resetTypingSession();
           const el = localInputRef.current;
           if (el) syncHint(el);
         }}
@@ -104,11 +131,22 @@ export function TimeFieldInput({
           const ie = e.nativeEvent as InputEvent;
           if (ie.data) {
             typedDigitCountRef.current += countDigitsInText(ie.data);
+            digitSequenceRef.current = timeFieldDigitSequenceKey(
+              digitSequenceRef.current + ie.data,
+            );
           }
           commitFromElement(e.currentTarget, { blur: false });
         }}
         onKeyDown={e => {
-          if (/^\d$/.test(e.key)) typedDigitCountRef.current += 1;
+          if (isMeridiemKey(e.key)) {
+            meridiemEngagedRef.current = true;
+          }
+          if (/^\d$/.test(e.key)) {
+            typedDigitCountRef.current += 1;
+            digitSequenceRef.current = timeFieldDigitSequenceKey(
+              digitSequenceRef.current + e.key,
+            );
+          }
           if (!shouldBlockTimeFieldEnter(e.key)) return;
           e.preventDefault();
           e.stopPropagation();
@@ -118,13 +156,15 @@ export function TimeFieldInput({
         }}
         className={className}
       />
-      <p
-        className={`time-field-am-pm-hint text-sm text-fail mt-1${hintVisible ? ' is-visible' : ''}`}
-        role={hintVisible ? 'alert' : undefined}
-        aria-hidden={!hintVisible}
-      >
-        {hintText}
-      </p>
+      {rendersMeridiem ? (
+        <p
+          className={`time-field-am-pm-hint text-sm text-fail mt-1${hintVisible ? ' is-visible' : ''}`}
+          role={hintVisible ? 'alert' : undefined}
+          aria-hidden={!hintVisible}
+        >
+          {hintText}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -1,7 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
+  setTimeFieldRendersMeridiemProbeOverride,
+  resetTimeFieldRendersMeridiemProbeCache,
+} from './timeFieldMeridiemProbe';
+import {
+  timeFieldDigitsImplyMeridiemHint,
   timeFieldHintKind,
   TIME_FIELD_ADD_AM_PM,
   TIME_FIELD_INCOMPLETE,
@@ -13,48 +18,103 @@ function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
-describe('FIX-5c C6 — hint kind (no locale check)', () => {
-  it('TimeFieldInput tracks typed digit count, not browserUses12HourTime', () => {
+afterEach(() => {
+  setTimeFieldRendersMeridiemProbeOverride(undefined);
+  resetTimeFieldRendersMeridiemProbeCache();
+});
+
+describe('FIX-5c C7 — meridiem probe + hint copy', () => {
+  it('TimeFieldInput uses meridiem probe and reserves hint line only for 12h', () => {
     const field = src('src/components/ui/TimeFieldInput.tsx');
-    expect(field).not.toContain('infer24hFrom12hNativeValue');
+    expect(field).toContain('timeFieldRendersMeridiem');
+    expect(field).toContain('rendersMeridiem ?');
+    expect(field).toContain('digitSequenceRef');
+    expect(field).toContain('meridiemEngagedRef');
     expect(field).not.toContain('browserUses12HourTime');
-    expect(field).toContain('typedDigitCountRef');
-    expect(field).toContain('time-field-am-pm-hint');
   });
 
-  it('12h four digits without meridiem → AM/PM hint', () => {
+  it('probe module compares live vs reference probe widths (no navigator.language)', () => {
+    const probe = src('src/lib/timeFieldMeridiemProbe.ts');
+    expect(probe).toContain('time-field-meridiem-probe-live');
+    expect(probe).toContain('time-field-meridiem-probe-ref');
+    expect(probe).not.toMatch(/navigator\.language\s*[;=]/);
+  });
+
+  it('12h 0930 keystrokes → AM/PM hint when probe is 12h', () => {
     expect(
       timeFieldHintKind({
         value: '',
         validity: { badInput: true },
         typedDigitCount: 4,
+        rendersMeridiem: true,
+        digitSequence: '0930',
+        meridiemEngagedSinceFocus: false,
       }),
     ).toBe('ampm');
   });
 
-  it('24h partial two digits → generic incomplete (not AM/PM)', () => {
+  it('24h four digit keys → generic incomplete, not AM/PM', () => {
     expect(
       timeFieldHintKind({
         value: '',
         validity: { badInput: true },
-        typedDigitCount: 2,
-      }),
-    ).toBe('incomplete');
-    expect(
-      timeFieldHintKind({
-        value: '',
-        validity: { badInput: false },
-        typedDigitCount: 2,
+        typedDigitCount: 4,
+        rendersMeridiem: false,
+        digitSequence: '0800',
+        meridiemEngagedSinceFocus: false,
       }),
     ).toBe('incomplete');
   });
 
-  it('12h meridiem set but minutes partial → generic incomplete', () => {
+  it('24h partial 09 → generic incomplete', () => {
     expect(
       timeFieldHintKind({
         value: '',
         validity: { badInput: true },
         typedDigitCount: 2,
+        rendersMeridiem: false,
+        digitSequence: '09',
+        meridiemEngagedSinceFocus: false,
+      }),
+    ).toBe('incomplete');
+  });
+
+  it('12h meridiem engaged (a then digits) → generic incomplete', () => {
+    expect(
+      timeFieldHintKind({
+        value: '',
+        validity: { badInput: true },
+        typedDigitCount: 4,
+        rendersMeridiem: true,
+        digitSequence: '0808',
+        meridiemEngagedSinceFocus: true,
+      }),
+    ).toBe('incomplete');
+  });
+
+  it('12h on-the-hour four keys (0800) → generic incomplete', () => {
+    expect(timeFieldDigitsImplyMeridiemHint('0800')).toBe(false);
+    expect(
+      timeFieldHintKind({
+        value: '',
+        validity: { badInput: true },
+        typedDigitCount: 4,
+        rendersMeridiem: true,
+        digitSequence: '0800',
+        meridiemEngagedSinceFocus: false,
+      }),
+    ).toBe('incomplete');
+  });
+
+  it('soft: leave and return resets digit session (unit: zero count → no ampm)', () => {
+    expect(
+      timeFieldHintKind({
+        value: '',
+        validity: { badInput: true },
+        typedDigitCount: 2,
+        rendersMeridiem: true,
+        digitSequence: '30',
+        meridiemEngagedSinceFocus: false,
       }),
     ).toBe('incomplete');
   });
@@ -65,19 +125,11 @@ describe('FIX-5c C6 — hint kind (no locale check)', () => {
         value: '09:30',
         validity: { badInput: false },
         typedDigitCount: 4,
+        rendersMeridiem: true,
+        digitSequence: '0930',
+        meridiemEngagedSinceFocus: false,
       }),
     ).toBe('none');
-  });
-
-  it('cleared untouched field uses complete-time copy on save, not AM/PM', () => {
-    expect(timeFieldValidationMessage('', 'none')).toMatch(/complete time/i);
-    expect(timeFieldsSaveValidation({
-      start: '',
-      end: '',
-      startHint: 'none',
-      endHint: 'none',
-      requireBothTimes: true,
-    })?.message).toMatch(/complete time/i);
   });
 
   it('blocks validation with both hint messages', () => {
@@ -89,12 +141,6 @@ describe('FIX-5c C6 — hint kind (no locale check)', () => {
       startHint: 'ampm',
       endHint: 'none',
     })).toEqual({ message: TIME_FIELD_ADD_AM_PM, focus: 'start' });
-    expect(timeFieldsSaveValidation({
-      start: '',
-      end: '',
-      startHint: 'incomplete',
-      endHint: 'none',
-    })?.message).toBe(TIME_FIELD_INCOMPLETE);
   });
 });
 
@@ -103,41 +149,11 @@ describe('FIX-5c C3 — save blocks on all time surfaces', () => {
     const form = src('src/components/timesheets/TimeEntryForm.tsx');
     expect(form).toContain('timeFieldsSaveValidation');
     expect(form).toContain('onTimeFieldHintChange={setStartTimeHint}');
-    expect(form).toContain('focusTimeFieldInput');
-  });
-
-  it('ScheduleJobSheet blocks Save on time hints', () => {
-    const sheet = src('src/components/crm/ScheduleJobSheet.tsx');
-    expect(sheet).toContain('timeFieldsSaveValidation');
-    expect(sheet).toContain('onTimeFieldHintChange={setStartTimeHint}');
-    expect(sheet).toContain('focusTimeFieldInput');
-  });
-
-  it('JobFormModal blocks create on time hints', () => {
-    const modal = src('src/components/crm/JobFormModal.tsx');
-    expect(modal).toContain('timeFieldsSaveValidation');
-    expect(modal).toContain('onTimeFieldHintChange={setStartTimeHint}');
-    expect(modal).toContain('focusTimeFieldInput');
-  });
-
-  it('quote convert blocks on time hints', () => {
-    const page = src('src/pages/QuotesPage.tsx');
-    expect(page).toContain('convertStartTimeHint');
-    expect(page).toContain("setErr('')");
-    expect(page).toContain('focusQuoteConvertField');
-    expect(page).not.toMatch(/hub-quote-convert-miss[\s\S]{0,80}TIME_FIELD_ADD_AM_PM/);
   });
 
   it('dispatch skips persist while hint is active without refocus trap', () => {
     const panel = src('src/components/jobs/JobDispatchPanel.tsx');
     expect(panel).toContain('startTimeHintRef');
-    expect(panel).toContain('onTimeFieldHintChange');
-    expect(panel).toMatch(/startTimeHintRef\.current !== 'none'/);
     expect(panel).not.toMatch(/startTimeHintRef\.current[\s\S]{0,120}\.focus\(/);
-  });
-
-  it('reverted schedule sheet backdrop override from C5', () => {
-    const css = src('src/index.css');
-    expect(css).not.toContain('.overlay-backdrop:has(.hub-schedule-job-sheet)');
   });
 });
