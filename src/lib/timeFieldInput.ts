@@ -26,6 +26,14 @@ export function timeFieldHintMessage(kind: TimeFieldHintKind): string | null {
   return null;
 }
 
+/** 12h reserves an empty hint line; 24h only mounts the line while a hint is active. */
+export function timeFieldHintRendersLine(
+  rendersMeridiem: boolean,
+  hintKind: TimeFieldHintKind,
+): boolean {
+  return rendersMeridiem || hintKind !== 'none';
+}
+
 /**
  * Field hint under native time input. AM/PM only on 12h-rendered fields when badInput,
  * four digit keys, and meridiem not engaged via a/p.

@@ -5,6 +5,7 @@ import {
   shouldBlockTimeFieldEnter,
   timeFieldHintKind,
   timeFieldHintMessage,
+  timeFieldHintRendersLine,
   type TimeFieldHintKind,
 } from '../../lib/timeFieldInput';
 
@@ -105,8 +106,9 @@ export function TimeFieldInput({
     if (el) syncHint(el);
   }, [rendersMeridiem, syncHint]);
 
-  const hintVisible = rendersMeridiem && hintKind !== 'none';
-  const hintText = timeFieldHintMessage(hintKind) ?? '\u00a0';
+  const showHint = hintKind !== 'none';
+  const hintText = showHint ? (timeFieldHintMessage(hintKind) ?? '') : '\u00a0';
+  const renderHintLine = timeFieldHintRendersLine(rendersMeridiem, hintKind);
 
   return (
     <div className="time-field-input-wrap">
@@ -146,11 +148,11 @@ export function TimeFieldInput({
         }}
         className={className}
       />
-      {rendersMeridiem ? (
+      {renderHintLine ? (
         <p
-          className={`time-field-am-pm-hint text-sm text-fail mt-1${hintVisible ? ' is-visible' : ''}`}
-          role={hintVisible ? 'alert' : undefined}
-          aria-hidden={!hintVisible}
+          className={`time-field-am-pm-hint text-sm text-fail mt-1${showHint ? ' is-visible' : ''}`}
+          role={showHint ? 'alert' : undefined}
+          aria-hidden={!showHint}
         >
           {hintText}
         </p>

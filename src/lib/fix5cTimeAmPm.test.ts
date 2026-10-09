@@ -7,6 +7,7 @@ import {
 } from './timeFieldMeridiemProbe';
 import {
   timeFieldHintKind,
+  timeFieldHintRendersLine,
   TIME_FIELD_ADD_AM_PM,
   TIME_FIELD_INCOMPLETE,
   timeFieldValidationMessage,
@@ -21,11 +22,26 @@ afterEach(() => {
   resetTimeFieldRendersMeridiemProbeCache();
 });
 
+describe('FIX-5c C11 — hint line in 24h vs 12h', () => {
+  it('rendersMeridiem false + partial → show generic line', () => {
+    expect(timeFieldHintRendersLine(false, 'incomplete')).toBe(true);
+  });
+
+  it('rendersMeridiem false + empty → no line', () => {
+    expect(timeFieldHintRendersLine(false, 'none')).toBe(false);
+  });
+
+  it('rendersMeridiem true + empty → reserved line (12h unchanged)', () => {
+    expect(timeFieldHintRendersLine(true, 'none')).toBe(true);
+  });
+});
+
 describe('FIX-5c C8 — hint copy without minutes heuristic', () => {
   it('TimeFieldInput uses meridiem probe and reserves hint line only for 12h', () => {
     const field = src('src/components/ui/TimeFieldInput.tsx');
     expect(field).toContain('timeFieldRendersMeridiem');
-    expect(field).toContain('rendersMeridiem ?');
+    expect(field).toContain('timeFieldHintRendersLine');
+    expect(field).toContain('renderHintLine');
     expect(field).toContain('meridiemEngagedRef');
     expect(field).not.toContain('digitSequenceRef');
     expect(field).not.toContain('timeFieldDigitsImplyMeridiemHint');
