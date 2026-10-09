@@ -871,6 +871,7 @@ function QuoteNextControl({ quote, onOpen, onSend }: { quote: QuoteListItem; onO
         }, profile!.id);
         queryClient.invalidateQueries({ queryKey: ['quotes'] });
         queryClient.invalidateQueries({ queryKey: ['jobs'] });
+        queryClient.invalidateQueries({ queryKey: ['job', jobId] });
         showToast(CONVERT_QUOTE_JOB_SAVED);
         navigate(`/jobs/${jobId}`);
       });
@@ -1372,6 +1373,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
       }, profile.id);
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['job', jobId] });
       showToast(CONVERT_QUOTE_JOB_SAVED);
       navigate(`/jobs/${jobId}`);
     } catch (e: unknown) {

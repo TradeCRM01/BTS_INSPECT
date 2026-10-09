@@ -112,6 +112,8 @@ export type QuoteConvertEntry = 'convert' | 'focus_convert';
 export function quoteConvertEntry(quote: {
   scheduled_date?: string | null;
   assigned_team?: unknown;
+  start_time?: string | null;
+  end_time?: string | null;
 }): QuoteConvertEntry {
   return convertQuoteHasDateAndCrew(quote) ? 'convert' : 'focus_convert';
 }
