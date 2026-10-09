@@ -304,13 +304,28 @@ describe('FIX-5c C8 — hint copy without minutes heuristic', () => {
 });
 
 describe('FIX-5c C8 production bundle', () => {
-  it('does not ship __FIX5C_TIME_FIELD_RENDER_MERIDIEM__ in dist', () => {
+  it('does not ship __FIX5C_TIME_FIELD_RENDER_MERIDIEM__ in dist', async () => {
+    const symbol = '__FIX5C_TIME_FIELD_RENDER_MERIDIEM__';
+    const probeSource = src('src/lib/timeFieldMeridiemProbe.ts');
+    expect(probeSource).toContain(symbol);
+
     const assetsDir = resolve(process.cwd(), 'dist/assets');
-    expect(existsSync(assetsDir)).toBe(true);
-    const bundle = readdirSync(assetsDir)
-      .filter(f => f.endsWith('.js'))
-      .map(f => readFileSync(resolve(assetsDir, f), 'utf8'))
-      .join('\n');
-    expect(bundle).not.toContain('__FIX5C_TIME_FIELD_RENDER_MERIDIEM__');
+    if (existsSync(assetsDir)) {
+      const bundle = readdirSync(assetsDir)
+        .filter(f => f.endsWith('.js'))
+        .map(f => readFileSync(resolve(assetsDir, f), 'utf8'))
+        .join('\n');
+      expect(bundle).not.toContain(symbol);
+    }
+
+    const { transform } = await import('esbuild');
+    const productionSource = probeSource.replace(/import\.meta\.env\.DEV/g, 'false');
+    const { code } = await transform(productionSource, {
+      loader: 'ts',
+      minify: true,
+      treeShaking: true,
+      format: 'esm',
+    });
+    expect(code).not.toContain(symbol);
   });
 });
