@@ -10,6 +10,7 @@ import {
 } from '../../lib/jobCrewScheduleStatus';
 import { X, Trash2, GitBranch } from 'lucide-react';
 import { OverlayPortal } from '../ui/OverlayPortal';
+import { TimeFieldInput } from '../ui/TimeFieldInput';
 import { ClientForm } from '../../pages/ClientsPage';
 import { jobFormSelectNewClient, jobSiteAddressFromClient, visibleClientContacts } from '../../lib/clientRecords';
 import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
@@ -447,16 +448,22 @@ export function JobFormModal({
                     <span className="hub-schedule-from-booking">{startCheck}</span>
                   ) : null}
                 </label>
-                <input type="time" value={form.start_time ?? ''} onChange={e => {
-                  setForm(f => ({ ...f, start_time: e.target.value }));
-                  setStartEdited(true);
-                }}
-                  className="form-input" />
+                <TimeFieldInput
+                  value={form.start_time ?? ''}
+                  onChange={v => {
+                    setForm(f => ({ ...f, start_time: v }));
+                    setStartEdited(true);
+                  }}
+                  className="form-input"
+                />
               </div>
               <div>
                 <label className="ops-field-label">End</label>
-                <input type="time" value={form.end_time ?? ''} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))}
-                  className="form-input" />
+                <TimeFieldInput
+                  value={form.end_time ?? ''}
+                  onChange={v => setForm(f => ({ ...f, end_time: v }))}
+                  className="form-input"
+                />
               </div>
               <div className="overlay-form-span-all hub-job-form-crew">
                 <label className="ops-field-label">

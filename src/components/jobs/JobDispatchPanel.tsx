@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { TimeFieldInput } from '../ui/TimeFieldInput';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Calendar, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -112,19 +113,17 @@ export function JobDispatchPanel({
           </label>
           <label className="block">
             <span className="ops-field-label">Start</span>
-            <input
-              type="time"
+            <TimeFieldInput
               value={toTimeInput(job.start_time)}
-              onChange={e => save.mutate({ start_time: e.target.value || null })}
+              onChange={v => save.mutate({ start_time: v || null })}
               className="form-input"
             />
           </label>
           <label className="block">
             <span className="ops-field-label">End</span>
-            <input
-              type="time"
+            <TimeFieldInput
               value={toTimeInput(job.end_time)}
-              onChange={e => save.mutate({ end_time: e.target.value || null })}
+              onChange={v => save.mutate({ end_time: v || null })}
               className="form-input"
             />
           </label>

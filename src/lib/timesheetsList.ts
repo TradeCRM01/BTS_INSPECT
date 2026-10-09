@@ -304,6 +304,23 @@ export function timesheetListPillClass(status: string): string {
 /** Field Audit only — this week’s open sheet on job #0042. Not a live row. */
 export const AUDIT_TIMESHEET_ID = 'audit-timesheet-week';
 export const AUDIT_TIMESHEET_ENTRY_ID = 'audit-timesheet-entry';
+export const AUDIT_TIMESHEET_ENTRY_UNBILLED_ID = 'audit-timesheet-entry-unbilled';
+
+const hiddenAuditTimesheetEntryIds = new Set<string>();
+const addedAuditTimesheetEntries: TimesheetEntry[] = [];
+
+export function hideAuditTimesheetEntry(entryId: string): void {
+  hiddenAuditTimesheetEntryIds.add(entryId);
+}
+
+export function resetAuditTimesheetEntryHides(): void {
+  hiddenAuditTimesheetEntryIds.clear();
+  addedAuditTimesheetEntries.length = 0;
+}
+
+export function appendAuditTimesheetEntry(entry: TimesheetEntry): void {
+  addedAuditTimesheetEntries.push(entry);
+}
 
 export function getAuditTimesheets(now = new Date()): Timesheet[] | null {
   if (!isDevFieldAuditAuth()) return null;
@@ -327,7 +344,7 @@ export function getAuditTimesheets(now = new Date()): Timesheet[] | null {
 export function getAuditTimesheetEntries(now = new Date()): TimesheetEntry[] | null {
   if (!isDevFieldAuditAuth()) return null;
   const date = format(now, 'yyyy-MM-dd');
-  return [{
+  const rows: TimesheetEntry[] = [{
     id: AUDIT_TIMESHEET_ENTRY_ID,
     timesheet_id: AUDIT_TIMESHEET_ID,
     company_id: DEV_AUDIT_COMPANY.id,
@@ -338,5 +355,17 @@ export function getAuditTimesheetEntries(now = new Date()): TimesheetEntry[] | n
     billable: true,
     notes: null,
     created_at: `${date}T07:30:00.000Z`,
+  }, {
+    id: AUDIT_TIMESHEET_ENTRY_UNBILLED_ID,
+    timesheet_id: AUDIT_TIMESHEET_ID,
+    company_id: DEV_AUDIT_COMPANY.id,
+    job_id: AUDIT_DOC_JOB_ID,
+    start_time: `${date}T11:00:00.000Z`,
+    end_time: `${date}T12:00:00.000Z`,
+    work_type: '— delete ok',
+    billable: true,
+    notes: null,
+    created_at: `${date}T11:00:00.000Z`,
   }];
+  return [...rows, ...addedAuditTimesheetEntries].filter(row => !hiddenAuditTimesheetEntryIds.has(row.id));
 }

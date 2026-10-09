@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AppDialog, EditorStickyFooter } from '../ui';
+import { AppDialog, EditorStickyFooter, TimeFieldInput } from '../ui';
 import type { JobWithClient } from '../../types/crm';
 import { scheduleDayKey, type ScheduleSheetInput } from '../../lib/scheduleBoard';
 import { jobsListSite, jobsListSuburbFromSite } from '../../lib/jobsListRow';
@@ -161,23 +161,21 @@ export function ScheduleJobSheet({
               <span className="hub-schedule-from-booking">{startCheck}</span>
             ) : null}
           </span>
-          <input
-            type="time"
+          <TimeFieldInput
             className="form-input"
             value={startTime}
-            onChange={e => {
-              setStartTime(e.target.value);
+            onChange={v => {
+              setStartTime(v);
               setStartEdited(true);
             }}
           />
         </label>
         <label className="block">
           <span className="ops-field-label">End</span>
-          <input
-            type="time"
+          <TimeFieldInput
             className="form-input"
             value={endTime}
-            onChange={e => setEndTime(e.target.value)}
+            onChange={setEndTime}
           />
         </label>
         {onNewJobInstead ? (
