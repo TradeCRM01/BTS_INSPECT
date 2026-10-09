@@ -50,6 +50,33 @@ describe('schedule phone week footer (soft 1)', () => {
     expect(css).toContain('.hub-phone-week-list > .hub-week-agenda');
   });
 
+  it('flexes the expanded phone unscheduled list inside the tray wrapper (R5)', () => {
+    const css = src('src/index.css');
+    const tray = css.slice(
+      css.indexOf('.hub-phone-unscheduled-footer'),
+      css.indexOf('.hub-schedule-set-date'),
+    );
+    expect(tray).toContain(
+      '.hub-phone-week-list:has([data-schedule-unscheduled-list="1"]) .hub-phone-unscheduled-footer > .hub-phone-unscheduled',
+    );
+    expect(tray).toMatch(
+      /hub-phone-unscheduled-footer > \.hub-phone-unscheduled[\s\S]{0,160}min-height: 0/,
+    );
+    expect(tray).toMatch(/\.hub-phone-unscheduled-list[\s\S]{0,120}flex: 1 1 0/);
+  });
+
+  it('uses a single shell nav clearance on the phone week mount (R4)', () => {
+    const css = src('src/index.css');
+    expect(css).toMatch(
+      /\.hub-board-cal\.is-week-doc \.hub-week-mount\.lg\\:hidden[\s\S]{0,220}padding-bottom: var\(--shell-bottom-nav-h/,
+    );
+    const tray = css.slice(
+      css.indexOf('.hub-phone-unscheduled-footer'),
+      css.indexOf('.hub-schedule-set-date'),
+    );
+    expect(tray).not.toMatch(/margin-bottom:\s*var\(--shell-bottom-nav-h/);
+  });
+
   it('omits the bordered agenda footer when there are zero unscheduled jobs', () => {
     const board = src('src/components/crm/BoardViews.tsx');
     const phoneWeek = board.slice(

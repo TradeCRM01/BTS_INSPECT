@@ -7901,6 +7901,13 @@
       overflow: hidden;
     }
 
+    .hub-phone-week-list:has([data-schedule-unscheduled-list="1"]) .hub-phone-unscheduled-footer > .hub-phone-unscheduled {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 0;
+      min-height: 0;
+    }
+
     .hub-phone-unscheduled-chip {
       display: flex;
       align-items: center;
@@ -7926,7 +7933,7 @@
     }
 
     .hub-phone-unscheduled-list {
-      flex: 1 1 auto;
+      flex: 1 1 0;
       min-height: 0;
       max-height: min(50vh, 360px);
       overflow-y: auto;
