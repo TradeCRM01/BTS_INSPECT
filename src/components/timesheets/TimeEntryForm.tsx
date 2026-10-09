@@ -7,7 +7,7 @@ import { appendAuditTimesheetEntry, AUDIT_TIMESHEET_ID } from '../../lib/timeshe
 import { OverlayPortal } from '../ui/OverlayPortal';
 import { ManagedSelect } from '../ui/ManagedSelect';
 import { TimeFieldInput } from '../ui/TimeFieldInput';
-import { timeFieldValidationMessage } from '../../lib/timeFieldInput';
+import { focusTimeFieldInput, timeFieldsSaveValidation } from '../../lib/timeFieldInput';
 import { LIST_KEYS } from '../../lib/useManagedList';
 import {
   applyTimeEntryDurationChip,
@@ -63,18 +63,28 @@ export function TimeEntryForm({
   const [err, setErr] = useState<string | null>(null);
   const [startNeedsAmPm, setStartNeedsAmPm] = useState(false);
   const [endNeedsAmPm, setEndNeedsAmPm] = useState(false);
+  const startFieldRef = useRef<HTMLDivElement>(null);
+  const endFieldRef = useRef<HTMLDivElement>(null);
   const saveLock = useRef(false);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (saveLock.current || saving) return;
-    if (!profile?.company_id) return;
-    const startMsg = timeFieldValidationMessage(form.start_time, startNeedsAmPm);
-    const endMsg = timeFieldValidationMessage(form.end_time, endNeedsAmPm);
-    if (startMsg || endMsg) {
-      setErr(startMsg ?? endMsg ?? 'Enter start and end times, or tap a duration chip.');
+    const block = timeFieldsSaveValidation({
+      start: form.start_time,
+      end: form.end_time,
+      startNeedsAmPm,
+      endNeedsAmPm,
+      requireBothTimes: true,
+    });
+    if (block) {
+      setErr(block.message);
+      focusTimeFieldInput(
+        block.focus === 'start' ? startFieldRef.current : endFieldRef.current,
+      );
       return;
     }
+    if (!profile?.company_id) return;
     saveLock.current = true;
     setSaving(true);
     setErr(null);
@@ -172,20 +182,24 @@ export function TimeEntryForm({
             </Field>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Start Time">
-                <TimeFieldInput
-                  value={form.start_time}
-                  onChange={start_time => setForm(f => ({ ...f, start_time }))}
-                  onIncompleteAmPmChange={setStartNeedsAmPm}
-                  className="form-input"
-                />
+                <div ref={startFieldRef}>
+                  <TimeFieldInput
+                    value={form.start_time}
+                    onChange={start_time => setForm(f => ({ ...f, start_time }))}
+                    onIncompleteAmPmChange={setStartNeedsAmPm}
+                    className="form-input"
+                  />
+                </div>
               </Field>
               <Field label="End Time">
-                <TimeFieldInput
-                  value={form.end_time}
-                  onChange={end_time => setForm(f => ({ ...f, end_time }))}
-                  onIncompleteAmPmChange={setEndNeedsAmPm}
-                  className="form-input"
-                />
+                <div ref={endFieldRef}>
+                  <TimeFieldInput
+                    value={form.end_time}
+                    onChange={end_time => setForm(f => ({ ...f, end_time }))}
+                    onIncompleteAmPmChange={setEndNeedsAmPm}
+                    className="form-input"
+                  />
+                </div>
               </Field>
             </div>
             {blankTimesOnOpen ? (

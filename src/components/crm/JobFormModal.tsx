@@ -11,6 +11,7 @@ import {
 import { X, Trash2, GitBranch } from 'lucide-react';
 import { OverlayPortal } from '../ui/OverlayPortal';
 import { TimeFieldInput } from '../ui/TimeFieldInput';
+import { focusTimeFieldInput, timeFieldsSaveValidation } from '../../lib/timeFieldInput';
 import { ClientForm } from '../../pages/ClientsPage';
 import { jobFormSelectNewClient, jobSiteAddressFromClient, visibleClientContacts } from '../../lib/clientRecords';
 import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
@@ -91,6 +92,10 @@ export function JobFormModal({
   const [clientErr, setClientErr] = useState('');
   const clientNameRef = useRef<HTMLInputElement>(null);
   const clientErrRef = useRef<HTMLParagraphElement>(null);
+  const [startNeedsAmPm, setStartNeedsAmPm] = useState(false);
+  const [endNeedsAmPm, setEndNeedsAmPm] = useState(false);
+  const startFieldRef = useRef<HTMLDivElement>(null);
+  const endFieldRef = useRef<HTMLDivElement>(null);
   const startCheck = assumedTradeTag(fromBooking?.startTrade, presetStartTime, startEdited);
   const dateCheck = checkDateTag(fromBooking?.dateCheck, dateEdited);
 
@@ -211,6 +216,21 @@ export function JobFormModal({
     }
     setClientErr('');
     if (!profile?.company_id) return;
+    if (!detailsOnly) {
+      const block = timeFieldsSaveValidation({
+        start: form.start_time ?? '',
+        end: form.end_time ?? '',
+        startNeedsAmPm,
+        endNeedsAmPm,
+      });
+      if (block) {
+        setErr(block.message);
+        focusTimeFieldInput(
+          block.focus === 'start' ? startFieldRef.current : endFieldRef.current,
+        );
+        return;
+      }
+    }
     setSaving(true);
     setErr('');
 
@@ -448,22 +468,28 @@ export function JobFormModal({
                     <span className="hub-schedule-from-booking">{startCheck}</span>
                   ) : null}
                 </label>
-                <TimeFieldInput
-                  value={form.start_time ?? ''}
-                  onChange={v => {
-                    setForm(f => ({ ...f, start_time: v }));
-                    setStartEdited(true);
-                  }}
-                  className="form-input"
-                />
+                <div ref={startFieldRef}>
+                  <TimeFieldInput
+                    value={form.start_time ?? ''}
+                    onChange={v => {
+                      setForm(f => ({ ...f, start_time: v }));
+                      setStartEdited(true);
+                    }}
+                    onIncompleteAmPmChange={setStartNeedsAmPm}
+                    className="form-input"
+                  />
+                </div>
               </div>
               <div>
                 <label className="ops-field-label">End</label>
-                <TimeFieldInput
-                  value={form.end_time ?? ''}
-                  onChange={v => setForm(f => ({ ...f, end_time: v }))}
-                  className="form-input"
-                />
+                <div ref={endFieldRef}>
+                  <TimeFieldInput
+                    value={form.end_time ?? ''}
+                    onChange={v => setForm(f => ({ ...f, end_time: v }))}
+                    onIncompleteAmPmChange={setEndNeedsAmPm}
+                    className="form-input"
+                  />
+                </div>
               </div>
               <div className="overlay-form-span-all hub-job-form-crew">
                 <label className="ops-field-label">

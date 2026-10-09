@@ -28,19 +28,20 @@ export function browserUses12HourTime(locale?: string | string[]): boolean {
   }
 }
 
+/**
+ * Show the AM/PM hint only when the user typed time digits and the native control
+ * reports badInput (meridiem missing in a 12h field). No navigator.language branch:
+ * 24h fields do not surface this state.
+ */
 export function timeFieldNeedsAmPm(input: {
   value: string;
   validity: { badInput: boolean };
-  uses12Hour: boolean;
-  /** User edited but blur left value empty (AM/PM never committed). */
-  incompleteTouch?: boolean;
+  hasTypedDigits: boolean;
 }): boolean {
-  const { value, validity, uses12Hour, incompleteTouch } = input;
-  if (!uses12Hour) return false;
+  const { value, validity, hasTypedDigits } = input;
   if (isValidCompleteTimeValue(value)) return false;
-  if (validity.badInput) return true;
-  if (!value && incompleteTouch) return true;
-  return false;
+  if (!hasTypedDigits) return false;
+  return validity.badInput;
 }
 
 export function timeFieldValidationMessage(
@@ -53,4 +54,35 @@ export function timeFieldValidationMessage(
     return 'Enter a valid time as hh:mm (hours 00–23, minutes 00–59).';
   }
   return null;
+}
+
+export type TimeFieldSaveFocus = 'start' | 'end';
+
+/** Block save/create when AM/PM hint is active or required times are incomplete. */
+export function timeFieldsSaveValidation(input: {
+  start: string;
+  end: string;
+  startNeedsAmPm: boolean;
+  endNeedsAmPm: boolean;
+  requireBothTimes?: boolean;
+}): { message: string; focus: TimeFieldSaveFocus } | null {
+  if (input.startNeedsAmPm) {
+    return { message: TIME_FIELD_ADD_AM_PM, focus: 'start' };
+  }
+  if (input.endNeedsAmPm) {
+    return { message: TIME_FIELD_ADD_AM_PM, focus: 'end' };
+  }
+  if (input.requireBothTimes) {
+    const startMsg = timeFieldValidationMessage(input.start, false);
+    if (startMsg) return { message: startMsg, focus: 'start' };
+    const endMsg = timeFieldValidationMessage(input.end, false);
+    if (endMsg) return { message: endMsg, focus: 'end' };
+  }
+  return null;
+}
+
+export function focusTimeFieldInput(container: ParentNode | null | undefined): void {
+  const root = container instanceof HTMLElement ? container : document;
+  const input = root.querySelector<HTMLInputElement>('input[type="time"]');
+  input?.focus();
 }

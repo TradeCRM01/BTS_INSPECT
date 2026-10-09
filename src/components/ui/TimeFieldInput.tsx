@@ -1,11 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type Ref } from 'react';
 import {
-  browserUses12HourTime,
   isValidCompleteTimeValue,
   shouldBlockTimeFieldEnter,
   TIME_FIELD_ADD_AM_PM,
   timeFieldNeedsAmPm,
 } from '../../lib/timeFieldInput';
+
+function assignRef<T>(ref: Ref<T> | undefined, value: T | null) {
+  if (!ref) return;
+  if (typeof ref === 'function') ref(value);
+  else ref.current = value;
+}
 
 export function TimeFieldInput({
   id,
@@ -13,6 +18,7 @@ export function TimeFieldInput({
   onChange,
   onBlurCommit,
   onIncompleteAmPmChange,
+  inputRef,
   className,
 }: {
   id?: string;
@@ -20,10 +26,11 @@ export function TimeFieldInput({
   onChange: (next: string) => void;
   onBlurCommit?: (value: string) => void;
   onIncompleteAmPmChange?: (needs: boolean) => void;
+  inputRef?: Ref<HTMLInputElement | null>;
   className?: string;
 }) {
-  const uses12Hour = useMemo(() => browserUses12HourTime(), []);
-  const incompleteTouchRef = useRef(false);
+  const localInputRef = useRef<HTMLInputElement | null>(null);
+  const hasTypedDigitsRef = useRef(false);
   const [needsAmPm, setNeedsAmPm] = useState(false);
 
   const publishIncomplete = useCallback(
@@ -39,20 +46,22 @@ export function TimeFieldInput({
       const needs = timeFieldNeedsAmPm({
         value: el.value,
         validity: el.validity,
-        uses12Hour,
-        incompleteTouch: incompleteTouchRef.current,
+        hasTypedDigits: hasTypedDigitsRef.current,
       });
       publishIncomplete(needs);
       el.setCustomValidity('');
     },
-    [publishIncomplete, uses12Hour],
+    [publishIncomplete],
   );
 
   const commitFromElement = useCallback(
     (el: HTMLInputElement, { blur }: { blur: boolean }) => {
       const next = el.value;
-      if (!isValidCompleteTimeValue(next)) incompleteTouchRef.current = true;
-      else incompleteTouchRef.current = false;
+      if (isValidCompleteTimeValue(next)) {
+        hasTypedDigitsRef.current = false;
+      } else if (!next && !el.validity.badInput) {
+        hasTypedDigitsRef.current = false;
+      }
       syncIncomplete(el);
       if (next !== value) onChange(next);
       if (blur) onBlurCommit?.(next);
@@ -63,7 +72,7 @@ export function TimeFieldInput({
 
   useEffect(() => {
     if (isValidCompleteTimeValue(value)) {
-      incompleteTouchRef.current = false;
+      hasTypedDigitsRef.current = false;
       publishIncomplete(false);
     }
   }, [value, publishIncomplete]);
@@ -71,16 +80,18 @@ export function TimeFieldInput({
   return (
     <div className="time-field-input-wrap">
       <input
+        ref={el => {
+          localInputRef.current = el;
+          assignRef(inputRef, el);
+        }}
         id={id}
         type="time"
         value={value}
         onInput={e => {
           commitFromElement(e.currentTarget, { blur: false });
         }}
-        onFocus={() => {
-          incompleteTouchRef.current = false;
-        }}
         onKeyDown={e => {
+          if (/^\d$/.test(e.key)) hasTypedDigitsRef.current = true;
           if (!shouldBlockTimeFieldEnter(e.key)) return;
           e.preventDefault();
           e.stopPropagation();
@@ -90,15 +101,13 @@ export function TimeFieldInput({
         }}
         className={className}
       />
-      {uses12Hour ? (
-        <p
-          className={`time-field-am-pm-hint text-sm text-fail mt-1${needsAmPm ? ' is-visible' : ''}`}
-          role={needsAmPm ? 'alert' : undefined}
-          aria-hidden={!needsAmPm}
-        >
-          {needsAmPm ? TIME_FIELD_ADD_AM_PM : '\u00a0'}
-        </p>
-      ) : null}
+      <p
+        className={`time-field-am-pm-hint text-sm text-fail mt-1${needsAmPm ? ' is-visible' : ''}`}
+        role={needsAmPm ? 'alert' : undefined}
+        aria-hidden={!needsAmPm}
+      >
+        {needsAmPm ? TIME_FIELD_ADD_AM_PM : '\u00a0'}
+      </p>
     </div>
   );
 }

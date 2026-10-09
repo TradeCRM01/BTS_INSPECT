@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { TimeFieldInput } from '../ui/TimeFieldInput';
 import { isValidCompleteTimeValue } from '../../lib/timeFieldInput';
@@ -88,6 +88,10 @@ export function JobDispatchPanel({
   const crewHelper = crewAssignmentHelper(assigned, teamMembers);
   const [startDraft, setStartDraft] = useState(() => toTimeInput(job.start_time));
   const [endDraft, setEndDraft] = useState(() => toTimeInput(job.end_time));
+  const startNeedsAmPmRef = useRef(false);
+  const endNeedsAmPmRef = useRef(false);
+  const startInputRef = useRef<HTMLInputElement | null>(null);
+  const endInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setStartDraft(toTimeInput(job.start_time));
@@ -95,6 +99,14 @@ export function JobDispatchPanel({
   }, [job.id, job.start_time, job.end_time]);
 
   const commitJobTime = (field: 'start_time' | 'end_time', raw: string) => {
+    if (field === 'start_time' && startNeedsAmPmRef.current) {
+      startInputRef.current?.focus();
+      return;
+    }
+    if (field === 'end_time' && endNeedsAmPmRef.current) {
+      endInputRef.current?.focus();
+      return;
+    }
     const server = field === 'start_time' ? toTimeInput(job.start_time) : toTimeInput(job.end_time);
     if (raw === server) return;
     if (!raw || !isValidCompleteTimeValue(raw)) {
@@ -144,6 +156,8 @@ export function JobDispatchPanel({
               value={startDraft}
               onChange={setStartDraft}
               onBlurCommit={v => commitJobTime('start_time', v)}
+              onIncompleteAmPmChange={needs => { startNeedsAmPmRef.current = needs; }}
+              inputRef={startInputRef}
               className="form-input"
             />
           </label>
@@ -153,6 +167,8 @@ export function JobDispatchPanel({
               value={endDraft}
               onChange={setEndDraft}
               onBlurCommit={v => commitJobTime('end_time', v)}
+              onIncompleteAmPmChange={needs => { endNeedsAmPmRef.current = needs; }}
+              inputRef={endInputRef}
               className="form-input"
             />
           </label>
