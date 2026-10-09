@@ -168,6 +168,7 @@ export async function loadJobBillInvoiceLinePlan(
     plannedLabourPull: pullPlan?.planned ?? [],
     preview,
     pullPlan,
+    unpricedExtraLabour: preview.unpricedExtraLabour,
   };
 }
 
@@ -262,6 +263,16 @@ export async function createInvoiceFromJobBill(input: {
   });
 
   if (auditFix2Create) {
+    if (sessionStorage.getItem('fix2b-fail-create') === '1') {
+      throw new Error('Could not create invoice');
+    }
+    try {
+      if (sessionStorage.getItem('fix2b-slow-create') === '1') {
+        await new Promise(resolve => setTimeout(resolve, 3500));
+      }
+    } catch {
+      /* ignore */
+    }
     const payload = buildInvoiceFromJobBill({
       clientId: job.client_id as string,
       jobId: input.jobId,

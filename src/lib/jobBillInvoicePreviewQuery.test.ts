@@ -3,8 +3,11 @@ import { QueryClient } from '@tanstack/react-query';
 import {
   invalidateJobBillInvoicePreview,
   JOB_BILL_INVOICE_PREVIEW_QUERY_PREFIX,
+  jobBillInvoicePreviewPlaceholderData,
   jobBillInvoicePreviewQueryKey,
   jobBillInvoicePreviewQueryKeyWithDims,
+  jobBillInvoicePreviewQueryLoading,
+  resolveJobBillInvoicePreviewState,
 } from './jobBillInvoicePreviewQuery';
 import { invalidateJobBillAfterHoursChange } from './hoursToJobBill';
 
@@ -37,6 +40,59 @@ describe('jobBillInvoicePreviewQuery', () => {
     expect(spy).toHaveBeenCalledWith({
       queryKey: [JOB_BILL_INVOICE_PREVIEW_QUERY_PREFIX, 'job-1'],
     });
+  });
+
+  it('does not keep placeholder preview from a different job id', () => {
+    const prev = { lineCount: 2, moneyLine: '$100 inc GST' };
+    const fromJobA = jobBillInvoicePreviewQueryKeyWithDims('job-a', {
+      addLoggedHoursExtra: false,
+      hasAcceptedQuoteLines: true,
+      jobBillTaxRate: 10,
+    });
+    expect(jobBillInvoicePreviewPlaceholderData('job-b', prev, { queryKey: fromJobA })).toBeUndefined();
+    expect(jobBillInvoicePreviewPlaceholderData('job-a', prev, { queryKey: fromJobA })).toBe(prev);
+  });
+
+  it('treats isPlaceholderData as loading for sheet and skip decisions', () => {
+    expect(jobBillInvoicePreviewQueryLoading({
+      queryEnabled: true,
+      isPending: false,
+      isPlaceholderData: true,
+    })).toBe(true);
+    expect(resolveJobBillInvoicePreviewState({
+      devHoldPreview: false,
+      quotedLookOn: false,
+      fix2MemoPreviewOn: false,
+      queryEnabled: true,
+      isPending: false,
+      isPlaceholderData: true,
+      isError: false,
+    })).toBe('loading');
+  });
+
+  it('opt-in key change with placeholder blocks ready money line', () => {
+    const withoutOptIn = jobBillInvoicePreviewQueryKeyWithDims('job-1', {
+      addLoggedHoursExtra: false,
+      hasAcceptedQuoteLines: true,
+      jobBillTaxRate: 10,
+    });
+    const stale = { lineCount: 2, moneyLine: 'Quote #0002 · 2 lines · $898.00 inc GST' };
+    const held = jobBillInvoicePreviewPlaceholderData('job-1', stale, { queryKey: withoutOptIn });
+    expect(held).toBe(stale);
+    expect(jobBillInvoicePreviewQueryLoading({
+      queryEnabled: true,
+      isPending: false,
+      isPlaceholderData: true,
+    })).toBe(true);
+    expect(resolveJobBillInvoicePreviewState({
+      devHoldPreview: false,
+      quotedLookOn: false,
+      fix2MemoPreviewOn: false,
+      queryEnabled: true,
+      isPending: false,
+      isPlaceholderData: true,
+      isError: false,
+    })).toBe('loading');
   });
 
   it('invalidates preview when bill hours refresh runs', () => {

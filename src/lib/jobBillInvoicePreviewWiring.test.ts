@@ -9,6 +9,8 @@ describe('job bill invoice preview query wiring', () => {
   it('JobDetailPage uses shared preview key helper and staleTime 0', () => {
     expect(jobDetail).toContain('jobBillInvoicePreviewQueryKeyWithDims');
     expect(jobDetail).toMatch(/staleTime:\s*0/);
+    expect(jobDetail).toContain('jobBillInvoicePreviewPlaceholderData');
+    expect(jobDetail).toContain('isPlaceholderData: jobBillPreviewIsPlaceholder');
     expect(jobDetail).not.toMatch(/queryKey:\s*\['job-bill-invoice-preview'/);
   });
 

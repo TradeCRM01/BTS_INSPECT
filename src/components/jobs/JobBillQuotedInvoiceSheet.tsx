@@ -1,6 +1,8 @@
-import { X } from 'lucide-react';
+import { AlertTriangle, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { AppDialog } from '../ui/AppDialog';
 import { JOB_BILL_ADD_LOGGED_HOURS_EXTRA_LABEL } from '../../lib/jobBillInvoicePlan';
+import { zeroLabourInvoiceConfirmMessage } from '../../lib/hoursToJobBill';
 
 export function JobBillQuotedInvoiceSheet({
   open,
@@ -11,6 +13,9 @@ export function JobBillQuotedInvoiceSheet({
   onClose,
   onCreate,
   pending,
+  previewUpdating,
+  unpricedExtraLabour,
+  unpricedExtraLabourLineCount = 1,
 }: {
   open: boolean;
   loggedHoursNote: string | null;
@@ -20,6 +25,9 @@ export function JobBillQuotedInvoiceSheet({
   onClose: () => void;
   onCreate: () => void;
   pending?: boolean;
+  previewUpdating?: boolean;
+  unpricedExtraLabour?: boolean;
+  unpricedExtraLabourLineCount?: number;
 }) {
   if (!open) return null;
 
@@ -44,8 +52,32 @@ export function JobBillQuotedInvoiceSheet({
             <p className="hub-job-bill-quoted-invoice-note">{loggedHoursNote}</p>
           </div>
         ) : null}
-        {moneyLine ? (
+        {previewUpdating ? (
+          <p className="hub-labour-rate-sheet-rate" data-job-bill-quoted-invoice-updating role="status">
+            Updating…
+          </p>
+        ) : moneyLine ? (
           <p className="hub-labour-rate-sheet-rate" data-job-bill-quoted-invoice-money>{moneyLine}</p>
+        ) : null}
+        {unpricedExtraLabour ? (
+          <div className="hub-job-bill-zero-labour-nudge" role="status" data-job-bill-quoted-unpriced-warning>
+            <div className="hub-job-bill-zero-labour-nudge-row">
+              <AlertTriangle size={20} className="hub-job-bill-zero-labour-icon" aria-hidden />
+              <p className="hub-job-bill-zero-labour-message">
+                {zeroLabourInvoiceConfirmMessage(unpricedExtraLabourLineCount)}
+              </p>
+            </div>
+            <div className="hub-job-bill-zero-labour-actions">
+              <Link
+                to="/settings/company"
+                className="hub-job-bill-zero-labour-primary"
+                onClick={onClose}
+                data-job-bill-quoted-add-rate
+              >
+                Add a rate
+              </Link>
+            </div>
+          </div>
         ) : null}
         <label className="hub-ops-form-check">
           <input
@@ -59,8 +91,9 @@ export function JobBillQuotedInvoiceSheet({
           <button
             type="button"
             className="hub-job-bill-zero-labour-primary"
-            disabled={pending}
+            disabled={pending || previewUpdating}
             onClick={onCreate}
+            data-job-bill-quoted-create
           >
             {pending ? 'Creating…' : 'Create draft invoice'}
           </button>
