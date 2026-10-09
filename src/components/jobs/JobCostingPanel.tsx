@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAuditEmptyList, getAuditJobBillCosts } from '../../lib/devFieldAuditDocs';
+import { JobBillLineDeleteConfirm } from './JobBillLineDeleteConfirm';
 import {
   JOB_BILL_INCOMPLETE_MARGIN_LABEL,
   JOB_BILL_NO_COST_RATE_LABEL,
@@ -217,6 +218,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   const [form, setForm] = useState(blankForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formErr, setFormErr] = useState('');
+  const [deleteLineId, setDeleteLineId] = useState<string | null>(null);
   const [invoiceMsg, setInvoiceMsg] = useState('');
   const [pullingHours, setPullingHours] = useState(false);
   const [labourPickerItems, setLabourPickerItems] = useState<PriceBookItemForLabour[] | null>(null);
@@ -321,7 +323,12 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     });
     setFormErr('');
     requestAnimationFrame(() => {
-      document.getElementById('job-bill-line-form')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const panel = document.getElementById('job-bill-line-form');
+      panel?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const first = panel?.querySelector<HTMLElement>(
+        'select.form-input, select.form-input-sm, input.form-input, input.form-input-sm, textarea',
+      );
+      first?.focus();
     });
   };
 
@@ -407,18 +414,6 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
       created_by: profile.id,
     });
   };
-
-  const deleteCost = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('job_costs').delete().eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
-      queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
-      invalidateJobBillInvoicePreview(queryClient, jobId);
-    },
-  });
 
   const createInvoice = useMutation({
     mutationFn: async (includeLoggedHoursExtra: boolean) => {
@@ -545,6 +540,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   const previewCost = (parseFloat(form.quantity) || 0) * (parseFloat(form.unit_cost) || 0);
 
   return (
+    <>
     <div className="space-y-4">
       {acceptedQuote && (
         <div className="rounded-lg border border-[#D6E8F7] bg-[#EFF6FF] px-3 py-2 text-sm text-[#1e40af]">
@@ -632,8 +628,8 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
         }}
       />
 
-      <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden job-bill-lines-wrap">
+        <table className="w-full text-sm job-bill-lines-table">
           <thead className="bg-[#F9FAFB] text-[#4A5568] text-xs">
             <tr>
               <th className="text-left font-medium px-3 py-2">Date</th>
@@ -660,6 +656,20 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
                 <td className="px-3 py-2 text-[#4A5568] text-xs">{c.charge_type || '—'}</td>
                 <td className="px-3 py-2 text-[#1A1A1A] job-bill-line-desc">
                   <span className="job-bill-line-desc-text">{c.description || c.charge_type || '—'}</span>
+                  <dl className="job-bill-line-phone-stack" aria-label="Line amounts">
+                    <div className="job-bill-line-phone-row">
+                      <dt>Qty</dt>
+                      <dd>{c.quantity}</dd>
+                    </div>
+                    <div className="job-bill-line-phone-row">
+                      <dt>Unit</dt>
+                      <dd>{formatMoney(c.unit_price || c.unit_cost)}</dd>
+                    </div>
+                    <div className="job-bill-line-phone-row">
+                      <dt>Total</dt>
+                      <dd className="job-bill-line-phone-total">{formatMoney(c.total_price || c.total_cost)}</dd>
+                    </div>
+                  </dl>
                   {lineNeedsLabourRate(c) ? (
                     <span className="job-bill-no-rate-stack">
                       <span className="job-bill-no-rate-flag">No rate</span>
@@ -686,17 +696,17 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
                   {formatMoney(c.unit_price || c.unit_cost)}
                 </td>
                 <td className="px-3 py-2 text-right font-semibold text-[#0A2540]">{formatMoney(c.total_price || c.total_cost)}</td>
-                <td className="px-3 py-2">
-                  <div className="flex items-center gap-0.5">
+                <td className="px-3 py-2 job-bill-line-actions">
+                  <div className="job-bill-line-action-btns flex items-center gap-1">
                     <button type="button" onClick={() => startEdit(c)}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-blue-50 hover:text-[#2E75B6]"
-                      title="Edit line"><Pencil size={14} /></button>
+                      className="job-bill-line-btn job-bill-line-btn-edit flex items-center justify-center rounded-lg text-gray-600 hover:bg-blue-50 hover:text-[#2E75B6]"
+                      title="Edit line" aria-label="Edit line"><Pencil size={16} /></button>
                     <button type="button" onClick={() => {
                       if (editingId === c.id) resetForm();
-                      deleteCost.mutate(c.id);
+                      setDeleteLineId(c.id);
                     }}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600"
-                      title="Delete"><Trash2 size={14} /></button>
+                      className="job-bill-line-btn job-bill-line-btn-delete flex items-center justify-center rounded-lg text-gray-600 hover:bg-red-50 hover:text-red-600"
+                      title="Delete line" aria-label="Delete line"><Trash2 size={16} /></button>
                   </div>
                 </td>
               </tr>
@@ -956,6 +966,13 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
           </div>
         )}
       </div>
+
     </div>
+    <JobBillLineDeleteConfirm
+      lineId={deleteLineId}
+      jobId={jobId}
+      onClose={() => setDeleteLineId(null)}
+    />
+    </>
   );
 }

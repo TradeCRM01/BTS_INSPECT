@@ -3,8 +3,10 @@ import { isDevAuditBillingFetchFail, isDevFieldAuditAuth } from './devFieldAudit
 import { isSchemaColumnMissingError, loadBilledTimesheetEntryIds } from './hoursToJobBill';
 import { entryMinutes } from './timesheetJob';
 import {
+  AUDIT_TIMESHEET_ENTRY_ALREADY_GONE,
   AUDIT_TIMESHEET_ENTRY_ID,
   hideAuditTimesheetEntry,
+  isAuditTimesheetEntryHidden,
   recomputeAuditTimesheetTotalMinutes,
 } from './timesheetsList';
 
@@ -13,6 +15,20 @@ export const TIMESHEET_ENTRY_DELETE_BILLED =
 
 export const TIMESHEET_ENTRY_DELETE_RUNNING =
   'Stop the running entry before you delete it.';
+
+export const TIMESHEET_ENTRY_DELETE_BILLING_CHECK =
+  "Couldn't check billing, try again";
+
+export const TIMESHEET_ENTRY_DELETE_ALREADY = 'Already deleted';
+
+export const TIMESHEET_ENTRY_DELETE_PERMISSION =
+  "You don't have permission to delete this entry.";
+
+function isTimesheetDeletePermissionError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const code = (error as { code?: string }).code;
+  return code === '42501' || code === 'PGRST301';
+}
 
 export type BilledTimesheetEntryIdsState = {
   ids: Set<string>;
@@ -43,7 +59,7 @@ export function timesheetEntryDeleteUiState(
     return { disabled: true, lockMessage: null };
   }
   if (!gate.billingCheckOk) {
-    return { disabled: true, lockMessage: TIMESHEET_ENTRY_DELETE_BILLED };
+    return { disabled: true, lockMessage: TIMESHEET_ENTRY_DELETE_BILLING_CHECK };
   }
   const billed = timesheetEntryDeleteBlockedReason(entry.id, gate.ids);
   if (billed) return { disabled: true, lockMessage: billed };
@@ -123,12 +139,21 @@ export async function deleteUnbilledTimesheetEntry(
     throw new Error(TIMESHEET_ENTRY_DELETE_RUNNING);
   }
   if (isDevFieldAuditAuth()) {
+    if (entry.id === AUDIT_TIMESHEET_ENTRY_ALREADY_GONE) {
+      throw new Error(TIMESHEET_ENTRY_DELETE_ALREADY);
+    }
+    if (isAuditTimesheetEntryHidden(entry.id)) {
+      throw new Error(TIMESHEET_ENTRY_DELETE_ALREADY);
+    }
     hideAuditTimesheetEntry(entry.id);
     recomputeAuditTimesheetTotalMinutes(entry.timesheet_id);
     return { deleted: true };
   }
   const bill = await entryReferencedOnJobBill(client, entry.id);
-  if (!bill.checkOk || bill.blocked) {
+  if (!bill.checkOk) {
+    throw new Error(TIMESHEET_ENTRY_DELETE_BILLING_CHECK);
+  }
+  if (bill.blocked) {
     throw new Error(TIMESHEET_ENTRY_DELETE_BILLED);
   }
   const { data: deleted, error: delErr } = await client
@@ -136,9 +161,23 @@ export async function deleteUnbilledTimesheetEntry(
     .delete()
     .eq('id', entry.id)
     .select('id');
-  if (delErr) throw delErr;
+  if (delErr) {
+    if (isTimesheetDeletePermissionError(delErr)) {
+      throw new Error(TIMESHEET_ENTRY_DELETE_PERMISSION);
+    }
+    throw delErr;
+  }
   if (!deleted?.length) {
-    throw new Error(TIMESHEET_ENTRY_DELETE_BILLED);
+    const { data: stillThere, error: readErr } = await client
+      .from('timesheet_entries')
+      .select('id')
+      .eq('id', entry.id)
+      .maybeSingle();
+    if (readErr) throw readErr;
+    if (stillThere) {
+      throw new Error(TIMESHEET_ENTRY_DELETE_PERMISSION);
+    }
+    throw new Error(TIMESHEET_ENTRY_DELETE_ALREADY);
   }
   await recomputeTimesheetTotalMinutes(client, entry.timesheet_id);
   return { deleted: true };

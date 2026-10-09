@@ -223,13 +223,28 @@ export function weekBoardCrewLabel(name: string | null | undefined): string {
 
 export const TIME_NOT_SET_LABEL = 'Time not set';
 export const AGENDA_NO_TIME_LABEL = 'No time set';
+export const SCHEDULE_ADD_TIME_LABEL = 'Add a time';
+
+export function scheduleBookedAddTimeLabel(scheduledDate: string | null | undefined): string {
+  if (!scheduledDate) return AGENDA_NO_TIME_LABEL;
+  const key = scheduleDayKey(scheduledDate);
+  if (!key) return AGENDA_NO_TIME_LABEL;
+  const [y, m, d] = key.split('-').map(Number);
+  const day = new Date(y, m - 1, d);
+  const weekday = day.toLocaleDateString('en-AU', { weekday: 'short' });
+  const month = day.toLocaleDateString('en-AU', { month: 'short' });
+  return `Booked ${weekday} ${d} ${month} · ${SCHEDULE_ADD_TIME_LABEL}`;
+}
 
 /** Phone week agenda clock. Untimed jobs stay honest, not an em dash. */
 export function scheduleAgendaClock(
   start: string | null | undefined,
   end?: string | null,
+  scheduledDate?: string | null,
 ): string {
-  return scheduleClockLabel(start, end) ?? AGENDA_NO_TIME_LABEL;
+  const timed = scheduleClockLabel(start, end);
+  if (timed) return timed;
+  return scheduleBookedAddTimeLabel(scheduledDate);
 }
 
 /** 24h clock from stored `HH:MM:SS` — untimed jobs stay blank. */
@@ -248,8 +263,12 @@ export function scheduleClockLabel(
 export function scheduleChipClock(
   start: string | null | undefined,
   end?: string | null,
+  scheduledDate?: string | null,
 ): string {
-  return scheduleClockLabel(start, end) ?? TIME_NOT_SET_LABEL;
+  const timed = scheduleClockLabel(start, end);
+  if (timed) return timed;
+  if (scheduledDate) return scheduleBookedAddTimeLabel(scheduledDate);
+  return TIME_NOT_SET_LABEL;
 }
 
 /** Day-board plot times. Untimed jobs are not drawn as a stored span. */

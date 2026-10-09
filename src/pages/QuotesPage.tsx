@@ -12,12 +12,15 @@ import {
 } from '../lib/devFieldAuditAuth';
 import {
   AUDIT_DOC_CLIENT_ID,
+  AUDIT_CONVERT_JOB_73_ID,
+  AUDIT_CONVERT_JOB_74_ID,
+  AUDIT_CONVERT_JOB_75_ID,
   AUDIT_QUOTE_ID,
   getAuditClients,
   getAuditTeamMembers,
 } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
-import { AppDialog, EditorStickyFooter, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
+import { AppDialog, EditorStickyFooter, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner, TimeFieldInput } from '../components/ui';
 import type { QuoteWithDetails, QuoteLineItem, QuoteStatus, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { convertQuoteToJob } from '../lib/convertQuoteToJob';
@@ -29,11 +32,14 @@ import {
   CONVERT_QUOTE_NEED_DATE,
   CONVERT_QUOTE_NEED_DATE_CREW,
   CONVERT_QUOTE_NEED_TIME,
+  CONVERT_QUOTE_HELPER,
   CONVERT_QUOTE_JOB_SAVED,
   convertQuoteNeedMessage,
+  quoteConvertShowsInline,
   focusQuoteConvertField,
   assignedTeamFromQuote,
   focusQuoteConvertDate,
+  mergeQuoteConvertTimes,
   quoteConvertMissing,
   quoteConvertTap,
   releaseQuoteConvertLock,
@@ -131,7 +137,11 @@ import { format, parseISO, addDays } from 'date-fns';
 
 type StatusFilter = 'all' | typeof QUOTE_CHASE_FILTER | QuoteStatus;
 
-type QuoteListItem = QuoteWithDetails & { invoice_id: string | null; client_email?: string | null };
+type QuoteListItem = QuoteWithDetails & {
+  invoice_id: string | null;
+  client_email?: string | null;
+  job_status?: string | null;
+};
 
 function visibleSite(...parts: Array<string | null | undefined>): string {
   for (const part of parts) {
@@ -183,6 +193,81 @@ function fieldAuditConvertQuote(): QuoteListItem | null {
     job_address: null,
     invoice_id: null,
   };
+}
+
+function fieldAuditConvertedQuotes(): QuoteListItem[] {
+  if (!isDevFieldAuditAuth()) return [];
+  const base = {
+    company_id: DEV_AUDIT_COMPANY.id,
+    client_id: AUDIT_DOC_CLIENT_ID,
+    status: 'accepted' as const,
+    scope_of_works: 'Complete the agreed site works.',
+    validity_date: '2026-10-20',
+    notes: null,
+    inclusions: [] as string[],
+    exclusions: [] as string[],
+    created_by: DEV_AUDIT_PROFILE.id,
+    client_name: 'Northside Electrical',
+    client_email: 'accounts@northside.example',
+    job_address: '12 Workshop Rd, Perth WA 6000',
+    invoice_id: null,
+  };
+  return [
+    {
+      ...base,
+      id: 'audit-quote-0042',
+      quote_number: 42,
+      job_id: AUDIT_CONVERT_JOB_73_ID,
+      description: 'Main panel upgrade (converted)',
+      line_items: [{ description: 'Site labour', quantity: 8, unit_price: 95 }],
+      subtotal: 760,
+      tax_rate: 10,
+      tax_amount: 76,
+      total: 836,
+      scheduled_date: '2026-08-25',
+      assigned_team: [DEV_AUDIT_PROFILE.id],
+      created_at: '2026-09-01T00:00:00.000Z',
+      updated_at: '2026-09-02T00:00:00.000Z',
+      job_title: 'Main panel upgrade',
+      job_status: 'scheduled',
+    },
+    {
+      ...base,
+      id: 'audit-quote-0043',
+      quote_number: 43,
+      job_id: AUDIT_CONVERT_JOB_74_ID,
+      description: 'Switchgear fit-off (converted)',
+      line_items: [{ description: 'Fit-off labour', quantity: 6, unit_price: 110 }],
+      subtotal: 660,
+      tax_rate: 10,
+      tax_amount: 66,
+      total: 726,
+      scheduled_date: '2026-08-26',
+      assigned_team: [DEV_AUDIT_PROFILE.id],
+      created_at: '2026-09-03T00:00:00.000Z',
+      updated_at: '2026-09-04T00:00:00.000Z',
+      job_title: 'Switchgear fit-off',
+      job_status: 'scheduled',
+    },
+    {
+      ...base,
+      id: 'audit-quote-0044',
+      quote_number: 44,
+      job_id: AUDIT_CONVERT_JOB_75_ID,
+      description: 'Site wrap-up (converted, job done)',
+      line_items: [{ description: 'Final labour', quantity: 6, unit_price: 110 }],
+      subtotal: 660,
+      tax_rate: 10,
+      tax_amount: 66,
+      total: 726,
+      scheduled_date: '2026-09-10',
+      assigned_team: [DEV_AUDIT_PROFILE.id],
+      created_at: '2026-09-05T00:00:00.000Z',
+      updated_at: '2026-09-12T00:00:00.000Z',
+      job_title: 'Site wrap-up',
+      job_status: 'completed',
+    },
+  ];
 }
 
 function fieldAuditGstQuote(): QuoteListItem | null {
@@ -359,7 +444,7 @@ export function QuotesPage() {
         if (lookLetterhead) return [convertQuote];
         const shareQuote = fieldAuditShareQuote();
         const gstQuote = fieldAuditGstQuote();
-        return [convertQuote, shareQuote, gstQuote, ...fieldAuditChaseQuotes()]
+        return [convertQuote, shareQuote, gstQuote, ...fieldAuditConvertedQuotes(), ...fieldAuditChaseQuotes()]
           .filter((row): row is QuoteListItem => !!row);
       }
       const { data, error } = await supabase
@@ -373,7 +458,9 @@ export function QuotesPage() {
       const quoteIds = list.map(q => q.id);
       const [clientsRes, jobsRes, quoteInvoicesRes, jobInvoicesRes] = await Promise.all([
         clientIds.length ? supabase.from('clients').select('id, name, email, contact_person').in('id', clientIds) : Promise.resolve({ data: [] as { id: string; name: string; email: string | null; contact_person: string | null }[] }),
-        jobIds.length ? supabase.from('jobs').select('id, title, address').in('id', jobIds) : Promise.resolve({ data: [] as { id: string; title: string; address: string | null }[] }),
+        jobIds.length
+          ? supabase.from('jobs').select('id, title, address, status').in('id', jobIds)
+          : Promise.resolve({ data: [] as { id: string; title: string; address: string | null; status: string }[] }),
         quoteIds.length
           ? supabase.from('invoices').select('id, quote_id, job_id, status').in('quote_id', quoteIds)
           : Promise.resolve({ data: [] as { id: string; quote_id: string | null; job_id: string | null; status: string }[] }),
@@ -394,6 +481,7 @@ export function QuotesPage() {
         client_email: q.client_id ? clientMap.get(q.client_id)?.email ?? null : null,
         job_title: q.job_id ? jobMap.get(q.job_id)?.title ?? null : null,
         job_address: q.job_id ? jobMap.get(q.job_id)?.address ?? null : null,
+        job_status: q.job_id ? jobMap.get(q.job_id)?.status ?? null : null,
         invoice_id: quoteListInvoiceId(
           quoteInvoices.filter(inv => inv.quote_id === q.id),
           q.job_id ? jobInvoices.filter(inv => inv.job_id === q.job_id) : [],
@@ -1029,9 +1117,15 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
     line_items: form.line_items,
     job_id: form.job_id || null,
     invoice_id: invoiceId,
+    job_status: quote?.job_status ?? null,
   }));
 
   const convertSectionRef = useRef<HTMLDivElement | null>(null);
+  const convertTimesLive = useRef({ start_time: form.start_time, end_time: form.end_time });
+  useEffect(() => {
+    convertTimesLive.current.start_time = form.start_time;
+    convertTimesLive.current.end_time = form.end_time;
+  }, [form.start_time, form.end_time]);
   const convertFocusDoneRef = useRef(false);
   const convertingLock = useRef(false);
   const stopConvertFocusRef = useRef<(() => void) | null>(null);
@@ -1300,11 +1394,15 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
 
   const handleConvert = async () => {
     if (!takeQuoteConvertLock(convertingLock)) return;
+    const { start_time, end_time } = mergeQuoteConvertTimes(
+      { start_time: form.start_time, end_time: form.end_time },
+      convertTimesLive.current,
+    );
     const convertInput = {
       scheduled_date: form.scheduled_date,
       assigned_team: form.assigned_team,
-      start_time: form.start_time,
-      end_time: form.end_time,
+      start_time,
+      end_time,
     };
     const tap = quoteConvertTap({
       id: savedId ?? quote?.id,
@@ -1344,8 +1442,8 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
         total: grandTotal,
         scheduled_date: form.scheduled_date || null,
         assigned_team: form.assigned_team,
-        start_time: form.start_time,
-        end_time: form.end_time,
+        start_time,
+        end_time,
       }, profile.id);
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
@@ -1477,6 +1575,27 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                 {saving ? 'Saving...' : 'Mark accepted'}
               </button>
             )}
+            {next.key === 'open_job' && form.job_id && (
+              <button
+                type="button"
+                className="btn-primary"
+                title={next.detail}
+                onClick={() => navigate(`/jobs/${form.job_id}`)}
+              >
+                Open job
+              </button>
+            )}
+            {next.key === 'invoice' && (
+              <button
+                type="button"
+                className="btn-primary"
+                title={next.detail}
+                onClick={() => { void handleInvoice(); }}
+                disabled={saving || invoicing}
+              >
+                {invoicing ? 'Creating…' : 'Create invoice'}
+              </button>
+            )}
             <details ref={moreRef} className="hub-quote-more">
               <summary aria-label="More actions">
                 <MoreHorizontal size={18} />
@@ -1587,7 +1706,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
           </div>
         </div>
         {manualCopyUrl ? <DocumentShareManualLink url={manualCopyUrl} /> : null}
-        {err && err !== CONVERT_QUOTE_NEED_DATE_CREW ? <p className="hub-quote-err">{err}</p> : null}
+        {err && !quoteConvertShowsInline(err) ? <p className="hub-quote-err">{err}</p> : null}
 
         <div className="hub-quote-sheet">
           <header className="hub-quote-masthead">
@@ -1803,20 +1922,24 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                   </select>
                 </Field>
                 <Field label="Start">
-                  <input
+                  <TimeFieldInput
                     id="quote-convert-start"
-                    type="time"
                     value={form.start_time}
-                    onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))}
+                    onChange={start_time => {
+                      convertTimesLive.current.start_time = start_time;
+                      setForm(f => ({ ...f, start_time }));
+                    }}
                     className="form-input"
                   />
                 </Field>
                 <Field label="End">
-                  <input
+                  <TimeFieldInput
                     id="quote-convert-end"
-                    type="time"
                     value={form.end_time}
-                    onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))}
+                    onChange={end_time => {
+                      convertTimesLive.current.end_time = end_time;
+                      setForm(f => ({ ...f, end_time }));
+                    }}
                     className="form-input"
                   />
                 </Field>
@@ -1827,7 +1950,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                 || err === CONVERT_QUOTE_NEED_TIME
                 || err === CONVERT_QUOTE_END_BEFORE_START
                 ? <p className="hub-quote-convert-miss">{err}</p>
-                : <p className="hub-quote-convert-whisper">Date, crew, and times on this tap.</p>}
+                : <p className="hub-quote-convert-whisper">{CONVERT_QUOTE_HELPER}</p>}
               <button
                 type="button"
                 className="btn-primary"

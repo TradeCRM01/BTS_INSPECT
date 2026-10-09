@@ -493,7 +493,14 @@ export function ClientDetailPage() {
               const invoiceId = pickReusableInvoice(
                 (invoices ?? []).filter(inv => inv.quote_id === quote.id),
               )?.id ?? null;
-              const next = recommendQuoteAction(quoteActionContext({ ...quote, invoice_id: invoiceId }));
+              const jobStatus = quote.job_id
+                ? floorJobs.find(job => job.id === quote.job_id)?.status ?? null
+                : null;
+              const next = recommendQuoteAction(quoteActionContext({
+                ...quote,
+                invoice_id: invoiceId,
+                job_status: jobStatus,
+              }));
               const actionHref = quoteTrayActionHref({
                 key: next.key,
                 quoteId: quote.id,

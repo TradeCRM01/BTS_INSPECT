@@ -43,6 +43,24 @@ export function normalizeJobTime(value: string | null | undefined): string | nul
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
+export type QuoteConvertTimes = {
+  start_time: string;
+  end_time: string;
+};
+
+/**
+ * Convert tap can run in the same event turn as TimeFieldInput onChange (blur then click).
+ * `live` is updated synchronously in onChange; `form` may still hold the previous render.
+ */
+export function mergeQuoteConvertTimes(
+  form: QuoteConvertTimes,
+  live: Partial<QuoteConvertTimes> | null | undefined,
+): QuoteConvertTimes {
+  const start_time = normalizeJobTime(live?.start_time) ?? normalizeJobTime(form.start_time) ?? '';
+  const end_time = normalizeJobTime(live?.end_time) ?? normalizeJobTime(form.end_time) ?? '';
+  return { start_time, end_time };
+}
+
 export function jobTimesFromQuote(
   start?: string | null,
   end?: string | null,
@@ -91,6 +109,17 @@ export const CONVERT_QUOTE_NEED_DATE = 'Set a job date before converting.';
 export const CONVERT_QUOTE_NEED_CREW = 'Pick a crew before converting.';
 export const CONVERT_QUOTE_NEED_TIME = 'Set start and end times before converting.';
 export const CONVERT_QUOTE_NEED_DATE_CREW = 'Set a date and crew on this tap before converting.';
+
+export const CONVERT_QUOTE_HELPER = 'Pick a day, crew and start time.';
+
+export function quoteConvertShowsInline(err: string | null): boolean {
+  if (!err) return false;
+  return err === CONVERT_QUOTE_NEED_DATE_CREW
+    || err === CONVERT_QUOTE_NEED_DATE
+    || err === CONVERT_QUOTE_NEED_CREW
+    || err === CONVERT_QUOTE_NEED_TIME
+    || err === CONVERT_QUOTE_END_BEFORE_START;
+}
 
 export function convertQuoteNeedMessage(missing: QuoteConvertMissing, quote?: {
   scheduled_date?: string | null;

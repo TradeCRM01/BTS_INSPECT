@@ -36,9 +36,9 @@ import { calendarSite } from '../../lib/jobCalendar';
 import { formatJobRef } from '../../lib/jobRef';
 import {
   jobsOnScheduleDay,
-  TIME_NOT_SET_LABEL,
   scheduleAgendaClock,
   scheduleChipClock,
+  scheduleClockLabel,
   scheduleCrewLabel,
   scheduleDateKey,
   scheduleJobHref,
@@ -107,8 +107,8 @@ const JobBlock = memo(function JobBlock({
 }: JobBlockProps) {
   const chip = weekBoardChip(job);
   const ink = getReadableText(chip.color);
-  const clock = scheduleChipClock(job.start_time, job.end_time);
-  const timed = clock !== TIME_NOT_SET_LABEL;
+  const clock = scheduleChipClock(job.start_time, job.end_time, job.scheduled_date);
+  const timed = !!scheduleClockLabel(job.start_time, job.end_time);
 
   return (
     <div
@@ -133,7 +133,7 @@ const JobBlock = memo(function JobBlock({
     >
       <span className="hub-day-chip-pin" data-day-chip-pin="1">
         <span className="hub-week-chip-ref">{timed ? `${clock} · ${chip.ref}` : chip.ref}</span>
-        <span className="hub-week-chip-desc">{timed ? chip.description : [TIME_NOT_SET_LABEL, chip.description].filter(Boolean).join(' · ')}</span>
+        <span className="hub-week-chip-desc">{timed ? chip.description : [clock, chip.description].filter(Boolean).join(' · ')}</span>
       </span>
     </div>
   );
@@ -335,8 +335,8 @@ function WeekJobChip({
 }) {
   const chip = weekBoardChip(job, familyJobs);
   const ink = getReadableText(chip.color);
-  const clock = scheduleChipClock(job.start_time, job.end_time);
-  const timed = clock !== TIME_NOT_SET_LABEL;
+  const clock = scheduleChipClock(job.start_time, job.end_time, job.scheduled_date);
+  const timed = !!scheduleClockLabel(job.start_time, job.end_time);
   return (
     <div
       role="button"
@@ -360,7 +360,7 @@ function WeekJobChip({
       <span className="hub-week-chip-ref">{timed ? `${clock} · ${chip.ref}` : chip.ref}</span>
       {chip.description ? (
         <span className="hub-week-chip-desc">
-          {timed ? chip.description : [TIME_NOT_SET_LABEL, chip.description].filter(Boolean).join(' · ')}
+          {timed ? chip.description : [clock, chip.description].filter(Boolean).join(' · ')}
         </span>
       ) : null}
     </div>
@@ -438,7 +438,7 @@ export const PhoneWeekList = memo(function PhoneWeekList({
                         onClick={() => onJobClick(job)}
                       >
                         <span className="hub-week-agenda-time">
-                          {scheduleAgendaClock(job.start_time, job.end_time)}
+                          {scheduleAgendaClock(job.start_time, job.end_time, job.scheduled_date)}
                         </span>
                         <span className="hub-week-agenda-copy">
                           <span className="hub-week-agenda-title">{job.title}</span>

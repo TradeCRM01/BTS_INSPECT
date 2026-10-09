@@ -97,7 +97,7 @@ export function JobDispatchPanel({
   const commitJobTime = (field: 'start_time' | 'end_time', raw: string) => {
     const server = field === 'start_time' ? toTimeInput(job.start_time) : toTimeInput(job.end_time);
     if (raw === server) return;
-    if (raw && !isValidCompleteTimeValue(raw)) {
+    if (!raw || !isValidCompleteTimeValue(raw)) {
       if (field === 'start_time') setStartDraft(server);
       else setEndDraft(server);
       return;

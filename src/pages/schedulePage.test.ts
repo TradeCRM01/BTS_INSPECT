@@ -25,7 +25,9 @@ describe('schedule page week/day board', () => {
     const search = src('src/components/crm/ScheduleJobSearch.tsx');
     expect(page).toContain('scheduleJobHref');
     expect(page).toContain('onOpenJob={job => openJob(job.id)}');
-    expect(page).toContain('onJobClick={job => openJob(job.id)}');
+    expect(page).toContain('onJobClick={openBoardJob}');
+    expect(page).toContain('openBoardJob');
+    expect(page).toContain('if (!job.start_time)');
     expect(page).toContain('onJobClick={handlePickJob}');
     expect(page).toContain('placePickedOnCell');
     expect(page).toContain('onJobDrop={placeExisting}');
@@ -90,7 +92,7 @@ describe('schedule page week/day board', () => {
     expect(page).toContain('placePickedHint');
     expect(page).toContain('placePickedOnCell');
     expect(page).not.toContain('today at 8:00');
-    expect(board).toContain('TIME_NOT_SET_LABEL');
+    expect(board).toContain('scheduleClockLabel');
     expect(board).toContain('data-untimed-chip');
     expect(src('src/lib/dispatch.ts')).not.toContain('DEFAULT_SLOT_START');
     expect(page).toContain('scheduleSearchFromState');

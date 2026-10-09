@@ -10,6 +10,7 @@ import {
   convertQuoteNeedMessage,
   focusQuoteConvertField,
   jobFieldsFromQuote,
+  mergeQuoteConvertTimes,
   quoteConvertMissing,
 } from './quoteJobFields';
 
@@ -116,6 +117,21 @@ describe('FIX-4 — quote convert times and crew truth', () => {
     expect(control).toContain('onOpen({ focusConvert: true })');
     expect(control).not.toMatch(/start_time:\s*['"]08:00['"]/);
     expect(control).not.toContain('convertQuoteToJob');
+  });
+
+  it('mergeQuoteConvertTimes uses live ref when form state is still on defaults', () => {
+    expect(mergeQuoteConvertTimes(
+      { start_time: '08:00', end_time: '16:00' },
+      { start_time: '09:30' },
+    )).toEqual({ start_time: '09:30', end_time: '16:00' });
+
+    const editor = src('src/pages/QuotesPage.tsx');
+    const handleConvert = editor.slice(editor.indexOf('const handleConvert'), editor.indexOf('const editorMoney'));
+    expect(handleConvert).toContain('mergeQuoteConvertTimes');
+    expect(handleConvert).toContain('convertTimesLive');
+    const field = src('src/components/ui/TimeFieldInput.tsx');
+    expect(field).not.toContain('digitBufferRef');
+    expect(field).not.toContain('tryInferTimeFromDigitBuffer');
   });
 
   it('jobFieldsFromQuote does not invent 08:00–16:00 when quote times are absent', () => {

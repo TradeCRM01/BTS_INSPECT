@@ -10,6 +10,7 @@ interface ConfirmDialogProps {
   onConfirm: () => void;
   onCancel: () => void;
   variant?: 'danger' | 'default';
+  confirmDisabled?: boolean;
 }
 
 export function ConfirmDialog({
@@ -21,6 +22,7 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
   variant = 'danger',
+  confirmDisabled = false,
 }: ConfirmDialogProps) {
   return (
     <Modal open={open} onClose={onCancel} size="sm">
@@ -44,7 +46,9 @@ export function ConfirmDialog({
             {cancelLabel}
           </button>
           <button
+            type="button"
             onClick={onConfirm}
+            disabled={confirmDisabled}
             className={variant === 'danger' ? 'btn-danger' : 'btn-primary'}
           >
             {confirmLabel}

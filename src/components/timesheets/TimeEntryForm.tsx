@@ -157,7 +157,7 @@ export function TimeEntryForm({
               <X size={20} />
             </button>
           </div>
-          <form onSubmit={handleSave} className="overlay-body flex flex-col gap-4">
+          <form onSubmit={handleSave} noValidate className="overlay-body flex flex-col gap-4">
             <Field label="Date">
               <input
                 type="date"

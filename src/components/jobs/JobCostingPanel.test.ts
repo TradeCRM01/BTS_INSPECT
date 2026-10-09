@@ -41,6 +41,10 @@ vi.mock('../../lib/supabase', () => ({
   supabase: {},
 }));
 
+vi.mock('./JobBillLineDeleteConfirm', () => ({
+  JobBillLineDeleteConfirm: () => null,
+}));
+
 vi.mock('../ui/ManagedSelect', () => ({
   ManagedSelect: ({ value }: { value: string }) => createElement(
     'select',

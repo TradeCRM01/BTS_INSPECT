@@ -1,5 +1,6 @@
 import { DEV_AUDIT_COMPANY, DEV_AUDIT_PROFILE, isDevFieldAuditAuth } from './devFieldAuditAuth';
 import { withScheduleJobPatches } from './scheduleJobPatchStore';
+import type { Job } from '../types/crm';
 import type { ExpenseCostModel, JobCost } from '../types/fsm';
 import type { InvoiceSendBundle, InvoiceSendCompany } from './sendInvoice';
 import type { QuoteSendBundle, QuoteSendCompany } from './sendQuote';
@@ -18,6 +19,10 @@ export const AUDIT_QUOTE_ID = 'audit-quote-send';
 export const AUDIT_PO_ID = 'audit-po-send';
 export const AUDIT_REPORT_ID = 'audit-report-send';
 export const AUDIT_DOC_JOB_ID = 'audit-doc-job';
+/** FIX-5b LOOK — Q#0042–0044 converted to J#0073–0075 (audit only). */
+export const AUDIT_CONVERT_JOB_73_ID = 'audit-job-0073';
+export const AUDIT_CONVERT_JOB_74_ID = 'audit-job-0074';
+export const AUDIT_CONVERT_JOB_75_ID = 'audit-job-0075';
 export const AUDIT_DOC_CLIENT_ID = 'audit-doc-client';
 /** FIX-2 LOOK only — plumber-neutral client (does not replace AUDIT_DOC_CLIENT_ID elsewhere). */
 export const AUDIT_FIX2_CLIENT_ID = 'audit-fix2-client';
@@ -105,6 +110,34 @@ function auditJobBillCostBase(): Omit<JobCost, 'id' | 'cost_type' | 'description
   };
 }
 
+const AUDIT_BILL_HIDDEN_KEY = 'grafter-audit-hidden-bill-lines';
+
+function auditBillHiddenIds(): Set<string> {
+  if (!isDevFieldAuditAuth() || typeof sessionStorage === 'undefined') return new Set();
+  try {
+    const raw = sessionStorage.getItem(AUDIT_BILL_HIDDEN_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as string[];
+    return new Set(parsed.filter(id => typeof id === 'string'));
+  } catch {
+    return new Set();
+  }
+}
+
+/** DEV audit — hide a job bill line after delete confirm (Playwright proof). */
+export function hideAuditJobBillLine(id: string): void {
+  if (!isDevFieldAuditAuth() || typeof sessionStorage === 'undefined') return;
+  const hidden = auditBillHiddenIds();
+  hidden.add(id);
+  sessionStorage.setItem(AUDIT_BILL_HIDDEN_KEY, JSON.stringify([...hidden]));
+}
+
+function filterAuditJobBillCosts(lines: JobCost[]): JobCost[] {
+  const hidden = auditBillHiddenIds();
+  if (hidden.size === 0) return lines;
+  return lines.filter(line => !hidden.has(line.id));
+}
+
 /** Playwright: /jobs/audit-doc-job?auditAuth=1&look=p331-nocost|p331-cost-filled|p331-bill */
 export function getAuditJobBillCosts(): JobCost[] | null {
   const look = auditLookTag();
@@ -121,7 +154,7 @@ export function getAuditJobBillCosts(): JobCost[] | null {
   }
   if (look === 'fix2-zero-header') {
     const base = auditJobBillCostBase();
-    return [{
+    return filterAuditJobBillCosts([{
       ...base,
       id: 'audit-fix2-zero-labour',
       cost_type: 'labor',
@@ -134,7 +167,7 @@ export function getAuditJobBillCosts(): JobCost[] | null {
       total_price: 0,
       charge_type: 'Labour',
       cost_model_id: null,
-    }];
+    }]);
   }
   if (look !== 'p331-nocost' && look !== 'p331-cost-filled' && look !== 'p331-bill') return null;
   const base = auditJobBillCostBase();
@@ -153,14 +186,47 @@ export function getAuditJobBillCosts(): JobCost[] | null {
     cost_model_id: null,
   };
   if (look === 'p331-cost-filled') {
-    return [{
+    return filterAuditJobBillCosts([{
       ...labour,
       unit_cost: 52,
       total_cost: 104,
       cost_model_id: AUDIT_P331_COST_MODEL_ID,
-    }];
+    }]);
   }
-  return [labour];
+  if (look === 'p331-bill') {
+    const longDesc =
+      'Copper pipe and fittings kit — 20 mm runs, brackets, and thread tape for the main riser';
+    const materialA: JobCost = {
+      ...base,
+      id: 'audit-p331-mat-a',
+      cost_type: 'materials',
+      description: longDesc,
+      quantity: 6,
+      unit_cost: 18.5,
+      total_cost: 111,
+      markup_percent: 20,
+      unit_price: 22.2,
+      total_price: 133.2,
+      charge_type: 'Materials',
+      cost_model_id: null,
+    };
+    const materialB: JobCost = {
+      ...base,
+      id: 'audit-p331-mat-b',
+      cost_type: 'materials',
+      description: 'Isolation valves (pair)',
+      quantity: 2,
+      unit_cost: 42,
+      total_cost: 84,
+      markup_percent: 15,
+      unit_price: 48.3,
+      total_price: 96.6,
+      charge_type: 'Materials',
+      cost_model_id: null,
+    };
+    return filterAuditJobBillCosts([materialA, materialB, labour]);
+  }
+  return filterAuditJobBillCosts([labour]);
 }
 
 /** FIX-2 LOOK: timesheet hours only — not pre-loaded on job bill. */
@@ -417,7 +483,7 @@ export function getAuditMemberExpenseCostModelId(memberId: string): string | nul
   return null;
 }
 
-export function getAuditJobs() {
+export function getAuditJobs(): Job[] | null {
   if (!isDevFieldAuditAuth()) return null;
   return [{
     id: AUDIT_DOC_JOB_ID,
@@ -507,7 +573,73 @@ export function getAuditJobs() {
     budget: null,
     parent_job_id: AUDIT_DOC_JOB_ID,
     cost_code: '01',
-  }];
+  }, {
+    id: AUDIT_CONVERT_JOB_73_ID,
+    company_id: DEV_AUDIT_COMPANY.id,
+    client_id: AUDIT_DOC_CLIENT_ID,
+    title: 'Main panel upgrade',
+    description: 'Converted from quote #0042.',
+    status: 'scheduled' as const,
+    priority: 'medium' as const,
+    scheduled_date: '2026-08-25',
+    start_time: '07:30',
+    end_time: '16:00',
+    address: '12 Workshop Rd, Perth WA 6000',
+    assigned_team: [DEV_AUDIT_PROFILE.id],
+    inspection_id: null,
+    created_by: DEV_AUDIT_PROFILE.id,
+    created_at: NOW,
+    updated_at: NOW,
+    job_number: 73,
+    color: null,
+    budget: 836,
+    parent_job_id: null,
+    cost_code: null,
+  }, {
+    id: AUDIT_CONVERT_JOB_74_ID,
+    company_id: DEV_AUDIT_COMPANY.id,
+    client_id: AUDIT_DOC_CLIENT_ID,
+    title: 'Switchgear fit-off',
+    description: 'Converted from quote #0043.',
+    status: 'scheduled' as const,
+    priority: 'medium' as const,
+    scheduled_date: '2026-08-26',
+    start_time: '08:00',
+    end_time: '15:00',
+    address: '12 Workshop Rd, Perth WA 6000',
+    assigned_team: [DEV_AUDIT_PROFILE.id],
+    inspection_id: null,
+    created_by: DEV_AUDIT_PROFILE.id,
+    created_at: NOW,
+    updated_at: NOW,
+    job_number: 74,
+    color: null,
+    budget: 920,
+    parent_job_id: null,
+    cost_code: null,
+  }, {
+    id: AUDIT_CONVERT_JOB_75_ID,
+    company_id: DEV_AUDIT_COMPANY.id,
+    client_id: AUDIT_DOC_CLIENT_ID,
+    title: 'Site wrap-up',
+    description: 'Converted from quote #0044 — job finished.',
+    status: 'completed' as const,
+    priority: 'medium' as const,
+    scheduled_date: '2026-09-10',
+    start_time: '08:00',
+    end_time: '14:00',
+    address: '12 Workshop Rd, Perth WA 6000',
+    assigned_team: [DEV_AUDIT_PROFILE.id],
+    inspection_id: null,
+    created_by: DEV_AUDIT_PROFILE.id,
+    created_at: NOW,
+    updated_at: NOW,
+    job_number: 75,
+    color: null,
+    budget: 726,
+    parent_job_id: null,
+    cost_code: null,
+  }] as Job[];
 }
 
 /** Invoice editor client list in field-audit — includes fix2-only client when absent from Northside seed. */

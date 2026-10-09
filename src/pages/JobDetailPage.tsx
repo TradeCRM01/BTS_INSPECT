@@ -2171,6 +2171,14 @@ export function JobDetailPage() {
         return { cost: 400, charge: 545, lines: 2 };
       }
       if (p305 === 'empty') return { cost: 0, charge: 0, lines: 0 };
+      const auditBill = getAuditJobBillCosts();
+      if (auditBill) {
+        return {
+          cost: auditBill.reduce((s, r) => s + Number(r.total_cost || 0), 0),
+          charge: auditBill.reduce((s, r) => s + Number(r.total_price || r.total_cost || 0), 0),
+          lines: auditBill.length,
+        };
+      }
       const empty = getAuditEmptyList();
       if (empty) return { cost: 0, charge: 0, lines: 0 };
       const { data, error } = await supabase

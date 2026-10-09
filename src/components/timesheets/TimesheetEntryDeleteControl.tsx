@@ -4,9 +4,12 @@ import { supabase } from '../../lib/supabase';
 import { ConfirmDialog, useToast } from '../ui';
 import {
   deleteUnbilledTimesheetEntry,
+  TIMESHEET_ENTRY_DELETE_ALREADY,
   timesheetEntryDeleteUiState,
   type TimesheetEntryDeleteGate,
 } from '../../lib/timesheetEntryDelete';
+import { isDevFieldAuditAuth } from '../../lib/devFieldAuditAuth';
+import { hideAuditTimesheetEntry } from '../../lib/timesheetsList';
 import { invalidateJobBillInvoicePreview } from '../../lib/jobBillInvoicePreviewQuery';
 
 export type TimesheetEntryDeleteRow = {
@@ -49,7 +52,17 @@ export function TimesheetEntryDeleteControl({
       showToast('Time entry removed');
       onDeleted?.();
     },
-    onError: (e: Error) => showToast(e.message, 'error'),
+    onError: (e: Error) => {
+      setConfirmOpen(false);
+      if (e.message === TIMESHEET_ENTRY_DELETE_ALREADY) {
+        if (isDevFieldAuditAuth()) hideAuditTimesheetEntry(entry.id);
+        queryClient.invalidateQueries({ queryKey: ['timesheet-entries'] });
+        queryClient.invalidateQueries({ queryKey: ['timesheets'] });
+        queryClient.invalidateQueries({ queryKey: ['job-timesheets'] });
+        queryClient.invalidateQueries({ queryKey: ['billed-timesheet-entry-ids'] });
+      }
+      showToast(e.message, 'error');
+    },
   });
 
   return (
@@ -75,6 +88,7 @@ export function TimesheetEntryDeleteControl({
         confirmLabel="Delete"
         onConfirm={() => deleteMutation.mutate()}
         onCancel={() => setConfirmOpen(false)}
+        confirmDisabled={deleteMutation.isPending}
       />
     </>
   );
