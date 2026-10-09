@@ -4,7 +4,8 @@ import { supabase } from '../../lib/supabase';
 import { ConfirmDialog, useToast } from '../ui';
 import {
   deleteUnbilledTimesheetEntry,
-  timesheetEntryDeleteBlockedReason,
+  timesheetEntryDeleteUiState,
+  type TimesheetEntryDeleteGate,
 } from '../../lib/timesheetEntryDelete';
 import { invalidateJobBillInvoicePreview } from '../../lib/jobBillInvoicePreviewQuery';
 
@@ -18,24 +19,25 @@ export type TimesheetEntryDeleteRow = {
 
 export function TimesheetEntryDeleteControl({
   entry,
-  billedEntryIds,
-  timesheetTotalMinutes,
+  billedGate,
   onDeleted,
 }: {
   entry: TimesheetEntryDeleteRow;
-  billedEntryIds: ReadonlySet<string>;
-  timesheetTotalMinutes: number;
+  billedGate: TimesheetEntryDeleteGate;
   onDeleted?: () => void;
 }) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const blocked = timesheetEntryDeleteBlockedReason(entry.id, billedEntryIds);
+  const ui = timesheetEntryDeleteUiState(entry, billedGate);
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      if (blocked) throw new Error(blocked);
-      await deleteUnbilledTimesheetEntry(supabase, entry, timesheetTotalMinutes);
+      const block = timesheetEntryDeleteUiState(entry, billedGate);
+      if (block.disabled) {
+        throw new Error(block.lockMessage ?? 'Cannot delete this entry.');
+      }
+      await deleteUnbilledTimesheetEntry(supabase, entry);
       if (entry.job_id) invalidateJobBillInvoicePreview(queryClient, entry.job_id);
     },
     onSuccess: () => {
@@ -56,15 +58,15 @@ export function TimesheetEntryDeleteControl({
         <button
           type="button"
           className="hub-timesheets-delete-btn"
-          disabled={!!blocked || deleteMutation.isPending}
+          disabled={ui.disabled || deleteMutation.isPending}
           onClick={() => {
-            if (blocked) return;
+            if (ui.disabled) return;
             setConfirmOpen(true);
           }}
         >
           Delete
         </button>
-        {blocked ? <p className="hub-timesheets-delete-lock" role="status">{blocked}</p> : null}
+        {ui.lockMessage ? <p className="hub-timesheets-delete-lock" role="status">{ui.lockMessage}</p> : null}
       </div>
       <ConfirmDialog
         open={confirmOpen}

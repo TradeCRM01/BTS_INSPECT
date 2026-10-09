@@ -141,11 +141,29 @@ export function TimesheetsPage() {
     [entries],
   );
 
-  const { data: billedEntryIds = new Set<string>() } = useQuery({
+  const billedEntryQuery = useQuery({
     queryKey: ['billed-timesheet-entry-ids', jobIdsForEntries.join(',')],
     queryFn: async () => loadBilledTimesheetEntryIdsForJobs(supabase, jobIdsForEntries),
     enabled: jobIdsForEntries.length > 0 && !!profile,
   });
+  const billedEntryGate = useMemo(() => {
+    if (jobIdsForEntries.length === 0) {
+      return { loaded: true, billingCheckOk: true, ids: new Set<string>() };
+    }
+    return {
+      loaded: billedEntryQuery.isFetched && !billedEntryQuery.isPending,
+      billingCheckOk: billedEntryQuery.isError
+        ? false
+        : (billedEntryQuery.data?.billingCheckOk ?? false),
+      ids: billedEntryQuery.data?.ids ?? new Set<string>(),
+    };
+  }, [
+    jobIdsForEntries.length,
+    billedEntryQuery.isFetched,
+    billedEntryQuery.isPending,
+    billedEntryQuery.isError,
+    billedEntryQuery.data,
+  ]);
 
   const { data: jobs } = useQuery({
     queryKey: ['jobs-for-timesheets'],
@@ -310,16 +328,9 @@ export function TimesheetsPage() {
     </div>
   );
 
-  const renderEntryDelete = (entry: TimesheetEntry) => {
-    const ts = myTimesheets.find(t => t.id === entry.timesheet_id);
-    return (
-      <TimesheetEntryDeleteControl
-        entry={entry}
-        billedEntryIds={billedEntryIds}
-        timesheetTotalMinutes={ts?.total_minutes ?? 0}
-      />
-    );
-  };
+  const renderEntryDelete = (entry: TimesheetEntry) => (
+    <TimesheetEntryDeleteControl entry={entry} billedGate={billedEntryGate} />
+  );
 
   const renderLedger = () => (
     <div className="hub-timesheets-ledger">

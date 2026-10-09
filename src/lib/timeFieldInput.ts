@@ -3,27 +3,21 @@ export function shouldBlockTimeFieldEnter(key: string): boolean {
   return key === 'Enter';
 }
 
-/** Append one digit for HH:MM phone typing (0, 9, 3, 0 → 09:30). */
-export function applyTimeFieldDigitKey(current: string, digit: string): string {
-  if (!/^\d$/.test(digit)) return current;
-  const digits = (current.replace(/\D/g, '') + digit).slice(-4);
-  if (digits.length === 0) return '';
-  if (digits.length < 3) return digits;
-  if (digits.length === 3) return `${digits.slice(0, 2)}:${digits.slice(2)}`;
-  const hh = Math.min(23, Number(digits.slice(0, 2)));
-  const mm = Math.min(59, Number(digits.slice(2, 4)));
-  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+/** True when value is a complete 24h time (rejects 24:00 and partial strings). */
+export function isValidCompleteTimeValue(value: string): boolean {
+  const m = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!m) return false;
+  const hh = Number(m[1]);
+  const mm = Number(m[2]);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return false;
+  if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return false;
+  return true;
 }
 
-export function timeFieldInputKeyDown(
-  current: string,
-  key: string,
-): { next: string; blockDefault: boolean } | null {
-  if (shouldBlockTimeFieldEnter(key)) {
-    return { next: current, blockDefault: true };
-  }
-  if (key.length === 1 && /^\d$/.test(key)) {
-    return { next: applyTimeFieldDigitKey(current, key), blockDefault: true };
+export function timeFieldValidationMessage(value: string): string | null {
+  if (!value) return 'Enter a complete time (hours and minutes).';
+  if (!isValidCompleteTimeValue(value)) {
+    return 'Enter a valid time as hh:mm (hours 00–23, minutes 00–59).';
   }
   return null;
 }

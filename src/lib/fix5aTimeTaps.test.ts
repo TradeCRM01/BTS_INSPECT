@@ -4,10 +4,10 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { applyTimeFieldDigitKey, shouldBlockTimeFieldEnter } from './timeFieldInput';
+import { isValidCompleteTimeValue, shouldBlockTimeFieldEnter, timeFieldValidationMessage } from './timeFieldInput';
 import {
   TIMESHEET_ENTRY_DELETE_BILLED,
-  timesheetEntryDeleteBlockedReason,
+  timesheetEntryDeleteUiState,
 } from './timesheetEntryDelete';
 
 function src(rel: string): string {
@@ -24,10 +24,20 @@ describe('FIX-5a — phone time taps', () => {
     expect(src('src/lib/timeFieldInput.ts')).toContain("key === 'Enter'");
   });
 
-  it('types digits key by key into 09:30', () => {
-    let v = '';
-    for (const d of ['0', '9', '3', '0']) v = applyTimeFieldDigitKey(v, d);
-    expect(v).toBe('09:30');
+  it('does not hijack native digit typing on prefilled type=time fields', () => {
+    const field = src('src/components/ui/TimeFieldInput.tsx');
+    expect(field).not.toContain('applyTimeFieldDigitKey');
+    expect(field).not.toContain('timeFieldInputKeyDown');
+    expect(src('src/lib/timeFieldInput.ts')).not.toContain('applyTimeFieldDigitKey');
+    expect(isValidCompleteTimeValue('09:30')).toBe(true);
+    expect(isValidCompleteTimeValue('24:00')).toBe(false);
+    expect(timeFieldValidationMessage('9')).toMatch(/valid time/i);
+  });
+
+  it('dispatch persists job times on blur, not each keystroke', () => {
+    const panel = src('src/components/jobs/JobDispatchPanel.tsx');
+    expect(panel).toContain('onBlurCommit');
+    expect(panel).not.toMatch(/onChange=\{v => save\.mutate/);
   });
 
   it('guards double submit so one save makes one entry', () => {
@@ -38,12 +48,17 @@ describe('FIX-5a — phone time taps', () => {
   });
 
   it('allows unbilled delete and blocks billed with a plain reason', () => {
-    expect(timesheetEntryDeleteBlockedReason('e1', new Set())).toBeNull();
-    expect(timesheetEntryDeleteBlockedReason('e2', new Set(['e2']))).toBe(TIMESHEET_ENTRY_DELETE_BILLED);
     const deleteCtl = src('src/components/timesheets/TimesheetEntryDeleteControl.tsx');
     expect(deleteCtl).toContain('Delete this time entry?');
-    expect(deleteCtl).toContain('ConfirmDialog');
-    expect(src('src/lib/timesheetEntryDelete.ts')).toContain(TIMESHEET_ENTRY_DELETE_BILLED);
+    expect(deleteCtl).toContain('billedGate');
+    expect(src('src/lib/timesheetEntryDelete.ts')).toContain('recomputeTimesheetTotalMinutes');
+    expect(src('src/lib/timesheetEntryDelete.ts')).toContain('job_costs');
+    expect(
+      timesheetEntryDeleteUiState(
+        { id: 'e2', end_time: '2026-10-06T10:00:00.000Z' },
+        { loaded: true, billingCheckOk: true, ids: new Set(['e2']) },
+      ).lockMessage,
+    ).toBe(TIMESHEET_ENTRY_DELETE_BILLED);
   });
 
   it('FIX-5a C2 — job page lists hours with delete where phone users fix duplicates', () => {

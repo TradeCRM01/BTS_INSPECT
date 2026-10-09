@@ -2319,6 +2319,12 @@
     background: #FFFDF8;
   }
 
+  @media (max-width: 639px) {
+    .hub-ops-form-sheet .hub-ops-form-footer {
+      padding-bottom: calc(var(--shell-bottom-nav-h, 56px) + 12px);
+    }
+  }
+
   .hub-ops-form-sheet h2 {
     font-family: 'Source Sans 3', system-ui, sans-serif;
     font-weight: 600;
@@ -10980,16 +10986,18 @@
   }
 
   .hub-jobs-document #job-hours .job-hours-entry-row:has(.hub-timesheets-delete-lock) .hub-timesheets-entry-delete {
-    grid-column: 1 / -1;
-    grid-row: auto;
-    flex-direction: column;
-    align-items: flex-start;
-    width: 100%;
-    padding-bottom: 8px;
+    grid-column: 2;
+    grid-row: 1;
+    align-items: flex-end;
+    width: auto;
   }
 
   .hub-jobs-document #job-hours .job-hours-entry-row .hub-timesheets-delete-lock {
+    grid-column: 1 / -1;
+    grid-row: 2;
     max-width: 100%;
+    margin: 0;
+    padding-bottom: 8px;
   }
 
   .hub-jobs-bill-head {

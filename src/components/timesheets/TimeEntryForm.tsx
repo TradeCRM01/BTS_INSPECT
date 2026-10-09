@@ -7,6 +7,7 @@ import { appendAuditTimesheetEntry, AUDIT_TIMESHEET_ID } from '../../lib/timeshe
 import { OverlayPortal } from '../ui/OverlayPortal';
 import { ManagedSelect } from '../ui/ManagedSelect';
 import { TimeFieldInput } from '../ui/TimeFieldInput';
+import { timeFieldValidationMessage } from '../../lib/timeFieldInput';
 import { LIST_KEYS } from '../../lib/useManagedList';
 import {
   applyTimeEntryDurationChip,
@@ -66,8 +67,10 @@ export function TimeEntryForm({
     e.preventDefault();
     if (saveLock.current || saving) return;
     if (!profile?.company_id) return;
-    if (!form.start_time || !form.end_time) {
-      setErr('Enter start and end times, or tap a duration chip.');
+    const startMsg = timeFieldValidationMessage(form.start_time);
+    const endMsg = timeFieldValidationMessage(form.end_time);
+    if (startMsg || endMsg) {
+      setErr(startMsg ?? endMsg ?? 'Enter start and end times, or tap a duration chip.');
       return;
     }
     saveLock.current = true;
@@ -239,7 +242,7 @@ export function TimeEntryForm({
               Billable time
             </label>
             {err && <p className="text-sm text-fail">{err}</p>}
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#E2D9CC]">
+            <div className="hub-ops-form-footer flex justify-end gap-2 pt-2 border-t border-[#E2D9CC]">
               <button type="button" onClick={onClose} className="btn-secondary min-h-[44px]">Cancel</button>
               <button type="submit" disabled={saving} className="btn-primary min-h-[44px] disabled:opacity-50">
                 {saving ? 'Saving...' : 'Save'}

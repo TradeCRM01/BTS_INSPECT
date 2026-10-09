@@ -305,44 +305,34 @@ export function timesheetListPillClass(status: string): string {
 export const AUDIT_TIMESHEET_ID = 'audit-timesheet-week';
 export const AUDIT_TIMESHEET_ENTRY_ID = 'audit-timesheet-entry';
 export const AUDIT_TIMESHEET_ENTRY_UNBILLED_ID = 'audit-timesheet-entry-unbilled';
+export const AUDIT_TIMESHEET_OTHER_ID = 'audit-timesheet-other';
+export const AUDIT_TIMESHEET_ENTRY_OTHER_ID = 'audit-timesheet-entry-other';
+export const AUDIT_OTHER_EMPLOYEE_ID = 'audit-other-employee';
 
 const hiddenAuditTimesheetEntryIds = new Set<string>();
 const addedAuditTimesheetEntries: TimesheetEntry[] = [];
+const auditTimesheetTotals = new Map<string, number>();
 
-export function hideAuditTimesheetEntry(entryId: string): void {
-  hiddenAuditTimesheetEntryIds.add(entryId);
+export function recomputeAuditTimesheetTotalMinutes(timesheetId: string): number {
+  let total = 0;
+  for (const row of auditTimesheetEntryRows()) {
+    if (row.timesheet_id === timesheetId && row.end_time) {
+      total += entryMinutes(row.start_time, row.end_time);
+    }
+  }
+  auditTimesheetTotals.set(timesheetId, total);
+  return total;
 }
 
-export function resetAuditTimesheetEntryHides(): void {
-  hiddenAuditTimesheetEntryIds.clear();
-  addedAuditTimesheetEntries.length = 0;
+export function getAuditTimesheetTotalMinutes(timesheetId: string): number {
+  if (!auditTimesheetTotals.has(timesheetId)) {
+    recomputeAuditTimesheetTotalMinutes(timesheetId);
+  }
+  return auditTimesheetTotals.get(timesheetId) ?? 0;
 }
 
-export function appendAuditTimesheetEntry(entry: TimesheetEntry): void {
-  addedAuditTimesheetEntries.push(entry);
-}
-
-export function getAuditTimesheets(now = new Date()): Timesheet[] | null {
-  if (!isDevFieldAuditAuth()) return null;
-  const date = format(now, 'yyyy-MM-dd');
-  return [{
-    id: AUDIT_TIMESHEET_ID,
-    company_id: DEV_AUDIT_COMPANY.id,
-    employee_id: DEV_AUDIT_PROFILE.id,
-    date,
-    clock_in: null,
-    clock_out: null,
-    break_minutes: 30,
-    total_minutes: 480,
-    status: 'open',
-    notes: null,
-    created_at: `${date}T00:00:00.000Z`,
-    updated_at: `${date}T00:00:00.000Z`,
-  }];
-}
-
-export function getAuditTimesheetEntries(now = new Date()): TimesheetEntry[] | null {
-  if (!isDevFieldAuditAuth()) return null;
+function auditTimesheetEntryRows(now = new Date()): TimesheetEntry[] {
+  if (!isDevFieldAuditAuth()) return [];
   const date = format(now, 'yyyy-MM-dd');
   const rows: TimesheetEntry[] = [{
     id: AUDIT_TIMESHEET_ENTRY_ID,
@@ -366,6 +356,70 @@ export function getAuditTimesheetEntries(now = new Date()): TimesheetEntry[] | n
     billable: true,
     notes: null,
     created_at: `${date}T11:00:00.000Z`,
+  }, {
+    id: AUDIT_TIMESHEET_ENTRY_OTHER_ID,
+    timesheet_id: AUDIT_TIMESHEET_OTHER_ID,
+    company_id: DEV_AUDIT_COMPANY.id,
+    job_id: AUDIT_DOC_JOB_ID,
+    start_time: `${date}T13:00:00.000Z`,
+    end_time: `${date}T14:30:00.000Z`,
+    work_type: 'Other crew — delete ok',
+    billable: true,
+    notes: null,
+    created_at: `${date}T13:00:00.000Z`,
   }];
   return [...rows, ...addedAuditTimesheetEntries].filter(row => !hiddenAuditTimesheetEntryIds.has(row.id));
+}
+
+export function hideAuditTimesheetEntry(entryId: string): void {
+  hiddenAuditTimesheetEntryIds.add(entryId);
+}
+
+export function resetAuditTimesheetEntryHides(): void {
+  hiddenAuditTimesheetEntryIds.clear();
+  addedAuditTimesheetEntries.length = 0;
+}
+
+export function appendAuditTimesheetEntry(entry: TimesheetEntry): void {
+  addedAuditTimesheetEntries.push(entry);
+}
+
+export function getAuditTimesheets(now = new Date()): Timesheet[] | null {
+  if (!isDevFieldAuditAuth()) return null;
+  const date = format(now, 'yyyy-MM-dd');
+  recomputeAuditTimesheetTotalMinutes(AUDIT_TIMESHEET_ID);
+  recomputeAuditTimesheetTotalMinutes(AUDIT_TIMESHEET_OTHER_ID);
+  const sheets: Timesheet[] = [{
+    id: AUDIT_TIMESHEET_ID,
+    company_id: DEV_AUDIT_COMPANY.id,
+    employee_id: DEV_AUDIT_PROFILE.id,
+    date,
+    clock_in: null,
+    clock_out: null,
+    break_minutes: 30,
+    total_minutes: auditTimesheetTotals.get(AUDIT_TIMESHEET_ID) ?? 0,
+    status: 'open',
+    notes: null,
+    created_at: `${date}T00:00:00.000Z`,
+    updated_at: `${date}T00:00:00.000Z`,
+  }, {
+    id: AUDIT_TIMESHEET_OTHER_ID,
+    company_id: DEV_AUDIT_COMPANY.id,
+    employee_id: AUDIT_OTHER_EMPLOYEE_ID,
+    date: format(new Date(Date.now() - 20 * 86400000), 'yyyy-MM-dd'),
+    clock_in: null,
+    clock_out: null,
+    break_minutes: 0,
+    total_minutes: auditTimesheetTotals.get(AUDIT_TIMESHEET_OTHER_ID) ?? 0,
+    status: 'open',
+    notes: null,
+    created_at: `${date}T00:00:00.000Z`,
+    updated_at: `${date}T00:00:00.000Z`,
+  }];
+  return sheets;
+}
+
+export function getAuditTimesheetEntries(now = new Date()): TimesheetEntry[] | null {
+  if (!isDevFieldAuditAuth()) return null;
+  return auditTimesheetEntryRows(now);
 }

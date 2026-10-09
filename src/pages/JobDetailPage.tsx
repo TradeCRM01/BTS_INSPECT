@@ -2000,11 +2000,26 @@ export function JobDetailPage() {
   const invoicesBusy = listQueryBusy({ isPending: invoicesPending, isError: invoicesError, data: invoices });
   const timesheetsBusy = listQueryBusy({ isPending: timesheetsPending, isError: timesheetsError, data: timesheets });
 
-  const { data: billedEntryIds = new Set<string>() } = useQuery({
+  const billedEntryQuery = useQuery({
     queryKey: ['billed-timesheet-entry-ids', id],
     queryFn: async () => loadBilledTimesheetEntryIdsForJobs(supabase, id ? [id] : []),
     enabled: !!id && !!profile,
   });
+  const billedEntryGate = useMemo(
+    () => ({
+      loaded: billedEntryQuery.isFetched && !billedEntryQuery.isPending,
+      billingCheckOk: billedEntryQuery.isError
+        ? false
+        : (billedEntryQuery.data?.billingCheckOk ?? false),
+      ids: billedEntryQuery.data?.ids ?? new Set<string>(),
+    }),
+    [
+      billedEntryQuery.isFetched,
+      billedEntryQuery.isPending,
+      billedEntryQuery.isError,
+      billedEntryQuery.data,
+    ],
+  );
   const crewBusy = listQueryBusy({ isPending: teamMembersPending, isError: teamMembersError, data: teamMembers });
   const take5sFailed = take5sError || jhasError;
 
@@ -4325,7 +4340,6 @@ export function JobDetailPage() {
             const duration = entry.end_time
               ? Math.round((new Date(entry.end_time).getTime() - new Date(entry.start_time).getTime()) / 60000)
               : 0;
-            const tsTotal = (myTimesheets ?? []).find(t => t.id === entry.timesheet_id)?.total_minutes ?? 0;
             const metaParts = [
               entry.work_type,
               entry.billable ? 'Billable' : 'Non-billable',
@@ -4341,8 +4355,7 @@ export function JobDetailPage() {
                 action={
                   <TimesheetEntryDeleteControl
                     entry={entry}
-                    billedEntryIds={billedEntryIds}
-                    timesheetTotalMinutes={tsTotal}
+                    billedGate={billedEntryGate}
                     onDeleted={() => invalidateTime()}
                   />
                 }
