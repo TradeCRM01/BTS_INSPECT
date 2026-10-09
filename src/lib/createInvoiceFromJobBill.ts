@@ -76,7 +76,7 @@ export async function loadAcceptedQuoteForJobBill(
   };
 }
 
-async function resolveLabourSellForJobBill(
+export async function resolveLabourSellForJobBill(
   client: SupabaseClient,
   companyId: string,
 ) {

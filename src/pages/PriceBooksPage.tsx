@@ -269,7 +269,10 @@ export function PriceBooksPage() {
                       className="w-full min-h-[44px] px-4 py-3 text-left hover:bg-[#F9FAFB] transition-colors"
                     >
                       <div className="flex items-start gap-3">
-                        <p className="min-w-0 flex-1 font-semibold text-[#1A1A1A] break-words">{row.title}</p>
+                        <p className="min-w-0 flex-1 font-semibold text-[#1A1A1A] break-words flex flex-wrap items-center gap-2">
+                          <span>{row.title}</span>
+                          {item.is_active === false ? <PriceBookInactiveTag /> : null}
+                        </p>
                         <p className="shrink-0 whitespace-nowrap tabular-nums font-semibold text-[#0A2540]">{row.price}</p>
                       </div>
                       {row.meta && (
@@ -302,7 +305,12 @@ export function PriceBooksPage() {
                       return (
                         <tr key={item.id} className="hover:bg-[#F9FAFB] transition-colors">
                           <td className="px-4 py-3 text-[#6B7280] font-mono text-xs">{item.code ?? '—'}</td>
-                          <td className="px-4 py-3 font-medium text-[#1A1A1A]">{item.description}</td>
+                          <td className="px-4 py-3 font-medium text-[#1A1A1A]">
+                            <span className="inline-flex flex-wrap items-center gap-2">
+                              <span>{item.description}</span>
+                              {item.is_active === false ? <PriceBookInactiveTag /> : null}
+                            </span>
+                          </td>
                           <td className="px-4 py-3 text-[#4A5568]">{item.category ?? '—'}</td>
                           <td className="px-4 py-3 text-[#4A5568]">{item.unit}</td>
                           <td className="px-4 py-3 text-right font-medium text-[#1A1A1A]">{formatMoney(Number(item.unit_price))}</td>
@@ -517,6 +525,18 @@ function PriceBookItemForm({ item, priceBookId, onClose, onDelete, onSaved }: { 
             <Field label="Cost Price"><input type="number" min={0} step="0.01" value={form.cost_price} onChange={e => setForm(f => ({ ...f, cost_price: e.target.value }))} className="form-input" placeholder="0.00" /></Field>
             <Field label="GST %"><input type="number" min={0} max={100} step="0.01" value={form.gst_rate} onChange={e => setForm(f => ({ ...f, gst_rate: e.target.value }))} className="form-input" placeholder="10" /></Field>
           </div>
+          <label
+            className="flex items-center gap-3 min-h-[44px] text-sm text-[#0A2540]"
+            data-price-book-item-active="1"
+          >
+            <input
+              type="checkbox"
+              checked={form.is_active}
+              onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))}
+              className="rounded border-[#CBD5E0] w-5 h-5 shrink-0"
+            />
+            Active
+          </label>
           {err && <p className="text-sm text-[#B42318]">{err}</p>}
           <div className="flex items-center gap-2 pt-2">
             {item && onDelete && (
@@ -537,6 +557,17 @@ function PriceBookItemForm({ item, priceBookId, onClose, onDelete, onSaved }: { 
         </form>
       </div>
     </div>
+  );
+}
+
+function PriceBookInactiveTag() {
+  return (
+    <span
+      data-price-book-inactive-tag="1"
+      className="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-[#F5F0E6] text-[#4A5568] border border-[#0A2540]/20"
+    >
+      Inactive
+    </span>
   );
 }
 

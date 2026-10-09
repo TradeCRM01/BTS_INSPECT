@@ -16,6 +16,7 @@ export function JobBillQuotedInvoiceSheet({
   previewUpdating,
   unpricedExtraLabour,
   unpricedExtraLabourLineCount = 1,
+  unpricedExtraLabourWarning,
 }: {
   open: boolean;
   loggedHoursNote: string | null;
@@ -28,7 +29,11 @@ export function JobBillQuotedInvoiceSheet({
   previewUpdating?: boolean;
   unpricedExtraLabour?: boolean;
   unpricedExtraLabourLineCount?: number;
+  unpricedExtraLabourWarning?: string;
 }) {
+  const unpricedWarningText =
+    unpricedExtraLabourWarning
+    ?? zeroLabourInvoiceConfirmMessage(unpricedExtraLabourLineCount);
   if (!open) return null;
 
   return (
@@ -64,7 +69,7 @@ export function JobBillQuotedInvoiceSheet({
             <div className="hub-job-bill-zero-labour-nudge-row">
               <AlertTriangle size={20} className="hub-job-bill-zero-labour-icon" aria-hidden />
               <p className="hub-job-bill-zero-labour-message">
-                {zeroLabourInvoiceConfirmMessage(unpricedExtraLabourLineCount)}
+                {unpricedWarningText}
               </p>
             </div>
             <div className="hub-job-bill-zero-labour-actions">

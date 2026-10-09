@@ -57,7 +57,7 @@ import {
 } from '../lib/devFieldAuditDocs';
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 import { isJobBillQuoted, pickMostRecentlyAcceptedQuote } from '../lib/acceptedQuotePick';
-import { createInvoiceFromJobBill, loadJobBillInvoicePreview } from '../lib/createInvoiceFromJobBill';
+import { createInvoiceFromJobBill, loadJobBillInvoicePreview, resolveLabourSellForJobBill } from '../lib/createInvoiceFromJobBill';
 import { invalidateJobBillAfterHoursChange, invalidateJobBillHoursQueries } from '../lib/hoursToJobBill';
 import {
   invalidateJobBillInvoicePreview,
@@ -1592,6 +1592,7 @@ export function JobDetailPage() {
     () => lookSearchParam() === FIX2_QUOTED_OPTIN_LOOK || lookSearchParam() === FIX2B_D_NORATE_LOOK,
   );
   const [zeroLabourConfirmCount, setZeroLabourConfirmCount] = useState(0);
+  const [zeroLabourConfirmSell, setZeroLabourConfirmSell] = useState<import('../lib/hoursToJobBill').LabourSellResolution | null>(null);
   const [pendingInvoiceExtra, setPendingInvoiceExtra] = useState(false);
   const visitPhotoRef = useRef<HTMLInputElement>(null);
   const visitGalleryRef = useRef<HTMLInputElement>(null);
@@ -2779,9 +2780,17 @@ export function JobDetailPage() {
           hasAcceptedQuote: isJobBillQuoted(acceptedQuoteEarly?.line_items),
           includeLoggedHoursExtra,
         }),
-        onZeroLabour: (zeroCount) => {
+        onZeroLabour: async (zeroCount) => {
           setPendingInvoiceExtra(includeLoggedHoursExtra);
           setZeroLabourConfirmCount(zeroCount);
+          if (profile?.company_id) {
+            try {
+              const sell = await resolveLabourSellForJobBill(supabase, profile.company_id);
+              setZeroLabourConfirmSell(sell);
+            } catch {
+              setZeroLabourConfirmSell(null);
+            }
+          }
         },
         createInvoice: () => jobBillInvoiceMutateSilentlyOnReject(
           () => invoiceFromJobBill.mutateAsync(includeLoggedHoursExtra),
@@ -4395,11 +4404,13 @@ export function JobDetailPage() {
           addLoggedHoursExtra && Boolean(invoicePreviewForNext?.unpricedExtraLabour)
         }
         unpricedExtraLabourLineCount={invoicePreviewForNext?.unpricedExtraLabourLineCount}
+        unpricedExtraLabourWarning={invoicePreviewForNext?.unpricedExtraLabourWarning}
       />
       <JobBillZeroLabourConfirmSheet
         open={zeroLabourConfirmCount > 0}
         count={zeroLabourConfirmCount}
-        onClose={() => setZeroLabourConfirmCount(0)}
+        labourSell={zeroLabourConfirmSell}
+        onClose={() => { setZeroLabourConfirmCount(0); setZeroLabourConfirmSell(null); }}
         onCreateAnyway={() => {
           setZeroLabourConfirmCount(0);
           void runInvoiceFromJobBill(pendingInvoiceExtra, { forceSkipZeroCheck: true });

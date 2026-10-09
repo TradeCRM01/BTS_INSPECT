@@ -16,6 +16,9 @@ import {
   formatLabourPickerTitle,
   labourLineDescription,
   zeroLabourInvoiceConfirmMessage,
+  zeroLabourInvoiceWarningMessage,
+  labourSellMissingRateIsNoActivePriceBookItem,
+  NO_ACTIVE_LABOUR_PRICE_BOOK_WARNING,
   lineNeedsLabourRate,
   planJobCostsFromTimesheetEntries,
   pullWouldNeedLabourPicker,
@@ -123,7 +126,49 @@ describe('zero labour confirm copy', () => {
     expect(zeroLabourInvoiceConfirmMessage(1)).toBe('1 labour line has no rate and will show $0.');
     expect(zeroLabourInvoiceConfirmMessage(2)).toBe('2 labour lines have no rate and will show $0.');
   });
+
+  it('names no active Labour price-book item when resolveLabourSell needs a rate', () => {
+    const noActiveSell = resolveLabourSell({
+      staffRate: null,
+      companyDefaultLabourRate: null,
+      labourItems: [],
+      pickedPriceBookItemId: null,
+    });
+    expect(labourSellMissingRateIsNoActivePriceBookItem(noActiveSell)).toBe(true);
+    expect(zeroLabourInvoiceWarningMessage(1, noActiveSell)).toBe(NO_ACTIVE_LABOUR_PRICE_BOOK_WARNING);
+
+    const withDefault = resolveLabourSell({
+      staffRate: null,
+      companyDefaultLabourRate: 90,
+      labourItems: [],
+      pickedPriceBookItemId: null,
+    });
+    expect(withDefault.needsRate).toBe(false);
+    expect(quotedOptInWouldWarn(withDefault)).toBe(false);
+
+    const withActivePb = resolveLabourSell({
+      staffRate: null,
+      companyDefaultLabourRate: null,
+      labourItems: [labour],
+      pickedPriceBookItemId: null,
+    });
+    expect(withActivePb.needsRate).toBe(false);
+    expect(quotedOptInWouldWarn(withActivePb)).toBe(false);
+
+    const inactiveOnly = resolveLabourSell({
+      staffRate: null,
+      companyDefaultLabourRate: null,
+      labourItems: [{ ...labour, is_active: false }],
+      pickedPriceBookItemId: null,
+    });
+    expect(inactiveOnly.needsRate).toBe(true);
+    expect(zeroLabourInvoiceWarningMessage(1, inactiveOnly)).toBe(NO_ACTIVE_LABOUR_PRICE_BOOK_WARNING);
+  });
 });
+
+function quotedOptInWouldWarn(sell: ReturnType<typeof resolveLabourSell>): boolean {
+  return sell.needsRate && !sell.needsPicker;
+}
 
 describe('labour picker title', () => {
   it('uses one decimal hours', () => {

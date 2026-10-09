@@ -6,6 +6,7 @@ import {
   formatLabourHoursOneDecimal,
   invoiceLinesWithLabourPriceBook,
   lineNeedsLabourRate,
+  zeroLabourInvoiceWarningMessage,
   type LabourSellResolution,
 } from './hoursToJobBill';
 import { entryMinutes } from './timesheetJob';
@@ -230,6 +231,7 @@ export function jobBillInvoicePreviewFromLines(
   moneyLine: string;
   unpricedExtraLabour: boolean;
   unpricedExtraLabourLineCount: number;
+  unpricedExtraLabourWarning: string;
   /** @deprecated use moneyLine */
   detail: string;
 } {
@@ -244,6 +246,9 @@ export function jobBillInvoicePreviewFromLines(
     })
     : [];
   const hasUnpricedExtraLabour = unpricedExtraLines.length > 0;
+  const unpricedExtraLabourWarning = hasUnpricedExtraLabour && moneyLineInput
+    ? zeroLabourInvoiceWarningMessage(unpricedExtraLines.length, moneyLineInput.labourSell)
+    : '';
   const moneyLine = moneyLineInput
     ? jobBillInvoiceMoneyLineIncGst({
       ...moneyLineInput,
@@ -259,6 +264,7 @@ export function jobBillInvoicePreviewFromLines(
     moneyLine,
     unpricedExtraLabour: hasUnpricedExtraLabour,
     unpricedExtraLabourLineCount: unpricedExtraLines.length,
+    unpricedExtraLabourWarning,
     detail: moneyLine,
   };
 }
