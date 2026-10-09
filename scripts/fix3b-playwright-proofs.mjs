@@ -47,6 +47,37 @@ function saveBoth(file, meta = {}) {
   return md5;
 }
 
+async function scrollPhoneWeekToEnd(page) {
+  await page.evaluate(() => {
+    const agenda = document.querySelector('[data-week-agenda="1"]');
+    if (agenda) agenda.scrollTop = agenda.scrollHeight;
+  });
+  await page.waitForTimeout(250);
+}
+
+async function chipLayout(page) {
+  return page.evaluate(() => {
+    const chip = document.querySelector('[data-schedule-unscheduled-chip="1"]');
+    const nav = document.querySelector('.shell-bottom-nav');
+    const agenda = document.querySelector('[data-week-agenda="1"]');
+    const weekList = document.querySelector('.hub-phone-week-list');
+    const mount = document.querySelector('[data-schedule-phone-section="booked"]');
+    const chipBox = chip?.getBoundingClientRect();
+    const navBox = nav?.getBoundingClientRect();
+    const owner = weekList && getComputedStyle(weekList).overflowY !== 'visible' ? 'hub-phone-week-list'
+      : agenda && getComputedStyle(agenda).overflowY === 'auto' ? 'hub-week-agenda' : 'unknown';
+    const aboveNav = !!(chipBox && navBox && chipBox.bottom <= navBox.top - 2 && chipBox.top >= 0);
+    return {
+      chip: chipBox ? { top: chipBox.top, bottom: chipBox.bottom, height: chipBox.height } : null,
+      navTop: navBox?.top ?? null,
+      aboveNav,
+      scrollOwner: owner,
+      agendaScroll: agenda ? { scrollTop: agenda.scrollTop, scrollHeight: agenda.scrollHeight, clientHeight: agenda.clientHeight } : null,
+      mountPaddingBottom: mount ? getComputedStyle(mount).paddingBottom : null,
+    };
+  });
+}
+
 async function settle(page) {
   await page.waitForLoadState('networkidle');
   await page.waitForFunction(() => {
@@ -153,12 +184,15 @@ for (const width of [375, 390]) {
     await page.goto(`${BASE}/schedule?auditAuth=1&look=fix3a-schedule`, { waitUntil: 'networkidle' });
     const chip = page.locator('[data-schedule-unscheduled-chip="1"]');
     await chip.waitFor({ state: 'visible', timeout: 20000 });
+    await scrollPhoneWeekToEnd(page);
+    const layout = await chipLayout(page);
+    if (!layout.aboveNav) throw new Error(`chip not above nav before tap ${JSON.stringify(layout)}`);
     await page.tap('[data-schedule-unscheduled-chip="1"]');
     const expanded = await page.evaluate(() => (
       document.querySelector('[data-schedule-unscheduled-chip="1"]')?.getAttribute('aria-expanded') === 'true'
       && !!document.querySelector('[data-schedule-unscheduled-list="1"]')
     ));
-    report.chipTaps.push({ width, run, expanded });
+    report.chipTaps.push({ width, run, expanded, layout });
     if (!expanded) throw new Error(`chip first tap failed ${width} run ${run}`);
     await browser.close();
   }
@@ -304,9 +338,48 @@ async function phoneFix3a(base, path, file) {
   return md5;
 }
 
-report.phones.phone390 = await phoneFix3a(BASE, '/schedule?auditAuth=1&look=fix3a-schedule', 'fix3b-phone-390.png');
-report.phones.phone390Main = await phoneFix3a(MAIN_BASE, '/schedule?auditAuth=1&look=fix3a-schedule', 'fix3b-phone-390-main.png');
-report.phones.zeroHead = await phoneFix3a(BASE, '/schedule?auditAuth=1&look=fix3a-schedule&unscheduled=0', 'fix3b-phone-390-zero-head.png');
+async function captureChipCollapsed(width, file) {
+  const browser = await chromium.launch({ headless: true });
+  const ctx = await browser.newContext({
+    viewport: { width, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+    locale: 'en-AU',
+  });
+  const page = await ctx.newPage();
+  await page.goto(`${BASE}/schedule?auditAuth=1&look=fix3a-schedule`, { waitUntil: 'networkidle' });
+  await settle(page);
+  await scrollPhoneWeekToEnd(page);
+  const layout = await chipLayout(page);
+  const body = await page.locator('body').innerText();
+  if (!body.includes('Sun 11 Oct')) throw new Error(`missing Sun in ${file}`);
+  if (!body.includes('Unscheduled · 17')) throw new Error(`missing chip label in ${file}`);
+  if (!layout.aboveNav) throw new Error(`chip not above nav for ${file} ${JSON.stringify(layout)}`);
+  await page.screenshot({ path: `${OUT}/${file}`, type: 'png', fullPage: false });
+  const md5 = saveBoth(file, { layout });
+  await browser.close();
+  return { md5, layout };
+}
+
+report.phones.chipCollapsed375 = await captureChipCollapsed(375, 'fix3b-chip-collapsed-375.png');
+report.phones.chipCollapsed390 = await captureChipCollapsed(390, 'fix3b-chip-collapsed-390.png');
+
+{
+  const browser = await chromium.launch({ headless: true });
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await ctx.newPage();
+  await page.goto(`${BASE}/schedule?auditAuth=1&look=fix3a-schedule`, { waitUntil: 'networkidle' });
+  await settle(page);
+  await scrollPhoneWeekToEnd(page);
+  await page.tap('[data-schedule-unscheduled-chip="1"]');
+  await page.waitForSelector('[data-schedule-unscheduled-list="1"]', { state: 'visible', timeout: 10000 });
+  const cards = await page.locator('[data-schedule-rail-job]').count();
+  const setDate = await page.locator('[data-schedule-set-date]').count();
+  if (cards < 2 || setDate < 2) throw new Error(`expanded tray too short cards=${cards} setDate=${setDate}`);
+  await page.screenshot({ path: `${OUT}/fix3b-chip-expanded-390.png`, type: 'png', fullPage: false });
+  report.phones.chipExpanded390 = saveBoth('fix3b-chip-expanded-390.png', { cards, setDate });
+  await browser.close();
+}
 
 report.md5All = {};
 for (const name of readdirSync(OUT).filter((f) => f.startsWith('fix3b-') && f.endsWith('.png'))) {

@@ -36,6 +36,14 @@ describe('schedule desktop 1280 — week board min height and capped needs-date 
 });
 
 describe('schedule phone week footer (soft 1)', () => {
+  it('clears the phone week mount above the shell bottom nav', () => {
+    const css = src('src/index.css');
+    expect(css).toMatch(
+      /\.hub-board-cal\.is-week-doc \.hub-week-mount\.lg\\:hidden[\s\S]{0,220}padding-bottom: calc\(var\(--shell-bottom-nav-h/,
+    );
+    expect(css).toContain('.hub-phone-week-list > .hub-week-agenda');
+  });
+
   it('omits the bordered agenda footer when there are zero unscheduled jobs', () => {
     const board = src('src/components/crm/BoardViews.tsx');
     const phoneWeek = board.slice(
