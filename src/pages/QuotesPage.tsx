@@ -1021,6 +1021,12 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
   const [priceBookItems, setPriceBookItems] = useState<PriceBookItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [convertStartTimeHint, setConvertStartTimeHint] = useState<
+    import('../lib/timeFieldInput').TimeFieldHintKind
+  >('none');
+  const [convertEndTimeHint, setConvertEndTimeHint] = useState<
+    import('../lib/timeFieldInput').TimeFieldHintKind
+  >('none');
   const [invoicing, setInvoicing] = useState(false);
   const [showPreview, setShowPreview] = useState(searchParams.get('print') === '1');
   const [showEdit, setShowEdit] = useState(!quote);
@@ -1394,6 +1400,18 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
 
   const handleConvert = async () => {
     if (!takeQuoteConvertLock(convertingLock)) return;
+    if (convertStartTimeHint !== 'none') {
+      setErr('');
+      focusQuoteConvertField(convertSectionRef.current ?? document, 'start');
+      releaseQuoteConvertLock(convertingLock);
+      return;
+    }
+    if (convertEndTimeHint !== 'none') {
+      setErr('');
+      focusQuoteConvertField(convertSectionRef.current ?? document, 'end');
+      releaseQuoteConvertLock(convertingLock);
+      return;
+    }
     const { start_time, end_time } = mergeQuoteConvertTimes(
       { start_time: form.start_time, end_time: form.end_time },
       convertTimesLive.current,
@@ -1929,6 +1947,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                       convertTimesLive.current.start_time = start_time;
                       setForm(f => ({ ...f, start_time }));
                     }}
+                    onTimeFieldHintChange={setConvertStartTimeHint}
                     className="form-input"
                   />
                 </Field>
@@ -1940,6 +1959,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                       convertTimesLive.current.end_time = end_time;
                       setForm(f => ({ ...f, end_time }));
                     }}
+                    onTimeFieldHintChange={setConvertEndTimeHint}
                     className="form-input"
                   />
                 </Field>

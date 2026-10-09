@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { AppDialog, EditorStickyFooter, TimeFieldInput } from '../ui';
+import {
+  applyTimeFieldsSaveBlock,
+  focusTimeFieldInput,
+  timeFieldsSaveValidation,
+  type TimeFieldHintKind,
+} from '../../lib/timeFieldInput';
 import type { JobWithClient } from '../../types/crm';
 import { scheduleDayKey, type ScheduleSheetInput } from '../../lib/scheduleBoard';
 import { jobsListSite, jobsListSuburbFromSite } from '../../lib/jobsListRow';
@@ -56,6 +62,11 @@ export function ScheduleJobSheet({
   const [jobEdited, setJobEdited] = useState(false);
   const appliedJobId = useRef<string | null>(null);
   const appliedBooking = useRef(fromBooking);
+  const [startTimeHint, setStartTimeHint] = useState<TimeFieldHintKind>('none');
+  const [endTimeHint, setEndTimeHint] = useState<TimeFieldHintKind>('none');
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+  const startFieldRef = useRef<HTMLDivElement>(null);
+  const endFieldRef = useRef<HTMLDivElement>(null);
   const site = sheetSiteLine(job);
   const startCheck = assumedTradeTag(fromBooking?.startTrade, prefill?.startTime, startEdited);
   const dateCheck = checkDateTag(fromBooking?.dateCheck, dateEdited);
@@ -94,6 +105,21 @@ export function ScheduleJobSheet({
           onCancel={onClose}
           onSave={() => {
             if (!date) return;
+            const block = timeFieldsSaveValidation({
+              start: startTime,
+              end: endTime,
+              startHint: startTimeHint,
+              endHint: endTimeHint,
+            });
+            if (block) {
+              applyTimeFieldsSaveBlock(block, {
+                setFormError: m => setSaveErr(m),
+                focusStart: () => focusTimeFieldInput(startFieldRef.current),
+                focusEnd: () => focusTimeFieldInput(endFieldRef.current),
+              });
+              return;
+            }
+            setSaveErr(null);
             onSave({
               date,
               startTime,
@@ -161,23 +187,36 @@ export function ScheduleJobSheet({
               <span className="hub-schedule-from-booking">{startCheck}</span>
             ) : null}
           </span>
-          <TimeFieldInput
-            className="form-input"
-            value={startTime}
-            onChange={v => {
-              setStartTime(v);
-              setStartEdited(true);
-            }}
-          />
+          <div ref={startFieldRef}>
+            <TimeFieldInput
+              className="form-input"
+              value={startTime}
+              onChange={v => {
+                setStartTime(v);
+                setStartEdited(true);
+                setSaveErr(null);
+              }}
+              onTimeFieldHintChange={setStartTimeHint}
+            />
+          </div>
         </label>
         <label className="block">
           <span className="ops-field-label">End</span>
-          <TimeFieldInput
-            className="form-input"
-            value={endTime}
-            onChange={setEndTime}
-          />
+          <div ref={endFieldRef}>
+            <TimeFieldInput
+              className="form-input"
+              value={endTime}
+              onChange={v => {
+                setEndTime(v);
+                setSaveErr(null);
+              }}
+              onTimeFieldHintChange={setEndTimeHint}
+            />
+          </div>
         </label>
+        {saveErr ? (
+          <p className="text-sm text-fail" role="alert">{saveErr}</p>
+        ) : null}
         {onNewJobInstead ? (
           <button
             type="button"
