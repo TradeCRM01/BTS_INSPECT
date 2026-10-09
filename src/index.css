@@ -5489,6 +5489,10 @@
     min-width: 0;
   }
 
+  .time-field-meridiem-probe-live::-webkit-calendar-picker-indicator {
+    display: none;
+  }
+
   .time-field-meridiem-probe-text-ref {
     display: inline-block;
     width: min-content;

@@ -3,9 +3,6 @@ let cachedRendersMeridiem: boolean | null = null;
 
 let probeOverride: boolean | undefined;
 
-/** Min px wider than plain hh:mm text before we treat the native control as 12h. */
-export const TIME_FIELD_MERIDIEM_PROBE_MIN_DELTA = 8;
-
 /** Vitest / Playwright can pin probe result without touching navigator locale. */
 export function setTimeFieldRendersMeridiemProbeOverride(value: boolean | undefined): void {
   probeOverride = value;
@@ -21,19 +18,20 @@ type ProbeWindow = Window & { __FIX5C_TIME_FIELD_RENDER_MERIDIEM__?: boolean };
 export type TimeFieldMeridiemProbeMeasurement = {
   time13Width: number;
   text13Width: number;
-  time0930Width: number;
-  text0930Width: number;
   delta13: number;
-  delta0930: number;
+  segment: number;
   rendersMeridiem: boolean;
 };
 
-/** Pure width-delta decision (unit-tested with mocked widths). */
-export function rendersMeridiemFromProbeDeltas(delta13: number, delta0930: number): boolean {
-  return (
-    delta13 > TIME_FIELD_MERIDIEM_PROBE_MIN_DELTA
-    || delta0930 > TIME_FIELD_MERIDIEM_PROBE_MIN_DELTA
-  );
+/**
+ * r5 probe decision from measured delta13 and seconds segment (CoS live values:
+ * 12h 34.81 / 26 → true; 24h 7.81 / 27 → false).
+ */
+export function rendersMeridiemFromProbeR5(delta13: number, segment: number): boolean {
+  if (!Number.isFinite(delta13) || !Number.isFinite(segment) || segment <= 0) {
+    return false;
+  }
+  return delta13 > segment / 2;
 }
 
 function syncTextRefStyle(time: HTMLInputElement, text: HTMLElement): void {
@@ -45,25 +43,39 @@ function syncTextRefStyle(time: HTMLInputElement, text: HTMLElement): void {
   text.style.boxSizing = cs.boxSizing;
 }
 
-function measureTimeAgainstText(
-  time: HTMLInputElement,
-  text: HTMLElement,
-  timeValue: string,
-  textLabel: string,
-): { timeWidth: number; textWidth: number; delta: number } {
-  time.value = timeValue;
+function measureInputWidth(time: HTMLInputElement, value: string, step?: number): number {
+  if (step === undefined) {
+    time.removeAttribute('step');
+  } else {
+    time.setAttribute('step', String(step));
+  }
+  time.value = value;
   void time.offsetWidth;
+  return time.getBoundingClientRect().width;
+}
+
+function measureSegmentWidth(time: HTMLInputElement): number {
+  const withSeconds = measureInputWidth(time, '13:00:00', 1);
+  const hourMinute = measureInputWidth(time, '13:00');
+  return withSeconds - hourMinute;
+}
+
+function measureDelta13(time: HTMLInputElement, text: HTMLElement): {
+  time13Width: number;
+  text13Width: number;
+  delta13: number;
+} {
+  const time13Width = measureInputWidth(time, '13:00');
   syncTextRefStyle(time, text);
-  text.textContent = textLabel;
+  text.textContent = '13:00';
   void text.offsetWidth;
-  const timeWidth = time.getBoundingClientRect().width;
-  const textWidth = text.getBoundingClientRect().width;
-  return { timeWidth, textWidth, delta: timeWidth - textWidth };
+  const text13Width = text.getBoundingClientRect().width;
+  return { time13Width, text13Width, delta13: time13Width - text13Width };
 }
 
 /**
- * Compare native time input min-content width to plain text hh:mm in the same font.
- * 12h controls include an extra meridiem segment (+ padding), so the time input is wider.
+ * r5 meridiem probe: hide picker on probe input only; compare delta13 to half the
+ * seconds segment width on the same control. No navigator.language / Intl checks.
  */
 export function measureTimeFieldMeridiemProbe(doc?: Document): TimeFieldMeridiemProbeMeasurement | null {
   const root = doc ?? (typeof document !== 'undefined' ? document : undefined);
@@ -84,31 +96,30 @@ export function measureTimeFieldMeridiemProbe(doc?: Document): TimeFieldMeridiem
   host.append(time, text);
   root.body.appendChild(host);
 
-  const at13 = measureTimeAgainstText(time, text, '13:00', '13:00');
-  const at0930 = measureTimeAgainstText(time, text, '09:30', '09:30');
+  try {
+    const segment = measureSegmentWidth(time);
+    const at13 = measureDelta13(time, text);
+    const rendersMeridiem = rendersMeridiemFromProbeR5(at13.delta13, segment);
 
-  root.body.removeChild(host);
-
-  const delta13 = at13.delta;
-  const delta0930 = at0930.delta;
-  const rendersMeridiem = rendersMeridiemFromProbeDeltas(delta13, delta0930);
-
-  return {
-    time13Width: at13.timeWidth,
-    text13Width: at13.textWidth,
-    time0930Width: at0930.timeWidth,
-    text0930Width: at0930.textWidth,
-    delta13,
-    delta0930,
-    rendersMeridiem,
-  };
+    return {
+      time13Width: at13.time13Width,
+      text13Width: at13.text13Width,
+      delta13: at13.delta13,
+      segment,
+      rendersMeridiem,
+    };
+  } catch {
+    return null;
+  } finally {
+    root.body.removeChild(host);
+  }
 }
 
 /**
- * Detect 12h time fields from the control itself. No navigator.language / Intl checks.
+ * Detect 12h time fields from the control itself.
  *
- * When width deltas are inconclusive (≤ TIME_FIELD_MERIDIEM_PROBE_MIN_DELTA), returns
- * **false** (24h-safe): generic hint copy only and no reserved hint line.
+ * When segment ≤ 0 or measurement fails, returns **false** (24h-safe): generic hint
+ * copy only and no reserved hint line.
  */
 export function timeFieldRendersMeridiem(doc?: Document): boolean {
   if (probeOverride !== undefined) return probeOverride;

@@ -1,10 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   measureTimeFieldMeridiemProbe,
-  rendersMeridiemFromProbeDeltas,
+  rendersMeridiemFromProbeR5,
   resetTimeFieldRendersMeridiemProbeCache,
   setTimeFieldRendersMeridiemProbeOverride,
-  TIME_FIELD_MERIDIEM_PROBE_MIN_DELTA,
   timeFieldRendersMeridiem,
 } from './timeFieldMeridiemProbe';
 
@@ -13,15 +12,18 @@ afterEach(() => {
   resetTimeFieldRendersMeridiemProbeCache();
 });
 
-describe('FIX-5c C9 meridiem probe deltas', () => {
-  it('12h-style wider time control → true', () => {
-    expect(rendersMeridiemFromProbeDeltas(12, 0)).toBe(true);
-    expect(rendersMeridiemFromProbeDeltas(0, 10)).toBe(true);
+describe('FIX-5c C10 r5 meridiem probe', () => {
+  it('12h CoS measurements → true', () => {
+    expect(rendersMeridiemFromProbeR5(34.81, 26)).toBe(true);
   });
 
-  it('equal widths → false (inconclusive / 24h-safe)', () => {
-    expect(rendersMeridiemFromProbeDeltas(0, 0)).toBe(false);
-    expect(rendersMeridiemFromProbeDeltas(TIME_FIELD_MERIDIEM_PROBE_MIN_DELTA, 0)).toBe(false);
+  it('24h CoS measurements → false', () => {
+    expect(rendersMeridiemFromProbeR5(7.81, 27)).toBe(false);
+  });
+
+  it('segment 0 → false (inconclusive)', () => {
+    expect(rendersMeridiemFromProbeR5(34.81, 0)).toBe(false);
+    expect(rendersMeridiemFromProbeR5(100, -1)).toBe(false);
   });
 
   it('mocked override still drives hint wiring', () => {

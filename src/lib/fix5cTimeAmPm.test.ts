@@ -34,7 +34,10 @@ describe('FIX-5c C8 — hint copy without minutes heuristic', () => {
   it('probe compares time input width to plain text (not time vs time)', () => {
     const probe = src('src/lib/timeFieldMeridiemProbe.ts');
     expect(probe).toContain('time-field-meridiem-probe-text-ref');
-    expect(probe).toContain('rendersMeridiemFromProbeDeltas');
+    expect(probe).toContain('rendersMeridiemFromProbeR5');
+    expect(probe).toContain('measureSegmentWidth');
+    const css = src('src/index.css');
+    expect(css).toContain('time-field-meridiem-probe-live::-webkit-calendar-picker-indicator');
     expect(probe).not.toContain('time-field-meridiem-probe-ref');
     expect(probe).toMatch(/import\.meta\.env\.DEV[\s\S]*__FIX5C_TIME_FIELD_RENDER_MERIDIEM__/);
   });
