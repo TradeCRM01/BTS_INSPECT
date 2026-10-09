@@ -57,22 +57,22 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             return (
               <div
                 key={toast.id}
-                className={`flex items-center gap-3 ${s.bg} border rounded-lg shadow-lg px-4 py-3 min-w-[280px] max-w-[400px] animate-slide-in-right`}
+                className={`flex items-center gap-2 ${s.bg} border rounded-lg shadow-lg pl-4 pr-2 py-3 min-w-[280px] max-w-[400px]`}
               >
-                <Icon size={18} className={s.iconColor} shrink-0 />
-                <p className="text-sm text-[#1A1A1A] flex-1">{toast.message}</p>
+                <div className="flex items-center gap-3 flex-1 min-w-0 animate-slide-in-right">
+                  <Icon size={18} className={s.iconColor} shrink-0 />
+                  <p className="text-sm text-[#1A1A1A] flex-1">{toast.message}</p>
+                </div>
                 {toast.action ? (
                   <button
                     type="button"
-                    onPointerDown={e => {
-                      e.preventDefault();
+                    onClick={() => {
                       const run = toast.action?.onClick;
                       if (!run) return;
                       run();
                       setToasts(prev => prev.filter(t => t.id !== toast.id));
                     }}
-                    onClick={e => e.preventDefault()}
-                    className="text-sm font-semibold text-[#2E75B6] hover:text-[#0A2540] shrink-0 min-h-[44px] min-w-[44px] px-2 touch-manipulation"
+                    className="text-sm font-semibold text-[#2E75B6] hover:text-[#0A2540] shrink-0 min-h-[44px] min-w-[44px] px-2 touch-manipulation self-center"
                   >
                     {toast.action.label}
                   </button>
@@ -80,7 +80,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 <button
                   type="button"
                   onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
-                  className="text-[#9CA3AF] hover:text-[#1A1A1A] transition-colors shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  className="text-[#9CA3AF] hover:text-[#1A1A1A] transition-colors shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center self-center"
                   aria-label="Dismiss"
                 >
                   <X size={14} />

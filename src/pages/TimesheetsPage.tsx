@@ -36,11 +36,8 @@ import {
   type TimesheetListFilter,
 } from '../lib/timesheetsList';
 import { invalidateJobBillInvoicePreview } from '../lib/jobBillInvoicePreviewQuery';
-import {
-  deleteUnbilledTimesheetEntry,
-  loadBilledTimesheetEntryIdsForJobs,
-  timesheetEntryDeleteBlockedReason,
-} from '../lib/timesheetEntryDelete';
+import { loadBilledTimesheetEntryIdsForJobs } from '../lib/timesheetEntryDelete';
+import { TimesheetEntryDeleteControl } from '../components/timesheets/TimesheetEntryDeleteControl';
 
 export function TimesheetsPage() {
   const { profile } = useAuth();
@@ -236,27 +233,6 @@ export function TimesheetsPage() {
     return (timesheets ?? []).filter(t => t.employee_id === selectedEmployee);
   }, [timesheets, selectedEmployee]);
 
-  const deleteEntryMutation = useMutation({
-    mutationFn: async (entry: TimesheetEntry) => {
-      const blocked = timesheetEntryDeleteBlockedReason(entry.id, billedEntryIds);
-      if (blocked) throw new Error(blocked);
-      const ts = myTimesheets.find(t => t.id === entry.timesheet_id);
-      await deleteUnbilledTimesheetEntry(
-        supabase,
-        entry,
-        ts?.total_minutes ?? 0,
-      );
-      if (entry.job_id) invalidateJobBillInvoicePreview(queryClient, entry.job_id);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['timesheet-entries'] });
-      queryClient.invalidateQueries({ queryKey: ['timesheets'] });
-      queryClient.invalidateQueries({ queryKey: ['billed-timesheet-entry-ids'] });
-      showToast('Time entry removed');
-    },
-    onError: (e: Error) => showToast(e.message, 'error'),
-  });
-
   const decorated = useMemo(() => {
     const names = new Map((teamMembers ?? []).map(m => [m.id, m.name]));
     return myTimesheets.map(t => ({
@@ -334,29 +310,14 @@ export function TimesheetsPage() {
     </div>
   );
 
-  const tryDeleteEntry = (entry: TimesheetEntry) => {
-    const blocked = timesheetEntryDeleteBlockedReason(entry.id, billedEntryIds);
-    if (blocked) {
-      showToast(blocked, 'error');
-      return;
-    }
-    deleteEntryMutation.mutate(entry);
-  };
-
-  const renderDeleteControl = (entry: TimesheetEntry) => {
-    const blocked = timesheetEntryDeleteBlockedReason(entry.id, billedEntryIds);
+  const renderEntryDelete = (entry: TimesheetEntry) => {
+    const ts = myTimesheets.find(t => t.id === entry.timesheet_id);
     return (
-      <div className="hub-timesheets-entry-delete">
-        <button
-          type="button"
-          className="hub-timesheets-delete-btn"
-          disabled={!!blocked || deleteEntryMutation.isPending}
-          onClick={() => tryDeleteEntry(entry)}
-        >
-          Delete
-        </button>
-        {blocked ? <p className="hub-timesheets-delete-lock" role="status">{blocked}</p> : null}
-      </div>
+      <TimesheetEntryDeleteControl
+        entry={entry}
+        billedEntryIds={billedEntryIds}
+        timesheetTotalMinutes={ts?.total_minutes ?? 0}
+      />
     );
   };
 
@@ -401,7 +362,7 @@ export function TimesheetsPage() {
                 {duration > 0 ? timesheetListHoursLabel(duration) : '—'}
                 {jobTitle !== '—' ? ` • ${jobTitle}` : ''}
               </span>
-              {renderDeleteControl(entry)}
+              {renderEntryDelete(entry)}
             </div>
           );
         })
@@ -462,7 +423,7 @@ export function TimesheetsPage() {
                 {entry.billable ? ' · Billable' : ' · Non-billable'}
               </span>
               <span className="hub-timesheets-hours">{duration > 0 ? formatDuration(duration) : '—'}</span>
-              {renderDeleteControl(entry)}
+              {renderEntryDelete(entry)}
             </div>
           );
         })

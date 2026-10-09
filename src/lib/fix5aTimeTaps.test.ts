@@ -40,18 +40,27 @@ describe('FIX-5a — phone time taps', () => {
   it('allows unbilled delete and blocks billed with a plain reason', () => {
     expect(timesheetEntryDeleteBlockedReason('e1', new Set())).toBeNull();
     expect(timesheetEntryDeleteBlockedReason('e2', new Set(['e2']))).toBe(TIMESHEET_ENTRY_DELETE_BILLED);
-    const page = src('src/pages/TimesheetsPage.tsx');
-    expect(page).toContain('deleteUnbilledTimesheetEntry');
-    expect(page).toContain('timesheetEntryDeleteBlockedReason');
-    expect(page).toContain('hub-timesheets-delete-btn');
+    const deleteCtl = src('src/components/timesheets/TimesheetEntryDeleteControl.tsx');
+    expect(deleteCtl).toContain('Delete this time entry?');
+    expect(deleteCtl).toContain('ConfirmDialog');
     expect(src('src/lib/timesheetEntryDelete.ts')).toContain(TIMESHEET_ENTRY_DELETE_BILLED);
   });
 
-  it('toast Open navigates on a fast tap and action toasts last 15s', () => {
+  it('FIX-5a C2 — job page lists hours with delete where phone users fix duplicates', () => {
+    const job = src('src/pages/JobDetailPage.tsx');
+    expect(job).toContain('id="job-hours"');
+    expect(job).toContain('Time on this job');
+    expect(job).toMatch(/id="job-hours"[\s\S]*TimesheetEntryDeleteControl/);
+    const timesheets = src('src/pages/TimesheetsPage.tsx');
+    expect(timesheets).toContain('TimesheetEntryDeleteControl');
+  });
+
+  it('toast Open uses click (not pointerdown) and action toasts last 15s', () => {
     const toast = src('src/components/ui/Toast.tsx');
     expect(toast).toContain('action ? 15000 : 3500');
-    expect(toast).toContain('onPointerDown');
     expect(toast).toContain('touch-manipulation');
-    expect(toast.indexOf('onPointerDown')).toBeLessThan(toast.indexOf('onClick={e => e.preventDefault()}'));
+    expect(toast).toMatch(/onClick=\{\(\) => \{[\s\S]*toast\.action/);
+    expect(toast).not.toMatch(/onPointerDown=\{[^}]*toast\.action/);
+    expect(toast.indexOf('animate-slide-in-right')).toBeLessThan(toast.indexOf('toast.action'));
   });
 });

@@ -20,6 +20,9 @@ import {
   listQueryBusy,
 } from '../lib/listQueryReady';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
+import { TimesheetEntryDeleteControl } from '../components/timesheets/TimesheetEntryDeleteControl';
+import { loadBilledTimesheetEntryIdsForJobs } from '../lib/timesheetEntryDelete';
+import { getAuditTimesheetEntries } from '../lib/timesheetsList';
 import type { Client, Job, JobStatus } from '../types/crm';
 import { JOB_STATUS_LABELS, JOB_STATUS_STYLES, JOB_PRIORITY_LABELS, JOB_PRIORITY_DOT } from '../types/crm';
 import { formatMoney, INVOICE_STATUS_LABELS, INVOICE_STATUS_STYLES, QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES, formatDuration } from '../types/fsm';
@@ -1956,6 +1959,23 @@ export function JobDetailPage() {
         }] as JobTimesheet[];
       }
       if (jobHoursLookOn()) return lookJobTimesheets(id!);
+      if (isDevFieldAuditAuth() && id) {
+        const auditEntries = getAuditTimesheetEntries();
+        if (auditEntries) {
+          return auditEntries
+            .filter(e => e.job_id === id)
+            .map(e => ({
+              id: e.id,
+              timesheet_id: e.timesheet_id,
+              job_id: e.job_id!,
+              start_time: e.start_time,
+              end_time: e.end_time,
+              work_type: e.work_type,
+              billable: e.billable,
+              notes: e.notes,
+            })) as JobTimesheet[];
+        }
+      }
       const empty = getAuditEmptyList();
       if (empty) return empty as JobTimesheet[];
       const { data, error } = await supabase
@@ -1979,6 +1999,12 @@ export function JobDetailPage() {
   const quotesBusy = listQueryBusy({ isPending: quotesPending, isError: quotesError, data: quotes });
   const invoicesBusy = listQueryBusy({ isPending: invoicesPending, isError: invoicesError, data: invoices });
   const timesheetsBusy = listQueryBusy({ isPending: timesheetsPending, isError: timesheetsError, data: timesheets });
+
+  const { data: billedEntryIds = new Set<string>() } = useQuery({
+    queryKey: ['billed-timesheet-entry-ids', id],
+    queryFn: async () => loadBilledTimesheetEntryIdsForJobs(supabase, id ? [id] : []),
+    enabled: !!id && !!profile,
+  });
   const crewBusy = listQueryBusy({ isPending: teamMembersPending, isError: teamMembersError, data: teamMembers });
   const take5sFailed = take5sError || jhasError;
 
@@ -4299,6 +4325,7 @@ export function JobDetailPage() {
             const duration = entry.end_time
               ? Math.round((new Date(entry.end_time).getTime() - new Date(entry.start_time).getTime()) / 60000)
               : 0;
+            const tsTotal = (myTimesheets ?? []).find(t => t.id === entry.timesheet_id)?.total_minutes ?? 0;
             return (
               <JobRelatedRow
                 key={entry.id}
@@ -4306,6 +4333,14 @@ export function JobDetailPage() {
                 title={`${format(new Date(entry.start_time), 'd MMM yyyy')} · ${format(new Date(entry.start_time), 'HH:mm')}${entry.end_time ? `–${format(new Date(entry.end_time), 'HH:mm')}` : ' · running'}`}
                 meta={[entry.work_type, entry.billable ? 'Billable' : 'Non-billable'].filter(Boolean).join(' · ')}
                 trailing={duration > 0 ? <span className="ops-meta">{formatDuration(duration)}</span> : undefined}
+                action={
+                  <TimesheetEntryDeleteControl
+                    entry={entry}
+                    billedEntryIds={billedEntryIds}
+                    timesheetTotalMinutes={tsTotal}
+                    onDeleted={() => invalidateTime()}
+                  />
+                }
               />
             );
           })}
