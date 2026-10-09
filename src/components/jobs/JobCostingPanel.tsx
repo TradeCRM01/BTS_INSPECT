@@ -326,7 +326,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
       const panel = document.getElementById('job-bill-line-form');
       panel?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       const first = panel?.querySelector<HTMLElement>(
-        'select, input:not([type="hidden"]), textarea, button[type="button"]',
+        'select.form-input, select.form-input-sm, input.form-input, input.form-input-sm, textarea',
       );
       first?.focus();
     });

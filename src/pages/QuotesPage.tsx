@@ -21,7 +21,6 @@ import {
 } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
 import { AppDialog, EditorStickyFooter, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner, TimeFieldInput } from '../components/ui';
-import { TIME_FIELD_ADD_AM_PM } from '../lib/timeFieldInput';
 import type { QuoteWithDetails, QuoteLineItem, QuoteStatus, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { convertQuoteToJob } from '../lib/convertQuoteToJob';
@@ -1022,8 +1021,6 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
   const [priceBookItems, setPriceBookItems] = useState<PriceBookItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [converting, setConverting] = useState(false);
-  const [convertStartNeedsAmPm, setConvertStartNeedsAmPm] = useState(false);
-  const [convertEndNeedsAmPm, setConvertEndNeedsAmPm] = useState(false);
   const [invoicing, setInvoicing] = useState(false);
   const [showPreview, setShowPreview] = useState(searchParams.get('print') === '1');
   const [showEdit, setShowEdit] = useState(!quote);
@@ -1397,18 +1394,6 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
 
   const handleConvert = async () => {
     if (!takeQuoteConvertLock(convertingLock)) return;
-    if (convertStartNeedsAmPm) {
-      setErr(TIME_FIELD_ADD_AM_PM);
-      focusQuoteConvertField(convertSectionRef.current ?? document, 'start');
-      releaseQuoteConvertLock(convertingLock);
-      return;
-    }
-    if (convertEndNeedsAmPm) {
-      setErr(TIME_FIELD_ADD_AM_PM);
-      focusQuoteConvertField(convertSectionRef.current ?? document, 'end');
-      releaseQuoteConvertLock(convertingLock);
-      return;
-    }
     const { start_time, end_time } = mergeQuoteConvertTimes(
       { start_time: form.start_time, end_time: form.end_time },
       convertTimesLive.current,
@@ -1944,7 +1929,6 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                       convertTimesLive.current.start_time = start_time;
                       setForm(f => ({ ...f, start_time }));
                     }}
-                    onIncompleteAmPmChange={setConvertStartNeedsAmPm}
                     className="form-input"
                   />
                 </Field>
@@ -1956,7 +1940,6 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                       convertTimesLive.current.end_time = end_time;
                       setForm(f => ({ ...f, end_time }));
                     }}
-                    onIncompleteAmPmChange={setConvertEndNeedsAmPm}
                     className="form-input"
                   />
                 </Field>
@@ -1966,7 +1949,6 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                 || err === CONVERT_QUOTE_NEED_CREW
                 || err === CONVERT_QUOTE_NEED_TIME
                 || err === CONVERT_QUOTE_END_BEFORE_START
-                || err === TIME_FIELD_ADD_AM_PM
                 ? <p className="hub-quote-convert-miss">{err}</p>
                 : <p className="hub-quote-convert-whisper">{CONVERT_QUOTE_HELPER}</p>}
               <button

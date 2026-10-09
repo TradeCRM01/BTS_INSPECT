@@ -4,7 +4,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { infer24hFrom12hTypedDigits } from './timeFieldInput';
 import {
   CONVERT_QUOTE_END_BEFORE_START,
   CONVERT_QUOTE_NEED_CREW,
@@ -120,18 +119,19 @@ describe('FIX-4 — quote convert times and crew truth', () => {
     expect(control).not.toContain('convertQuoteToJob');
   });
 
-  it('typed 0930 in 12h uses 09:30 on the convert payload when form is still on defaults', () => {
-    const inferred = infer24hFrom12hTypedDigits('0930');
-    expect(inferred).toBe('09:30');
+  it('mergeQuoteConvertTimes uses live ref when form state is still on defaults', () => {
     expect(mergeQuoteConvertTimes(
       { start_time: '08:00', end_time: '16:00' },
-      { start_time: inferred! },
+      { start_time: '09:30' },
     )).toEqual({ start_time: '09:30', end_time: '16:00' });
 
     const editor = src('src/pages/QuotesPage.tsx');
     const handleConvert = editor.slice(editor.indexOf('const handleConvert'), editor.indexOf('const editorMoney'));
     expect(handleConvert).toContain('mergeQuoteConvertTimes');
     expect(handleConvert).toContain('convertTimesLive');
+    const field = src('src/components/ui/TimeFieldInput.tsx');
+    expect(field).not.toContain('digitBufferRef');
+    expect(field).not.toContain('tryInferTimeFromDigitBuffer');
   });
 
   it('jobFieldsFromQuote does not invent 08:00–16:00 when quote times are absent', () => {
