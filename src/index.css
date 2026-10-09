@@ -7803,6 +7803,45 @@
       min-height: 0;
     }
 
+    .hub-board-cal.is-week-doc [data-schedule-phone-section="booked"] {
+      order: 1;
+    }
+
+    .hub-board-cal.is-week-doc .hub-phone-unscheduled-mount {
+      order: 2;
+      flex: 0 0 auto;
+    }
+
+    .hub-phone-unscheduled-chip {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: calc(100% - 24px);
+      margin: 4px 12px 10px;
+      min-height: 44px;
+      padding: 10px 12px;
+      border: 1px solid var(--schedule-line, #E2D9CC);
+      border-radius: 12px;
+      background: var(--schedule-page, #F5F0E6);
+      color: var(--schedule-ink, #0A2540);
+      font-family: 'Source Sans 3', system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.2;
+      white-space: nowrap;
+      max-width: calc(100% - 24px);
+      overflow: visible;
+      text-overflow: clip;
+      box-sizing: border-box;
+    }
+
+    .hub-phone-unscheduled-list {
+      max-height: min(50vh, 360px);
+      overflow-y: auto;
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+
     .hub-schedule-search-hit {
       cursor: pointer;
     }
