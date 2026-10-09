@@ -49,6 +49,9 @@ describe('FIX-5b phone taps — guards', () => {
     expect(page).toContain('navigate(`/jobs/${quote.job_id}`)');
     expect(page).toContain("next.key === 'open_job' && form.job_id");
     expect(page).toContain('btn-primary');
+    expect(page).toContain('fieldAuditConvertedQuotes');
+    expect(page).toContain('AUDIT_CONVERT_JOB_73_ID');
+    expect(page).toContain('audit-quote-0044');
   });
 
   it('P1-7: untimed booked jobs show Add a time and open the schedule sheet', () => {

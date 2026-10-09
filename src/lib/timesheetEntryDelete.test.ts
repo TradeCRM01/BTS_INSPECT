@@ -15,9 +15,11 @@ import {
 } from './timesheetEntryDelete';
 import {
   AUDIT_TIMESHEET_ENTRY_OTHER_ID,
+  AUDIT_TIMESHEET_ENTRY_ALREADY_GONE,
   AUDIT_TIMESHEET_ENTRY_UNBILLED_ID,
   AUDIT_TIMESHEET_ID,
   AUDIT_TIMESHEET_OTHER_ID,
+  getAuditTimesheetEntries,
   getAuditTimesheetTotalMinutes,
   hideAuditTimesheetEntry,
   recomputeAuditTimesheetTotalMinutes,
@@ -186,7 +188,7 @@ describe('timesheet entry delete — FIX-5a C4', () => {
     ).rejects.toThrow(TIMESHEET_ENTRY_DELETE_ALREADY);
   });
 
-  it('audit delete throws Already deleted on a second confirm', async () => {
+  it('audit delete throws Already deleted on a second delete call', async () => {
     vi.mocked(devFieldAuditAuth.isDevFieldAuditAuth).mockReturnValue(true);
     resetAuditTimesheetEntryHides();
     const entry = {
@@ -199,6 +201,28 @@ describe('timesheet entry delete — FIX-5a C4', () => {
     await expect(deleteUnbilledTimesheetEntry({} as never, entry)).rejects.toThrow(
       TIMESHEET_ENTRY_DELETE_ALREADY,
     );
+  });
+
+  it('audit already-gone entry shows Already deleted on confirm', async () => {
+    vi.mocked(devFieldAuditAuth.isDevFieldAuditAuth).mockReturnValue(true);
+    await expect(
+      deleteUnbilledTimesheetEntry({} as never, {
+        id: AUDIT_TIMESHEET_ENTRY_ALREADY_GONE,
+        timesheet_id: AUDIT_TIMESHEET_ID,
+        start_time: '2026-10-06T12:00:00.000Z',
+        end_time: '2026-10-06T12:30:00.000Z',
+      }),
+    ).rejects.toThrow(TIMESHEET_ENTRY_DELETE_ALREADY);
+  });
+
+  it('audit delete removes the row from the entry list', () => {
+    vi.mocked(devFieldAuditAuth.isDevFieldAuditAuth).mockReturnValue(true);
+    resetAuditTimesheetEntryHides();
+    const before = (getAuditTimesheetEntries() ?? []).some(e => e.id === AUDIT_TIMESHEET_ENTRY_UNBILLED_ID);
+    expect(before).toBe(true);
+    hideAuditTimesheetEntry(AUDIT_TIMESHEET_ENTRY_UNBILLED_ID);
+    const after = (getAuditTimesheetEntries() ?? []).some(e => e.id === AUDIT_TIMESHEET_ENTRY_UNBILLED_ID);
+    expect(after).toBe(false);
   });
 
   it('audit delete keeps another worker timesheet total from remaining entries', () => {

@@ -19,10 +19,10 @@ export const AUDIT_QUOTE_ID = 'audit-quote-send';
 export const AUDIT_PO_ID = 'audit-po-send';
 export const AUDIT_REPORT_ID = 'audit-report-send';
 export const AUDIT_DOC_JOB_ID = 'audit-doc-job';
-/** FIX-5b LOOK — converted quote #0042 → job #0073.75 */
-export const AUDIT_OPEN_JOB_ID = 'audit-job-0073-75';
-/** FIX-5b LOOK — finished job for Create invoice CTA */
-export const AUDIT_FINISHED_JOB_ID = 'audit-job-finished-74';
+/** FIX-5b LOOK — Q#0042–0044 converted to J#0073–0075 (audit only). */
+export const AUDIT_CONVERT_JOB_73_ID = 'audit-job-0073';
+export const AUDIT_CONVERT_JOB_74_ID = 'audit-job-0074';
+export const AUDIT_CONVERT_JOB_75_ID = 'audit-job-0075';
 export const AUDIT_DOC_CLIENT_ID = 'audit-doc-client';
 /** FIX-2 LOOK only — plumber-neutral client (does not replace AUDIT_DOC_CLIENT_ID elsewhere). */
 export const AUDIT_FIX2_CLIENT_ID = 'audit-fix2-client';
@@ -546,7 +546,7 @@ export function getAuditJobs(): Job[] | null {
     parent_job_id: AUDIT_DOC_JOB_ID,
     cost_code: '01',
   }, {
-    id: AUDIT_OPEN_JOB_ID,
+    id: AUDIT_CONVERT_JOB_73_ID,
     company_id: DEV_AUDIT_COMPANY.id,
     client_id: AUDIT_DOC_CLIENT_ID,
     title: 'Main panel upgrade',
@@ -566,13 +566,35 @@ export function getAuditJobs(): Job[] | null {
     color: null,
     budget: 836,
     parent_job_id: null,
-    cost_code: '75',
+    cost_code: null,
   }, {
-    id: AUDIT_FINISHED_JOB_ID,
+    id: AUDIT_CONVERT_JOB_74_ID,
+    company_id: DEV_AUDIT_COMPANY.id,
+    client_id: AUDIT_DOC_CLIENT_ID,
+    title: 'Switchgear fit-off',
+    description: 'Converted from quote #0043.',
+    status: 'scheduled' as const,
+    priority: 'medium' as const,
+    scheduled_date: '2026-08-26',
+    start_time: '08:00',
+    end_time: '15:00',
+    address: '12 Workshop Rd, Perth WA 6000',
+    assigned_team: [DEV_AUDIT_PROFILE.id],
+    inspection_id: null,
+    created_by: DEV_AUDIT_PROFILE.id,
+    created_at: NOW,
+    updated_at: NOW,
+    job_number: 74,
+    color: null,
+    budget: 920,
+    parent_job_id: null,
+    cost_code: null,
+  }, {
+    id: AUDIT_CONVERT_JOB_75_ID,
     company_id: DEV_AUDIT_COMPANY.id,
     client_id: AUDIT_DOC_CLIENT_ID,
     title: 'Site wrap-up',
-    description: 'Job completed — ready to invoice.',
+    description: 'Converted from quote #0044 — job finished.',
     status: 'completed' as const,
     priority: 'medium' as const,
     scheduled_date: '2026-09-10',
@@ -584,9 +606,9 @@ export function getAuditJobs(): Job[] | null {
     created_by: DEV_AUDIT_PROFILE.id,
     created_at: NOW,
     updated_at: NOW,
-    job_number: 74,
+    job_number: 75,
     color: null,
-    budget: 1200,
+    budget: 726,
     parent_job_id: null,
     cost_code: null,
   }] as Job[];

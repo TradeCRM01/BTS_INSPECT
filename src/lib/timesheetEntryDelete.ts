@@ -3,6 +3,7 @@ import { isDevAuditBillingFetchFail, isDevFieldAuditAuth } from './devFieldAudit
 import { isSchemaColumnMissingError, loadBilledTimesheetEntryIds } from './hoursToJobBill';
 import { entryMinutes } from './timesheetJob';
 import {
+  AUDIT_TIMESHEET_ENTRY_ALREADY_GONE,
   AUDIT_TIMESHEET_ENTRY_ID,
   hideAuditTimesheetEntry,
   isAuditTimesheetEntryHidden,
@@ -51,9 +52,6 @@ export function timesheetEntryDeleteUiState(
   entry: { id: string; end_time: string | null },
   gate: TimesheetEntryDeleteGate,
 ): { disabled: boolean; lockMessage: string | null } {
-  if (isDevFieldAuditAuth() && isAuditTimesheetEntryHidden(entry.id)) {
-    return { disabled: true, lockMessage: TIMESHEET_ENTRY_DELETE_ALREADY };
-  }
   if (!entry.end_time) {
     return { disabled: true, lockMessage: TIMESHEET_ENTRY_DELETE_RUNNING };
   }
@@ -141,6 +139,9 @@ export async function deleteUnbilledTimesheetEntry(
     throw new Error(TIMESHEET_ENTRY_DELETE_RUNNING);
   }
   if (isDevFieldAuditAuth()) {
+    if (entry.id === AUDIT_TIMESHEET_ENTRY_ALREADY_GONE) {
+      throw new Error(TIMESHEET_ENTRY_DELETE_ALREADY);
+    }
     if (isAuditTimesheetEntryHidden(entry.id)) {
       throw new Error(TIMESHEET_ENTRY_DELETE_ALREADY);
     }

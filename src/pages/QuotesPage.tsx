@@ -12,8 +12,9 @@ import {
 } from '../lib/devFieldAuditAuth';
 import {
   AUDIT_DOC_CLIENT_ID,
-  AUDIT_FINISHED_JOB_ID,
-  AUDIT_OPEN_JOB_ID,
+  AUDIT_CONVERT_JOB_73_ID,
+  AUDIT_CONVERT_JOB_74_ID,
+  AUDIT_CONVERT_JOB_75_ID,
   AUDIT_QUOTE_ID,
   getAuditClients,
   getAuditTeamMembers,
@@ -193,72 +194,79 @@ function fieldAuditConvertQuote(): QuoteListItem | null {
   };
 }
 
-function fieldAuditOpenJobQuote(): QuoteListItem | null {
-  if (!isDevFieldAuditAuth()) return null;
-  return {
-    id: 'audit-quote-open-job',
+function fieldAuditConvertedQuotes(): QuoteListItem[] {
+  if (!isDevFieldAuditAuth()) return [];
+  const base = {
     company_id: DEV_AUDIT_COMPANY.id,
-    quote_number: 42,
     client_id: AUDIT_DOC_CLIENT_ID,
-    job_id: AUDIT_OPEN_JOB_ID,
-    status: 'accepted',
-    description: 'Main panel upgrade (converted)',
+    status: 'accepted' as const,
     scope_of_works: 'Complete the agreed site works.',
-    line_items: [{ description: 'Site labour', quantity: 8, unit_price: 95 }],
-    subtotal: 760,
-    tax_rate: 10,
-    tax_amount: 76,
-    total: 836,
     validity_date: '2026-10-20',
     notes: null,
     inclusions: [] as string[],
     exclusions: [] as string[],
-    scheduled_date: '2026-08-25',
-    assigned_team: [DEV_AUDIT_PROFILE.id],
     created_by: DEV_AUDIT_PROFILE.id,
-    created_at: '2026-09-01T00:00:00.000Z',
-    updated_at: '2026-09-02T00:00:00.000Z',
     client_name: 'Northside Electrical',
     client_email: 'accounts@northside.example',
-    job_title: 'Main panel upgrade',
     job_address: '12 Workshop Rd, Perth WA 6000',
-    job_status: 'scheduled',
     invoice_id: null,
   };
-}
-
-function fieldAuditCreateInvoiceQuote(): QuoteListItem | null {
-  if (!isDevFieldAuditAuth()) return null;
-  return {
-    id: 'audit-quote-create-invoice',
-    company_id: DEV_AUDIT_COMPANY.id,
-    quote_number: 44,
-    client_id: AUDIT_DOC_CLIENT_ID,
-    job_id: AUDIT_FINISHED_JOB_ID,
-    status: 'accepted',
-    description: 'Site wrap-up (job done)',
-    scope_of_works: 'Complete the agreed site works.',
-    line_items: [{ description: 'Final labour', quantity: 6, unit_price: 110 }],
-    subtotal: 660,
-    tax_rate: 10,
-    tax_amount: 66,
-    total: 726,
-    validity_date: '2026-10-20',
-    notes: null,
-    inclusions: [] as string[],
-    exclusions: [] as string[],
-    scheduled_date: '2026-09-10',
-    assigned_team: [DEV_AUDIT_PROFILE.id],
-    created_by: DEV_AUDIT_PROFILE.id,
-    created_at: '2026-09-05T00:00:00.000Z',
-    updated_at: '2026-09-12T00:00:00.000Z',
-    client_name: 'Northside Electrical',
-    client_email: 'accounts@northside.example',
-    job_title: 'Site wrap-up',
-    job_address: '12 Workshop Rd, Perth WA 6000',
-    job_status: 'completed',
-    invoice_id: null,
-  };
+  return [
+    {
+      ...base,
+      id: 'audit-quote-0042',
+      quote_number: 42,
+      job_id: AUDIT_CONVERT_JOB_73_ID,
+      description: 'Main panel upgrade (converted)',
+      line_items: [{ description: 'Site labour', quantity: 8, unit_price: 95 }],
+      subtotal: 760,
+      tax_rate: 10,
+      tax_amount: 76,
+      total: 836,
+      scheduled_date: '2026-08-25',
+      assigned_team: [DEV_AUDIT_PROFILE.id],
+      created_at: '2026-09-01T00:00:00.000Z',
+      updated_at: '2026-09-02T00:00:00.000Z',
+      job_title: 'Main panel upgrade',
+      job_status: 'scheduled',
+    },
+    {
+      ...base,
+      id: 'audit-quote-0043',
+      quote_number: 43,
+      job_id: AUDIT_CONVERT_JOB_74_ID,
+      description: 'Switchgear fit-off (converted)',
+      line_items: [{ description: 'Fit-off labour', quantity: 6, unit_price: 110 }],
+      subtotal: 660,
+      tax_rate: 10,
+      tax_amount: 66,
+      total: 726,
+      scheduled_date: '2026-08-26',
+      assigned_team: [DEV_AUDIT_PROFILE.id],
+      created_at: '2026-09-03T00:00:00.000Z',
+      updated_at: '2026-09-04T00:00:00.000Z',
+      job_title: 'Switchgear fit-off',
+      job_status: 'scheduled',
+    },
+    {
+      ...base,
+      id: 'audit-quote-0044',
+      quote_number: 44,
+      job_id: AUDIT_CONVERT_JOB_75_ID,
+      description: 'Site wrap-up (converted, job done)',
+      line_items: [{ description: 'Final labour', quantity: 6, unit_price: 110 }],
+      subtotal: 660,
+      tax_rate: 10,
+      tax_amount: 66,
+      total: 726,
+      scheduled_date: '2026-09-10',
+      assigned_team: [DEV_AUDIT_PROFILE.id],
+      created_at: '2026-09-05T00:00:00.000Z',
+      updated_at: '2026-09-12T00:00:00.000Z',
+      job_title: 'Site wrap-up',
+      job_status: 'completed',
+    },
+  ];
 }
 
 function fieldAuditGstQuote(): QuoteListItem | null {
@@ -435,9 +443,7 @@ export function QuotesPage() {
         if (lookLetterhead) return [convertQuote];
         const shareQuote = fieldAuditShareQuote();
         const gstQuote = fieldAuditGstQuote();
-        const openJobQuote = fieldAuditOpenJobQuote();
-        const createInvoiceQuote = fieldAuditCreateInvoiceQuote();
-        return [convertQuote, shareQuote, gstQuote, openJobQuote, createInvoiceQuote, ...fieldAuditChaseQuotes()]
+        return [convertQuote, shareQuote, gstQuote, ...fieldAuditConvertedQuotes(), ...fieldAuditChaseQuotes()]
           .filter((row): row is QuoteListItem => !!row);
       }
       const { data, error } = await supabase
