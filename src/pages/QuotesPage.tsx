@@ -1611,7 +1611,12 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                 onClick={() => { void handleInvoice(); }}
                 disabled={saving || invoicing}
               >
-                {invoicing ? 'Creating…' : 'Create invoice'}
+                {invoicing ? (
+                  <>
+                    <LoadingSpinner size="sm" />
+                    Creating…
+                  </>
+                ) : 'Create invoice'}
               </button>
             )}
             <details ref={moreRef} className="hub-quote-more">
@@ -1701,7 +1706,12 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                     onClick={() => { closeMore(); void handleInvoice(); }}
                     disabled={invoicing}
                   >
-                    {invoicing ? 'Creating...' : 'Create invoice'}
+                    {invoicing ? (
+                      <>
+                        <LoadingSpinner size="sm" />
+                        Creating…
+                      </>
+                    ) : 'Create invoice'}
                   </button>
                 )}
                 {form.status === 'accepted' && invoiceId && (

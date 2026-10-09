@@ -3202,7 +3202,12 @@ export function JobDetailPage() {
                       aria-busy={next.key === 'invoice' && invoiceNextBusy ? true : undefined}
                       onClick={runNext}
                     >
-                      {next.key === 'invoice' && invoiceNextBusy ? 'Creating…' : nextLabel}
+                      {next.key === 'invoice' && invoiceNextBusy ? (
+                        <>
+                          <LoadingSpinner size="sm" />
+                          Creating…
+                        </>
+                      ) : nextLabel}
                     </button>
                   ) : (
                     <>
@@ -3968,8 +3973,16 @@ export function JobDetailPage() {
                 type="submit"
                 className={`job-visit-post job-notes-post${visitReady ? ' is-filled' : ''}`}
                 disabled={postVisitNote.isPending || visitAttaching || visitDecision.action === 'miss'}
+                aria-busy={postVisitNote.isPending ? true : undefined}
               >
-                Post update
+                {postVisitNote.isPending ? (
+                  <>
+                    <LoadingSpinner size="sm" />
+                    Posting…
+                  </>
+                ) : (
+                  'Post update'
+                )}
               </button>
             </div>
           </form>

@@ -1,6 +1,7 @@
 import { AlertTriangle, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AppDialog } from '../ui/AppDialog';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { JOB_BILL_ADD_LOGGED_HOURS_EXTRA_LABEL } from '../../lib/jobBillInvoicePlan';
 import { zeroLabourInvoiceConfirmMessage } from '../../lib/hoursToJobBill';
 
@@ -100,7 +101,12 @@ export function JobBillQuotedInvoiceSheet({
             onClick={onCreate}
             data-job-bill-quoted-create
           >
-            {pending ? 'Creating…' : 'Create draft invoice'}
+            {pending ? (
+              <>
+                <LoadingSpinner size="sm" />
+                Creating…
+              </>
+            ) : 'Create draft invoice'}
           </button>
         </div>
       </div>

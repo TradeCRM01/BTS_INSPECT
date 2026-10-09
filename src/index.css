@@ -5310,6 +5310,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 8px;
     min-height: 44px;
     padding: 0 16px;
     border-radius: 12px;
@@ -10344,6 +10345,20 @@
 
   .hub-invoice-pdf-head {
     border-bottom: 1px solid #E2D9CC;
+  }
+
+  .hub-pdf-preview-close {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    color: #0A2540;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
   }
 
   .quote-doc-theme {

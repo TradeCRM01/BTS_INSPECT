@@ -575,6 +575,7 @@ function InvoiceNextControl({
         return false;
       }
       recorded = true;
+      setShowPayment(false);
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['invoice'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-nudges'] });
@@ -689,7 +690,7 @@ function InvoiceNextControl({
           busy={busy === 'mark_paid'}
           onCancel={() => setShowPayment(false)}
           onConfirm={async (payment) => {
-            if (await submitPayment(payment)) setShowPayment(false);
+            await submitPayment(payment);
           }}
         />
       ) : null}
@@ -1494,6 +1495,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                 showToast(result.message, 'error');
                 return;
               }
+              setShowPayment(false);
               setRecordedPaid(result.preview.amountPaidAfter);
               setForm(f => ({ ...f, status: result.preview.statusAfter }));
               queryClient.invalidateQueries({ queryKey: ['invoices'] });
@@ -1520,7 +1522,6 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
               }
               setPaymentsTick(t => t + 1);
               queryClient.invalidateQueries({ queryKey: ['invoice-payments'] });
-              setShowPayment(false);
             }}
           />
         ) : null}
