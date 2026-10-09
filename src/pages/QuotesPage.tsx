@@ -20,7 +20,8 @@ import {
   getAuditTeamMembers,
 } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
-import { AppDialog, EditorStickyFooter, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
+import { AppDialog, EditorStickyFooter, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner, TimeFieldInput } from '../components/ui';
+import { TIME_FIELD_ADD_AM_PM } from '../lib/timeFieldInput';
 import type { QuoteWithDetails, QuoteLineItem, QuoteStatus, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { convertQuoteToJob } from '../lib/convertQuoteToJob';
@@ -1020,6 +1021,8 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
   const [priceBookItems, setPriceBookItems] = useState<PriceBookItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [convertStartNeedsAmPm, setConvertStartNeedsAmPm] = useState(false);
+  const [convertEndNeedsAmPm, setConvertEndNeedsAmPm] = useState(false);
   const [invoicing, setInvoicing] = useState(false);
   const [showPreview, setShowPreview] = useState(searchParams.get('print') === '1');
   const [showEdit, setShowEdit] = useState(!quote);
@@ -1388,6 +1391,11 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
 
   const handleConvert = async () => {
     if (!takeQuoteConvertLock(convertingLock)) return;
+    if (convertStartNeedsAmPm || convertEndNeedsAmPm) {
+      setErr(TIME_FIELD_ADD_AM_PM);
+      releaseQuoteConvertLock(convertingLock);
+      return;
+    }
     const convertInput = {
       scheduled_date: form.scheduled_date,
       assigned_team: form.assigned_team,
@@ -1912,20 +1920,20 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                   </select>
                 </Field>
                 <Field label="Start">
-                  <input
+                  <TimeFieldInput
                     id="quote-convert-start"
-                    type="time"
                     value={form.start_time}
-                    onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))}
+                    onChange={start_time => setForm(f => ({ ...f, start_time }))}
+                    onIncompleteAmPmChange={setConvertStartNeedsAmPm}
                     className="form-input"
                   />
                 </Field>
                 <Field label="End">
-                  <input
+                  <TimeFieldInput
                     id="quote-convert-end"
-                    type="time"
                     value={form.end_time}
-                    onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))}
+                    onChange={end_time => setForm(f => ({ ...f, end_time }))}
+                    onIncompleteAmPmChange={setConvertEndNeedsAmPm}
                     className="form-input"
                   />
                 </Field>

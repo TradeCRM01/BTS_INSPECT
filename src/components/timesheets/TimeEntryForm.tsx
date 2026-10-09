@@ -61,14 +61,16 @@ export function TimeEntryForm({
   }));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [startNeedsAmPm, setStartNeedsAmPm] = useState(false);
+  const [endNeedsAmPm, setEndNeedsAmPm] = useState(false);
   const saveLock = useRef(false);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (saveLock.current || saving) return;
     if (!profile?.company_id) return;
-    const startMsg = timeFieldValidationMessage(form.start_time);
-    const endMsg = timeFieldValidationMessage(form.end_time);
+    const startMsg = timeFieldValidationMessage(form.start_time, startNeedsAmPm);
+    const endMsg = timeFieldValidationMessage(form.end_time, endNeedsAmPm);
     if (startMsg || endMsg) {
       setErr(startMsg ?? endMsg ?? 'Enter start and end times, or tap a duration chip.');
       return;
@@ -157,7 +159,7 @@ export function TimeEntryForm({
               <X size={20} />
             </button>
           </div>
-          <form onSubmit={handleSave} className="overlay-body flex flex-col gap-4">
+          <form onSubmit={handleSave} noValidate className="overlay-body flex flex-col gap-4">
             <Field label="Date">
               <input
                 type="date"
@@ -173,6 +175,7 @@ export function TimeEntryForm({
                 <TimeFieldInput
                   value={form.start_time}
                   onChange={start_time => setForm(f => ({ ...f, start_time }))}
+                  onIncompleteAmPmChange={setStartNeedsAmPm}
                   className="form-input"
                 />
               </Field>
@@ -180,6 +183,7 @@ export function TimeEntryForm({
                 <TimeFieldInput
                   value={form.end_time}
                   onChange={end_time => setForm(f => ({ ...f, end_time }))}
+                  onIncompleteAmPmChange={setEndNeedsAmPm}
                   className="form-input"
                 />
               </Field>
