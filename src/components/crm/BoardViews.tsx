@@ -218,6 +218,13 @@ function UnscheduledJobCards({
                     e.stopPropagation();
                     onSetScheduleDate?.(job);
                   }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onSetScheduleDate?.(job);
+                    }
+                  }}
                   onPointerDown={e => e.stopPropagation()}
                 >
                   Set a date

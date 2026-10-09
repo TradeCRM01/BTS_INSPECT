@@ -114,6 +114,9 @@ describe('schedule page week/day board', () => {
     expect(board).toContain('data-schedule-unscheduled-chip="1"');
     expect(board).toContain('data-schedule-set-date={job.id}');
     expect(board).toContain('hub-schedule-set-date');
+    expect(board).toMatch(
+      /data-schedule-set-date=\{job\.id\}[\s\S]{0,400}onKeyDown=\{e => \{[\s\S]{0,200}stopPropagation\(\)/,
+    );
     expect(board).toContain('hub-phone-week-list');
     expect(page).toContain('onSetScheduleDate={job => openScheduleSheet(job)}');
     expect(board).toContain('aria-expanded={expanded}');

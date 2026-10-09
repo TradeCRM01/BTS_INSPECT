@@ -18,7 +18,10 @@ describe('schedule desktop 1280 — week board min height and capped needs-date 
     expect(lgBlock).toContain('min-height: 280px');
     expect(lgBlock).toContain('max-height: min(34vh, 300px)');
     expect(lgBlock).toContain('max-height: min(30vh, 260px)');
-    expect(lgBlock).toContain('overflow-y: auto');
+    expect(lgBlock).toContain('.hub-board-cal.is-week-doc .hub-week-sheet-body');
+    expect(lgBlock).toMatch(/hub-week-sheet-body[\s\S]{0,120}overflow-y: auto/);
+    expect(lgBlock).toContain('min-height: 0');
+    expect(lgBlock).not.toContain('min(52vh, 480px)');
     expect(page).toContain('hub-schedule-needs-date-rail');
     expect(page).toContain('fix3aUnscheduledLookCount');
     expect(page).toContain("searchParams.get('unscheduled')");

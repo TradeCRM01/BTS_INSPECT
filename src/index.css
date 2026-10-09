@@ -6389,11 +6389,17 @@
       flex: 0 0 auto;
     }
 
+    .hub-board-cal.is-week-doc .hub-week-sheet-body {
+      flex: 1 1 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
     .hub-board-cal.is-week-doc .hub-week-mount.lg\:flex {
       flex: 1 1 0;
       display: flex;
       flex-direction: column;
-      min-height: min(52vh, 480px);
+      min-height: 0;
     }
 
     .hub-board-cal.is-week-doc .hub-week-mount.lg\:hidden {
@@ -7851,7 +7857,9 @@
     .hub-phone-unscheduled-footer {
       flex: 0 0 auto;
       margin-top: 8px;
+      margin-bottom: var(--shell-bottom-nav-h, 0px);
       padding-top: 12px;
+      padding-bottom: 8px;
       border-top: 1px solid #E2D9CC;
     }
 
@@ -7880,7 +7888,7 @@
     }
 
     .hub-phone-unscheduled-list {
-      max-height: min(50vh, 360px);
+      max-height: min(50vh, calc(360px - var(--shell-bottom-nav-h, 0px) - 12px));
       overflow-y: auto;
       padding-left: 12px;
       padding-right: 12px;
