@@ -113,6 +113,24 @@ describe('recommendQuoteAction', () => {
     expect(recommendQuoteAction({ ...accepted, jobId: 'job-1', jobFinished: false }).key).toBe('open_job');
     expect(recommendQuoteAction({ ...accepted, jobId: 'job-1', jobFinished: true }).key).toBe('invoice');
     expect(recommendQuoteAction({ ...accepted, jobId: 'job-1', invoiceId: 'inv-1', jobFinished: true }).key).toBe('open_job');
+    expect(recommendQuoteAction({
+      ...accepted,
+      jobId: 'job-1',
+      jobFinished: false,
+      jobStatus: 'cancelled',
+    }).detail).not.toMatch(/Finish the job on site/i);
+    expect(recommendQuoteAction({
+      ...accepted,
+      jobId: 'job-1',
+      jobFinished: false,
+      jobStatus: 'cancelled',
+    }).detail).toMatch(/cancelled/i);
+    expect(recommendQuoteAction({
+      ...accepted,
+      jobId: 'job-1',
+      invoiceId: 'inv-1',
+      jobFinished: false,
+    }).detail).toMatch(/already has a job and an invoice/i);
   });
 
   it('leaves declined and expired alone', () => {

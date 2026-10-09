@@ -22,14 +22,21 @@ describe('FIX-5b phone taps — guards', () => {
     expect(css).toContain('clamp(28px');
   });
 
-  it('P1-5: job bill table keeps Charge and Line visible on phone', () => {
+  it('P1-5: phone job bill stacks Qty Unit Total and keeps Edit reachable', () => {
     const css = src('src/index.css');
     const panel = src('src/components/jobs/JobCostingPanel.tsx');
     expect(panel).toContain('job-bill-lines-table');
-    expect(css).toContain('#job-bill .job-bill-lines-table th:nth-child(8)');
-    expect(css).toContain('#job-bill .job-bill-lines-table th:nth-child(9)');
+    expect(panel).toContain('job-bill-line-phone-stack');
+    expect(panel).toContain('job-bill-line-btn-edit');
+    expect(panel).toContain('aria-label="Edit line"');
     expect(css).toContain('table-layout: fixed');
     expect(css).toContain('overflow-x: hidden');
+    expect(css).toContain('.job-bill-line-phone-stack');
+    expect(css).toContain('.job-bill-line-btn');
+    expect(css).toMatch(/min-height:\s*44px/);
+    expect(css).not.toMatch(
+      /#job-bill \.job-bill-lines-table th:nth-child\(10\)[\s\S]{0,120}display:\s*none/,
+    );
   });
 
   it('P1-6: converted quote with open job shows Open job on list and editor', () => {

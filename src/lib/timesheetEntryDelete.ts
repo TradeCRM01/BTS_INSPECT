@@ -168,6 +168,15 @@ export async function deleteUnbilledTimesheetEntry(
     throw delErr;
   }
   if (!deleted?.length) {
+    const { data: stillThere, error: readErr } = await client
+      .from('timesheet_entries')
+      .select('id')
+      .eq('id', entry.id)
+      .maybeSingle();
+    if (readErr) throw readErr;
+    if (stillThere) {
+      throw new Error(TIMESHEET_ENTRY_DELETE_PERMISSION);
+    }
     throw new Error(TIMESHEET_ENTRY_DELETE_ALREADY);
   }
   await recomputeTimesheetTotalMinutes(client, entry.timesheet_id);

@@ -21,10 +21,15 @@ export type QuoteActionContext = {
   jobId: string | null | undefined;
   invoiceId: string | null | undefined;
   jobFinished?: boolean;
+  jobStatus?: string | null;
 };
 
 export function quoteJobIsFinished(jobStatus: string | null | undefined): boolean {
   return jobStatus === 'completed';
+}
+
+export function quoteJobIsCancelled(jobStatus: string | null | undefined): boolean {
+  return jobStatus === 'cancelled';
 }
 
 export type RecommendedQuoteAction = {
@@ -58,6 +63,7 @@ export function quoteActionContext(quote: {
     jobId: quote.job_id ?? null,
     invoiceId: quote.invoice_id ?? null,
     jobFinished: quote.job_id ? quoteJobIsFinished(quote.job_status) : true,
+    jobStatus: quote.job_status ?? null,
   };
 }
 
@@ -102,7 +108,21 @@ export function recommendQuoteAction(ctx: QuoteActionContext): RecommendedQuoteA
       detail: 'Create the job from this quote. You can invoice it next.',
     };
   }
+  if (quoteJobIsCancelled(ctx.jobStatus)) {
+    return {
+      key: 'open_job',
+      label: 'Open job',
+      detail: 'This job was cancelled.',
+    };
+  }
   if (ctx.jobFinished === false) {
+    if (ctx.invoiceId) {
+      return {
+        key: 'open_job',
+        label: 'Open job',
+        detail: 'This quote already has a job and an invoice. Finish the job on site when you are ready.',
+      };
+    }
     return {
       key: 'open_job',
       label: 'Open job',

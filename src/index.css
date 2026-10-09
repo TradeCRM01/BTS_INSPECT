@@ -5358,11 +5358,27 @@
     #job-bill .job-bill-lines-table td:nth-child(5),
     #job-bill .job-bill-lines-table th:nth-child(6),
     #job-bill .job-bill-lines-table td:nth-child(6),
+    #job-bill .job-bill-lines-table th:nth-child(5),
+    #job-bill .job-bill-lines-table td:nth-child(5),
     #job-bill .job-bill-lines-table th:nth-child(7),
     #job-bill .job-bill-lines-table td:nth-child(7),
-    #job-bill .job-bill-lines-table th:nth-child(10),
-    #job-bill .job-bill-lines-table td:nth-child(10) {
+    #job-bill .job-bill-lines-table th:nth-child(8),
+    #job-bill .job-bill-lines-table td:nth-child(8),
+    #job-bill .job-bill-lines-table th:nth-child(9),
+    #job-bill .job-bill-lines-table td:nth-child(9) {
       display: none;
+    }
+
+    #job-bill .job-bill-lines-table thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
     #job-bill .job-bill-lines-table th,
@@ -5371,11 +5387,65 @@
       padding-right: 8px;
     }
 
-    #job-bill .job-bill-lines-table th:nth-child(8),
-    #job-bill .job-bill-lines-table th:nth-child(9),
-    #job-bill .job-bill-lines-table td:nth-child(8),
-    #job-bill .job-bill-lines-table td:nth-child(9) {
+    #job-bill .job-bill-line-phone-stack {
+      display: block;
+      margin-top: 8px;
+    }
+
+    #job-bill .job-bill-line-phone-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, max-content);
+      align-items: baseline;
+      gap: 12px;
+      padding: 4px 0;
+    }
+
+    #job-bill .job-bill-line-phone-row dt {
+      margin: 0;
+      color: #5b6b7c;
+      font-family: Rajdhani, sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    #job-bill .job-bill-line-phone-row dd {
+      margin: 0;
+      text-align: right;
+      color: #0a2540;
+      font-weight: 600;
+    }
+
+    #job-bill .job-bill-line-phone-total {
+      font-weight: 700;
+    }
+
+    #job-bill .job-bill-line-actions {
+      vertical-align: top;
       white-space: nowrap;
+    }
+
+    #job-bill .job-bill-line-btn {
+      min-width: 44px;
+      min-height: 44px;
+      border: 1px solid #e5e7eb;
+      background: #fffdf8;
+    }
+  }
+
+  @media (min-width: 640px) {
+    #job-bill .job-bill-line-phone-stack {
+      display: none;
+    }
+
+    #job-bill .job-bill-line-btn {
+      min-width: 28px;
+      min-height: 28px;
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: transparent;
     }
   }
 

@@ -660,6 +660,20 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
                 <td className="px-3 py-2 text-[#4A5568] text-xs">{c.charge_type || '—'}</td>
                 <td className="px-3 py-2 text-[#1A1A1A] job-bill-line-desc">
                   <span className="job-bill-line-desc-text">{c.description || c.charge_type || '—'}</span>
+                  <dl className="job-bill-line-phone-stack" aria-label="Line amounts">
+                    <div className="job-bill-line-phone-row">
+                      <dt>Qty</dt>
+                      <dd>{c.quantity}</dd>
+                    </div>
+                    <div className="job-bill-line-phone-row">
+                      <dt>Unit</dt>
+                      <dd>{formatMoney(c.unit_price || c.unit_cost)}</dd>
+                    </div>
+                    <div className="job-bill-line-phone-row">
+                      <dt>Total</dt>
+                      <dd className="job-bill-line-phone-total">{formatMoney(c.total_price || c.total_cost)}</dd>
+                    </div>
+                  </dl>
                   {lineNeedsLabourRate(c) ? (
                     <span className="job-bill-no-rate-stack">
                       <span className="job-bill-no-rate-flag">No rate</span>
@@ -686,17 +700,17 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
                   {formatMoney(c.unit_price || c.unit_cost)}
                 </td>
                 <td className="px-3 py-2 text-right font-semibold text-[#0A2540]">{formatMoney(c.total_price || c.total_cost)}</td>
-                <td className="px-3 py-2">
-                  <div className="flex items-center gap-0.5">
+                <td className="px-3 py-2 job-bill-line-actions">
+                  <div className="job-bill-line-action-btns flex items-center gap-1">
                     <button type="button" onClick={() => startEdit(c)}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-blue-50 hover:text-[#2E75B6]"
-                      title="Edit line"><Pencil size={14} /></button>
+                      className="job-bill-line-btn job-bill-line-btn-edit flex items-center justify-center rounded-lg text-gray-600 hover:bg-blue-50 hover:text-[#2E75B6]"
+                      title="Edit line" aria-label="Edit line"><Pencil size={16} /></button>
                     <button type="button" onClick={() => {
                       if (editingId === c.id) resetForm();
                       deleteCost.mutate(c.id);
                     }}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600"
-                      title="Delete"><Trash2 size={14} /></button>
+                      className="job-bill-line-btn job-bill-line-btn-delete flex items-center justify-center rounded-lg text-gray-600 hover:bg-red-50 hover:text-red-600"
+                      title="Delete line" aria-label="Delete line"><Trash2 size={16} /></button>
                   </div>
                 </td>
               </tr>

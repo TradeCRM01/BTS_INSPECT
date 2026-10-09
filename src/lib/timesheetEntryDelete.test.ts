@@ -173,6 +173,11 @@ describe('timesheet entry delete — FIX-5a C4', () => {
                 select: async () => ({ data: [], error: null }),
               }),
             }),
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({ data: null, error: null }),
+              }),
+            }),
           };
         }
         throw new Error(`unexpected ${table}`);
@@ -186,6 +191,41 @@ describe('timesheet entry delete — FIX-5a C4', () => {
         end_time: '2026-10-06T09:00:00.000Z',
       }),
     ).rejects.toThrow(TIMESHEET_ENTRY_DELETE_ALREADY);
+
+    const blockedClient = {
+      from: (table: string) => {
+        if (table === 'job_costs') {
+          return {
+            select: () => ({
+              eq: () => Promise.resolve({ count: 0, error: null }),
+            }),
+          };
+        }
+        if (table === 'timesheet_entries') {
+          return {
+            delete: () => ({
+              eq: () => ({
+                select: async () => ({ data: [], error: null }),
+              }),
+            }),
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({ data: { id: 'e1' }, error: null }),
+              }),
+            }),
+          };
+        }
+        throw new Error(`unexpected ${table}`);
+      },
+    };
+    await expect(
+      deleteUnbilledTimesheetEntry(blockedClient as never, {
+        id: 'e1',
+        timesheet_id: 'ts-1',
+        start_time: '2026-10-06T08:00:00.000Z',
+        end_time: '2026-10-06T09:00:00.000Z',
+      }),
+    ).rejects.toThrow(TIMESHEET_ENTRY_DELETE_PERMISSION);
   });
 
   it('audit delete throws Already deleted on a second delete call', async () => {
