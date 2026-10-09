@@ -1,7 +1,11 @@
-import { useState, useMemo, useRef, memo, useEffect, Fragment } from 'react';
+import { useState, useMemo, useRef, memo, useEffect, Fragment, type ReactNode } from 'react';
 import type { JobWithClient } from '../../types/crm';
 import { JOB_STATUS_LABELS, JOB_STATUS_RAIL, JOB_STATUS_STYLES } from '../../types/crm';
 import { getReadableText, pickEmployeeColor } from '../../lib/jobColors';
+import {
+  PHONE_UNSCHEDULED_EXPANDED_DEFAULT,
+  phoneUnscheduledChipLabel,
+} from '../../lib/schedulePhoneUnscheduled';
 import { colors } from '../../lib/colors';
 import { OpsStatus, opsSiteLabel } from '../ui/OpsCard';
 import {
@@ -137,18 +141,91 @@ const JobBlock = memo(function JobBlock({
 
 // ── Unscheduled tray (jobs that would otherwise vanish) ──────────
 
-export const NeedsDateRail = memo(function NeedsDateRail({
-  jobs, teamMembers, onJobClick, onDragStart, alwaysShow = false, className = '',
-  selectedId = null, onOpenJob,
-}: {
+type UnscheduledRailProps = {
   jobs: JobWithClient[];
   teamMembers?: TeamMember[];
   onJobClick: (job: JobWithClient) => void;
   onDragStart: (e: React.DragEvent, jobId: string) => void;
-  alwaysShow?: boolean;
-  className?: string;
   selectedId?: string | null;
   onOpenJob?: (job: JobWithClient) => void;
+};
+
+function UnscheduledJobCards({
+  jobs, teamMembers, onJobClick, onDragStart, selectedId = null, onOpenJob,
+}: UnscheduledRailProps) {
+  return (
+    <>
+      {jobs.map(job => {
+        const site = opsSiteLabel(job.address, job.client_address);
+        const selected = selectedId === job.id;
+        return (
+          <div
+            key={job.id}
+            role="button"
+            tabIndex={0}
+            draggable
+            aria-pressed={selected}
+            onDragStart={e => onDragStart(e, job.id)}
+            onClick={() => onJobClick(job)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onJobClick(job);
+              }
+            }}
+            data-schedule-job={job.id}
+            data-schedule-rail-job={job.id}
+            className={`ops-card job-cal-host ops-card-hover w-full text-left active:scale-[0.98] cursor-pointer ${
+              selected ? 'is-on' : ''
+            }`}
+            style={{ borderLeftWidth: 3, borderLeftColor: JOB_STATUS_RAIL[job.status] }}
+          >
+            <div className="ops-card-body">
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <p className="hub-schedule-ref truncate">{formatJobRef(job)} | {site}</p>
+                <div className="flex items-center gap-1 shrink-0">
+                  <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
+                  {onOpenJob ? (
+                    <a
+                      href={scheduleJobHref(job.id)}
+                      data-schedule-open-job={job.id}
+                      className="hub-schedule-next"
+                      onClick={e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onOpenJob(job);
+                      }}
+                      onPointerDown={e => e.stopPropagation()}
+                    >
+                      Open
+                    </a>
+                  ) : null}
+                  <JobCalendarOverflow
+                    job={job}
+                    site={calendarSite(job.address, job.client_address)}
+                    members={teamMembers}
+                  />
+                </div>
+              </div>
+              <div className="ops-card-footer">
+                <span className="hub-schedule-next">Set a date</span>
+              </div>
+              {job.client_name && <p className="ops-meta mt-1.5 truncate">{job.client_name}</p>}
+              {job.title && <p className="ops-meta mt-0.5 truncate">{job.title}</p>}
+            </div>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+export const NeedsDateRail = memo(function NeedsDateRail({
+  jobs, teamMembers, onJobClick, onDragStart, alwaysShow = false, className = '',
+  selectedId = null, onOpenJob,
+}: UnscheduledRailProps & {
+  alwaysShow?: boolean;
+  className?: string;
 }) {
   if (jobs.length === 0 && !alwaysShow) return null;
 
@@ -162,69 +239,56 @@ export const NeedsDateRail = memo(function NeedsDateRail({
         {jobs.length === 0 ? (
           <p className="ops-meta ops-tray-empty px-1 py-2">No unscheduled jobs.</p>
         ) : (
-          jobs.map(job => {
-            const site = opsSiteLabel(job.address, job.client_address);
-            const selected = selectedId === job.id;
-            return (
-              <div
-                key={job.id}
-                role="button"
-                tabIndex={0}
-                draggable
-                aria-pressed={selected}
-                onDragStart={e => onDragStart(e, job.id)}
-                onClick={() => onJobClick(job)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onJobClick(job);
-                  }
-                }}
-                data-schedule-job={job.id}
-                data-schedule-rail-job={job.id}
-                className={`ops-card job-cal-host ops-card-hover w-full text-left active:scale-[0.98] cursor-pointer ${
-                  selected ? 'is-on' : ''
-                }`}
-                style={{ borderLeftWidth: 3, borderLeftColor: JOB_STATUS_RAIL[job.status] }}
-              >
-                <div className="ops-card-body">
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <p className="hub-schedule-ref truncate">{formatJobRef(job)} | {site}</p>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <OpsStatus className={JOB_STATUS_STYLES[job.status]}>{JOB_STATUS_LABELS[job.status]}</OpsStatus>
-                      {onOpenJob ? (
-                        <a
-                          href={scheduleJobHref(job.id)}
-                          data-schedule-open-job={job.id}
-                          className="hub-schedule-next"
-                          onClick={e => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onOpenJob(job);
-                          }}
-                          onPointerDown={e => e.stopPropagation()}
-                        >
-                          Open
-                        </a>
-                      ) : null}
-                      <JobCalendarOverflow
-                        job={job}
-                        site={calendarSite(job.address, job.client_address)}
-                        members={teamMembers}
-                      />
-                    </div>
-                  </div>
-                  <div className="ops-card-footer">
-                    <span className="hub-schedule-next">Set a date</span>
-                  </div>
-                  {job.client_name && <p className="ops-meta mt-1.5 truncate">{job.client_name}</p>}
-                  {job.title && <p className="ops-meta mt-0.5 truncate">{job.title}</p>}
-                </div>
-              </div>
-            );
-          })
+          <UnscheduledJobCards
+            jobs={jobs}
+            teamMembers={teamMembers}
+            onJobClick={onJobClick}
+            onDragStart={onDragStart}
+            selectedId={selectedId}
+            onOpenJob={onOpenJob}
+          />
         )}
       </div>
+    </div>
+  );
+});
+
+export const PhoneUnscheduledTray = memo(function PhoneUnscheduledTray({
+  jobs, teamMembers, onJobClick, onDragStart, selectedId = null, onOpenJob,
+}: UnscheduledRailProps) {
+  const [expanded, setExpanded] = useState(PHONE_UNSCHEDULED_EXPANDED_DEFAULT);
+  if (jobs.length === 0) return null;
+
+  return (
+    <div
+      className="hub-phone-unscheduled"
+      data-schedule-phone-unscheduled="1"
+      data-schedule-phone-section="unscheduled"
+    >
+      <button
+        type="button"
+        className="hub-phone-unscheduled-chip"
+        data-schedule-unscheduled-chip="1"
+        aria-expanded={expanded}
+        onClick={() => setExpanded(open => !open)}
+      >
+        {phoneUnscheduledChipLabel(jobs.length)}
+      </button>
+      {expanded ? (
+        <div
+          className="hub-phone-unscheduled-list p-2 space-y-2"
+          data-schedule-unscheduled-list="1"
+        >
+          <UnscheduledJobCards
+            jobs={jobs}
+            teamMembers={teamMembers}
+            onJobClick={onJobClick}
+            onDragStart={onDragStart}
+            selectedId={selectedId}
+            onOpenJob={onOpenJob}
+          />
+        </div>
+      ) : null}
     </div>
   );
 });
@@ -296,12 +360,13 @@ export const PhoneDayList = memo(function PhoneDayList({
 });
 
 export const PhoneWeekList = memo(function PhoneWeekList({
-  jobs, teamMembers, currentDate, onJobClick,
+  jobs, teamMembers, currentDate, onJobClick, agendaFooter = null,
 }: {
   jobs: JobWithClient[];
   teamMembers?: TeamMember[];
   currentDate: Date;
   onJobClick: (job: JobWithClient) => void;
+  agendaFooter?: ReactNode;
 }) {
   const days = useMemo(
     () => scheduleWeekAgenda(jobs, currentDate),
@@ -358,6 +423,14 @@ export const PhoneWeekList = memo(function PhoneWeekList({
           </section>
         );
       })}
+      {agendaFooter ? (
+        <div
+          className="hub-phone-unscheduled-footer"
+          data-schedule-unscheduled-after-week="1"
+        >
+          {agendaFooter}
+        </div>
+      ) : null}
     </div>
   );
 });

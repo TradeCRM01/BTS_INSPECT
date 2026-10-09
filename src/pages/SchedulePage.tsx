@@ -15,7 +15,7 @@ import { ScheduleJobSearch } from '../components/crm/ScheduleJobSearch';
 import { ScheduleJobSheet } from '../components/crm/ScheduleJobSheet';
 import { ScheduleBookByVoice } from '../components/crm/ScheduleBookByVoice';
 import {
-  DayBoardView, WeekBoardView, NeedsDateRail, PhoneDayList, PhoneWeekList,
+  DayBoardView, WeekBoardView, NeedsDateRail, PhoneDayList, PhoneWeekList, PhoneUnscheduledTray,
   type TeamMember,
 } from '../components/crm/BoardViews';
 import { asTeamIds, placePickedHint, placePickedOnCell, rememberDraggedJob, rescheduleJobPatch, type JobDropPayload } from '../lib/dispatch';
@@ -38,6 +38,11 @@ import {
   format, startOfWeek, endOfWeek,
   addDays, addWeeks,
 } from 'date-fns';
+import {
+  FIX3A_LOOK_ANCHOR,
+  FIX3A_SCHEDULE_LOOK,
+  fix3aLookJobs,
+} from '../lib/fix3aScheduleLookSeed';
 
 /** Signed week-board frame seed — Schedule look only, not a live company. */
 const WEEK_BOARD_LOOK = 'week-board';
@@ -381,9 +386,13 @@ export function SchedulePage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const lookWeekBoard = searchParams.get('look') === WEEK_BOARD_LOOK;
+  const lookParam = searchParams.get('look');
+  const lookWeekBoard = lookParam === WEEK_BOARD_LOOK;
+  const lookFix3aBoard = lookParam === FIX3A_SCHEDULE_LOOK;
+  const boardLookActive = lookWeekBoard || lookFix3aBoard;
   const lookEarlyBar = lookWeekBoard && searchParams.get('early') === '1';
   const [currentDate, setCurrentDate] = useState(() => {
+    if (lookFix3aBoard) return FIX3A_LOOK_ANCHOR;
     if (lookWeekBoard) {
       return parseScheduleView(searchParams.get('view')) === 'day'
         ? WEEK_BOARD_LOOK_DAY_ANCHOR
@@ -455,7 +464,7 @@ export function SchedulePage() {
   const applySchedule = useCallback((mode: ScheduleViewMode, date: Date, kind: ScheduleNavKind = 'user') => {
     setViewMode(mode);
     setCurrentDate(date);
-    if (lookWeekBoard) return;
+    if (boardLookActive) return;
     const step = scheduleLocationStep({
       kind,
       currentSearch: searchParams.toString(),
@@ -466,7 +475,7 @@ export function SchedulePage() {
     });
     if (!step.write) return;
     setSearchParams(scheduleSearchFromState(searchParams, mode, date), { replace: step.replace });
-  }, [lookWeekBoard, searchParams, setSearchParams]);
+  }, [boardLookActive, searchParams, setSearchParams]);
 
   const setView = useCallback((mode: ScheduleViewMode) => {
     applySchedule(mode, currentDate, 'user');
@@ -483,13 +492,13 @@ export function SchedulePage() {
   }, []);
 
   useEffect(() => {
-    if (lookWeekBoard) return;
+    if (boardLookActive) return;
     const next = scheduleStateFromSearch(searchParams);
     setViewMode(prev => (prev === next.view ? prev : next.view));
     if (!next.date) return;
     const key = scheduleDateKey(next.date);
     setCurrentDate(prev => (scheduleDateKey(prev) === key ? prev : next.date!));
-  }, [lookWeekBoard, searchParams]);
+  }, [boardLookActive, searchParams]);
 
   const { data: teamMembers } = useQuery<TeamMember[]>({
     queryKey: ['team-members-schedule'],
@@ -585,17 +594,18 @@ export function SchedulePage() {
   }, [jobQuery]);
 
   const lookSearchHits = useMemo(() => {
-    if (!lookWeekBoard || !debouncedQuery) return [];
-    return withScheduleJobPatches(weekBoardLookJobs())
+    if (!boardLookActive || !debouncedQuery) return [];
+    const seed = lookFix3aBoard ? fix3aLookJobs() : weekBoardLookJobs();
+    return withScheduleJobPatches(seed)
       .filter(job => jobMatchesSearch(job, debouncedQuery));
-  }, [lookWeekBoard, debouncedQuery]);
+  }, [boardLookActive, lookFix3aBoard, debouncedQuery]);
 
   const { data: liveSearchHits = [], isFetching: searchLoading } = useQuery({
     queryKey: ['schedule-job-search', debouncedQuery],
     queryFn: () => searchScheduleJobs(debouncedQuery),
-    enabled: !!profile && !lookWeekBoard && debouncedQuery.length > 0,
+    enabled: !!profile && !boardLookActive && debouncedQuery.length > 0,
   });
-  const searchHits = lookWeekBoard ? lookSearchHits : liveSearchHits;
+  const searchHits = boardLookActive ? lookSearchHits : liveSearchHits;
 
   useEffect(() => {
     if (preselectClient) {
@@ -802,13 +812,14 @@ export function SchedulePage() {
 
   const boardJobs = useMemo(
     () => {
+      if (lookFix3aBoard) return withScheduleJobPatches(fix3aLookJobs());
       if (!lookWeekBoard) return jobs ?? [];
       const seed = withScheduleJobPatches(weekBoardLookJobs());
       return lookEarlyBar ? [...seed, ...weekBoardLookEarlyJobs()] : seed;
     },
-    [lookWeekBoard, lookEarlyBar, jobs],
+    [lookFix3aBoard, lookWeekBoard, lookEarlyBar, jobs],
   );
-  const boardCrew = lookWeekBoard ? WEEK_BOARD_LOOK_CREW : (teamMembers ?? []);
+  const boardCrew = boardLookActive ? WEEK_BOARD_LOOK_CREW : (teamMembers ?? []);
 
   const openScheduleSheet = useCallback((
     job: JobWithClient,
@@ -839,8 +850,8 @@ export function SchedulePage() {
         if (local.kind !== 'one') {
           let extra: JobWithClient[] = [];
           try {
-            extra = lookWeekBoard
-              ? withScheduleJobPatches(weekBoardLookJobs()).filter(job => (
+            extra = boardLookActive
+              ? withScheduleJobPatches(lookFix3aBoard ? fix3aLookJobs() : weekBoardLookJobs()).filter(job => (
                 jobMatchesSearch(job, parsed.subjectToken ?? '')
               ))
               : await searchScheduleJobs(parsed.subjectToken);
@@ -857,7 +868,7 @@ export function SchedulePage() {
         }
       }
       const clients = new Map<string, { id: string; name: string }>();
-      if (!lookWeekBoard) {
+      if (!boardLookActive) {
         const { data: companyClients } = await supabase
           .from('clients')
           .select('id, name')
@@ -915,7 +926,7 @@ export function SchedulePage() {
     } finally {
       setVoiceApplying(false);
     }
-  }, [boardCrew, boardJobs, lookWeekBoard, openScheduleSheet]);
+  }, [boardCrew, boardJobs, boardLookActive, lookFix3aBoard, openScheduleSheet]);
 
   const pickVoiceJob = useCallback((jobId: string) => {
     const job = voiceJobPicks.find(item => item.id === jobId);
@@ -944,9 +955,13 @@ export function SchedulePage() {
   }, [openScheduleSheet, voiceHints, voiceJobPicks]);
 
   useEffect(() => {
+    if (lookFix3aBoard) {
+      setCurrentDate(FIX3A_LOOK_ANCHOR);
+      return;
+    }
     if (!lookWeekBoard) return;
     setCurrentDate(viewMode === 'day' ? WEEK_BOARD_LOOK_DAY_ANCHOR : WEEK_BOARD_LOOK_ANCHOR);
-  }, [lookWeekBoard, viewMode]);
+  }, [lookFix3aBoard, lookWeekBoard, viewMode]);
 
   const { needsDate, onBoard } = useMemo(
     () => partitionScheduleJobs(boardJobs),
@@ -1143,7 +1158,7 @@ export function SchedulePage() {
           </div>
         )}
 
-        {!lookWeekBoard && isLoading ? (
+        {!boardLookActive && isLoading ? (
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : (
           <>
@@ -1189,12 +1204,25 @@ export function SchedulePage() {
                 )}
                 {viewMode === 'week' ? (
                   <>
-                    <div className="lg:hidden hub-week-mount">
+                    <div
+                      className="lg:hidden hub-week-mount"
+                      data-schedule-phone-section="booked"
+                    >
                       <PhoneWeekList
                         jobs={onBoard}
                         teamMembers={boardCrew}
                         currentDate={currentDate}
                         onJobClick={job => openJob(job.id)}
+                        agendaFooter={(
+                          <PhoneUnscheduledTray
+                            jobs={needsDate}
+                            teamMembers={boardCrew}
+                            selectedId={pickedJob?.id ?? null}
+                            onJobClick={handlePickJob}
+                            onOpenJob={job => openJob(job.id)}
+                            onDragStart={handleRailDragStart}
+                          />
+                        )}
                       />
                     </div>
                     <div className="hidden lg:flex hub-week-mount">
@@ -1212,7 +1240,10 @@ export function SchedulePage() {
                   </>
                 ) : (
                   <>
-                    <div className="lg:hidden hub-week-mount">
+                    <div
+                      className="lg:hidden hub-week-mount hub-phone-board-scroll"
+                      data-schedule-phone-section="booked"
+                    >
                       <PhoneDayList
                         jobs={onBoard}
                         teamMembers={boardCrew}
@@ -1222,6 +1253,16 @@ export function SchedulePage() {
                         onJobDrop={placeExisting}
                         onJobResize={(jobId, startTime, endTime) => resizeJob.mutate({ jobId, startTime, endTime })}
                       />
+                      <div data-schedule-unscheduled-after-week="1">
+                        <PhoneUnscheduledTray
+                          jobs={needsDate}
+                          teamMembers={boardCrew}
+                          selectedId={pickedJob?.id ?? null}
+                          onJobClick={handlePickJob}
+                          onOpenJob={job => openJob(job.id)}
+                          onDragStart={handleRailDragStart}
+                        />
+                      </div>
                     </div>
                     <div className="hidden lg:flex hub-week-mount">
                       <DayBoardView
@@ -1238,6 +1279,7 @@ export function SchedulePage() {
                   </>
                 )}
                 <NeedsDateRail
+                  className="hidden lg:block"
                   jobs={needsDate}
                   teamMembers={boardCrew}
                   selectedId={pickedJob?.id ?? null}
@@ -1286,7 +1328,7 @@ export function SchedulePage() {
           presetStartTime={voiceNewJob?.prefill.startTime ?? null}
           presetAddress={voiceNewJob?.draft.address ?? null}
           presetClientName={voiceNewJob && !voiceNewJob.draft.clientId ? voiceNewJob.draft.clientToken : null}
-          presetTeam={lookWeekBoard ? boardCrew : undefined}
+          presetTeam={boardLookActive ? boardCrew : undefined}
           fromBooking={voiceNewJob?.fromBooking ?? null}
           matchHints={voiceNewJob?.hints ?? null}
           onClose={handleCloseForm}

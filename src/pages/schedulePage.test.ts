@@ -98,6 +98,32 @@ describe('schedule page week/day board', () => {
     expect(page).not.toContain("next.delete('date')");
   });
 
+  it('puts booked jobs before a collapsed unscheduled chip on phone only', () => {
+    const page = src('src/pages/SchedulePage.tsx');
+    const board = src('src/components/crm/BoardViews.tsx');
+    expect(page).toContain('PhoneUnscheduledTray');
+    expect(page).toContain('data-schedule-phone-section="booked"');
+    expect(page).toContain('agendaFooter');
+    expect(page).toContain('data-schedule-unscheduled-after-week="1"');
+    expect(page).toContain('hidden lg:block');
+    expect(page).toContain('fix3aScheduleLookSeed');
+    expect(board).toContain('export const PhoneUnscheduledTray');
+    expect(board).toContain('PHONE_UNSCHEDULED_EXPANDED_DEFAULT');
+    expect(board).toContain('phoneUnscheduledChipLabel');
+    expect(board).toContain('data-schedule-unscheduled-chip="1"');
+    expect(board).toContain('aria-expanded={expanded}');
+    expect(board).toContain('setExpanded(open => !open)');
+    const phoneWeek = board.slice(
+      board.indexOf('export const PhoneWeekList'),
+      board.indexOf('// ── Day Board View'),
+    );
+    const lastDayAt = phoneWeek.lastIndexOf('data-agenda-day=');
+    const footerAt = phoneWeek.indexOf('data-schedule-unscheduled-after-week="1"');
+    expect(lastDayAt).toBeGreaterThan(-1);
+    expect(footerAt).toBeGreaterThan(lastDayAt);
+    expect(src('src/lib/fix3aScheduleLookSeed.ts')).toContain('FIX3A_UNSCHEDULED_SEED');
+  });
+
   it('groups the phone week from existing scheduled_date fields', () => {
     const board = src('src/components/crm/BoardViews.tsx');
     expect(board).toContain('export const PhoneWeekList');
@@ -228,7 +254,8 @@ describe('schedule board cream paper look', () => {
     expect(page).toContain('hub-week-sheet');
     expect(page).toContain('WeekBoardChrome');
     expect(page).toContain('All crews');
-    expect(page).toContain("look') === WEEK_BOARD_LOOK");
+    expect(page).toContain('lookParam === WEEK_BOARD_LOOK');
+    expect(page).toContain('FIX3A_SCHEDULE_LOOK');
     expect(page).toContain("name: 'Dave Hale'");
     expect(page).toContain("name: 'Jack Wieland'");
     expect(page).toContain("name: 'Sam Ortiz'");
