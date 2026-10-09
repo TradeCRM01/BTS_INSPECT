@@ -93,8 +93,9 @@ describe('FIX-5c C3 — save blocks on all time surfaces', () => {
   it('quote convert blocks on AM/PM hint', () => {
     const page = src('src/pages/QuotesPage.tsx');
     expect(page).toContain('convertStartNeedsAmPm');
-    expect(page).toContain('TIME_FIELD_ADD_AM_PM');
+    expect(page).toContain("setErr('')");
     expect(page).toContain('focusQuoteConvertField');
+    expect(page).not.toMatch(/hub-quote-convert-miss[\s\S]{0,80}TIME_FIELD_ADD_AM_PM/);
   });
 
   it('dispatch does not persist while AM/PM hint is active', () => {
