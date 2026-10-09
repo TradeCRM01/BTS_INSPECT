@@ -6,12 +6,16 @@ import {
   resetTimeFieldRendersMeridiemProbeCache,
 } from './timeFieldMeridiemProbe';
 import {
+  applyTimeFieldDigitBatch,
   timeFieldHintKind,
   timeFieldHintRendersLine,
   TIME_FIELD_ADD_AM_PM,
   TIME_FIELD_INCOMPLETE,
   timeFieldValidationMessage,
 } from './timeFieldInput';
+
+const bothSegments = { hourFilled: true, minuteFilled: true };
+const hourOnly = { hourFilled: true, minuteFilled: false };
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -20,6 +24,44 @@ function src(rel: string): string {
 afterEach(() => {
   setTimeFieldRendersMeridiemProbeOverride(undefined);
   resetTimeFieldRendersMeridiemProbeCache();
+});
+
+describe('FIX-5c C12 — segment persistence (blur, refocus, save refocus)', () => {
+  const base = {
+    value: '',
+    validity: { badInput: true },
+    rendersMeridiem: true,
+    meridiemEngagedSinceFocus: false,
+  };
+
+  it('12h both segments filled → AM/PM (survives blur/refocus/save semantics)', () => {
+    expect(timeFieldHintKind({ ...base, segments: bothSegments })).toBe('ampm');
+  });
+
+  it('hour only → generic incomplete', () => {
+    expect(timeFieldHintKind({ ...base, segments: hourOnly })).toBe('incomplete');
+  });
+
+  it('split session end state (09 then 30) → AM/PM', () => {
+    let h = 0;
+    let m = 0;
+    ({ hourDigits: h, minuteDigits: m } = applyTimeFieldDigitBatch(h, m, 'hour', 2));
+    expect(timeFieldHintKind({
+      ...base,
+      segments: { hourFilled: h >= 2, minuteFilled: m >= 2 },
+    })).toBe('incomplete');
+    ({ hourDigits: h, minuteDigits: m } = applyTimeFieldDigitBatch(h, m, 'minute', 2));
+    expect(timeFieldHintKind({
+      ...base,
+      segments: { hourFilled: h >= 2, minuteFilled: m >= 2 },
+    })).toBe('ampm');
+  });
+
+  it('TimeFieldInput does not reset segments on focus', () => {
+    const field = src('src/components/ui/TimeFieldInput.tsx');
+    expect(field).toMatch(/onFocus=\{[^}]*syncHint/);
+    expect(field).not.toMatch(/onFocus=\{[^}]*resetTypingSession/);
+  });
 });
 
 describe('FIX-5c C11 — hint line in 24h vs 12h', () => {
@@ -63,7 +105,7 @@ describe('FIX-5c C8 — hint copy without minutes heuristic', () => {
       timeFieldHintKind({
         value: '',
         validity: { badInput: true },
-        typedDigitCount: 4,
+        segments: bothSegments,
         rendersMeridiem: true,
         meridiemEngagedSinceFocus: false,
       }),
@@ -75,7 +117,7 @@ describe('FIX-5c C8 — hint copy without minutes heuristic', () => {
       timeFieldHintKind({
         value: '',
         validity: { badInput: true },
-        typedDigitCount: 4,
+        segments: bothSegments,
         rendersMeridiem: true,
         meridiemEngagedSinceFocus: false,
       }),
@@ -87,7 +129,7 @@ describe('FIX-5c C8 — hint copy without minutes heuristic', () => {
       timeFieldHintKind({
         value: '',
         validity: { badInput: true },
-        typedDigitCount: 4,
+        segments: bothSegments,
         rendersMeridiem: true,
         meridiemEngagedSinceFocus: false,
       }),
@@ -99,7 +141,7 @@ describe('FIX-5c C8 — hint copy without minutes heuristic', () => {
       timeFieldHintKind({
         value: '',
         validity: { badInput: true },
-        typedDigitCount: 4,
+        segments: bothSegments,
         rendersMeridiem: false,
         meridiemEngagedSinceFocus: false,
       }),
@@ -111,19 +153,31 @@ describe('FIX-5c C8 — hint copy without minutes heuristic', () => {
       timeFieldHintKind({
         value: '',
         validity: { badInput: true },
-        typedDigitCount: 4,
+        segments: bothSegments,
         rendersMeridiem: true,
         meridiemEngagedSinceFocus: true,
       }),
     ).toBe('incomplete');
   });
 
-  it('soft: split session with two digits → generic', () => {
+  it('soft: split session with hour only → generic', () => {
     expect(
       timeFieldHintKind({
         value: '',
         validity: { badInput: true },
-        typedDigitCount: 2,
+        segments: hourOnly,
+        rendersMeridiem: true,
+        meridiemEngagedSinceFocus: false,
+      }),
+    ).toBe('incomplete');
+  });
+
+  it('r4: minute segment only → generic', () => {
+    expect(
+      timeFieldHintKind({
+        value: '',
+        validity: { badInput: true },
+        segments: { hourFilled: false, minuteFilled: true },
         rendersMeridiem: true,
         meridiemEngagedSinceFocus: false,
       }),

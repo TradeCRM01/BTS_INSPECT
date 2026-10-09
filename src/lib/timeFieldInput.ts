@@ -20,6 +20,59 @@ export function isValidCompleteTimeValue(value: string): boolean {
 
 export type TimeFieldHintKind = 'none' | 'ampm' | 'incomplete';
 
+export type TimeFieldSegmentProgress = {
+  hourFilled: boolean;
+  minuteFilled: boolean;
+};
+
+export function timeFieldSegmentProgressFromCounts(
+  hourDigits: number,
+  minuteDigits: number,
+): TimeFieldSegmentProgress {
+  return {
+    hourFilled: hourDigits >= 2,
+    minuteFilled: minuteDigits >= 2,
+  };
+}
+
+/** Which segment the caret is editing on a native time control (hh:mm). */
+export function timeFieldActiveSegment(el: HTMLInputElement): 'hour' | 'minute' {
+  const pos = el.selectionStart;
+  if (pos !== null && pos >= 3) return 'minute';
+  return 'hour';
+}
+
+export function applyTimeFieldDigitsToSegmentCounts(
+  hourDigits: number,
+  minuteDigits: number,
+  segment: 'hour' | 'minute',
+  digitsAdded: number,
+): { hourDigits: number; minuteDigits: number } {
+  const cap = 2;
+  if (segment === 'hour') {
+    return { hourDigits: Math.min(cap, hourDigits + digitsAdded), minuteDigits };
+  }
+  return { hourDigits, minuteDigits: Math.min(cap, minuteDigits + digitsAdded) };
+}
+
+export function applyTimeFieldDigitBatch(
+  hourDigits: number,
+  minuteDigits: number,
+  startSegment: 'hour' | 'minute',
+  digitCount: number,
+): { hourDigits: number; minuteDigits: number } {
+  let h = hourDigits;
+  let m = minuteDigits;
+  let seg = startSegment;
+  for (let i = 0; i < digitCount; i++) {
+    const next = applyTimeFieldDigitsToSegmentCounts(h, m, seg, 1);
+    h = next.hourDigits;
+    m = next.minuteDigits;
+    if (h >= 2 && seg === 'hour') seg = 'minute';
+  }
+  return { hourDigits: h, minuteDigits: m };
+}
+
 export function timeFieldHintMessage(kind: TimeFieldHintKind): string | null {
   if (kind === 'ampm') return TIME_FIELD_ADD_AM_PM;
   if (kind === 'incomplete') return TIME_FIELD_INCOMPLETE;
@@ -41,28 +94,30 @@ export function timeFieldHintRendersLine(
 export function timeFieldHintKind(input: {
   value: string;
   validity: { badInput: boolean };
-  typedDigitCount: number;
+  segments: TimeFieldSegmentProgress;
   rendersMeridiem: boolean;
   meridiemEngagedSinceFocus: boolean;
 }): TimeFieldHintKind {
   const {
     value,
     validity,
-    typedDigitCount,
+    segments,
     rendersMeridiem,
     meridiemEngagedSinceFocus,
   } = input;
   if (isValidCompleteTimeValue(value)) return 'none';
-  if (typedDigitCount === 0 && !validity.badInput && !value) return 'none';
+  const anySegment = segments.hourFilled || segments.minuteFilled;
+  if (!anySegment && !validity.badInput && !value) return 'none';
 
+  const bothFilled = segments.hourFilled && segments.minuteFilled;
   const ampmCandidate =
     rendersMeridiem
     && validity.badInput
-    && typedDigitCount >= 4
+    && bothFilled
     && !meridiemEngagedSinceFocus;
 
   if (ampmCandidate) return 'ampm';
-  if (typedDigitCount > 0 || validity.badInput || value) return 'incomplete';
+  if (anySegment || validity.badInput || value) return 'incomplete';
   return 'none';
 }
 

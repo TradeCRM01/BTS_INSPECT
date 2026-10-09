@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type Ref } from 'react';
 import { timeFieldRendersMeridiem } from '../../lib/timeFieldMeridiemProbe';
 import {
+  applyTimeFieldDigitBatch,
   isValidCompleteTimeValue,
   shouldBlockTimeFieldEnter,
+  timeFieldActiveSegment,
   timeFieldHintKind,
   timeFieldHintMessage,
   timeFieldHintRendersLine,
+  timeFieldSegmentProgressFromCounts,
   type TimeFieldHintKind,
 } from '../../lib/timeFieldInput';
 
@@ -41,7 +44,8 @@ export function TimeFieldInput({
   className?: string;
 }) {
   const localInputRef = useRef<HTMLInputElement | null>(null);
-  const typedDigitCountRef = useRef(0);
+  const hourDigitsRef = useRef(0);
+  const minuteDigitsRef = useRef(0);
   const meridiemEngagedRef = useRef(false);
   const [hintKind, setHintKind] = useState<TimeFieldHintKind>('none');
   const [rendersMeridiem, setRendersMeridiem] = useState(false);
@@ -49,6 +53,11 @@ export function TimeFieldInput({
   useEffect(() => {
     setRendersMeridiem(timeFieldRendersMeridiem());
   }, []);
+
+  const segmentProgress = useCallback(
+    () => timeFieldSegmentProgressFromCounts(hourDigitsRef.current, minuteDigitsRef.current),
+    [],
+  );
 
   const publishHint = useCallback(
     (hint: TimeFieldHintKind) => {
@@ -63,19 +72,33 @@ export function TimeFieldInput({
       const hint = timeFieldHintKind({
         value: el.value,
         validity: el.validity,
-        typedDigitCount: typedDigitCountRef.current,
+        segments: segmentProgress(),
         rendersMeridiem,
         meridiemEngagedSinceFocus: meridiemEngagedRef.current,
       });
       publishHint(hint);
       el.setCustomValidity('');
     },
-    [publishHint, rendersMeridiem],
+    [publishHint, rendersMeridiem, segmentProgress],
   );
 
   const resetTypingSession = useCallback(() => {
-    typedDigitCountRef.current = 0;
+    hourDigitsRef.current = 0;
+    minuteDigitsRef.current = 0;
     meridiemEngagedRef.current = false;
+  }, []);
+
+  const applyDigits = useCallback((el: HTMLInputElement, digitCount: number) => {
+    if (digitCount <= 0) return;
+    const start = timeFieldActiveSegment(el);
+    const next = applyTimeFieldDigitBatch(
+      hourDigitsRef.current,
+      minuteDigitsRef.current,
+      start,
+      digitCount,
+    );
+    hourDigitsRef.current = next.hourDigits;
+    minuteDigitsRef.current = next.minuteDigits;
   }, []);
 
   const commitFromElement = useCallback(
@@ -121,23 +144,19 @@ export function TimeFieldInput({
         type="time"
         value={value}
         onFocus={() => {
-          resetTypingSession();
           const el = localInputRef.current;
           if (el) syncHint(el);
         }}
         onInput={e => {
           const ie = e.nativeEvent as InputEvent;
           if (ie.data) {
-            typedDigitCountRef.current += countDigitsInText(ie.data);
+            applyDigits(e.currentTarget, countDigitsInText(ie.data));
           }
           commitFromElement(e.currentTarget, { blur: false });
         }}
         onKeyDown={e => {
           if (isMeridiemKey(e.key)) {
             meridiemEngagedRef.current = true;
-          }
-          if (/^\d$/.test(e.key)) {
-            typedDigitCountRef.current += 1;
           }
           if (!shouldBlockTimeFieldEnter(e.key)) return;
           e.preventDefault();
