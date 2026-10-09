@@ -148,10 +148,11 @@ type UnscheduledRailProps = {
   onDragStart: (e: React.DragEvent, jobId: string) => void;
   selectedId?: string | null;
   onOpenJob?: (job: JobWithClient) => void;
+  onSetScheduleDate?: (job: JobWithClient) => void;
 };
 
 function UnscheduledJobCards({
-  jobs, teamMembers, onJobClick, onDragStart, selectedId = null, onOpenJob,
+  jobs, teamMembers, onJobClick, onDragStart, selectedId = null, onOpenJob, onSetScheduleDate,
 }: UnscheduledRailProps) {
   return (
     <>
@@ -208,7 +209,19 @@ function UnscheduledJobCards({
                 </div>
               </div>
               <div className="ops-card-footer">
-                <span className="hub-schedule-next">Set a date</span>
+                <button
+                  type="button"
+                  className="hub-schedule-set-date hub-schedule-next"
+                  data-schedule-set-date={job.id}
+                  onClick={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onSetScheduleDate?.(job);
+                  }}
+                  onPointerDown={e => e.stopPropagation()}
+                >
+                  Set a date
+                </button>
               </div>
               {job.client_name && <p className="ops-meta mt-1.5 truncate">{job.client_name}</p>}
               {job.title && <p className="ops-meta mt-0.5 truncate">{job.title}</p>}
@@ -222,7 +235,7 @@ function UnscheduledJobCards({
 
 export const NeedsDateRail = memo(function NeedsDateRail({
   jobs, teamMembers, onJobClick, onDragStart, alwaysShow = false, className = '',
-  selectedId = null, onOpenJob,
+  selectedId = null, onOpenJob, onSetScheduleDate,
 }: UnscheduledRailProps & {
   alwaysShow?: boolean;
   className?: string;
@@ -246,6 +259,7 @@ export const NeedsDateRail = memo(function NeedsDateRail({
             onDragStart={onDragStart}
             selectedId={selectedId}
             onOpenJob={onOpenJob}
+            onSetScheduleDate={onSetScheduleDate}
           />
         )}
       </div>
@@ -254,7 +268,7 @@ export const NeedsDateRail = memo(function NeedsDateRail({
 });
 
 export const PhoneUnscheduledTray = memo(function PhoneUnscheduledTray({
-  jobs, teamMembers, onJobClick, onDragStart, selectedId = null, onOpenJob,
+  jobs, teamMembers, onJobClick, onDragStart, selectedId = null, onOpenJob, onSetScheduleDate,
 }: UnscheduledRailProps) {
   const [expanded, setExpanded] = useState(PHONE_UNSCHEDULED_EXPANDED_DEFAULT);
   if (jobs.length === 0) return null;
@@ -270,7 +284,10 @@ export const PhoneUnscheduledTray = memo(function PhoneUnscheduledTray({
         className="hub-phone-unscheduled-chip"
         data-schedule-unscheduled-chip="1"
         aria-expanded={expanded}
-        onClick={() => setExpanded(open => !open)}
+        onClick={e => {
+          e.stopPropagation();
+          setExpanded(open => !open);
+        }}
       >
         {phoneUnscheduledChipLabel(jobs.length)}
       </button>
@@ -286,6 +303,7 @@ export const PhoneUnscheduledTray = memo(function PhoneUnscheduledTray({
             onDragStart={onDragStart}
             selectedId={selectedId}
             onOpenJob={onOpenJob}
+            onSetScheduleDate={onSetScheduleDate}
           />
         </div>
       ) : null}
@@ -375,7 +393,8 @@ export const PhoneWeekList = memo(function PhoneWeekList({
   );
 
   return (
-    <div className="hub-week-agenda" data-schedule-week="1" data-week-agenda="1">
+    <div className="hub-phone-week-list" data-schedule-week="1">
+      <div className="hub-week-agenda" data-week-agenda="1">
       {days.map(day => {
         const date = parseISO(`${day.date}T00:00:00`);
         return (
@@ -424,6 +443,7 @@ export const PhoneWeekList = memo(function PhoneWeekList({
           </section>
         );
       })}
+      </div>
       {unscheduledCount > 0 && agendaFooter ? (
         <div
           className="hub-phone-unscheduled-footer"

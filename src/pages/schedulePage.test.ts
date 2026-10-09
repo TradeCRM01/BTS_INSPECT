@@ -112,6 +112,10 @@ describe('schedule page week/day board', () => {
     expect(board).toContain('PHONE_UNSCHEDULED_EXPANDED_DEFAULT');
     expect(board).toContain('phoneUnscheduledChipLabel');
     expect(board).toContain('data-schedule-unscheduled-chip="1"');
+    expect(board).toContain('data-schedule-set-date={job.id}');
+    expect(board).toContain('hub-schedule-set-date');
+    expect(board).toContain('hub-phone-week-list');
+    expect(page).toContain('onSetScheduleDate={job => openScheduleSheet(job)}');
     expect(board).toContain('aria-expanded={expanded}');
     expect(board).toContain('setExpanded(open => !open)');
     const phoneWeek = board.slice(
@@ -119,9 +123,10 @@ describe('schedule page week/day board', () => {
       board.indexOf('// ── Day Board View'),
     );
     const lastDayAt = phoneWeek.lastIndexOf('data-agenda-day=');
+    const agendaClose = phoneWeek.indexOf('</div>', phoneWeek.indexOf('data-week-agenda="1"'));
     const footerAt = phoneWeek.indexOf('data-schedule-unscheduled-after-week="1"');
     expect(lastDayAt).toBeGreaterThan(-1);
-    expect(footerAt).toBeGreaterThan(lastDayAt);
+    expect(footerAt).toBeGreaterThan(agendaClose);
     expect(src('src/lib/fix3aScheduleLookSeed.ts')).toContain('FIX3A_UNSCHEDULED_SEED');
   });
 

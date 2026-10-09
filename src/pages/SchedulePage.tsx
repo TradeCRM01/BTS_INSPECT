@@ -1225,6 +1225,7 @@ export function SchedulePage() {
                             selectedId={pickedJob?.id ?? null}
                             onJobClick={handlePickJob}
                             onOpenJob={job => openJob(job.id)}
+                            onSetScheduleDate={job => openScheduleSheet(job)}
                             onDragStart={handleRailDragStart}
                           />
                         )}
@@ -1265,6 +1266,7 @@ export function SchedulePage() {
                           selectedId={pickedJob?.id ?? null}
                           onJobClick={handlePickJob}
                           onOpenJob={job => openJob(job.id)}
+                          onSetScheduleDate={job => openScheduleSheet(job)}
                           onDragStart={handleRailDragStart}
                         />
                       </div>
@@ -1290,6 +1292,7 @@ export function SchedulePage() {
                   selectedId={pickedJob?.id ?? null}
                   onJobClick={handlePickJob}
                   onOpenJob={job => openJob(job.id)}
+                  onSetScheduleDate={job => openScheduleSheet(job)}
                   onDragStart={handleRailDragStart}
                   alwaysShow
                 />

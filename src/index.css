@@ -7859,6 +7859,7 @@
       justify-content: center;
       width: calc(100% - 24px);
       margin: 4px 12px 10px;
+      touch-action: manipulation;
       min-height: 44px;
       padding: 10px 12px;
       border: 1px solid var(--schedule-line, #E2D9CC);
@@ -7881,6 +7882,38 @@
       overflow-y: auto;
       padding-left: 12px;
       padding-right: 12px;
+    }
+
+    .hub-phone-week-list {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      flex: 1 1 auto;
+    }
+
+    .hub-schedule-set-date {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 44px;
+      padding: 8px 0;
+      margin: 0;
+      border: none;
+      background: transparent;
+      color: #2E75B6;
+      font-family: inherit;
+      font-size: inherit;
+      font-weight: 600;
+      line-height: 1.2;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    @media (min-width: 1024px) {
+      .hub-schedule-set-date {
+        min-height: auto;
+        padding: 0;
+      }
     }
 
     .hub-schedule-search-hit {
