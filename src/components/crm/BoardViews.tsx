@@ -36,7 +36,6 @@ import { calendarSite } from '../../lib/jobCalendar';
 import { formatJobRef } from '../../lib/jobRef';
 import {
   jobsOnScheduleDay,
-  TIME_NOT_SET_LABEL,
   scheduleAgendaClock,
   scheduleChipClock,
   scheduleClockLabel,

@@ -12,6 +12,7 @@ import {
 } from '../lib/devFieldAuditAuth';
 import {
   AUDIT_DOC_CLIENT_ID,
+  AUDIT_DOC_JOB_ID,
   AUDIT_QUOTE_ID,
   getAuditClients,
   getAuditTeamMembers,
@@ -191,6 +192,40 @@ function fieldAuditConvertQuote(): QuoteListItem | null {
   };
 }
 
+function fieldAuditOpenJobQuote(): QuoteListItem | null {
+  if (!isDevFieldAuditAuth()) return null;
+  return {
+    id: 'audit-quote-open-job',
+    company_id: DEV_AUDIT_COMPANY.id,
+    quote_number: 42,
+    client_id: AUDIT_DOC_CLIENT_ID,
+    job_id: AUDIT_DOC_JOB_ID,
+    status: 'accepted',
+    description: 'Switchboard upgrade (converted)',
+    scope_of_works: 'Complete the agreed site works.',
+    line_items: [{ description: 'Site labour', quantity: 8, unit_price: 95 }],
+    subtotal: 760,
+    tax_rate: 10,
+    tax_amount: 76,
+    total: 836,
+    validity_date: '2026-10-20',
+    notes: null,
+    inclusions: [] as string[],
+    exclusions: [] as string[],
+    scheduled_date: '2026-08-25',
+    assigned_team: [DEV_AUDIT_PROFILE.id],
+    created_by: DEV_AUDIT_PROFILE.id,
+    created_at: '2026-09-01T00:00:00.000Z',
+    updated_at: '2026-09-02T00:00:00.000Z',
+    client_name: 'Northside Electrical',
+    client_email: 'accounts@northside.example',
+    job_title: 'Switchboard upgrade',
+    job_address: '12 Workshop Rd, Perth WA 6000',
+    job_status: 'scheduled',
+    invoice_id: null,
+  };
+}
+
 function fieldAuditGstQuote(): QuoteListItem | null {
   if (!isDevFieldAuditAuth()) return null;
   return {
@@ -365,7 +400,8 @@ export function QuotesPage() {
         if (lookLetterhead) return [convertQuote];
         const shareQuote = fieldAuditShareQuote();
         const gstQuote = fieldAuditGstQuote();
-        return [convertQuote, shareQuote, gstQuote, ...fieldAuditChaseQuotes()]
+        const openJobQuote = fieldAuditOpenJobQuote();
+        return [convertQuote, shareQuote, gstQuote, openJobQuote, ...fieldAuditChaseQuotes()]
           .filter((row): row is QuoteListItem => !!row);
       }
       const { data, error } = await supabase
