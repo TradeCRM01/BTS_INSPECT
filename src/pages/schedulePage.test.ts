@@ -92,7 +92,7 @@ describe('schedule page week/day board', () => {
     expect(page).toContain('placePickedHint');
     expect(page).toContain('placePickedOnCell');
     expect(page).not.toContain('today at 8:00');
-    expect(board).toContain('TIME_NOT_SET_LABEL');
+    expect(board).toContain('scheduleClockLabel');
     expect(board).toContain('data-untimed-chip');
     expect(src('src/lib/dispatch.ts')).not.toContain('DEFAULT_SLOT_START');
     expect(page).toContain('scheduleSearchFromState');
