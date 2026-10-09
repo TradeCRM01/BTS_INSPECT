@@ -105,8 +105,8 @@ describe('schedule page week/day board', () => {
     expect(page).toContain('data-schedule-phone-section="booked"');
     expect(page).toContain('agendaFooter');
     expect(page).toContain('data-schedule-unscheduled-after-week="1"');
-    expect(page).toContain('hub-schedule-needs-date-rail');
     expect(page).toContain('hidden lg:block');
+    expect(page).toContain('fix3aScheduleLookSeed');
     expect(board).toContain('export const PhoneUnscheduledTray');
     expect(board).toContain('PHONE_UNSCHEDULED_EXPANDED_DEFAULT');
     expect(board).toContain('phoneUnscheduledChipLabel');
@@ -121,7 +121,7 @@ describe('schedule page week/day board', () => {
     const footerAt = phoneWeek.indexOf('data-schedule-unscheduled-after-week="1"');
     expect(lastDayAt).toBeGreaterThan(-1);
     expect(footerAt).toBeGreaterThan(lastDayAt);
-    expect(page).toContain('FIX3A_UNSCHEDULED_SEED');
+    expect(src('src/lib/fix3aScheduleLookSeed.ts')).toContain('FIX3A_UNSCHEDULED_SEED');
   });
 
   it('groups the phone week from existing scheduled_date fields', () => {
