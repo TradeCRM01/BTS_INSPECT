@@ -1,3 +1,7 @@
+import { TIME_FIELD_ADD_AM_PM } from './timeFieldInput';
+
+export { TIME_FIELD_ADD_AM_PM } from './timeFieldInput';
+
 export function padQuoteNumber(n: number | null | undefined): string {
   return String(n ?? 0).padStart(4, '0');
 }
@@ -118,7 +122,8 @@ export function quoteConvertShowsInline(err: string | null): boolean {
     || err === CONVERT_QUOTE_NEED_DATE
     || err === CONVERT_QUOTE_NEED_CREW
     || err === CONVERT_QUOTE_NEED_TIME
-    || err === CONVERT_QUOTE_END_BEFORE_START;
+    || err === CONVERT_QUOTE_END_BEFORE_START
+    || err === TIME_FIELD_ADD_AM_PM;
 }
 
 export function convertQuoteNeedMessage(missing: QuoteConvertMissing, quote?: {
