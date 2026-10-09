@@ -45,6 +45,17 @@ describe('invoice PDF cream document look', () => {
     expect(commercial).toContain('company.report_theme');
   });
 
+  it('fits the invoice PDF iframe on phones the same way quotes do', () => {
+    const css = src('src/index.css');
+    const preview = src('src/components/invoicing/CommercialPdfPreviewModal.tsx');
+
+    expect(preview).toContain('hub-invoice-pdf-frame');
+    expect(preview).toContain("creamLook ? `${url}#toolbar=0&navpanes=0&view=FitH` : url");
+    expect(css).toContain('.hub-invoice-pdf-frame');
+    expect(css).toContain(".hub-invoice-pdf-sheet iframe[title='Document PDF preview']");
+    expect(css).toContain('transform: scale(calc(100cqi / var(--quote-pdf-page)))');
+  });
+
   it('LOOK frames cover invoice PDF desktop and phone only', () => {
     for (const rel of [
       'docs/look/invoice-pdf-desktop.png',

@@ -5691,6 +5691,22 @@
     .hub-invoice-lines :is(th, td):nth-child(3) { width: 72px; }
     .hub-invoice-lines :is(th, td):nth-child(4) { width: 80px; }
 
+    .hub-invoice-totalbar {
+      margin: 0 12px 24px;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      align-items: flex-end;
+    }
+
+    .hub-invoice-totalbar .hub-invoice-display-total {
+      min-width: 0;
+      max-width: 100%;
+      flex: 1 1 auto;
+      text-align: right;
+      font-size: clamp(28px, 9.5vw, 40px);
+      overflow-wrap: anywhere;
+    }
+
     .overlay-backdrop:has(.hub-invoice-editor),
     .overlay-backdrop:has(.hub-invoice-send) {
       padding: 8px;
@@ -10233,24 +10249,28 @@
   }
 
   @media (max-width: 639px) {
-    .overlay-backdrop.hub-quote-pdf-preview {
+    .overlay-backdrop.hub-quote-pdf-preview,
+    .overlay-backdrop.hub-invoice-pdf-preview {
       overflow-x: hidden;
     }
 
-    .hub-quote-pdf-sheet {
+    .hub-quote-pdf-sheet,
+    .hub-invoice-pdf-sheet {
       width: 100% !important;
       max-width: 100% !important;
       overflow-x: hidden;
     }
 
-    .hub-quote-pdf-frame {
+    .hub-quote-pdf-frame,
+    .hub-invoice-pdf-frame {
       --quote-pdf-page: 794px;
       container-type: inline-size;
       min-width: 0;
       overflow: hidden;
     }
 
-    .hub-quote-pdf-sheet iframe[title='Document PDF preview'] {
+    .hub-quote-pdf-sheet iframe[title='Document PDF preview'],
+    .hub-invoice-pdf-sheet iframe[title='Document PDF preview'] {
       display: block;
       width: var(--quote-pdf-page) !important;
       max-width: none;
