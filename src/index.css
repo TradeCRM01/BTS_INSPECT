@@ -10923,6 +10923,75 @@
     }
   }
 
+  /* FIX-5a C3 — job hours tray on phone: full title, actions on their own line, delete off the duration. */
+  .hub-jobs-document #job-hours .ops-tray-head {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .hub-jobs-document #job-hours .ops-tray-head .ops-section-title {
+    flex-wrap: wrap;
+    align-items: baseline;
+    row-gap: 2px;
+    column-gap: 6px;
+    min-width: 0;
+  }
+
+  .hub-jobs-document #job-hours .ops-section-title > .truncate {
+    flex: 0 1 auto;
+    max-width: 100%;
+    overflow: visible;
+    text-overflow: unset;
+    white-space: normal;
+  }
+
+  .hub-jobs-document #job-hours .ops-section-title [data-summary] {
+    flex: 0 0 auto;
+  }
+
+  .hub-jobs-document #job-hours .job-hours-tray-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .hub-jobs-document #job-hours .job-hours-entry-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    column-gap: 10px;
+    row-gap: 6px;
+    padding: 4px 0;
+  }
+
+  .hub-jobs-document #job-hours .job-hours-entry-row .ops-related-main {
+    grid-column: 1;
+    min-width: 0;
+    padding: 8px 0;
+  }
+
+  .hub-jobs-document #job-hours .job-hours-entry-row .hub-timesheets-entry-delete {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    width: auto;
+    align-self: start;
+    align-items: flex-end;
+  }
+
+  .hub-jobs-document #job-hours .job-hours-entry-row:has(.hub-timesheets-delete-lock) .hub-timesheets-entry-delete {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    padding-bottom: 8px;
+  }
+
+  .hub-jobs-document #job-hours .job-hours-entry-row .hub-timesheets-delete-lock {
+    max-width: 100%;
+  }
+
   .hub-jobs-bill-head {
     display: flex;
     align-items: center;

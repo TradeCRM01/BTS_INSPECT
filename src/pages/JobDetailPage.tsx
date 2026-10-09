@@ -4299,7 +4299,7 @@ export function JobDetailPage() {
           onRetry={() => { void refetchTimesheets(); }}
           summary={formatJobHoursTotal(jobClockedMinutes(timesheets ?? [], jobHoursNow))}
           action={
-            <div className="flex items-center gap-3">
+            <div className="job-hours-tray-actions flex flex-wrap items-center gap-x-3 gap-y-2">
               {runningEntry ? (
                 <button type="button" onClick={() => clockOffJob.mutate()} disabled={clockOffJob.isPending} className="ops-link text-xs">
                   Clock off
@@ -4326,13 +4326,18 @@ export function JobDetailPage() {
               ? Math.round((new Date(entry.end_time).getTime() - new Date(entry.start_time).getTime()) / 60000)
               : 0;
             const tsTotal = (myTimesheets ?? []).find(t => t.id === entry.timesheet_id)?.total_minutes ?? 0;
+            const metaParts = [
+              entry.work_type,
+              entry.billable ? 'Billable' : 'Non-billable',
+              duration > 0 ? formatDuration(duration) : null,
+            ].filter(Boolean);
             return (
               <JobRelatedRow
                 key={entry.id}
+                rowClassName="job-hours-entry-row"
                 icon={Clock}
                 title={`${format(new Date(entry.start_time), 'd MMM yyyy')} · ${format(new Date(entry.start_time), 'HH:mm')}${entry.end_time ? `–${format(new Date(entry.end_time), 'HH:mm')}` : ' · running'}`}
-                meta={[entry.work_type, entry.billable ? 'Billable' : 'Non-billable'].filter(Boolean).join(' · ')}
-                trailing={duration > 0 ? <span className="ops-meta">{formatDuration(duration)}</span> : undefined}
+                meta={metaParts.join(' · ')}
                 action={
                   <TimesheetEntryDeleteControl
                     entry={entry}

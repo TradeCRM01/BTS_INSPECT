@@ -51,6 +51,8 @@ describe('FIX-5a — phone time taps', () => {
     expect(job).toContain('id="job-hours"');
     expect(job).toContain('Time on this job');
     expect(job).toMatch(/id="job-hours"[\s\S]*TimesheetEntryDeleteControl/);
+    expect(src('src/index.css')).toContain('.hub-jobs-document #job-hours .job-hours-entry-row');
+    expect(job).toContain('job-hours-entry-row');
     const timesheets = src('src/pages/TimesheetsPage.tsx');
     expect(timesheets).toContain('TimesheetEntryDeleteControl');
   });
