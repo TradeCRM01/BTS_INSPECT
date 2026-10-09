@@ -1,3 +1,5 @@
+import { TIME_FIELD_ADD_AM_PM } from './timeFieldInput';
+
 export function padQuoteNumber(n: number | null | undefined): string {
   return String(n ?? 0).padStart(4, '0');
 }
@@ -94,13 +96,16 @@ export const CONVERT_QUOTE_NEED_DATE_CREW = 'Set a date and crew on this tap bef
 
 export const CONVERT_QUOTE_HELPER = 'Pick a day, crew and start time.';
 
+export { TIME_FIELD_ADD_AM_PM } from './timeFieldInput';
+
 export function quoteConvertShowsInline(err: string | null): boolean {
   if (!err) return false;
   return err === CONVERT_QUOTE_NEED_DATE_CREW
     || err === CONVERT_QUOTE_NEED_DATE
     || err === CONVERT_QUOTE_NEED_CREW
     || err === CONVERT_QUOTE_NEED_TIME
-    || err === CONVERT_QUOTE_END_BEFORE_START;
+    || err === CONVERT_QUOTE_END_BEFORE_START
+    || err === TIME_FIELD_ADD_AM_PM;
 }
 
 export function convertQuoteNeedMessage(missing: QuoteConvertMissing, quote?: {

@@ -32,4 +32,11 @@ describe('FIX-5b C6 — phone job bill edit reachability', () => {
     expect(css).toContain('.job-bill-line-phone-row dt');
     expect(css).toContain('#job-bill .job-bill-line-phone-stack');
   });
+
+  it('asks before deleting a bill line', () => {
+    const panel = src('src/components/jobs/JobCostingPanel.tsx');
+    expect(panel).toContain('Delete this line?');
+    expect(panel).toContain('confirmDisabled={deleteCost.isPending}');
+    expect(panel).toContain("showToast(e.message, 'error')");
+  });
 });

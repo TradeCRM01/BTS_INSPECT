@@ -41,6 +41,14 @@ vi.mock('../../lib/supabase', () => ({
   supabase: {},
 }));
 
+vi.mock('../ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../ui')>();
+  return {
+    ...actual,
+    useToast: () => ({ showToast: vi.fn() }),
+  };
+});
+
 vi.mock('../ui/ManagedSelect', () => ({
   ManagedSelect: ({ value }: { value: string }) => createElement(
     'select',

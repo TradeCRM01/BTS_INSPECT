@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { ConfirmDialog, useToast } from '../ui';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -217,6 +218,8 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   const [form, setForm] = useState(blankForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formErr, setFormErr] = useState('');
+  const [deleteLineId, setDeleteLineId] = useState<string | null>(null);
+  const { showToast } = useToast();
   const [invoiceMsg, setInvoiceMsg] = useState('');
   const [pullingHours, setPullingHours] = useState(false);
   const [labourPickerItems, setLabourPickerItems] = useState<PriceBookItemForLabour[] | null>(null);
@@ -321,7 +324,12 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     });
     setFormErr('');
     requestAnimationFrame(() => {
-      document.getElementById('job-bill-line-form')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const panel = document.getElementById('job-bill-line-form');
+      panel?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const first = panel?.querySelector<HTMLElement>(
+        'select, input:not([type="hidden"]), textarea, button[type="button"]',
+      );
+      first?.focus();
     });
   };
 
@@ -414,9 +422,14 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
       if (error) throw error;
     },
     onSuccess: () => {
+      setDeleteLineId(null);
       queryClient.invalidateQueries({ queryKey: ['job-costs', jobId] });
       queryClient.invalidateQueries({ queryKey: ['job-cost-totals', jobId] });
       invalidateJobBillInvoicePreview(queryClient, jobId);
+    },
+    onError: (e: Error) => {
+      setDeleteLineId(null);
+      showToast(e.message, 'error');
     },
   });
 
@@ -707,7 +720,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
                       title="Edit line" aria-label="Edit line"><Pencil size={16} /></button>
                     <button type="button" onClick={() => {
                       if (editingId === c.id) resetForm();
-                      deleteCost.mutate(c.id);
+                      setDeleteLineId(c.id);
                     }}
                       className="job-bill-line-btn job-bill-line-btn-delete flex items-center justify-center rounded-lg text-gray-600 hover:bg-red-50 hover:text-red-600"
                       title="Delete line" aria-label="Delete line"><Trash2 size={16} /></button>
@@ -970,6 +983,18 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={deleteLineId !== null}
+        title="Delete this line?"
+        message="Delete this line?"
+        confirmLabel="Delete"
+        onConfirm={() => {
+          if (deleteLineId) deleteCost.mutate(deleteLineId);
+        }}
+        onCancel={() => setDeleteLineId(null)}
+        confirmDisabled={deleteCost.isPending}
+      />
     </div>
   );
 }
