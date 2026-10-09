@@ -50,6 +50,10 @@ describe('PriceBooksPage chrome', () => {
     expect(page).toContain('min-[640px]:hidden');
     expect(page).toContain('hidden min-[640px]:block');
     expect(page).toContain('priceBookPhoneRow');
+    expect(page).toContain('data-price-book-inactive-tag');
+    expect(page).toContain('PriceBookInactiveTag');
+    expect(page).toContain('data-price-book-item-active');
+    expect(page).toContain('checked={form.is_active}');
   });
 
   it('puts Delete item on the edit form only, wired to the existing confirm', () => {

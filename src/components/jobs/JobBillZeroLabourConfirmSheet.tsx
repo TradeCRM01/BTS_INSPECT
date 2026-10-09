@@ -1,21 +1,24 @@
 import { AlertTriangle, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AppDialog } from '../ui/AppDialog';
-import { zeroLabourInvoiceConfirmMessage } from '../../lib/hoursToJobBill';
+import { zeroLabourInvoiceWarningMessage } from '../../lib/hoursToJobBill';
+import type { LabourSellResolution } from '../../lib/hoursToJobBill';
 
 export function JobBillZeroLabourConfirmSheet({
   open,
   count,
+  labourSell,
   onClose,
   onCreateAnyway,
 }: {
   open: boolean;
   count: number;
+  labourSell?: LabourSellResolution | null;
   onClose: () => void;
   onCreateAnyway: () => void;
 }) {
   if (count <= 0) return null;
-  const message = zeroLabourInvoiceConfirmMessage(count);
+  const message = zeroLabourInvoiceWarningMessage(count, labourSell);
 
   return (
     <AppDialog

@@ -336,10 +336,32 @@ export function invalidateJobBillAfterHoursChange(queryClient: QueryClient, jobI
   invalidateJobBillInvoicePreview(queryClient, jobId);
 }
 
+export const NO_ACTIVE_LABOUR_PRICE_BOOK_WARNING = 'No active Labour price-book item';
+
+/** True when resolveLabourSell found no staff/default rate and no active Labour price-book rows. */
+export function labourSellMissingRateIsNoActivePriceBookItem(sell: LabourSellResolution): boolean {
+  return (
+    sell.needsRate
+    && !sell.needsPicker
+    && !sell.priceBookItemId
+    && sell.pickerItems.length === 0
+  );
+}
+
 export function zeroLabourInvoiceConfirmMessage(count: number): string {
   if (count <= 0) return '';
   if (count === 1) return '1 labour line has no rate and will show $0.';
   return `${count} labour lines have no rate and will show $0.`;
+}
+
+export function zeroLabourInvoiceWarningMessage(
+  lineCount: number,
+  labourSell?: LabourSellResolution | null,
+): string {
+  if (labourSell && labourSellMissingRateIsNoActivePriceBookItem(labourSell)) {
+    return NO_ACTIVE_LABOUR_PRICE_BOOK_WARNING;
+  }
+  return zeroLabourInvoiceConfirmMessage(lineCount);
 }
 
 export function countZeroLabourExposure(args: {

@@ -149,6 +149,7 @@ describe('quoted job invoice lines', () => {
       labourSell: needsRateSell,
     });
     expect(preview.unpricedExtraLabour).toBe(true);
+    expect(preview.unpricedExtraLabourWarning).toBe('No active Labour price-book item');
     expect(preview.moneyLine).toContain('no rate set');
     expect(preview.moneyLine).toContain('$898.00 inc GST');
     expect(preview.moneyLine).toBe('Quote #0002 + 3.5 h extra · no rate set · 3 lines · $898.00 inc GST');
