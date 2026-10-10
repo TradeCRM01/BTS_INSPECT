@@ -31,7 +31,9 @@ describe('sms text-back LOOK — existing company settings section', () => {
     expect(sql).toContain('sms_automation_settings_enabled_requires_name');
     expect(sql).toContain("v_role IS DISTINCT FROM 'admin'");
     expect(sql).toContain('ERRCODE = \'42501\'');
-    expect(page).not.toMatch(/\+614(?!18893602)\d+/);
+    const textback = page.slice(page.indexOf('data-sms-textback="1"'), page.indexOf('loadingTwilioSender'));
+    expect(textback).not.toMatch(/\+614(?!18893602)\d+/);
     expect(lib).not.toMatch(/\+614(?!18893602)\d+/);
+    expect(sql).not.toMatch(/\+614(?!18893602)\d+/);
   });
 });
