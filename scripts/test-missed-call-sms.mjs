@@ -190,6 +190,7 @@ try {
   const clientA = tenantA.client;
   const clientB = tenantB.client;
   const clientC = tenantC.client;
+  const userA = tenantA.userId;
   const senderA = randomUUID();
   const senderB = randomUUID();
   const senderC = randomUUID();
@@ -856,6 +857,182 @@ try {
     'count automated jobs after BOOK',
   );
   assert.equal(autoJobs.length, 0, 'BOOK reply leaves 0 jobs');
+
+  async function countOutbound(organisationId) {
+    const rows = await must(
+      admin.from('sms_messages').select('id').eq('organisation_id', organisationId).eq('direction', 'outbound'),
+      'count outbound',
+    );
+    return rows.length;
+  }
+
+  const draftThread = await must(
+    admin.from('missed_call_sms_threads').select('enquiry_status, approved_job_id').eq('id', jobReply.thread_id).single(),
+    'read draft enquiry status',
+  );
+  assert.equal(draftThread.enquiry_status, 'draft', 'new enquiry starts as draft');
+  const crossApprove = await clientB.rpc('approve_missed_call_enquiry', {
+    p_thread_id: jobReply.thread_id,
+    p_job: { title: 'Must not persist', description: 'cross-tenant' },
+    p_idempotency_key: `approve:${suffix}:cross`,
+  });
+  assert.match(
+    crossApprove.error?.message ?? '',
+    /not a member/,
+    'cross-tenant approve is denied',
+  );
+  const foreignClient = await must(
+    admin.from('clients').insert({
+      company_id: organisationB,
+      name: 'Other tenant client',
+    }).select('id').single(),
+    'insert other-tenant client',
+  );
+  const jobsBeforeForeign = await must(
+    admin.from('jobs').select('id').eq('company_id', organisationA),
+    'count jobs before foreign-client approve',
+  );
+  const foreignApprove = await clientA.rpc('approve_missed_call_enquiry', {
+    p_thread_id: jobReply.thread_id,
+    p_job: {
+      title: 'Must not persist',
+      client_id: foreignClient.id,
+    },
+    p_idempotency_key: `approve:${suffix}:foreign-client`,
+  });
+  assert.match(
+    foreignApprove.error?.message ?? '',
+    /client does not belong/,
+    'approve with another tenant client is denied',
+  );
+  const jobsAfterForeign = await must(
+    admin.from('jobs').select('id').eq('company_id', organisationA),
+    'count jobs after foreign-client approve',
+  );
+  assert.equal(jobsAfterForeign.length, jobsBeforeForeign.length, 'foreign-client approve creates no job');
+  const draftAfterForeign = await must(
+    admin.from('missed_call_sms_threads').select('enquiry_status').eq('id', jobReply.thread_id).single(),
+    'read draft after foreign-client approve',
+  );
+  assert.equal(draftAfterForeign.enquiry_status, 'draft', 'foreign-client approve leaves the enquiry as draft');
+  const jobsBeforeApprove = await must(
+    admin.from('jobs').select('id').eq('company_id', organisationA),
+    'count jobs before approve',
+  );
+  const smsBeforeApprove = await countOutbound(organisationA);
+  const approved = await must(clientA.rpc('approve_missed_call_enquiry', {
+    p_thread_id: jobReply.thread_id,
+    p_job: {
+      title: 'Hot water enquiry',
+      description: 'Leaking hot water service today',
+      address: 'Brisbane',
+    },
+    p_idempotency_key: `approve:${suffix}:a`,
+  }), 'approve enquiry');
+  assert.ok(approved.job_id, 'approve returns a job id');
+  const replayApprove = await must(clientA.rpc('approve_missed_call_enquiry', {
+    p_thread_id: jobReply.thread_id,
+    p_job: { title: 'Hot water enquiry again' },
+    p_idempotency_key: `approve:${suffix}:a`,
+  }), 're-approve enquiry');
+  assert.equal(replayApprove.job_id, approved.job_id, 're-approve returns the same job');
+  assert.equal(replayApprove.replay, true, 're-approve is marked replay');
+  const otherKeyApprove = await must(clientA.rpc('approve_missed_call_enquiry', {
+    p_thread_id: jobReply.thread_id,
+    p_job: { title: 'Different key' },
+    p_idempotency_key: `approve:${suffix}:other`,
+  }), 'approve decided thread with a new key');
+  assert.equal(otherKeyApprove.already_decided, true, 'a different key on a decided thread is already_decided');
+  const approvedJobs = await must(
+    admin.from('jobs')
+      .select('id, title, status, scheduled_date, start_time, assigned_team, created_by, created_via')
+      .eq('company_id', organisationA)
+      .eq('created_via', 'human'),
+    'read approved enquiry job',
+  );
+  assert.equal(approvedJobs.length, 1, 'approve creates exactly 1 job');
+  assert.equal(approvedJobs[0].id, approved.job_id, 'approved job id matches the RPC');
+  assert.equal(approvedJobs[0].title, 'Hot water enquiry', 'approved job uses the submitted title');
+  assert.equal(approvedJobs[0].status, 'scheduled', 'approved job keeps scheduled status');
+  assert.equal(approvedJobs[0].scheduled_date, null, 'approved job has no date');
+  assert.equal(approvedJobs[0].start_time, null, 'approved job has no start time');
+  assert.deepEqual(approvedJobs[0].assigned_team, [], 'approved job has no crew');
+  assert.equal(approvedJobs[0].created_by, userA, 'approved job created_by is auth.uid()');
+  assert.equal(approvedJobs[0].created_via, 'human', 'approved job is human provenance');
+  assert.equal(jobsBeforeApprove.length, 0, 'no job existed before approve');
+  const smsAfterApprove = await countOutbound(organisationA);
+  assert.equal(smsAfterApprove, smsBeforeApprove, 'approve sends no SMS');
+  const approvedThread = await must(
+    admin.from('missed_call_sms_threads')
+      .select('enquiry_status, approved_job_id, decided_by')
+      .eq('id', jobReply.thread_id)
+      .single(),
+    'read approved enquiry',
+  );
+  assert.equal(approvedThread.enquiry_status, 'approved', 'approve marks the enquiry approved');
+  assert.equal(approvedThread.approved_job_id, approved.job_id, 'approve links the job');
+  assert.equal(approvedThread.decided_by, userA, 'approve records the actor');
+
+  const dismissFrom = '+61412222222';
+  const dismissCallSid = `CA${`${suffix}f`.padEnd(32, 'f')}`;
+  await ingestCall({ sid: dismissCallSid, to: SENDER_A, from: dismissFrom });
+  const dismissInbound = await ingest({
+    sid: `SM${suffix}DISMISSIN`,
+    to: SENDER_A,
+    from: dismissFrom,
+    body: 'Tap needs a new washer',
+  });
+  assert.ok(dismissInbound.thread_id, 'dismiss path has an enquiry thread');
+  const jobsBeforeDismiss = await must(
+    admin.from('jobs').select('id').eq('company_id', organisationA),
+    'count jobs before dismiss',
+  );
+  const smsBeforeDismiss = await countOutbound(organisationA);
+  const dismissed = await must(clientA.rpc('dismiss_missed_call_enquiry', {
+    p_thread_id: dismissInbound.thread_id,
+    p_reason: 'duplicate',
+    p_idempotency_key: `dismiss:${suffix}:a`,
+  }), 'dismiss enquiry');
+  assert.equal(dismissed.dismissed, true, 'dismiss returns dismissed');
+  const jobsAfterDismiss = await must(
+    admin.from('jobs').select('id').eq('company_id', organisationA),
+    'count jobs after dismiss',
+  );
+  assert.equal(jobsAfterDismiss.length, jobsBeforeDismiss.length, 'dismiss creates no job');
+  const smsAfterDismiss = await countOutbound(organisationA);
+  assert.equal(smsAfterDismiss, smsBeforeDismiss, 'dismiss sends no SMS');
+  const dismissedThread = await must(
+    admin.from('missed_call_sms_threads')
+      .select('enquiry_status, approved_job_id, dismiss_reason')
+      .eq('id', dismissInbound.thread_id)
+      .single(),
+    'read dismissed enquiry',
+  );
+  assert.equal(dismissedThread.enquiry_status, 'dismissed', 'dismiss marks the enquiry dismissed');
+  assert.equal(dismissedThread.approved_job_id, null, 'dismiss links no job');
+  assert.equal(dismissedThread.dismiss_reason, 'duplicate', 'dismiss stores the reason');
+
+  const staleFrom = '+61413333333';
+  const staleCallSid = `CA${`${suffix}s`.padEnd(32, 's')}`;
+  await ingestCall({ sid: staleCallSid, to: SENDER_A, from: staleFrom });
+  await must(
+    admin.from('missed_calls')
+      .update({ received_at: new Date(Date.now() - 8 * 86_400_000).toISOString() })
+      .eq('provider_call_sid', staleCallSid),
+    'backdate stale enquiry',
+  );
+  const staleHelp = await ingest({
+    sid: `SM${suffix}STALEHELP`,
+    to: SENDER_A,
+    from: staleFrom,
+    body: 'HELP',
+  });
+  const staleHelpOutbox = await must(
+    admin.from('sms_messages').select('id').eq('idempotency_key', `missed-call-reply:${staleHelp.message_id}`),
+    'read 8-day HELP',
+  );
+  assert.equal(staleHelpOutbox.length, 0, 'HELP for an enquiry backdated 8 days queues 0 rows');
+
   const blockedInsert = await admin.from('missed_call_booking_commands').insert({
     organisation_id: organisationA,
     thread_id: bookingReply.thread_id,
