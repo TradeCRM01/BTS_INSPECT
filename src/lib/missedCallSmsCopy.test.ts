@@ -18,6 +18,9 @@ describe('missed-call SMS copy', () => {
     const help = renderMissedCallHelp(TWENTY);
 
     expect(TWENTY).toHaveLength(20);
+    expect(isGsm7(TWENTY)).toBe(true);
+    expect(isGsm7('Name—Dash')).toBe(false);
+    expect(isGsm7('Name😀')).toBe(false);
     for (const body of [ack, thanks, help]) {
       expect(isGsm7(body)).toBe(true);
       expect(gsm7Length(body)).toBeLessThanOrEqual(160);

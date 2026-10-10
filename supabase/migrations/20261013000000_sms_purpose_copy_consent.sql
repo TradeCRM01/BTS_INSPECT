@@ -1,5 +1,6 @@
 -- PR-E: ack/thanks/HELP copy, purpose/segments/payload_hash, scoped consent.
 -- Cap windows use companies.time_zone (Brisbane fallback). Job-reminder stays on Perth.
+-- Window end is (date_trunc(unit, now AT TIME ZONE tz) + 1 unit) AT TIME ZONE tz.
 
 ALTER TABLE public.sms_messages
   ADD COLUMN purpose text NOT NULL DEFAULT 'legacy',
@@ -100,6 +101,51 @@ REVOKE ALL ON FUNCTION public.sms_gsm7_segments(text)
 GRANT EXECUTE ON FUNCTION public.sms_gsm7_segments(text)
   TO service_role;
 
+CREATE OR REPLACE FUNCTION public.sms_is_gsm7(p_text text)
+RETURNS boolean
+LANGUAGE plpgsql
+IMMUTABLE
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+DECLARE
+  v_i integer;
+  v_ch text;
+  v_basic constant text :=
+    '@£$¥èéùìòÇ' || E'\n' || 'Øø' || E'\r'
+    || 'ÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&''()*+,-./0123456789:;<=>?'
+    || '¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà';
+BEGIN
+  IF p_text IS NULL THEN
+    RETURN true;
+  END IF;
+  FOR v_i IN 1..char_length(p_text) LOOP
+    v_ch := substr(p_text, v_i, 1);
+    IF position(v_ch IN v_basic) = 0
+      AND v_ch NOT IN (E'\f', '^', '{', '}', E'\\', '[', '~', ']', '|', '€')
+    THEN
+      RETURN false;
+    END IF;
+  END LOOP;
+  RETURN true;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.sms_is_gsm7(text) TO PUBLIC;
+
+ALTER TABLE public.sms_automation_settings
+  DROP CONSTRAINT sms_automation_settings_business_name_check;
+
+ALTER TABLE public.sms_automation_settings
+  ADD CONSTRAINT sms_automation_settings_business_name_check
+    CHECK (
+      business_name IS NULL
+      OR (
+        char_length(btrim(business_name)) BETWEEN 2 AND 20
+        AND public.sms_is_gsm7(business_name)
+      )
+    );
+
 CREATE OR REPLACE FUNCTION public.missed_call_ack_body(p_business_name text)
 RETURNS text
 LANGUAGE sql
@@ -197,10 +243,63 @@ GRANT EXECUTE ON FUNCTION public.sms_purpose_allowed(public.sms_messages)
   TO service_role;
 
 DROP FUNCTION IF EXISTS public.sms_outbound_cap_used(public.sms_messages, interval);
+DROP FUNCTION IF EXISTS public.sms_outbound_cap_used(public.sms_messages, text);
+
+CREATE OR REPLACE FUNCTION public.sms_cap_window_bounds(
+  p_time_zone text,
+  p_window text,
+  p_now timestamptz DEFAULT now()
+)
+RETURNS TABLE(window_start timestamptz, window_end timestamptz)
+LANGUAGE plpgsql
+STABLE
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+DECLARE
+  v_tz text;
+  v_trunc text;
+  v_local timestamp;
+BEGIN
+  v_tz := CASE
+    WHEN public.is_iana_time_zone(p_time_zone) THEN p_time_zone
+    ELSE 'Australia/Brisbane'
+  END;
+  v_trunc := CASE p_window
+    WHEN 'hour' THEN 'hour'
+    WHEN 'hourly' THEN 'hour'
+    WHEN 'day' THEN 'day'
+    WHEN 'daily' THEN 'day'
+    WHEN 'month' THEN 'month'
+    WHEN 'monthly' THEN 'month'
+  END;
+  IF v_trunc IS NULL THEN
+    RETURN;
+  END IF;
+
+  -- Add the unit on the tenant-local timestamp, then convert. Adding the
+  -- interval to the UTC-cast start (session TimeZone is UTC) ends a 31-day
+  -- month at local midnight on the 31st and makes a DST day 24h.
+  v_local := date_trunc(v_trunc, p_now AT TIME ZONE v_tz);
+  window_start := v_local AT TIME ZONE v_tz;
+  window_end := (v_local + CASE v_trunc
+    WHEN 'hour' THEN interval '1 hour'
+    WHEN 'day' THEN interval '1 day'
+    ELSE interval '1 month'
+  END) AT TIME ZONE v_tz;
+  RETURN NEXT;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.sms_cap_window_bounds(text, text, timestamptz)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.sms_cap_window_bounds(text, text, timestamptz)
+  TO service_role;
 
 CREATE OR REPLACE FUNCTION public.sms_outbound_cap_used(
   p_message public.sms_messages,
-  p_window text
+  p_window text,
+  p_now timestamptz DEFAULT now()
 )
 RETURNS integer
 LANGUAGE plpgsql
@@ -210,27 +309,17 @@ SET search_path = ''
 AS $$
 DECLARE
   v_tz text := public.sms_tenant_time_zone(p_message.organisation_id);
-  v_trunc text;
   v_start timestamptz;
   v_end timestamptz;
 BEGIN
-  v_trunc := CASE p_window
-    WHEN 'hour' THEN 'hour'
-    WHEN 'day' THEN 'day'
-    WHEN 'month' THEN 'month'
-  END;
-  IF v_trunc IS NULL THEN
+  SELECT bounds.window_start, bounds.window_end
+  INTO v_start, v_end
+  FROM public.sms_cap_window_bounds(v_tz, p_window, p_now) AS bounds;
+  IF v_start IS NULL THEN
     RETURN 0;
   END IF;
 
-  v_start := date_trunc(v_trunc, now() AT TIME ZONE v_tz) AT TIME ZONE v_tz;
-  v_end := CASE v_trunc
-    WHEN 'hour' THEN v_start + interval '1 hour'
-    WHEN 'day' THEN v_start + interval '1 day'
-    ELSE v_start + interval '1 month'
-  END;
-
-  IF p_window = 'month' THEN
+  IF p_window IN ('month', 'monthly') THEN
     RETURN (
       SELECT coalesce(sum(coalesce(other.segments, 1)), 0)::integer
       FROM public.sms_messages AS other
@@ -270,9 +359,61 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.sms_outbound_cap_used(public.sms_messages, text)
+REVOKE ALL ON FUNCTION public.sms_outbound_cap_used(public.sms_messages, text, timestamptz)
   FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.sms_outbound_cap_used(public.sms_messages, text)
+GRANT EXECUTE ON FUNCTION public.sms_outbound_cap_used(public.sms_messages, text, timestamptz)
+  TO service_role;
+
+CREATE OR REPLACE FUNCTION public.sms_outbound_cap_at(
+  p_organisation_id uuid,
+  p_window text,
+  p_now timestamptz DEFAULT now()
+)
+RETURNS integer
+LANGUAGE plpgsql
+STABLE
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+DECLARE
+  v_tz text := public.sms_tenant_time_zone(p_organisation_id);
+  v_start timestamptz;
+  v_end timestamptz;
+BEGIN
+  SELECT bounds.window_start, bounds.window_end
+  INTO v_start, v_end
+  FROM public.sms_cap_window_bounds(v_tz, p_window, p_now) AS bounds;
+  IF v_start IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  IF p_window IN ('month', 'monthly') THEN
+    RETURN (
+      SELECT coalesce(sum(coalesce(other.segments, 1)), 0)::integer
+      FROM public.sms_messages AS other
+      WHERE other.organisation_id = p_organisation_id
+        AND other.direction = 'outbound'
+        AND other.created_at >= v_start
+        AND other.created_at < v_end
+        AND other.state IN ('queued', 'claimed', 'sent')
+    );
+  END IF;
+
+  RETURN (
+    SELECT count(*)::integer
+    FROM public.sms_messages AS other
+    WHERE other.organisation_id = p_organisation_id
+      AND other.direction = 'outbound'
+      AND other.created_at >= v_start
+      AND other.created_at < v_end
+      AND other.state IN ('queued', 'claimed', 'sent')
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.sms_outbound_cap_at(uuid, text, timestamptz)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.sms_outbound_cap_at(uuid, text, timestamptz)
   TO service_role;
 
 CREATE OR REPLACE FUNCTION public.sms_dispatch_block_reason(p_message public.sms_messages)

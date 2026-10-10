@@ -237,6 +237,16 @@ try {
     ]),
     'insert automation settings',
   );
+  const rejectedName = await admin
+    .from('sms_automation_settings')
+    .update({ business_name: 'Name—Dash' })
+    .eq('organisation_id', organisationA);
+  assert.ok(rejectedName.error, 'business name must stay GSM-7');
+  const rejectedEmoji = await admin
+    .from('sms_automation_settings')
+    .update({ business_name: 'Name😀' })
+    .eq('organisation_id', organisationA);
+  assert.ok(rejectedEmoji.error, 'emoji business name is rejected');
 
   const deniedStartPhone = DENIED_START_PHONE;
   const deniedStart = await ingest({
@@ -514,6 +524,23 @@ try {
     'read repeat-call outbox',
   );
   assert.equal(repeatOutbox.length, 0, 'repeat missed call creates no ack row');
+  const otherCompanyCallSid = `CA${`${suffix}c`.padEnd(32, 'c')}`;
+  const otherCompanyCall = await ingestCall({ sid: otherCompanyCallSid, to: SENDER_C });
+  assert.equal(otherCompanyCall.queued, true, 'a different company still acks the same caller within 24h');
+  const otherCompanyOutbox = await must(
+    admin.from('sms_messages').select('id, purpose').eq('idempotency_key', `missed-call-ack:${otherCompanyCallSid}`),
+    'read other-company ack',
+  );
+  assert.equal(otherCompanyOutbox.length, 1, 'other company queues its own ack');
+  assert.equal(otherCompanyOutbox[0].purpose, 'missed_call_ack', 'other company ack stores purpose');
+  await must(
+    admin.from('sms_messages').update({
+      state: 'cancelled',
+      last_error: 'test_drain',
+      next_attempt: null,
+    }).eq('idempotency_key', `missed-call-ack:${otherCompanyCallSid}`),
+    'drain other-company ack',
+  );
   const neverHelp = await ingest({
     sid: `SM${suffix}NEVERHELP`,
     to: SENDER_A,
@@ -1329,6 +1356,101 @@ try {
   await must(
     admin.from('companies').update({ time_zone: 'Australia/Brisbane' }).eq('id', organisationC),
     'restore Brisbane zone',
+  );
+
+  function iso(value) {
+    return new Date(value).toISOString();
+  }
+
+  async function expectBounds(timeZone, window, now, start, end, label) {
+    const rows = await must(admin.rpc('sms_cap_window_bounds', {
+      p_time_zone: timeZone,
+      p_window: window,
+      p_now: now,
+    }), label);
+    assert.equal(rows.length, 1, `${label} returns one row`);
+    assert.equal(iso(rows[0].window_start), start, `${label} start`);
+    assert.equal(iso(rows[0].window_end), end, `${label} end`);
+    return rows[0];
+  }
+
+  await expectBounds(
+    'Australia/Brisbane',
+    'month',
+    '2026-10-31T02:00:00Z',
+    '2026-09-30T14:00:00.000Z',
+    '2026-10-31T14:00:00.000Z',
+    'Brisbane 31 Oct month window',
+  );
+  await expectBounds(
+    'Australia/Brisbane',
+    'month',
+    '2026-03-30T02:00:00Z',
+    '2026-02-28T14:00:00.000Z',
+    '2026-03-31T14:00:00.000Z',
+    'Brisbane 30 Mar month window',
+  );
+  await expectBounds(
+    'Australia/Sydney',
+    'month',
+    '2026-12-31T01:00:00Z',
+    '2026-11-30T13:00:00.000Z',
+    '2026-12-31T13:00:00.000Z',
+    'Sydney 31 Dec month window',
+  );
+  await expectBounds(
+    'Australia/Perth',
+    'month',
+    '2026-07-31T04:00:00Z',
+    '2026-06-30T16:00:00.000Z',
+    '2026-07-31T16:00:00.000Z',
+    'Perth 31 Jul month window',
+  );
+
+  await drainCOutbox();
+  const oct31Id = randomUUID();
+  await queueGuardFixture({
+    id: oct31Id,
+    to: TEST_MOBILE,
+    body: '31 Oct Brisbane month',
+    createdAt: '2026-10-31T02:00:00.000Z',
+  });
+  await must(
+    admin.from('sms_messages').update({ state: 'sent', next_attempt: null, segments: 1 }).eq('id', oct31Id),
+    'mark 31 Oct Brisbane sent',
+  );
+  const oct31Used = await must(admin.rpc('sms_outbound_cap_at', {
+    p_organisation_id: organisationC,
+    p_window: 'month',
+    p_now: '2026-10-31T02:00:00Z',
+  }), 'count 31 Oct Brisbane month');
+  assert.ok(oct31Used >= 1, 'Brisbane 31 Oct 12:00 sits inside the October month cap');
+
+  const sydneyDstStart = await expectBounds(
+    'Australia/Sydney',
+    'day',
+    '2026-10-04T01:00:00Z',
+    '2026-10-03T14:00:00.000Z',
+    '2026-10-04T13:00:00.000Z',
+    'Sydney DST start day window',
+  );
+  assert.equal(
+    (new Date(sydneyDstStart.window_end) - new Date(sydneyDstStart.window_start)) / 3_600_000,
+    23,
+    'Sydney DST start day window is 23 hours',
+  );
+  const sydneyDstEnd = await expectBounds(
+    'Australia/Sydney',
+    'day',
+    '2026-04-05T02:00:00Z',
+    '2026-04-04T13:00:00.000Z',
+    '2026-04-05T14:00:00.000Z',
+    'Sydney DST end day window',
+  );
+  assert.equal(
+    (new Date(sydneyDstEnd.window_end) - new Date(sydneyDstEnd.window_start)) / 3_600_000,
+    25,
+    'Sydney DST end day window is 25 hours',
   );
 
   await expectCapWindow('hourly', { hourly_message_cap: 1 }, 'Hourly');
