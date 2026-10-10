@@ -7,6 +7,7 @@ import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
+import { Switch } from '../components/ui/Switch';
 import { format, parseISO } from 'date-fns';
 import { MoreHorizontal } from 'lucide-react';
 import {
@@ -344,15 +345,7 @@ function ToggleRow({ label, description, checked, onChange }: {
         <span className="acct-toggle-label">{label}</span>
         <span className="acct-meta">{description}</span>
       </span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={`acct-switch${checked ? ' is-on' : ''}`}
-      >
-        <span className="acct-switch-knob" />
-      </button>
+      <Switch checked={checked} onCheckedChange={onChange} />
     </label>
   );
 }

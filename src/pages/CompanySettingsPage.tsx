@@ -53,8 +53,10 @@ import {
   saveSmsTextbackSettings,
   shouldQueryLiveSmsTextback,
   smsAckPreview,
+  smsAckPreviewBlocked,
   smsAckPreviewSegments,
   smsAckSegmentLabel,
+  smsDisplayNameCount,
   smsDisplayNameError,
   smsTextbackCapStatus,
   smsTextbackEnableError,
@@ -63,6 +65,7 @@ import {
   smsTextbackTestStatus,
   type SmsTextbackSettings,
 } from '../lib/smsTextbackSettings';
+import { Switch } from '../components/ui/Switch';
 
 /** Page-local company settings sheet. Same tokens as signed team / open-record. */
 const COMPANY_LOOK_CSS = `
@@ -445,6 +448,9 @@ const COMPANY_LOOK_CSS = `
   background: var(--co-look-page);
   color: var(--co-look-ink);
   font-size: 15px;
+}
+.hub-company-sms-preview.is-blocked {
+  color: var(--co-look-muted);
 }
 @media (max-width: 639px) {
   .hub-company.ops-page { padding: 16px 16px 40px; }
@@ -1339,12 +1345,12 @@ export function CompanySettingsPage() {
                 onSubmit={handleSaveSmsTextback}
               >
                 <label className="hub-company-check">
-                  <input
-                    type="checkbox"
+                  <Switch
                     checked={smsTextback.enabled}
-                    onChange={e => { void handleSmsEnabledChange(e.target.checked); }}
+                    onCheckedChange={(on) => { void handleSmsEnabledChange(on); }}
                     disabled={savingSmsTextback}
-                    data-sms-textback-enabled
+                    aria-label="Missed-call texts"
+                    data-sms-textback-enabled=""
                   />
                   Missed-call texts
                 </label>
@@ -1359,15 +1365,23 @@ export function CompanySettingsPage() {
                       autoComplete="organization"
                       data-sms-display-name
                     />
+                    <p className="hub-company-row-meta" data-sms-name-count>
+                      {smsDisplayNameCount(smsTextback.businessName)}
+                    </p>
                     <p className="hub-company-row-meta">2 to 20 GSM-7 characters. Shown on every missed-call text.</p>
                   </div>
                 </div>
-                <p className="hub-company-sms-preview" data-sms-ack-preview>
+                <p
+                  className={`hub-company-sms-preview${smsAckPreviewBlocked(smsTextback.businessName) ? ' is-blocked' : ''}`}
+                  data-sms-ack-preview
+                >
                   {smsAckPreview(smsTextback.businessName)}
                 </p>
-                <p className="hub-company-row-meta" data-sms-ack-segments>
-                  {smsAckSegmentLabel(smsAckPreviewSegments(smsTextback.businessName))}
-                </p>
+                {smsAckPreviewBlocked(smsTextback.businessName) ? null : (
+                  <p className="hub-company-row-meta" data-sms-ack-segments>
+                    {smsAckSegmentLabel(smsAckPreviewSegments(smsTextback.businessName))}
+                  </p>
+                )}
                 <p className="hub-company-row-meta" data-sms-test-status>
                   {smsTextbackTestStatus(smsTextback.testMode)}
                 </p>
@@ -1388,11 +1402,12 @@ export function CompanySettingsPage() {
                   >
                     {smsTextbackSaved
                       ? <><Check size={15} /> Saved</>
-                      : savingSmsTextback ? 'Saving...' : 'Save name'}
+                      : savingSmsTextback ? 'Saving…' : 'Save name'}
                   </button>
                 </div>
               </form>
             ) : null}
+            {showSmsTextback ? <p className="hub-company-kicker">Twilio mapping</p> : null}
             {loadingTwilioSender ? (
               <p className="hub-company-lede">Loading...</p>
             ) : !showTwilioSender ? (

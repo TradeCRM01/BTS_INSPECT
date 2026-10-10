@@ -12,6 +12,7 @@ export const SMS_TEXTBACK_NAME_TOO_LONG = 'Name must be 20 characters or less.';
 export const SMS_TEXTBACK_NAME_TOO_SHORT = 'Name must be at least 2 characters.';
 export const SMS_TEXTBACK_NAME_NOT_GSM7 = 'Use GSM-7 characters only.';
 export const SMS_TEXTBACK_NAME_REQUIRED = 'Add a valid SMS display name before turning texts on.';
+export const SMS_TEXTBACK_PREVIEW_BLOCKED = 'Fix the name to preview';
 
 export type SmsTextbackSettings = {
   enabled: boolean;
@@ -68,7 +69,16 @@ export function smsTextbackEnableError(name: string): string | null {
   return smsDisplayNameError(name) ?? SMS_TEXTBACK_NAME_REQUIRED;
 }
 
+export function smsAckPreviewBlocked(name: string): boolean {
+  return smsDisplayNameError(name) != null;
+}
+
+export function smsDisplayNameCount(name: string): string {
+  return `${name.length}/${SMS_DISPLAY_NAME_MAX}`;
+}
+
 export function smsAckPreview(businessName: string): string {
+  if (smsAckPreviewBlocked(businessName)) return SMS_TEXTBACK_PREVIEW_BLOCKED;
   return renderMissedCallAck(businessName.trim() || 'Your business');
 }
 

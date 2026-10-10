@@ -7,11 +7,14 @@ import {
   SMS_TEXTBACK_NAME_NOT_GSM7,
   SMS_TEXTBACK_NAME_REQUIRED,
   SMS_TEXTBACK_NAME_TOO_LONG,
+  SMS_TEXTBACK_PREVIEW_BLOCKED,
   lookSmsTextbackSettings,
   shouldQueryLiveSmsTextback,
   smsAckPreview,
+  smsAckPreviewBlocked,
   smsAckPreviewSegments,
   smsAckSegmentLabel,
+  smsDisplayNameCount,
   smsDisplayNameError,
   smsDisplayNameValid,
   smsTextbackCapStatus,
@@ -39,6 +42,10 @@ describe('sms text-back settings', () => {
     );
     expect(smsAckPreviewSegments('Field Audit Co')).toBe(1);
     expect(smsAckSegmentLabel(1)).toBe('1 segment');
+    expect(smsDisplayNameCount('Field Audit Co')).toBe('14/20');
+    expect(smsDisplayNameCount('Twenty Character Name!')).toBe('22/20');
+    expect(smsAckPreviewBlocked('Twenty Character Name!')).toBe(true);
+    expect(smsAckPreview('Twenty Character Name!')).toBe(SMS_TEXTBACK_PREVIEW_BLOCKED);
     expect(smsTextbackTestStatus(true)).toBe('Test mode on');
     expect(smsTextbackCapStatus({
       enabled: false,
