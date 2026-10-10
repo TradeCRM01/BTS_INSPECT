@@ -93,9 +93,52 @@ function normalizeKeyword(body) {
   return body.trim().toUpperCase().replace(/[^A-Z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+function localParts(date, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const get = (type) => Number(parts.find((part) => part.type === type).value);
+  return {
+    year: get('year'),
+    month: get('month'),
+    day: get('day'),
+    hour: get('hour'),
+  };
+}
+
+function utcForZonedLocal(timeZone, year, month, day, hour, minute = 0, second = 0) {
+  const desired = Date.UTC(year, month - 1, day, hour, minute, second);
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  const seen = (ms) => {
+    const mapped = Object.fromEntries(
+      formatter.formatToParts(new Date(ms))
+        .filter((part) => part.type !== 'literal')
+        .map((part) => [part.type, part.value]),
+    );
+    return Date.UTC(+mapped.year, +mapped.month - 1, +mapped.day, +mapped.hour, +mapped.minute, +mapped.second);
+  };
+  return desired - (seen(desired) - desired);
+}
+
 async function ingest({ sid, to, from = TEST_MOBILE, body = 'Hello' }) {
   const keyword = normalizeKeyword(body);
-  const stop = ['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT', 'OPT OUT', 'OPTOUT'].includes(keyword);
+  const stop = ['STOP', 'STOPALL', 'STOP ALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT', 'OPT OUT', 'OPTOUT'].includes(keyword);
   const start = keyword === 'START';
   const help = keyword === 'HELP';
   const confirmed = body.trim().match(/^BOOK\s+(\d{4}-\d{2}-\d{2})\s+(?:AT\s+)?(\d{2}:\d{2})$/i);
@@ -456,6 +499,32 @@ try {
     'Hi, this is Twenty Character Nam. Sorry we missed your call. Reply with what you need done and your suburb and we will get back to you. Reply STOP to opt out.',
     'missed call uses the approved text-back',
   );
+  const repeatCallSid = `CA${`${suffix}r`.padEnd(32, 'r')}`;
+  const repeatCall = await ingestCall({ sid: repeatCallSid, to: SENDER_A });
+  assert.equal(repeatCall.stored, true, 'repeat missed call is still recorded');
+  assert.equal(repeatCall.queued, false, 'second missed call within 24h queues no second ack');
+  const repeatRows = await must(
+    admin.from('missed_calls').select('id, outbound_message_id').eq('provider_call_sid', repeatCallSid),
+    'read repeat missed call',
+  );
+  assert.equal(repeatRows.length, 1, 'repeat missed call stores one row');
+  assert.equal(repeatRows[0].outbound_message_id, null, 'repeat missed call has no outbound');
+  const repeatOutbox = await must(
+    admin.from('sms_messages').select('id').eq('idempotency_key', `missed-call-ack:${repeatCallSid}`),
+    'read repeat-call outbox',
+  );
+  assert.equal(repeatOutbox.length, 0, 'repeat missed call creates no ack row');
+  const neverHelp = await ingest({
+    sid: `SM${suffix}NEVERHELP`,
+    to: SENDER_A,
+    from: DENIED_START_PHONE,
+    body: 'HELP',
+  });
+  const neverHelpOutbox = await must(
+    admin.from('sms_messages').select('id').eq('idempotency_key', `missed-call-reply:${neverHelp.message_id}`),
+    'read never-opted-in HELP',
+  );
+  assert.equal(neverHelpOutbox.length, 0, 'HELP does not queue for a never-opted-in caller');
   await must(
     admin.from('communication_preferences').insert({
       organisation_id: organisationA,
@@ -479,7 +548,17 @@ try {
 
   await must(
     admin.from('sms_automation_settings').update({ business_name: 'Other Business Name' }).eq('organisation_id', organisationA),
-    'change ack payload',
+    'change ack business name',
+  );
+  const renamedReplay = await ingestCall({ sid: callSid, to: SENDER_A });
+  assert.equal(renamedReplay.replay, true, 'ack replay with a new business name does not raise');
+  await must(
+    admin.from('sms_automation_settings').update({ business_name: 'Twenty Character Nam' }).eq('organisation_id', organisationA),
+    'restore business name',
+  );
+  await must(
+    admin.from('sms_messages').update({ payload_hash: '0'.repeat(64) }).eq('idempotency_key', `missed-call-ack:${callSid}`),
+    'corrupt ack payload hash',
   );
   const hashConflict = await admin.rpc('ingest_twilio_voice_status', {
     p_provider_account_sid: `AC${suffix}`,
@@ -495,8 +574,8 @@ try {
     'replay with a different payload raises',
   );
   await must(
-    admin.from('sms_automation_settings').update({ business_name: 'Twenty Character Nam' }).eq('organisation_id', organisationA),
-    'restore business name',
+    admin.from('sms_messages').update({ payload_hash: callOutbox[0].payload_hash }).eq('idempotency_key', `missed-call-ack:${callSid}`),
+    'restore ack payload hash',
   );
 
   const stoppedCallSid = `CA${`${suffix}b`.padEnd(32, 'b')}`;
@@ -692,13 +771,7 @@ try {
     'booking worker raises auto-book disabled',
   );
 
-  const ladderCallSid = `CA${`${suffix}e`.padEnd(32, 'e')}`;
-  await ingestCall({ sid: ladderCallSid, to: SENDER_A });
-  const ladderOpen = await ingest({
-    sid: `SM${suffix}LADDEROPEN`,
-    to: SENDER_A,
-    body: 'Need a time',
-  });
+  const ladderOpen = { thread_id: jobReply.thread_id };
   await must(
     admin.from('missed_call_sms_threads').update({
       qualification_required: true,
@@ -782,6 +855,14 @@ try {
   assert.ok(auditA.length > 0 && auditA.every((row) => row.organisation_id === organisationA), 'organisation A sees only A consent audits');
   assert.ok(auditB.length > 0 && auditB.every((row) => row.organisation_id === organisationB), 'organisation B sees only B consent audits');
 
+  await must(
+    admin.from('missed_call_sms_threads').update({
+      qualification_required: false,
+      qualification_step: 'job_service',
+      state: 'awaiting_reply',
+    }).eq('id', jobReply.thread_id),
+    'return the open thread to the dormant ladder',
+  );
   const stopCallSid = `CA${`${suffix}d`.padEnd(32, 'd')}`;
   await ingestCall({ sid: stopCallSid, to: SENDER_A });
   const beforeThreadStop = await ingest({
@@ -1212,6 +1293,43 @@ try {
 
   const invalidZone = await admin.from('companies').update({ time_zone: 'Not/AZone' }).eq('id', organisationA);
   assert.ok(invalidZone.error, 'invalid IANA time zone is rejected');
+
+  await drainCOutbox();
+  await restoreCSettings({ hourly_message_cap: 1 });
+  await must(
+    admin.from('companies').update({ time_zone: 'Australia/Sydney' }).eq('id', organisationC),
+    'set Sydney cap zone',
+  );
+  const sydneyNow = localParts(new Date(), 'Australia/Sydney');
+  const sydneyHourStart = utcForZonedLocal(
+    'Australia/Sydney',
+    sydneyNow.year,
+    sydneyNow.month,
+    sydneyNow.day,
+    sydneyNow.hour,
+  );
+  const priorHourId = randomUUID();
+  await queueGuardFixture({
+    id: priorHourId,
+    to: TEST_MOBILE,
+    body: 'Prior local hour',
+    createdAt: new Date(sydneyHourStart - 1000).toISOString(),
+  });
+  await must(
+    admin.from('sms_messages').update({ state: 'sent', next_attempt: null }).eq('id', priorHourId),
+    'mark prior local hour sent',
+  );
+  const calendarId = randomUUID();
+  await queueGuardFixture({ id: calendarId, to: TEST_MOBILE, body: 'Current local hour' });
+  const calendarClaim = await must(admin.rpc('claim_next_sms_message', {
+    p_worker_id: 'tz-hour',
+    p_lease_seconds: 60,
+  }), 'claim current local hour');
+  assert.equal(calendarClaim[0]?.id, calendarId, 'calendar hourly cap ignores the previous tenant hour');
+  await must(
+    admin.from('companies').update({ time_zone: 'Australia/Brisbane' }).eq('id', organisationC),
+    'restore Brisbane zone',
+  );
 
   await expectCapWindow('hourly', { hourly_message_cap: 1 }, 'Hourly');
   await expectCapWindow('daily', { daily_message_cap: 1 }, 'Daily');

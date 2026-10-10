@@ -37,5 +37,7 @@ describe('missed-call SMS copy', () => {
       'Twenty Character Nam: reply with the job and your suburb and the office will get back to you. Reply STOP to opt out, START to opt back in.',
     );
     expect(gsm7Length(renderMissedCallAck('Smith Plumbing & Gas'))).toBe(158);
+    expect(gsm7Length('€')).toBe(2);
+    expect(gsm7Segments(`${'x'.repeat(159)}€`)).toBe(2);
   });
 });

@@ -7,6 +7,7 @@ export const TWILIO_STOP_WORDS = new Set([
   'QUIT',
   'OPT OUT',
   'OPTOUT',
+  'STOP ALL',
 ]);
 
 export function normalizeSmsKeyword(body: string): string {

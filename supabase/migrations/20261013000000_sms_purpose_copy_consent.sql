@@ -50,6 +50,38 @@ REVOKE ALL ON FUNCTION public.sms_payload_hash(text)
 GRANT EXECUTE ON FUNCTION public.sms_payload_hash(text)
   TO service_role;
 
+CREATE OR REPLACE FUNCTION public.sms_gsm7_length(p_body text)
+RETURNS integer
+LANGUAGE plpgsql
+IMMUTABLE
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+DECLARE
+  v_len integer := 0;
+  v_i integer;
+  v_ch text;
+BEGIN
+  IF p_body IS NULL OR p_body = '' THEN
+    RETURN 0;
+  END IF;
+  FOR v_i IN 1..char_length(p_body) LOOP
+    v_ch := substr(p_body, v_i, 1);
+    IF v_ch IN (E'\f', '^', '{', '}', E'\\', '[', '~', ']', '|', '€') THEN
+      v_len := v_len + 2;
+    ELSE
+      v_len := v_len + 1;
+    END IF;
+  END LOOP;
+  RETURN v_len;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.sms_gsm7_length(text)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.sms_gsm7_length(text)
+  TO service_role;
+
 CREATE OR REPLACE FUNCTION public.sms_gsm7_segments(p_body text)
 RETURNS smallint
 LANGUAGE sql
@@ -58,8 +90,8 @@ SECURITY INVOKER
 SET search_path = ''
 AS $$
   SELECT CASE
-    WHEN char_length(coalesce(p_body, '')) <= 160 THEN 1::smallint
-    ELSE ceil(char_length(p_body) / 153.0)::smallint
+    WHEN public.sms_gsm7_length(p_body) <= 160 THEN 1::smallint
+    ELSE ceil(public.sms_gsm7_length(p_body) / 153.0)::smallint
   END
 $$;
 
@@ -178,7 +210,26 @@ SET search_path = ''
 AS $$
 DECLARE
   v_tz text := public.sms_tenant_time_zone(p_message.organisation_id);
+  v_trunc text;
+  v_start timestamptz;
+  v_end timestamptz;
 BEGIN
+  v_trunc := CASE p_window
+    WHEN 'hour' THEN 'hour'
+    WHEN 'day' THEN 'day'
+    WHEN 'month' THEN 'month'
+  END;
+  IF v_trunc IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  v_start := date_trunc(v_trunc, now() AT TIME ZONE v_tz) AT TIME ZONE v_tz;
+  v_end := CASE v_trunc
+    WHEN 'hour' THEN v_start + interval '1 hour'
+    WHEN 'day' THEN v_start + interval '1 day'
+    ELSE v_start + interval '1 month'
+  END;
+
   IF p_window = 'month' THEN
     RETURN (
       SELECT coalesce(sum(coalesce(other.segments, 1)), 0)::integer
@@ -186,8 +237,8 @@ BEGIN
       WHERE other.organisation_id = p_message.organisation_id
         AND other.direction = 'outbound'
         AND other.id IS DISTINCT FROM p_message.id
-        AND date_trunc('month', other.created_at AT TIME ZONE v_tz)
-          = date_trunc('month', now() AT TIME ZONE v_tz)
+        AND other.created_at >= v_start
+        AND other.created_at < v_end
         AND (
           other.state IN ('claimed', 'sent')
           OR (
@@ -205,8 +256,8 @@ BEGIN
     WHERE other.organisation_id = p_message.organisation_id
       AND other.direction = 'outbound'
       AND other.id IS DISTINCT FROM p_message.id
-      AND date_trunc(p_window, other.created_at AT TIME ZONE v_tz)
-        = date_trunc(p_window, now() AT TIME ZONE v_tz)
+      AND other.created_at >= v_start
+      AND other.created_at < v_end
       AND (
         other.state IN ('claimed', 'sent')
         OR (
@@ -639,6 +690,16 @@ BEGIN
         AND preference.phone_e164 = p_from_phone_e164
         AND preference.sms_consent_status = 'opted_out'
     )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.sms_messages AS message
+      WHERE message.organisation_id = v_call.organisation_id
+        AND message.to_phone_e164 = p_from_phone_e164
+        AND message.purpose = 'missed_call_ack'
+        AND message.state IN ('queued', 'claimed', 'sent')
+        AND message.created_at > now() - interval '24 hours'
+        AND message.idempotency_key IS DISTINCT FROM v_ack_key
+    )
   THEN
     v_business := public.sms_business_name(v_call.organisation_id);
     v_body := public.missed_call_ack_body(v_business);
@@ -688,9 +749,7 @@ BEGIN
       FROM public.sms_messages AS message
       WHERE message.idempotency_key = v_ack_key;
 
-      IF v_existing.payload_hash IS DISTINCT FROM v_hash
-        OR v_existing.body IS DISTINCT FROM v_body
-      THEN
+      IF v_existing.payload_hash IS DISTINCT FROM v_hash THEN
         RAISE EXCEPTION 'missed-call ack payload hash conflict';
       END IF;
 
@@ -752,6 +811,7 @@ DECLARE
   v_business text;
   v_send_thanks boolean := false;
   v_opted_out boolean := false;
+  v_consented boolean := false;
   v_thanks_body text;
   v_thanks_hash text;
   v_thanks_key text;
@@ -1099,8 +1159,15 @@ BEGIN
       AND preference.phone_e164 = p_from_phone_e164
       AND preference.sms_consent_status = 'opted_out'
   );
+  v_consented := EXISTS (
+    SELECT 1
+    FROM public.communication_preferences AS preference
+    WHERE preference.organisation_id = v_organisation_id
+      AND preference.phone_e164 = p_from_phone_e164
+      AND preference.sms_consent_status = 'consented'
+  );
 
-  IF v_response IS NOT NULL AND NOT v_opted_out THEN
+  IF v_response IS NOT NULL AND v_consented THEN
     INSERT INTO public.sms_messages (
       organisation_id,
       sender_id,
