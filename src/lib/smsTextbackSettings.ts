@@ -90,16 +90,19 @@ export function smsAckPreviewSegments(businessName: string): number {
   return gsm7Segments(smsAckPreview(businessName));
 }
 
+export const SMS_TEXTBACK_NAME_HELP =
+  'Up to 20 letters, numbers or simple punctuation (no emoji or curly quotes). Shown on every missed-call text.';
+
 export function smsAckSegmentLabel(segments: number): string {
-  return segments === 1 ? '1 segment' : `${segments} segments`;
+  return segments === 1 ? 'Fits in 1 text' : 'Too long for 1 text';
 }
 
 export function smsTextbackCapStatus(settings: SmsTextbackSettings): string {
-  return `Hourly ${settings.hourlyCap} · Daily ${settings.dailyCap} · Monthly ${settings.monthlyCap}`;
+  return `Limits: ${settings.hourlyCap} an hour · ${settings.dailyCap} a day · ${settings.monthlyCap} text parts a month`;
 }
 
 export function smsTextbackTestStatus(testMode: boolean): string {
-  return testMode ? 'Test mode on' : 'Test mode off';
+  return testMode ? 'Test mode: texts only go to your test number' : 'Test mode off';
 }
 
 export function lookSmsTextbackSettings(

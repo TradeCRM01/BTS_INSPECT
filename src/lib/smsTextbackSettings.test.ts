@@ -42,7 +42,8 @@ describe('sms text-back settings', () => {
       'Hi, this is Field Audit Co. Sorry we missed your call. Reply with what you need done and your suburb and we will get back to you. Reply STOP to opt out.',
     );
     expect(smsAckPreviewSegments('Field Audit Co')).toBe(1);
-    expect(smsAckSegmentLabel(1)).toBe('1 segment');
+    expect(smsAckSegmentLabel(1)).toBe('Fits in 1 text');
+    expect(smsAckSegmentLabel(2)).toBe('Too long for 1 text');
     expect(smsDisplayNameCount('Field Audit Co')).toBe('14/20');
     expect(smsDisplayNameCountOver('Field Audit Co')).toBe(false);
     expect(smsDisplayNameCountOver('Twenty Character Nam')).toBe(false);
@@ -50,7 +51,7 @@ describe('sms text-back settings', () => {
     expect(smsDisplayNameCountOver('Twenty Character Name!')).toBe(true);
     expect(smsAckPreviewBlocked('Twenty Character Name!')).toBe(true);
     expect(smsAckPreview('Twenty Character Name!')).toBe(SMS_TEXTBACK_PREVIEW_BLOCKED);
-    expect(smsTextbackTestStatus(true)).toBe('Test mode on');
+    expect(smsTextbackTestStatus(true)).toBe('Test mode: texts only go to your test number');
     expect(smsTextbackCapStatus({
       enabled: false,
       businessName: 'Field Audit Co',
@@ -58,7 +59,15 @@ describe('sms text-back settings', () => {
       hourlyCap: 10,
       dailyCap: 20,
       monthlyCap: 300,
-    })).toBe('Hourly 10 · Daily 20 · Monthly 300');
+    })).toBe('Limits: 10 an hour · 20 a day · 300 text parts a month');
+    expect(smsTextbackCapStatus({
+      enabled: false,
+      businessName: 'Field Audit Co',
+      testMode: true,
+      hourlyCap: 11,
+      dailyCap: 22,
+      monthlyCap: 301,
+    })).toBe('Limits: 11 an hour · 22 a day · 301 text parts a month');
   });
 
   it('keeps live settings off and look seeds off the wire', () => {

@@ -56,6 +56,7 @@ import {
   smsAckPreviewBlocked,
   smsAckPreviewSegments,
   smsAckSegmentLabel,
+  SMS_TEXTBACK_NAME_HELP,
   smsDisplayNameCount,
   smsDisplayNameCountOver,
   smsDisplayNameError,
@@ -1372,7 +1373,7 @@ export function CompanySettingsPage() {
                     >
                       {smsDisplayNameCount(smsTextback.businessName)}
                     </p>
-                    <p className="hub-company-row-meta">2 to 20 GSM-7 characters. Shown on every missed-call text.</p>
+                    <p className="hub-company-row-meta">{SMS_TEXTBACK_NAME_HELP}</p>
                   </div>
                 </div>
                 <p

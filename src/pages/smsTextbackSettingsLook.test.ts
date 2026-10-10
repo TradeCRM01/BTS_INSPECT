@@ -27,6 +27,14 @@ describe('sms text-back LOOK — existing company settings section', () => {
     expect(page).toContain('shouldQueryLiveSmsTextback');
     expect(page).toContain('<Switch');
     expect(page).toContain('Twilio mapping');
+    expect(page).toContain('SMS_TEXTBACK_NAME_HELP');
+    expect(page).not.toContain('2 to 20 GSM-7 characters');
+    expect(page).not.toContain('ask an admin to change');
+    expect(lib).toContain('Up to 20 letters, numbers or simple punctuation (no emoji or curly quotes). Shown on every missed-call text.');
+    expect(lib).toContain('Fits in 1 text');
+    expect(lib).toContain('Too long for 1 text');
+    expect(lib).toContain('Test mode: texts only go to your test number');
+    expect(lib).toContain('Limits: ${settings.hourlyCap} an hour · ${settings.dailyCap} a day · ${settings.monthlyCap} text parts a month');
     expect(page).toContain('Saving…');
     expect(page).not.toContain("savingSmsTextback ? 'Saving...'");
     expect(page).toContain("import.meta.env.DEV ? searchParams.get('look') : null");
