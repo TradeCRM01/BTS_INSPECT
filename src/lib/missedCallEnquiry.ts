@@ -71,8 +71,8 @@ export function enquiryLookKind(
 
 export function formatAuMobileDisplay(phone: string | null | undefined): string | null {
   const digits = (phone ?? '').replace(/\D/g, '');
-  if (digits.startsWith('614') && digits.length === 11) {
-    const local = `0${digits.slice(3)}`;
+  if (digits.startsWith('61') && digits.length === 11) {
+    const local = `0${digits.slice(2)}`;
     return `${local.slice(0, 4)} ${local.slice(4, 7)} ${local.slice(7)}`;
   }
   if (digits.startsWith('04') && digits.length === 10) {

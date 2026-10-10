@@ -32,6 +32,7 @@ describe('jobs enquiries LOOK — same jobs paper', () => {
     expect(page).not.toMatch(/\+614(?!18893602)\d+/);
     expect(css).toContain('calc(var(--shell-bottom-nav-h, 0px) + 12px)');
     expect(src('src/lib/missedCallEnquiry.ts')).toContain("if (!import.meta.env.DEV) return null");
+    expect(src('src/lib/missedCallEnquiry.ts')).toContain("digits.startsWith('61') && digits.length === 11");
     expect(page).toContain('approveMissedCallEnquiry');
     expect(page).toContain('presetClientName={approving?.clientName ?? null}');
     expect(src('src/lib/missedCallEnquiry.ts')).toContain("rpc('approve_missed_call_enquiry'");
