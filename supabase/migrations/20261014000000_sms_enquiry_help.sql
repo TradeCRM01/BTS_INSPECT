@@ -295,7 +295,7 @@ BEGIN
     )
     ON CONFLICT (inbound_message_id, event_kind) DO NOTHING;
   ELSIF p_reply_kind = 'help' THEN
-    NULL;
+    v_response := public.missed_call_help_body(v_business);
   ELSIF v_opted_out THEN
     IF v_thread.id IS NOT NULL THEN
       UPDATE public.missed_call_sms_threads
@@ -437,8 +437,11 @@ BEGIN
       AND preference.sms_consent_status = 'consented'
   );
 
-  IF p_reply_kind = 'help' AND NOT v_opted_out THEN
-    v_response := public.missed_call_help_body(v_business);
+  IF p_reply_kind = 'help'
+    AND NOT v_opted_out
+    AND NOT v_consented
+    AND v_thread.id IS NOT NULL
+  THEN
     IF NOT EXISTS (
       SELECT 1
       FROM public.sms_messages AS message

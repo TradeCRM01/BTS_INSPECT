@@ -541,10 +541,20 @@ try {
     }).eq('idempotency_key', `missed-call-ack:${otherCompanyCallSid}`),
     'drain other-company ack',
   );
+  const unknownHelp = await ingest({
+    sid: `SM${suffix}NOENQUIRYHELP`,
+    to: SENDER_A,
+    from: DENIED_START_PHONE,
+    body: 'HELP',
+  });
+  const unknownHelpOutbox = await must(
+    admin.from('sms_messages').select('id').eq('idempotency_key', `missed-call-reply:${unknownHelp.message_id}`),
+    'read HELP with no enquiry',
+  );
+  assert.equal(unknownHelpOutbox.length, 0, 'HELP from an unknown number with no enquiry queues 0');
   const enquiryHelp = await ingest({
     sid: `SM${suffix}NEVERHELP`,
     to: SENDER_A,
-    from: DENIED_START_PHONE,
     body: 'HELP',
   });
   const enquiryHelpOutbox = await must(
@@ -562,7 +572,6 @@ try {
   const enquiryHelpAgain = await ingest({
     sid: `SM${suffix}NEVERHELP2`,
     to: SENDER_A,
-    from: DENIED_START_PHONE,
     body: 'HELP',
   });
   const enquiryHelpAgainOutbox = await must(
@@ -574,7 +583,7 @@ try {
     admin.from('sms_messages')
       .select('id')
       .eq('organisation_id', organisationA)
-      .eq('to_phone_e164', DENIED_START_PHONE)
+      .eq('to_phone_e164', TEST_MOBILE)
       .eq('purpose', 'enquiry_help')
       .in('state', ['queued', 'claimed', 'sent']),
     'count enquiry HELP flood',
@@ -586,8 +595,20 @@ try {
       last_error: 'test_drain',
       next_attempt: null,
     }).eq('id', enquiryHelpOutbox[0].id),
-    'drain enquiry-only HELP',
+    'cancel enquiry-only HELP',
   );
+  const enquiryHelpRetry = await ingest({
+    sid: `SM${suffix}NEVERHELP3`,
+    to: SENDER_A,
+    body: 'HELP',
+  });
+  const enquiryHelpRetryOutbox = await must(
+    admin.from('sms_messages').select('id, purpose, state').eq('idempotency_key', `missed-call-reply:${enquiryHelpRetry.message_id}`),
+    'read HELP after cancelled enquiry HELP',
+  );
+  assert.equal(enquiryHelpRetryOutbox.length, 1, 'a cancelled HELP does not block the next one within 24h');
+  assert.equal(enquiryHelpRetryOutbox[0].purpose, 'enquiry_help', 'retry HELP stays enquiry_help');
+  assert.equal(enquiryHelpRetryOutbox[0].state, 'queued', 'retry HELP is queued');
   await must(
     admin.from('communication_preferences').insert({
       organisation_id: organisationA,
@@ -748,6 +769,19 @@ try {
     'sent state retains the provider Message SID',
   );
 
+  const helpClaim = await must(admin.rpc('claim_next_sms_message', {
+    p_worker_id: 'enquiry-help-e2e',
+    p_lease_seconds: 60,
+  }), 'claim enquiry HELP');
+  const claimedHelp = helpClaim.find((row) => row.id === enquiryHelpRetryOutbox[0].id);
+  assert.ok(claimedHelp?.claim_token, 'enquiry HELP to the allowlisted mobile is claimed');
+  assert.equal(claimedHelp.purpose, 'enquiry_help', 'claimed HELP keeps enquiry_help');
+  await must(admin.rpc('complete_sms_dispatch', {
+    p_message_id: claimedHelp.id,
+    p_claim_token: claimedHelp.claim_token,
+    p_provider_message_sid: `SM${suffix}ENQUIRYHELP`,
+  }), 'complete enquiry HELP');
+
   const help = await ingest({
     sid: `SM${suffix}HELP`,
     to: SENDER_A,
@@ -762,7 +796,7 @@ try {
     'read HELP reply',
   );
   assert.equal(helpReply.state, 'queued', 'HELP queues a reply through the shared SMS outbox');
-  assert.equal(helpReply.purpose, 'enquiry_help', 'consented HELP stores enquiry_help');
+  assert.equal(helpReply.purpose, 'legacy', 'opted-in HELP keeps the old path');
   assert.equal(/BOOK/i.test(helpReply.body), false, 'HELP copy has no BOOK');
   assert.match(helpReply.body, /Twenty Character Nam/, 'HELP names the business');
   assert.match(helpReply.body, /STOP/, 'HELP still names STOP');
@@ -929,14 +963,6 @@ try {
   assert.ok(auditA.length > 0 && auditA.every((row) => row.organisation_id === organisationA), 'organisation A sees only A consent audits');
   assert.ok(auditB.length > 0 && auditB.every((row) => row.organisation_id === organisationB), 'organisation B sees only B consent audits');
 
-  await must(
-    admin.from('sms_messages').update({
-      state: 'cancelled',
-      last_error: 'test_drain',
-      next_attempt: null,
-    }).eq('idempotency_key', `missed-call-reply:${help.message_id}`),
-    'drain consented HELP so a later HELP can queue',
-  );
   await must(
     admin.from('missed_call_sms_threads').update({
       qualification_required: false,
@@ -1325,6 +1351,23 @@ try {
     p_lease_seconds: 60,
   }), 'claim remaining burst row');
   assert.equal(burstSecond[0]?.id, burstMiddle, 'second burst claim takes the remaining claimable row');
+
+  await drainCOutbox();
+  await restoreCSettings({ hourly_message_cap: 1 });
+  const helpCapId = randomUUID();
+  await queueGuardFixture({ id: helpCapId, to: TEST_MOBILE, body: 'enquiry_help cap row' });
+  await must(
+    admin.from('sms_messages').update({
+      purpose: 'enquiry_help',
+      state: 'sent',
+      next_attempt: null,
+      segments: 1,
+    }).eq('id', helpCapId),
+    'mark enquiry_help cap row sent',
+  );
+  const afterHelpCapId = randomUUID();
+  await queueGuardFixture({ id: afterHelpCapId, to: TEST_MOBILE, body: 'after enquiry_help cap' });
+  await claimCancelled(afterHelpCapId, 'cap_reached', 'enquiry_help counts toward the hourly cap');
 
   async function expectCapWindow(window, capPatch, label) {
     await drainCOutbox();
