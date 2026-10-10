@@ -4,7 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
-import { getAuditClients, getAuditJobs } from '../lib/devFieldAuditDocs';
+import { AUDIT_DOC_JOB_ID, getAuditClients, getAuditJobs } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, EmptyState, SearchBar } from '../components/ui';
 import { JobFormModal } from '../components/crm/JobFormModal';
@@ -21,22 +21,25 @@ import {
   ALLOWED_ENQUIRY_PHONE,
   DISMISS_REASONS,
   ENQUIRIES_VIEW,
-  ENQUIRY_EMPTY_LOOK,
-  ENQUIRY_LOOK,
   ENQUIRY_STATE_LABELS,
   type DismissReason,
   type EnquiryRow,
   approveMissedCallEnquiry,
+  countEnquiriesToReview,
   countEnquiriesToday,
   dismissMissedCallEnquiry,
   enquiryCallerLabel,
   enquiryExcerpt,
+  enquiryJobPath,
+  enquiryLookKind,
   enquiryState,
+  enquirySurfaceOpen,
   enquiryTitle,
   enquiryWhisper,
   formatEnquiryRowTime,
   isEnquiriesView,
   matchEnquiryClient,
+  shouldQueryLiveEnquiries,
 } from '../lib/missedCallEnquiry';
 import { resolveTenantTimeZone } from '../lib/tenantTimeZone';
 
@@ -341,9 +344,13 @@ function enquiryLookRows(): EnquiryRow[] {
       transcript: 'Oven sparking, West End',
       state: 'approved',
       enquiryStatus: 'approved',
-      approvedJobId: 'look-job-approved-enquiry',
+      approvedJobId: AUDIT_DOC_JOB_ID,
     },
   ];
+}
+
+function enquiryLookOneDraftRows(): EnquiryRow[] {
+  return enquiryLookRows().filter((row) => row.id === 'look-enquiry-today' || row.id === 'look-enquiry-approved');
 }
 
 function mapEnquiryThreads(
@@ -406,9 +413,9 @@ export function JobsPage() {
   const lookCrewS8dSeed = lookCrewS8d === CREW_S8D_LOOK_NEEDS
     || lookCrewS8d === CREW_S8D_LOOK_BOOKED
     || lookCrewS8d === CREW_S8D_LOOK_NOT;
-  const lookEnquiries = searchParams.get('look') === ENQUIRY_LOOK;
-  const lookEnquiriesEmpty = searchParams.get('look') === ENQUIRY_EMPTY_LOOK;
-  const lookEnquirySeed = lookEnquiries || lookEnquiriesEmpty;
+  const enquiryLook = enquiryLookKind(searchParams.get('look'));
+  const lookEnquirySeed = enquiryLook != null;
+  const enquirySurface = enquirySurfaceOpen(searchParams.get('look'));
   const tenantTimeZone = resolveTenantTimeZone(
     (company as { time_zone?: string | null } | null)?.time_zone,
   );
@@ -417,12 +424,22 @@ export function JobsPage() {
   const [showForm, setShowForm] = useState(false);
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
   const [lookEnquiryRows, setLookEnquiryRows] = useState<EnquiryRow[]>(
-    lookEnquiriesEmpty ? [] : lookEnquiries ? enquiryLookRows() : [],
+    enquiryLook === 'empty' ? [] : enquiryLook === 'one' ? enquiryLookOneDraftRows() : enquiryLook === 'list' ? enquiryLookRows() : [],
   );
   const [approving, setApproving] = useState<EnquiryRow | null>(null);
   const [dismissing, setDismissing] = useState<EnquiryRow | null>(null);
-  const [flight, setFlight] = useState<{ id: string; kind: 'approve' | 'dismiss' } | null>(null);
-  const showEnquiries = isEnquiriesView(searchParams.get('view')) || lookEnquirySeed;
+  const [dismissError, setDismissError] = useState('');
+  const [flight, setFlight] = useState<{
+    id: string;
+    kind: 'approve' | 'dismiss';
+    reason?: DismissReason;
+  } | null>(null);
+  const viewParam = searchParams.get('view');
+  const showEnquiries = enquirySurface && (
+    lookEnquirySeed
+      ? viewParam !== 'jobs'
+      : isEnquiriesView(viewParam)
+  );
 
   const { data: jobs, isLoading, isPending, error } = useQuery<JobRowModel[]>({
     queryKey: ['jobs-all', profile?.company_id],
@@ -485,6 +502,13 @@ export function JobsPage() {
     enabled: !!profile && !lookJobsList && !lookP307 && !lookCrewS8dSeed && !lookEnquirySeed,
   });
 
+  const queryLiveEnquiries = !!profile
+    && shouldQueryLiveEnquiries({ look: searchParams.get('look'), view: viewParam })
+    && !lookJobsList
+    && !lookP307
+    && !lookCrewS8dSeed
+    && !lookEnquirySeed;
+
   const { data: liveEnquiries, isLoading: enquiriesLoading, isPending: enquiriesPending } = useQuery<EnquiryRow[]>({
     queryKey: ['missed-call-enquiries', profile?.company_id],
     queryFn: async () => {
@@ -515,7 +539,8 @@ export function JobsPage() {
         clientsRes.data ?? [],
       );
     },
-    enabled: !!profile && !lookJobsList && !lookP307 && !lookCrewS8dSeed && !lookEnquirySeed,
+    enabled: queryLiveEnquiries,
+    retry: false,
   });
 
   const listRows = lookCrewS8dSeed && lookCrewS8d
@@ -556,7 +581,7 @@ export function JobsPage() {
     );
   }, [enquiryRows, search, tenantTimeZone]);
   const todayCount = countEnquiriesToday(enquiryRows, new Date(), tenantTimeZone);
-  const draftCount = enquiryRows.filter((row) => row.enquiryStatus === 'draft').length;
+  const reviewCount = countEnquiriesToReview(enquiryRows);
 
   const filterLabel = STATUS_FILTERS.find(tab => tab.key === statusFilter)?.label ?? 'All';
   const busy = listQueryBusy({ isPending, isLoading, data: jobs, seeded: lookJobsList || lookP307 || lookCrewS8dSeed });
@@ -564,7 +589,7 @@ export function JobsPage() {
     ? false
     : listQueryBusy({ isPending: enquiriesPending, isLoading: enquiriesLoading, data: liveEnquiries, seeded: false });
   const whisper = showEnquiries
-    ? enquiryWhisper({ busy: enquiriesBusy, count: filteredEnquiries.length, todayCount })
+    ? enquiryWhisper({ busy: enquiriesBusy, reviewCount, todayCount })
     : listCountWhisper({
       busy,
       filterLabel,
@@ -586,6 +611,7 @@ export function JobsPage() {
   function setJobsView(next: 'jobs' | 'enquiries') {
     const params = new URLSearchParams(searchParams);
     if (next === 'enquiries') params.set('view', ENQUIRIES_VIEW);
+    else if (lookEnquirySeed) params.set('view', 'jobs');
     else params.delete('view');
     setSearchParams(params, { replace: true });
   }
@@ -605,7 +631,8 @@ export function JobsPage() {
     queryClient.invalidateQueries({ queryKey: ['clients'] });
     queryClient.invalidateQueries({ queryKey: ['missed-call-enquiries'] });
     if (lookEnquirySeed) return;
-    navigate(`/jobs/${jobId}`);
+    const href = enquiryJobPath(jobId);
+    if (href) navigate(href);
   }
 
   async function startApprove(row: EnquiryRow) {
@@ -616,13 +643,15 @@ export function JobsPage() {
 
   async function startDismiss(row: EnquiryRow) {
     if (flight || row.enquiryStatus !== 'draft') return;
+    setDismissError('');
     setDismissing(row);
   }
 
   async function confirmDismiss(reason: DismissReason) {
     const row = dismissing;
     if (!row || flight) return;
-    setFlight({ id: row.id, kind: 'dismiss' });
+    setDismissError('');
+    setFlight({ id: row.id, kind: 'dismiss', reason });
     try {
       if (lookEnquirySeed) {
         await new Promise((resolve) => window.setTimeout(resolve, 400));
@@ -636,10 +665,25 @@ export function JobsPage() {
         queryClient.invalidateQueries({ queryKey: ['missed-call-enquiries'] });
       }
       setDismissing(null);
+    } catch (err) {
+      setDismissError(err instanceof Error ? err.message : 'Could not dismiss this enquiry.');
     } finally {
       setFlight(null);
     }
   }
+
+  useEffect(() => {
+    if (!dismissing) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      if (flight) return;
+      setDismissing(null);
+      setDismissError('');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [dismissing, flight]);
 
   if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load jobs" /></AppShell>;
 
@@ -659,7 +703,7 @@ export function JobsPage() {
               <h1 className="ops-page-title">Jobs</h1>
             )}
             <p className="hub-jobs-list-whisper">{whisper}</p>
-            {lookJobsList || lookP307 || lookCrewS8dSeed ? null : (
+            {lookJobsList || lookP307 || lookCrewS8dSeed || !enquirySurface ? null : (
             <div className="hub-jobs-list-views" role="tablist" aria-label="Jobs or enquiries">
               <button
                 type="button"
@@ -680,9 +724,9 @@ export function JobsPage() {
                 onClick={() => setJobsView('enquiries')}
               >
                 Enquiries
-                {draftCount > 0 ? (
-                  <span className="hub-jobs-enquiry-count" data-enquiry-today={todayCount}>
-                    {todayCount}
+                {reviewCount > 0 ? (
+                  <span className="hub-jobs-enquiry-count" data-enquiry-review={reviewCount}>
+                    {reviewCount}
                   </span>
                 ) : null}
               </button>
@@ -794,7 +838,7 @@ export function JobsPage() {
           createJob={approving ? async (payload) => {
             if (lookEnquirySeed) {
               await new Promise((resolve) => window.setTimeout(resolve, 800));
-              const jobId = `look-job-${approving.id}`;
+              const jobId = AUDIT_DOC_JOB_ID;
               setLookEnquiryRows((rows) => rows.map((item) => (
                 item.id === approving.id
                   ? {
@@ -820,6 +864,9 @@ export function JobsPage() {
           <div className="hub-jobs-enquiry-dismiss-sheet">
             <p className="hub-jobs-enquiry-dismiss-title">Dismiss this enquiry?</p>
             <p className="hub-jobs-enquiry-dismiss-copy">No job is created. The office can still see it as dismissed.</p>
+            {dismissError ? (
+              <p className="hub-jobs-enquiry-dismiss-error" data-dismiss-error="1">{dismissError}</p>
+            ) : null}
             <div className="hub-jobs-enquiry-dismiss-reasons">
               {DISMISS_REASONS.map((reason) => (
                 <button
@@ -830,7 +877,7 @@ export function JobsPage() {
                   data-dismiss-reason={reason.key}
                   onClick={() => { void confirmDismiss(reason.key); }}
                 >
-                  {flight?.kind === 'dismiss' && flight.id === dismissing.id && flight ? (
+                  {flight?.kind === 'dismiss' && flight.reason === reason.key ? (
                     <span className="inline-flex items-center gap-2">
                       <LoadingSpinner size="sm" />
                       Dismissing…
@@ -1044,6 +1091,7 @@ function EnquiryListRow({
   onDismiss: () => void;
 }) {
   const canDecide = row.enquiryStatus === 'draft';
+  const jobHref = enquiryJobPath(row.approvedJobId);
   return (
     <article
       className="hub-jobs-enquiry-row"
@@ -1090,8 +1138,8 @@ function EnquiryListRow({
             ) : 'Dismiss'}
           </button>
         </div>
-      ) : row.approvedJobId && !row.approvedJobId.startsWith('look-') ? (
-        <Link to={`/jobs/${row.approvedJobId}`} className="hub-next hub-jobs-enquiry-tap">
+      ) : jobHref ? (
+        <Link to={jobHref} className="hub-next hub-jobs-enquiry-tap">
           Open job
         </Link>
       ) : null}

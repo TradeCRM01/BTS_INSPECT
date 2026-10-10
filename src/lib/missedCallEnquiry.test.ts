@@ -2,15 +2,22 @@ import { describe, expect, it } from 'vitest';
 import {
   ALLOWED_ENQUIRY_PHONE,
   ENQUIRIES_HREF,
+  ENQUIRY_HIDDEN_LOOK,
+  ENQUIRY_SURFACE_LIVE,
   countEnquiriesToday,
+  countEnquiriesToReview,
   enquiryCallerLabel,
   enquiryExcerpt,
+  enquiryJobPath,
+  enquiryLookKind,
   enquiryState,
+  enquirySurfaceOpen,
   enquiryTitle,
   enquiryWhisper,
   isEnquiriesView,
   matchEnquiryClient,
   reminderRelatedHref,
+  shouldQueryLiveEnquiries,
 } from './missedCallEnquiry';
 
 const brisbaneMorning = '2026-10-09T14:30:00.000Z';
@@ -55,8 +62,27 @@ describe('enquiry list shape', () => {
     expect(countEnquiriesToday(rows, now, 'Australia/Brisbane')).toBe(1);
     expect(countEnquiriesToday(rows, now, 'Australia/Perth')).toBe(0);
     expect(countEnquiriesToday(rows, now, null)).toBe(1);
-    expect(enquiryWhisper({ busy: false, count: 2, todayCount: 1 }))
-      .toBe('Enquiries · 2 enquiries · 1 today');
+    expect(countEnquiriesToReview([
+      { enquiryStatus: 'draft' },
+      { enquiryStatus: 'draft' },
+      { enquiryStatus: 'approved' },
+    ])).toBe(2);
+    expect(enquiryWhisper({ busy: false, reviewCount: 2, todayCount: 1 }))
+      .toBe('2 to review · 1 today');
+  });
+
+  it('keeps the Enquiries surface off until the enquiry schema is live', () => {
+    expect(ENQUIRY_SURFACE_LIVE).toBe(false);
+    expect(enquiryLookKind('enquiries')).toBe('list');
+    expect(enquiryLookKind(ENQUIRY_HIDDEN_LOOK)).toBeNull();
+    expect(enquirySurfaceOpen('enquiries')).toBe(true);
+    expect(enquirySurfaceOpen(null)).toBe(false);
+    expect(shouldQueryLiveEnquiries({ look: null, view: null })).toBe(false);
+    expect(shouldQueryLiveEnquiries({ look: null, view: 'enquiries' })).toBe(false);
+    expect(shouldQueryLiveEnquiries({ look: 'enquiries', view: 'enquiries' })).toBe(false);
+    expect(enquiryJobPath('')).toBeNull();
+    expect(enquiryJobPath('/jobs/')).toBeNull();
+    expect(enquiryJobPath('job-9')).toBe('/jobs/job-9');
   });
 
   it('matches a client only when exactly one phone hits', () => {

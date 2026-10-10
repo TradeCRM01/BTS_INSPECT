@@ -5,6 +5,10 @@ export const ENQUIRIES_VIEW = 'enquiries';
 export const ENQUIRIES_HREF = '/jobs?view=enquiries';
 export const ENQUIRY_LOOK = 'enquiries';
 export const ENQUIRY_EMPTY_LOOK = 'enquiries-empty';
+export const ENQUIRY_ONE_LOOK = 'enquiries-one';
+export const ENQUIRY_HIDDEN_LOOK = 'jobs-prod-schema';
+/** Off until PR-J applies the enquiry schema in production. */
+export const ENQUIRY_SURFACE_LIVE = false;
 export const ALLOWED_ENQUIRY_PHONE = '+61418893602';
 
 export const ENQUIRY_STATES = ['no_reply', 'draft', 'approved', 'dismissed'] as const;
@@ -51,6 +55,40 @@ export type EnquiryJobDraft = {
 
 export function isEnquiriesView(view: string | null | undefined): boolean {
   return view === ENQUIRIES_VIEW;
+}
+
+export function enquiryLookKind(
+  look: string | null | undefined,
+): 'list' | 'empty' | 'one' | null {
+  if (look === ENQUIRY_LOOK) return 'list';
+  if (look === ENQUIRY_EMPTY_LOOK) return 'empty';
+  if (look === ENQUIRY_ONE_LOOK) return 'one';
+  return null;
+}
+
+export function enquirySurfaceOpen(look: string | null | undefined): boolean {
+  return enquiryLookKind(look) != null || ENQUIRY_SURFACE_LIVE;
+}
+
+export function shouldQueryLiveEnquiries(input: {
+  look?: string | null;
+  view?: string | null;
+}): boolean {
+  if (enquiryLookKind(input.look)) return false;
+  if (!enquirySurfaceOpen(input.look)) return false;
+  return isEnquiriesView(input.view);
+}
+
+export function enquiryJobPath(jobId: string | null | undefined): string | null {
+  const id = jobId?.trim() ?? '';
+  if (!id || id === '/' || id === 'jobs' || id === '/jobs' || id === '/jobs/') return null;
+  return `/jobs/${id}`;
+}
+
+export function countEnquiriesToReview(
+  rows: Array<{ enquiryStatus: string | null | undefined }>,
+): number {
+  return rows.filter((row) => row.enquiryStatus === 'draft').length;
 }
 
 export function enquiryState(input: {
@@ -102,13 +140,11 @@ export function countEnquiriesToday(
 
 export function enquiryWhisper(input: {
   busy: boolean;
-  count: number;
+  reviewCount: number;
   todayCount: number;
 }): string {
   if (input.busy) return 'Loading…';
-  const noun = input.count === 1 ? 'enquiry' : 'enquiries';
-  const todayNoun = input.todayCount === 1 ? 'today' : 'today';
-  return `Enquiries · ${input.count} ${noun} · ${input.todayCount} ${todayNoun}`;
+  return `${input.reviewCount} to review · ${input.todayCount} today`;
 }
 
 export function matchEnquiryClient(
