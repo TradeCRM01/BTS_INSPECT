@@ -486,7 +486,11 @@ BEGIN
       || '|' || p_from_phone_e164
       || '|' || p_to_phone_e164
       || '|ack-v1'
-      || '|' || v_body
+      || '|' || coalesce((
+        SELECT settings.ack_template
+        FROM public.sms_automation_settings AS settings
+        WHERE settings.organisation_id = v_call.organisation_id
+      ), '')
     );
 
     INSERT INTO public.sms_messages (
@@ -989,7 +993,13 @@ BEGIN
         now(),
         'enquiry_help',
         public.sms_gsm7_segments(v_response),
-        public.sms_payload_hash('help-v1|' || v_business || '|' || v_response)
+        public.sms_payload_hash(
+          'help-v1|' || v_business || '|' || coalesce((
+            SELECT settings.help_template
+            FROM public.sms_automation_settings AS settings
+            WHERE settings.organisation_id = v_organisation_id
+          ), '')
+        )
       )
       ON CONFLICT (idempotency_key) DO NOTHING;
     END IF;
@@ -1030,7 +1040,13 @@ BEGIN
   IF v_send_thanks AND v_thread.id IS NOT NULL AND NOT v_opted_out THEN
     v_thanks_body := public.sms_company_reply_body(v_organisation_id, 'thanks', v_business);
     v_thanks_key := 'enquiry-thanks:' || v_thread.id::text;
-    v_thanks_hash := public.sms_payload_hash('thanks-v1|' || v_business || '|' || v_thanks_body);
+    v_thanks_hash := public.sms_payload_hash(
+      'thanks-v1|' || v_business || '|' || coalesce((
+        SELECT settings.thanks_template
+        FROM public.sms_automation_settings AS settings
+        WHERE settings.organisation_id = v_organisation_id
+      ), '')
+    );
 
     INSERT INTO public.sms_messages (
       organisation_id,
