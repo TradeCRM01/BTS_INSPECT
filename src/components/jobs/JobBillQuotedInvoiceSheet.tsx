@@ -43,8 +43,8 @@ export function JobBillQuotedInvoiceSheet({
       onClose={onClose}
       className="hub-labour-rate-backdrop"
       panelClassName="overlay-panel-sm hub-labour-rate-sheet hub-job-bill-zero-labour-sheet"
-      backdropClose
-      swipeDownClose
+      backdropClose={!pending}
+      swipeDownClose={!pending}
     >
       <div className="hub-labour-rate-sheet-head">
         <h2 className="hub-labour-rate-sheet-title">Invoice from job</h2>

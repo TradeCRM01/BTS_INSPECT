@@ -16459,9 +16459,27 @@
       width: 100%;
     }
 
+  }
+
+  .job-invoice-create-hold {
+    position: fixed;
+    inset: 0;
+    z-index: 400;
+    pointer-events: auto;
+    background: transparent;
+  }
+
+  body:has(.hub-invoice-editor) .ops-toast-host {
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    right: 1rem;
+    bottom: auto;
+    left: auto;
+  }
+
+  @media (max-width: 767px) {
     body:has(.hub-invoice-editor) .ops-toast-host {
-      top: calc(12px + env(safe-area-inset-top, 0px));
-      bottom: auto;
+      left: 1rem;
+      right: 1rem;
     }
   }
 

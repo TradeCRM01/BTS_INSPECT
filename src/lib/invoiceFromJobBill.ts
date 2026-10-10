@@ -159,3 +159,11 @@ export function invoiceEditorShareArmed(openedAtMs: number, nowMs: number): bool
   if (openedAtMs <= 0) return true;
   return nowMs - openedAtMs >= INVOICE_EDITOR_SHARE_ARM_MS;
 }
+
+export function invoiceLandingOpensSend(
+  sendParam: string | null,
+  openedAtMs: number,
+  nowMs: number,
+): boolean {
+  return sendParam === '1' && invoiceEditorShareArmed(openedAtMs, nowMs);
+}

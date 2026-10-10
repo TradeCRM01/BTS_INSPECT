@@ -13,6 +13,30 @@ export type JobBillInvoiceCreateFlowResult =
   | 'created'
   | 'create_failed';
 
+/** Successful create keeps controls held until this page unmounts. */
+export function holdJobInvoiceCreateUntilUnmount(
+  result: JobBillInvoiceCreateFlowResult,
+): boolean {
+  return result === 'created';
+}
+
+/** A second tap before unmount must not Share, remind, or hit Jobs. */
+export function jobInvoiceSecondTapBeforeUnmount(input: {
+  heldUntilUnmount: boolean;
+  nextKey: string;
+}): { jobReminderPosts: number; sendParam: string | null; jobsPath: boolean } {
+  if (input.heldUntilUnmount) {
+    return { jobReminderPosts: 0, sendParam: null, jobsPath: false };
+  }
+  if (input.nextKey === 'send') {
+    return { jobReminderPosts: 0, sendParam: 'send=1', jobsPath: false };
+  }
+  if (input.nextKey === 'arriving') {
+    return { jobReminderPosts: 1, sendParam: null, jobsPath: false };
+  }
+  return { jobReminderPosts: 0, sendParam: null, jobsPath: true };
+}
+
 /**
  * One create path for header Invoice and quoted sheet — ref guard blocks double tap.
  */

@@ -15,6 +15,7 @@ import {
   jobBillDueDate,
   jobBillInvoiceBlocked,
   invoiceEditorShareArmed,
+  invoiceLandingOpensSend,
   jobInvoiceCreateLanding,
   reuseAfterUniqueConflict,
 } from './invoiceFromJobBill';
@@ -337,5 +338,12 @@ describe('jobInvoiceCreateLanding', () => {
     expect(invoiceEditorShareArmed(0, 100)).toBe(true);
     expect(invoiceEditorShareArmed(1000, 1399)).toBe(false);
     expect(invoiceEditorShareArmed(1000, 1400)).toBe(true);
+  });
+
+  it('covers send=1 with the same quiet window', () => {
+    expect(invoiceLandingOpensSend('1', 1000, 1000)).toBe(false);
+    expect(invoiceLandingOpensSend('1', 1000, 1399)).toBe(false);
+    expect(invoiceLandingOpensSend('1', 1000, 1400)).toBe(true);
+    expect(invoiceLandingOpensSend(null, 1000, 1400)).toBe(false);
   });
 });

@@ -69,11 +69,13 @@ import {
 import type { JobBillInvoicePreviewState } from '../lib/invoiceFromJobBill';
 import { countZeroLabourBeforeJobBillInvoice } from '../lib/requestJobBillInvoice';
 import {
+  holdJobInvoiceCreateUntilUnmount,
   runJobBillInvoiceCreateFlow,
   shouldSkipZeroLabourBeforeJobBillInvoice,
   type JobBillInvoiceCreateGuard,
 } from '../lib/jobBillInvoiceCreateFlow';
 import { jobBillInvoiceMutateSilentlyOnReject } from '../lib/jobBillInvoiceMutateStep';
+import { setJobInvoiceCreateHold } from '../lib/jobInvoiceCreateHold';
 import { jobInvoiceHeaderDetailContent } from '../lib/jobInvoiceHeaderDetail';
 import {
   jobBillInvoicePreviewFromLines,
@@ -2245,7 +2247,6 @@ export function JobDetailPage() {
       });
     },
     onSuccess: (result) => {
-      setQuotedInvoiceSheetOpen(false);
       const reuse = result.existing ? invoiceReuseOpen(result.id) : null;
       showToast(reuse ? reuse.toast : JOB_BILL_INVOICE_CREATED, 'success');
       navigate(jobInvoiceCreateLanding(result.id));
@@ -2756,11 +2757,14 @@ export function JobDetailPage() {
     opts?: { forceSkipZeroCheck?: boolean },
   ) => {
     if (!profile?.company_id || !profile.id || !id) return;
-    flushSync(() => setInvoiceBillFlowBusy(true));
+    flushSync(() => {
+      setInvoiceBillFlowBusy(true);
+      setJobInvoiceCreateHold(true);
+    });
     await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
     try {
       const quoted = isJobBillQuoted(acceptedQuoteEarly?.line_items);
-      await runJobBillInvoiceCreateFlow({
+      const flowResult = await runJobBillInvoiceCreateFlow({
         guard: invoiceBillFlowGuard.current,
         skipZeroCheck: opts?.forceSkipZeroCheck === true
           || shouldSkipZeroLabourBeforeJobBillInvoice({
@@ -2792,15 +2796,20 @@ export function JobDetailPage() {
           () => invoiceFromJobBill.mutateAsync(includeLoggedHoursExtra),
         ),
       });
+      if (!holdJobInvoiceCreateUntilUnmount(flowResult)) {
+        setInvoiceBillFlowBusy(false);
+        setJobInvoiceCreateHold(false);
+      }
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Could not create invoice';
       showToast(message, 'error');
-    } finally {
       setInvoiceBillFlowBusy(false);
+      setJobInvoiceCreateHold(false);
     }
   };
 
   const handleInvoice = () => {
+    if (invoiceBillFlowBusy) return;
     if (p307LookKind() === 'reuse') {
       const reuse = invoiceReuseOpen(AUDIT_INVOICE_ID);
       showToast(reuse.toast);
@@ -2821,6 +2830,7 @@ export function JobDetailPage() {
   };
 
   const handleSend = () => {
+    if (invoiceBillFlowBusy) return;
     const draft = pickJobDraftToSend(invoices);
     if (draft) navigate(`/invoices?id=${draft.id}&send=1`);
   };
@@ -2908,6 +2918,7 @@ export function JobDetailPage() {
   };
 
   const runNext = () => {
+    if (invoiceNextBusy) return;
     if (arrivingPrimary) {
       reminderRef.current?.sendArriving();
       return;
@@ -3195,10 +3206,10 @@ export function JobDetailPage() {
                       className="btn-primary ops-next-control-block"
                       title={next.detail}
                       disabled={nextBusy}
-                      aria-busy={next.key === 'invoice' && invoiceNextBusy ? true : undefined}
+                      aria-busy={invoiceNextBusy ? true : undefined}
                       onClick={runNext}
                     >
-                      {next.key === 'invoice' && invoiceNextBusy ? (
+                      {invoiceNextBusy ? (
                         <>
                           <LoadingSpinner size="sm" />
                           Creating…
@@ -4396,7 +4407,10 @@ export function JobDetailPage() {
         moneyLine={quotedInvoiceSheetMoneyLine}
         addLoggedHoursExtra={addLoggedHoursExtra}
         onAddLoggedHoursExtraChange={setAddLoggedHoursExtra}
-        onClose={() => setQuotedInvoiceSheetOpen(false)}
+        onClose={() => {
+          if (invoiceNextBusy) return;
+          setQuotedInvoiceSheetOpen(false);
+        }}
         onCreate={() => {
           void runInvoiceFromJobBill(addLoggedHoursExtra, {
             forceSkipZeroCheck: Boolean(

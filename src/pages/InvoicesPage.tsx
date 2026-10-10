@@ -55,7 +55,8 @@ import {
 } from '../lib/invoicePayments';
 import { invoiceListStatusLabel, invoiceBalanceOwed, invoiceSheetStatusChip } from '../lib/invoiceOpenBalance';
 import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
-import { invoiceEditorShareArmed } from '../lib/invoiceFromJobBill';
+import { invoiceEditorShareArmed, invoiceLandingOpensSend } from '../lib/invoiceFromJobBill';
+import { releaseJobInvoiceCreateHold } from '../lib/jobInvoiceCreateHold';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
 import { invoiceSendCompanyFrom, isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
 import {
@@ -309,11 +310,11 @@ export function InvoicesPage() {
     if (invoiceId) {
       if (openedInvoice === undefined) return;
       if (!openedInvoice) return;
-      if (searchParams.get('send') === '1') {
-        shareOpenedAtRef.current = 0;
+      shareOpenedAtRef.current = Date.now();
+      releaseJobInvoiceCreateHold();
+      if (invoiceLandingOpensSend(searchParams.get('send'), shareOpenedAtRef.current, Date.now())) {
         setSendingInvoiceId(invoiceId);
       } else {
-        shareOpenedAtRef.current = Date.now();
         setEditingInvoice(openedInvoice);
         setPresetClientId(null);
         setShowForm(true);

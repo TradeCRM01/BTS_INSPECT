@@ -26,7 +26,7 @@ describe('FIX-6 P1 invoice PDF / create / share / payment', () => {
     const quoted = src('src/components/jobs/JobBillQuotedInvoiceSheet.tsx');
     const postStart = job.indexOf('className={`job-visit-post');
     const post = job.slice(postStart, job.indexOf('</button>', postStart) + 12);
-    const nextStart = job.indexOf('aria-busy={next.key === \'invoice\'');
+    const nextStart = job.indexOf('aria-busy={invoiceNextBusy ? true : undefined}');
     const next = job.slice(nextStart, job.indexOf('const invoiceDetail', nextStart));
     expect(post).toContain('Posting…');
     expect(post).toContain('LoadingSpinner');
@@ -35,7 +35,9 @@ describe('FIX-6 P1 invoice PDF / create / share / payment', () => {
     expect(next).toContain('Creating…');
     expect(next).toContain('LoadingSpinner');
     expect(next).toContain('invoiceNextBusy');
-    expect(job).toContain('flushSync(() => setInvoiceBillFlowBusy(true))');
+    expect(job).toContain('flushSync(() => {');
+    expect(job).toContain('setInvoiceBillFlowBusy(true)');
+    expect(job).toContain('setJobInvoiceCreateHold(true)');
     expect(job).toContain('new Promise<void>(resolve => requestAnimationFrame(() => resolve()))');
     expect(job).toContain('flushSync(() => { postVisitNote.mutate(); })');
     expect(quote).toContain("flushSync(() => { setInvoicing(true); setErr(''); })");
@@ -81,7 +83,15 @@ describe('FIX-6 P1 invoice PDF / create / share / payment', () => {
     expect(jobCreate.indexOf('navigate(jobInvoiceCreateLanding(result.id))')).toBeLessThan(
       jobCreate.indexOf("setQueryData<JobInvoice[]>"),
     );
+    expect(src('src/pages/InvoicesPage.tsx')).toContain('invoiceLandingOpensSend');
     expect(src('src/pages/InvoicesPage.tsx')).toContain('invoiceEditorShareArmed');
+    expect(job).toContain('holdJobInvoiceCreateUntilUnmount');
+    expect(job).toContain('setJobInvoiceCreateHold(true)');
+    expect(src('src/App.tsx')).toContain('JobInvoiceCreateHoldOverlay');
+    expect(job.slice(
+      job.indexOf('const runNext'),
+      job.indexOf('if (next.key === \'phone\')'),
+    )).toContain('if (invoiceNextBusy) return');
     expect(quoteCreate).not.toContain('send=1');
     expect(quoteCreate).toContain('invoiceLandingPath');
     expect(src('src/index.css')).toMatch(
