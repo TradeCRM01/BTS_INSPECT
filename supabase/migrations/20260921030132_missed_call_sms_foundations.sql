@@ -1,6 +1,13 @@
 -- Missed-call SMS Phase 1: tenant routing, consent, durable ledger, STOP and claims.
 -- This migration deliberately does not send SMS or create jobs.
 
+DO $skip_organisations_era$
+BEGIN
+  IF to_regclass('public.organisations') IS NULL THEN
+    RAISE NOTICE 'Skipping organisations-era missed-call migration on companies schema';
+    RETURN;
+  END IF;
+
 CREATE TABLE public.organisation_twilio_senders (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organisation_id uuid NOT NULL REFERENCES public.organisations(id) ON DELETE CASCADE,
@@ -582,3 +589,6 @@ COMMENT ON TABLE public.sms_messages IS
   'Durable inbound ledger and dormant outbound outbox. Phase 1 does not send messages.';
 COMMENT ON COLUMN public.jobs.automation_ref IS
   'Inbound SMS provenance for a future service-created booking; never a manufactured user identity.';
+
+END;
+$skip_organisations_era$;

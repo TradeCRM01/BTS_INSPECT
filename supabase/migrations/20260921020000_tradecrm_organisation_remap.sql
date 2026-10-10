@@ -3,6 +3,13 @@
 
 DO $$
 BEGIN
+  IF to_regclass('public.companies') IS NOT NULL
+    AND to_regclass('public.organisations') IS NULL
+  THEN
+    RAISE NOTICE 'Skipping TradeCRM organisation remap on companies schema';
+    RETURN;
+  END IF;
+
   IF to_regclass('public.organisations') IS NULL
     AND to_regclass('public.companies') IS NOT NULL
   THEN
@@ -17,6 +24,13 @@ $$;
 
 DO $$
 BEGIN
+  IF to_regclass('public.companies') IS NOT NULL
+    AND to_regclass('public.organisations') IS NULL
+  THEN
+    RAISE NOTICE 'Skipping TradeCRM organisation remap on companies schema';
+    RETURN;
+  END IF;
+
   IF to_regclass('public.organisation_twilio_senders') IS NULL
     AND to_regclass('public.company_twilio_senders') IS NOT NULL
   THEN
@@ -29,6 +43,13 @@ DO $$
 DECLARE
   v_table text;
 BEGIN
+  IF to_regclass('public.companies') IS NOT NULL
+    AND to_regclass('public.organisations') IS NULL
+  THEN
+    RAISE NOTICE 'Skipping TradeCRM organisation remap on companies schema';
+    RETURN;
+  END IF;
+
   FOREACH v_table IN ARRAY ARRAY[
     'profiles',
     'clients',
@@ -69,6 +90,13 @@ $$;
 
 DO $$
 BEGIN
+  IF to_regclass('public.companies') IS NOT NULL
+    AND to_regclass('public.organisations') IS NULL
+  THEN
+    RAISE NOTICE 'Skipping TradeCRM organisation remap on companies schema';
+    RETURN;
+  END IF;
+
   IF to_regclass('public.organisation_twilio_senders') IS NOT NULL
     AND EXISTS (
       SELECT 1
@@ -94,6 +122,13 @@ $$;
 
 DO $$
 BEGIN
+  IF to_regclass('public.companies') IS NOT NULL
+    AND to_regclass('public.organisations') IS NULL
+  THEN
+    RAISE NOTICE 'Skipping TradeCRM organisation remap on companies schema';
+    RETURN;
+  END IF;
+
   IF to_regclass('public.job_visits') IS NULL THEN
     CREATE TABLE public.job_visits (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

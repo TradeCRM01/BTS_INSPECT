@@ -1,3 +1,10 @@
+DO $skip_organisations_era$
+BEGIN
+  IF to_regclass('public.organisations') IS NULL THEN
+    RAISE NOTICE 'Skipping organisations-era missed-call migration on companies schema';
+    RETURN;
+  END IF;
+
 CREATE UNIQUE INDEX jobs_organisation_id_key
   ON public.jobs (organisation_id, id);
 
@@ -693,3 +700,6 @@ COMMENT ON TABLE public.missed_call_booking_commands IS
   'Idempotent confirmed-slot commands processed atomically into jobs and confirmation outbox rows.';
 COMMENT ON TABLE public.missed_call_office_reviews IS
   'Replies that require office handling because they are ambiguous, noneligible, opted out, or conflicting.';
+
+END;
+$skip_organisations_era$;
