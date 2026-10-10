@@ -1,6 +1,31 @@
-import assert from 'node:assert/strict';
+import nodeAssert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
+
+function pass(name) {
+  if (typeof name === 'string' && name.length > 0) {
+    console.log(`pass: ${name}`);
+  }
+}
+
+const assert = {
+  equal(actual, expected, message) {
+    nodeAssert.equal(actual, expected, message);
+    pass(message);
+  },
+  deepEqual(actual, expected, message) {
+    nodeAssert.deepEqual(actual, expected, message);
+    pass(message);
+  },
+  ok(value, message) {
+    nodeAssert.ok(value, message);
+    pass(message);
+  },
+  match(actual, expected, message) {
+    nodeAssert.match(actual, expected, message);
+    pass(message);
+  },
+};
 
 const url = process.env.SUPABASE_URL || 'http://127.0.0.1:55321';
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -488,6 +513,7 @@ try {
   assert.equal(helpReply.state, 'queued', 'HELP queues a reply through the shared SMS outbox');
   assert.equal(/BOOK/i.test(helpReply.body), false, 'HELP copy has no BOOK');
   assert.match(helpReply.body, /STOP/, 'HELP still names STOP');
+  assert.match(helpReply.body, /START/, 'HELP still names START');
 
   const jobReply = await ingest({
     sid: `SM${suffix}JOB`,
@@ -513,6 +539,15 @@ try {
   });
   assert.equal(bookingReply.command_id, null, 'BOOK is stored as text and creates no command');
   assert.equal(bookingReply.reply_kind, 'confirmed_slot', 'classifier still names the BOOK shape');
+  assert.equal(bookingReply.review_reason, 'ambiguous', 'BOOK reply lands in office review as ambiguous');
+  const bookReview = await must(
+    admin.from('missed_call_office_reviews')
+      .select('reason')
+      .eq('inbound_message_id', bookingReply.message_id)
+      .single(),
+    'read BOOK office review',
+  );
+  assert.equal(bookReview.reason, 'ambiguous', 'BOOK office review reason is ambiguous');
   const commandsAfterBook = await must(
     admin.from('missed_call_booking_commands').select('id').eq('organisation_id', organisationA),
     'count booking commands after BOOK',
@@ -537,6 +572,66 @@ try {
     /auto-book disabled/,
     'trigger blocks booking command inserts',
   );
+  const disabledWorker = await admin.rpc('process_next_missed_call_booking', {
+    p_worker_id: 'booking-test',
+  });
+  assert.match(
+    disabledWorker.error?.message ?? '',
+    /auto-book disabled/,
+    'booking worker raises auto-book disabled',
+  );
+
+  const ladderCallSid = `CA${`${suffix}e`.padEnd(32, 'e')}`;
+  await ingestCall({ sid: ladderCallSid, to: '+61280000001' });
+  const ladderOpen = await ingest({
+    sid: `SM${suffix}LADDEROPEN`,
+    to: '+61280000001',
+    body: 'Need a time',
+  });
+  await must(
+    admin.from('missed_call_sms_threads').update({
+      qualification_required: true,
+      qualification_step: 'job_service',
+      state: 'awaiting_reply',
+    }).eq('id', ladderOpen.thread_id),
+    'keep one thread on the PR-E ladder',
+  );
+  const ladderJob = await ingest({
+    sid: `SM${suffix}LADDERJOB`,
+    to: '+61280000001',
+    body: 'Leaking hot water service today',
+  });
+  assert.equal(ladderJob.qualification_step, 'urgency', 'kept ladder advances on job or service');
+  const ladderUrgency = await ingest({
+    sid: `SM${suffix}LADDERURG`,
+    to: '+61280000001',
+    body: '2',
+  });
+  assert.equal(ladderUrgency.qualification_step, 'contact_area', 'kept ladder advances on numbered urgency');
+  const ladderContact = await ingest({
+    sid: `SM${suffix}LADDERWHO`,
+    to: '+61280000001',
+    body: 'Jack, Newtown',
+  });
+  assert.equal(ladderContact.qualification_step, 'time_window', 'kept ladder advances on name and area');
+  const ladderQualified = await ingest({
+    sid: `SM${suffix}LADDERWHEN`,
+    to: '+61280000001',
+    body: 'Weekdays 2-4pm',
+  });
+  assert.equal(ladderQualified.qualified, true, 'kept ladder still completes qualification');
+  const ladderBook = await ingest({
+    sid: `SM${suffix}LADDERBOOK`,
+    to: '+61280000001',
+    body: `BOOK ${bookingDate} 09:30`,
+  });
+  assert.equal(ladderBook.command_id, null, 'qualified BOOK still creates no command');
+  assert.equal(ladderBook.review_reason, 'ambiguous', 'qualified BOOK still lands as ambiguous');
+  const ladderCommands = await must(
+    admin.from('missed_call_booking_commands').select('id').eq('thread_id', ladderOpen.thread_id),
+    'count commands on the kept ladder thread',
+  );
+  assert.equal(ladderCommands.length, 0, 'kept ladder BOOK leaves 0 commands');
 
   const bookedStop = await ingest({
     sid: `SM${suffix}BOOKEDSTOP`,
