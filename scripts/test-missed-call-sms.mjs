@@ -997,6 +997,7 @@ try {
     admin.from('jobs').select('id').eq('company_id', organisationA).eq('created_via', 'human'),
     'count jobs before concurrent approve',
   );
+  const smsBeforeRace = await countOutbound(organisationA);
   const [raceOne, raceTwo] = await Promise.all([
     clientA.rpc('approve_missed_call_enquiry', {
       p_thread_id: raceInbound.thread_id,
@@ -1019,7 +1020,7 @@ try {
   );
   assert.equal(jobsAfterRace.length, jobsBeforeRace.length + 1, 'two connections approving at once create exactly 1 job');
   const raceSms = await countOutbound(organisationA);
-  assert.equal(raceSms, smsAfterApprove, 'concurrent approve sends no SMS');
+  assert.equal(raceSms, smsBeforeRace, 'concurrent approve sends no SMS');
 
   const dismissFrom = '+61412222222';
   const dismissCallSid = `CA${`${suffix}f`.padEnd(32, 'f')}`;
