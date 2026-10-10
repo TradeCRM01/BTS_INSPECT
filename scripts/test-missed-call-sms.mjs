@@ -1346,6 +1346,98 @@ try {
   );
   assert.equal(capsUnchanged.daily_message_cap, 20, 'tenant admin cap write is rejected by RLS');
 
+  const enabledBlank = await admin.from('sms_automation_settings').update({
+    enabled: true,
+    business_name: null,
+  }).eq('organisation_id', organisationC);
+  assert.ok(enabledBlank.error, 'enabled=true without a display name is rejected');
+  const enabledLong = await admin.from('sms_automation_settings').update({
+    enabled: true,
+    business_name: 'Twenty Character Name',
+  }).eq('organisation_id', organisationC);
+  assert.ok(enabledLong.error, 'enabled=true with a name over 20 is rejected');
+  const enabledDash = await admin.from('sms_automation_settings').update({
+    enabled: true,
+    business_name: 'Name—Dash',
+  }).eq('organisation_id', organisationC);
+  assert.ok(enabledDash.error, 'enabled=true with a non-GSM-7 name is rejected');
+
+  const savedByAdmin = await must(
+    clientC.rpc('save_sms_textback_settings', {
+      p_enabled: false,
+      p_business_name: 'Field Audit Co',
+    }),
+    'admin saves SMS display name',
+  );
+  assert.equal(savedByAdmin.business_name, 'Field Audit Co', 'admin RPC writes the display name');
+  assert.equal(savedByAdmin.enabled, false, 'admin RPC can leave texts off');
+
+  const enableBlankRpc = await clientC.rpc('save_sms_textback_settings', {
+    p_enabled: true,
+    p_business_name: '',
+  });
+  assert.ok(enableBlankRpc.error, 'admin RPC refuses enable without a valid name');
+  assert.equal(enableBlankRpc.error?.code, '23514', 'enable without a name is a check failure');
+
+  const enableLongRpc = await clientC.rpc('save_sms_textback_settings', {
+    p_enabled: true,
+    p_business_name: 'Twenty Character Name',
+  });
+  assert.ok(enableLongRpc.error, 'admin RPC refuses a name over 20');
+
+  const enabledByAdmin = await must(
+    clientC.rpc('save_sms_textback_settings', {
+      p_enabled: true,
+      p_business_name: 'Field Audit Co',
+    }),
+    'admin enables texts with a valid name',
+  );
+  assert.equal(enabledByAdmin.enabled, true, 'admin RPC enables texts when the name is valid');
+
+  const memberEmail = `sms-member-${suffix}@example.test`;
+  const memberCreated = await must(
+    admin.auth.admin.createUser({ email: memberEmail, password: userPassword, email_confirm: true }),
+    'create member auth user',
+  );
+  users.push(memberCreated.user.id);
+  await must(
+    admin.from('profiles').insert({
+      id: memberCreated.user.id,
+      email: memberEmail,
+      name: 'SMS member',
+      company_id: organisationC,
+      role: 'member',
+    }),
+    'create member profile',
+  );
+  const memberClient = createClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  await must(memberClient.auth.signInWithPassword({ email: memberEmail, password: userPassword }), 'sign in member');
+  const memberTableWrite = await memberClient.from('sms_automation_settings').update({
+    business_name: 'Member Name',
+  }).eq('organisation_id', organisationC).select('business_name');
+  assert.equal(memberTableWrite.data?.length ?? 0, 0, 'non-admin table write is denied by RLS');
+  const memberRpc = await memberClient.rpc('save_sms_textback_settings', {
+    p_enabled: false,
+    p_business_name: 'Member Name',
+  });
+  assert.ok(memberRpc.error, 'non-admin RPC write is denied');
+  assert.equal(memberRpc.error?.code, '42501', 'non-admin RPC is 42501');
+  const nameAfterMember = await must(
+    admin.from('sms_automation_settings').select('business_name, enabled').eq('organisation_id', organisationC).single(),
+    'read settings after member write',
+  );
+  assert.equal(nameAfterMember.business_name, 'Field Audit Co', 'member write does not change the display name');
+
+  await must(
+    clientC.rpc('save_sms_textback_settings', {
+      p_enabled: true,
+      p_business_name: 'Twenty Character Nam',
+    }),
+    'restore organisation C name after RPC fixtures',
+  );
+
   await must(
     admin.from('communication_preferences').insert({
       organisation_id: organisationC,
