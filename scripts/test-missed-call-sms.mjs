@@ -32,13 +32,13 @@ async function createTenant(organisationId, label) {
     `create ${label} auth user`,
   );
   users.push(created.user.id);
-  await must(admin.from('organisations').insert({ id: organisationId, name: `SMS test ${label}` }), `create ${label} organisation`);
+  await must(admin.from('companies').insert({ id: organisationId, name: `SMS test ${label}` }), `create ${label} company`);
   await must(
     admin.from('profiles').insert({
       id: created.user.id,
       email,
       name: `SMS ${label}`,
-      organisation_id: organisationId,
+      company_id: organisationId,
     }),
     `create ${label} profile`,
   );
@@ -255,10 +255,19 @@ try {
   assert.equal(replayRows.length, 1, 'provider SID is stored once');
   await must(admin.from('organisation_twilio_senders').update({ active: false }).eq('id', senderA), 'retire replay sender');
   const retiredReplay = await ingest({ sid: replaySid, to: '+61280000001' });
-  assert.equal(retiredReplay.replay, true, 'replay remains idempotent after sender retirement');
+  assert.deepEqual(
+    { stored: retiredReplay.stored, reason: retiredReplay.reason },
+    { stored: false, reason: 'unknown_destination' },
+    'retired sender is unknown on the companies ingest path',
+  );
+  const retiredReplayRows = await must(
+    admin.from('sms_messages').select('id').eq('provider_message_sid', replaySid),
+    'read retired replay rows',
+  );
+  assert.equal(retiredReplayRows.length, 1, 'replay remains idempotent after sender retirement');
   await must(admin.from('organisation_twilio_senders').update({ active: true }).eq('id', senderA), 'restore replay sender');
   const forgedAutomation = await clientA.from('jobs').insert({
-    organisation_id: organisationA,
+    company_id: organisationA,
     title: 'Must not persist',
     created_by: null,
     created_via: 'missed_call_sms',
@@ -481,7 +490,7 @@ try {
 
   await must(
     admin.from('clients').insert({
-      organisation_id: organisationA,
+      company_id: organisationA,
       name: 'Missed-call client',
       phone: '+61412345678',
       address: '1 Test Street',
@@ -601,35 +610,19 @@ try {
   assert.equal(booked.booked, true, 'confirmed concrete slot books a job');
   const bookedJob = await must(
     admin.from('jobs')
-      .select('organisation_id, created_by, created_via, automation_ref')
+      .select('company_id, created_by, created_via, automation_ref, scheduled_date, start_time, end_time, status')
       .eq('id', booked.job_id)
       .single(),
     'read automated job',
   );
-  assert.equal(bookedJob.organisation_id, organisationA, 'booking stays in the missed-call organisation');
+  assert.equal(bookedJob.company_id, organisationA, 'booking stays in the missed-call company');
   assert.equal(bookedJob.created_by, null, 'automation does not spoof a human JWT');
   assert.equal(bookedJob.created_via, 'missed_call_sms', 'job records automation provenance');
   assert.equal(bookedJob.automation_ref, bookingReply.message_id, 'job references the inbound command message');
-  const bookedVisit = await must(
-    admin.from('job_visits')
-      .select('organisation_id, scheduled_date, scheduled_start, scheduled_end, status')
-      .eq('job_id', booked.job_id)
-      .single(),
-    'read automated job visit',
-  );
-  assert.equal(bookedVisit.organisation_id, organisationA, 'visit stays in the missed-call organisation');
-  assert.equal(bookedVisit.scheduled_date, bookingDate, 'visit keeps the confirmed date');
-  assert.equal(
-    new Date(bookedVisit.scheduled_start).toISOString(),
-    `${bookingDate}T01:30:00.000Z`,
-    'visit stores the confirmed 09:30 Australia/Perth start',
-  );
-  assert.equal(
-    new Date(bookedVisit.scheduled_end).toISOString(),
-    `${bookingDate}T02:30:00.000Z`,
-    'visit defaults the booking to one hour',
-  );
-  assert.equal(bookedVisit.status, 'planned', 'visit starts planned');
+  assert.equal(bookedJob.scheduled_date, bookingDate, 'job keeps the confirmed date');
+  assert.equal(bookedJob.start_time, '09:30:00', 'job stores the confirmed 09:30 start');
+  assert.equal(bookedJob.end_time, '10:30:00', 'job defaults the booking to one hour');
+  assert.equal(bookedJob.status, 'scheduled', 'automated booking uses the scheduled job status');
   const confirmation = await must(
     admin.from('sms_messages')
       .select('state, body')
@@ -824,22 +817,21 @@ try {
   await admin.from('communication_preference_events').delete().in('organisation_id', [organisationA, organisationB]);
   await admin.from('agent_reminders')
     .delete()
-    .in('organisation_id', [organisationA, organisationB])
+    .in('company_id', [organisationA, organisationB])
     .eq('related_type', 'missed_call_office_review');
   await admin.from('missed_call_booking_commands').delete().in('organisation_id', [organisationA, organisationB]);
   await admin.from('missed_call_sms_threads').delete().in('organisation_id', [organisationA, organisationB]);
   await admin.from('agent_reminders')
     .delete()
-    .in('organisation_id', [organisationA, organisationB])
+    .in('company_id', [organisationA, organisationB])
     .eq('related_type', 'missed_call_sms_thread');
-  await admin.from('job_visits').delete().in('organisation_id', [organisationA, organisationB]);
-  await admin.from('jobs').delete().in('organisation_id', [organisationA, organisationB]);
-  await admin.from('clients').delete().in('organisation_id', [organisationA, organisationB]);
+  await admin.from('jobs').delete().in('company_id', [organisationA, organisationB]);
+  await admin.from('clients').delete().in('company_id', [organisationA, organisationB]);
   await admin.from('missed_calls').delete().in('organisation_id', [organisationA, organisationB]);
   await admin.from('sms_messages').delete().in('organisation_id', [organisationA, organisationB]);
   await admin.from('communication_preferences').delete().in('organisation_id', [organisationA, organisationB]);
   await admin.from('organisation_twilio_senders').delete().in('organisation_id', [organisationA, organisationB]);
   await admin.from('profiles').delete().in('id', users);
-  await admin.from('organisations').delete().in('id', [organisationA, organisationB]);
+  await admin.from('companies').delete().in('id', [organisationA, organisationB]);
   for (const userId of users) await admin.auth.admin.deleteUser(userId);
 }
