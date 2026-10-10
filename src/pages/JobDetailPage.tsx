@@ -75,7 +75,11 @@ import {
   type JobBillInvoiceCreateGuard,
 } from '../lib/jobBillInvoiceCreateFlow';
 import { jobBillInvoiceMutateSilentlyOnReject } from '../lib/jobBillInvoiceMutateStep';
-import { setJobInvoiceCreateHold } from '../lib/jobInvoiceCreateHold';
+import {
+  jobInvoiceCreateHoldActive,
+  releaseJobInvoiceCreateHold,
+  setJobInvoiceCreateHold,
+} from '../lib/jobInvoiceCreateHold';
 import { jobInvoiceHeaderDetailContent } from '../lib/jobInvoiceHeaderDetail';
 import {
   jobBillInvoicePreviewFromLines,
@@ -1609,6 +1613,11 @@ export function JobDetailPage() {
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const invoiceBillFlowGuard = useRef<JobBillInvoiceCreateGuard>({ inFlight: false });
   const [invoiceBillFlowBusy, setInvoiceBillFlowBusy] = useState(false);
+  useEffect(() => {
+    return () => {
+      if (jobInvoiceCreateHoldActive()) releaseJobInvoiceCreateHold();
+    };
+  }, []);
 
   const { data: job, isLoading, error } = useQuery<Job>({
     queryKey: ['job', id],

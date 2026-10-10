@@ -16,7 +16,7 @@ export type JobBillInvoiceCreateFlowResult =
 export function holdJobInvoiceCreateUntilUnmount(
   result: JobBillInvoiceCreateFlowResult,
 ): boolean {
-  return result === 'created';
+  return result === 'created' || result === 'skipped_in_flight';
 }
 
 export function jobInvoiceSecondTapBeforeUnmount(input: {

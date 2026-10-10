@@ -16469,6 +16469,25 @@
     background: transparent;
   }
 
+  .job-invoice-create-hold-cue {
+    position: absolute;
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    padding: 10px 16px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    background: #FFFDF8;
+    color: #0A2540;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: 0 8px 24px rgba(10, 37, 64, 0.12);
+  }
+
   body:has(.hub-invoice-editor) .ops-toast-host {
     top: calc(12px + env(safe-area-inset-top, 0px));
     right: 1rem;

@@ -56,7 +56,7 @@ import {
 import { invoiceListStatusLabel, invoiceBalanceOwed, invoiceSheetStatusChip } from '../lib/invoiceOpenBalance';
 import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
 import { invoiceEditorShareArmed, invoiceLandingOpensSend } from '../lib/invoiceFromJobBill';
-import { releaseJobInvoiceCreateHold } from '../lib/jobInvoiceCreateHold';
+import { clearJobInvoiceCreateHold } from '../lib/jobInvoiceCreateHold';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
 import { invoiceSendCompanyFrom, isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
 import {
@@ -184,7 +184,7 @@ export function InvoicesPage() {
   });
   const smtpReady = smtpSettings === undefined ? null : isSmtpReady(smtpSettings);
 
-  const { data: openedInvoice } = useQuery<InvoiceWithDetails | null>({
+  const { data: openedInvoice, error: openedInvoiceError } = useQuery<InvoiceWithDetails | null>({
     queryKey: ['invoice', invoiceIdParam, profile?.company_id, paymentProof, money4PartPaidLook],
     queryFn: async () => {
       if (!invoiceIdParam || !profile?.company_id) return null;
@@ -308,10 +308,17 @@ export function InvoicesPage() {
     const invoiceId = searchParams.get('id');
     const clientId = searchParams.get('client');
     if (invoiceId) {
+      if (openedInvoiceError) {
+        clearJobInvoiceCreateHold();
+        return;
+      }
       if (openedInvoice === undefined) return;
-      if (!openedInvoice) return;
+      if (!openedInvoice) {
+        clearJobInvoiceCreateHold();
+        return;
+      }
       shareOpenedAtRef.current = Date.now();
-      releaseJobInvoiceCreateHold();
+      clearJobInvoiceCreateHold();
       if (invoiceLandingOpensSend(searchParams.get('send'), shareOpenedAtRef.current, Date.now())) {
         setSendingInvoiceId(invoiceId);
       } else {
@@ -333,7 +340,7 @@ export function InvoicesPage() {
     const next = new URLSearchParams(searchParams);
     next.delete('client');
     setSearchParams(next, { replace: true });
-  }, [searchParams, openedInvoice, setSearchParams]);
+  }, [searchParams, openedInvoice, openedInvoiceError, setSearchParams]);
 
   useEffect(() => {
     if (!lookLetterhead || !invoices?.length || showForm) return;

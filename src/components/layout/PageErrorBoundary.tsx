@@ -2,6 +2,7 @@ import { Component } from 'react';
 import type { ReactNode } from 'react';
 import { AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
 import { autoClearLoginHref, beginAutoRecover } from '../../lib/clearAppCaches';
+import { clearJobInvoiceCreateHold } from '../../lib/jobInvoiceCreateHold';
 
 interface State { error: Error | null }
 
@@ -41,6 +42,7 @@ export class PageErrorBoundary extends Component<{ children: ReactNode }, State>
   }
 
   componentDidCatch(error: Error) {
+    clearJobInvoiceCreateHold();
     if (!isStaleChunkError(error)) return;
     void hardRecover();
   }

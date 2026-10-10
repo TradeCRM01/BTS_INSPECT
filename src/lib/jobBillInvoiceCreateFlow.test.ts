@@ -70,7 +70,10 @@ describe('jobBillInvoiceCreateFlow', () => {
     expect(holdJobInvoiceCreateUntilUnmount('created')).toBe(true);
     expect(holdJobInvoiceCreateUntilUnmount('zero_blocked')).toBe(false);
     expect(holdJobInvoiceCreateUntilUnmount('create_failed')).toBe(false);
-    expect(holdJobInvoiceCreateUntilUnmount('skipped_in_flight')).toBe(false);
+    expect(holdJobInvoiceCreateUntilUnmount('skipped_in_flight')).toBe(true);
+    expect(src('src/pages/JobDetailPage.tsx')).toContain(
+      'if (!holdJobInvoiceCreateUntilUnmount(flowResult))',
+    );
     expect(jobInvoiceSecondTapBeforeUnmount({
       heldUntilUnmount: true,
       nextKey: 'send',
