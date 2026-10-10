@@ -186,6 +186,7 @@ export function InvoicesPage() {
 
   const { data: openedInvoice, error: openedInvoiceError } = useQuery<InvoiceWithDetails | null>({
     queryKey: ['invoice', invoiceIdParam, profile?.company_id, paymentProof, money4PartPaidLook],
+    retry: false,
     queryFn: async () => {
       if (!invoiceIdParam || !profile?.company_id) return null;
       const row = await loadInvoiceEditorRow(invoiceIdParam, profile.company_id);

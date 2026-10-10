@@ -38,6 +38,7 @@ describe('jobInvoiceCreateHold', () => {
     expect(jobInvoiceCreateHoldActive(5001)).toBe(false);
     const invoices = src('src/pages/InvoicesPage.tsx');
     expect(invoices).toContain('openedInvoiceError');
+    expect(invoices).toContain('retry: false');
     expect(invoices).toMatch(/if \(openedInvoiceError\) \{\s*clearJobInvoiceCreateHold\(\);/);
   });
 
