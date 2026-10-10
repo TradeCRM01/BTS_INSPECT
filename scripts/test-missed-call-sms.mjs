@@ -863,8 +863,8 @@ try {
   );
   const tenantCapWrite = await clientC.from('sms_automation_settings').update({
     daily_message_cap: 999,
-  }).eq('organisation_id', organisationC);
-  assert.ok(tenantCapWrite.error, 'tenant admin cannot update caps');
+  }).eq('organisation_id', organisationC).select('daily_message_cap');
+  assert.equal(tenantCapWrite.data?.length ?? 0, 0, 'tenant admin cannot update caps');
   const capsUnchanged = await must(
     admin.from('sms_automation_settings').select('daily_message_cap').eq('organisation_id', organisationC).single(),
     'read caps after tenant write',
