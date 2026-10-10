@@ -16458,6 +16458,11 @@
       max-width: none;
       width: 100%;
     }
+
+    body:has(.hub-invoice-editor) .ops-toast-host {
+      top: calc(12px + env(safe-area-inset-top, 0px));
+      bottom: auto;
+    }
   }
 
   /* The open menu stops above the bar. Header = h-14, its safe-area top pad, and two hairlines. */

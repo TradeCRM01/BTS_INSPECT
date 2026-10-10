@@ -1375,7 +1375,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
     const id = savedId ?? quote?.id;
     if (!id || form.status !== 'accepted' || !profile?.id) return;
     flushSync(() => { setInvoicing(true); setErr(''); });
-    await new Promise(resolve => requestAnimationFrame(() => resolve()));
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
     try {
       const result = await convertQuoteToInvoice(
         id,

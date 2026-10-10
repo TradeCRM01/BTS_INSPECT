@@ -1,6 +1,6 @@
 import type { InvoiceLineItem } from '../types/fsm';
 import { calcLineDocumentTotals } from './gst';
-import { INVOICE_SOURCE_JOB_BILL, pickReusableInvoice } from './invoiceFromQuote';
+import { INVOICE_SOURCE_JOB_BILL, invoiceHref, pickReusableInvoice } from './invoiceFromQuote';
 import { VAN_TIME_ZONE, todayYmd } from './jobReminder';
 
 export const JOB_BILL_INVOICE_NO_CLIENT = 'Assign a client before invoicing this job';
@@ -145,4 +145,9 @@ export function reuseAfterUniqueConflict<T extends { id: string; status: string 
 ): T | null {
   if (errorCode !== '23505') return null;
   return pickReusableInvoice(rows);
+}
+
+/** After Invoice this job succeeds, open the invoice. Never send=1. */
+export function jobInvoiceCreateLanding(invoiceId: string): string {
+  return invoiceHref(invoiceId);
 }

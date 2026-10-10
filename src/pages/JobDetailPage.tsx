@@ -84,10 +84,11 @@ import {
 import { JobBillZeroLabourConfirmSheet } from '../components/jobs/JobBillZeroLabourConfirmSheet';
 import { JobBillQuotedInvoiceSheet } from '../components/jobs/JobBillQuotedInvoiceSheet';
 import {
-  JOB_BILL_INVOICE_READY_TOAST,
+  JOB_BILL_INVOICE_CREATED,
   JOB_BILL_INVOICE_EMPTY,
   JOB_BILL_INVOICE_NO_LINES,
   jobBillInvoiceBlocked,
+  jobInvoiceCreateLanding,
 } from '../lib/invoiceFromJobBill';
 import { DEFAULT_TAX_RATE } from '../lib/gst';
 import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
@@ -2260,14 +2261,8 @@ export function JobDetailPage() {
         invalidateJobBillHoursQueries(queryClient, id);
       }
       const reuse = result.existing ? invoiceReuseOpen(result.id) : null;
-      if (reuse) {
-        showToast(reuse.toast, 'success', { label: 'Open', onClick: () => navigate(reuse.href) });
-        return;
-      }
-      showToast(JOB_BILL_INVOICE_READY_TOAST, 'success', {
-        label: 'Open',
-        onClick: () => navigate(invoiceHref(result.id)),
-      });
+      showToast(reuse ? reuse.toast : JOB_BILL_INVOICE_CREATED, 'success');
+      navigate(jobInvoiceCreateLanding(result.id));
     },
     onError: (e: Error) => {
       showToast(e.message, 'error');
@@ -2762,7 +2757,7 @@ export function JobDetailPage() {
   ) => {
     if (!profile?.company_id || !profile.id || !id) return;
     flushSync(() => setInvoiceBillFlowBusy(true));
-    await new Promise(resolve => requestAnimationFrame(() => resolve()));
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
     try {
       const quoted = isJobBillQuoted(acceptedQuoteEarly?.line_items);
       await runJobBillInvoiceCreateFlow({
@@ -3582,14 +3577,11 @@ export function JobDetailPage() {
                   queryClient.invalidateQueries({ queryKey: ['job-cost-totals', id] });
                   if (id) invalidateJobBillHoursQueries(queryClient, id);
                   if (result.existing) {
-                    const reuse = invoiceReuseOpen(result.id);
-                    showToast(reuse.toast, 'success', { label: 'Open', onClick: () => navigate(reuse.href) });
-                    return;
+                    showToast(invoiceReuseOpen(result.id).toast, 'success');
+                  } else {
+                    showToast(JOB_BILL_INVOICE_CREATED, 'success');
                   }
-                  showToast(JOB_BILL_INVOICE_READY_TOAST, 'success', {
-                    label: 'Open',
-                    onClick: () => navigate(invoiceHref(result.id)),
-                  });
+                  navigate(jobInvoiceCreateLanding(result.id));
                 }}
               />
             </div>

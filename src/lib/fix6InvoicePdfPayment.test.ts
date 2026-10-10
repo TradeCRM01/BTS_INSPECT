@@ -36,10 +36,10 @@ describe('FIX-6 P1 invoice PDF / create / share / payment', () => {
     expect(next).toContain('LoadingSpinner');
     expect(next).toContain('invoiceNextBusy');
     expect(job).toContain('flushSync(() => setInvoiceBillFlowBusy(true))');
-    expect(job).toContain('requestAnimationFrame(() => resolve())');
+    expect(job).toContain('new Promise<void>(resolve => requestAnimationFrame(() => resolve()))');
     expect(job).toContain('flushSync(() => { postVisitNote.mutate(); })');
     expect(quote).toContain("flushSync(() => { setInvoicing(true); setErr(''); })");
-    expect(quote).toContain('requestAnimationFrame(() => resolve())');
+    expect(quote).toContain('new Promise<void>(resolve => requestAnimationFrame(() => resolve()))');
     expect(quote).toContain('invoicing ? (');
     expect(quote).toContain('Creating…');
     expect(quoted).toContain('pending ? (');
@@ -76,9 +76,13 @@ describe('FIX-6 P1 invoice PDF / create / share / payment', () => {
     expect(persist).toContain("'Invoice created'");
     expect(startSend).toContain('onRequestSend(id)');
     expect(jobCreate).not.toContain('send=1');
-    expect(jobCreate).toContain('invoiceHref(result.id)');
+    expect(jobCreate).not.toContain("label: 'Open'");
+    expect(jobCreate).toContain('navigate(jobInvoiceCreateLanding(result.id))');
     expect(quoteCreate).not.toContain('send=1');
     expect(quoteCreate).toContain('invoiceLandingPath');
+    expect(src('src/index.css')).toMatch(
+      /body:has\(\.hub-invoice-editor\) \.ops-toast-host[\s\S]*bottom:\s*auto/,
+    );
     expect(load).not.toContain('handleMailto');
     expect(load).not.toContain('handleSms');
     expect(load).not.toContain('prepareShare');

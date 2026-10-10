@@ -14,6 +14,7 @@ import {
   invoiceLinesFromJobCosts,
   jobBillDueDate,
   jobBillInvoiceBlocked,
+  jobInvoiceCreateLanding,
   reuseAfterUniqueConflict,
 } from './invoiceFromJobBill';
 import { VAN_TIME_ZONE, todayYmd } from './jobReminder';
@@ -322,5 +323,12 @@ describe('named toasts', () => {
     expect(JOB_BILL_INVOICE_CREATED).toMatch(/draft invoice/i);
     expect(JOB_BILL_INVOICE_EXISTS).toMatch(/already exists/i);
     expect(JOB_BILL_INVOICE_NOTES).toMatch(/^From job bill/i);
+  });
+});
+
+describe('jobInvoiceCreateLanding', () => {
+  it('lands on the invoice editor without opening Send', () => {
+    expect(jobInvoiceCreateLanding('inv-new')).toBe('/invoices?id=inv-new');
+    expect(jobInvoiceCreateLanding('inv-new')).not.toContain('send=');
   });
 });
