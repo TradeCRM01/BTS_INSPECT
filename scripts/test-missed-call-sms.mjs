@@ -27,6 +27,19 @@ const assert = {
   },
 };
 
+const TEST_MOBILE = '+61418893602';
+const SENDER_A = '+15555550101';
+const SENDER_B = '+15555550102';
+const SENDER_C = '+15555550103';
+const DENIED_START_PHONE = '+15555550009';
+const CONCURRENT_PHONE = '+15555550008';
+const REJECT_UNKNOWN = '+15555550088';
+const REJECT_LANDLINE = '+12125550100';
+const REJECT_INTL = '+447911111111';
+const REJECT_PLACEHOLDER = '+266696687';
+const MISMATCH_FROM = '+15555550999';
+const CONFLICT_FROM = '+15555550998';
+
 const url = process.env.SUPABASE_URL || 'http://127.0.0.1:55321';
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const anonKey = process.env.SUPABASE_ANON_KEY;
@@ -41,6 +54,7 @@ const admin = createClient(url, serviceKey, {
 const suffix = randomUUID().slice(0, 8);
 const organisationA = randomUUID();
 const organisationB = randomUUID();
+const organisationC = randomUUID();
 const userPassword = `Sms-${randomUUID()}-1a!`;
 const users = [];
 
@@ -64,6 +78,7 @@ async function createTenant(organisationId, label) {
       email,
       name: `SMS ${label}`,
       company_id: organisationId,
+      role: 'admin',
     }),
     `create ${label} profile`,
   );
@@ -74,7 +89,7 @@ async function createTenant(organisationId, label) {
   return { client, userId: created.user.id };
 }
 
-async function ingest({ sid, to, from = '+61412345678', body = 'Hello' }) {
+async function ingest({ sid, to, from = TEST_MOBILE, body = 'Hello' }) {
   const stop = body.trim().toUpperCase() === 'STOP';
   const start = body.trim().toUpperCase() === 'START';
   const help = body.trim().toUpperCase() === 'HELP';
@@ -106,7 +121,7 @@ async function ingest({ sid, to, from = '+61412345678', body = 'Hello' }) {
   );
 }
 
-async function ingestCall({ sid, to, from = '+61412345678', status = 'no-answer' }) {
+async function ingestCall({ sid, to, from = TEST_MOBILE, status = 'no-answer' }) {
   return must(
     admin.rpc('ingest_twilio_voice_status', {
       p_provider_account_sid: `AC${suffix}`,
@@ -123,34 +138,61 @@ async function ingestCall({ sid, to, from = '+61412345678', status = 'no-answer'
 try {
   const tenantA = await createTenant(organisationA, 'a');
   const tenantB = await createTenant(organisationB, 'b');
+  const tenantC = await createTenant(organisationC, 'c');
   const clientA = tenantA.client;
   const clientB = tenantB.client;
+  const clientC = tenantC.client;
   const senderA = randomUUID();
   const senderB = randomUUID();
+  const senderC = randomUUID();
   await must(
     admin.from('organisation_twilio_senders').insert([
       {
         id: senderA,
         organisation_id: organisationA,
-        phone_e164: '+61280000001',
+        phone_e164: SENDER_A,
         provider_account_sid: `AC${suffix}`,
         provider_sender_sid: `PN${suffix}A`,
       },
       {
         id: senderB,
         organisation_id: organisationB,
-        phone_e164: '+61280000002',
+        phone_e164: SENDER_B,
         provider_account_sid: `AC${suffix}`,
         provider_sender_sid: `PN${suffix}B`,
+      },
+      {
+        id: senderC,
+        organisation_id: organisationC,
+        phone_e164: SENDER_C,
+        provider_account_sid: `AC${suffix}`,
+        provider_sender_sid: `PN${suffix}C`,
       },
     ]),
     'insert sender mappings',
   );
+  const settingsRow = {
+    enabled: true,
+    test_mode: true,
+    test_allowlist: [TEST_MOBILE],
+    daily_message_cap: 20,
+    hourly_message_cap: 10,
+    monthly_segment_cap: 300,
+    ack_ttl_minutes: 30,
+  };
+  await must(
+    admin.from('sms_automation_settings').insert([
+      { organisation_id: organisationA, ...settingsRow },
+      { organisation_id: organisationB, ...settingsRow },
+      { organisation_id: organisationC, ...settingsRow },
+    ]),
+    'insert automation settings',
+  );
 
-  const deniedStartPhone = '+61400000009';
+  const deniedStartPhone = DENIED_START_PHONE;
   const deniedStart = await ingest({
     sid: `SM${suffix}DENIEDSTART`,
-    to: '+61280000001',
+    to: SENDER_A,
     from: deniedStartPhone,
     body: 'START',
   });
@@ -176,7 +218,7 @@ try {
     transition_source: 'twilio_inbound_start_denied',
   }, 'denied START is still auditable');
 
-  const concurrentPhone = '+61400000008';
+  const concurrentPhone = CONCURRENT_PHONE;
   await must(
     admin.from('communication_preferences').insert({
       organisation_id: organisationB,
@@ -191,13 +233,13 @@ try {
   await Promise.all([
     ingest({
       sid: `SM${suffix}CONCURRENTSTOP`,
-      to: '+61280000002',
+      to: SENDER_B,
       from: concurrentPhone,
       body: 'STOP',
     }),
     ingest({
       sid: `SM${suffix}CONCURRENTSTART`,
-      to: '+61280000002',
+      to: SENDER_B,
       from: concurrentPhone,
       body: 'START',
     }),
@@ -223,8 +265,8 @@ try {
       sender_id: senderA,
       direction: 'outbound',
       state: 'queued',
-      from_phone_e164: '+61280000001',
-      to_phone_e164: '+61488888888',
+      from_phone_e164: SENDER_A,
+      to_phone_e164: REJECT_UNKNOWN,
       body: 'Unknown consent fixture',
       idempotency_key: `test:${suffix}:unknown-consent`,
       next_attempt: new Date(0).toISOString(),
@@ -236,6 +278,15 @@ try {
     p_lease_seconds: 60,
   }), 'claim unknown-consent fixture');
   assert.equal(unknownConsentClaim.length, 0, 'unknown consent cannot be claimed');
+  const unknownConsentRow = await must(
+    admin.from('sms_messages').select('state, last_error').eq('id', unknownConsentId).single(),
+    'read unknown-consent fixture after claim',
+  );
+  assert.deepEqual(
+    unknownConsentRow,
+    { state: 'cancelled', last_error: 'not_au_mobile' },
+    'placeholder dest is cancelled before claim',
+  );
   await must(admin.from('sms_messages').delete().eq('id', unknownConsentId), 'remove unknown-consent fixture');
 
   const mismatchedSender = await admin.from('sms_messages').insert({
@@ -243,8 +294,8 @@ try {
     sender_id: senderA,
     direction: 'outbound',
     state: 'queued',
-    from_phone_e164: '+61289999999',
-    to_phone_e164: '+61477777777',
+    from_phone_e164: MISMATCH_FROM,
+    to_phone_e164: REJECT_UNKNOWN,
     body: 'Mismatched sender fixture',
     idempotency_key: `test:${suffix}:mismatch`,
   });
@@ -258,8 +309,8 @@ try {
     sender_id: senderA,
     direction: 'outbound',
     state: 'queued',
-    from_phone_e164: '+61280000001',
-    to_phone_e164: '+61477777777',
+    from_phone_e164: SENDER_A,
+    to_phone_e164: REJECT_UNKNOWN,
     body: 'Inactive sender fixture',
     idempotency_key: `test:${suffix}:inactive`,
   });
@@ -270,8 +321,8 @@ try {
   );
 
   const replaySid = `SM${suffix}REPLAY`;
-  await ingest({ sid: replaySid, to: '+61280000001' });
-  const replay = await ingest({ sid: replaySid, to: '+61280000001' });
+  await ingest({ sid: replaySid, to: SENDER_A });
+  const replay = await ingest({ sid: replaySid, to: SENDER_A });
   assert.equal(replay.replay, true, 'provider SID replay is acknowledged');
   const replayRows = await must(
     admin.from('sms_messages').select('id').eq('provider_message_sid', replaySid),
@@ -279,7 +330,7 @@ try {
   );
   assert.equal(replayRows.length, 1, 'provider SID is stored once');
   await must(admin.from('organisation_twilio_senders').update({ active: false }).eq('id', senderA), 'retire replay sender');
-  const retiredReplay = await ingest({ sid: replaySid, to: '+61280000001' });
+  const retiredReplay = await ingest({ sid: replaySid, to: SENDER_A });
   assert.deepEqual(
     { stored: retiredReplay.stored, reason: retiredReplay.reason },
     { stored: false, reason: 'unknown_destination' },
@@ -301,7 +352,7 @@ try {
   assert.ok(forgedAutomation.error, 'authenticated users cannot forge automation provenance');
 
   const organisationBSid = `SM${suffix}B`;
-  await ingest({ sid: organisationBSid, to: '+61280000002' });
+  await ingest({ sid: organisationBSid, to: SENDER_B });
   const rowsA = await must(clientA.from('sms_messages').select('organisation_id'), 'organisation A RLS read');
   const rowsB = await must(clientB.from('sms_messages').select('organisation_id'), 'organisation B RLS read');
   assert.ok(rowsA.length > 0 && rowsA.every((row) => row.organisation_id === organisationA), 'organisation A sees only A');
@@ -311,8 +362,8 @@ try {
     sender_id: senderA,
     direction: 'outbound',
     state: 'queued',
-    from_phone_e164: '+61280000001',
-    to_phone_e164: '+61411111111',
+    from_phone_e164: SENDER_A,
+    to_phone_e164: REJECT_UNKNOWN,
     body: 'must not persist',
     idempotency_key: `test:${suffix}:forbidden`,
   });
@@ -327,7 +378,7 @@ try {
   await must(
     admin.from('communication_preferences').insert({
       organisation_id: organisationB,
-      phone_e164: '+61412345678',
+      phone_e164: TEST_MOBILE,
       sms_consent_status: 'consented',
       consent_basis: 'express',
       consent_source: 'integration_test',
@@ -342,8 +393,8 @@ try {
       sender_id: senderB,
       direction: 'outbound',
       state: 'queued',
-      from_phone_e164: '+61280000002',
-      to_phone_e164: '+61412345678',
+      from_phone_e164: SENDER_B,
+      to_phone_e164: TEST_MOBILE,
       body: 'Dormant Phase 1 fixture',
       idempotency_key: `test:${suffix}:stopped`,
       next_attempt: new Date(0).toISOString(),
@@ -356,7 +407,7 @@ try {
   }), 'claim before STOP');
   const stoppedLease = beforeStop.find((row) => row.id === stoppedOutbound);
   assert.ok(stoppedLease?.claim_token, 'STOP fixture is leased before opt-out');
-  await ingest({ sid: `SM${suffix}STOP`, to: '+61280000002', body: 'STOP' });
+  await ingest({ sid: `SM${suffix}STOP`, to: SENDER_B, body: 'STOP' });
   const cancelled = await must(
     admin.from('sms_messages').select('state').eq('id', stoppedOutbound).single(),
     'read STOP fixture',
@@ -371,7 +422,7 @@ try {
   await must(
     admin.from('communication_preferences').insert({
       organisation_id: organisationA,
-      phone_e164: '+61412345678',
+      phone_e164: TEST_MOBILE,
       sms_consent_status: 'consented',
       consent_basis: 'express',
       consent_source: 'integration_test',
@@ -380,8 +431,8 @@ try {
     'record missed-call fixture consent',
   );
   const callSid = `CA${suffix.padEnd(32, 'a')}`;
-  const firstCall = await ingestCall({ sid: callSid, to: '+61280000001' });
-  const replayCall = await ingestCall({ sid: callSid, to: '+61280000001' });
+  const firstCall = await ingestCall({ sid: callSid, to: SENDER_A });
+  const replayCall = await ingestCall({ sid: callSid, to: SENDER_A });
   assert.equal(firstCall.queued, true, 'eligible consented missed call queues a text-back');
   assert.equal(replayCall.replay, true, 'CallSid replay is acknowledged');
   const callRows = await must(
@@ -402,15 +453,15 @@ try {
   const conflict = await admin.rpc('ingest_twilio_voice_status', {
     p_provider_account_sid: `AC${suffix}`,
     p_provider_call_sid: callSid,
-    p_from_phone_e164: '+61499999998',
-    p_to_phone_e164: '+61280000001',
+    p_from_phone_e164: CONFLICT_FROM,
+    p_to_phone_e164: SENDER_A,
     p_call_status: 'no-answer',
     p_direction: 'inbound',
   });
   assert.ok(conflict.error, 'CallSid cannot be reused for a different call identity');
 
   const stoppedCallSid = `CA${`${suffix}b`.padEnd(32, 'b')}`;
-  const stoppedCall = await ingestCall({ sid: stoppedCallSid, to: '+61280000002' });
+  const stoppedCall = await ingestCall({ sid: stoppedCallSid, to: SENDER_B });
   assert.equal(stoppedCall.queued, false, 'STOP preference blocks queueing');
   const stoppedCallOutbox = await must(
     admin.from('sms_messages').select('id').eq('idempotency_key', `missed-call:${stoppedCallSid}`),
@@ -420,7 +471,7 @@ try {
 
   const restart = await ingest({
     sid: `SM${suffix}START`,
-    to: '+61280000002',
+    to: SENDER_B,
     body: 'START',
   });
   assert.equal(restart.start_allowed, true, 'START restores a previously consented recipient');
@@ -428,7 +479,7 @@ try {
     admin.from('communication_preferences')
       .select('sms_consent_status, consent_basis, consent_source, opted_out_at')
       .eq('organisation_id', organisationB)
-      .eq('phone_e164', '+61412345678')
+      .eq('phone_e164', TEST_MOBILE)
       .single(),
     'read START-restored preference',
   );
@@ -499,7 +550,7 @@ try {
 
   const help = await ingest({
     sid: `SM${suffix}HELP`,
-    to: '+61280000001',
+    to: SENDER_A,
     body: 'HELP',
   });
   assert.equal(help.qualification_step, 'job_service', 'HELP does not skip the qualification ladder');
@@ -517,7 +568,7 @@ try {
 
   const jobReply = await ingest({
     sid: `SM${suffix}JOB`,
-    to: '+61280000001',
+    to: SENDER_A,
     body: 'Leaking hot water service today',
   });
   assert.equal(jobReply.qualification_step, 'job_service', 'new threads keep the ladder dormant');
@@ -534,7 +585,7 @@ try {
   const bookingDate = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
   const bookingReply = await ingest({
     sid: `SM${suffix}BOOK`,
-    to: '+61280000001',
+    to: SENDER_A,
     body: `BOOK ${bookingDate} 09:30`,
   });
   assert.equal(bookingReply.command_id, null, 'BOOK is stored as text and creates no command');
@@ -582,10 +633,10 @@ try {
   );
 
   const ladderCallSid = `CA${`${suffix}e`.padEnd(32, 'e')}`;
-  await ingestCall({ sid: ladderCallSid, to: '+61280000001' });
+  await ingestCall({ sid: ladderCallSid, to: SENDER_A });
   const ladderOpen = await ingest({
     sid: `SM${suffix}LADDEROPEN`,
-    to: '+61280000001',
+    to: SENDER_A,
     body: 'Need a time',
   });
   await must(
@@ -598,31 +649,31 @@ try {
   );
   const ladderJob = await ingest({
     sid: `SM${suffix}LADDERJOB`,
-    to: '+61280000001',
+    to: SENDER_A,
     body: 'Leaking hot water service today',
   });
   assert.equal(ladderJob.qualification_step, 'urgency', 'kept ladder advances on job or service');
   const ladderUrgency = await ingest({
     sid: `SM${suffix}LADDERURG`,
-    to: '+61280000001',
+    to: SENDER_A,
     body: '2',
   });
   assert.equal(ladderUrgency.qualification_step, 'contact_area', 'kept ladder advances on numbered urgency');
   const ladderContact = await ingest({
     sid: `SM${suffix}LADDERWHO`,
-    to: '+61280000001',
+    to: SENDER_A,
     body: 'Jack, Newtown',
   });
   assert.equal(ladderContact.qualification_step, 'time_window', 'kept ladder advances on name and area');
   const ladderQualified = await ingest({
     sid: `SM${suffix}LADDERWHEN`,
-    to: '+61280000001',
+    to: SENDER_A,
     body: 'Weekdays 2-4pm',
   });
   assert.equal(ladderQualified.qualified, true, 'kept ladder still completes qualification');
   const ladderBook = await ingest({
     sid: `SM${suffix}LADDERBOOK`,
-    to: '+61280000001',
+    to: SENDER_A,
     body: `BOOK ${bookingDate} 09:30`,
   });
   assert.equal(ladderBook.command_id, null, 'qualified BOOK still creates no command');
@@ -635,13 +686,13 @@ try {
 
   const bookedStop = await ingest({
     sid: `SM${suffix}BOOKEDSTOP`,
-    to: '+61280000001',
+    to: SENDER_A,
     body: 'STOP',
   });
   assert.equal(bookedStop.reply_kind, 'stop', 'STOP still wins after a BOOK reply');
   const bookedStart = await ingest({
     sid: `SM${suffix}BOOKEDSTART`,
-    to: '+61280000001',
+    to: SENDER_A,
     body: 'START',
   });
   assert.equal(bookedStart.start_allowed, true, 'START can restore consent after STOP');
@@ -672,16 +723,16 @@ try {
   assert.ok(auditB.length > 0 && auditB.every((row) => row.organisation_id === organisationB), 'organisation B sees only B consent audits');
 
   const stopCallSid = `CA${`${suffix}d`.padEnd(32, 'd')}`;
-  await ingestCall({ sid: stopCallSid, to: '+61280000001' });
+  await ingestCall({ sid: stopCallSid, to: SENDER_A });
   const beforeThreadStop = await ingest({
     sid: `SM${suffix}PRESTOPHELP`,
-    to: '+61280000001',
+    to: SENDER_A,
     body: 'HELP',
   });
   assert.equal(beforeThreadStop.qualification_step, 'job_service', 'HELP stays on the dormant ladder');
   const stopReply = await ingest({
     sid: `SM${suffix}THREADSTOP`,
-    to: '+61280000001',
+    to: SENDER_A,
     body: 'STOP',
   });
   const stopReview = await must(
@@ -705,7 +756,7 @@ try {
   assert.equal(cancelledHelpPrompt.state, 'cancelled', 'STOP cancels a queued HELP reply');
   const afterStop = await ingest({
     sid: `SM${suffix}AFTERSTOP`,
-    to: '+61280000001',
+    to: SENDER_A,
     body: 'Blocked ladder answer',
   });
   assert.equal(afterStop.command_id, null, 'STOP blocks later booking work');
@@ -720,18 +771,29 @@ try {
   );
   assert.equal(blockedPrompt.length, 0, 'STOP prevents outbound replies');
 
-  const claimId = randomUUID();
   await must(
-    admin.from('communication_preferences').insert({
-      organisation_id: organisationA,
-      phone_e164: '+61499999999',
-      sms_consent_status: 'consented',
-      consent_basis: 'express',
-      consent_source: 'integration_test',
-      consented_at: new Date().toISOString(),
-    }),
-    'record claim fixture consent',
+    admin.from('sms_messages')
+      .update({
+        state: 'cancelled',
+        last_error: 'test_drain',
+        next_attempt: null,
+        claim_token: null,
+        claimed_at: null,
+        claim_expires_at: null,
+        claimed_by: null,
+      })
+      .eq('organisation_id', organisationA)
+      .in('state', ['queued', 'claimed']),
+    'drain organisation A queued outbox before claim race',
   );
+  await must(
+    admin.from('communication_preferences').update({
+      sms_consent_status: 'consented',
+      opted_out_at: null,
+    }).eq('organisation_id', organisationA).eq('phone_e164', TEST_MOBILE),
+    'restore claim fixture consent',
+  );
+  const claimId = randomUUID();
   await must(
     admin.from('sms_messages').insert({
       id: claimId,
@@ -739,8 +801,8 @@ try {
       sender_id: senderA,
       direction: 'outbound',
       state: 'queued',
-      from_phone_e164: '+61280000001',
-      to_phone_e164: '+61499999999',
+      from_phone_e164: SENDER_A,
+      to_phone_e164: TEST_MOBILE,
       body: 'Dormant Phase 1 claim fixture',
       idempotency_key: `test:${suffix}:claim`,
       next_attempt: new Date(0).toISOString(),
@@ -769,27 +831,218 @@ try {
   }), 'authorize expired claim');
   assert.equal(expiredDispatch.length, 0, 'expired leases cannot dispatch');
 
+  await must(
+    admin.from('sms_messages')
+      .update({
+        state: 'cancelled',
+        last_error: 'test_drain',
+        next_attempt: null,
+        claim_token: null,
+        claimed_at: null,
+        claim_expires_at: null,
+        claimed_by: null,
+      })
+      .in('organisation_id', [organisationA, organisationB])
+      .in('state', ['queued', 'claimed']),
+    'drain A/B outbox before isolated guard fixtures',
+  );
+
+  const extraAllowlist = await admin.from('sms_automation_settings').update({
+    test_allowlist: [REJECT_UNKNOWN],
+  }).eq('organisation_id', organisationC);
+  assert.ok(extraAllowlist.error, 'test allowlist cannot contain any number except the pinned mobile');
+
+  const settingsRead = await must(
+    clientC.from('sms_automation_settings').select('test_mode, test_allowlist, daily_message_cap').eq('organisation_id', organisationC).single(),
+    'tenant can read own automation settings',
+  );
+  assert.deepEqual(
+    settingsRead,
+    { test_mode: true, test_allowlist: [TEST_MOBILE], daily_message_cap: 20 },
+    'members can read operator-owned settings',
+  );
+  const tenantCapWrite = await clientC.from('sms_automation_settings').update({
+    daily_message_cap: 999,
+  }).eq('organisation_id', organisationC);
+  assert.ok(tenantCapWrite.error, 'tenant admin cannot update caps');
+  const capsUnchanged = await must(
+    admin.from('sms_automation_settings').select('daily_message_cap').eq('organisation_id', organisationC).single(),
+    'read caps after tenant write',
+  );
+  assert.equal(capsUnchanged.daily_message_cap, 20, 'tenant admin cap write is rejected by RLS');
+
+  await must(
+    admin.from('communication_preferences').insert({
+      organisation_id: organisationC,
+      phone_e164: TEST_MOBILE,
+      sms_consent_status: 'consented',
+      consent_basis: 'express',
+      consent_source: 'integration_test',
+      consented_at: new Date().toISOString(),
+    }),
+    'record organisation C consent',
+  );
+
+  async function queueGuardFixture({ id, to, body, createdAt }) {
+    const row = {
+      id,
+      organisation_id: organisationC,
+      sender_id: senderC,
+      direction: 'outbound',
+      state: 'queued',
+      from_phone_e164: SENDER_C,
+      to_phone_e164: to,
+      body,
+      idempotency_key: `test:${suffix}:${id}`,
+      next_attempt: new Date(0).toISOString(),
+    };
+    await must(admin.from('sms_messages').insert(row), `queue ${body}`);
+    if (createdAt) {
+      await must(
+        admin.from('sms_messages').update({ created_at: createdAt }).eq('id', id),
+        `backdate ${body}`,
+      );
+    }
+    return id;
+  }
+
+  async function claimCancelled(id, reason, label) {
+    const claimedRows = await must(admin.rpc('claim_next_sms_message', {
+      p_worker_id: `guard-${id.slice(0, 8)}`,
+      p_lease_seconds: 60,
+    }), `claim ${label}`);
+    assert.equal(claimedRows.filter((row) => row.id === id).length, 0, `${label} is not claimed`);
+    const row = await must(
+      admin.from('sms_messages').select('state, last_error').eq('id', id).single(),
+      `read ${label}`,
+    );
+    assert.deepEqual(row, { state: 'cancelled', last_error: reason }, label);
+  }
+
+  await must(
+    admin.from('sms_automation_settings').update({ test_allowlist: [] }).eq('organisation_id', organisationC),
+    'clear organisation C allowlist',
+  );
+  const blockedAllowlistId = randomUUID();
+  await queueGuardFixture({
+    id: blockedAllowlistId,
+    to: TEST_MOBILE,
+    body: 'Non-allowlisted fixture',
+  });
+  await claimCancelled(blockedAllowlistId, 'test_mode_blocked', 'non-allowlisted number is cancelled');
+  await must(
+    admin.from('sms_automation_settings').update({ test_allowlist: [TEST_MOBILE] }).eq('organisation_id', organisationC),
+    'restore organisation C allowlist',
+  );
+
+  const landlineId = randomUUID();
+  await queueGuardFixture({ id: landlineId, to: REJECT_LANDLINE, body: 'Landline fixture' });
+  await claimCancelled(landlineId, 'not_au_mobile', 'landline number is cancelled');
+
+  const intlId = randomUUID();
+  await queueGuardFixture({ id: intlId, to: REJECT_INTL, body: 'International fixture' });
+  await claimCancelled(intlId, 'not_au_mobile', 'international number is cancelled');
+
+  const placeholderId = randomUUID();
+  await queueGuardFixture({ id: placeholderId, to: REJECT_PLACEHOLDER, body: 'Placeholder fixture' });
+  await claimCancelled(placeholderId, 'not_au_mobile', 'placeholder number is cancelled');
+
+  const selfLoopId = randomUUID();
+  await queueGuardFixture({ id: selfLoopId, to: SENDER_C, body: 'Self-loop sender fixture' });
+  await claimCancelled(selfLoopId, 'self_loop', 'sender self-loop is cancelled');
+
+  await must(
+    admin.from('companies').update({ phone: TEST_MOBILE }).eq('id', organisationC),
+    'set company phone to the test mobile',
+  );
+  const companyLoopId = randomUUID();
+  await queueGuardFixture({ id: companyLoopId, to: TEST_MOBILE, body: 'Self-loop company fixture' });
+  await claimCancelled(companyLoopId, 'self_loop', 'company phone self-loop is cancelled');
+  await must(
+    admin.from('companies').update({ phone: null }).eq('id', organisationC),
+    'clear company phone',
+  );
+
+  await must(
+    admin.from('sms_automation_settings').update({ forward_from_e164: TEST_MOBILE }).eq('organisation_id', organisationC),
+    'set forward-from to the test mobile',
+  );
+  const forwardLoopId = randomUUID();
+  await queueGuardFixture({ id: forwardLoopId, to: TEST_MOBILE, body: 'Self-loop forward fixture' });
+  await claimCancelled(forwardLoopId, 'self_loop', 'forward-from self-loop is cancelled');
+  await must(
+    admin.from('sms_automation_settings').update({ forward_from_e164: null }).eq('organisation_id', organisationC),
+    'clear forward-from',
+  );
+
+  const staleId = randomUUID();
+  await queueGuardFixture({
+    id: staleId,
+    to: TEST_MOBILE,
+    body: 'Stale fixture',
+    createdAt: new Date(Date.now() - 31 * 60 * 1000).toISOString(),
+  });
+  await claimCancelled(staleId, 'stale', 'stale message is cancelled');
+
+  const capFirstId = randomUUID();
+  await queueGuardFixture({ id: capFirstId, to: TEST_MOBILE, body: 'Cap first fixture' });
+  const capFirstClaim = await must(admin.rpc('claim_next_sms_message', {
+    p_worker_id: 'cap-first',
+    p_lease_seconds: 60,
+  }), 'claim first cap fixture');
+  assert.equal(capFirstClaim[0]?.id, capFirstId, 'first message under the cap is claimed');
+  await must(admin.rpc('complete_sms_dispatch', {
+    p_message_id: capFirstId,
+    p_claim_token: capFirstClaim[0].claim_token,
+    p_provider_message_sid: `SM${suffix}CAP1`,
+  }), 'complete first cap fixture');
+  await must(
+    admin.from('sms_automation_settings').update({ daily_message_cap: 1 }).eq('organisation_id', organisationC),
+    'set daily cap to 1',
+  );
+  const capSecondId = randomUUID();
+  await queueGuardFixture({ id: capSecondId, to: TEST_MOBILE, body: 'Cap second fixture' });
+  await claimCancelled(capSecondId, 'cap_reached', 'hitting a cap cancels the extra send');
+  const capThirdId = randomUUID();
+  await queueGuardFixture({ id: capThirdId, to: TEST_MOBILE, body: 'Cap third fixture' });
+  await claimCancelled(capThirdId, 'cap_reached', 'a second cap hit still cancels');
+  const capReminders = await must(
+    admin.from('agent_reminders')
+      .select('id, title, related_type')
+      .eq('company_id', organisationC)
+      .eq('related_type', 'missed_call_sms_cap'),
+    'read cap reminders',
+  );
+  assert.equal(capReminders.length, 1, 'hitting a cap gives 1 reminder per day');
+  assert.equal(
+    capReminders[0].title,
+    'Missed-call texts paused: monthly limit reached',
+    'cap reminder uses the pause copy',
+  );
+
   console.log('missed-call SMS database integration tests passed');
 } finally {
-  await admin.from('missed_call_office_reviews').delete().in('organisation_id', [organisationA, organisationB]);
-  await admin.from('communication_preference_events').delete().in('organisation_id', [organisationA, organisationB]);
+  const organisations = [organisationA, organisationB, organisationC];
+  await admin.from('missed_call_office_reviews').delete().in('organisation_id', organisations);
+  await admin.from('communication_preference_events').delete().in('organisation_id', organisations);
   await admin.from('agent_reminders')
     .delete()
-    .in('company_id', [organisationA, organisationB])
+    .in('company_id', organisations)
     .eq('related_type', 'missed_call_office_review');
-  await admin.from('missed_call_booking_commands').delete().in('organisation_id', [organisationA, organisationB]);
-  await admin.from('missed_call_sms_threads').delete().in('organisation_id', [organisationA, organisationB]);
+  await admin.from('missed_call_booking_commands').delete().in('organisation_id', organisations);
+  await admin.from('missed_call_sms_threads').delete().in('organisation_id', organisations);
   await admin.from('agent_reminders')
     .delete()
-    .in('company_id', [organisationA, organisationB])
-    .eq('related_type', 'missed_call_sms_thread');
-  await admin.from('jobs').delete().in('company_id', [organisationA, organisationB]);
-  await admin.from('clients').delete().in('company_id', [organisationA, organisationB]);
-  await admin.from('missed_calls').delete().in('organisation_id', [organisationA, organisationB]);
-  await admin.from('sms_messages').delete().in('organisation_id', [organisationA, organisationB]);
-  await admin.from('communication_preferences').delete().in('organisation_id', [organisationA, organisationB]);
-  await admin.from('organisation_twilio_senders').delete().in('organisation_id', [organisationA, organisationB]);
+    .in('company_id', organisations)
+    .in('related_type', ['missed_call_sms_thread', 'missed_call_sms_cap']);
+  await admin.from('jobs').delete().in('company_id', organisations);
+  await admin.from('clients').delete().in('company_id', organisations);
+  await admin.from('missed_calls').delete().in('organisation_id', organisations);
+  await admin.from('sms_messages').delete().in('organisation_id', organisations);
+  await admin.from('communication_preferences').delete().in('organisation_id', organisations);
+  await admin.from('organisation_twilio_senders').delete().in('organisation_id', organisations);
+  await admin.from('sms_automation_settings').delete().in('organisation_id', organisations);
   await admin.from('profiles').delete().in('id', users);
-  await admin.from('companies').delete().in('id', [organisationA, organisationB]);
+  await admin.from('companies').delete().in('id', organisations);
   for (const userId of users) await admin.auth.admin.deleteUser(userId);
 }
