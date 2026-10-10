@@ -12194,6 +12194,158 @@
 
   /* End jobs list document */
 
+  .hub-jobs-list-views {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+    margin-top: 16px;
+    border-bottom: 1px solid #E2D9CC;
+  }
+
+  .hub-jobs-list-views .hub-jobs-list-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .hub-jobs-enquiry-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    min-height: 22px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #F5F0E6;
+    color: #0A2540;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .hub-jobs-enquiry-list {
+    margin-top: 8px;
+  }
+
+  .hub-jobs-enquiry-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px 0;
+    border-top: 1px solid #E2D9CC;
+    background: #FFFDF8;
+    color: #0A2540;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+  }
+
+  .hub-jobs-enquiry-row:first-child {
+    border-top: none;
+  }
+
+  .hub-jobs-enquiry-copy {
+    min-width: 0;
+    flex: 1 1 220px;
+  }
+
+  .hub-jobs-enquiry-who {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: #0A2540;
+  }
+
+  .hub-jobs-enquiry-time,
+  .hub-jobs-enquiry-excerpt,
+  .hub-jobs-enquiry-facts {
+    margin: 4px 0 0;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+    color: #5B6B7C;
+  }
+
+  .hub-jobs-enquiry-facts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .hub-jobs-enquiry-tag,
+  .hub-jobs-enquiry-state {
+    display: inline-flex;
+    align-items: center;
+    min-height: 22px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: #F5F0E6;
+    color: #0A2540;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .hub-jobs-enquiry-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex: 0 0 auto;
+  }
+
+  .hub-jobs-enquiry-tap {
+    min-height: 44px;
+    min-width: 44px;
+    height: 44px;
+    padding: 0 14px;
+  }
+
+  .hub-jobs-enquiry-dismiss {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: rgb(10 37 64 / 0.28);
+  }
+
+  .hub-jobs-enquiry-dismiss-sheet {
+    width: min(100%, 420px);
+    margin: 0 12px 12px;
+    padding: 20px;
+    background: #FFFDF8;
+    color: #0A2540;
+    box-shadow: 0 12px 40px rgb(10 37 64 / 0.12);
+  }
+
+  .hub-jobs-enquiry-dismiss-title {
+    margin: 0;
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: #0A2540;
+  }
+
+  .hub-jobs-enquiry-dismiss-copy {
+    margin: 8px 0 16px;
+    font-size: 14px;
+    color: #5B6B7C;
+  }
+
+  .hub-jobs-enquiry-dismiss-reasons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  @media (min-width: 640px) {
+    .hub-jobs-enquiry-dismiss {
+      align-items: center;
+    }
+  }
+
   /* Signed-in home / only. Same paper kit as signed quote / clients list. */
   .dashboard-home {
     --dashboard-home-page: #F5F0E6;

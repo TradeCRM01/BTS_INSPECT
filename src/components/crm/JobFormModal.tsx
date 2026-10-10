@@ -26,6 +26,7 @@ import { assumedTradeTag, checkDateTag, fromBookingTag } from '../../lib/quickBo
 import { getAuditTeamMembers } from '../../lib/devFieldAuditDocs';
 import { crewAssignmentHelper } from '../../lib/jobDispatchCrew';
 import { FromBooking } from './FromBooking';
+import { LoadingSpinner } from '../ui';
 
 export type JobFormFromBooking = {
   title?: boolean;
@@ -46,6 +47,7 @@ interface JobFormModalProps {
   presetParentJobId?: string | null;
   presetAddress?: string | null;
   presetTitle?: string | null;
+  presetDescription?: string | null;
   presetStartTime?: string | null;
   presetClientName?: string | null;
   presetTeam?: { id: string; name: string }[];
@@ -53,6 +55,13 @@ interface JobFormModalProps {
   matchHints?: { job?: string | null; client?: string | null; crew?: string | null } | null;
   /** `details` = identity only; schedule/crew/status live on the job page. */
   fields?: 'all' | 'details';
+  unscheduledOnly?: boolean;
+  createJob?: (payload: {
+    title: string;
+    client_id: string | null;
+    description: string | null;
+    address: string | null;
+  }) => Promise<string>;
   onAddStage?: () => void;
   onClose: () => void;
   onSaved: (jobId: string, opts?: { deleted?: boolean }) => void;
@@ -66,12 +75,15 @@ export function JobFormModal({
   presetParentJobId,
   presetAddress,
   presetTitle,
+  presetDescription,
   presetStartTime,
   presetClientName,
   presetTeam,
   fromBooking = null,
   matchHints = null,
   fields = 'all',
+  unscheduledOnly = false,
+  createJob,
   onAddStage,
   onClose,
   onSaved,
@@ -107,7 +119,7 @@ export function JobFormModal({
   const [form, setForm] = useState({
     title: job?.title ?? presetTitle ?? '',
     client_id: job?.client_id ?? presetClientId ?? '',
-    description: job?.description ?? '',
+    description: job?.description ?? presetDescription ?? '',
     priority: job?.priority ?? 'medium' as JobPriority,
     scheduled_date: job?.scheduled_date ?? presetDate ?? '',
     start_time: job?.start_time ?? presetStartTime ?? '',
@@ -221,7 +233,7 @@ export function JobFormModal({
     }
     setClientErr('');
     if (!profile?.company_id) return;
-    if (!detailsOnly) {
+    if (!detailsOnly && !unscheduledOnly) {
       const block = timeFieldsSaveValidation({
         start: form.start_time ?? '',
         end: form.end_time ?? '',
@@ -258,6 +270,23 @@ export function JobFormModal({
       payload.start_time = form.start_time || null;
       payload.end_time = form.end_time || null;
       payload.assigned_team = form.assigned_team;
+    }
+
+    if (createJob) {
+      try {
+        const jobId = await createJob({
+          title: form.title.trim(),
+          client_id: form.client_id || null,
+          description: form.description.trim() || null,
+          address: form.address.trim() || null,
+        });
+        setSaving(false);
+        onSaved(jobId);
+      } catch (createErr) {
+        setSaving(false);
+        setErr(createErr instanceof Error ? createErr.message : 'Could not create the job.');
+      }
+      return;
     }
 
     if (job) {
@@ -435,7 +464,7 @@ export function JobFormModal({
               className="form-input" placeholder="Where the work is happening" />
           </div>
 
-          {!detailsOnly && (
+          {!detailsOnly && !unscheduledOnly && (
             <>
               <div className="overlay-form-span-all hub-job-form-schedule-status">
                 <span className="ops-field-label">Status</span>
@@ -658,7 +687,12 @@ export function JobFormModal({
             </button>
             <button onClick={handleSave} disabled={saving}
               className="btn-primary min-h-[44px] disabled:opacity-50">
-              {saving ? 'Saving...' : job ? 'Save Changes' : presetParentJobId ? 'Create stage' : 'Create Job'}
+              {saving ? (
+                <span className="inline-flex items-center gap-2">
+                  <LoadingSpinner size="sm" />
+                  {createJob ? 'Creating…' : 'Saving...'}
+                </span>
+              ) : job ? 'Save Changes' : presetParentJobId ? 'Create stage' : 'Create Job'}
             </button>
           </div>
         </div>

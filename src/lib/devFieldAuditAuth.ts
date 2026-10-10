@@ -50,6 +50,8 @@ export function isDevFieldAuditAuth(): boolean {
       || params.get('look') === 'job-photos'
       || params.get('look') === 'week-board'
       || params.get('look') === 'price-books'
+      || params.get('look') === 'enquiries'
+      || params.get('look') === 'enquiries-empty'
       || params.get('look') === 'drive-error'
       || window.location.pathname === '/__field-audit'
     ) {
@@ -145,4 +147,5 @@ export const DEV_AUDIT_COMPANY = {
   stripe_customer_id: null,
   stripe_subscription_id: null,
   trades: devAuditCompanyTrades(),
+  time_zone: 'Australia/Brisbane',
 } as unknown as Company;

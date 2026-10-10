@@ -973,6 +973,54 @@ try {
   assert.equal(approvedThread.approved_job_id, approved.job_id, 'approve links the job');
   assert.equal(approvedThread.decided_by, userA, 'approve records the actor');
 
+  const raceFrom = TEST_MOBILE;
+  const raceCallSid = `CA${`${suffix}r`.padEnd(32, 'r')}`;
+  await ingestCall({ sid: raceCallSid, to: SENDER_A, from: raceFrom });
+  const raceInbound = await ingest({
+    sid: `SM${suffix}RACEIN`,
+    to: SENDER_A,
+    from: raceFrom,
+    body: 'Two tabs approving at once',
+  });
+  assert.ok(raceInbound.thread_id, 'concurrent approve has an enquiry thread');
+  const clientA2 = createClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  await must(
+    clientA2.auth.signInWithPassword({
+      email: `sms-a-${suffix}@example.test`,
+      password: userPassword,
+    }),
+    'sign in second session',
+  );
+  const jobsBeforeRace = await must(
+    admin.from('jobs').select('id').eq('company_id', organisationA).eq('created_via', 'human'),
+    'count jobs before concurrent approve',
+  );
+  const [raceOne, raceTwo] = await Promise.all([
+    clientA.rpc('approve_missed_call_enquiry', {
+      p_thread_id: raceInbound.thread_id,
+      p_job: { title: 'Race one' },
+      p_idempotency_key: `approve:${suffix}:race-a`,
+    }),
+    clientA2.rpc('approve_missed_call_enquiry', {
+      p_thread_id: raceInbound.thread_id,
+      p_job: { title: 'Race two' },
+      p_idempotency_key: `approve:${suffix}:race-b`,
+    }),
+  ]);
+  const raceOk = [raceOne, raceTwo].filter((result) => result.data?.job_id && !result.data?.already_decided);
+  const raceDecided = [raceOne, raceTwo].filter((result) => result.data?.already_decided || result.error);
+  assert.equal(raceOk.length, 1, 'two sessions approving at once leave one winner');
+  assert.ok(raceDecided.length >= 1, 'the other concurrent approve does not create a second job');
+  const jobsAfterRace = await must(
+    admin.from('jobs').select('id').eq('company_id', organisationA).eq('created_via', 'human'),
+    'count jobs after concurrent approve',
+  );
+  assert.equal(jobsAfterRace.length, jobsBeforeRace.length + 1, 'two connections approving at once create exactly 1 job');
+  const raceSms = await countOutbound(organisationA);
+  assert.equal(raceSms, smsAfterApprove, 'concurrent approve sends no SMS');
+
   const dismissFrom = '+61412222222';
   const dismissCallSid = `CA${`${suffix}f`.padEnd(32, 'f')}`;
   await ingestCall({ sid: dismissCallSid, to: SENDER_A, from: dismissFrom });

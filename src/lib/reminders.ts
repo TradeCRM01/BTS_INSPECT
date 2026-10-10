@@ -1,6 +1,7 @@
 import { addDays, differenceInCalendarDays, format, startOfDay } from 'date-fns';
 import { supabase } from './supabase';
 import { formatJobRef } from './jobRef';
+import { reminderRelatedHref } from './missedCallEnquiry';
 
 export const REMINDER_TABLE = 'agent_reminders';
 
@@ -41,6 +42,7 @@ export type Reminder = {
   details: string;
   dueAt: string | null;
   jobId: string | null;
+  relatedHref: string | null;
   completed: boolean;
   completedAt: string | null;
   visibility: ReminderVisibility;
@@ -124,6 +126,7 @@ export function reminderFromRow(row: ReminderRow): Reminder {
     details: row.details ?? '',
     dueAt: row.due_date,
     jobId: row.related_type === 'job' ? row.related_id : null,
+    relatedHref: reminderRelatedHref(row.related_type, row.related_id),
     completed: row.completed,
     completedAt: row.completed_at,
     visibility: row.visibility,
