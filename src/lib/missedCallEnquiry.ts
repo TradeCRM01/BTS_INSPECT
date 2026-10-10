@@ -132,10 +132,7 @@ export function enquiryCallerLabel(input: {
 }): string {
   const name = input.clientName?.trim();
   if (name) return name;
-  const phone = input.callerPhone?.trim();
-  if (phone === ALLOWED_ENQUIRY_PHONE) return ALLOWED_ENQUIRY_PHONE;
-  if (phone) return phone;
-  return 'Number withheld';
+  return formatAuMobileDisplay(input.callerPhone) ?? 'Number withheld';
 }
 
 export function enquiryExcerpt(input: {

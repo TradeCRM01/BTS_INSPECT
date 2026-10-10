@@ -40,11 +40,15 @@ describe('enquiry list shape', () => {
     expect(enquiryState({ enquiryStatus: 'dismissed', hasReply: true })).toBe('dismissed');
   });
 
-  it('shows the matched client name, else the allowlisted number', () => {
+  it('shows the matched client name, else the AU mobile, else withheld', () => {
     expect(enquiryCallerLabel({ clientName: 'Northside Mechanical', callerPhone: ALLOWED_ENQUIRY_PHONE }))
       .toBe('Northside Mechanical');
-    expect(enquiryCallerLabel({ callerPhone: ALLOWED_ENQUIRY_PHONE })).toBe(ALLOWED_ENQUIRY_PHONE);
+    expect(enquiryCallerLabel({ callerPhone: ALLOWED_ENQUIRY_PHONE })).toBe('0418 893 602');
+    expect(enquiryCallerLabel({ callerPhone: '0418893602' })).toBe('0418 893 602');
     expect(enquiryCallerLabel({ callerPhone: null })).toBe('Number withheld');
+    expect(enquiryCallerLabel({ callerPhone: '' })).toBe('Number withheld');
+    expect(enquiryCallerLabel({ callerPhone: 'Number withheld' })).toBe('Number withheld');
+    expect(enquiryCallerLabel({ callerPhone: 'not-a-phone' })).toBe('Number withheld');
   });
 
   it('prefers the first reply as the excerpt and title', () => {
@@ -90,6 +94,11 @@ describe('enquiry list shape', () => {
 
   it('formats an allowlisted mobile for Call back and skips withheld', () => {
     expect(formatAuMobileDisplay(ALLOWED_ENQUIRY_PHONE)).toBe('0418 893 602');
+    expect(formatAuMobileDisplay('0418893602')).toBe('0418 893 602');
+    expect(formatAuMobileDisplay('')).toBeNull();
+    expect(formatAuMobileDisplay(null)).toBeNull();
+    expect(formatAuMobileDisplay('Number withheld')).toBeNull();
+    expect(formatAuMobileDisplay('not-a-phone')).toBeNull();
     expect(enquiryCallback(ALLOWED_ENQUIRY_PHONE)).toEqual({
       href: 'tel:+61418893602',
       label: '0418 893 602',
@@ -97,7 +106,6 @@ describe('enquiry list shape', () => {
     expect(enquiryCallback('')).toBeNull();
     expect(enquiryCallback(null)).toBeNull();
     expect(enquiryCallback('Number withheld')).toBeNull();
-    expect(formatAuMobileDisplay('not-a-phone')).toBeNull();
     expect(ALREADY_APPROVED_TOAST).toBe('Already approved — opening the job');
   });
 
