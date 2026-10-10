@@ -1507,12 +1507,12 @@ try {
   });
   assert.ok(emoji.error, 'emoji is rejected');
 
-  const afterStop = await clientC.rpc('save_sms_reply_templates', {
+  const textAfterStop = await clientC.rpc('save_sms_reply_templates', {
     p_ack_template: 'Hi {Business}. Reply STOP to opt out. Call us back.',
     p_thanks_template: null,
     p_help_template: null,
   });
-  assert.ok(afterStop.error, 'text after STOP is rejected');
+  assert.ok(textAfterStop.error, 'text after STOP is rejected');
   const helpWrongEnd = await clientC.rpc('save_sms_reply_templates', {
     p_ack_template: null,
     p_thanks_template: null,
