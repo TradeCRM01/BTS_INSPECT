@@ -1,3 +1,10 @@
+DO $skip_organisations_era$
+BEGIN
+  IF to_regclass('public.organisations') IS NULL THEN
+    RAISE NOTICE 'Skipping organisations-era missed-call migration on companies schema';
+    RETURN;
+  END IF;
+
 ALTER TABLE public.missed_call_sms_threads
   ADD COLUMN qualification_required boolean NOT NULL DEFAULT true,
   ADD COLUMN qualification_step text NOT NULL DEFAULT 'job_service'
@@ -635,3 +642,6 @@ COMMENT ON TABLE public.communication_preference_events IS
   'Append-only organisation-scoped provenance for inbound STOP and START consent transitions.';
 COMMENT ON COLUMN public.missed_call_sms_threads.qualification_required IS
   'True for Phase 2C threads; legacy Phase 2B threads retain their prior booking contract.';
+
+END;
+$skip_organisations_era$;

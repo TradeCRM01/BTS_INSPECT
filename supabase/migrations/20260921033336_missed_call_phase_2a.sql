@@ -1,3 +1,10 @@
+DO $skip_organisations_era$
+BEGIN
+  IF to_regclass('public.organisations') IS NULL THEN
+    RAISE NOTICE 'Skipping organisations-era missed-call migration on companies schema';
+    RETURN;
+  END IF;
+
 CREATE TABLE public.missed_calls (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organisation_id uuid NOT NULL REFERENCES public.organisations(id) ON DELETE CASCADE,
@@ -305,3 +312,6 @@ GRANT EXECUTE ON FUNCTION public.fail_sms_dispatch(uuid, uuid, text)
 
 COMMENT ON TABLE public.missed_calls IS
   'Organisation-scoped Twilio voice status ledger deduplicated by provider CallSid.';
+
+END;
+$skip_organisations_era$;
