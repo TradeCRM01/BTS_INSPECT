@@ -74,8 +74,8 @@ function payload(overrides: Partial<Record<string, string>> = {}): Record<string
   return {
     AccountSid: 'AC111',
     MessageSid: 'SM111',
-    From: '+61412345678',
-    To: '+61280000001',
+    From: '+61418893602',
+    To: '+15555550101',
     Body: 'Can somebody call me?',
     ...overrides,
   };
@@ -125,7 +125,7 @@ describe('Twilio inbound webhook', () => {
 
   it('rejects a bad signature before touching storage', async () => {
     const store = new InMemorySmsStore();
-    store.senders.push({ accountSid: 'AC111', to: '+61280000001', companyId: 'company-a' });
+    store.senders.push({ accountSid: 'AC111', to: '+15555550101', companyId: 'company-a' });
     let calls = 0;
     const request = await signedRequest(payload(), 'wrong_token');
 
@@ -161,7 +161,7 @@ describe('Twilio inbound webhook', () => {
 
   it('stores a provider SID once when Twilio replays it', async () => {
     const store = new InMemorySmsStore();
-    store.senders.push({ accountSid: 'AC111', to: '+61280000001', companyId: 'company-a' });
+    store.senders.push({ accountSid: 'AC111', to: '+15555550101', companyId: 'company-a' });
     const dependencies = { authToken, expectedAccountSid: 'AC111', publicUrl, ingest: store.ingest };
 
     expect((await handleTwilioInboundWebhook(await signedRequest(payload()), dependencies)).status).toBe(200);
@@ -172,27 +172,27 @@ describe('Twilio inbound webhook', () => {
   it('maps To to one company and keeps the same caller isolated', async () => {
     const store = new InMemorySmsStore();
     store.senders.push(
-      { accountSid: 'AC111', to: '+61280000001', companyId: 'company-a' },
-      { accountSid: 'AC111', to: '+61280000002', companyId: 'company-b' },
+      { accountSid: 'AC111', to: '+15555550101', companyId: 'company-a' },
+      { accountSid: 'AC111', to: '+15555550102', companyId: 'company-b' },
     );
     const response = await handleTwilioInboundWebhook(
-      await signedRequest(payload({ MessageSid: 'SM222', To: '+61280000002', Body: 'STOP' })),
+      await signedRequest(payload({ MessageSid: 'SM222', To: '+15555550102', Body: 'STOP' })),
       { authToken, expectedAccountSid: 'AC111', publicUrl, ingest: store.ingest },
     );
 
     expect(response.status).toBe(200);
     expect(store.messages.get('SM222')?.companyId).toBe('company-b');
-    expect(store.preferences.get('company-b:+61412345678')).toBe('opted_out');
-    expect(store.preferences.has('company-a:+61412345678')).toBe(false);
+    expect(store.preferences.get('company-b:+61418893602')).toBe('opted_out');
+    expect(store.preferences.has('company-a:+61418893602')).toBe(false);
   });
 
   it('applies STOP synchronously before a queued message can be claimed', async () => {
     const store = new InMemorySmsStore();
-    store.senders.push({ accountSid: 'AC111', to: '+61280000001', companyId: 'company-a' });
+    store.senders.push({ accountSid: 'AC111', to: '+15555550101', companyId: 'company-a' });
     store.outbox.push({
       id: 'out-1',
       companyId: 'company-a',
-      to: '+61412345678',
+      to: '+61418893602',
       state: 'queued',
     });
 
@@ -206,7 +206,7 @@ describe('Twilio inbound webhook', () => {
       dependencies,
     );
 
-    expect(store.preferences.get('company-a:+61412345678')).toBe('opted_out');
+    expect(store.preferences.get('company-a:+61418893602')).toBe('opted_out');
     expect(store.preferenceTransitions).toBe(1);
     expect(store.outbox[0]?.state).toBe('cancelled');
     expect(store.claim()).toBeUndefined();
