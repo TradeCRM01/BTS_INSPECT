@@ -16368,22 +16368,28 @@
     margin-top: 4px;
   }
 
+  .acct-switch,
   #accounting-settings .acct-switch {
     position: relative;
     width: 44px;
     height: 24px;
-    border: 1px solid var(--acct-line);
+    min-width: 44px;
+    min-height: 24px;
+    border: 1px solid var(--acct-line, #E2D9CC);
     border-radius: 999px;
-    background: var(--acct-page);
+    background: var(--acct-page, #F5F0E6);
     flex-shrink: 0;
     box-shadow: none;
+    padding: 0;
   }
 
+  .acct-switch.is-on,
   #accounting-settings .acct-switch.is-on {
     background: #2E75B6;
     border-color: #2E75B6;
   }
 
+  .acct-switch-knob,
   #accounting-settings .acct-switch-knob {
     position: absolute;
     top: 2px;
@@ -16396,6 +16402,7 @@
     transition: transform 0.15s ease;
   }
 
+  .acct-switch.is-on .acct-switch-knob,
   #accounting-settings .acct-switch.is-on .acct-switch-knob {
     transform: translateX(20px);
   }
@@ -16817,6 +16824,14 @@
     button, a[role="button"], input[type="checkbox"], input[type="radio"] {
       min-height: 44px;
       min-width: 44px;
+    }
+
+    /* Track stays 44×24. The row, not the pill, is the 44px hit. */
+    button.acct-switch {
+      min-height: 24px;
+      min-width: 44px;
+      height: 24px;
+      width: 44px;
     }
 
     /* Reveal/clear icons sit inside the field — a 44px hit box would cover the type. */

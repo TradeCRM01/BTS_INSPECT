@@ -46,6 +46,28 @@ import {
   validateTwilioSenderSettings,
   type TwilioSenderSettings,
 } from '../lib/twilioSenderSettings';
+import { ENQUIRY_SURFACE_LIVE } from '../lib/missedCallEnquiry';
+import {
+  emptySmsTextbackSettings,
+  lookSmsTextbackSettings,
+  saveSmsTextbackSettings,
+  shouldQueryLiveSmsTextback,
+  smsAckPreview,
+  smsAckPreviewBlocked,
+  smsAckPreviewSegments,
+  smsAckSegmentLabel,
+  SMS_TEXTBACK_NAME_HELP,
+  smsDisplayNameCount,
+  smsDisplayNameCountOver,
+  smsDisplayNameError,
+  smsTextbackCapStatus,
+  smsTextbackEnableError,
+  smsTextbackLookKind,
+  smsTextbackSettingsFromRow,
+  smsTextbackTestStatus,
+  type SmsTextbackSettings,
+} from '../lib/smsTextbackSettings';
+import { Switch } from '../components/ui/Switch';
 
 /** Page-local company settings sheet. Same tokens as signed team / open-record. */
 const COMPANY_LOOK_CSS = `
@@ -420,6 +442,21 @@ const COMPANY_LOOK_CSS = `
   height: 16px;
   accent-color: #2E75B6;
 }
+.hub-company-sms-preview {
+  margin: 8px 0 0;
+  padding: 12px 16px;
+  border: 1px solid var(--co-look-line);
+  border-radius: 12px;
+  background: var(--co-look-page);
+  color: var(--co-look-ink);
+  font-size: 15px;
+}
+.hub-company-sms-preview.is-blocked {
+  color: var(--co-look-muted);
+}
+.hub-company-row-meta.is-over {
+  color: var(--co-look-fail);
+}
 @media (max-width: 639px) {
   .hub-company.ops-page { padding: 16px 16px 40px; }
   .hub-company-sheet-bar { padding: 8px 16px; }
@@ -476,8 +513,11 @@ export function CompanySettingsPage() {
   const queryClient = useQueryClient();
   const { company: authCompany, profile, refreshProfile } = useAuth();
   const [searchParams] = useSearchParams();
+  const lookParam = import.meta.env.DEV ? searchParams.get('look') : null;
   const company = companyWithLetterheadLookMark(authCompany, searchParams.get('look')) ?? authCompany;
   const isAdmin = profile?.role === 'admin';
+  const smsTextbackLook = smsTextbackLookKind(lookParam);
+  const showSmsTextback = smsTextbackLook != null || ENQUIRY_SURFACE_LIVE;
 
   // Company details
   const [name, setName] = useState(company?.name ?? '');
@@ -521,6 +561,10 @@ export function CompanySettingsPage() {
   const [savingTwilioSender, setSavingTwilioSender] = useState(false);
   const [twilioSenderSaved, setTwilioSenderSaved] = useState(false);
   const [twilioSenderError, setTwilioSenderError] = useState('');
+  const [smsTextback, setSmsTextback] = useState<SmsTextbackSettings>(emptySmsTextbackSettings);
+  const [smsTextbackError, setSmsTextbackError] = useState('');
+  const [savingSmsTextback, setSavingSmsTextback] = useState(false);
+  const [smsTextbackSaved, setSmsTextbackSaved] = useState(false);
 
   // Inspection renderers
   const [renderers, setRenderers] = useState<Array<{ id: string; key: string; label: string; built_in: boolean }>>([]);
@@ -585,6 +629,7 @@ export function CompanySettingsPage() {
       if (isAdmin) {
         loadEmailSettings();
         loadTwilioSender();
+        if (showSmsTextback) loadSmsTextback();
       }
       const theme = (company as { report_theme?: Partial<ReportTheme> | null }).report_theme;
       if (theme) {
@@ -676,6 +721,88 @@ export function CompanySettingsPage() {
       setTwilioSenderId(data?.id ?? null);
     }
     setLoadingTwilioSender(false);
+  }
+
+  async function loadSmsTextback() {
+    if (!company) return;
+    const seeded = lookSmsTextbackSettings(lookParam);
+    if (seeded) {
+      setSmsTextback(seeded);
+      setSmsTextbackError(smsDisplayNameError(seeded.businessName) ?? '');
+      return;
+    }
+    if (!shouldQueryLiveSmsTextback(lookParam)) return;
+    const { data, error } = await supabase
+      .from('sms_automation_settings')
+      .select('enabled, business_name, test_mode, hourly_message_cap, daily_message_cap, monthly_message_cap')
+      .eq('organisation_id', company.id)
+      .maybeSingle();
+    if (error) {
+      setSmsTextbackError('Could not load text-back settings.');
+      return;
+    }
+    setSmsTextback(smsTextbackSettingsFromRow(data));
+  }
+
+  async function persistSmsTextback(next: SmsTextbackSettings) {
+    if (smsTextbackLook) {
+      setSmsTextback(next);
+      return;
+    }
+    if (!shouldQueryLiveSmsTextback(lookParam)) return;
+    setSavingSmsTextback(true);
+    const result = await saveSmsTextbackSettings({
+      enabled: next.enabled,
+      businessName: next.businessName,
+    });
+    if (result.error) {
+      setSmsTextbackError(result.error);
+    } else if (result.settings) {
+      setSmsTextback({
+        ...next,
+        ...result.settings,
+        businessName: next.businessName,
+      });
+      setSmsTextbackSaved(true);
+      setTimeout(() => setSmsTextbackSaved(false), 2000);
+    }
+    setSavingSmsTextback(false);
+  }
+
+  function handleSmsNameChange(value: string) {
+    const next = { ...smsTextback, businessName: value };
+    setSmsTextback(next);
+    setSmsTextbackError(smsDisplayNameError(value) ?? '');
+  }
+
+  async function handleSmsEnabledChange(on: boolean) {
+    if (on) {
+      const refusal = smsTextbackEnableError(smsTextback.businessName);
+      if (refusal) {
+        setSmsTextbackError(refusal);
+        return;
+      }
+    }
+    const nameError = smsDisplayNameError(smsTextback.businessName);
+    if (nameError) {
+      setSmsTextbackError(nameError);
+      return;
+    }
+    setSmsTextbackError('');
+    await persistSmsTextback({ ...smsTextback, enabled: on });
+  }
+
+  async function handleSaveSmsTextback(e: React.FormEvent) {
+    e.preventDefault();
+    const nameError = smsTextback.enabled
+      ? smsTextbackEnableError(smsTextback.businessName)
+      : smsDisplayNameError(smsTextback.businessName);
+    if (nameError) {
+      setSmsTextbackError(nameError);
+      return;
+    }
+    setSmsTextbackError('');
+    await persistSmsTextback(smsTextback);
   }
 
   async function handleSaveTwilioSender(e: React.FormEvent) {
@@ -1213,7 +1340,79 @@ export function CompanySettingsPage() {
         {/* Missed-call SMS sender — admin mapping only; no provider request leaves the browser. */}
         {isAdmin && (
           <>
-            <p className="hub-company-kicker">Missed-call text-back</p>
+            {showSmsTextback ? (
+              <form
+                data-sms-textback="1"
+                onSubmit={handleSaveSmsTextback}
+              >
+                <p className="hub-company-kicker">Missed-call text-back</p>
+                <label className="hub-company-check">
+                  <Switch
+                    checked={smsTextback.enabled}
+                    onCheckedChange={(on) => { void handleSmsEnabledChange(on); }}
+                    disabled={savingSmsTextback}
+                    aria-label="Missed-call texts"
+                    data-sms-textback-enabled=""
+                  />
+                  Missed-call texts
+                </label>
+                <div className="hub-company-row">
+                  <label className="hub-company-row-label" htmlFor="sms-display-name">SMS business name</label>
+                  <div className="hub-company-field">
+                    <input
+                      id="sms-display-name"
+                      value={smsTextback.businessName}
+                      onChange={e => handleSmsNameChange(e.target.value)}
+                      className={inputClass}
+                      autoComplete="organization"
+                      data-sms-display-name
+                    />
+                    <p
+                      className={`hub-company-row-meta${smsDisplayNameCountOver(smsTextback.businessName) ? ' is-over' : ''}`}
+                      data-sms-name-count
+                    >
+                      {smsDisplayNameCount(smsTextback.businessName)}
+                    </p>
+                    <p className="hub-company-row-meta">{SMS_TEXTBACK_NAME_HELP}</p>
+                  </div>
+                </div>
+                <p
+                  className={`hub-company-sms-preview${smsAckPreviewBlocked(smsTextback.businessName) ? ' is-blocked' : ''}`}
+                  data-sms-ack-preview
+                >
+                  {smsAckPreview(smsTextback.businessName)}
+                </p>
+                {smsAckPreviewBlocked(smsTextback.businessName) ? null : (
+                  <p className="hub-company-row-meta" data-sms-ack-segments>
+                    {smsAckSegmentLabel(smsAckPreviewSegments(smsTextback.businessName))}
+                  </p>
+                )}
+                <p className="hub-company-row-meta" data-sms-test-status>
+                  {smsTextbackTestStatus(smsTextback.testMode)}
+                </p>
+                <p className="hub-company-row-meta" data-sms-cap-status>
+                  {smsTextbackCapStatus(smsTextback)}
+                </p>
+                {smsTextbackError ? (
+                  <p className="hub-company-fail" data-sms-textback-error>
+                    <AlertCircle size={14} /> {smsTextbackError}
+                  </p>
+                ) : null}
+                <div className="hub-company-add-acts">
+                  <button
+                    type="submit"
+                    className="hub-company-next"
+                    disabled={savingSmsTextback}
+                    data-sms-textback-save
+                  >
+                    {smsTextbackSaved
+                      ? <><Check size={15} /> Saved</>
+                      : savingSmsTextback ? 'Saving…' : 'Save name'}
+                  </button>
+                </div>
+              </form>
+            ) : null}
+            <p className="hub-company-kicker">Twilio mapping</p>
             <p className="hub-company-lede">
               Map this company to its Twilio number. Calls and messages are handled by the server.
             </p>
