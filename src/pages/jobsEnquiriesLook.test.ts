@@ -46,4 +46,31 @@ describe('jobs enquiries LOOK — same jobs paper', () => {
     expect(css).toContain('.hub-jobs-enquiry-tap');
     expect(css).toContain('min-height: 44px');
   });
+
+  it('ignores Escape while a dismiss is in flight, the same as the backdrop', () => {
+    const page = src('src/pages/JobsPage.tsx');
+    const escape = page.slice(
+      page.indexOf("if (event.key !== 'Escape') return"),
+      page.indexOf("window.addEventListener('keydown', onKey)"),
+    );
+    expect(escape).toContain('if (flight) return');
+    expect(escape).not.toContain('setFlight(null)');
+    const backdrop = page.slice(
+      page.indexOf('aria-label="Dismiss enquiry"'),
+      page.indexOf('hub-jobs-enquiry-dismiss-sheet'),
+    );
+    expect(backdrop).toContain('if (flight) return');
+  });
+
+  it('toasts already-approved only when approve hits already-decided', () => {
+    const page = src('src/pages/JobsPage.tsx');
+    const decidedAt = page.indexOf('if (result.alreadyDecided)');
+    const decided = page.slice(decidedAt, decidedAt + 280);
+    expect(decided).toContain('showToast(ALREADY_APPROVED_TOAST)');
+    const openAt = page.lastIndexOf('Open job');
+    const openJob = page.slice(openAt - 160, openAt + 12);
+    expect(openJob).toContain('to={jobHref}');
+    expect(openJob).not.toContain('showToast');
+    expect(openJob).not.toContain('ALREADY_APPROVED_TOAST');
+  });
 });

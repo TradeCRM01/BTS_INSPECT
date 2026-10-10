@@ -682,9 +682,9 @@ export function JobsPage() {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       event.preventDefault();
+      if (flight) return;
       setDismissing(null);
       setDismissError('');
-      if (flight?.kind === 'dismiss') setFlight(null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -1123,7 +1123,6 @@ function EnquiryListRow({
   onApprove: () => void;
   onDismiss: () => void;
 }) {
-  const { showToast } = useToast();
   const canDecide = row.enquiryStatus === 'draft';
   const jobHref = enquiryJobPath(row.approvedJobId);
   const callback = enquiryCallback(row.callerPhone);
@@ -1188,7 +1187,6 @@ function EnquiryListRow({
           <Link
             to={jobHref}
             className="hub-next hub-jobs-enquiry-tap"
-            onClick={() => { showToast(ALREADY_APPROVED_TOAST); }}
           >
             Open job
           </Link>
