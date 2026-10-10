@@ -177,7 +177,7 @@ try {
     test_allowlist: [TEST_MOBILE],
     daily_message_cap: 20,
     hourly_message_cap: 10,
-    monthly_segment_cap: 300,
+    monthly_message_cap: 300,
     ack_ttl_minutes: 30,
   };
   await must(
@@ -883,6 +883,36 @@ try {
     'record organisation C consent',
   );
 
+  async function restoreCSettings(overrides = {}) {
+    await must(admin.from('sms_automation_settings').delete().eq('organisation_id', organisationC), 'clear organisation C settings');
+    await must(
+      admin.from('sms_automation_settings').insert({
+        organisation_id: organisationC,
+        ...settingsRow,
+        ...overrides,
+      }),
+      'restore organisation C settings',
+    );
+  }
+
+  async function drainCOutbox() {
+    await must(
+      admin.from('sms_messages')
+        .update({
+          state: 'cancelled',
+          last_error: 'test_drain',
+          next_attempt: null,
+          claim_token: null,
+          claimed_at: null,
+          claim_expires_at: null,
+          claimed_by: null,
+        })
+        .eq('organisation_id', organisationC)
+        .in('state', ['queued', 'claimed', 'sent']),
+      'drain organisation C outbox',
+    );
+  }
+
   async function queueGuardFixture({ id, to, body, createdAt }) {
     const row = {
       id,
@@ -918,6 +948,43 @@ try {
     );
     assert.deepEqual(row, { state: 'cancelled', last_error: reason }, label);
   }
+
+  await must(
+    admin.from('sms_automation_settings').update({ enabled: false }).eq('organisation_id', organisationC),
+    'disable organisation C automation',
+  );
+  const disabledId = randomUUID();
+  await queueGuardFixture({ id: disabledId, to: TEST_MOBILE, body: 'Disabled fixture' });
+  await claimCancelled(disabledId, 'disabled', 'enabled=false cancels as disabled');
+
+  await must(admin.from('sms_automation_settings').delete().eq('organisation_id', organisationC), 'remove organisation C settings row');
+  const missingSettingsId = randomUUID();
+  await queueGuardFixture({ id: missingSettingsId, to: TEST_MOBILE, body: 'Missing settings fixture' });
+  await claimCancelled(missingSettingsId, 'disabled', 'no settings row cancels as disabled');
+  await restoreCSettings();
+
+  const authorizeCancelId = randomUUID();
+  await queueGuardFixture({ id: authorizeCancelId, to: TEST_MOBILE, body: 'Authorize cancel fixture' });
+  const authorizeClaim = await must(admin.rpc('claim_next_sms_message', {
+    p_worker_id: 'authorize-cancel',
+    p_lease_seconds: 60,
+  }), 'claim authorize-cancel fixture');
+  assert.equal(authorizeClaim[0]?.id, authorizeCancelId, 'authorize-cancel fixture is claimed');
+  await must(
+    admin.from('sms_automation_settings').update({ enabled: false }).eq('organisation_id', organisationC),
+    'disable automation after claim',
+  );
+  const authorizeBlocked = await must(admin.rpc('authorize_sms_dispatch', {
+    p_message_id: authorizeCancelId,
+    p_claim_token: authorizeClaim[0].claim_token,
+  }), 'authorize after disable');
+  assert.equal(authorizeBlocked.length, 0, 'authorize cancels when guards fail');
+  const authorizeRow = await must(
+    admin.from('sms_messages').select('state, last_error').eq('id', authorizeCancelId).single(),
+    'read authorize-cancel fixture',
+  );
+  assert.deepEqual(authorizeRow, { state: 'cancelled', last_error: 'disabled' }, 'authorize cancel path records disabled');
+  await restoreCSettings();
 
   await must(
     admin.from('sms_automation_settings').update({ test_allowlist: [] }).eq('organisation_id', organisationC),
@@ -984,28 +1051,102 @@ try {
   });
   await claimCancelled(staleId, 'stale', 'stale message is cancelled');
 
-  const capFirstId = randomUUID();
-  await queueGuardFixture({ id: capFirstId, to: TEST_MOBILE, body: 'Cap first fixture' });
-  const capFirstClaim = await must(admin.rpc('claim_next_sms_message', {
-    p_worker_id: 'cap-first',
+  await drainCOutbox();
+  await restoreCSettings({ daily_message_cap: 2 });
+  const burstOldest = randomUUID();
+  const burstMiddle = randomUUID();
+  const burstNewest = randomUUID();
+  const burstBase = Date.now() - 4_000;
+  await queueGuardFixture({
+    id: burstOldest,
+    to: TEST_MOBILE,
+    body: 'Burst oldest',
+    createdAt: new Date(burstBase).toISOString(),
+  });
+  await queueGuardFixture({
+    id: burstMiddle,
+    to: TEST_MOBILE,
+    body: 'Burst middle',
+    createdAt: new Date(burstBase + 1_000).toISOString(),
+  });
+  await queueGuardFixture({
+    id: burstNewest,
+    to: TEST_MOBILE,
+    body: 'Burst newest',
+    createdAt: new Date(burstBase + 2_000).toISOString(),
+  });
+  const burstClaim = await must(admin.rpc('claim_next_sms_message', {
+    p_worker_id: 'cap-burst',
     p_lease_seconds: 60,
-  }), 'claim first cap fixture');
-  assert.equal(capFirstClaim[0]?.id, capFirstId, 'first message under the cap is claimed');
-  await must(admin.rpc('complete_sms_dispatch', {
-    p_message_id: capFirstId,
-    p_claim_token: capFirstClaim[0].claim_token,
-    p_provider_message_sid: `SM${suffix}CAP1`,
-  }), 'complete first cap fixture');
-  await must(
-    admin.from('sms_automation_settings').update({ daily_message_cap: 1 }).eq('organisation_id', organisationC),
-    'set daily cap to 1',
+  }), 'claim cap burst');
+  const burstRows = await must(
+    admin.from('sms_messages').select('id, state, last_error').in('id', [burstOldest, burstMiddle, burstNewest]),
+    'read cap burst rows',
   );
-  const capSecondId = randomUUID();
-  await queueGuardFixture({ id: capSecondId, to: TEST_MOBILE, body: 'Cap second fixture' });
-  await claimCancelled(capSecondId, 'cap_reached', 'hitting a cap cancels the extra send');
-  const capThirdId = randomUUID();
-  await queueGuardFixture({ id: capThirdId, to: TEST_MOBILE, body: 'Cap third fixture' });
-  await claimCancelled(capThirdId, 'cap_reached', 'a second cap hit still cancels');
+  const burstById = Object.fromEntries(burstRows.map((row) => [row.id, row]));
+  assert.deepEqual(
+    { state: burstById[burstNewest].state, last_error: burstById[burstNewest].last_error },
+    { state: 'cancelled', last_error: 'cap_reached' },
+    'cap burst cancels only the newest as cap_reached',
+  );
+  assert.equal(
+    burstRows.filter((row) => row.state === 'cancelled').length,
+    1,
+    'cap 2 with 3 queued cancels exactly one',
+  );
+  assert.equal(burstClaim[0]?.id, burstOldest, 'cap burst still claims the oldest');
+  assert.ok(['queued', 'claimed'].includes(burstById[burstMiddle].state), 'cap burst keeps the middle claimable');
+  assert.equal(burstById[burstOldest].state, 'claimed', 'cap burst keeps the oldest claimable');
+  const burstSecond = await must(admin.rpc('claim_next_sms_message', {
+    p_worker_id: 'cap-burst-2',
+    p_lease_seconds: 60,
+  }), 'claim remaining burst row');
+  assert.equal(burstSecond[0]?.id, burstMiddle, 'second burst claim takes the remaining claimable row');
+
+  async function expectCapWindow(window, capPatch, label) {
+    await drainCOutbox();
+    await restoreCSettings(capPatch);
+    await must(
+      admin.from('agent_reminders').delete().eq('company_id', organisationC).eq('related_type', 'missed_call_sms_cap'),
+      `clear ${window} reminders`,
+    );
+    const firstId = randomUUID();
+    await queueGuardFixture({ id: firstId, to: TEST_MOBILE, body: `${label} first` });
+    const firstClaim = await must(admin.rpc('claim_next_sms_message', {
+      p_worker_id: `${window}-first`,
+      p_lease_seconds: 60,
+    }), `claim ${window} first`);
+    assert.equal(firstClaim[0]?.id, firstId, `${window} first message is claimed`);
+    await must(admin.rpc('complete_sms_dispatch', {
+      p_message_id: firstId,
+      p_claim_token: firstClaim[0].claim_token,
+      p_provider_message_sid: `SM${suffix}${window.toUpperCase()}1`,
+    }), `complete ${window} first`);
+    const overId = randomUUID();
+    await queueGuardFixture({ id: overId, to: TEST_MOBILE, body: `${label} over` });
+    await claimCancelled(overId, 'cap_reached', `${window} cap cancels the extra send`);
+    const reminder = await must(
+      admin.from('agent_reminders')
+        .select('title')
+        .eq('company_id', organisationC)
+        .eq('related_type', 'missed_call_sms_cap')
+        .single(),
+      `read ${window} reminder`,
+    );
+    assert.equal(
+      reminder.title,
+      `Missed-call texts paused: ${window} limit reached`,
+      `${window} reminder names the window`,
+    );
+  }
+
+  await expectCapWindow('hourly', { hourly_message_cap: 1 }, 'Hourly');
+  await expectCapWindow('daily', { daily_message_cap: 1 }, 'Daily');
+  await expectCapWindow('monthly', { monthly_message_cap: 1 }, 'Monthly');
+
+  const sameDayId = randomUUID();
+  await queueGuardFixture({ id: sameDayId, to: TEST_MOBILE, body: 'Same-day cap fixture' });
+  await claimCancelled(sameDayId, 'cap_reached', 'a second cap hit the same day still cancels');
   const capReminders = await must(
     admin.from('agent_reminders')
       .select('id, title, related_type')
@@ -1014,11 +1155,6 @@ try {
     'read cap reminders',
   );
   assert.equal(capReminders.length, 1, 'hitting a cap gives 1 reminder per day');
-  assert.equal(
-    capReminders[0].title,
-    'Missed-call texts paused: monthly limit reached',
-    'cap reminder uses the pause copy',
-  );
 
   console.log('missed-call SMS database integration tests passed');
 } finally {

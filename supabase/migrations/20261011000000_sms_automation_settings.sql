@@ -1,5 +1,5 @@
 -- PR-C: operator-owned automation settings and claim/authorize guards.
--- Test sends can only ever reach +61418893602.
+-- Test allowlist may only contain +61418893602.
 
 CREATE TABLE public.sms_automation_settings (
   organisation_id uuid PRIMARY KEY REFERENCES public.companies(id) ON DELETE CASCADE,
@@ -10,11 +10,11 @@ CREATE TABLE public.sms_automation_settings (
   business_name text,
   daily_message_cap integer NOT NULL DEFAULT 20,
   hourly_message_cap integer NOT NULL DEFAULT 10,
-  monthly_segment_cap integer NOT NULL DEFAULT 300,
+  monthly_message_cap integer NOT NULL DEFAULT 300,
   ack_ttl_minutes integer NOT NULL DEFAULT 30,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT sms_automation_settings_test_allowlist_exact
+  CONSTRAINT sms_automation_settings_test_allowlist_only
     CHECK (test_allowlist <@ ARRAY['+61418893602']::text[]),
   CONSTRAINT sms_automation_settings_forward_from_e164_check
     CHECK (forward_from_e164 IS NULL OR forward_from_e164 ~ '^\+[1-9][0-9]{7,14}$'),
@@ -27,10 +27,14 @@ CREATE TABLE public.sms_automation_settings (
     CHECK (
       daily_message_cap >= 1
       AND hourly_message_cap >= 1
-      AND monthly_segment_cap >= 1
+      AND monthly_message_cap >= 1
       AND ack_ttl_minutes >= 1
     )
 );
+
+CREATE INDEX sms_messages_outbound_cap_idx
+  ON public.sms_messages (organisation_id, created_at, id)
+  WHERE direction = 'outbound' AND state IN ('queued', 'claimed', 'sent');
 
 ALTER TABLE public.sms_automation_settings ENABLE ROW LEVEL SECURITY;
 
@@ -57,6 +61,37 @@ REVOKE ALL ON public.sms_automation_settings FROM anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.sms_automation_settings TO authenticated;
 GRANT ALL ON public.sms_automation_settings TO service_role;
 
+CREATE OR REPLACE FUNCTION public.sms_outbound_cap_used(
+  p_message public.sms_messages,
+  p_window interval
+)
+RETURNS integer
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+  SELECT count(*)::integer
+  FROM public.sms_messages AS other
+  WHERE other.organisation_id = p_message.organisation_id
+    AND other.direction = 'outbound'
+    AND other.id IS DISTINCT FROM p_message.id
+    AND other.created_at > now() - p_window
+    AND (
+      other.state IN ('claimed', 'sent')
+      OR (
+        other.state = 'queued'
+        AND (coalesce(other.next_attempt, other.created_at), other.created_at, other.id)
+          < (coalesce(p_message.next_attempt, p_message.created_at), p_message.created_at, p_message.id)
+      )
+    )
+$$;
+
+REVOKE ALL ON FUNCTION public.sms_outbound_cap_used(public.sms_messages, interval)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.sms_outbound_cap_used(public.sms_messages, interval)
+  TO service_role;
+
 CREATE OR REPLACE FUNCTION public.sms_dispatch_block_reason(p_message public.sms_messages)
 RETURNS text
 LANGUAGE plpgsql
@@ -67,7 +102,6 @@ AS $$
 DECLARE
   v_settings public.sms_automation_settings%ROWTYPE;
   v_company_phone text;
-  v_others integer;
 BEGIN
   SELECT settings.*
   INTO v_settings
@@ -114,40 +148,16 @@ BEGIN
     RETURN 'stale';
   END IF;
 
-  SELECT count(*)
-  INTO v_others
-  FROM public.sms_messages AS other
-  WHERE other.organisation_id = p_message.organisation_id
-    AND other.direction = 'outbound'
-    AND other.state IN ('queued', 'claimed', 'sent')
-    AND other.id IS DISTINCT FROM p_message.id
-    AND other.created_at > now() - interval '1 hour';
-  IF v_others >= v_settings.hourly_message_cap THEN
-    RETURN 'cap_reached';
+  IF public.sms_outbound_cap_used(p_message, interval '1 hour') >= v_settings.hourly_message_cap THEN
+    RETURN 'cap_reached:hourly';
   END IF;
 
-  SELECT count(*)
-  INTO v_others
-  FROM public.sms_messages AS other
-  WHERE other.organisation_id = p_message.organisation_id
-    AND other.direction = 'outbound'
-    AND other.state IN ('queued', 'claimed', 'sent')
-    AND other.id IS DISTINCT FROM p_message.id
-    AND other.created_at > now() - interval '24 hours';
-  IF v_others >= v_settings.daily_message_cap THEN
-    RETURN 'cap_reached';
+  IF public.sms_outbound_cap_used(p_message, interval '24 hours') >= v_settings.daily_message_cap THEN
+    RETURN 'cap_reached:daily';
   END IF;
 
-  SELECT count(*)
-  INTO v_others
-  FROM public.sms_messages AS other
-  WHERE other.organisation_id = p_message.organisation_id
-    AND other.direction = 'outbound'
-    AND other.state IN ('queued', 'claimed', 'sent')
-    AND other.id IS DISTINCT FROM p_message.id
-    AND other.created_at > now() - interval '30 days';
-  IF v_others >= v_settings.monthly_segment_cap THEN
-    RETURN 'cap_reached';
+  IF public.sms_outbound_cap_used(p_message, interval '30 days') >= v_settings.monthly_message_cap THEN
+    RETURN 'cap_reached:monthly';
   END IF;
 
   RETURN NULL;
@@ -159,7 +169,27 @@ REVOKE ALL ON FUNCTION public.sms_dispatch_block_reason(public.sms_messages)
 GRANT EXECUTE ON FUNCTION public.sms_dispatch_block_reason(public.sms_messages)
   TO service_role;
 
-CREATE OR REPLACE FUNCTION public.maybe_sms_cap_reminder(p_organisation_id uuid)
+CREATE OR REPLACE FUNCTION public.sms_dispatch_last_error(p_reason text)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+  SELECT CASE
+    WHEN p_reason LIKE 'cap_reached%' THEN 'cap_reached'
+    ELSE p_reason
+  END
+$$;
+
+REVOKE ALL ON FUNCTION public.sms_dispatch_last_error(text)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.sms_dispatch_last_error(text)
+  TO service_role;
+
+DROP FUNCTION IF EXISTS public.maybe_sms_cap_reminder(uuid);
+
+CREATE OR REPLACE FUNCTION public.maybe_sms_cap_reminder(p_organisation_id uuid, p_window text)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY INVOKER
@@ -168,6 +198,10 @@ AS $$
 DECLARE
   v_owner uuid;
 BEGIN
+  IF p_window IS NULL OR p_window NOT IN ('hourly', 'daily', 'monthly') THEN
+    RETURN;
+  END IF;
+
   IF EXISTS (
     SELECT 1
     FROM public.agent_reminders AS reminder
@@ -197,7 +231,7 @@ BEGIN
   VALUES (
     p_organisation_id,
     v_owner,
-    'Missed-call texts paused: monthly limit reached',
+    'Missed-call texts paused: ' || p_window || ' limit reached',
     'Automated missed-call texts are paused because a send cap was reached.',
     now(),
     'missed_call_sms_cap',
@@ -206,9 +240,9 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.maybe_sms_cap_reminder(uuid)
+REVOKE ALL ON FUNCTION public.maybe_sms_cap_reminder(uuid, text)
   FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.maybe_sms_cap_reminder(uuid)
+GRANT EXECUTE ON FUNCTION public.maybe_sms_cap_reminder(uuid, text)
   TO service_role;
 
 CREATE OR REPLACE FUNCTION public.claim_next_sms_message(
@@ -223,6 +257,8 @@ AS $$
 DECLARE
   v_row public.sms_messages;
   v_reason text;
+  v_error text;
+  v_window text;
 BEGIN
   IF length(btrim(coalesce(p_worker_id, ''))) = 0 THEN
     RAISE EXCEPTION 'worker id is required';
@@ -240,13 +276,18 @@ BEGIN
         OR
         (message.state = 'claimed' AND message.claim_expires_at <= now())
       )
-      AND public.sms_dispatch_block_reason(message) IS NOT NULL
-    ORDER BY coalesce(message.next_attempt, message.created_at), message.created_at
+    ORDER BY coalesce(message.next_attempt, message.created_at), message.created_at, message.id
     FOR UPDATE SKIP LOCKED
   LOOP
+    v_reason := public.sms_dispatch_block_reason(v_row);
+    IF v_reason IS NULL THEN
+      CONTINUE;
+    END IF;
+
+    v_error := public.sms_dispatch_last_error(v_reason);
     UPDATE public.sms_messages
     SET state = 'cancelled',
-        last_error = public.sms_dispatch_block_reason(v_row),
+        last_error = v_error,
         next_attempt = NULL,
         claim_token = NULL,
         claimed_at = NULL,
@@ -254,11 +295,11 @@ BEGIN
         claimed_by = NULL,
         updated_at = now()
     WHERE id = v_row.id
-      AND state IN ('queued', 'claimed')
-    RETURNING last_error INTO v_reason;
+      AND state IN ('queued', 'claimed');
 
-    IF v_reason = 'cap_reached' THEN
-      PERFORM public.maybe_sms_cap_reminder(v_row.organisation_id);
+    IF v_reason LIKE 'cap_reached:%' THEN
+      v_window := split_part(v_reason, ':', 2);
+      PERFORM public.maybe_sms_cap_reminder(v_row.organisation_id, v_window);
     END IF;
   END LOOP;
 
@@ -288,7 +329,7 @@ BEGIN
           AND sender.phone_e164 = message.from_phone_e164
       )
       AND public.sms_dispatch_block_reason(message) IS NULL
-    ORDER BY coalesce(message.next_attempt, message.created_at), message.created_at
+    ORDER BY coalesce(message.next_attempt, message.created_at), message.created_at, message.id
     FOR UPDATE SKIP LOCKED
     LIMIT 1
   )
@@ -323,6 +364,8 @@ AS $$
 DECLARE
   v_row public.sms_messages;
   v_reason text;
+  v_error text;
+  v_window text;
 BEGIN
   SELECT message.*
   INTO v_row
@@ -348,9 +391,10 @@ BEGIN
 
   v_reason := public.sms_dispatch_block_reason(v_row);
   IF v_reason IS NOT NULL THEN
+    v_error := public.sms_dispatch_last_error(v_reason);
     UPDATE public.sms_messages
     SET state = 'cancelled',
-        last_error = v_reason,
+        last_error = v_error,
         next_attempt = NULL,
         claim_token = NULL,
         claimed_at = NULL,
@@ -361,8 +405,9 @@ BEGIN
       AND state = 'claimed'
       AND claim_token = p_claim_token;
 
-    IF v_reason = 'cap_reached' THEN
-      PERFORM public.maybe_sms_cap_reminder(v_row.organisation_id);
+    IF v_reason LIKE 'cap_reached:%' THEN
+      v_window := split_part(v_reason, ':', 2);
+      PERFORM public.maybe_sms_cap_reminder(v_row.organisation_id, v_window);
     END IF;
     RETURN;
   END IF;
