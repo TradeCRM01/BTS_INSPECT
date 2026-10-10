@@ -58,7 +58,7 @@ describe('migration 085 profile expense cost model lock', () => {
     expect(sql).toContain('trg_protect_profile_expense_cost_model');
     expect(sql).toContain('expense_cost_model_id IS NOT DISTINCT FROM OLD.expense_cost_model_id');
     const rollback = readFileSync(
-      resolve(process.cwd(), 'supabase/migrations/20261006160000_085_profile_expense_cost_model_lock.rollback.sql'),
+      resolve(process.cwd(), 'supabase/rollbacks/20261006160000_085_profile_expense_cost_model_lock.rollback.sql'),
       'utf8',
     );
     expect(rollback).toContain('DROP TRIGGER IF EXISTS trg_protect_profile_expense_cost_model');
