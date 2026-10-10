@@ -2881,14 +2881,12 @@ export function JobDetailPage() {
     hasBillLines: (costTotals?.lines ?? 0) > 0
       || hasAcceptedQuoteLines
       || (jobBillPreviewState === 'ready' && (invoicePreviewForNext?.lineCount ?? 0) > 0),
-    billLineCount: conversationLookOn
-      ? undefined
-      : jobBillPreviewState === 'ready'
-        ? (invoicePreviewForNext?.lineCount ?? costTotals?.lines)
-        : undefined,
-    billInvoiceMoneyLine: conversationLookOn
-      ? undefined
-      : jobBillPreviewState === 'ready' ? invoicePreviewForNext?.moneyLine : undefined,
+    billLineCount: jobBillPreviewState === 'ready'
+      ? (conversationLookOn ? undefined : (invoicePreviewForNext?.lineCount ?? costTotals?.lines))
+      : undefined,
+    billInvoiceMoneyLine: jobBillPreviewState === 'ready'
+      ? (conversationLookOn ? undefined : invoicePreviewForNext?.moneyLine)
+      : undefined,
     billInvoicePreviewState: conversationLookOn ? 'ready' : jobBillPreviewState,
     clockedOn: !!runningEntry,
     clockedOff: (timesheets ?? []).some(e => e.end_time != null),
