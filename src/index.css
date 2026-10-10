@@ -12300,23 +12300,44 @@
     padding: 0 14px;
   }
 
+  .hub-jobs-enquiry-call {
+    justify-content: center;
+    flex-direction: column;
+    gap: 0;
+    line-height: 1.15;
+    text-decoration: none;
+  }
+
+  .hub-jobs-enquiry-call-num {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
   .hub-jobs-enquiry-dismiss {
     position: fixed;
     inset: 0;
-    z-index: 40;
+    z-index: 80;
     display: flex;
     align-items: flex-end;
     justify-content: center;
+    padding: 12px 12px calc(var(--shell-bottom-nav-h, 0px) + 12px);
     background: rgb(10 37 64 / 0.28);
   }
 
   .hub-jobs-enquiry-dismiss-sheet {
+    display: flex;
+    flex-direction: column;
     width: min(100%, 420px);
-    margin: 0 12px 12px;
+    margin: 0;
     padding: 20px;
     background: #FFFDF8;
     color: #0A2540;
     box-shadow: 0 12px 40px rgb(10 37 64 / 0.12);
+  }
+
+  .hub-jobs-enquiry-dismiss-sheet > .hub-jobs-enquiry-tap {
+    width: 100%;
+    justify-content: center;
   }
 
   .hub-jobs-enquiry-dismiss-title {
@@ -12345,9 +12366,10 @@
     margin-bottom: 12px;
   }
 
-  @media (min-width: 640px) {
+  @media (min-width: 768px) {
     .hub-jobs-enquiry-dismiss {
       align-items: center;
+      padding: 12px;
     }
   }
 

@@ -6,8 +6,11 @@ import {
   ENQUIRY_SURFACE_LIVE,
   countEnquiriesToday,
   countEnquiriesToReview,
+  ALREADY_APPROVED_TOAST,
+  enquiryCallback,
   enquiryCallerLabel,
   enquiryExcerpt,
+  formatAuMobileDisplay,
   enquiryJobPath,
   enquiryLookKind,
   enquiryState,
@@ -83,6 +86,19 @@ describe('enquiry list shape', () => {
     expect(enquiryJobPath('')).toBeNull();
     expect(enquiryJobPath('/jobs/')).toBeNull();
     expect(enquiryJobPath('job-9')).toBe('/jobs/job-9');
+  });
+
+  it('formats an allowlisted mobile for Call back and skips withheld', () => {
+    expect(formatAuMobileDisplay(ALLOWED_ENQUIRY_PHONE)).toBe('0418 893 602');
+    expect(enquiryCallback(ALLOWED_ENQUIRY_PHONE)).toEqual({
+      href: 'tel:+61418893602',
+      label: '0418 893 602',
+    });
+    expect(enquiryCallback('')).toBeNull();
+    expect(enquiryCallback(null)).toBeNull();
+    expect(enquiryCallback('Number withheld')).toBeNull();
+    expect(formatAuMobileDisplay('not-a-phone')).toBeNull();
+    expect(ALREADY_APPROVED_TOAST).toBe('Already approved — opening the job');
   });
 
   it('matches a client only when exactly one phone hits', () => {

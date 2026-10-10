@@ -1,3 +1,4 @@
+import { telHref } from './clientRecords';
 import { supabase } from './supabase';
 import { formatEnquiryTime, tenantTodayYmd } from './tenantTimeZone';
 
@@ -10,6 +11,7 @@ export const ENQUIRY_HIDDEN_LOOK = 'jobs-prod-schema';
 /** Off until PR-J applies the enquiry schema in production. */
 export const ENQUIRY_SURFACE_LIVE = false;
 export const ALLOWED_ENQUIRY_PHONE = '+61418893602';
+export const ALREADY_APPROVED_TOAST = 'Already approved — opening the job';
 
 export const ENQUIRY_STATES = ['no_reply', 'draft', 'approved', 'dismissed'] as const;
 export type EnquiryState = (typeof ENQUIRY_STATES)[number];
@@ -60,10 +62,34 @@ export function isEnquiriesView(view: string | null | undefined): boolean {
 export function enquiryLookKind(
   look: string | null | undefined,
 ): 'list' | 'empty' | 'one' | null {
+  if (!import.meta.env.DEV) return null;
   if (look === ENQUIRY_LOOK) return 'list';
   if (look === ENQUIRY_EMPTY_LOOK) return 'empty';
   if (look === ENQUIRY_ONE_LOOK) return 'one';
   return null;
+}
+
+export function formatAuMobileDisplay(phone: string | null | undefined): string | null {
+  const digits = (phone ?? '').replace(/\D/g, '');
+  if (digits.startsWith('614') && digits.length === 11) {
+    const local = `0${digits.slice(3)}`;
+    return `${local.slice(0, 4)} ${local.slice(4, 7)} ${local.slice(7)}`;
+  }
+  if (digits.startsWith('04') && digits.length === 10) {
+    return `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}`;
+  }
+  return null;
+}
+
+export function enquiryCallback(
+  phone: string | null | undefined,
+): { href: string; label: string } | null {
+  const raw = phone?.trim() ?? '';
+  if (!raw) return null;
+  const href = telHref(raw);
+  const label = formatAuMobileDisplay(raw);
+  if (!href || !label) return null;
+  return { href, label };
 }
 
 export function enquirySurfaceOpen(look: string | null | undefined): boolean {

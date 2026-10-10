@@ -6,7 +6,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AUDIT_DOC_JOB_ID, getAuditClients, getAuditJobs } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, EmptyState, SearchBar } from '../components/ui';
+import { LoadingSpinner, PageError, EmptyState, SearchBar, useToast } from '../components/ui';
+import { OverlayPortal } from '../components/ui/OverlayPortal';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import type { Job, JobWithClient, JobStatus, Client } from '../types/crm';
 import { JOB_STATUS_LABELS } from '../types/crm';
@@ -19,6 +20,7 @@ import { listCountWhisper, listQueryBusy } from '../lib/listQueryReady';
 import { Plus, Briefcase, MoreHorizontal, MessageSquare } from 'lucide-react';
 import {
   ALLOWED_ENQUIRY_PHONE,
+  ALREADY_APPROVED_TOAST,
   DISMISS_REASONS,
   ENQUIRIES_VIEW,
   ENQUIRY_STATE_LABELS,
@@ -28,6 +30,7 @@ import {
   countEnquiriesToReview,
   countEnquiriesToday,
   dismissMissedCallEnquiry,
+  enquiryCallback,
   enquiryCallerLabel,
   enquiryExcerpt,
   enquiryJobPath,
@@ -404,18 +407,20 @@ function mapEnquiryThreads(
 
 export function JobsPage() {
   const { profile, company } = useAuth();
+  const { showToast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const lookJobsList = searchParams.get('look') === JOBS_LIST_LOOK;
-  const lookP307 = searchParams.get('look') === JOBS_P307_LOOK;
-  const lookCrewS8d = searchParams.get('look');
+  const lookParam = import.meta.env.DEV ? searchParams.get('look') : null;
+  const lookJobsList = lookParam === JOBS_LIST_LOOK;
+  const lookP307 = lookParam === JOBS_P307_LOOK;
+  const lookCrewS8d = lookParam;
   const lookCrewS8dSeed = lookCrewS8d === CREW_S8D_LOOK_NEEDS
     || lookCrewS8d === CREW_S8D_LOOK_BOOKED
     || lookCrewS8d === CREW_S8D_LOOK_NOT;
-  const enquiryLook = enquiryLookKind(searchParams.get('look'));
+  const enquiryLook = enquiryLookKind(lookParam);
   const lookEnquirySeed = enquiryLook != null;
-  const enquirySurface = enquirySurfaceOpen(searchParams.get('look'));
+  const enquirySurface = enquirySurfaceOpen(lookParam);
   const tenantTimeZone = resolveTenantTimeZone(
     (company as { time_zone?: string | null } | null)?.time_zone,
   );
@@ -503,7 +508,7 @@ export function JobsPage() {
   });
 
   const queryLiveEnquiries = !!profile
-    && shouldQueryLiveEnquiries({ look: searchParams.get('look'), view: viewParam })
+    && shouldQueryLiveEnquiries({ look: lookParam, view: viewParam })
     && !lookJobsList
     && !lookP307
     && !lookCrewS8dSeed
@@ -677,9 +682,9 @@ export function JobsPage() {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       event.preventDefault();
-      if (flight) return;
       setDismissing(null);
       setDismissError('');
+      if (flight?.kind === 'dismiss') setFlight(null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -694,7 +699,9 @@ export function JobsPage() {
       <div className="ops-page hub-jobs hub-jobs-list-doc">
         <div className="hub-jobs-sheet">
           <header className="hub-jobs-list-bar">
-            <span className="hub-jobs-list-mark">List</span>
+            {showEnquiries ? null : (
+              <span className="hub-jobs-list-mark">List</span>
+            )}
           </header>
           <div className="hub-jobs-list-body">
             {showEnquiries ? (
@@ -853,6 +860,14 @@ export function JobsPage() {
               return jobId;
             }
             const result = await approveMissedCallEnquiry(approving.id, payload);
+            if (result.alreadyDecided) {
+              const href = enquiryJobPath(result.jobId);
+              if (href) {
+                showToast(ALREADY_APPROVED_TOAST);
+                navigate(href);
+              }
+              return result.jobId;
+            }
             return result.jobId;
           } : undefined}
           onClose={handleCloseForm}
@@ -860,42 +875,60 @@ export function JobsPage() {
         />
       )}
       {dismissing ? (
-        <div className="hub-jobs-enquiry-dismiss" role="dialog" aria-label="Dismiss enquiry">
-          <div className="hub-jobs-enquiry-dismiss-sheet">
-            <p className="hub-jobs-enquiry-dismiss-title">Dismiss this enquiry?</p>
-            <p className="hub-jobs-enquiry-dismiss-copy">No job is created. The office can still see it as dismissed.</p>
-            {dismissError ? (
-              <p className="hub-jobs-enquiry-dismiss-error" data-dismiss-error="1">{dismissError}</p>
-            ) : null}
-            <div className="hub-jobs-enquiry-dismiss-reasons">
-              {DISMISS_REASONS.map((reason) => (
-                <button
-                  key={reason.key}
-                  type="button"
-                  className="btn-secondary hub-jobs-enquiry-tap"
-                  disabled={Boolean(flight)}
-                  data-dismiss-reason={reason.key}
-                  onClick={() => { void confirmDismiss(reason.key); }}
-                >
-                  {flight?.kind === 'dismiss' && flight.reason === reason.key ? (
-                    <span className="inline-flex items-center gap-2">
-                      <LoadingSpinner size="sm" />
-                      Dismissing…
-                    </span>
-                  ) : reason.label}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              className="hub-jobs-enquiry-tap"
-              disabled={Boolean(flight)}
-              onClick={() => setDismissing(null)}
+        <OverlayPortal>
+          <div
+            className="hub-jobs-enquiry-dismiss"
+            role="dialog"
+            aria-label="Dismiss enquiry"
+            onClick={() => {
+              if (flight) return;
+              setDismissing(null);
+              setDismissError('');
+            }}
+          >
+            <div
+              className="hub-jobs-enquiry-dismiss-sheet"
+              onClick={(event) => event.stopPropagation()}
             >
-              Cancel
-            </button>
+              <p className="hub-jobs-enquiry-dismiss-title">Dismiss this enquiry?</p>
+              <p className="hub-jobs-enquiry-dismiss-copy">No job is created. The office can still see it as dismissed.</p>
+              {dismissError ? (
+                <p className="hub-jobs-enquiry-dismiss-error" data-dismiss-error="1">{dismissError}</p>
+              ) : null}
+              <div className="hub-jobs-enquiry-dismiss-reasons">
+                {DISMISS_REASONS.map((reason) => (
+                  <button
+                    key={reason.key}
+                    type="button"
+                    className="btn-secondary hub-jobs-enquiry-tap"
+                    disabled={Boolean(flight)}
+                    data-dismiss-reason={reason.key}
+                    onClick={() => { void confirmDismiss(reason.key); }}
+                  >
+                    {flight?.kind === 'dismiss' && flight.reason === reason.key ? (
+                      <span className="inline-flex items-center gap-2">
+                        <LoadingSpinner size="sm" />
+                        Dismissing…
+                      </span>
+                    ) : reason.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="btn-secondary hub-jobs-enquiry-tap"
+                data-dismiss-cancel="1"
+                disabled={Boolean(flight)}
+                onClick={() => {
+                  setDismissing(null);
+                  setDismissError('');
+                }}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
-        </div>
+        </OverlayPortal>
       ) : null}
     </AppShell>
   );
@@ -1090,8 +1123,10 @@ function EnquiryListRow({
   onApprove: () => void;
   onDismiss: () => void;
 }) {
+  const { showToast } = useToast();
   const canDecide = row.enquiryStatus === 'draft';
   const jobHref = enquiryJobPath(row.approvedJobId);
+  const callback = enquiryCallback(row.callerPhone);
   return (
     <article
       className="hub-jobs-enquiry-row"
@@ -1107,42 +1142,58 @@ function EnquiryListRow({
           <span className="hub-jobs-enquiry-state">{ENQUIRY_STATE_LABELS[row.state]}</span>
         </p>
       </div>
-      {canDecide ? (
-        <div className="hub-jobs-enquiry-actions">
-          <button
-            type="button"
-            className="btn-primary hub-jobs-enquiry-tap"
-            data-enquiry-approve={row.id}
-            disabled={disabled}
-            onClick={onApprove}
+      <div className="hub-jobs-enquiry-actions">
+        {callback ? (
+          <a
+            href={callback.href}
+            className="btn-secondary hub-jobs-enquiry-tap hub-jobs-enquiry-call"
+            data-enquiry-call={row.id}
           >
-            {busy && flightKind === 'approve' ? (
-              <span className="inline-flex items-center gap-2">
-                <LoadingSpinner size="sm" />
-                Approving…
-              </span>
-            ) : 'Approve'}
-          </button>
-          <button
-            type="button"
-            className="btn-secondary hub-jobs-enquiry-tap"
-            data-enquiry-dismiss={row.id}
-            disabled={disabled}
-            onClick={onDismiss}
+            <span>Call back</span>
+            <span className="hub-jobs-enquiry-call-num">{callback.label}</span>
+          </a>
+        ) : null}
+        {canDecide ? (
+          <>
+            <button
+              type="button"
+              className="btn-primary hub-jobs-enquiry-tap"
+              data-enquiry-approve={row.id}
+              disabled={disabled}
+              onClick={onApprove}
+            >
+              {busy && flightKind === 'approve' ? (
+                <span className="inline-flex items-center gap-2">
+                  <LoadingSpinner size="sm" />
+                  Approving…
+                </span>
+              ) : 'Approve'}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary hub-jobs-enquiry-tap"
+              data-enquiry-dismiss={row.id}
+              disabled={disabled}
+              onClick={onDismiss}
+            >
+              {busy && flightKind === 'dismiss' ? (
+                <span className="inline-flex items-center gap-2">
+                  <LoadingSpinner size="sm" />
+                  Dismissing…
+                </span>
+              ) : 'Dismiss'}
+            </button>
+          </>
+        ) : jobHref ? (
+          <Link
+            to={jobHref}
+            className="hub-next hub-jobs-enquiry-tap"
+            onClick={() => { showToast(ALREADY_APPROVED_TOAST); }}
           >
-            {busy && flightKind === 'dismiss' ? (
-              <span className="inline-flex items-center gap-2">
-                <LoadingSpinner size="sm" />
-                Dismissing…
-              </span>
-            ) : 'Dismiss'}
-          </button>
-        </div>
-      ) : jobHref ? (
-        <Link to={jobHref} className="hub-next hub-jobs-enquiry-tap">
-          Open job
-        </Link>
-      ) : null}
+            Open job
+          </Link>
+        ) : null}
+      </div>
     </article>
   );
 }
