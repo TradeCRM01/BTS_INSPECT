@@ -881,6 +881,40 @@ try {
     /not a member/,
     'cross-tenant approve is denied',
   );
+  const foreignClient = await must(
+    admin.from('clients').insert({
+      company_id: organisationB,
+      name: 'Other tenant client',
+    }).select('id').single(),
+    'insert other-tenant client',
+  );
+  const jobsBeforeForeign = await must(
+    admin.from('jobs').select('id').eq('company_id', organisationA),
+    'count jobs before foreign-client approve',
+  );
+  const foreignApprove = await clientA.rpc('approve_missed_call_enquiry', {
+    p_thread_id: jobReply.thread_id,
+    p_job: {
+      title: 'Must not persist',
+      client_id: foreignClient.id,
+    },
+    p_idempotency_key: `approve:${suffix}:foreign-client`,
+  });
+  assert.match(
+    foreignApprove.error?.message ?? '',
+    /client does not belong/,
+    'approve with another tenant client is denied',
+  );
+  const jobsAfterForeign = await must(
+    admin.from('jobs').select('id').eq('company_id', organisationA),
+    'count jobs after foreign-client approve',
+  );
+  assert.equal(jobsAfterForeign.length, jobsBeforeForeign.length, 'foreign-client approve creates no job');
+  const draftAfterForeign = await must(
+    admin.from('missed_call_sms_threads').select('enquiry_status').eq('id', jobReply.thread_id).single(),
+    'read draft after foreign-client approve',
+  );
+  assert.equal(draftAfterForeign.enquiry_status, 'draft', 'foreign-client approve leaves the enquiry as draft');
   const jobsBeforeApprove = await must(
     admin.from('jobs').select('id').eq('company_id', organisationA),
     'count jobs before approve',

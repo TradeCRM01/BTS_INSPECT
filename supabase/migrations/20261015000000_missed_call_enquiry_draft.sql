@@ -32,8 +32,10 @@ SET search_path = ''
 AS $$
 DECLARE
   v_actor uuid := auth.uid();
+  v_company uuid;
   v_thread public.missed_call_sms_threads%ROWTYPE;
   v_title text;
+  v_client_id uuid;
   v_job_id uuid;
 BEGIN
   IF v_actor IS NULL THEN
@@ -43,23 +45,30 @@ BEGIN
     RAISE EXCEPTION 'thread and idempotency key are required';
   END IF;
 
+  SELECT profile.company_id
+  INTO v_company
+  FROM public.profiles AS profile
+  WHERE profile.id = v_actor;
+  IF v_company IS NULL THEN
+    RAISE EXCEPTION 'not a member of this organisation' USING ERRCODE = '42501';
+  END IF;
+
   SELECT thread.*
   INTO v_thread
   FROM public.missed_call_sms_threads AS thread
   WHERE thread.id = p_thread_id
+    AND thread.organisation_id = v_company
   FOR UPDATE;
 
   IF NOT FOUND THEN
+    IF EXISTS (
+      SELECT 1
+      FROM public.missed_call_sms_threads AS thread
+      WHERE thread.id = p_thread_id
+    ) THEN
+      RAISE EXCEPTION 'not a member of this organisation' USING ERRCODE = '42501';
+    END IF;
     RAISE EXCEPTION 'enquiry thread not found';
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1
-    FROM public.profiles AS profile
-    WHERE profile.id = v_actor
-      AND profile.company_id = v_thread.organisation_id
-  ) THEN
-    RAISE EXCEPTION 'not a member of this organisation' USING ERRCODE = '42501';
   END IF;
 
   IF v_thread.enquiry_status <> 'draft' THEN
@@ -75,6 +84,18 @@ BEGIN
       'already_decided', true,
       'job_id', v_thread.approved_job_id
     );
+  END IF;
+
+  v_client_id := nullif(p_job->>'client_id', '')::uuid;
+  IF v_client_id IS NOT NULL
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.clients AS client
+      WHERE client.id = v_client_id
+        AND client.company_id = v_thread.organisation_id
+    )
+  THEN
+    RAISE EXCEPTION 'client does not belong to this organisation' USING ERRCODE = '42501';
   END IF;
 
   v_title := nullif(btrim(coalesce(p_job->>'title', '')), '');
@@ -100,7 +121,7 @@ BEGIN
   )
   VALUES (
     v_thread.organisation_id,
-    nullif(p_job->>'client_id', '')::uuid,
+    v_client_id,
     v_title,
     nullif(p_job->>'description', ''),
     'scheduled',
@@ -146,6 +167,7 @@ SET search_path = ''
 AS $$
 DECLARE
   v_actor uuid := auth.uid();
+  v_company uuid;
   v_thread public.missed_call_sms_threads%ROWTYPE;
 BEGIN
   IF v_actor IS NULL THEN
@@ -155,23 +177,30 @@ BEGIN
     RAISE EXCEPTION 'thread and idempotency key are required';
   END IF;
 
+  SELECT profile.company_id
+  INTO v_company
+  FROM public.profiles AS profile
+  WHERE profile.id = v_actor;
+  IF v_company IS NULL THEN
+    RAISE EXCEPTION 'not a member of this organisation' USING ERRCODE = '42501';
+  END IF;
+
   SELECT thread.*
   INTO v_thread
   FROM public.missed_call_sms_threads AS thread
   WHERE thread.id = p_thread_id
+    AND thread.organisation_id = v_company
   FOR UPDATE;
 
   IF NOT FOUND THEN
+    IF EXISTS (
+      SELECT 1
+      FROM public.missed_call_sms_threads AS thread
+      WHERE thread.id = p_thread_id
+    ) THEN
+      RAISE EXCEPTION 'not a member of this organisation' USING ERRCODE = '42501';
+    END IF;
     RAISE EXCEPTION 'enquiry thread not found';
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1
-    FROM public.profiles AS profile
-    WHERE profile.id = v_actor
-      AND profile.company_id = v_thread.organisation_id
-  ) THEN
-    RAISE EXCEPTION 'not a member of this organisation' USING ERRCODE = '42501';
   END IF;
 
   IF v_thread.enquiry_status <> 'draft' THEN
