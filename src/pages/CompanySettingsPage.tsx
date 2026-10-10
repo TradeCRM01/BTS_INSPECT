@@ -57,6 +57,7 @@ import {
   smsAckPreviewSegments,
   smsAckSegmentLabel,
   smsDisplayNameCount,
+  smsDisplayNameCountOver,
   smsDisplayNameError,
   smsTextbackCapStatus,
   smsTextbackEnableError,
@@ -451,6 +452,9 @@ const COMPANY_LOOK_CSS = `
 }
 .hub-company-sms-preview.is-blocked {
   color: var(--co-look-muted);
+}
+.hub-company-row-meta.is-over {
+  color: var(--co-look-fail);
 }
 @media (max-width: 639px) {
   .hub-company.ops-page { padding: 16px 16px 40px; }
@@ -1335,15 +1339,12 @@ export function CompanySettingsPage() {
         {/* Missed-call SMS sender — admin mapping only; no provider request leaves the browser. */}
         {isAdmin && (
           <>
-            <p className="hub-company-kicker">Missed-call text-back</p>
-            <p className="hub-company-lede">
-              Map this company to its Twilio number. Calls and messages are handled by the server.
-            </p>
             {showSmsTextback ? (
               <form
                 data-sms-textback="1"
                 onSubmit={handleSaveSmsTextback}
               >
+                <p className="hub-company-kicker">Missed-call text-back</p>
                 <label className="hub-company-check">
                   <Switch
                     checked={smsTextback.enabled}
@@ -1365,7 +1366,10 @@ export function CompanySettingsPage() {
                       autoComplete="organization"
                       data-sms-display-name
                     />
-                    <p className="hub-company-row-meta" data-sms-name-count>
+                    <p
+                      className={`hub-company-row-meta${smsDisplayNameCountOver(smsTextback.businessName) ? ' is-over' : ''}`}
+                      data-sms-name-count
+                    >
                       {smsDisplayNameCount(smsTextback.businessName)}
                     </p>
                     <p className="hub-company-row-meta">2 to 20 GSM-7 characters. Shown on every missed-call text.</p>
@@ -1407,7 +1411,10 @@ export function CompanySettingsPage() {
                 </div>
               </form>
             ) : null}
-            {showSmsTextback ? <p className="hub-company-kicker">Twilio mapping</p> : null}
+            <p className="hub-company-kicker">Twilio mapping</p>
+            <p className="hub-company-lede">
+              Map this company to its Twilio number. Calls and messages are handled by the server.
+            </p>
             {loadingTwilioSender ? (
               <p className="hub-company-lede">Loading...</p>
             ) : !showTwilioSender ? (

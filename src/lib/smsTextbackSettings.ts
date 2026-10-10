@@ -77,6 +77,10 @@ export function smsDisplayNameCount(name: string): string {
   return `${name.length}/${SMS_DISPLAY_NAME_MAX}`;
 }
 
+export function smsDisplayNameCountOver(name: string): boolean {
+  return name.length > SMS_DISPLAY_NAME_MAX;
+}
+
 export function smsAckPreview(businessName: string): string {
   if (smsAckPreviewBlocked(businessName)) return SMS_TEXTBACK_PREVIEW_BLOCKED;
   return renderMissedCallAck(businessName.trim() || 'Your business');

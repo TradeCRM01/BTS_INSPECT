@@ -17,6 +17,11 @@ describe('sms text-back LOOK — existing company settings section', () => {
     expect(page).toContain('smsAckPreview');
     expect(page).toContain('smsAckPreviewBlocked');
     expect(page).toContain('smsDisplayNameCount');
+    expect(page).toContain('smsDisplayNameCountOver');
+    expect(page).toContain('is-over');
+    expect(page).toContain('.hub-company-row-meta.is-over');
+    expect(page).toContain('color: var(--co-look-fail)');
+    expect(page).toContain('--co-look-fail: #B42318');
     expect(page).toContain('smsTextbackEnableError');
     expect(page).toContain('saveSmsTextbackSettings');
     expect(page).toContain('shouldQueryLiveSmsTextback');
@@ -42,7 +47,13 @@ describe('sms text-back LOOK — existing company settings section', () => {
     expect(sql).toContain("v_role IS DISTINCT FROM 'admin'");
     expect(sql).toContain('ERRCODE = \'42501\'');
     const textbackAt = page.indexOf('data-sms-textback="1"');
-    const textback = page.slice(textbackAt, page.indexOf('Twilio mapping', textbackAt) + 20);
+    const mappingAt = page.indexOf('Twilio mapping', textbackAt);
+    const ledeAt = page.indexOf('Map this company to its Twilio number', mappingAt);
+    const textback = page.slice(textbackAt, mappingAt + 20);
+    expect(page.indexOf('Missed-call text-back', textbackAt)).toBeGreaterThan(textbackAt);
+    expect(page.indexOf('Missed-call text-back', textbackAt)).toBeLessThan(mappingAt);
+    expect(ledeAt).toBeGreaterThan(mappingAt);
+    expect(textback).not.toContain('Map this company');
     expect(textback).not.toContain('type="checkbox"');
     expect(textback).toContain('Twilio mapping');
     expect(textback).not.toMatch(/\+614(?!18893602)\d+/);

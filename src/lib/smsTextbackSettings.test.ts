@@ -15,6 +15,7 @@ import {
   smsAckPreviewSegments,
   smsAckSegmentLabel,
   smsDisplayNameCount,
+  smsDisplayNameCountOver,
   smsDisplayNameError,
   smsDisplayNameValid,
   smsTextbackCapStatus,
@@ -43,7 +44,10 @@ describe('sms text-back settings', () => {
     expect(smsAckPreviewSegments('Field Audit Co')).toBe(1);
     expect(smsAckSegmentLabel(1)).toBe('1 segment');
     expect(smsDisplayNameCount('Field Audit Co')).toBe('14/20');
+    expect(smsDisplayNameCountOver('Field Audit Co')).toBe(false);
+    expect(smsDisplayNameCountOver('Twenty Character Nam')).toBe(false);
     expect(smsDisplayNameCount('Twenty Character Name!')).toBe('22/20');
+    expect(smsDisplayNameCountOver('Twenty Character Name!')).toBe(true);
     expect(smsAckPreviewBlocked('Twenty Character Name!')).toBe(true);
     expect(smsAckPreview('Twenty Character Name!')).toBe(SMS_TEXTBACK_PREVIEW_BLOCKED);
     expect(smsTextbackTestStatus(true)).toBe('Test mode on');
