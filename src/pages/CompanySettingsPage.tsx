@@ -75,9 +75,10 @@ import {
   lookSmsReplyTemplates,
   saveSmsReplyTemplates,
   shouldQueryLiveSmsReplies,
+  smsReplyFieldError,
   smsReplyFitLabel,
+  smsReplyKindFromNamedError,
   smsReplyPreview,
-  smsReplyTemplateError,
   smsReplyTemplatesFromRow,
   smsTextbackMemberStatus,
   type SmsReplyKind,
@@ -589,7 +590,7 @@ export function CompanySettingsPage() {
   const [savingSmsTextback, setSavingSmsTextback] = useState(false);
   const [smsTextbackSaved, setSmsTextbackSaved] = useState(false);
   const [smsReplies, setSmsReplies] = useState<SmsReplyTemplates>(SMS_REPLY_DEFAULT_TEMPLATES);
-  const [smsReplyError, setSmsReplyError] = useState('');
+  const [smsReplyIssue, setSmsReplyIssue] = useState<{ kind: SmsReplyKind; message: string } | null>(null);
   const [savingSmsReplies, setSavingSmsReplies] = useState(false);
   const [smsRepliesSaved, setSmsRepliesSaved] = useState(false);
 
@@ -835,27 +836,36 @@ export function CompanySettingsPage() {
     await persistSmsTextback(smsTextback);
   }
 
+  function focusSmsReplyField(kind: SmsReplyKind) {
+    const field = document.getElementById(`sms-reply-${kind}`);
+    field?.scrollIntoView({ block: 'center' });
+    if (field instanceof HTMLTextAreaElement) field.focus();
+  }
+
   function handleSmsReplyChange(kind: SmsReplyKind, value: string) {
     const next = { ...smsReplies, [kind]: value };
     setSmsReplies(next);
-    setSmsReplyError(smsReplyTemplateError(value, smsTextback.businessName) ?? '');
+    const error = smsReplyFieldError(value, smsTextback.businessName, kind);
+    setSmsReplyIssue(error ? { kind, message: error } : smsReplyIssue?.kind === kind ? null : smsReplyIssue);
   }
 
   function handleResetSmsReply(kind: SmsReplyKind) {
     const next = { ...smsReplies, [kind]: SMS_REPLY_DEFAULT_TEMPLATES[kind] };
     setSmsReplies(next);
-    setSmsReplyError('');
+    if (smsReplyIssue?.kind === kind) setSmsReplyIssue(null);
   }
 
   async function handleSaveSmsReplies(e: React.FormEvent) {
     e.preventDefault();
     for (const kind of SMS_REPLY_KINDS) {
-      const error = smsReplyTemplateError(smsReplies[kind], smsTextback.businessName);
+      const error = smsReplyFieldError(smsReplies[kind], smsTextback.businessName, kind);
       if (error) {
-        setSmsReplyError(error);
+        setSmsReplyIssue({ kind, message: error });
+        focusSmsReplyField(kind);
         return;
       }
     }
+    setSmsReplyIssue(null);
     if (smsTextbackLook) {
       setSmsReplies(smsReplies);
       setSmsRepliesSaved(true);
@@ -869,7 +879,9 @@ export function CompanySettingsPage() {
       businessName: smsTextback.businessName,
     });
     if (result.error) {
-      setSmsReplyError(result.error);
+      const kind = smsReplyKindFromNamedError(result.error) ?? 'ack';
+      setSmsReplyIssue({ kind, message: result.error });
+      focusSmsReplyField(kind);
     } else if (result.templates) {
       setSmsReplies(result.templates);
       setSmsRepliesSaved(true);
@@ -1525,14 +1537,14 @@ export function CompanySettingsPage() {
                       >
                         Reset to default
                       </button>
+                      {smsReplyIssue?.kind === kind ? (
+                        <p className="hub-company-fail" data-sms-reply-error={kind}>
+                          <AlertCircle size={14} /> {smsReplyIssue.message}
+                        </p>
+                      ) : null}
                     </div>
                   );
                 })}
-                {smsReplyError ? (
-                  <p className="hub-company-fail" data-sms-reply-error>
-                    <AlertCircle size={14} /> {smsReplyError}
-                  </p>
-                ) : null}
                 <div className="hub-company-add-acts">
                   <button
                     type="submit"

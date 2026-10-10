@@ -24,6 +24,45 @@ REVOKE ALL ON FUNCTION public.sms_reply_has_forbidden_word(text)
 GRANT EXECUTE ON FUNCTION public.sms_reply_has_forbidden_word(text)
   TO authenticated, service_role;
 
+CREATE OR REPLACE FUNCTION public.sms_reply_has_link_or_phone(p_body text)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+  SELECT
+    p_body ~* 'https?://'
+    OR p_body ~* '\mwww\.'
+    OR p_body ~* '[a-z0-9][a-z0-9-]*\.[a-z]{2,}'
+    OR p_body ~ '[0-9]{6,}'
+$$;
+
+REVOKE ALL ON FUNCTION public.sms_reply_has_link_or_phone(text)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.sms_reply_has_link_or_phone(text)
+  TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.sms_reply_ends_with_stop(p_template text, p_kind text)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+  SELECT CASE
+    WHEN p_kind = 'help' THEN
+      rtrim(coalesce(p_template, '')) ~ 'Reply STOP to opt out, START to opt back in\.\s*$'
+    ELSE
+      rtrim(coalesce(p_template, '')) ~ 'Reply STOP to opt out\.?\s*$'
+  END
+$$;
+
+REVOKE ALL ON FUNCTION public.sms_reply_ends_with_stop(text, text)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.sms_reply_ends_with_stop(text, text)
+  TO authenticated, service_role;
+
 CREATE OR REPLACE FUNCTION public.sms_reply_default_template(p_kind text)
 RETURNS text
 LANGUAGE sql
@@ -83,7 +122,13 @@ REVOKE ALL ON FUNCTION public.sms_reply_probe_name(text)
 GRANT EXECUTE ON FUNCTION public.sms_reply_probe_name(text)
   TO authenticated, service_role;
 
-CREATE OR REPLACE FUNCTION public.sms_reply_template_valid(p_template text, p_business_name text)
+DROP FUNCTION IF EXISTS public.sms_reply_template_valid(text, text);
+
+CREATE OR REPLACE FUNCTION public.sms_reply_template_valid(
+  p_template text,
+  p_business_name text,
+  p_kind text
+)
 RETURNS boolean
 LANGUAGE plpgsql
 IMMUTABLE
@@ -92,7 +137,7 @@ SET search_path = ''
 AS $$
 DECLARE
   v_name text := nullif(btrim(coalesce(p_business_name, '')), '');
-  v_probe text := public.sms_reply_probe_name(v_name);
+  v_probe text := public.sms_reply_probe_name(coalesce(v_name, ''));
   v_rendered text := public.sms_reply_render_template(p_template, v_probe);
 BEGIN
   IF p_template IS NULL OR btrim(p_template) = '' THEN
@@ -100,11 +145,10 @@ BEGIN
   END IF;
   IF position('{Business}' IN p_template) = 0
     AND (v_name IS NULL OR position(v_name IN v_rendered) = 0)
-    AND position(v_probe IN v_rendered) = 0
   THEN
     RETURN false;
   END IF;
-  IF position('Reply STOP to opt out' IN v_rendered) = 0 THEN
+  IF NOT public.sms_reply_ends_with_stop(p_template, p_kind) THEN
     RETURN false;
   END IF;
   IF NOT public.sms_is_gsm7(v_rendered) THEN
@@ -116,13 +160,18 @@ BEGIN
   IF public.sms_reply_has_forbidden_word(v_rendered) THEN
     RETURN false;
   END IF;
+  IF public.sms_reply_has_link_or_phone(p_template)
+    OR public.sms_reply_has_link_or_phone(v_rendered)
+  THEN
+    RETURN false;
+  END IF;
   RETURN true;
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.sms_reply_template_valid(text, text)
+REVOKE ALL ON FUNCTION public.sms_reply_template_valid(text, text, text)
   FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.sms_reply_template_valid(text, text)
+GRANT EXECUTE ON FUNCTION public.sms_reply_template_valid(text, text, text)
   TO authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.sms_reply_approved_body(p_kind text, p_business_name text)
@@ -180,7 +229,7 @@ BEGIN
   END IF;
 
   v_rendered := public.sms_reply_render_template(v_template, p_business_name);
-  IF public.sms_reply_template_valid(v_template, p_business_name) THEN
+  IF public.sms_reply_template_valid(v_template, p_business_name, p_kind) THEN
     RETURN v_rendered;
   END IF;
   RETURN public.sms_reply_approved_body(p_kind, p_business_name);
@@ -252,13 +301,13 @@ BEGIN
     v_help := NULL;
   END IF;
 
-  IF v_ack IS NOT NULL AND NOT public.sms_reply_template_valid(v_ack, v_name) THEN
+  IF v_ack IS NOT NULL AND NOT public.sms_reply_template_valid(v_ack, v_name, 'ack') THEN
     RAISE EXCEPTION 'ack template invalid' USING ERRCODE = '23514';
   END IF;
-  IF v_thanks IS NOT NULL AND NOT public.sms_reply_template_valid(v_thanks, v_name) THEN
+  IF v_thanks IS NOT NULL AND NOT public.sms_reply_template_valid(v_thanks, v_name, 'thanks') THEN
     RAISE EXCEPTION 'thanks template invalid' USING ERRCODE = '23514';
   END IF;
-  IF v_help IS NOT NULL AND NOT public.sms_reply_template_valid(v_help, v_name) THEN
+  IF v_help IS NOT NULL AND NOT public.sms_reply_template_valid(v_help, v_name, 'help') THEN
     RAISE EXCEPTION 'help template invalid' USING ERRCODE = '23514';
   END IF;
 
@@ -437,6 +486,7 @@ BEGIN
       || '|' || p_from_phone_e164
       || '|' || p_to_phone_e164
       || '|ack-v1'
+      || '|' || v_body
     );
 
     INSERT INTO public.sms_messages (
@@ -939,7 +989,7 @@ BEGIN
         now(),
         'enquiry_help',
         public.sms_gsm7_segments(v_response),
-        public.sms_payload_hash('help-v1|' || v_business)
+        public.sms_payload_hash('help-v1|' || v_business || '|' || v_response)
       )
       ON CONFLICT (idempotency_key) DO NOTHING;
     END IF;
@@ -980,7 +1030,7 @@ BEGIN
   IF v_send_thanks AND v_thread.id IS NOT NULL AND NOT v_opted_out THEN
     v_thanks_body := public.sms_company_reply_body(v_organisation_id, 'thanks', v_business);
     v_thanks_key := 'enquiry-thanks:' || v_thread.id::text;
-    v_thanks_hash := public.sms_payload_hash('thanks-v1|' || v_business);
+    v_thanks_hash := public.sms_payload_hash('thanks-v1|' || v_business || '|' || v_thanks_body);
 
     INSERT INTO public.sms_messages (
       organisation_id,

@@ -9,7 +9,6 @@ import {
   renderMissedCallHelp,
   SMS_REPLY_BUSINESS_TOKEN,
   SMS_REPLY_FORBIDDEN,
-  SMS_REPLY_STOP_SUFFIX,
 } from './missedCallSmsCopy';
 import { smsTextbackLookKind } from './smsTextbackSettings';
 
@@ -31,7 +30,17 @@ export const SMS_REPLY_MISSING_STOP = 'Keep “Reply STOP to opt out” on the t
 export const SMS_REPLY_NOT_GSM7 = 'Use letters, numbers or simple punctuation only.';
 export const SMS_REPLY_TOO_LONG = 'Too long for 1 text';
 export const SMS_REPLY_FORBIDDEN_WORD = 'Remove booked, quote, price, today and the other blocked words.';
+export const SMS_REPLY_NO_CONTACT = 'No links or phone numbers';
 export const SMS_REPLY_FITS = 'Fits in 1 text';
+
+export const SMS_REPLY_STOP_END: Record<SmsReplyKind, RegExp> = {
+  ack: /Reply STOP to opt out\.?\s*$/,
+  thanks: /Reply STOP to opt out\.?\s*$/,
+  help: /Reply STOP to opt out, START to opt back in\.\s*$/,
+};
+
+export const SMS_REPLY_LINK_OR_PHONE =
+  /https?:\/\/|\bwww\.|[a-z0-9][a-z0-9-]*\.[a-z]{2,}|\d{6,}/i;
 
 export type SmsReplyTemplates = {
   ack: string;
@@ -70,18 +79,46 @@ export function smsReplyHasForbiddenWord(body: string): boolean {
   return SMS_REPLY_FORBIDDEN.test(body);
 }
 
-export function smsReplyTemplateError(template: string, businessName: string): string | null {
-  const name = businessName.trim() || 'Your business';
+export function smsReplyHasLinkOrPhone(body: string): boolean {
+  return SMS_REPLY_LINK_OR_PHONE.test(body);
+}
+
+export function smsReplyEndsWithStop(template: string, kind: SmsReplyKind): boolean {
+  return SMS_REPLY_STOP_END[kind].test(template);
+}
+
+export function smsReplyTemplateError(
+  template: string,
+  businessName: string,
+  kind: SmsReplyKind,
+): string | null {
+  const name = businessName.trim();
   const probe = smsReplyProbeName(name);
   const rendered = renderSmsReplyTemplate(template, probe);
   const hasToken = template.includes(SMS_REPLY_BUSINESS_TOKEN);
-  const hasName = rendered.includes(probe) || rendered.includes(name);
+  const hasName = Boolean(name) && (rendered.includes(name) || template.includes(name));
   if (!hasToken && !hasName) return SMS_REPLY_MISSING_BUSINESS;
-  if (!rendered.includes(SMS_REPLY_STOP_SUFFIX)) return SMS_REPLY_MISSING_STOP;
+  if (!smsReplyEndsWithStop(template, kind)) return SMS_REPLY_MISSING_STOP;
   if (!isGsm7(rendered)) return SMS_REPLY_NOT_GSM7;
   if (gsm7Length(rendered) > SMS_REPLY_MAX_LENGTH) return SMS_REPLY_TOO_LONG;
   if (smsReplyHasForbiddenWord(rendered)) return SMS_REPLY_FORBIDDEN_WORD;
+  if (smsReplyHasLinkOrPhone(template) || smsReplyHasLinkOrPhone(rendered)) {
+    return SMS_REPLY_NO_CONTACT;
+  }
   return null;
+}
+
+export function smsReplyNamedError(kind: SmsReplyKind, error: string): string {
+  return `${SMS_REPLY_LABEL[kind]}: ${error}`;
+}
+
+export function smsReplyFieldError(
+  template: string,
+  businessName: string,
+  kind: SmsReplyKind,
+): string | null {
+  const error = smsReplyTemplateError(template, businessName, kind);
+  return error ? smsReplyNamedError(kind, error) : null;
 }
 
 export function smsReplyPreview(template: string, businessName: string): string {
@@ -127,6 +164,19 @@ export function smsTextbackMemberStatus(enabled: boolean): string {
   return `Missed-call texts are ${enabled ? 'on' : 'off'} · ask an admin to change`;
 }
 
+export function smsReplyKindFromNamedError(message: string): SmsReplyKind | null {
+  for (const kind of SMS_REPLY_KINDS) {
+    if (message.startsWith(`${SMS_REPLY_LABEL[kind]}:`)) return kind;
+  }
+  return null;
+}
+
+function smsReplyKindFromRpcMessage(message: string): SmsReplyKind {
+  if (message.includes('thanks')) return 'thanks';
+  if (message.includes('help')) return 'help';
+  return 'ack';
+}
+
 export async function saveSmsReplyTemplates(input: {
   ack: string;
   thanks: string;
@@ -134,7 +184,7 @@ export async function saveSmsReplyTemplates(input: {
   businessName: string;
 }): Promise<{ templates: SmsReplyTemplates | null; error: string | null }> {
   for (const kind of SMS_REPLY_KINDS) {
-    const error = smsReplyTemplateError(input[kind], input.businessName);
+    const error = smsReplyFieldError(input[kind], input.businessName, kind);
     if (error) return { templates: null, error };
   }
   const { data, error } = await supabase.rpc('save_sms_reply_templates', {
@@ -144,7 +194,10 @@ export async function saveSmsReplyTemplates(input: {
   });
   if (error) {
     if (error.code === '42501') return { templates: null, error: 'Only an admin can change text replies.' };
-    if (error.code === '23514') return { templates: null, error: SMS_REPLY_MISSING_STOP };
+    if (error.code === '23514') {
+      const kind = smsReplyKindFromRpcMessage(error.message);
+      return { templates: null, error: smsReplyNamedError(kind, SMS_REPLY_MISSING_STOP) };
+    }
     return { templates: null, error: 'Could not save text replies.' };
   }
   const row = Array.isArray(data) ? data[0] : data;

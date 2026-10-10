@@ -17,6 +17,11 @@ describe('sms reply templates LOOK — existing company settings section', () =>
     expect(page).toContain('smsReplyFitLabel');
     expect(page).toContain('Reset to default');
     expect(page).toContain('saveSmsReplyTemplates');
+    expect(page).toContain('smsReplyFieldError');
+    expect(page).toContain('focusSmsReplyField');
+    expect(page).toContain('scrollIntoView');
+    expect(page).toContain('data-sms-reply-error={kind}');
+    expect(page).not.toContain('data-sms-reply-error>');
     expect(page).toContain('shouldQueryLiveSmsReplies');
     expect(page).toContain('!isAdmin && ENQUIRY_SURFACE_LIVE');
     expect(page).toContain('smsTextbackMemberStatus');
@@ -26,6 +31,9 @@ describe('sms reply templates LOOK — existing company settings section', () =>
     expect(lib).toContain('SMS_REPLY_FORBIDDEN');
     expect(lib).toContain('{Business}');
     expect(lib).toContain('Reply STOP to opt out');
+    expect(lib).toContain('START to opt back in');
+    expect(lib).toContain('No links or phone numbers');
+    expect(lib).toContain('SMS_REPLY_STOP_END');
     expect(lib).toContain('ENQUIRY_SURFACE_LIVE');
     expect(copy).toContain('SMS_REPLY_FORBIDDEN');
     expect(src('src/lib/missedCallEnquiry.ts')).toContain('ENQUIRY_SURFACE_LIVE = false');
