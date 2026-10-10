@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, type FormEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { invalidateJobBillInvoicePreview } from '../lib/jobBillInvoicePreviewQuery';
@@ -1373,7 +1374,8 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
   const handleInvoice = async () => {
     const id = savedId ?? quote?.id;
     if (!id || form.status !== 'accepted' || !profile?.id) return;
-    setInvoicing(true); setErr('');
+    flushSync(() => { setInvoicing(true); setErr(''); });
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
     try {
       const result = await convertQuoteToInvoice(
         id,
@@ -1611,7 +1613,12 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                 onClick={() => { void handleInvoice(); }}
                 disabled={saving || invoicing}
               >
-                {invoicing ? 'Creating…' : 'Create invoice'}
+                {invoicing ? (
+                  <>
+                    <LoadingSpinner size="sm" />
+                    Creating…
+                  </>
+                ) : 'Create invoice'}
               </button>
             )}
             <details ref={moreRef} className="hub-quote-more">
@@ -1701,7 +1708,12 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
                     onClick={() => { closeMore(); void handleInvoice(); }}
                     disabled={invoicing}
                   >
-                    {invoicing ? 'Creating...' : 'Create invoice'}
+                    {invoicing ? (
+                      <>
+                        <LoadingSpinner size="sm" />
+                        Creating…
+                      </>
+                    ) : 'Create invoice'}
                   </button>
                 )}
                 {form.status === 'accepted' && invoiceId && (

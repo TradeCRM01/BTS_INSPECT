@@ -92,9 +92,10 @@ describe('P-307 (ii) — reuse opens the existing invoice', () => {
     expect(quoteMut).toContain('navigate(invoiceReuseOpen(result.id).href)');
     expect(quoteMut).not.toContain('Invoice already exists for this quote');
     expect(billMut).toContain('invoiceReuseOpen(result.id)');
-    expect(billMut).toContain("label: 'Open'");
-    expect(billMut).toContain('JOB_BILL_INVOICE_READY_TOAST');
-    expect(billMut).not.toContain('navigate(reuse ? reuse.href : invoiceHref(result.id))');
+    expect(billMut).toContain('JOB_BILL_INVOICE_CREATED');
+    expect(billMut).toContain('navigate(jobInvoiceCreateLanding(result.id))');
+    expect(billMut).not.toContain("label: 'Open'");
+    expect(billMut).not.toContain('send=1');
     expect(page).toContain('onInvoiceCreated={(result)');
     expect(page).toContain('invoiceReuseOpen(result.id)');
     expect(src('src/pages/QuotesPage.tsx')).toContain('invoiceReuseOpen(result.id)');

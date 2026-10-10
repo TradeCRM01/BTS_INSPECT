@@ -5,6 +5,7 @@ import { OperatorRoute } from './components/layout/OperatorRoute';
 import { PageErrorBoundary } from './components/layout/PageErrorBoundary';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { ToastProvider } from './components/ui/Toast';
+import { JobInvoiceCreateHoldOverlay } from './components/jobs/JobInvoiceCreateHoldOverlay';
 
 // Public pages — small, load immediately
 import { LoginPage } from './pages/LoginPage';
@@ -97,6 +98,7 @@ function Protected({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <ToastProvider>
+    <JobInvoiceCreateHoldOverlay />
     <Routes>
       {/* Public routes */}
       <Route path="/login" element={<LoginPage />} />

@@ -36,7 +36,8 @@ describe('createInvoiceFromJobBill — job sheet Invoice next', () => {
     expect(page).toContain('invoiceFromJobBill');
     expect(page).toContain('queryKey: [\'job-invoices\', id]');
     expect(page).toContain('invalidateQueries({ queryKey: [\'job-invoices\', id] })');
-    expect(page).toContain('JOB_BILL_INVOICE_READY_TOAST');
+    expect(page).toContain('JOB_BILL_INVOICE_CREATED');
+    expect(page).toContain('jobInvoiceCreateLanding');
     expect(page).toContain('invoiceReuseOpen');
     expect(page).toContain('JOB_BILL_INVOICE_NO_LINES');
     expect(page).toContain("showToast(e.message, 'info')");
@@ -44,7 +45,7 @@ describe('createInvoiceFromJobBill — job sheet Invoice next', () => {
     expect(panel).toContain('createInvoiceFromJobBill');
     expect(panel).toContain('invalidateJobBillHoursQueries');
     expect(page).toContain('invalidateJobBillHoursQueries');
-    expect(page).toContain('JOB_BILL_INVOICE_READY_TOAST');
+    expect(page).toContain('JOB_BILL_INVOICE_CREATED');
   });
 
   it('writes the created job-bill invoice onto job-invoices after Invoice, then invalidates', () => {

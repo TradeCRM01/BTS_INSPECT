@@ -55,6 +55,8 @@ import {
 } from '../lib/invoicePayments';
 import { invoiceListStatusLabel, invoiceBalanceOwed, invoiceSheetStatusChip } from '../lib/invoiceOpenBalance';
 import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
+import { invoiceEditorShareArmed, invoiceLandingOpensSend } from '../lib/invoiceFromJobBill';
+import { clearJobInvoiceCreateHold } from '../lib/jobInvoiceCreateHold';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
 import { invoiceSendCompanyFrom, isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
 import {
@@ -157,6 +159,11 @@ export function InvoicesPage() {
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
+  const shareOpenedAtRef = useRef(0);
+  const requestSend = (invoiceId: string) => {
+    if (!invoiceEditorShareArmed(shareOpenedAtRef.current, Date.now())) return;
+    setSendingInvoiceId(invoiceId);
+  };
   const invoiceIdParam = searchParams.get('id');
   const paymentProof = isDevFieldAuditAuth() && searchParams.get('payment') === '1';
   const money4PartPaidLook = isDevFieldAuditAuth() && searchParams.get('look') === 'money-4-part-paid';
@@ -177,8 +184,9 @@ export function InvoicesPage() {
   });
   const smtpReady = smtpSettings === undefined ? null : isSmtpReady(smtpSettings);
 
-  const { data: openedInvoice } = useQuery<InvoiceWithDetails | null>({
+  const { data: openedInvoice, error: openedInvoiceError } = useQuery<InvoiceWithDetails | null>({
     queryKey: ['invoice', invoiceIdParam, profile?.company_id, paymentProof, money4PartPaidLook],
+    retry: false,
     queryFn: async () => {
       if (!invoiceIdParam || !profile?.company_id) return null;
       const row = await loadInvoiceEditorRow(invoiceIdParam, profile.company_id);
@@ -301,9 +309,18 @@ export function InvoicesPage() {
     const invoiceId = searchParams.get('id');
     const clientId = searchParams.get('client');
     if (invoiceId) {
+      if (openedInvoiceError) {
+        clearJobInvoiceCreateHold();
+        return;
+      }
       if (openedInvoice === undefined) return;
-      if (!openedInvoice) return;
-      if (searchParams.get('send') === '1') {
+      if (!openedInvoice) {
+        clearJobInvoiceCreateHold();
+        return;
+      }
+      shareOpenedAtRef.current = Date.now();
+      clearJobInvoiceCreateHold();
+      if (invoiceLandingOpensSend(searchParams.get('send'), shareOpenedAtRef.current, Date.now())) {
         setSendingInvoiceId(invoiceId);
       } else {
         setEditingInvoice(openedInvoice);
@@ -324,7 +341,7 @@ export function InvoicesPage() {
     const next = new URLSearchParams(searchParams);
     next.delete('client');
     setSearchParams(next, { replace: true });
-  }, [searchParams, openedInvoice, setSearchParams]);
+  }, [searchParams, openedInvoice, openedInvoiceError, setSearchParams]);
 
   useEffect(() => {
     if (!lookLetterhead || !invoices?.length || showForm) return;
@@ -421,7 +438,7 @@ export function InvoicesPage() {
                 invoice={inv}
                 smtpReady={smtpReady}
                 onOpen={() => openInvoice(inv)}
-                onSend={setSendingInvoiceId}
+                onSend={requestSend}
               />
             ))}
           </div>
@@ -437,7 +454,7 @@ export function InvoicesPage() {
           smtpReady={smtpReady}
           onClose={() => { setShowForm(false); setPresetClientId(null); }}
           onSaved={handleSaved}
-          onRequestSend={setSendingInvoiceId}
+          onRequestSend={requestSend}
         />
       )}
 
@@ -575,6 +592,7 @@ function InvoiceNextControl({
         return false;
       }
       recorded = true;
+      setShowPayment(false);
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['invoice'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-nudges'] });
@@ -689,7 +707,7 @@ function InvoiceNextControl({
           busy={busy === 'mark_paid'}
           onCancel={() => setShowPayment(false)}
           onConfirm={async (payment) => {
-            if (await submitPayment(payment)) setShowPayment(false);
+            await submitPayment(payment);
           }}
         />
       ) : null}
@@ -1494,6 +1512,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                 showToast(result.message, 'error');
                 return;
               }
+              setShowPayment(false);
               setRecordedPaid(result.preview.amountPaidAfter);
               setForm(f => ({ ...f, status: result.preview.statusAfter }));
               queryClient.invalidateQueries({ queryKey: ['invoices'] });
@@ -1520,7 +1539,6 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
               }
               setPaymentsTick(t => t + 1);
               queryClient.invalidateQueries({ queryKey: ['invoice-payments'] });
-              setShowPayment(false);
             }}
           />
         ) : null}

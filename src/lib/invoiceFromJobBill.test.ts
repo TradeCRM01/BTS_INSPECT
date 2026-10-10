@@ -14,6 +14,9 @@ import {
   invoiceLinesFromJobCosts,
   jobBillDueDate,
   jobBillInvoiceBlocked,
+  invoiceEditorShareArmed,
+  invoiceLandingOpensSend,
+  jobInvoiceCreateLanding,
   reuseAfterUniqueConflict,
 } from './invoiceFromJobBill';
 import { VAN_TIME_ZONE, todayYmd } from './jobReminder';
@@ -322,5 +325,25 @@ describe('named toasts', () => {
     expect(JOB_BILL_INVOICE_CREATED).toMatch(/draft invoice/i);
     expect(JOB_BILL_INVOICE_EXISTS).toMatch(/already exists/i);
     expect(JOB_BILL_INVOICE_NOTES).toMatch(/^From job bill/i);
+  });
+});
+
+describe('jobInvoiceCreateLanding', () => {
+  it('lands on the invoice editor without opening Send', () => {
+    expect(jobInvoiceCreateLanding('inv-new')).toBe('/invoices?id=inv-new');
+    expect(jobInvoiceCreateLanding('inv-new')).not.toContain('send=');
+  });
+
+  it('keeps Share quiet for one double-tap after the editor opens', () => {
+    expect(invoiceEditorShareArmed(0, 100)).toBe(true);
+    expect(invoiceEditorShareArmed(1000, 1399)).toBe(false);
+    expect(invoiceEditorShareArmed(1000, 1400)).toBe(true);
+  });
+
+  it('covers send=1 with the same quiet window', () => {
+    expect(invoiceLandingOpensSend('1', 1000, 1000)).toBe(false);
+    expect(invoiceLandingOpensSend('1', 1000, 1399)).toBe(false);
+    expect(invoiceLandingOpensSend('1', 1000, 1400)).toBe(true);
+    expect(invoiceLandingOpensSend(null, 1000, 1400)).toBe(false);
   });
 });

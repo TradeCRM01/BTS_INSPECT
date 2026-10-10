@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Download, Loader2, X, FileText } from 'lucide-react';
+import { Download, Loader2, FileText } from 'lucide-react';
 import { AppDialog } from '../ui/AppDialog';
 import { generateCommercialPdf } from '../../reports/commercial/generateCommercialPdf';
 import type { CommercialPdfData } from '../../reports/commercial/CommercialDocumentPdf';
@@ -57,6 +57,7 @@ export function CommercialPdfPreviewModal({ data, onClose }: CommercialPdfPrevie
       title={quoteLook ? 'Quote preview' : invoiceLook ? 'Invoice preview' : 'Document preview'}
       className={quoteLook ? 'hub-quote-pdf-preview' : invoiceLook ? 'hub-invoice-pdf-preview' : ''}
       panelClassName={`overlay-panel-xl flex flex-col max-h-[92vh] ${quoteLook ? 'hub-quote-pdf-sheet' : invoiceLook ? 'hub-invoice-pdf-sheet' : 'border border-[#E5E7EB]'}`}
+      backdropClose
     >
           <div className={`flex items-center justify-between px-5 py-3 shrink-0 ${quoteLook ? 'hub-quote-pdf-head' : invoiceLook ? 'hub-invoice-pdf-head' : 'border-b border-[#E5E7EB]'}`}>
             <div className="flex items-center gap-2">
@@ -78,9 +79,9 @@ export function CommercialPdfPreviewModal({ data, onClose }: CommercialPdfPrevie
               <button
                 type="button"
                 onClick={onClose}
-                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400"
+                className="hub-pdf-preview-close"
               >
-                <X size={18} />
+                Close
               </button>
             </div>
           </div>

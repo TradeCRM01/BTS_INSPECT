@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
@@ -69,11 +69,17 @@ import {
 import type { JobBillInvoicePreviewState } from '../lib/invoiceFromJobBill';
 import { countZeroLabourBeforeJobBillInvoice } from '../lib/requestJobBillInvoice';
 import {
+  holdJobInvoiceCreateUntilUnmount,
   runJobBillInvoiceCreateFlow,
   shouldSkipZeroLabourBeforeJobBillInvoice,
   type JobBillInvoiceCreateGuard,
 } from '../lib/jobBillInvoiceCreateFlow';
 import { jobBillInvoiceMutateSilentlyOnReject } from '../lib/jobBillInvoiceMutateStep';
+import {
+  jobInvoiceCreateHoldActive,
+  releaseJobInvoiceCreateHold,
+  setJobInvoiceCreateHold,
+} from '../lib/jobInvoiceCreateHold';
 import { jobInvoiceHeaderDetailContent } from '../lib/jobInvoiceHeaderDetail';
 import {
   jobBillInvoicePreviewFromLines,
@@ -84,10 +90,11 @@ import {
 import { JobBillZeroLabourConfirmSheet } from '../components/jobs/JobBillZeroLabourConfirmSheet';
 import { JobBillQuotedInvoiceSheet } from '../components/jobs/JobBillQuotedInvoiceSheet';
 import {
-  JOB_BILL_INVOICE_READY_TOAST,
+  JOB_BILL_INVOICE_CREATED,
   JOB_BILL_INVOICE_EMPTY,
   JOB_BILL_INVOICE_NO_LINES,
   jobBillInvoiceBlocked,
+  jobInvoiceCreateLanding,
 } from '../lib/invoiceFromJobBill';
 import { DEFAULT_TAX_RATE } from '../lib/gst';
 import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
@@ -1606,6 +1613,11 @@ export function JobDetailPage() {
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const invoiceBillFlowGuard = useRef<JobBillInvoiceCreateGuard>({ inFlight: false });
   const [invoiceBillFlowBusy, setInvoiceBillFlowBusy] = useState(false);
+  useEffect(() => {
+    return () => {
+      if (jobInvoiceCreateHoldActive()) releaseJobInvoiceCreateHold();
+    };
+  }, []);
 
   const { data: job, isLoading, error } = useQuery<Job>({
     queryKey: ['job', id],
@@ -2244,7 +2256,9 @@ export function JobDetailPage() {
       });
     },
     onSuccess: (result) => {
-      setQuotedInvoiceSheetOpen(false);
+      const reuse = result.existing ? invoiceReuseOpen(result.id) : null;
+      showToast(reuse ? reuse.toast : JOB_BILL_INVOICE_CREATED, 'success');
+      navigate(jobInvoiceCreateLanding(result.id));
       if (result.invoice) {
         queryClient.setQueryData<JobInvoice[]>(['job-invoices', id], prev =>
           jobInvoicesAfterCreate(prev, result.invoice),
@@ -2259,15 +2273,6 @@ export function JobDetailPage() {
         invalidateJobBillInvoicePreview(queryClient, id);
         invalidateJobBillHoursQueries(queryClient, id);
       }
-      const reuse = result.existing ? invoiceReuseOpen(result.id) : null;
-      if (reuse) {
-        showToast(reuse.toast, 'success', { label: 'Open', onClick: () => navigate(reuse.href) });
-        return;
-      }
-      showToast(JOB_BILL_INVOICE_READY_TOAST, 'success', {
-        label: 'Open',
-        onClick: () => navigate(invoiceHref(result.id)),
-      });
     },
     onError: (e: Error) => {
       showToast(e.message, 'error');
@@ -2761,10 +2766,14 @@ export function JobDetailPage() {
     opts?: { forceSkipZeroCheck?: boolean },
   ) => {
     if (!profile?.company_id || !profile.id || !id) return;
-    setInvoiceBillFlowBusy(true);
+    flushSync(() => {
+      setInvoiceBillFlowBusy(true);
+      setJobInvoiceCreateHold(true);
+    });
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
     try {
       const quoted = isJobBillQuoted(acceptedQuoteEarly?.line_items);
-      await runJobBillInvoiceCreateFlow({
+      const flowResult = await runJobBillInvoiceCreateFlow({
         guard: invoiceBillFlowGuard.current,
         skipZeroCheck: opts?.forceSkipZeroCheck === true
           || shouldSkipZeroLabourBeforeJobBillInvoice({
@@ -2796,15 +2805,20 @@ export function JobDetailPage() {
           () => invoiceFromJobBill.mutateAsync(includeLoggedHoursExtra),
         ),
       });
+      if (!holdJobInvoiceCreateUntilUnmount(flowResult)) {
+        setInvoiceBillFlowBusy(false);
+        setJobInvoiceCreateHold(false);
+      }
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Could not create invoice';
       showToast(message, 'error');
-    } finally {
       setInvoiceBillFlowBusy(false);
+      setJobInvoiceCreateHold(false);
     }
   };
 
   const handleInvoice = () => {
+    if (invoiceBillFlowBusy) return;
     if (p307LookKind() === 'reuse') {
       const reuse = invoiceReuseOpen(AUDIT_INVOICE_ID);
       showToast(reuse.toast);
@@ -2825,6 +2839,7 @@ export function JobDetailPage() {
   };
 
   const handleSend = () => {
+    if (invoiceBillFlowBusy) return;
     const draft = pickJobDraftToSend(invoices);
     if (draft) navigate(`/invoices?id=${draft.id}&send=1`);
   };
@@ -2886,7 +2901,7 @@ export function JobDetailPage() {
 
   const invoiceNextBusy = invoiceFromJobBill.isPending || invoiceBillFlowBusy;
   const nextBusy =
-    (next.key === 'invoice' && invoiceNextBusy) ||
+    invoiceNextBusy ||
     (arrivingPrimary && arrivingBusy) ||
     (next.key === 'clock' && clockOnJob.isPending) ||
     (next.key === 'phone' && saveClientPhone.isPending);
@@ -2912,6 +2927,7 @@ export function JobDetailPage() {
   };
 
   const runNext = () => {
+    if (invoiceNextBusy) return;
     if (arrivingPrimary) {
       reminderRef.current?.sendArriving();
       return;
@@ -3117,7 +3133,7 @@ export function JobDetailPage() {
                     type="button"
                     role="menuitem"
                     onClick={() => { closeMore(); handleInvoice(); }}
-                    disabled={invoiceFromJobBill.isPending}
+                    disabled={invoiceNextBusy}
                   >
                     Invoice
                   </button>
@@ -3199,10 +3215,15 @@ export function JobDetailPage() {
                       className="btn-primary ops-next-control-block"
                       title={next.detail}
                       disabled={nextBusy}
-                      aria-busy={next.key === 'invoice' && invoiceNextBusy ? true : undefined}
+                      aria-busy={invoiceNextBusy ? true : undefined}
                       onClick={runNext}
                     >
-                      {next.key === 'invoice' && invoiceNextBusy ? 'Creating…' : nextLabel}
+                      {invoiceNextBusy ? (
+                        <>
+                          <LoadingSpinner size="sm" />
+                          Creating…
+                        </>
+                      ) : nextLabel}
                     </button>
                   ) : (
                     <>
@@ -3576,14 +3597,11 @@ export function JobDetailPage() {
                   queryClient.invalidateQueries({ queryKey: ['job-cost-totals', id] });
                   if (id) invalidateJobBillHoursQueries(queryClient, id);
                   if (result.existing) {
-                    const reuse = invoiceReuseOpen(result.id);
-                    showToast(reuse.toast, 'success', { label: 'Open', onClick: () => navigate(reuse.href) });
-                    return;
+                    showToast(invoiceReuseOpen(result.id).toast, 'success');
+                  } else {
+                    showToast(JOB_BILL_INVOICE_CREATED, 'success');
                   }
-                  showToast(JOB_BILL_INVOICE_READY_TOAST, 'success', {
-                    label: 'Open',
-                    onClick: () => navigate(invoiceHref(result.id)),
-                  });
+                  navigate(jobInvoiceCreateLanding(result.id));
                 }}
               />
             </div>
@@ -3812,7 +3830,7 @@ export function JobDetailPage() {
                 showToast(visitDecision.message, 'info');
                 return;
               }
-              postVisitNote.mutate();
+              flushSync(() => { postVisitNote.mutate(); });
             }}
           >
             <section className="job-notes-step" data-step="photos">
@@ -3968,8 +3986,16 @@ export function JobDetailPage() {
                 type="submit"
                 className={`job-visit-post job-notes-post${visitReady ? ' is-filled' : ''}`}
                 disabled={postVisitNote.isPending || visitAttaching || visitDecision.action === 'miss'}
+                aria-busy={postVisitNote.isPending ? true : undefined}
               >
-                Post update
+                {postVisitNote.isPending ? (
+                  <>
+                    <LoadingSpinner size="sm" />
+                    Posting…
+                  </>
+                ) : (
+                  'Post update'
+                )}
               </button>
             </div>
           </form>
@@ -4277,7 +4303,7 @@ export function JobDetailPage() {
             onRetry={() => { void refetchInvoices(); }}
             emptyTitle="Nothing invoiced yet. Invoice an accepted quote, or from the job bill."
             emptyAction={
-              <button type="button" onClick={handleInvoice} disabled={invoiceFromJobBill.isPending} className="ops-link">
+              <button type="button" onClick={handleInvoice} disabled={invoiceNextBusy} className="ops-link">
                 Invoice this job
               </button>
             }
@@ -4390,7 +4416,10 @@ export function JobDetailPage() {
         moneyLine={quotedInvoiceSheetMoneyLine}
         addLoggedHoursExtra={addLoggedHoursExtra}
         onAddLoggedHoursExtraChange={setAddLoggedHoursExtra}
-        onClose={() => setQuotedInvoiceSheetOpen(false)}
+        onClose={() => {
+          if (invoiceNextBusy) return;
+          setQuotedInvoiceSheetOpen(false);
+        }}
         onCreate={() => {
           void runInvoiceFromJobBill(addLoggedHoursExtra, {
             forceSkipZeroCheck: Boolean(

@@ -1,6 +1,6 @@
 import type { InvoiceLineItem } from '../types/fsm';
 import { calcLineDocumentTotals } from './gst';
-import { INVOICE_SOURCE_JOB_BILL, pickReusableInvoice } from './invoiceFromQuote';
+import { INVOICE_SOURCE_JOB_BILL, invoiceHref, pickReusableInvoice } from './invoiceFromQuote';
 import { VAN_TIME_ZONE, todayYmd } from './jobReminder';
 
 export const JOB_BILL_INVOICE_NO_CLIENT = 'Assign a client before invoicing this job';
@@ -145,4 +145,23 @@ export function reuseAfterUniqueConflict<T extends { id: string; status: string 
 ): T | null {
   if (errorCode !== '23505') return null;
   return pickReusableInvoice(rows);
+}
+
+export function jobInvoiceCreateLanding(invoiceId: string): string {
+  return invoiceHref(invoiceId);
+}
+
+export const INVOICE_EDITOR_SHARE_ARM_MS = 400;
+
+export function invoiceEditorShareArmed(openedAtMs: number, nowMs: number): boolean {
+  if (openedAtMs <= 0) return true;
+  return nowMs - openedAtMs >= INVOICE_EDITOR_SHARE_ARM_MS;
+}
+
+export function invoiceLandingOpensSend(
+  sendParam: string | null,
+  openedAtMs: number,
+  nowMs: number,
+): boolean {
+  return sendParam === '1' && invoiceEditorShareArmed(openedAtMs, nowMs);
 }
