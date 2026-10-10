@@ -456,6 +456,17 @@ try {
     'Hi, this is Twenty Character Nam. Sorry we missed your call. Reply with what you need done and your suburb and we will get back to you. Reply STOP to opt out.',
     'missed call uses the approved text-back',
   );
+  await must(
+    admin.from('communication_preferences').insert({
+      organisation_id: organisationA,
+      phone_e164: TEST_MOBILE,
+      sms_consent_status: 'consented',
+      consent_basis: 'express',
+      consent_source: 'integration_test',
+      consented_at: new Date().toISOString(),
+    }),
+    'record later-path consent after unknown ack',
+  );
   const conflict = await admin.rpc('ingest_twilio_voice_status', {
     p_provider_account_sid: `AC${suffix}`,
     p_provider_call_sid: callSid,

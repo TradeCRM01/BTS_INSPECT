@@ -639,16 +639,6 @@ BEGIN
         AND preference.phone_e164 = p_from_phone_e164
         AND preference.sms_consent_status = 'opted_out'
     )
-    AND NOT EXISTS (
-      SELECT 1
-      FROM public.sms_messages AS message
-      WHERE message.organisation_id = v_call.organisation_id
-        AND message.to_phone_e164 = p_from_phone_e164
-        AND message.purpose = 'missed_call_ack'
-        AND message.state IN ('queued', 'claimed', 'sent')
-        AND message.created_at > now() - interval '24 hours'
-        AND message.idempotency_key IS DISTINCT FROM v_ack_key
-    )
   THEN
     v_business := public.sms_business_name(v_call.organisation_id);
     v_body := public.missed_call_ack_body(v_business);
