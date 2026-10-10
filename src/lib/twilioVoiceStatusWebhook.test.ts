@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   handleTwilioVoiceStatusWebhook,
+  WITHHELD_CALLER_E164,
   type TwilioVoiceIngestResult,
   type TwilioVoiceStatusRecord,
 } from '../../supabase/functions/_shared/twilioVoiceStatus';
@@ -55,9 +56,10 @@ class InMemoryMissedCallStore {
     this.calls.set(record.providerCallSid, call);
 
     const eligible = ['busy', 'canceled', 'failed', 'no-answer'].includes(record.callStatus);
+    const withheld = record.fromPhoneE164 === WITHHELD_CALLER_E164;
     const consented =
       this.consent.get(`${sender.companyId}:${record.fromPhoneE164}`) === 'consented';
-    if (eligible && consented) {
+    if (eligible && consented && !withheld) {
       const id = `sms-${record.providerCallSid}`;
       call.messageId = id;
       this.outbox.push({
@@ -191,6 +193,28 @@ describe('Twilio missed-call status webhook', () => {
 
     expect(store.calls.get(`CA${'2'.repeat(32)}`)?.companyId).toBe('company-b');
     expect(store.outbox.map((message) => message.companyId)).toEqual(['company-b']);
+  });
+
+  it('returns 204 and queues no SMS for a withheld caller', async () => {
+    const store = new InMemoryMissedCallStore();
+    store.senders.push({
+      accountSid: 'AC111',
+      to: '+15555550101',
+      companyId: 'company-a',
+      id: 'sender-a',
+    });
+    const response = await handleTwilioVoiceStatusWebhook(
+      await signedVoiceRequest(voicePayload({
+        CallSid: `CA${'4'.repeat(32)}`,
+        From: 'anonymous',
+      })),
+      dependencies(store),
+    );
+
+    expect(response.status).toBe(204);
+    expect(store.calls.size).toBe(1);
+    expect(store.calls.get(`CA${'4'.repeat(32)}`)?.fromPhoneE164).toBe(WITHHELD_CALLER_E164);
+    expect(store.outbox).toHaveLength(0);
   });
 
   it('rejects a reused CallSid with different call identity', async () => {

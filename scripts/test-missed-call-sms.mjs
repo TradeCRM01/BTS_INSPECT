@@ -89,10 +89,58 @@ async function createTenant(organisationId, label) {
   return { client, userId: created.user.id };
 }
 
+function normalizeKeyword(body) {
+  return body.trim().toUpperCase().replace(/[^A-Z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function localParts(date, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const get = (type) => Number(parts.find((part) => part.type === type).value);
+  return {
+    year: get('year'),
+    month: get('month'),
+    day: get('day'),
+    hour: get('hour'),
+  };
+}
+
+function utcForZonedLocal(timeZone, year, month, day, hour, minute = 0, second = 0) {
+  const desired = Date.UTC(year, month - 1, day, hour, minute, second);
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  const seen = (ms) => {
+    const mapped = Object.fromEntries(
+      formatter.formatToParts(new Date(ms))
+        .filter((part) => part.type !== 'literal')
+        .map((part) => [part.type, part.value]),
+    );
+    return Date.UTC(+mapped.year, +mapped.month - 1, +mapped.day, +mapped.hour, +mapped.minute, +mapped.second);
+  };
+  return desired - (seen(desired) - desired);
+}
+
 async function ingest({ sid, to, from = TEST_MOBILE, body = 'Hello' }) {
-  const stop = body.trim().toUpperCase() === 'STOP';
-  const start = body.trim().toUpperCase() === 'START';
-  const help = body.trim().toUpperCase() === 'HELP';
+  const keyword = normalizeKeyword(body);
+  const stop = ['STOP', 'STOPALL', 'STOP ALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT', 'OPT OUT', 'OPTOUT'].includes(keyword);
+  const start = keyword === 'START';
+  const help = keyword === 'HELP';
   const confirmed = body.trim().match(/^BOOK\s+(\d{4}-\d{2}-\d{2})\s+(?:AT\s+)?(\d{2}:\d{2})$/i);
   const replyKind = stop
     ? 'stop'
@@ -175,6 +223,7 @@ try {
     enabled: true,
     test_mode: true,
     test_allowlist: [TEST_MOBILE],
+    business_name: 'Twenty Character Nam',
     daily_message_cap: 20,
     hourly_message_cap: 10,
     monthly_message_cap: 300,
@@ -188,6 +237,16 @@ try {
     ]),
     'insert automation settings',
   );
+  const rejectedName = await admin
+    .from('sms_automation_settings')
+    .update({ business_name: 'Name—Dash' })
+    .eq('organisation_id', organisationA);
+  assert.ok(rejectedName.error, 'business name must stay GSM-7');
+  const rejectedEmoji = await admin
+    .from('sms_automation_settings')
+    .update({ business_name: 'Name😀' })
+    .eq('organisation_id', organisationA);
+  assert.ok(rejectedEmoji.error, 'emoji business name is rejected');
 
   const deniedStartPhone = DENIED_START_PHONE;
   const deniedStart = await ingest({
@@ -407,7 +466,7 @@ try {
   }), 'claim before STOP');
   const stoppedLease = beforeStop.find((row) => row.id === stoppedOutbound);
   assert.ok(stoppedLease?.claim_token, 'STOP fixture is leased before opt-out');
-  await ingest({ sid: `SM${suffix}STOP`, to: SENDER_B, body: 'STOP' });
+  await ingest({ sid: `SM${suffix}STOP`, to: SENDER_B, body: 'Stop.' });
   const cancelled = await must(
     admin.from('sms_messages').select('state').eq('id', stoppedOutbound).single(),
     'read STOP fixture',
@@ -419,6 +478,80 @@ try {
   }), 'authorize after STOP');
   assert.equal(stoppedDispatch.length, 0, 'STOP revokes an existing lease before dispatch');
 
+  const callSid = `CA${suffix.padEnd(32, 'a')}`;
+  const firstCall = await ingestCall({ sid: callSid, to: SENDER_A });
+  const replayCall = await ingestCall({ sid: callSid, to: SENDER_A });
+  assert.equal(firstCall.queued, true, 'unknown preference still queues an ack');
+  assert.equal(replayCall.replay, true, 'CallSid replay is acknowledged');
+  const ackPreference = await must(
+    admin.from('communication_preferences')
+      .select('sms_consent_status')
+      .eq('organisation_id', organisationA)
+      .eq('phone_e164', TEST_MOBILE),
+    'read ack preference',
+  );
+  assert.equal(ackPreference.length, 0, 'ack does not manufacture consented');
+  const callRows = await must(
+    admin.from('missed_calls').select('organisation_id, outbound_message_id').eq('provider_call_sid', callSid),
+    'read deduplicated call',
+  );
+  assert.equal(callRows.length, 1, 'CallSid is stored once');
+  const callOutbox = await must(
+    admin.from('sms_messages').select('id, body, state, purpose, segments, payload_hash').eq('idempotency_key', `missed-call-ack:${callSid}`),
+    'read missed-call outbox',
+  );
+  assert.equal(callOutbox.length, 1, 'missed call queues exactly one outbox row');
+  assert.equal(callOutbox[0].purpose, 'missed_call_ack', 'ack stores purpose');
+  assert.equal(callOutbox[0].segments, 1, 'ack is one GSM-7 segment');
+  assert.ok(callOutbox[0].payload_hash, 'ack stores payload_hash');
+  assert.equal(
+    callOutbox[0].body,
+    'Hi, this is Twenty Character Nam. Sorry we missed your call. Reply with what you need done and your suburb and we will get back to you. Reply STOP to opt out.',
+    'missed call uses the approved text-back',
+  );
+  const repeatCallSid = `CA${`${suffix}r`.padEnd(32, 'r')}`;
+  const repeatCall = await ingestCall({ sid: repeatCallSid, to: SENDER_A });
+  assert.equal(repeatCall.stored, true, 'repeat missed call is still recorded');
+  assert.equal(repeatCall.queued, false, 'second missed call within 24h queues no second ack');
+  const repeatRows = await must(
+    admin.from('missed_calls').select('id, outbound_message_id').eq('provider_call_sid', repeatCallSid),
+    'read repeat missed call',
+  );
+  assert.equal(repeatRows.length, 1, 'repeat missed call stores one row');
+  assert.equal(repeatRows[0].outbound_message_id, null, 'repeat missed call has no outbound');
+  const repeatOutbox = await must(
+    admin.from('sms_messages').select('id').eq('idempotency_key', `missed-call-ack:${repeatCallSid}`),
+    'read repeat-call outbox',
+  );
+  assert.equal(repeatOutbox.length, 0, 'repeat missed call creates no ack row');
+  const otherCompanyCallSid = `CA${`${suffix}c`.padEnd(32, 'c')}`;
+  const otherCompanyCall = await ingestCall({ sid: otherCompanyCallSid, to: SENDER_C });
+  assert.equal(otherCompanyCall.queued, true, 'a different company still acks the same caller within 24h');
+  const otherCompanyOutbox = await must(
+    admin.from('sms_messages').select('id, purpose').eq('idempotency_key', `missed-call-ack:${otherCompanyCallSid}`),
+    'read other-company ack',
+  );
+  assert.equal(otherCompanyOutbox.length, 1, 'other company queues its own ack');
+  assert.equal(otherCompanyOutbox[0].purpose, 'missed_call_ack', 'other company ack stores purpose');
+  await must(
+    admin.from('sms_messages').update({
+      state: 'cancelled',
+      last_error: 'test_drain',
+      next_attempt: null,
+    }).eq('idempotency_key', `missed-call-ack:${otherCompanyCallSid}`),
+    'drain other-company ack',
+  );
+  const neverHelp = await ingest({
+    sid: `SM${suffix}NEVERHELP`,
+    to: SENDER_A,
+    from: DENIED_START_PHONE,
+    body: 'HELP',
+  });
+  const neverHelpOutbox = await must(
+    admin.from('sms_messages').select('id').eq('idempotency_key', `missed-call-reply:${neverHelp.message_id}`),
+    'read never-opted-in HELP',
+  );
+  assert.equal(neverHelpOutbox.length, 0, 'HELP does not queue for a never-opted-in caller');
   await must(
     admin.from('communication_preferences').insert({
       organisation_id: organisationA,
@@ -428,27 +561,7 @@ try {
       consent_source: 'integration_test',
       consented_at: new Date().toISOString(),
     }),
-    'record missed-call fixture consent',
-  );
-  const callSid = `CA${suffix.padEnd(32, 'a')}`;
-  const firstCall = await ingestCall({ sid: callSid, to: SENDER_A });
-  const replayCall = await ingestCall({ sid: callSid, to: SENDER_A });
-  assert.equal(firstCall.queued, true, 'eligible consented missed call queues a text-back');
-  assert.equal(replayCall.replay, true, 'CallSid replay is acknowledged');
-  const callRows = await must(
-    admin.from('missed_calls').select('organisation_id, outbound_message_id').eq('provider_call_sid', callSid),
-    'read deduplicated call',
-  );
-  assert.equal(callRows.length, 1, 'CallSid is stored once');
-  const callOutbox = await must(
-    admin.from('sms_messages').select('id, body, state').eq('idempotency_key', `missed-call:${callSid}`),
-    'read missed-call outbox',
-  );
-  assert.equal(callOutbox.length, 1, 'missed call queues exactly one outbox row');
-  assert.equal(
-    callOutbox[0].body,
-    'Sorry we missed your call. Reply here and our team will get back to you.',
-    'missed call uses the approved text-back',
+    'record later-path consent after unknown ack',
   );
   const conflict = await admin.rpc('ingest_twilio_voice_status', {
     p_provider_account_sid: `AC${suffix}`,
@@ -460,11 +573,52 @@ try {
   });
   assert.ok(conflict.error, 'CallSid cannot be reused for a different call identity');
 
+  await must(
+    admin.from('sms_automation_settings').update({ business_name: 'Other Business Name' }).eq('organisation_id', organisationA),
+    'change ack business name',
+  );
+  const renamedReplay = await ingestCall({ sid: callSid, to: SENDER_A });
+  assert.equal(renamedReplay.replay, true, 'ack replay with a new business name does not raise');
+  await must(
+    admin.from('sms_automation_settings').update({ business_name: 'Twenty Character Nam' }).eq('organisation_id', organisationA),
+    'restore business name',
+  );
+  await must(
+    admin.from('sms_messages').update({ payload_hash: '0'.repeat(64) }).eq('idempotency_key', `missed-call-ack:${callSid}`),
+    'corrupt ack payload hash',
+  );
+  const hashConflict = await admin.rpc('ingest_twilio_voice_status', {
+    p_provider_account_sid: `AC${suffix}`,
+    p_provider_call_sid: callSid,
+    p_from_phone_e164: TEST_MOBILE,
+    p_to_phone_e164: SENDER_A,
+    p_call_status: 'no-answer',
+    p_direction: 'inbound',
+  });
+  assert.match(
+    hashConflict.error?.message ?? '',
+    /payload hash/,
+    'replay with a different payload raises',
+  );
+  await must(
+    admin.from('sms_messages').update({ payload_hash: callOutbox[0].payload_hash }).eq('idempotency_key', `missed-call-ack:${callSid}`),
+    'restore ack payload hash',
+  );
+
   const stoppedCallSid = `CA${`${suffix}b`.padEnd(32, 'b')}`;
   const stoppedCall = await ingestCall({ sid: stoppedCallSid, to: SENDER_B });
   assert.equal(stoppedCall.queued, false, 'STOP preference blocks queueing');
+  const stoppedPreference = await must(
+    admin.from('communication_preferences')
+      .select('sms_consent_status')
+      .eq('organisation_id', organisationB)
+      .eq('phone_e164', TEST_MOBILE)
+      .single(),
+    'read STOP preference after missed call',
+  );
+  assert.equal(stoppedPreference.sms_consent_status, 'opted_out', 'missed call never flips opted_out');
   const stoppedCallOutbox = await must(
-    admin.from('sms_messages').select('id').eq('idempotency_key', `missed-call:${stoppedCallSid}`),
+    admin.from('sms_messages').select('id').eq('idempotency_key', `missed-call-ack:${stoppedCallSid}`),
     'read STOP-blocked outbox',
   );
   assert.equal(stoppedCallOutbox.length, 0, 'STOP creates no outbound row');
@@ -563,6 +717,7 @@ try {
   );
   assert.equal(helpReply.state, 'queued', 'HELP queues a reply through the shared SMS outbox');
   assert.equal(/BOOK/i.test(helpReply.body), false, 'HELP copy has no BOOK');
+  assert.match(helpReply.body, /Twenty Character Nam/, 'HELP names the business');
   assert.match(helpReply.body, /STOP/, 'HELP still names STOP');
   assert.match(helpReply.body, /START/, 'HELP still names START');
 
@@ -581,6 +736,17 @@ try {
     'read dormant qualification flag',
   );
   assert.equal(dormantThread.qualification_required, false, 'new threads default qualification_required false');
+  const thanks = await must(
+    admin.from('sms_messages')
+      .select('body, purpose, state')
+      .eq('idempotency_key', `enquiry-thanks:${jobReply.thread_id}`)
+      .single(),
+    'read enquiry thanks',
+  );
+  assert.equal(thanks.purpose, 'enquiry_thanks', 'first reply queues enquiry thanks');
+  assert.equal(thanks.state, 'queued', 'thanks is queued once');
+  assert.match(thanks.body, /Twenty Character Nam/, 'thanks names the business');
+  assert.match(thanks.body, /STOP/, 'thanks includes STOP');
 
   const bookingDate = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
   const bookingReply = await ingest({
@@ -632,13 +798,7 @@ try {
     'booking worker raises auto-book disabled',
   );
 
-  const ladderCallSid = `CA${`${suffix}e`.padEnd(32, 'e')}`;
-  await ingestCall({ sid: ladderCallSid, to: SENDER_A });
-  const ladderOpen = await ingest({
-    sid: `SM${suffix}LADDEROPEN`,
-    to: SENDER_A,
-    body: 'Need a time',
-  });
+  const ladderOpen = { thread_id: jobReply.thread_id };
   await must(
     admin.from('missed_call_sms_threads').update({
       qualification_required: true,
@@ -722,6 +882,14 @@ try {
   assert.ok(auditA.length > 0 && auditA.every((row) => row.organisation_id === organisationA), 'organisation A sees only A consent audits');
   assert.ok(auditB.length > 0 && auditB.every((row) => row.organisation_id === organisationB), 'organisation B sees only B consent audits');
 
+  await must(
+    admin.from('missed_call_sms_threads').update({
+      qualification_required: false,
+      qualification_step: 'job_service',
+      state: 'awaiting_reply',
+    }).eq('id', jobReply.thread_id),
+    'return the open thread to the dormant ladder',
+  );
   const stopCallSid = `CA${`${suffix}d`.padEnd(32, 'd')}`;
   await ingestCall({ sid: stopCallSid, to: SENDER_A });
   const beforeThreadStop = await ingest({
@@ -1139,6 +1307,151 @@ try {
       `${window} reminder names the window`,
     );
   }
+
+  const withheldSid = `CA${`${suffix}w`.padEnd(32, 'w')}`;
+  const withheld = await ingestCall({ sid: withheldSid, to: SENDER_A, from: REJECT_PLACEHOLDER });
+  assert.equal(withheld.stored, true, 'withheld caller is stored');
+  assert.equal(withheld.queued, false, 'withheld caller queues no SMS');
+  const withheldOutbox = await must(
+    admin.from('sms_messages').select('id').eq('idempotency_key', `missed-call-ack:${withheldSid}`),
+    'read withheld outbox',
+  );
+  assert.equal(withheldOutbox.length, 0, 'withheld caller creates no outbound row');
+
+  const invalidZone = await admin.from('companies').update({ time_zone: 'Not/AZone' }).eq('id', organisationA);
+  assert.ok(invalidZone.error, 'invalid IANA time zone is rejected');
+
+  await drainCOutbox();
+  await restoreCSettings({ hourly_message_cap: 1 });
+  await must(
+    admin.from('companies').update({ time_zone: 'Australia/Sydney' }).eq('id', organisationC),
+    'set Sydney cap zone',
+  );
+  const sydneyNow = localParts(new Date(), 'Australia/Sydney');
+  const sydneyHourStart = utcForZonedLocal(
+    'Australia/Sydney',
+    sydneyNow.year,
+    sydneyNow.month,
+    sydneyNow.day,
+    sydneyNow.hour,
+  );
+  const priorHourId = randomUUID();
+  await queueGuardFixture({
+    id: priorHourId,
+    to: TEST_MOBILE,
+    body: 'Prior local hour',
+    createdAt: new Date(sydneyHourStart - 1000).toISOString(),
+  });
+  await must(
+    admin.from('sms_messages').update({ state: 'sent', next_attempt: null }).eq('id', priorHourId),
+    'mark prior local hour sent',
+  );
+  const calendarId = randomUUID();
+  await queueGuardFixture({ id: calendarId, to: TEST_MOBILE, body: 'Current local hour' });
+  const calendarClaim = await must(admin.rpc('claim_next_sms_message', {
+    p_worker_id: 'tz-hour',
+    p_lease_seconds: 60,
+  }), 'claim current local hour');
+  assert.equal(calendarClaim[0]?.id, calendarId, 'calendar hourly cap ignores the previous tenant hour');
+  await must(
+    admin.from('companies').update({ time_zone: 'Australia/Brisbane' }).eq('id', organisationC),
+    'restore Brisbane zone',
+  );
+
+  function iso(value) {
+    return new Date(value).toISOString();
+  }
+
+  async function expectBounds(timeZone, window, now, start, end, label) {
+    const rows = await must(admin.rpc('sms_cap_window_bounds', {
+      p_time_zone: timeZone,
+      p_window: window,
+      p_now: now,
+    }), label);
+    assert.equal(rows.length, 1, `${label} returns one row`);
+    assert.equal(iso(rows[0].window_start), start, `${label} start`);
+    assert.equal(iso(rows[0].window_end), end, `${label} end`);
+    return rows[0];
+  }
+
+  await expectBounds(
+    'Australia/Brisbane',
+    'month',
+    '2026-10-31T02:00:00Z',
+    '2026-09-30T14:00:00.000Z',
+    '2026-10-31T14:00:00.000Z',
+    'Brisbane 31 Oct month window',
+  );
+  await expectBounds(
+    'Australia/Brisbane',
+    'month',
+    '2026-03-30T02:00:00Z',
+    '2026-02-28T14:00:00.000Z',
+    '2026-03-31T14:00:00.000Z',
+    'Brisbane 30 Mar month window',
+  );
+  await expectBounds(
+    'Australia/Sydney',
+    'month',
+    '2026-12-31T01:00:00Z',
+    '2026-11-30T13:00:00.000Z',
+    '2026-12-31T13:00:00.000Z',
+    'Sydney 31 Dec month window',
+  );
+  await expectBounds(
+    'Australia/Perth',
+    'month',
+    '2026-07-31T04:00:00Z',
+    '2026-06-30T16:00:00.000Z',
+    '2026-07-31T16:00:00.000Z',
+    'Perth 31 Jul month window',
+  );
+
+  await drainCOutbox();
+  const oct31Id = randomUUID();
+  await queueGuardFixture({
+    id: oct31Id,
+    to: TEST_MOBILE,
+    body: '31 Oct Brisbane month',
+    createdAt: '2026-10-31T02:00:00.000Z',
+  });
+  await must(
+    admin.from('sms_messages').update({ state: 'sent', next_attempt: null, segments: 1 }).eq('id', oct31Id),
+    'mark 31 Oct Brisbane sent',
+  );
+  const oct31Used = await must(admin.rpc('sms_outbound_cap_at', {
+    p_organisation_id: organisationC,
+    p_window: 'month',
+    p_now: '2026-10-31T02:00:00Z',
+  }), 'count 31 Oct Brisbane month');
+  assert.ok(oct31Used >= 1, 'Brisbane 31 Oct 12:00 sits inside the October month cap');
+
+  const sydneyDstStart = await expectBounds(
+    'Australia/Sydney',
+    'day',
+    '2026-10-04T01:00:00Z',
+    '2026-10-03T14:00:00.000Z',
+    '2026-10-04T13:00:00.000Z',
+    'Sydney DST start day window',
+  );
+  assert.equal(
+    (new Date(sydneyDstStart.window_end) - new Date(sydneyDstStart.window_start)) / 3_600_000,
+    23,
+    'Sydney DST start day window is 23 hours',
+  );
+  const sydneyDstEnd = await expectBounds(
+    'Australia/Sydney',
+    'day',
+    '2026-04-05T02:00:00Z',
+    '2026-04-04T13:00:00.000Z',
+    '2026-04-05T14:00:00.000Z',
+    'Sydney DST end day window',
+  );
+  assert.equal(
+    (new Date(sydneyDstEnd.window_end) - new Date(sydneyDstEnd.window_start)) / 3_600_000,
+    25,
+    'Sydney DST end day window is 25 hours',
+  );
 
   await expectCapWindow('hourly', { hourly_message_cap: 1 }, 'Hourly');
   await expectCapWindow('daily', { daily_message_cap: 1 }, 'Daily');

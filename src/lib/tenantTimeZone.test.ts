@@ -31,6 +31,15 @@ describe('tenant time zone', () => {
     expect(tenantTodayYmd(missedCallAt, 'Australia/Brisbane')).toBe('2026-10-10');
     expect(tenantTodayYmd(missedCallAt, 'Australia/Perth')).toBe('2026-10-09');
   });
+
+  it('renders Sydney summer AEDT and winter AEST', () => {
+    const summerUtc = new Date('2026-01-15T13:30:00.000Z');
+    const winterUtc = new Date('2026-06-15T13:30:00.000Z');
+    expect(formatEnquiryTime(summerUtc, 'Australia/Sydney')).toBe('16 Jan 2026, 12:30 am');
+    expect(tenantTodayYmd(summerUtc, 'Australia/Sydney')).toBe('2026-01-16');
+    expect(formatEnquiryTime(winterUtc, 'Australia/Sydney')).toBe('15 June 2026, 11:30 pm');
+    expect(tenantTodayYmd(winterUtc, 'Australia/Sydney')).toBe('2026-06-15');
+  });
 });
 
 describe('job-reminder stays on Perth', () => {

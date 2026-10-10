@@ -96,6 +96,12 @@ describe('Twilio inbound webhook', () => {
 
   it('classifies STOP before booking language', () => {
     expect(classifyMissedCallReply('STOP')).toEqual({ kind: 'stop' });
+    expect(classifyMissedCallReply('Stop.')).toEqual({ kind: 'stop' });
+    expect(classifyMissedCallReply('STOP!')).toEqual({ kind: 'stop' });
+    expect(classifyMissedCallReply('OPT OUT')).toEqual({ kind: 'stop' });
+    expect(classifyMissedCallReply('OPTOUT')).toEqual({ kind: 'stop' });
+    expect(classifyMissedCallReply('STOP ALL')).toEqual({ kind: 'stop' });
+    expect(classifyMissedCallReply('CANCEL')).toEqual({ kind: 'stop' });
     expect(classifyMissedCallReply('anything', 'STOP')).toEqual({ kind: 'stop' });
   });
 
