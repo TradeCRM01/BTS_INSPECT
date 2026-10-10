@@ -16,6 +16,8 @@ describe('FIX-6 P1 invoice PDF / create / share / payment', () => {
     expect(preview).not.toMatch(/className="w-8 h-8[\s\S]*<X /);
     expect(css).toMatch(/\.hub-pdf-preview-close[\s\S]*min-height:\s*44px/);
     expect(css).toMatch(/\.hub-pdf-preview-close[\s\S]*min-width:\s*44px/);
+    expect(css).toMatch(/\.overlay-backdrop\.hub-invoice-pdf-preview[\s\S]*padding:\s*12px/);
+    expect(css).toMatch(/\.overlay-backdrop\.hub-quote-pdf-preview[\s\S]*padding:\s*12px/);
   });
 
   it('Post update and invoice create show a spinner plus Creating… / Posting… on the disabled button', () => {

@@ -10220,6 +10220,7 @@
 
   .overlay-backdrop.hub-quote-pdf-preview {
     background: rgb(245 240 230 / 0.92);
+    padding: 12px;
   }
 
   .hub-quote-pdf-sheet {
@@ -10334,6 +10335,7 @@
 
   .overlay-backdrop.hub-invoice-pdf-preview {
     background: rgb(245 240 230 / 0.92);
+    padding: 12px;
   }
 
   .hub-invoice-pdf-sheet {
