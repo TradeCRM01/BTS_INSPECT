@@ -77,7 +77,7 @@ export function conversationMessageTime(
 }
 
 export function conversationDirectionLabel(direction: SmsDirection): string {
-  return direction === 'inbound' ? 'In' : 'Out';
+  return direction === 'inbound' ? 'Customer' : 'Auto text';
 }
 
 export function conversationStateLabel(state: SmsState): string {

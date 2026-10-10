@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { AlertCircle } from 'lucide-react';
 import {
   conversationDirectionLabel,
   conversationMessageTime,
@@ -67,7 +68,10 @@ export function EnquiryConversation({
             <p className="hub-enquiry-conversation-meta">
               <span>{conversationDirectionLabel(row.direction)}</span>
               <span>{conversationMessageTime(row.at, timeZone)}</span>
-              <span>{conversationStateLabel(row.state)}</span>
+              <span className={`hub-enquiry-conversation-state is-${row.state}`}>
+                {row.state === 'failed' ? <AlertCircle size={13} aria-hidden /> : null}
+                {conversationStateLabel(row.state)}
+              </span>
             </p>
             {row.body ? <p className="hub-enquiry-conversation-body">{row.body}</p> : null}
           </li>

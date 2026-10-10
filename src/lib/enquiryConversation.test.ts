@@ -22,8 +22,8 @@ import {
 
 describe('enquiry conversation', () => {
   it('shows in, out, and state in the tenant time zone', () => {
-    expect(conversationDirectionLabel('inbound')).toBe('In');
-    expect(conversationDirectionLabel('outbound')).toBe('Out');
+    expect(conversationDirectionLabel('inbound')).toBe('Customer');
+    expect(conversationDirectionLabel('outbound')).toBe('Auto text');
     expect(conversationStateLabel('sent')).toBe('Sent');
     expect(conversationStateLabel('failed')).toBe('Failed');
     expect(conversationStateLabel('cancelled')).toBe('Cancelled');

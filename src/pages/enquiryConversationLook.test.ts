@@ -15,6 +15,13 @@ describe('enquiry conversation LOOK — existing Client and Job sheets', () => {
     expect(component).toContain('data-enquiry-conversation="1"');
     expect(component).toContain('conversationDirectionLabel');
     expect(component).toContain('conversationStateLabel');
+    expect(component).toContain('AlertCircle');
+    expect(src('src/lib/enquiryConversation.ts')).toContain("'Customer'");
+    expect(src('src/lib/enquiryConversation.ts')).toContain("'Auto text'");
+    expect(src('src/lib/enquiryConversation.ts')).not.toContain("inbound' ? 'In'");
+    expect(css).toContain('.hub-enquiry-conversation-state.is-failed');
+    expect(css).toContain('color: #B42318');
+    expect(css).toContain('.hub-enquiry-conversation-state.is-cancelled');
     expect(component).toContain('conversationMessageTime');
     expect(component).not.toContain('<textarea');
     expect(component).not.toContain('composer');
@@ -31,6 +38,7 @@ describe('enquiry conversation LOOK — existing Client and Job sheets', () => {
     expect(src('src/lib/enquiryConversation.ts')).toContain("if (!import.meta.env.DEV) return null");
     expect(src('src/lib/missedCallEnquiry.ts')).toContain('ENQUIRY_SURFACE_LIVE = false');
     expect(css).toContain('.hub-enquiry-conversation');
+    expect(css).toContain('.hub-enquiry-conversation-state.is-failed');
     expect(css).toContain('background: #FFFDF8');
     expect(css).toContain('color: #0A2540');
     expect(client).not.toMatch(/\+614(?!18893602)\d+/);
