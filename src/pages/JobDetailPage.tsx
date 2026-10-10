@@ -2762,6 +2762,7 @@ export function JobDetailPage() {
   ) => {
     if (!profile?.company_id || !profile.id || !id) return;
     flushSync(() => setInvoiceBillFlowBusy(true));
+    await new Promise(resolve => requestAnimationFrame(() => resolve()));
     try {
       const quoted = isJobBillQuoted(acceptedQuoteEarly?.line_items);
       await runJobBillInvoiceCreateFlow({

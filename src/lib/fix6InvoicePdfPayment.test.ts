@@ -36,8 +36,10 @@ describe('FIX-6 P1 invoice PDF / create / share / payment', () => {
     expect(next).toContain('LoadingSpinner');
     expect(next).toContain('invoiceNextBusy');
     expect(job).toContain('flushSync(() => setInvoiceBillFlowBusy(true))');
+    expect(job).toContain('requestAnimationFrame(() => resolve())');
     expect(job).toContain('flushSync(() => { postVisitNote.mutate(); })');
     expect(quote).toContain("flushSync(() => { setInvoicing(true); setErr(''); })");
+    expect(quote).toContain('requestAnimationFrame(() => resolve())');
     expect(quote).toContain('invoicing ? (');
     expect(quote).toContain('Creating…');
     expect(quoted).toContain('pending ? (');
