@@ -1438,6 +1438,111 @@ try {
     'restore organisation C name after RPC fixtures',
   );
 
+  const columns = await must(
+    admin.from('sms_automation_settings').select('ack_template, thanks_template, help_template').eq('organisation_id', organisationC).single(),
+    'read the three reply template fields',
+  );
+  assert.equal(columns.ack_template, null, 'ack starts on the approved default');
+  assert.equal(columns.thanks_template, null, 'thanks starts on the approved default');
+  assert.equal(columns.help_template, null, 'HELP starts on the approved default');
+
+  const defaultAck = 'Hi, this is {Business}. Sorry we missed your call. Reply with what you need done and your suburb and we will get back to you. Reply STOP to opt out.';
+  const savedReplies = await must(
+    clientC.rpc('save_sms_reply_templates', {
+      p_ack_template: 'Hi {Business}. We missed your call. Reply STOP to opt out.',
+      p_thanks_template: 'Thanks, {Business} got your note. Reply STOP to opt out.',
+      p_help_template: '{Business}: text the job and suburb. Reply STOP to opt out, START to opt back in.',
+    }),
+    'admin saves three reply templates',
+  );
+  assert.ok(savedReplies.ack_template, 'admin RPC writes the ack template');
+  assert.ok(savedReplies.thanks_template, 'admin RPC writes the thanks template');
+  assert.ok(savedReplies.help_template, 'admin RPC writes the HELP template');
+
+  const missingBusiness = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hello there. Reply STOP to opt out.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assert.ok(missingBusiness.error, 'template without {Business} or the name is rejected');
+  assert.equal(missingBusiness.error?.code, '23514', 'missing business token is 23514');
+
+  const missingStop = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hi, this is {Business}. Sorry we missed your call.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assert.ok(missingStop.error, 'template without Reply STOP to opt out is rejected');
+
+  const forbiddenWord = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hi {Business}, ask us for a quote. Reply STOP to opt out.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assert.ok(forbiddenWord.error, 'template with a forbidden word is rejected');
+
+  const tooLong = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: `{Business}. ${'x'.repeat(160)} Reply STOP to opt out.`,
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assert.ok(tooLong.error, 'template longer than one text is rejected');
+
+  const resetReplies = await must(
+    clientC.rpc('save_sms_reply_templates', {
+      p_ack_template: defaultAck,
+      p_thanks_template: '',
+      p_help_template: '',
+    }),
+    'admin resets templates to default',
+  );
+  assert.equal(resetReplies.ack_template, null, 'reset stores NULL for the approved ack');
+  assert.equal(resetReplies.thanks_template, null, 'reset stores NULL for thanks');
+  assert.equal(resetReplies.help_template, null, 'reset stores NULL for HELP');
+
+  const memberReplyRpc = await memberClient.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hi {Business}. Reply STOP to opt out.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assert.ok(memberReplyRpc.error, 'non-admin reply RPC write is denied');
+  assert.equal(memberReplyRpc.error?.code, '42501', 'non-admin reply RPC is 42501');
+  const memberReplyTable = await memberClient.from('sms_automation_settings').update({
+    ack_template: 'member overwrite',
+  }).eq('organisation_id', organisationC).select('ack_template');
+  assert.equal(memberReplyTable.data?.length ?? 0, 0, 'non-admin reply table write is denied by RLS');
+
+  await must(
+    admin.from('sms_automation_settings').update({
+      ack_template: 'CORRUPT no stop and a quote today',
+    }).eq('organisation_id', organisationC),
+    'operator corrupts the stored ack template',
+  );
+  const corruptCallSid = `CA${`${suffix}k`.padEnd(32, 'k')}`;
+  const corruptCall = await ingestCall({ sid: corruptCallSid, to: SENDER_C });
+  assert.equal(corruptCall.queued, true, 'corrupt template still queues an ack');
+  const corruptOutbox = await must(
+    admin.from('sms_messages').select('body').eq('idempotency_key', `missed-call-ack:${corruptCallSid}`),
+    'read fallback ack after corrupt template',
+  );
+  assert.equal(
+    corruptOutbox[0].body,
+    'Hi, this is Twenty Character Nam. Sorry we missed your call. Reply with what you need done and your suburb and we will get back to you. Reply STOP to opt out.',
+    'send-time fallback uses Jack\'s approved ack',
+  );
+  await must(
+    admin.from('sms_automation_settings').update({ ack_template: null }).eq('organisation_id', organisationC),
+    'clear corrupted ack template',
+  );
+  await must(
+    admin.from('sms_messages').update({
+      state: 'cancelled',
+      last_error: 'test_drain',
+      next_attempt: null,
+    }).eq('idempotency_key', `missed-call-ack:${corruptCallSid}`),
+    'drain fallback ack',
+  );
+
   await must(
     admin.from('communication_preferences').insert({
       organisation_id: organisationC,
