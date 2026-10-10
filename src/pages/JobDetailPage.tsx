@@ -6,7 +6,10 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, Breadcrumbs, useToast, OpsStatus, OpsSiteRow, OpsPhotoStamp } from '../components/ui';
+import { EnquiryConversation, useEnquiryConversation } from '../components/crm/EnquiryConversation';
+import { conversationLookClientPhone, conversationLookKind } from '../lib/enquiryConversation';
 import { JobFormModal } from '../components/crm/JobFormModal';
+import { resolveTenantTimeZone } from '../lib/tenantTimeZone';
 import { JobCostingPanel } from '../components/jobs/JobCostingPanel';
 import { JobDispatchPanel } from '../components/jobs/JobDispatchPanel';
 import { JobClientReminder, type JobClientReminderHandle } from '../components/jobs/JobClientReminder';
@@ -1543,6 +1546,8 @@ const JOB_GALLERY_LOOK_CSS = `
 export function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const lookParam = import.meta.env.DEV ? searchParams.get('look') : null;
+  const conversationLookOn = conversationLookKind(lookParam) != null;
   const rescheduleAsked = isJobRescheduleQuery(searchParams);
   const tab = readJobSheetTab(searchParams, window.location.hash);
   // Materials is only the bill, so landing there opens the cost panel without a second tap.
@@ -2615,7 +2620,7 @@ export function JobDetailPage() {
   const fix2bHoldPreview = fix2MemoPreviewOn && fix2bHoldMemoPreview;
   const fix2bHoldOptin = fix2MemoPreviewOn && fix2bHoldOptinPreview && addLoggedHoursExtra;
   const jobBillPreviewQueryEnabled = !!id && !!profile?.company_id && !!profile.id && !!job
-    && !quotedLookOn && !fix2MemoPreviewOn;
+    && !quotedLookOn && !fix2MemoPreviewOn && !conversationLookOn;
   const {
     data: jobBillInvoicePreview,
     isPending: jobBillPreviewPending,
@@ -2711,6 +2716,15 @@ export function JobDetailPage() {
     ? null
     : (auditLookPreview ?? jobBillInvoicePreview);
   const quotedInvoiceSheetMoneyLine = invoicePreviewForNext?.moneyLine ?? '';
+  const conversationMessages = useEnquiryConversation({
+    look: lookParam,
+    companyId: profile?.company_id,
+    callerPhone: conversationLookClientPhone(lookParam, client?.phone),
+    approvedJobId: job?.id ?? id,
+  });
+  const tenantTimeZone = resolveTenantTimeZone(
+    (company as { time_zone?: string | null } | null)?.time_zone,
+  );
 
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
   if (error || !job) return <AppShell><PageError message="Could not load this job" /></AppShell>;
@@ -2868,10 +2882,12 @@ export function JobDetailPage() {
       || hasAcceptedQuoteLines
       || (jobBillPreviewState === 'ready' && (invoicePreviewForNext?.lineCount ?? 0) > 0),
     billLineCount: jobBillPreviewState === 'ready'
-      ? (invoicePreviewForNext?.lineCount ?? costTotals?.lines)
+      ? (conversationLookOn ? undefined : (invoicePreviewForNext?.lineCount ?? costTotals?.lines))
       : undefined,
-    billInvoiceMoneyLine: jobBillPreviewState === 'ready' ? invoicePreviewForNext?.moneyLine : undefined,
-    billInvoicePreviewState: jobBillPreviewState,
+    billInvoiceMoneyLine: jobBillPreviewState === 'ready'
+      ? (conversationLookOn ? undefined : invoicePreviewForNext?.moneyLine)
+      : undefined,
+    billInvoicePreviewState: conversationLookOn ? 'ready' : jobBillPreviewState,
     clockedOn: !!runningEntry,
     clockedOff: (timesheets ?? []).some(e => e.end_time != null),
     arrivingSent,
@@ -3496,6 +3512,7 @@ export function JobDetailPage() {
 
             <div className="hub-trays hub-jobs-more-trays">
           <div id="job-lanes" {...pane('job-lanes')}>
+            <EnquiryConversation messages={conversationMessages} timeZone={tenantTimeZone} />
             <section className="ops-tray">
               <div className="ops-related-list">
                 {laneRows.map(row => (

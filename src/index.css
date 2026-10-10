@@ -12373,6 +12373,56 @@
     }
   }
 
+  .hub-enquiry-conversation {
+    background: #FFFDF8;
+    color: #0A2540;
+  }
+
+  .hub-enquiry-conversation-list {
+    margin: 0;
+    padding: 0 0 8px;
+    list-style: none;
+  }
+
+  .hub-enquiry-conversation-row {
+    padding: 12px 16px;
+    border-top: 1px solid #E2D9CC;
+  }
+
+  .hub-enquiry-conversation-meta {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    color: #5B6B7C;
+    font-size: 13px;
+  }
+
+  .hub-enquiry-conversation-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .hub-enquiry-conversation-state.is-sent,
+  .hub-enquiry-conversation-state.is-received {
+    color: #0A2540;
+  }
+
+  .hub-enquiry-conversation-state.is-cancelled {
+    color: #5B6B7C;
+  }
+
+  .hub-enquiry-conversation-state.is-failed {
+    color: #B42318;
+  }
+
+  .hub-enquiry-conversation-body {
+    margin: 6px 0 0;
+    color: #0A2540;
+    font-size: 15px;
+  }
+
   /* Signed-in home / only. Same paper kit as signed quote / clients list. */
   .dashboard-home {
     --dashboard-home-page: #F5F0E6;
