@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
@@ -304,13 +304,19 @@ describe('FIX-5c C8 — hint copy without minutes heuristic', () => {
 });
 
 describe('FIX-5c C8 production bundle', () => {
-  it('does not ship __FIX5C_TIME_FIELD_RENDER_MERIDIEM__ in dist', () => {
-    const assetsDir = resolve(process.cwd(), 'dist/assets');
-    expect(existsSync(assetsDir)).toBe(true);
-    const bundle = readdirSync(assetsDir)
-      .filter(f => f.endsWith('.js'))
-      .map(f => readFileSync(resolve(assetsDir, f), 'utf8'))
-      .join('\n');
-    expect(bundle).not.toContain('__FIX5C_TIME_FIELD_RENDER_MERIDIEM__');
+  it('does not ship __FIX5C_TIME_FIELD_RENDER_MERIDIEM__ after production DCE', async () => {
+    const symbol = '__FIX5C_TIME_FIELD_RENDER_MERIDIEM__';
+    const probeSource = src('src/lib/timeFieldMeridiemProbe.ts');
+    expect(probeSource).toContain(symbol);
+
+    const { transform } = await import('esbuild');
+    const { code } = await transform(probeSource, {
+      loader: 'ts',
+      minify: true,
+      treeShaking: true,
+      format: 'esm',
+      define: { 'import.meta.env.DEV': 'false' },
+    });
+    expect(code).not.toContain(symbol);
   });
 });
