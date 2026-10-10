@@ -147,12 +147,10 @@ export function reuseAfterUniqueConflict<T extends { id: string; status: string 
   return pickReusableInvoice(rows);
 }
 
-/** After Invoice this job succeeds, open the invoice. Never send=1. */
 export function jobInvoiceCreateLanding(invoiceId: string): string {
   return invoiceHref(invoiceId);
 }
 
-/** Share on the invoice editor stays quiet for one double-tap after create lands. */
 export const INVOICE_EDITOR_SHARE_ARM_MS = 400;
 
 export function invoiceEditorShareArmed(openedAtMs: number, nowMs: number): boolean {

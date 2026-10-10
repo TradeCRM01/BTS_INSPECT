@@ -13,14 +13,12 @@ export type JobBillInvoiceCreateFlowResult =
   | 'created'
   | 'create_failed';
 
-/** Successful create keeps controls held until this page unmounts. */
 export function holdJobInvoiceCreateUntilUnmount(
   result: JobBillInvoiceCreateFlowResult,
 ): boolean {
   return result === 'created';
 }
 
-/** A second tap before unmount must not Share, remind, or hit Jobs. */
 export function jobInvoiceSecondTapBeforeUnmount(input: {
   heldUntilUnmount: boolean;
   nextKey: string;
