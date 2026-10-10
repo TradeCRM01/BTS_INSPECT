@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, type FormEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { invalidateJobBillInvoicePreview } from '../lib/jobBillInvoicePreviewQuery';
@@ -1373,7 +1374,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
   const handleInvoice = async () => {
     const id = savedId ?? quote?.id;
     if (!id || form.status !== 'accepted' || !profile?.id) return;
-    setInvoicing(true); setErr('');
+    flushSync(() => { setInvoicing(true); setErr(''); });
     try {
       const result = await convertQuoteToInvoice(
         id,

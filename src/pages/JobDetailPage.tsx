@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
@@ -2761,7 +2761,7 @@ export function JobDetailPage() {
     opts?: { forceSkipZeroCheck?: boolean },
   ) => {
     if (!profile?.company_id || !profile.id || !id) return;
-    setInvoiceBillFlowBusy(true);
+    flushSync(() => setInvoiceBillFlowBusy(true));
     try {
       const quoted = isJobBillQuoted(acceptedQuoteEarly?.line_items);
       await runJobBillInvoiceCreateFlow({
@@ -3817,7 +3817,7 @@ export function JobDetailPage() {
                 showToast(visitDecision.message, 'info');
                 return;
               }
-              postVisitNote.mutate();
+              flushSync(() => { postVisitNote.mutate(); });
             }}
           >
             <section className="job-notes-step" data-step="photos">
