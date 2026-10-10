@@ -1102,6 +1102,14 @@ BEGIN
     END IF;
   END IF;
 
+  v_opted_out := EXISTS (
+    SELECT 1
+    FROM public.communication_preferences AS preference
+    WHERE preference.organisation_id = v_organisation_id
+      AND preference.phone_e164 = p_from_phone_e164
+      AND preference.sms_consent_status = 'opted_out'
+  );
+
   IF v_response IS NOT NULL AND NOT v_opted_out THEN
     INSERT INTO public.sms_messages (
       organisation_id,
