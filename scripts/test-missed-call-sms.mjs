@@ -486,172 +486,70 @@ try {
     'read HELP reply',
   );
   assert.equal(helpReply.state, 'queued', 'HELP queues a reply through the shared SMS outbox');
-  assert.match(helpReply.body, /STOP opts out; START opts in again\.$/, 'HELP explains keywords and ladder');
-
-  await must(
-    admin.from('clients').insert({
-      company_id: organisationA,
-      name: 'Missed-call client',
-      phone: '+61412345678',
-      address: '1 Test Street',
-    }),
-    'create booking client',
-  );
-  const vague = await ingest({
-    sid: `SM${suffix}VAGUE`,
-    to: '+61280000001',
-    body: 'yes',
-  });
-  assert.equal(vague.qualification_step, 'job_service', 'vague reply stays on the current ladder step');
-  assert.equal(vague.command_id, null, 'vague reply never creates a booking command');
+  assert.equal(/BOOK/i.test(helpReply.body), false, 'HELP copy has no BOOK');
+  assert.match(helpReply.body, /STOP/, 'HELP still names STOP');
 
   const jobReply = await ingest({
     sid: `SM${suffix}JOB`,
     to: '+61280000001',
     body: 'Leaking hot water service today',
   });
-  assert.equal(jobReply.qualification_step, 'urgency', 'job or service advances the ladder');
-
-  const earlyBookingDate = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
-  const earlyBook = await ingest({
-    sid: `SM${suffix}EARLYBOOK`,
-    to: '+61280000001',
-    body: `BOOK ${earlyBookingDate} 09:30`,
-  });
-  assert.equal(earlyBook.command_id, null, 'BOOK before qualification creates no command');
-  assert.equal(earlyBook.qualification_step, 'urgency', 'early BOOK stays on the current ladder step');
-
-  const invalidUrgency = await ingest({
-    sid: `SM${suffix}BADURGENCY`,
-    to: '+61280000001',
-    body: 'today please',
-  });
-  assert.equal(invalidUrgency.qualification_step, 'urgency', 'urgency requires a numbered reply');
-  const urgencyReply = await ingest({
-    sid: `SM${suffix}URGENCY`,
-    to: '+61280000001',
-    body: '2',
-  });
-  assert.equal(urgencyReply.qualification_step, 'contact_area', 'numbered urgency advances the ladder');
-
-  const badContact = await ingest({
-    sid: `SM${suffix}BADCONTACT`,
-    to: '+61280000001',
-    body: 'Jack',
-  });
-  assert.equal(badContact.qualification_step, 'contact_area', 'name without area stays on the ladder');
-  const contactReply = await ingest({
-    sid: `SM${suffix}CONTACT`,
-    to: '+61280000001',
-    body: 'Jack, Newtown',
-  });
-  assert.equal(contactReply.qualification_step, 'time_window', 'name and area advance the ladder');
-
-  const vagueWindow = await ingest({
-    sid: `SM${suffix}VAGUEWINDOW`,
-    to: '+61280000001',
-    body: 'yes',
-  });
-  assert.equal(vagueWindow.qualification_step, 'time_window', 'vague time reply stays on the final rung');
-  assert.equal(vagueWindow.qualified, false, 'vague time reply cannot qualify the thread');
-
-  const qualified = await ingest({
-    sid: `SM${suffix}WINDOW`,
-    to: '+61280000001',
-    body: 'Weekdays 2-4pm',
-  });
-  assert.equal(qualified.qualified, true, 'best time window completes qualification');
-  const qualifiedThread = await must(
+  assert.equal(jobReply.qualification_step, 'job_service', 'new threads keep the ladder dormant');
+  assert.equal(jobReply.command_id, null, 'ordinary reply creates no booking command');
+  const dormantThread = await must(
     admin.from('missed_call_sms_threads')
-      .select('state, job_service, urgency, contact_name, service_area, best_time_window, qualification_reminder_id')
-      .eq('id', qualified.thread_id)
+      .select('qualification_required')
+      .eq('id', jobReply.thread_id)
       .single(),
-    'read qualified thread',
+    'read dormant qualification flag',
   );
-  assert.deepEqual({
-    state: qualifiedThread.state,
-    job_service: qualifiedThread.job_service,
-    urgency: qualifiedThread.urgency,
-    contact_name: qualifiedThread.contact_name,
-    service_area: qualifiedThread.service_area,
-    best_time_window: qualifiedThread.best_time_window,
-  }, {
-    state: 'qualified',
-    job_service: 'Leaking hot water service today',
-    urgency: 2,
-    contact_name: 'Jack',
-    service_area: 'Newtown',
-    best_time_window: 'Weekdays 2-4pm',
-  }, 'qualification answers persist on the thread');
-  const qualifiedTask = await must(
-    admin.from('agent_reminders')
-      .select('title, related_type, visibility')
-      .eq('id', qualifiedThread.qualification_reminder_id)
-      .single(),
-    'read qualified office task',
-  );
-  assert.deepEqual(qualifiedTask, {
-    title: 'Qualified missed-call enquiry',
-    related_type: 'missed_call_sms_thread',
-    visibility: 'company',
-  }, 'qualification pings the office through the existing reminders path');
+  assert.equal(dormantThread.qualification_required, false, 'new threads default qualification_required false');
 
-  const bookingDate = earlyBookingDate;
+  const bookingDate = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
   const bookingReply = await ingest({
     sid: `SM${suffix}BOOK`,
     to: '+61280000001',
     body: `BOOK ${bookingDate} 09:30`,
   });
-  assert.ok(bookingReply.command_id, 'confirmed concrete slot creates a booking command');
-  const booked = await must(
-    admin.rpc('process_next_missed_call_booking', { p_worker_id: 'booking-test' }),
-    'process confirmed booking',
+  assert.equal(bookingReply.command_id, null, 'BOOK is stored as text and creates no command');
+  assert.equal(bookingReply.reply_kind, 'confirmed_slot', 'classifier still names the BOOK shape');
+  const commandsAfterBook = await must(
+    admin.from('missed_call_booking_commands').select('id').eq('organisation_id', organisationA),
+    'count booking commands after BOOK',
   );
-  assert.equal(booked.booked, true, 'confirmed concrete slot books a job');
-  const bookedJob = await must(
-    admin.from('jobs')
-      .select('company_id, created_by, created_via, automation_ref, scheduled_date, start_time, end_time, status')
-      .eq('id', booked.job_id)
-      .single(),
-    'read automated job',
+  assert.equal(commandsAfterBook.length, 0, 'BOOK reply leaves 0 booking commands');
+  const autoJobs = await must(
+    admin.from('jobs').select('id').eq('company_id', organisationA).eq('created_via', 'missed_call_sms'),
+    'count automated jobs after BOOK',
   );
-  assert.equal(bookedJob.company_id, organisationA, 'booking stays in the missed-call company');
-  assert.equal(bookedJob.created_by, null, 'automation does not spoof a human JWT');
-  assert.equal(bookedJob.created_via, 'missed_call_sms', 'job records automation provenance');
-  assert.equal(bookedJob.automation_ref, bookingReply.message_id, 'job references the inbound command message');
-  assert.equal(bookedJob.scheduled_date, bookingDate, 'job keeps the confirmed date');
-  assert.equal(bookedJob.start_time, '09:30:00', 'job stores the confirmed 09:30 start');
-  assert.equal(bookedJob.end_time, '10:30:00', 'job defaults the booking to one hour');
-  assert.equal(bookedJob.status, 'scheduled', 'automated booking uses the scheduled job status');
-  const confirmation = await must(
-    admin.from('sms_messages')
-      .select('state, body')
-      .like('idempotency_key', `booking-confirmation:${bookingReply.command_id}:%`)
-      .single(),
-    'read booking confirmation',
+  assert.equal(autoJobs.length, 0, 'BOOK reply leaves 0 jobs');
+  const blockedInsert = await admin.from('missed_call_booking_commands').insert({
+    organisation_id: organisationA,
+    thread_id: bookingReply.thread_id,
+    inbound_message_id: bookingReply.message_id,
+    command_kind: 'book_confirmed_slot',
+    booking_date: bookingDate,
+    booking_time: '09:30',
+    payload_hash: `blocked-${suffix}`,
+  });
+  assert.match(
+    blockedInsert.error?.message ?? '',
+    /auto-book disabled/,
+    'trigger blocks booking command inserts',
   );
-  assert.equal(confirmation.state, 'queued', 'booking queues confirmation through shared dispatch');
 
   const bookedStop = await ingest({
     sid: `SM${suffix}BOOKEDSTOP`,
     to: '+61280000001',
     body: 'STOP',
   });
-  assert.equal(bookedStop.reply_kind, 'stop', 'STOP still wins on a booked thread');
+  assert.equal(bookedStop.reply_kind, 'stop', 'STOP still wins after a BOOK reply');
   const bookedStart = await ingest({
     sid: `SM${suffix}BOOKEDSTART`,
     to: '+61280000001',
     body: 'START',
   });
-  assert.equal(bookedStart.start_allowed, true, 'START can restore consent after booked-thread STOP');
-  const restoredBookedThread = await must(
-    admin.from('missed_call_sms_threads').select('state, booked_job_id').eq('id', bookingReply.thread_id).single(),
-    'read restored booked thread',
-  );
-  assert.deepEqual(restoredBookedThread, {
-    state: 'booked',
-    booked_job_id: booked.job_id,
-  }, 'START never reopens a booked thread');
+  assert.equal(bookedStart.start_allowed, true, 'START can restore consent after STOP');
 
   const commandsA = await must(
     clientA.from('missed_call_booking_commands').select('organisation_id'),
@@ -661,8 +559,8 @@ try {
     clientB.from('missed_call_booking_commands').select('organisation_id'),
     'organisation B booking command read',
   );
-  assert.ok(commandsA.length > 0 && commandsA.every((row) => row.organisation_id === organisationA), 'organisation A sees only A commands');
-  assert.equal(commandsB.length, 0, 'organisation B cannot see organisation A commands');
+  assert.equal(commandsA.length, 0, 'organisation A has no booking commands');
+  assert.equal(commandsB.length, 0, 'organisation B has no booking commands');
   const threadsA = await must(clientA.from('missed_call_sms_threads').select('organisation_id'), 'organisation A thread read');
   const threadsB = await must(clientB.from('missed_call_sms_threads').select('organisation_id'), 'organisation B thread read');
   assert.ok(threadsA.length > 0 && threadsA.every((row) => row.organisation_id === organisationA), 'organisation A sees only A threads');
@@ -678,49 +576,14 @@ try {
   assert.ok(auditA.length > 0 && auditA.every((row) => row.organisation_id === organisationA), 'organisation A sees only A consent audits');
   assert.ok(auditB.length > 0 && auditB.every((row) => row.organisation_id === organisationB), 'organisation B sees only B consent audits');
 
-  const rebook = await ingest({
-    sid: `SM${suffix}REBOOK`,
-    to: '+61280000001',
-    body: `BOOK ${bookingDate} 09:30`,
-  });
-  assert.equal(rebook.review_reason, 'conflict', 'a booked thread sends rebooking to office review');
-  const jobsAfterRebook = await must(
-    admin.from('jobs').select('id').eq('automation_ref', bookingReply.message_id),
-    'read jobs after rebook',
-  );
-  assert.equal(jobsAfterRebook.length, 1, 'idempotent rebook does not create a second job');
-
-  const conflictCallSid = `CA${`${suffix}c`.padEnd(32, 'c')}`;
-  await ingestCall({ sid: conflictCallSid, to: '+61280000001' });
-  await ingest({ sid: `SM${suffix}CONFLICTJOB`, to: '+61280000001', body: 'Blocked drain' });
-  await ingest({ sid: `SM${suffix}CONFLICTURG`, to: '+61280000001', body: '3' });
-  await ingest({ sid: `SM${suffix}CONFLICTWHO`, to: '+61280000001', body: 'Jack, Newtown' });
-  await ingest({ sid: `SM${suffix}CONFLICTWHEN`, to: '+61280000001', body: 'Weekday morning' });
-  const conflictReply = await ingest({
-    sid: `SM${suffix}CONFLICT`,
-    to: '+61280000001',
-    body: `BOOK ${bookingDate} 09:30`,
-  });
-  const conflictBooking = await must(
-    admin.rpc('process_next_missed_call_booking', { p_worker_id: 'booking-conflict-test' }),
-    'process conflicting booking',
-  );
-  assert.equal(conflictBooking.booked, false, 'occupied slot is not booked');
-  assert.equal(conflictBooking.review_reason, 'conflict', 'occupied slot goes to office review');
-  const conflictReview = await must(
-    admin.from('missed_call_office_reviews').select('reason').eq('inbound_message_id', conflictReply.message_id).single(),
-    'read conflict review',
-  );
-  assert.equal(conflictReview.reason, 'conflict', 'conflict review keeps its reason');
-
   const stopCallSid = `CA${`${suffix}d`.padEnd(32, 'd')}`;
   await ingestCall({ sid: stopCallSid, to: '+61280000001' });
-  const beforeMidLadderStop = await ingest({
-    sid: `SM${suffix}PRESTOPJOB`,
+  const beforeThreadStop = await ingest({
+    sid: `SM${suffix}PRESTOPHELP`,
     to: '+61280000001',
-    body: 'Replace broken tap',
+    body: 'HELP',
   });
-  assert.equal(beforeMidLadderStop.qualification_step, 'urgency', 'fixture reaches the middle of the ladder');
+  assert.equal(beforeThreadStop.qualification_step, 'job_service', 'HELP stays on the dormant ladder');
   const stopReply = await ingest({
     sid: `SM${suffix}THREADSTOP`,
     to: '+61280000001',
@@ -736,15 +599,15 @@ try {
     'read stopped thread',
   );
   assert.equal(stoppedThread.state, 'opted_out', 'STOP advances the thread to opted out');
-  assert.equal(stoppedThread.qualification_step, 'urgency', 'STOP preserves the current ladder rung');
-  const cancelledMidLadderPrompt = await must(
+  assert.equal(stoppedThread.qualification_step, 'job_service', 'STOP preserves the dormant ladder');
+  const cancelledHelpPrompt = await must(
     admin.from('sms_messages')
       .select('state')
-      .eq('idempotency_key', `missed-call-reply:${beforeMidLadderStop.message_id}`)
+      .eq('idempotency_key', `missed-call-reply:${beforeThreadStop.message_id}`)
       .single(),
-    'read cancelled mid-ladder prompt',
+    'read cancelled HELP prompt',
   );
-  assert.equal(cancelledMidLadderPrompt.state, 'cancelled', 'STOP cancels a queued ladder prompt');
+  assert.equal(cancelledHelpPrompt.state, 'cancelled', 'STOP cancels a queued HELP reply');
   const afterStop = await ingest({
     sid: `SM${suffix}AFTERSTOP`,
     to: '+61280000001',
@@ -753,14 +616,14 @@ try {
   assert.equal(afterStop.command_id, null, 'STOP blocks later booking work');
   const threadAfterStop = await must(
     admin.from('missed_call_sms_threads').select('state, qualification_step').eq('id', stopReply.thread_id).single(),
-    'read thread after blocked ladder reply',
+    'read thread after blocked reply',
   );
-  assert.deepEqual(threadAfterStop, stoppedThread, 'STOP mid-ladder prevents state progression');
+  assert.deepEqual(threadAfterStop, stoppedThread, 'STOP prevents state progression');
   const blockedPrompt = await must(
     admin.from('sms_messages').select('id').eq('idempotency_key', `missed-call-reply:${afterStop.message_id}`),
     'read blocked post-STOP prompt',
   );
-  assert.equal(blockedPrompt.length, 0, 'STOP prevents outbound ladder prompts');
+  assert.equal(blockedPrompt.length, 0, 'STOP prevents outbound replies');
 
   const claimId = randomUUID();
   await must(
