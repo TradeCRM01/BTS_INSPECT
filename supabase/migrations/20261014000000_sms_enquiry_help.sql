@@ -1,5 +1,5 @@
--- PR-E2: enquiry_help purpose, enquiry-scoped consent, 24h HELP dedupe.
--- Does not edit 20261013000000. Job-reminder stays on Perth.
+-- PR-E2: enquiry_help for unknown callers with a 7-day missed-call thread.
+-- Consented HELP stays on the legacy path. Does not edit 20261013000000.
 
 ALTER TABLE public.sms_messages
   DROP CONSTRAINT sms_messages_purpose_check;
