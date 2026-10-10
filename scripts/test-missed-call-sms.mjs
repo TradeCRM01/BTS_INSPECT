@@ -27,6 +27,16 @@ const assert = {
   },
 };
 
+function assertTemplateRejected(result, kind, label) {
+  assert.ok(result.error, label);
+  assert.equal(result.error?.code, '23514', `${label} is 23514`);
+  assert.match(
+    String(result.error?.message ?? ''),
+    new RegExp(`${kind} template invalid`),
+    `${label} blames ${kind}`,
+  );
+}
+
 const TEST_MOBILE = '+61418893602';
 const SENDER_A = '+15555550101';
 const SENDER_B = '+15555550102';
@@ -1464,86 +1474,92 @@ try {
     p_thanks_template: null,
     p_help_template: null,
   });
-  assert.ok(missingBusiness.error, 'template without {Business} or the name is rejected');
-  assert.equal(missingBusiness.error?.code, '23514', 'missing business token is 23514');
+  assertTemplateRejected(missingBusiness, 'ack', 'template without {Business} or the name is rejected');
 
   const missingStop = await clientC.rpc('save_sms_reply_templates', {
     p_ack_template: 'Hi, this is {Business}. Sorry we missed your call.',
     p_thanks_template: null,
     p_help_template: null,
   });
-  assert.ok(missingStop.error, 'template without Reply STOP to opt out is rejected');
+  assertTemplateRejected(missingStop, 'ack', 'template without Reply STOP to opt out is rejected');
 
   const forbiddenWord = await clientC.rpc('save_sms_reply_templates', {
     p_ack_template: 'Hi {Business}, ask us for a quote. Reply STOP to opt out.',
     p_thanks_template: null,
     p_help_template: null,
   });
-  assert.ok(forbiddenWord.error, 'template with a forbidden word is rejected');
+  assertTemplateRejected(forbiddenWord, 'ack', 'template with a forbidden word is rejected');
+
+  const thanksForbidden = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: null,
+    p_thanks_template: 'Thanks {Business}, here is a quote. Reply STOP to opt out.',
+    p_help_template: null,
+  });
+  assertTemplateRejected(thanksForbidden, 'thanks', 'thanks template with a forbidden word is rejected');
 
   const tooLong = await clientC.rpc('save_sms_reply_templates', {
     p_ack_template: `{Business}. ${'x'.repeat(160)} Reply STOP to opt out.`,
     p_thanks_template: null,
     p_help_template: null,
   });
-  assert.ok(tooLong.error, 'template longer than one text is rejected');
+  assertTemplateRejected(tooLong, 'ack', 'template longer than one text is rejected');
 
   const curly = await clientC.rpc('save_sms_reply_templates', {
     p_ack_template: 'Hi {Business}. We missed you\u2019s call. Reply STOP to opt out.',
     p_thanks_template: null,
     p_help_template: null,
   });
-  assert.ok(curly.error, 'curly apostrophe is rejected');
+  assertTemplateRejected(curly, 'ack', 'curly apostrophe is rejected');
   const emDash = await clientC.rpc('save_sms_reply_templates', {
     p_ack_template: 'Hi {Business}. Sorry \u2014 we missed you. Reply STOP to opt out.',
     p_thanks_template: null,
     p_help_template: null,
   });
-  assert.ok(emDash.error, 'em dash is rejected');
+  assertTemplateRejected(emDash, 'ack', 'em dash is rejected');
   const emoji = await clientC.rpc('save_sms_reply_templates', {
     p_ack_template: 'Hi {Business}. Sorry we missed your call \u{1F600} Reply STOP to opt out.',
     p_thanks_template: null,
     p_help_template: null,
   });
-  assert.ok(emoji.error, 'emoji is rejected');
+  assertTemplateRejected(emoji, 'ack', 'emoji is rejected');
 
   const textAfterStop = await clientC.rpc('save_sms_reply_templates', {
     p_ack_template: 'Hi {Business}. Reply STOP to opt out. Call us back.',
     p_thanks_template: null,
     p_help_template: null,
   });
-  assert.ok(textAfterStop.error, 'text after STOP is rejected');
+  assertTemplateRejected(textAfterStop, 'ack', 'text after STOP is rejected');
   const helpWrongEnd = await clientC.rpc('save_sms_reply_templates', {
     p_ack_template: null,
     p_thanks_template: null,
     p_help_template: '{Business}: text the job. Reply STOP to opt out.',
   });
-  assert.ok(helpWrongEnd.error, 'HELP without the START ending is rejected');
+  assertTemplateRejected(helpWrongEnd, 'help', 'HELP without the START ending is rejected');
 
   const httpLink = await clientC.rpc('save_sms_reply_templates', {
     p_ack_template: 'Hi {Business}. See http://x.test Reply STOP to opt out.',
     p_thanks_template: null,
     p_help_template: null,
   });
-  assert.ok(httpLink.error, 'http link is rejected');
+  assertTemplateRejected(httpLink, 'ack', 'http link is rejected');
   const wwwLink = await clientC.rpc('save_sms_reply_templates', {
     p_ack_template: 'Hi {Business}. See www.example.com Reply STOP to opt out.',
     p_thanks_template: null,
     p_help_template: null,
   });
-  assert.ok(wwwLink.error, 'www link is rejected');
+  assertTemplateRejected(wwwLink, 'ack', 'www link is rejected');
   const domainLink = await clientC.rpc('save_sms_reply_templates', {
     p_ack_template: 'Hi {Business}. See grafter.com.au Reply STOP to opt out.',
     p_thanks_template: null,
     p_help_template: null,
   });
-  assert.ok(domainLink.error, 'domain-like token is rejected');
+  assertTemplateRejected(domainLink, 'ack', 'domain-like token is rejected');
   const phoneDigits = await clientC.rpc('save_sms_reply_templates', {
     p_ack_template: 'Hi {Business}. Call 0412889360 Reply STOP to opt out.',
     p_thanks_template: null,
     p_help_template: null,
   });
-  assert.ok(phoneDigits.error, 'six or more digits are rejected');
+  assertTemplateRejected(phoneDigits, 'ack', 'six or more digits are rejected');
 
   const name20 = 'Twenty Character Nam';
   const stopEnd = 'Reply STOP to opt out.';
@@ -1565,7 +1581,7 @@ try {
     p_thanks_template: null,
     p_help_template: null,
   });
-  assert.ok(over160.error, '161 with two {Business} tokens is rejected');
+  assertTemplateRejected(over160, 'ack', '161 with two {Business} tokens is rejected');
 
   await must(
     clientC.rpc('save_sms_textback_settings', {
@@ -1579,7 +1595,7 @@ try {
     p_thanks_template: null,
     p_help_template: null,
   });
-  assert.ok(padExploit.error, 'literal-X padding without a business name is rejected');
+  assertTemplateRejected(padExploit, 'ack', 'literal-X padding without a business name is rejected');
   await must(
     clientC.rpc('save_sms_textback_settings', {
       p_enabled: true,

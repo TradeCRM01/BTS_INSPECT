@@ -68,6 +68,7 @@ import {
   type SmsTextbackSettings,
 } from '../lib/smsTextbackSettings';
 import {
+  SMS_REPLY_CANT_SEND,
   SMS_REPLY_DEFAULT_TEMPLATES,
   SMS_REPLY_FITS,
   SMS_REPLY_KINDS,
@@ -480,6 +481,10 @@ const COMPANY_LOOK_CSS = `
 .hub-company-sms-reply textarea.hub-company-input {
   min-height: 96px;
   resize: vertical;
+}
+.hub-company-sms-reply textarea.hub-company-input.is-refused,
+.hub-company-sms-reply textarea.hub-company-input.is-refused:focus {
+  border-color: #B42318;
 }
 @media (max-width: 639px) {
   .hub-company.ops-page { padding: 16px 16px 40px; }
@@ -1507,7 +1512,10 @@ export function CompanySettingsPage() {
                 <p className="hub-company-kicker">Text replies</p>
                 {SMS_REPLY_KINDS.map((kind) => {
                   const draft = smsReplies[kind];
-                  const fit = smsReplyFitLabel(draft, smsTextback.businessName);
+                  const refused = smsReplyIssue?.kind === kind;
+                  const fit = refused
+                    ? SMS_REPLY_CANT_SEND
+                    : smsReplyFitLabel(draft, smsTextback.businessName);
                   return (
                     <div key={kind} className="hub-company-sms-reply" data-sms-reply={kind}>
                       <label className="hub-company-row-label" htmlFor={`sms-reply-${kind}`}>
@@ -1517,7 +1525,7 @@ export function CompanySettingsPage() {
                         id={`sms-reply-${kind}`}
                         value={draft}
                         onChange={e => handleSmsReplyChange(kind, e.target.value)}
-                        className={inputClass}
+                        className={`${inputClass}${refused ? ' is-refused' : ''}`}
                         data-sms-reply-input={kind}
                       />
                       <p
@@ -1526,8 +1534,11 @@ export function CompanySettingsPage() {
                       >
                         {fit}
                       </p>
-                      <p className="hub-company-sms-preview" data-sms-reply-preview={kind}>
-                        {smsReplyPreview(draft, smsTextback.businessName)}
+                      <p
+                        className={`hub-company-sms-preview${refused ? ' is-blocked' : ''}`}
+                        data-sms-reply-preview={kind}
+                      >
+                        {refused ? SMS_REPLY_CANT_SEND : smsReplyPreview(draft, smsTextback.businessName)}
                       </p>
                       <button
                         type="button"

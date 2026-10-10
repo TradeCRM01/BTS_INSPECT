@@ -28,6 +28,10 @@ describe('sms reply templates LOOK — existing company settings section', () =>
     expect(page).not.toContain('composer');
     expect(lib).toContain('Fits in 1 text');
     expect(lib).toContain('Too long for 1 text');
+    expect(lib).toContain('Can\'t send this text');
+    expect(page).toContain('SMS_REPLY_CANT_SEND');
+    expect(page).toContain('is-refused');
+    expect(page).toContain('#B42318');
     expect(lib).toContain('SMS_REPLY_FORBIDDEN');
     expect(lib).toContain('{Business}');
     expect(lib).toContain('Reply STOP to opt out');

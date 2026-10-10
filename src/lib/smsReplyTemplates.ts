@@ -32,6 +32,7 @@ export const SMS_REPLY_TOO_LONG = 'Too long for 1 text';
 export const SMS_REPLY_FORBIDDEN_WORD = 'Remove booked, quote, price, today and the other blocked words.';
 export const SMS_REPLY_NO_CONTACT = 'No links or phone numbers';
 export const SMS_REPLY_FITS = 'Fits in 1 text';
+export const SMS_REPLY_CANT_SEND = "Can't send this text";
 
 export const SMS_REPLY_STOP_END: Record<SmsReplyKind, RegExp> = {
   ack: /Reply STOP to opt out\.?\s*$/,
