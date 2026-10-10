@@ -1,6 +1,16 @@
 import { isValidTwilioSignature } from './twilioInbound.ts';
 
 const E164 = /^\+[1-9][0-9]{7,14}$/;
+export const WITHHELD_CALLER_E164 = '+266696687';
+const WITHHELD_LABELS = new Set(['ANONYMOUS', 'UNKNOWN', 'WITHHELD']);
+
+export function isWithheldCaller(from: string): boolean {
+  const value = from.trim();
+  if (!value) return true;
+  if (WITHHELD_LABELS.has(value.toUpperCase())) return true;
+  if (value === WITHHELD_CALLER_E164) return true;
+  return !E164.test(value);
+}
 const CALL_SID = /^CA[a-fA-F0-9]{32}$/;
 const CALL_STATUSES = new Set(['busy', 'canceled', 'completed', 'failed', 'no-answer']);
 const MAX_FORM_BYTES = 64 * 1024;
@@ -96,7 +106,6 @@ export async function handleTwilioVoiceStatusWebhook(
   }
   if (
     !CALL_SID.test(providerCallSid)
-    || !E164.test(fromPhoneE164)
     || !E164.test(toPhoneE164)
     || !CALL_STATUSES.has(callStatus)
     || direction !== 'inbound'
@@ -107,7 +116,7 @@ export async function handleTwilioVoiceStatusWebhook(
   const result = await dependencies.ingest({
     providerAccountSid,
     providerCallSid,
-    fromPhoneE164,
+    fromPhoneE164: isWithheldCaller(fromPhoneE164) ? WITHHELD_CALLER_E164 : fromPhoneE164,
     toPhoneE164,
     callStatus,
     direction,

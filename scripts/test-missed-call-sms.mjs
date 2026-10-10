@@ -89,10 +89,15 @@ async function createTenant(organisationId, label) {
   return { client, userId: created.user.id };
 }
 
+function normalizeKeyword(body) {
+  return body.trim().toUpperCase().replace(/[^A-Z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 async function ingest({ sid, to, from = TEST_MOBILE, body = 'Hello' }) {
-  const stop = body.trim().toUpperCase() === 'STOP';
-  const start = body.trim().toUpperCase() === 'START';
-  const help = body.trim().toUpperCase() === 'HELP';
+  const keyword = normalizeKeyword(body);
+  const stop = ['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT', 'OPT OUT', 'OPTOUT'].includes(keyword);
+  const start = keyword === 'START';
+  const help = keyword === 'HELP';
   const confirmed = body.trim().match(/^BOOK\s+(\d{4}-\d{2}-\d{2})\s+(?:AT\s+)?(\d{2}:\d{2})$/i);
   const replyKind = stop
     ? 'stop'
@@ -175,6 +180,7 @@ try {
     enabled: true,
     test_mode: true,
     test_allowlist: [TEST_MOBILE],
+    business_name: 'Twenty Character Nam',
     daily_message_cap: 20,
     hourly_message_cap: 10,
     monthly_message_cap: 300,
@@ -407,7 +413,7 @@ try {
   }), 'claim before STOP');
   const stoppedLease = beforeStop.find((row) => row.id === stoppedOutbound);
   assert.ok(stoppedLease?.claim_token, 'STOP fixture is leased before opt-out');
-  await ingest({ sid: `SM${suffix}STOP`, to: SENDER_B, body: 'STOP' });
+  await ingest({ sid: `SM${suffix}STOP`, to: SENDER_B, body: 'Stop.' });
   const cancelled = await must(
     admin.from('sms_messages').select('state').eq('id', stoppedOutbound).single(),
     'read STOP fixture',
@@ -419,35 +425,35 @@ try {
   }), 'authorize after STOP');
   assert.equal(stoppedDispatch.length, 0, 'STOP revokes an existing lease before dispatch');
 
-  await must(
-    admin.from('communication_preferences').insert({
-      organisation_id: organisationA,
-      phone_e164: TEST_MOBILE,
-      sms_consent_status: 'consented',
-      consent_basis: 'express',
-      consent_source: 'integration_test',
-      consented_at: new Date().toISOString(),
-    }),
-    'record missed-call fixture consent',
-  );
   const callSid = `CA${suffix.padEnd(32, 'a')}`;
   const firstCall = await ingestCall({ sid: callSid, to: SENDER_A });
   const replayCall = await ingestCall({ sid: callSid, to: SENDER_A });
-  assert.equal(firstCall.queued, true, 'eligible consented missed call queues a text-back');
+  assert.equal(firstCall.queued, true, 'unknown preference still queues an ack');
   assert.equal(replayCall.replay, true, 'CallSid replay is acknowledged');
+  const ackPreference = await must(
+    admin.from('communication_preferences')
+      .select('sms_consent_status')
+      .eq('organisation_id', organisationA)
+      .eq('phone_e164', TEST_MOBILE),
+    'read ack preference',
+  );
+  assert.equal(ackPreference.length, 0, 'ack does not manufacture consented');
   const callRows = await must(
     admin.from('missed_calls').select('organisation_id, outbound_message_id').eq('provider_call_sid', callSid),
     'read deduplicated call',
   );
   assert.equal(callRows.length, 1, 'CallSid is stored once');
   const callOutbox = await must(
-    admin.from('sms_messages').select('id, body, state').eq('idempotency_key', `missed-call:${callSid}`),
+    admin.from('sms_messages').select('id, body, state, purpose, segments, payload_hash').eq('idempotency_key', `missed-call-ack:${callSid}`),
     'read missed-call outbox',
   );
   assert.equal(callOutbox.length, 1, 'missed call queues exactly one outbox row');
+  assert.equal(callOutbox[0].purpose, 'missed_call_ack', 'ack stores purpose');
+  assert.equal(callOutbox[0].segments, 1, 'ack is one GSM-7 segment');
+  assert.ok(callOutbox[0].payload_hash, 'ack stores payload_hash');
   assert.equal(
     callOutbox[0].body,
-    'Sorry we missed your call. Reply here and our team will get back to you.',
+    'Hi, this is Twenty Character Nam. Sorry we missed your call. Reply with what you need done and your suburb and we will get back to you. Reply STOP to opt out.',
     'missed call uses the approved text-back',
   );
   const conflict = await admin.rpc('ingest_twilio_voice_status', {
@@ -460,11 +466,42 @@ try {
   });
   assert.ok(conflict.error, 'CallSid cannot be reused for a different call identity');
 
+  await must(
+    admin.from('sms_automation_settings').update({ business_name: 'Other Business Name' }).eq('organisation_id', organisationA),
+    'change ack payload',
+  );
+  const hashConflict = await admin.rpc('ingest_twilio_voice_status', {
+    p_provider_account_sid: `AC${suffix}`,
+    p_provider_call_sid: callSid,
+    p_from_phone_e164: TEST_MOBILE,
+    p_to_phone_e164: SENDER_A,
+    p_call_status: 'no-answer',
+    p_direction: 'inbound',
+  });
+  assert.match(
+    hashConflict.error?.message ?? '',
+    /payload hash/,
+    'replay with a different payload raises',
+  );
+  await must(
+    admin.from('sms_automation_settings').update({ business_name: 'Twenty Character Nam' }).eq('organisation_id', organisationA),
+    'restore business name',
+  );
+
   const stoppedCallSid = `CA${`${suffix}b`.padEnd(32, 'b')}`;
   const stoppedCall = await ingestCall({ sid: stoppedCallSid, to: SENDER_B });
   assert.equal(stoppedCall.queued, false, 'STOP preference blocks queueing');
+  const stoppedPreference = await must(
+    admin.from('communication_preferences')
+      .select('sms_consent_status')
+      .eq('organisation_id', organisationB)
+      .eq('phone_e164', TEST_MOBILE)
+      .single(),
+    'read STOP preference after missed call',
+  );
+  assert.equal(stoppedPreference.sms_consent_status, 'opted_out', 'missed call never flips opted_out');
   const stoppedCallOutbox = await must(
-    admin.from('sms_messages').select('id').eq('idempotency_key', `missed-call:${stoppedCallSid}`),
+    admin.from('sms_messages').select('id').eq('idempotency_key', `missed-call-ack:${stoppedCallSid}`),
     'read STOP-blocked outbox',
   );
   assert.equal(stoppedCallOutbox.length, 0, 'STOP creates no outbound row');
@@ -563,6 +600,7 @@ try {
   );
   assert.equal(helpReply.state, 'queued', 'HELP queues a reply through the shared SMS outbox');
   assert.equal(/BOOK/i.test(helpReply.body), false, 'HELP copy has no BOOK');
+  assert.match(helpReply.body, /Twenty Character Nam/, 'HELP names the business');
   assert.match(helpReply.body, /STOP/, 'HELP still names STOP');
   assert.match(helpReply.body, /START/, 'HELP still names START');
 
@@ -581,6 +619,17 @@ try {
     'read dormant qualification flag',
   );
   assert.equal(dormantThread.qualification_required, false, 'new threads default qualification_required false');
+  const thanks = await must(
+    admin.from('sms_messages')
+      .select('body, purpose, state')
+      .eq('idempotency_key', `enquiry-thanks:${jobReply.thread_id}`)
+      .single(),
+    'read enquiry thanks',
+  );
+  assert.equal(thanks.purpose, 'enquiry_thanks', 'first reply queues enquiry thanks');
+  assert.equal(thanks.state, 'queued', 'thanks is queued once');
+  assert.match(thanks.body, /Twenty Character Nam/, 'thanks names the business');
+  assert.match(thanks.body, /STOP/, 'thanks includes STOP');
 
   const bookingDate = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
   const bookingReply = await ingest({
@@ -1139,6 +1188,19 @@ try {
       `${window} reminder names the window`,
     );
   }
+
+  const withheldSid = `CA${`${suffix}w`.padEnd(32, 'w')}`;
+  const withheld = await ingestCall({ sid: withheldSid, to: SENDER_A, from: REJECT_PLACEHOLDER });
+  assert.equal(withheld.stored, true, 'withheld caller is stored');
+  assert.equal(withheld.queued, false, 'withheld caller queues no SMS');
+  const withheldOutbox = await must(
+    admin.from('sms_messages').select('id').eq('idempotency_key', `missed-call-ack:${withheldSid}`),
+    'read withheld outbox',
+  );
+  assert.equal(withheldOutbox.length, 0, 'withheld caller creates no outbound row');
+
+  const invalidZone = await admin.from('companies').update({ time_zone: 'Not/AZone' }).eq('id', organisationA);
+  assert.ok(invalidZone.error, 'invalid IANA time zone is rejected');
 
   await expectCapWindow('hourly', { hourly_message_cap: 1 }, 'Hourly');
   await expectCapWindow('daily', { daily_message_cap: 1 }, 'Daily');

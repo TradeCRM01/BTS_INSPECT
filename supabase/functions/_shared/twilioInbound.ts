@@ -5,7 +5,18 @@ export const TWILIO_STOP_WORDS = new Set([
   'CANCEL',
   'END',
   'QUIT',
+  'OPT OUT',
+  'OPTOUT',
 ]);
+
+export function normalizeSmsKeyword(body: string): string {
+  return body
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 export type TwilioInboundRecord = {
   providerAccountSid: string;
@@ -132,7 +143,7 @@ export async function isValidTwilioSignature(args: {
 
 export function isTwilioStop(body: string, optOutType: string | null): boolean {
   if (optOutType?.trim().toUpperCase() === 'STOP') return true;
-  return TWILIO_STOP_WORDS.has(body.trim().toUpperCase());
+  return TWILIO_STOP_WORDS.has(normalizeSmsKeyword(body));
 }
 
 export function classifyMissedCallReply(
@@ -145,7 +156,7 @@ export function classifyMissedCallReply(
   if (providerKeyword === 'START') return { kind: 'start' };
   if (providerKeyword === 'HELP') return { kind: 'help' };
 
-  const keyword = body.trim().toUpperCase();
+  const keyword = normalizeSmsKeyword(body);
   if (keyword === 'START') return { kind: 'start' };
   if (keyword === 'HELP') return { kind: 'help' };
 
