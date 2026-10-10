@@ -27,6 +27,16 @@ const assert = {
   },
 };
 
+function assertTemplateRejected(result, kind, label) {
+  assert.ok(result.error, label);
+  assert.equal(result.error?.code, '23514', `${label} is 23514`);
+  assert.match(
+    String(result.error?.message ?? ''),
+    new RegExp(`${kind} template invalid`),
+    `${label} blames ${kind}`,
+  );
+}
+
 const TEST_MOBILE = '+61418893602';
 const SENDER_A = '+15555550101';
 const SENDER_B = '+15555550102';
@@ -1436,6 +1446,285 @@ try {
       p_business_name: 'Twenty Character Nam',
     }),
     'restore organisation C name after RPC fixtures',
+  );
+
+  const columns = await must(
+    admin.from('sms_automation_settings').select('ack_template, thanks_template, help_template').eq('organisation_id', organisationC).single(),
+    'read the three reply template fields',
+  );
+  assert.equal(columns.ack_template, null, 'ack starts on the approved default');
+  assert.equal(columns.thanks_template, null, 'thanks starts on the approved default');
+  assert.equal(columns.help_template, null, 'HELP starts on the approved default');
+
+  const defaultAck = 'Hi, this is {Business}. Sorry we missed your call. Reply with what you need done and your suburb and we will get back to you. Reply STOP to opt out.';
+  const savedReplies = await must(
+    clientC.rpc('save_sms_reply_templates', {
+      p_ack_template: 'Hi {Business}. We missed your call. Reply STOP to opt out.',
+      p_thanks_template: 'Thanks, {Business} got your note. Reply STOP to opt out.',
+      p_help_template: '{Business}: text the job and suburb. Reply STOP to opt out, START to opt back in.',
+    }),
+    'admin saves three reply templates',
+  );
+  assert.ok(savedReplies.ack_template, 'admin RPC writes the ack template');
+  assert.ok(savedReplies.thanks_template, 'admin RPC writes the thanks template');
+  assert.ok(savedReplies.help_template, 'admin RPC writes the HELP template');
+
+  const missingBusiness = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hello there. Reply STOP to opt out.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assertTemplateRejected(missingBusiness, 'ack', 'template without {Business} or the name is rejected');
+
+  const missingStop = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hi, this is {Business}. Sorry we missed your call.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assertTemplateRejected(missingStop, 'ack', 'template without Reply STOP to opt out is rejected');
+
+  const forbiddenWord = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hi {Business}, ask us for a quote. Reply STOP to opt out.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assertTemplateRejected(forbiddenWord, 'ack', 'template with a forbidden word is rejected');
+
+  const thanksForbidden = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: null,
+    p_thanks_template: 'Thanks {Business}, here is a quote. Reply STOP to opt out.',
+    p_help_template: null,
+  });
+  assertTemplateRejected(thanksForbidden, 'thanks', 'thanks template with a forbidden word is rejected');
+
+  const tooLong = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: `{Business}. ${'x'.repeat(160)} Reply STOP to opt out.`,
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assertTemplateRejected(tooLong, 'ack', 'template longer than one text is rejected');
+
+  const curly = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hi {Business}. We missed you\u2019s call. Reply STOP to opt out.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assertTemplateRejected(curly, 'ack', 'curly apostrophe is rejected');
+  const emDash = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hi {Business}. Sorry \u2014 we missed you. Reply STOP to opt out.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assertTemplateRejected(emDash, 'ack', 'em dash is rejected');
+  const emoji = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hi {Business}. Sorry we missed your call \u{1F600} Reply STOP to opt out.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assertTemplateRejected(emoji, 'ack', 'emoji is rejected');
+
+  const textAfterStop = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hi {Business}. Reply STOP to opt out. Call us back.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assertTemplateRejected(textAfterStop, 'ack', 'text after STOP is rejected');
+  const helpWrongEnd = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: null,
+    p_thanks_template: null,
+    p_help_template: '{Business}: text the job. Reply STOP to opt out.',
+  });
+  assertTemplateRejected(helpWrongEnd, 'help', 'HELP without the START ending is rejected');
+
+  const httpLink = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hi {Business}. See http://x.test Reply STOP to opt out.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assertTemplateRejected(httpLink, 'ack', 'http link is rejected');
+  const wwwLink = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hi {Business}. See www.example.com Reply STOP to opt out.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assertTemplateRejected(wwwLink, 'ack', 'www link is rejected');
+  const domainLink = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hi {Business}. See grafter.com.au Reply STOP to opt out.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assertTemplateRejected(domainLink, 'ack', 'domain-like token is rejected');
+  const phoneDigits = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hi {Business}. Call 0412889360 Reply STOP to opt out.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assertTemplateRejected(phoneDigits, 'ack', 'six or more digits are rejected');
+
+  const name20 = 'Twenty Character Nam';
+  const stopEnd = 'Reply STOP to opt out.';
+  const twoTokenPrefix = '{Business} {Business}. ';
+  const renderedTwo = `${name20} ${name20}. `;
+  const pad160 = 160 - renderedTwo.length - stopEnd.length;
+  const exact160 = `${twoTokenPrefix}${'x'.repeat(pad160)}${stopEnd}`;
+  const saved160 = await must(
+    clientC.rpc('save_sms_reply_templates', {
+      p_ack_template: exact160,
+      p_thanks_template: null,
+      p_help_template: null,
+    }),
+    'save 160-boundary ack with two {Business} tokens',
+  );
+  assert.ok(saved160.ack_template, '160-boundary ack with two {Business} tokens is accepted');
+  const over160 = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: `${twoTokenPrefix}${'x'.repeat(pad160 + 1)}${stopEnd}`,
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assertTemplateRejected(over160, 'ack', '161 with two {Business} tokens is rejected');
+
+  await must(
+    clientC.rpc('save_sms_textback_settings', {
+      p_enabled: false,
+      p_business_name: '',
+    }),
+    'clear display name for padding exploit',
+  );
+  const padExploit = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: 'XXXXXXXXXXXXXXXXXXXX Reply STOP to opt out.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assertTemplateRejected(padExploit, 'ack', 'literal-X padding without a business name is rejected');
+  await must(
+    clientC.rpc('save_sms_textback_settings', {
+      p_enabled: true,
+      p_business_name: 'Twenty Character Nam',
+    }),
+    'restore display name after padding exploit',
+  );
+
+  const resetReplies = await must(
+    clientC.rpc('save_sms_reply_templates', {
+      p_ack_template: defaultAck,
+      p_thanks_template: '',
+      p_help_template: '',
+    }),
+    'admin resets templates to default',
+  );
+  assert.equal(resetReplies.ack_template, null, 'reset stores NULL for the approved ack');
+  assert.equal(resetReplies.thanks_template, null, 'reset stores NULL for thanks');
+  assert.equal(resetReplies.help_template, null, 'reset stores NULL for HELP');
+
+  const memberReplyRpc = await memberClient.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hi {Business}. Reply STOP to opt out.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assert.ok(memberReplyRpc.error, 'non-admin reply RPC write is denied');
+  assert.equal(memberReplyRpc.error?.code, '42501', 'non-admin reply RPC is 42501');
+  const memberReplyTable = await memberClient.from('sms_automation_settings').update({
+    ack_template: 'member overwrite',
+  }).eq('organisation_id', organisationC).select('ack_template');
+  assert.equal(memberReplyTable.data?.length ?? 0, 0, 'non-admin reply table write is denied by RLS');
+
+  await must(
+    admin.from('sms_automation_settings').update({
+      ack_template: 'CORRUPT no stop and a quote today',
+    }).eq('organisation_id', organisationC),
+    'operator corrupts the stored ack template',
+  );
+  const corruptCallSid = `CA${`${suffix}k`.padEnd(32, 'k')}`;
+  const corruptCall = await ingestCall({ sid: corruptCallSid, to: SENDER_C });
+  assert.equal(corruptCall.queued, true, 'corrupt template still queues an ack');
+  const corruptOutbox = await must(
+    admin.from('sms_messages').select('body').eq('idempotency_key', `missed-call-ack:${corruptCallSid}`),
+    'read fallback ack after corrupt template',
+  );
+  assert.equal(
+    corruptOutbox[0].body,
+    'Hi, this is Twenty Character Nam. Sorry we missed your call. Reply with what you need done and your suburb and we will get back to you. Reply STOP to opt out.',
+    'send-time fallback uses Jack\'s approved ack',
+  );
+  await must(
+    admin.from('sms_automation_settings').update({ ack_template: null }).eq('organisation_id', organisationC),
+    'clear corrupted ack template',
+  );
+  await must(
+    admin.from('sms_messages').update({
+      state: 'cancelled',
+      last_error: 'test_drain',
+      next_attempt: null,
+    }).eq('idempotency_key', `missed-call-ack:${corruptCallSid}`),
+    'drain fallback ack',
+  );
+
+  await must(
+    admin.from('sms_automation_settings').update({
+      thanks_template: 'CORRUPT thanks quote today',
+    }).eq('organisation_id', organisationC),
+    'operator corrupts the stored thanks template',
+  );
+  const corruptThanks = await ingest({
+    sid: `SM${suffix}CTHANKS`,
+    to: SENDER_C,
+    body: 'Need a tap washer in Midland',
+  });
+  const corruptThanksOutbox = await must(
+    admin.from('sms_messages').select('body').eq('idempotency_key', `enquiry-thanks:${corruptThanks.thread_id}`),
+    'read fallback thanks after corrupt template',
+  );
+  assert.equal(corruptThanksOutbox.length, 1, 'corrupt thanks still queues a reply');
+  assert.equal(
+    corruptThanksOutbox[0].body,
+    'Thanks, got it. We have passed this to the office and someone from Twenty Character Nam will be in touch. Reply STOP to opt out.',
+    'send-time fallback uses Jack\'s approved thanks',
+  );
+  await must(
+    admin.from('sms_automation_settings').update({ thanks_template: null }).eq('organisation_id', organisationC),
+    'clear corrupted thanks template',
+  );
+  await must(
+    admin.from('sms_messages').update({
+      state: 'cancelled',
+      last_error: 'test_drain',
+      next_attempt: null,
+    }).eq('idempotency_key', `enquiry-thanks:${corruptThanks.thread_id}`),
+    'drain fallback thanks',
+  );
+
+  await must(
+    admin.from('sms_automation_settings').update({
+      help_template: 'CORRUPT help quote today',
+    }).eq('organisation_id', organisationC),
+    'operator corrupts the stored HELP template',
+  );
+  const corruptHelp = await ingest({
+    sid: `SM${suffix}CHELP`,
+    to: SENDER_C,
+    body: 'HELP',
+  });
+  const corruptHelpOutbox = await must(
+    admin.from('sms_messages').select('body').eq('idempotency_key', `missed-call-reply:${corruptHelp.message_id}`),
+    'read fallback HELP after corrupt template',
+  );
+  assert.equal(corruptHelpOutbox.length, 1, 'corrupt HELP still queues a reply');
+  assert.equal(
+    corruptHelpOutbox[0].body,
+    'Twenty Character Nam: reply with the job and your suburb and the office will get back to you. Reply STOP to opt out, START to opt back in.',
+    'send-time fallback uses Jack\'s approved HELP',
+  );
+  await must(
+    admin.from('sms_automation_settings').update({ help_template: null }).eq('organisation_id', organisationC),
+    'clear corrupted HELP template',
+  );
+  await must(
+    admin.from('sms_messages').update({
+      state: 'cancelled',
+      last_error: 'test_drain',
+      next_attempt: null,
+    }).eq('idempotency_key', `missed-call-reply:${corruptHelp.message_id}`),
+    'drain fallback HELP',
   );
 
   await must(

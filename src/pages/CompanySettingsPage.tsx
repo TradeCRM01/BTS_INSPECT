@@ -67,6 +67,24 @@ import {
   smsTextbackTestStatus,
   type SmsTextbackSettings,
 } from '../lib/smsTextbackSettings';
+import {
+  SMS_REPLY_CANT_SEND,
+  SMS_REPLY_DEFAULT_TEMPLATES,
+  SMS_REPLY_FITS,
+  SMS_REPLY_KINDS,
+  SMS_REPLY_LABEL,
+  lookSmsReplyTemplates,
+  saveSmsReplyTemplates,
+  shouldQueryLiveSmsReplies,
+  smsReplyFieldError,
+  smsReplyFitLabel,
+  smsReplyKindFromNamedError,
+  smsReplyPreview,
+  smsReplyTemplatesFromRow,
+  smsTextbackMemberStatus,
+  type SmsReplyKind,
+  type SmsReplyTemplates,
+} from '../lib/smsReplyTemplates';
 import { Switch } from '../components/ui/Switch';
 
 /** Page-local company settings sheet. Same tokens as signed team / open-record. */
@@ -457,6 +475,17 @@ const COMPANY_LOOK_CSS = `
 .hub-company-row-meta.is-over {
   color: var(--co-look-fail);
 }
+.hub-company-sms-reply {
+  margin: 16px 0 0;
+}
+.hub-company-sms-reply textarea.hub-company-input {
+  min-height: 96px;
+  resize: vertical;
+}
+.hub-company-sms-reply textarea.hub-company-input.is-refused,
+.hub-company-sms-reply textarea.hub-company-input.is-refused:focus {
+  border-color: #B42318;
+}
 @media (max-width: 639px) {
   .hub-company.ops-page { padding: 16px 16px 40px; }
   .hub-company-sheet-bar { padding: 8px 16px; }
@@ -565,6 +594,10 @@ export function CompanySettingsPage() {
   const [smsTextbackError, setSmsTextbackError] = useState('');
   const [savingSmsTextback, setSavingSmsTextback] = useState(false);
   const [smsTextbackSaved, setSmsTextbackSaved] = useState(false);
+  const [smsReplies, setSmsReplies] = useState<SmsReplyTemplates>(SMS_REPLY_DEFAULT_TEMPLATES);
+  const [smsReplyIssue, setSmsReplyIssue] = useState<{ kind: SmsReplyKind; message: string } | null>(null);
+  const [savingSmsReplies, setSavingSmsReplies] = useState(false);
+  const [smsRepliesSaved, setSmsRepliesSaved] = useState(false);
 
   // Inspection renderers
   const [renderers, setRenderers] = useState<Array<{ id: string; key: string; label: string; built_in: boolean }>>([]);
@@ -629,8 +662,8 @@ export function CompanySettingsPage() {
       if (isAdmin) {
         loadEmailSettings();
         loadTwilioSender();
-        if (showSmsTextback) loadSmsTextback();
       }
+      if (showSmsTextback) loadSmsTextback();
       const theme = (company as { report_theme?: Partial<ReportTheme> | null }).report_theme;
       if (theme) {
         setReportTheme({
@@ -726,15 +759,17 @@ export function CompanySettingsPage() {
   async function loadSmsTextback() {
     if (!company) return;
     const seeded = lookSmsTextbackSettings(lookParam);
+    const seededReplies = lookSmsReplyTemplates(lookParam);
     if (seeded) {
       setSmsTextback(seeded);
       setSmsTextbackError(smsDisplayNameError(seeded.businessName) ?? '');
+      if (seededReplies) setSmsReplies(seededReplies);
       return;
     }
-    if (!shouldQueryLiveSmsTextback(lookParam)) return;
+    if (!shouldQueryLiveSmsTextback(lookParam) && !shouldQueryLiveSmsReplies(lookParam)) return;
     const { data, error } = await supabase
       .from('sms_automation_settings')
-      .select('enabled, business_name, test_mode, hourly_message_cap, daily_message_cap, monthly_message_cap')
+      .select('enabled, business_name, test_mode, hourly_message_cap, daily_message_cap, monthly_message_cap, ack_template, thanks_template, help_template')
       .eq('organisation_id', company.id)
       .maybeSingle();
     if (error) {
@@ -742,6 +777,7 @@ export function CompanySettingsPage() {
       return;
     }
     setSmsTextback(smsTextbackSettingsFromRow(data));
+    setSmsReplies(smsReplyTemplatesFromRow(data));
   }
 
   async function persistSmsTextback(next: SmsTextbackSettings) {
@@ -803,6 +839,60 @@ export function CompanySettingsPage() {
     }
     setSmsTextbackError('');
     await persistSmsTextback(smsTextback);
+  }
+
+  function focusSmsReplyField(kind: SmsReplyKind) {
+    const field = document.getElementById(`sms-reply-${kind}`);
+    field?.scrollIntoView({ block: 'center' });
+    if (field instanceof HTMLTextAreaElement) field.focus();
+  }
+
+  function handleSmsReplyChange(kind: SmsReplyKind, value: string) {
+    const next = { ...smsReplies, [kind]: value };
+    setSmsReplies(next);
+    const error = smsReplyFieldError(value, smsTextback.businessName, kind);
+    setSmsReplyIssue(error ? { kind, message: error } : smsReplyIssue?.kind === kind ? null : smsReplyIssue);
+  }
+
+  function handleResetSmsReply(kind: SmsReplyKind) {
+    const next = { ...smsReplies, [kind]: SMS_REPLY_DEFAULT_TEMPLATES[kind] };
+    setSmsReplies(next);
+    if (smsReplyIssue?.kind === kind) setSmsReplyIssue(null);
+  }
+
+  async function handleSaveSmsReplies(e: React.FormEvent) {
+    e.preventDefault();
+    for (const kind of SMS_REPLY_KINDS) {
+      const error = smsReplyFieldError(smsReplies[kind], smsTextback.businessName, kind);
+      if (error) {
+        setSmsReplyIssue({ kind, message: error });
+        focusSmsReplyField(kind);
+        return;
+      }
+    }
+    setSmsReplyIssue(null);
+    if (smsTextbackLook) {
+      setSmsReplies(smsReplies);
+      setSmsRepliesSaved(true);
+      setTimeout(() => setSmsRepliesSaved(false), 2000);
+      return;
+    }
+    if (!shouldQueryLiveSmsReplies(lookParam)) return;
+    setSavingSmsReplies(true);
+    const result = await saveSmsReplyTemplates({
+      ...smsReplies,
+      businessName: smsTextback.businessName,
+    });
+    if (result.error) {
+      const kind = smsReplyKindFromNamedError(result.error) ?? 'ack';
+      setSmsReplyIssue({ kind, message: result.error });
+      focusSmsReplyField(kind);
+    } else if (result.templates) {
+      setSmsReplies(result.templates);
+      setSmsRepliesSaved(true);
+      setTimeout(() => setSmsRepliesSaved(false), 2000);
+    }
+    setSavingSmsReplies(false);
   }
 
   async function handleSaveTwilioSender(e: React.FormEvent) {
@@ -1338,6 +1428,11 @@ export function CompanySettingsPage() {
         )}
 
         {/* Missed-call SMS sender — admin mapping only; no provider request leaves the browser. */}
+        {!isAdmin && ENQUIRY_SURFACE_LIVE ? (
+          <p className="hub-company-lede" data-sms-textback-readonly>
+            {smsTextbackMemberStatus(smsTextback.enabled)}
+          </p>
+        ) : null}
         {isAdmin && (
           <>
             {showSmsTextback ? (
@@ -1408,6 +1503,69 @@ export function CompanySettingsPage() {
                     {smsTextbackSaved
                       ? <><Check size={15} /> Saved</>
                       : savingSmsTextback ? 'Saving…' : 'Save name'}
+                  </button>
+                </div>
+              </form>
+            ) : null}
+            {showSmsTextback ? (
+              <form data-sms-replies="1" onSubmit={handleSaveSmsReplies}>
+                <p className="hub-company-kicker">Text replies</p>
+                {SMS_REPLY_KINDS.map((kind) => {
+                  const draft = smsReplies[kind];
+                  const refused = smsReplyIssue?.kind === kind;
+                  const fit = refused
+                    ? SMS_REPLY_CANT_SEND
+                    : smsReplyFitLabel(draft, smsTextback.businessName);
+                  return (
+                    <div key={kind} className="hub-company-sms-reply" data-sms-reply={kind}>
+                      <label className="hub-company-row-label" htmlFor={`sms-reply-${kind}`}>
+                        {SMS_REPLY_LABEL[kind]}
+                      </label>
+                      <textarea
+                        id={`sms-reply-${kind}`}
+                        value={draft}
+                        onChange={e => handleSmsReplyChange(kind, e.target.value)}
+                        className={`${inputClass}${refused ? ' is-refused' : ''}`}
+                        data-sms-reply-input={kind}
+                      />
+                      <p
+                        className={`hub-company-row-meta${fit === SMS_REPLY_FITS ? '' : ' is-over'}`}
+                        data-sms-reply-fit={kind}
+                      >
+                        {fit}
+                      </p>
+                      <p
+                        className={`hub-company-sms-preview${refused ? ' is-blocked' : ''}`}
+                        data-sms-reply-preview={kind}
+                      >
+                        {refused ? SMS_REPLY_CANT_SEND : smsReplyPreview(draft, smsTextback.businessName)}
+                      </p>
+                      <button
+                        type="button"
+                        className="hub-company-sub is-quiet"
+                        data-sms-reply-reset={kind}
+                        onClick={() => handleResetSmsReply(kind)}
+                      >
+                        Reset to default
+                      </button>
+                      {smsReplyIssue?.kind === kind ? (
+                        <p className="hub-company-fail" data-sms-reply-error={kind}>
+                          <AlertCircle size={14} /> {smsReplyIssue.message}
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                })}
+                <div className="hub-company-add-acts">
+                  <button
+                    type="submit"
+                    className="hub-company-next"
+                    disabled={savingSmsReplies}
+                    data-sms-replies-save
+                  >
+                    {smsRepliesSaved
+                      ? <><Check size={15} /> Saved</>
+                      : savingSmsReplies ? 'Saving…' : 'Save replies'}
                   </button>
                 </div>
               </form>

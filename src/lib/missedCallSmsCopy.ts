@@ -2,6 +2,11 @@ export const ACK_TEMPLATE_VERSION = 'ack-v1';
 export const THANKS_TEMPLATE_VERSION = 'thanks-v1';
 export const HELP_TEMPLATE_VERSION = 'help-v1';
 
+export const SMS_REPLY_BUSINESS_TOKEN = '{Business}';
+export const SMS_REPLY_STOP_SUFFIX = 'Reply STOP to opt out';
+export const SMS_REPLY_FORBIDDEN =
+  /\b(booked|quote|plumber|electrician|carpenter|tomorrow|today|\$|price|hourly)\b/i;
+
 const GSM7_BASIC =
   '@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&\'()*+,-./0123456789:;<=>?'
   + '¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà';

@@ -29,7 +29,12 @@ describe('sms text-back LOOK — existing company settings section', () => {
     expect(page).toContain('Twilio mapping');
     expect(page).toContain('SMS_TEXTBACK_NAME_HELP');
     expect(page).not.toContain('2 to 20 GSM-7 characters');
-    expect(page).not.toContain('ask an admin to change');
+    expect(page).toContain('smsTextbackMemberStatus');
+    expect(page).toContain('!isAdmin && ENQUIRY_SURFACE_LIVE');
+    expect(page).toContain('data-sms-replies="1"');
+    expect(page).toContain('Text replies');
+    expect(page).toContain('Reset to default');
+    expect(page).not.toContain('2 to 20 GSM-7 characters');
     expect(lib).toContain('Up to 20 letters, numbers or simple punctuation (no emoji or curly quotes). Shown on every missed-call text.');
     expect(lib).toContain('Fits in 1 text');
     expect(lib).toContain('Too long for 1 text');

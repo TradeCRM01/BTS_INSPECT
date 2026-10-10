@@ -6,10 +6,10 @@ import {
   renderEnquiryThanks,
   renderMissedCallAck,
   renderMissedCallHelp,
+  SMS_REPLY_FORBIDDEN,
 } from './missedCallSmsCopy';
 
 const TWENTY = 'Twenty Character Nam';
-const FORBIDDEN = /\b(booked|quote|plumber|electrician|carpenter|tomorrow|today|\$|price|hourly)\b/i;
 
 describe('missed-call SMS copy', () => {
   it('keeps ack, thanks, and HELP at one GSM-7 segment with a 20-char business name', () => {
@@ -27,7 +27,7 @@ describe('missed-call SMS copy', () => {
       expect(gsm7Segments(body)).toBe(1);
       expect(body).toContain(TWENTY);
       expect(body).toMatch(/STOP/);
-      expect(body).not.toMatch(FORBIDDEN);
+      expect(body).not.toMatch(SMS_REPLY_FORBIDDEN);
     }
 
     expect(ack).toBe(
