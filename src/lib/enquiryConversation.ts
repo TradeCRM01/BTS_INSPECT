@@ -152,11 +152,21 @@ export function lookConversationMessages(): ConversationMessage[] {
 
 export function conversationMessagesForLook(
   look: string | null | undefined,
+  callerPhone?: string | null,
 ): ConversationMessage[] | null {
   const kind = conversationLookKind(look);
-  if (kind === 'thread') return lookConversationMessages();
   if (kind === 'empty') return [];
-  return null;
+  if (kind !== 'thread') return null;
+  if (!conversationPhonesMatch(callerPhone, ALLOWED_ENQUIRY_PHONE)) return [];
+  return lookConversationMessages();
+}
+
+export function conversationLookClientPhone(
+  look: string | null | undefined,
+  storedPhone?: string | null,
+): string | null | undefined {
+  if (conversationLookKind(look) === 'thread') return conversationLookPhoneLabel();
+  return storedPhone;
 }
 
 export async function loadConversationByCallerPhone(

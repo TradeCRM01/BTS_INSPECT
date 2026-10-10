@@ -5,10 +5,12 @@ import {
   CONVERSATION_EMPTY_LOOK,
   CONVERSATION_LOOK,
   conversationDirectionLabel,
+  conversationLookClientPhone,
   conversationLookKind,
   conversationLookPhone,
   conversationLookPhoneLabel,
   conversationMessageTime,
+  conversationMessagesForLook,
   conversationPhonesMatch,
   conversationStateLabel,
   conversationVisible,
@@ -48,6 +50,15 @@ describe('enquiry conversation', () => {
     expect(conversationLookPhone()).toBe(ALLOWED_ENQUIRY_PHONE);
     expect(conversationLookPhoneLabel()).toBe('0418 893 602');
     expect(lookConversationMessages()[0].body).toBe(renderMissedCallAck('Field Audit Co'));
+    expect(lookConversationMessages()[0].body).toBe(
+      'Hi, this is Field Audit Co. Sorry we missed your call. Reply with what you need done and your suburb and we will get back to you. Reply STOP to opt out.',
+    );
+    expect(conversationLookClientPhone(CONVERSATION_LOOK, '0400 111 222')).toBe('0418 893 602');
+    expect(conversationLookClientPhone(CONVERSATION_EMPTY_LOOK, '0400 111 222')).toBe('0400 111 222');
+    expect(conversationMessagesForLook(CONVERSATION_LOOK, '0400 111 222')).toEqual([]);
+    expect(conversationMessagesForLook(CONVERSATION_LOOK, ALLOWED_ENQUIRY_PHONE)?.[0]?.body)
+      .toBe(renderMissedCallAck('Field Audit Co'));
+    expect(conversationMessagesForLook(CONVERSATION_LOOK, '0418 893 602')?.length).toBeGreaterThan(0);
   });
 
   it('keeps live conversation off until the enquiry schema is live', () => {

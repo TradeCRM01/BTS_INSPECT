@@ -23,6 +23,10 @@ describe('enquiry conversation LOOK — existing Client and Job sheets', () => {
     expect(job).toContain('EnquiryConversation');
     expect(client).toContain('useEnquiryConversation');
     expect(job).toContain('useEnquiryConversation');
+    expect(client).toContain('conversationLookClientPhone');
+    expect(job).toContain('conversationLookClientPhone');
+    expect(src('src/lib/enquiryConversation.ts')).toContain('conversationPhonesMatch(callerPhone, ALLOWED_ENQUIRY_PHONE)');
+    expect(src('src/lib/devFieldAuditDocs.ts')).toContain('conversationLookClientPhone');
     expect(src('src/lib/enquiryConversation.ts')).toContain('ENQUIRY_SURFACE_LIVE');
     expect(src('src/lib/enquiryConversation.ts')).toContain("if (!import.meta.env.DEV) return null");
     expect(src('src/lib/missedCallEnquiry.ts')).toContain('ENQUIRY_SURFACE_LIVE = false');

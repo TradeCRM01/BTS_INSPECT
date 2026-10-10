@@ -1,4 +1,5 @@
 import { DEV_AUDIT_COMPANY, DEV_AUDIT_PROFILE, isDevFieldAuditAuth } from './devFieldAuditAuth';
+import { conversationLookClientPhone } from './enquiryConversation';
 import { withScheduleJobPatches } from './scheduleJobPatchStore';
 import type { Job } from '../types/crm';
 import type { ExpenseCostModel, JobCost } from '../types/fsm';
@@ -724,7 +725,18 @@ export function getAuditClient(id: string) {
     return getAuditFix2Client();
   }
   const clients = getAuditClients();
-  return clients?.find(c => c.id === id) ?? null;
+  const found = clients?.find(c => c.id === id) ?? null;
+  if (!found) return found;
+  let look: string | null = null;
+  try {
+    look = new URLSearchParams(window.location.search).get('look');
+  } catch {
+    look = null;
+  }
+  return {
+    ...found,
+    phone: conversationLookClientPhone(look, found.phone) ?? found.phone,
+  };
 }
 
 /** Accepted quote with a job + invoice so the Clients Quotes tray can Open job. */

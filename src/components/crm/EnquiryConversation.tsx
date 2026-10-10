@@ -17,7 +17,7 @@ export function useEnquiryConversation(input: {
   callerPhone?: string | null;
   approvedJobId?: string | null;
 }): ConversationMessage[] {
-  const seeded = conversationMessagesForLook(input.look);
+  const seeded = conversationMessagesForLook(input.look, input.callerPhone);
   const { data } = useQuery({
     queryKey: [
       'enquiry-conversation',

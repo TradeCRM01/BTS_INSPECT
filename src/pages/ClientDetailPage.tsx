@@ -7,6 +7,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, ContextMenu, useToast, OpsSiteRow } from '../components/ui';
 import type { MenuEntry } from '../components/ui';
 import { EnquiryConversation, useEnquiryConversation } from '../components/crm/EnquiryConversation';
+import { conversationLookClientPhone } from '../lib/enquiryConversation';
 import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
 import { resolveTenantTimeZone } from '../lib/tenantTimeZone';
 import type { Client, JobWithClient } from '../types/crm';
@@ -289,7 +290,7 @@ export function ClientDetailPage() {
   const conversationMessages = useEnquiryConversation({
     look: lookParam,
     companyId: profile?.company_id,
-    callerPhone: client?.phone,
+    callerPhone: conversationLookClientPhone(lookParam, client?.phone),
   });
   const tenantTimeZone = resolveTenantTimeZone(
     (company as { time_zone?: string | null } | null)?.time_zone,
