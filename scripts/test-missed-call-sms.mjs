@@ -541,17 +541,53 @@ try {
     }).eq('idempotency_key', `missed-call-ack:${otherCompanyCallSid}`),
     'drain other-company ack',
   );
-  const neverHelp = await ingest({
+  const enquiryHelp = await ingest({
     sid: `SM${suffix}NEVERHELP`,
     to: SENDER_A,
     from: DENIED_START_PHONE,
     body: 'HELP',
   });
-  const neverHelpOutbox = await must(
-    admin.from('sms_messages').select('id').eq('idempotency_key', `missed-call-reply:${neverHelp.message_id}`),
-    'read never-opted-in HELP',
+  const enquiryHelpOutbox = await must(
+    admin.from('sms_messages').select('id, purpose, state, body').eq('idempotency_key', `missed-call-reply:${enquiryHelp.message_id}`),
+    'read enquiry-only HELP',
   );
-  assert.equal(neverHelpOutbox.length, 0, 'HELP does not queue for a never-opted-in caller');
+  assert.equal(enquiryHelpOutbox.length, 1, 'enquiry-only HELP queues exactly one row');
+  assert.equal(enquiryHelpOutbox[0].purpose, 'enquiry_help', 'enquiry-only HELP stores enquiry_help');
+  assert.equal(enquiryHelpOutbox[0].state, 'queued', 'enquiry-only HELP is queued');
+  assert.equal(
+    enquiryHelpOutbox[0].body,
+    'Twenty Character Nam: reply with the job and your suburb and the office will get back to you. Reply STOP to opt out, START to opt back in.',
+    'enquiry-only HELP uses the approved template',
+  );
+  const enquiryHelpAgain = await ingest({
+    sid: `SM${suffix}NEVERHELP2`,
+    to: SENDER_A,
+    from: DENIED_START_PHONE,
+    body: 'HELP',
+  });
+  const enquiryHelpAgainOutbox = await must(
+    admin.from('sms_messages').select('id').eq('idempotency_key', `missed-call-reply:${enquiryHelpAgain.message_id}`),
+    'read second enquiry HELP',
+  );
+  assert.equal(enquiryHelpAgainOutbox.length, 0, 'second HELP within 24h queues no row');
+  const helpFlood = await must(
+    admin.from('sms_messages')
+      .select('id')
+      .eq('organisation_id', organisationA)
+      .eq('to_phone_e164', DENIED_START_PHONE)
+      .eq('purpose', 'enquiry_help')
+      .in('state', ['queued', 'claimed', 'sent']),
+    'count enquiry HELP flood',
+  );
+  assert.equal(helpFlood.length, 1, 'HELP flood gives at most 1 outbound');
+  await must(
+    admin.from('sms_messages').update({
+      state: 'cancelled',
+      last_error: 'test_drain',
+      next_attempt: null,
+    }).eq('id', enquiryHelpOutbox[0].id),
+    'drain enquiry-only HELP',
+  );
   await must(
     admin.from('communication_preferences').insert({
       organisation_id: organisationA,
@@ -622,6 +658,16 @@ try {
     'read STOP-blocked outbox',
   );
   assert.equal(stoppedCallOutbox.length, 0, 'STOP creates no outbound row');
+  const stoppedHelp = await ingest({
+    sid: `SM${suffix}STOPHELP`,
+    to: SENDER_B,
+    body: 'HELP',
+  });
+  const stoppedHelpOutbox = await must(
+    admin.from('sms_messages').select('id').eq('idempotency_key', `missed-call-reply:${stoppedHelp.message_id}`),
+    'read HELP after STOP',
+  );
+  assert.equal(stoppedHelpOutbox.length, 0, 'HELP after STOP queues no row');
 
   const restart = await ingest({
     sid: `SM${suffix}START`,
@@ -710,12 +756,13 @@ try {
   assert.equal(help.qualification_step, 'job_service', 'HELP does not skip the qualification ladder');
   const helpReply = await must(
     admin.from('sms_messages')
-      .select('body, state')
+      .select('body, state, purpose')
       .eq('idempotency_key', `missed-call-reply:${help.message_id}`)
       .single(),
     'read HELP reply',
   );
   assert.equal(helpReply.state, 'queued', 'HELP queues a reply through the shared SMS outbox');
+  assert.equal(helpReply.purpose, 'enquiry_help', 'consented HELP stores enquiry_help');
   assert.equal(/BOOK/i.test(helpReply.body), false, 'HELP copy has no BOOK');
   assert.match(helpReply.body, /Twenty Character Nam/, 'HELP names the business');
   assert.match(helpReply.body, /STOP/, 'HELP still names STOP');
@@ -882,6 +929,14 @@ try {
   assert.ok(auditA.length > 0 && auditA.every((row) => row.organisation_id === organisationA), 'organisation A sees only A consent audits');
   assert.ok(auditB.length > 0 && auditB.every((row) => row.organisation_id === organisationB), 'organisation B sees only B consent audits');
 
+  await must(
+    admin.from('sms_messages').update({
+      state: 'cancelled',
+      last_error: 'test_drain',
+      next_attempt: null,
+    }).eq('idempotency_key', `missed-call-reply:${help.message_id}`),
+    'drain consented HELP so a later HELP can queue',
+  );
   await must(
     admin.from('missed_call_sms_threads').update({
       qualification_required: false,
