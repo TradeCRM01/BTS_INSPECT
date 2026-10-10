@@ -20,6 +20,17 @@ EXECUTE FUNCTION public.prevent_missed_call_autobook();
 REVOKE ALL ON FUNCTION public.prevent_missed_call_autobook()
   FROM PUBLIC, anon, authenticated;
 
+CREATE OR REPLACE FUNCTION public.process_next_missed_call_booking(p_worker_id text)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+BEGIN
+  RAISE EXCEPTION 'auto-book disabled';
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.ingest_twilio_inbound_sms(
   p_provider_account_sid text,
   p_provider_message_sid text,
