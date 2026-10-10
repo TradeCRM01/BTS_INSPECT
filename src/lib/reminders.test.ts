@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ENQUIRIES_HREF } from './missedCallEnquiry';
 import {
   REMINDER_ACCESS_NOTE,
   canEditReminder,
@@ -38,6 +39,7 @@ function reminder(over: Partial<Reminder> & { id: string }): Reminder {
     details: '',
     dueAt: null,
     jobId: null,
+    relatedHref: null,
     completed: false,
     completedAt: null,
     visibility: 'private',
@@ -73,12 +75,21 @@ describe('reminderFromRow', () => {
       details: '',
       dueAt: '2026-09-12T00:00:00+00:00',
       jobId: 'job-9',
+      relatedHref: '/jobs/job-9',
       completed: false,
       completedAt: null,
       visibility: 'private',
       taggedUserIds: [],
       createdAt: '2026-09-10T01:00:00+00:00',
     });
+  });
+
+  it('deep-links a missed-call enquiry reminder to Jobs enquiries', () => {
+    expect(reminderFromRow({
+      ...ROW,
+      related_type: 'missed_call_sms_thread',
+      related_id: 'thread-1',
+    }).relatedHref).toBe(ENQUIRIES_HREF);
   });
 
   it('drops a non-job relation off jobId', () => {

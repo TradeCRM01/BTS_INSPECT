@@ -9,6 +9,7 @@ import {
   type PostponeChoice,
   type Reminder,
 } from '../../lib/reminders';
+import { ENQUIRIES_HREF } from '../../lib/missedCallEnquiry';
 
 const TAGGED_CHIP_LIMIT = 3;
 
@@ -82,7 +83,10 @@ export function ReminderRow({
       >
         {reminder.completed && <Check size={14} strokeWidth={3} />}
       </button>
-      <Link to={`/reminders/${reminder.id}`} className="reminders-body">
+      <Link
+        to={reminder.relatedHref === ENQUIRIES_HREF ? ENQUIRIES_HREF : `/reminders/${reminder.id}`}
+        className="reminders-body"
+      >
         <span className="reminders-title">{reminder.title}</span>
         <span className="reminders-meta">{meta}</span>
       </Link>
