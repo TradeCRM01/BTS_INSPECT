@@ -13,8 +13,8 @@ import {
   reminderRelatedHref,
 } from './missedCallEnquiry';
 
-const brisbaneMorning = '2026-10-09T22:15:00.000Z';
-const perthSameUtc = '2026-10-09T22:15:00.000Z';
+const brisbaneMorning = '2026-10-09T14:30:00.000Z';
+const laterSameMorning = '2026-10-10T00:00:00.000Z';
 
 describe('enquiry list shape', () => {
   it('opens on the existing jobs view query', () => {
@@ -51,7 +51,7 @@ describe('enquiry list shape', () => {
       { missedCallAt: brisbaneMorning },
       { missedCallAt: '2026-10-08T22:00:00.000Z' },
     ];
-    const now = new Date(perthSameUtc);
+    const now = new Date(laterSameMorning);
     expect(countEnquiriesToday(rows, now, 'Australia/Brisbane')).toBe(1);
     expect(countEnquiriesToday(rows, now, 'Australia/Perth')).toBe(0);
     expect(countEnquiriesToday(rows, now, null)).toBe(1);

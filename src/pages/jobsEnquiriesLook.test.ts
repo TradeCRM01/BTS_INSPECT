@@ -11,7 +11,8 @@ describe('jobs enquiries LOOK — same jobs paper', () => {
     const page = src('src/pages/JobsPage.tsx');
     const css = src('src/index.css');
     expect(page).toContain('data-jobs-view="enquiries"');
-    expect(page).toContain('view=enquiries');
+    expect(page).toContain('ENQUIRIES_VIEW');
+    expect(src('src/lib/missedCallEnquiry.ts')).toContain("/jobs?view=enquiries");
     expect(page).toContain('From missed call');
     expect(page).toContain('approveMissedCallEnquiry');
     expect(src('src/lib/missedCallEnquiry.ts')).toContain("rpc('approve_missed_call_enquiry'");
