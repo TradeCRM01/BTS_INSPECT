@@ -793,7 +793,7 @@ export function JobsPage() {
           unscheduledOnly={Boolean(approving)}
           createJob={approving ? async (payload) => {
             if (lookEnquirySeed) {
-              await new Promise((resolve) => window.setTimeout(resolve, 500));
+              await new Promise((resolve) => window.setTimeout(resolve, 800));
               const jobId = `look-job-${approving.id}`;
               setLookEnquiryRows((rows) => rows.map((item) => (
                 item.id === approving.id

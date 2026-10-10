@@ -973,8 +973,8 @@ try {
   assert.equal(approvedThread.approved_job_id, approved.job_id, 'approve links the job');
   assert.equal(approvedThread.decided_by, userA, 'approve records the actor');
 
-  const raceFrom = TEST_MOBILE;
-  const raceCallSid = `CA${`${suffix}r`.padEnd(32, 'r')}`;
+  const raceFrom = '+61415555551';
+  const raceCallSid = `CA${`${suffix}q`.padEnd(32, 'q')}`;
   await ingestCall({ sid: raceCallSid, to: SENDER_A, from: raceFrom });
   const raceInbound = await ingest({
     sid: `SM${suffix}RACEIN`,

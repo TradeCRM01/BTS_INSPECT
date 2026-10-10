@@ -23,7 +23,7 @@ import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
 import { formatJobRef, nextCostCode, normalizeCostCode } from '../../lib/jobRef';
 import { JOB_COLORS, jobColorToStore } from '../../lib/jobColors';
 import { assumedTradeTag, checkDateTag, fromBookingTag } from '../../lib/quickBook';
-import { getAuditTeamMembers } from '../../lib/devFieldAuditDocs';
+import { getAuditClients, getAuditTeamMembers } from '../../lib/devFieldAuditDocs';
 import { crewAssignmentHelper } from '../../lib/jobDispatchCrew';
 import { FromBooking } from './FromBooking';
 import { LoadingSpinner } from '../ui';
@@ -140,9 +140,15 @@ export function JobFormModal({
       } else if (presetTeam?.length) {
         setTeamMembers(presetTeam);
       }
+      const auditClients = getAuditClients();
+      if (auditClients) {
+        setClients(auditClients as Client[]);
+      }
       if (!profile?.company_id) return;
       const [clientsRes, teamRes] = await Promise.all([
-        supabase.from('clients').select('*').eq('archived', false).order('name'),
+        auditClients
+          ? Promise.resolve({ data: null as Client[] | null, error: null })
+          : supabase.from('clients').select('*').eq('archived', false).order('name'),
         auditTeam
           ? Promise.resolve({ data: null as null, error: null })
           : supabase.rpc('get_company_members', { p_company_id: profile.company_id }),
@@ -173,7 +179,30 @@ export function JobFormModal({
       });
   }, [job, form.parent_job_id, form.cost_code]);
 
-  const selectedClient = useMemo(() => clients.find(c => c.id === form.client_id), [clients, form.client_id]);
+  const clientsForSelect = useMemo(() => {
+    const presetId = (presetClientId ?? '').trim();
+    const presetName = (presetClientName ?? '').trim();
+    if (!presetId || clients.some((client) => client.id === presetId)) return clients;
+    return [
+      {
+        id: presetId,
+        company_id: profile?.company_id ?? '',
+        name: presetName || presetId,
+        contact_person: null,
+        phone: null,
+        email: null,
+        address: null,
+        notes: null,
+        archived: false,
+        created_at: '',
+      } satisfies Client,
+      ...clients,
+    ];
+  }, [clients, presetClientId, presetClientName, profile?.company_id]);
+  const selectedClient = useMemo(
+    () => clientsForSelect.find(c => c.id === form.client_id),
+    [clientsForSelect, form.client_id],
+  );
   const pendingUnmatched = !!pendingClientName.trim() && !form.client_id;
   const scheduleStatus = useMemo(
     () => jobCrewScheduleStatus(form.scheduled_date, form.assigned_team),
@@ -404,7 +433,7 @@ export function JobFormModal({
               aria-label={pendingUnmatched ? 'Or pick an existing client' : 'Existing client'}
             >
               <option value="">No client (walk-up)</option>
-              {clients.map(c => (
+              {clientsForSelect.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
@@ -685,8 +714,12 @@ export function JobFormModal({
             <button onClick={onClose} className="btn-secondary">
               Cancel
             </button>
-            <button onClick={handleSave} disabled={saving}
-              className="btn-primary min-h-[44px] disabled:opacity-50">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              data-job-creating={saving && createJob ? '1' : undefined}
+              className="btn-primary min-h-[44px] disabled:opacity-50"
+            >
               {saving ? (
                 <span className="inline-flex items-center gap-2">
                   <LoadingSpinner size="sm" />
