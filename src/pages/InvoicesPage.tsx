@@ -55,6 +55,7 @@ import {
 } from '../lib/invoicePayments';
 import { invoiceListStatusLabel, invoiceBalanceOwed, invoiceSheetStatusChip } from '../lib/invoiceOpenBalance';
 import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
+import { invoiceEditorShareArmed } from '../lib/invoiceFromJobBill';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
 import { invoiceSendCompanyFrom, isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
 import {
@@ -157,6 +158,11 @@ export function InvoicesPage() {
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
+  const shareOpenedAtRef = useRef(0);
+  const requestSend = (invoiceId: string) => {
+    if (!invoiceEditorShareArmed(shareOpenedAtRef.current, Date.now())) return;
+    setSendingInvoiceId(invoiceId);
+  };
   const invoiceIdParam = searchParams.get('id');
   const paymentProof = isDevFieldAuditAuth() && searchParams.get('payment') === '1';
   const money4PartPaidLook = isDevFieldAuditAuth() && searchParams.get('look') === 'money-4-part-paid';
@@ -304,8 +310,10 @@ export function InvoicesPage() {
       if (openedInvoice === undefined) return;
       if (!openedInvoice) return;
       if (searchParams.get('send') === '1') {
+        shareOpenedAtRef.current = 0;
         setSendingInvoiceId(invoiceId);
       } else {
+        shareOpenedAtRef.current = Date.now();
         setEditingInvoice(openedInvoice);
         setPresetClientId(null);
         setShowForm(true);
@@ -421,7 +429,7 @@ export function InvoicesPage() {
                 invoice={inv}
                 smtpReady={smtpReady}
                 onOpen={() => openInvoice(inv)}
-                onSend={setSendingInvoiceId}
+                onSend={requestSend}
               />
             ))}
           </div>
@@ -437,7 +445,7 @@ export function InvoicesPage() {
           smtpReady={smtpReady}
           onClose={() => { setShowForm(false); setPresetClientId(null); }}
           onSaved={handleSaved}
-          onRequestSend={setSendingInvoiceId}
+          onRequestSend={requestSend}
         />
       )}
 

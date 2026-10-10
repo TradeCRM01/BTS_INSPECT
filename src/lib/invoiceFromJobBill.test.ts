@@ -14,6 +14,7 @@ import {
   invoiceLinesFromJobCosts,
   jobBillDueDate,
   jobBillInvoiceBlocked,
+  invoiceEditorShareArmed,
   jobInvoiceCreateLanding,
   reuseAfterUniqueConflict,
 } from './invoiceFromJobBill';
@@ -330,5 +331,11 @@ describe('jobInvoiceCreateLanding', () => {
   it('lands on the invoice editor without opening Send', () => {
     expect(jobInvoiceCreateLanding('inv-new')).toBe('/invoices?id=inv-new');
     expect(jobInvoiceCreateLanding('inv-new')).not.toContain('send=');
+  });
+
+  it('keeps Share quiet for one double-tap after the editor opens', () => {
+    expect(invoiceEditorShareArmed(0, 100)).toBe(true);
+    expect(invoiceEditorShareArmed(1000, 1399)).toBe(false);
+    expect(invoiceEditorShareArmed(1000, 1400)).toBe(true);
   });
 });

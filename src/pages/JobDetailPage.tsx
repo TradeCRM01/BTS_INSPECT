@@ -2246,6 +2246,9 @@ export function JobDetailPage() {
     },
     onSuccess: (result) => {
       setQuotedInvoiceSheetOpen(false);
+      const reuse = result.existing ? invoiceReuseOpen(result.id) : null;
+      showToast(reuse ? reuse.toast : JOB_BILL_INVOICE_CREATED, 'success');
+      navigate(jobInvoiceCreateLanding(result.id));
       if (result.invoice) {
         queryClient.setQueryData<JobInvoice[]>(['job-invoices', id], prev =>
           jobInvoicesAfterCreate(prev, result.invoice),
@@ -2260,9 +2263,6 @@ export function JobDetailPage() {
         invalidateJobBillInvoicePreview(queryClient, id);
         invalidateJobBillHoursQueries(queryClient, id);
       }
-      const reuse = result.existing ? invoiceReuseOpen(result.id) : null;
-      showToast(reuse ? reuse.toast : JOB_BILL_INVOICE_CREATED, 'success');
-      navigate(jobInvoiceCreateLanding(result.id));
     },
     onError: (e: Error) => {
       showToast(e.message, 'error');
@@ -2882,7 +2882,7 @@ export function JobDetailPage() {
 
   const invoiceNextBusy = invoiceFromJobBill.isPending || invoiceBillFlowBusy;
   const nextBusy =
-    (next.key === 'invoice' && invoiceNextBusy) ||
+    invoiceNextBusy ||
     (arrivingPrimary && arrivingBusy) ||
     (next.key === 'clock' && clockOnJob.isPending) ||
     (next.key === 'phone' && saveClientPhone.isPending);
@@ -3113,7 +3113,7 @@ export function JobDetailPage() {
                     type="button"
                     role="menuitem"
                     onClick={() => { closeMore(); handleInvoice(); }}
-                    disabled={invoiceFromJobBill.isPending}
+                    disabled={invoiceNextBusy}
                   >
                     Invoice
                   </button>
@@ -4283,7 +4283,7 @@ export function JobDetailPage() {
             onRetry={() => { void refetchInvoices(); }}
             emptyTitle="Nothing invoiced yet. Invoice an accepted quote, or from the job bill."
             emptyAction={
-              <button type="button" onClick={handleInvoice} disabled={invoiceFromJobBill.isPending} className="ops-link">
+              <button type="button" onClick={handleInvoice} disabled={invoiceNextBusy} className="ops-link">
                 Invoice this job
               </button>
             }

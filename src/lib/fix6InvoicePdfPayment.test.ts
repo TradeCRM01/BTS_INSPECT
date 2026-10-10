@@ -78,6 +78,10 @@ describe('FIX-6 P1 invoice PDF / create / share / payment', () => {
     expect(jobCreate).not.toContain('send=1');
     expect(jobCreate).not.toContain("label: 'Open'");
     expect(jobCreate).toContain('navigate(jobInvoiceCreateLanding(result.id))');
+    expect(jobCreate.indexOf('navigate(jobInvoiceCreateLanding(result.id))')).toBeLessThan(
+      jobCreate.indexOf("setQueryData<JobInvoice[]>"),
+    );
+    expect(src('src/pages/InvoicesPage.tsx')).toContain('invoiceEditorShareArmed');
     expect(quoteCreate).not.toContain('send=1');
     expect(quoteCreate).toContain('invoiceLandingPath');
     expect(src('src/index.css')).toMatch(
