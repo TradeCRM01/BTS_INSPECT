@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, ContextMenu, useToast, OpsSiteRow } from '../components/ui';
 import type { MenuEntry } from '../components/ui';
+import { EnquiryConversation, useEnquiryConversation } from '../components/crm/EnquiryConversation';
 import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
+import { resolveTenantTimeZone } from '../lib/tenantTimeZone';
 import type { Client, JobWithClient } from '../types/crm';
 import {
   formatMoney,
@@ -131,7 +133,9 @@ export const CLIENT_SHEET_NO_PHONE =
 
 export function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { profile } = useAuth();
+  const { profile, company } = useAuth();
+  const [searchParams] = useSearchParams();
+  const lookParam = import.meta.env.DEV ? searchParams.get('look') : null;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -282,6 +286,15 @@ export function ClientDetailPage() {
     onError: (e: Error) => showToast(e.message, 'info'),
   });
 
+  const conversationMessages = useEnquiryConversation({
+    look: lookParam,
+    companyId: profile?.company_id,
+    callerPhone: client?.phone,
+  });
+  const tenantTimeZone = resolveTenantTimeZone(
+    (company as { time_zone?: string | null } | null)?.time_zone,
+  );
+
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
   if (error || !client) return <AppShell><PageError message="Could not load this client" /></AppShell>;
 
@@ -419,6 +432,7 @@ export function ClientDetailPage() {
                   </form>
                 )}
               </div>
+              <EnquiryConversation messages={conversationMessages} timeZone={tenantTimeZone} />
               {client.notes ? (
                 <p className="hub-clients-ledger-row">
                   <span className="hub-clients-muted">{client.notes}</span>

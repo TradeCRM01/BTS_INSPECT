@@ -6,7 +6,9 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, Breadcrumbs, useToast, OpsStatus, OpsSiteRow, OpsPhotoStamp } from '../components/ui';
+import { EnquiryConversation, useEnquiryConversation } from '../components/crm/EnquiryConversation';
 import { JobFormModal } from '../components/crm/JobFormModal';
+import { resolveTenantTimeZone } from '../lib/tenantTimeZone';
 import { JobCostingPanel } from '../components/jobs/JobCostingPanel';
 import { JobDispatchPanel } from '../components/jobs/JobDispatchPanel';
 import { JobClientReminder, type JobClientReminderHandle } from '../components/jobs/JobClientReminder';
@@ -2711,6 +2713,15 @@ export function JobDetailPage() {
     ? null
     : (auditLookPreview ?? jobBillInvoicePreview);
   const quotedInvoiceSheetMoneyLine = invoicePreviewForNext?.moneyLine ?? '';
+  const lookParam = import.meta.env.DEV ? searchParams.get('look') : null;
+  const conversationMessages = useEnquiryConversation({
+    look: lookParam,
+    companyId: profile?.company_id,
+    approvedJobId: job?.id ?? id,
+  });
+  const tenantTimeZone = resolveTenantTimeZone(
+    (company as { time_zone?: string | null } | null)?.time_zone,
+  );
 
   if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
   if (error || !job) return <AppShell><PageError message="Could not load this job" /></AppShell>;
@@ -3496,6 +3507,7 @@ export function JobDetailPage() {
 
             <div className="hub-trays hub-jobs-more-trays">
           <div id="job-lanes" {...pane('job-lanes')}>
+            <EnquiryConversation messages={conversationMessages} timeZone={tenantTimeZone} />
             <section className="ops-tray">
               <div className="ops-related-list">
                 {laneRows.map(row => (

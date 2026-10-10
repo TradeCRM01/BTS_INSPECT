@@ -54,6 +54,8 @@ export function isDevFieldAuditAuth(): boolean {
       || params.get('look') === 'enquiries-empty'
       || params.get('look') === 'enquiries-one'
       || params.get('look') === 'jobs-prod-schema'
+      || params.get('look') === 'conversation'
+      || params.get('look') === 'conversation-empty'
       || params.get('look') === 'drive-error'
       || window.location.pathname === '/__field-audit'
     ) {
