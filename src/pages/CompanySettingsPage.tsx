@@ -1,4 +1,11 @@
 import { useState, useEffect } from 'react';
+import {
+  COMPANY_SETTINGS_NAV_CHIP_PX,
+  COMPANY_SETTINGS_NAV_ROW_PX,
+  companySettingsNavChips,
+  observeCompanySettingsSections,
+  scrollCompanySettingsSection,
+} from '../lib/companySettingsNav';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { invalidateAllJobBillInvoicePreviews } from '../lib/jobBillInvoicePreviewQuery';
@@ -109,6 +116,55 @@ const COMPANY_LOOK_CSS = `
   background: var(--co-look-page);
   color: var(--co-look-ink);
   padding: 24px 24px 48px;
+}
+.hub-company-snav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  max-width: 1100px;
+  margin: 0 auto 16px;
+  background: var(--co-look-page);
+  border-bottom: 1px solid var(--co-look-line);
+}
+.hub-company-snav-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 0;
+  scrollbar-width: none;
+}
+.hub-company-snav-row::-webkit-scrollbar { display: none; }
+.hub-company-snav-chip {
+  flex: 0 0 auto;
+  height: ${COMPANY_SETTINGS_NAV_CHIP_PX}px;
+  min-height: ${COMPANY_SETTINGS_NAV_CHIP_PX}px;
+  padding: 0 14px;
+  border: 1px solid var(--co-look-ink);
+  border-radius: 999px;
+  background: var(--co-look-page);
+  color: var(--co-look-ink);
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.hub-company-snav-chip.is-current {
+  background: var(--co-look-ink);
+  color: var(--co-look-page);
+}
+.hub-company-snav-chip:focus-visible {
+  outline: 2px solid var(--co-look-action);
+  outline-offset: 2px;
+}
+.hub-company-snav-section {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  scroll-margin-top: ${COMPANY_SETTINGS_NAV_ROW_PX}px;
 }
 .hub-company-label {
   display: block;
@@ -547,6 +603,28 @@ export function CompanySettingsPage() {
   const isAdmin = profile?.role === 'admin';
   const smsTextbackLook = smsTextbackLookKind(lookParam);
   const showSmsTextback = smsTextbackLook != null || ENQUIRY_SURFACE_LIVE;
+  const settingsNavChips = companySettingsNavChips({
+    isAdmin,
+    enquirySurfaceLive: ENQUIRY_SURFACE_LIVE,
+  });
+  const [activeSettingsSection, setActiveSettingsSection] = useState(
+    () => companySettingsNavChips({
+      isAdmin,
+      enquirySurfaceLive: ENQUIRY_SURFACE_LIVE,
+    })[0]?.target ?? '',
+  );
+
+  useEffect(() => {
+    const chips = companySettingsNavChips({
+      isAdmin,
+      enquirySurfaceLive: ENQUIRY_SURFACE_LIVE,
+    });
+    const targets = chips.map((chip) => chip.target);
+    setActiveSettingsSection((current) => (
+      targets.includes(current) ? current : (targets[0] ?? '')
+    ));
+    return observeCompanySettingsSections(targets, setActiveSettingsSection);
+  }, [isAdmin]);
 
   // Company details
   const [name, setName] = useState(company?.name ?? '');
@@ -1175,6 +1253,25 @@ export function CompanySettingsPage() {
       <style>{COMPANY_LOOK_CSS}</style>
       <div className="ops-page hub-company">
         <p className="hub-company-label">Settings</p>
+        <nav className="hub-company-snav" data-settings-nav="1" aria-label="Settings sections">
+          <div className="hub-company-snav-row">
+            {settingsNavChips.map((chip) => {
+              const current = activeSettingsSection === chip.target;
+              return (
+                <button
+                  key={chip.id}
+                  type="button"
+                  className={`hub-company-snav-chip${current ? ' is-current' : ''}`}
+                  data-settings-chip={chip.id}
+                  aria-current={current ? 'true' : undefined}
+                  onClick={() => scrollCompanySettingsSection(chip.target)}
+                >
+                  {chip.label}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
         <article className="hub-company-sheet">
           <header className="hub-company-sheet-bar">
             <span className="hub-company-sheet-bar-meta">{sheetName}</span>
@@ -1225,6 +1322,7 @@ export function CompanySettingsPage() {
           </>
         )}
 
+        <section id="settings-invoicing" className="hub-company-snav-section">
         <p className="hub-company-kicker">Tax & Markup Defaults</p>
         <p className="hub-company-lede">Used as defaults on new quotes, invoices, and purchase orders.</p>
         <div className="hub-company-row">
@@ -1260,8 +1358,10 @@ export function CompanySettingsPage() {
             <p className="hub-company-row-meta">Applied to stock cost when adding materials to quotes/invoices.</p>
           </div>
         </div>
+        </section>
 
         {/* Logo — existing company settings strip only. Not a branding page. */}
+        <section id="settings-branding" className="hub-company-snav-section">
         <div className="company-logo-strip">
           <h2 className="company-logo-strip-title">Company Logo</h2>
           <div className="company-logo-strip-row">
@@ -1363,8 +1463,10 @@ export function CompanySettingsPage() {
             </button>
           </form>
         )}
+        </section>
 
         {/* Inspection Types */}
+        <section id="settings-inspections" className="hub-company-snav-section">
         <p className="hub-company-kicker">Inspection Types</p>
         {!showAddRenderer && (
           <button
@@ -1426,8 +1528,10 @@ export function CompanySettingsPage() {
             </div>
           ))
         )}
+        </section>
 
         {/* Missed-call SMS sender — admin mapping only; no provider request leaves the browser. */}
+        <section id="settings-texting" className="hub-company-snav-section">
         {!isAdmin && ENQUIRY_SURFACE_LIVE ? (
           <p className="hub-company-lede" data-sms-textback-readonly>
             {smsTextbackMemberStatus(smsTextback.enabled)}
@@ -1687,10 +1791,11 @@ export function CompanySettingsPage() {
             ) : null}
           </>
         )}
+        </section>
 
         {/* Email / SMTP Settings — admin only */}
         {isAdmin && (
-          <>
+          <section id="settings-email" className="hub-company-snav-section">
             <p className="hub-company-kicker">
               <Mail size={14} className="inline mr-2" />
               Email Settings
@@ -1831,12 +1936,12 @@ export function CompanySettingsPage() {
                 </div>
               </form>
             )}
-          </>
+          </section>
         )}
 
         {/* Registered Users — admin only */}
         {isAdmin && (
-          <>
+          <section id="settings-team" className="hub-company-snav-section">
             <p className="hub-company-kicker">
               <Users size={14} className="inline mr-2" />
               Registered Users
@@ -1875,10 +1980,11 @@ export function CompanySettingsPage() {
                 </div>
               ))
             )}
-          </>
+          </section>
         )}
 
         {/* Company details */}
+        <section id="settings-business" className="hub-company-snav-section">
         <p className="hub-company-kicker">Company Details</p>
         <form onSubmit={handleSave}>
           <div className="hub-company-row">
@@ -2087,6 +2193,7 @@ export function CompanySettingsPage() {
             {savedPay ? <><Check size={15} /> Saved</> : savingPay ? 'Saving...' : 'Save payment methods'}
           </button>
         </form>
+        </section>
           </div>
         </article>
       </div>

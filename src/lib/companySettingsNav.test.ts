@@ -1,0 +1,51 @@
+import { describe, expect, it } from 'vitest';
+import { ENQUIRY_SURFACE_LIVE } from './missedCallEnquiry';
+import {
+  COMPANY_SETTINGS_NAV_CHIP_PX,
+  COMPANY_SETTINGS_NAV_CHIPS,
+  COMPANY_SETTINGS_NAV_ROW_PX,
+  companySettingsNavChips,
+} from './companySettingsNav';
+
+describe('company settings nav chips', () => {
+  it('maps real Company Settings sections and hides Texting while the flag is off', () => {
+    expect(ENQUIRY_SURFACE_LIVE).toBe(false);
+    expect(COMPANY_SETTINGS_NAV_CHIP_PX).toBe(44);
+    expect(COMPANY_SETTINGS_NAV_ROW_PX).toBe(60);
+    expect(COMPANY_SETTINGS_NAV_CHIPS.map((chip) => chip.label)).toEqual([
+      'Invoicing & tax',
+      'Branding',
+      'Inspections',
+      'Texting',
+      'Email',
+      'Team',
+      'Business',
+    ]);
+    expect(companySettingsNavChips({ isAdmin: true }).map((chip) => chip.id)).toEqual([
+      'invoicing',
+      'branding',
+      'inspections',
+      'email',
+      'team',
+      'business',
+    ]);
+    expect(companySettingsNavChips({ isAdmin: false }).map((chip) => chip.id)).toEqual([
+      'invoicing',
+      'branding',
+      'inspections',
+      'business',
+    ]);
+    expect(companySettingsNavChips({ isAdmin: true, enquirySurfaceLive: true }).map((chip) => chip.id))
+      .toEqual([
+        'invoicing',
+        'branding',
+        'inspections',
+        'texting',
+        'email',
+        'team',
+        'business',
+      ]);
+    expect(companySettingsNavChips({ isAdmin: true }).some((chip) => chip.id === 'texting')).toBe(false);
+    expect(COMPANY_SETTINGS_NAV_CHIPS.some((chip) => chip.label === 'Accounting')).toBe(false);
+  });
+});
