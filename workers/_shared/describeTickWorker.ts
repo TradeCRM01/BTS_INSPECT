@@ -122,6 +122,32 @@ export function describeTickWorker(options: {
       expectSecretHidden(errorSpy);
     });
 
+    it('does not fetch when SUPABASE_URL is missing and logs without the secret', async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      const errorSpy = spyError();
+
+      await options.scheduled({}, { [options.secretName]: SECRET });
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(errorSpy).toHaveBeenCalled();
+      expect(loggedText(errorSpy)).toMatch(/missing SUPABASE_URL/);
+      expectSecretHidden(errorSpy);
+    });
+
+    it('does not fetch when the secret is missing and logs without the secret', async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      const errorSpy = spyError();
+
+      await options.scheduled({}, { SUPABASE_URL });
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(errorSpy).toHaveBeenCalled();
+      expect(loggedText(errorSpy)).toMatch(/missing secret/);
+      expectSecretHidden(errorSpy);
+    });
+
     it('never logs the worker secret or Authorization header', async () => {
       vi.stubGlobal(
         'fetch',
