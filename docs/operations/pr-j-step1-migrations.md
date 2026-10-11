@@ -10,18 +10,40 @@ before each apply and stop if it differs.
 Every verification query below is **read-only**. Do not `SELECT` a worker RPC
 (`claim_next_sms_message`, `process_next_missed_call_booking`, the ingest
 functions). Catalog only: `to_regclass`, `information_schema.columns`,
-`pg_proc`, `pg_policies`, `pg_trigger`, `pg_constraint`, plus
-`schema_migrations` version presence.
+`pg_proc`, `pg_policies`, `pg_trigger`, `pg_constraint`, plus the
+`schema_migrations` count and newest-name check.
 
-After each file, confirm the new version row (71 old apply-time rows stay):
+`apply_migration` records a **new apply-time** `version` (the time of the
+apply), not the author-time prefix in the file name (`20261009…`). So
+`WHERE version = '20261009000000'` (and the other nine author-time prefixes)
+returns **0 rows**. Do not treat that as a failed apply. Do **not** insert a
+row by hand and do **not** `repair` without Coach review.
+
+### What “71 old rows” means against prod’s 87
+
+Prod has **87** `schema_migrations` rows today.
+
+- **71** of those 87 are the same-name / version-mismatch set: a repo file
+  already exists in prod, but prod stored an apply-time timestamp, not the
+  author-time 14-digit prefix on the file. Those 71 rows stay. They are not
+  “87 minus the ten pending Lane 2 files.”
+- The other **16** of 87 are prod-only (9 revert-and-map, 7 keep-applied).
+
+`apply_migration` on the ten Lane 2 files adds **ten new apply-time rows**.
+Count goes **87 → 97**. It does not rewrite the 71.
+
+After each file, run this pair. Expected count is 87 + N (88 after file 1,
+…, 97 after file 10). Newest `name` matches the file name just applied.
 
 ```sql
-SELECT version
-  FROM supabase_migrations.schema_migrations
- WHERE version = '<14-digit version from the file name>';
-```
+SELECT count(*) AS n
+  FROM supabase_migrations.schema_migrations;
 
-Expected: one row. The 71 old apply-time versions are unchanged.
+SELECT version, name
+  FROM supabase_migrations.schema_migrations
+ ORDER BY version DESC
+ LIMIT 1;
+```
 
 Do not apply 053 / 056 / 057 / 058 / 060 / 062 / remap / phase_2b.
 
@@ -30,7 +52,7 @@ Do not apply 053 / 056 / 057 / 058 / 060 / 062 / remap / phase_2b.
 | # | File | sha256 | Depends on |
 | --- | --- | --- | --- |
 | 1 | `20261009000000_missed_call_bootstrap_assert.sql` | `77e1777ea670211c0a1509c611853d0b416cc729e07d311851451839b5a1789f` | live `public.companies`; `public.organisations` must be absent |
-| 2 | `20261010000000_missed_call_autobook_off.sql` | `20911e51a5eec432809a76329cbb00d75b4ed4b9e4534be08f996c6e412b127f` | file 1; existing `missed_call_sms_threads`, `missed_call_booking_commands`, inbound ingest |
+| 2 | `20261010000000_missed_call_autobook_off.sql` | `20911e51a5eec432809a76329cbb00d75b4ed4b9e4534be08f996c6e412b127f` | file 1; existing `missed_call_sms_threads`, `missed_call_booking_commands`, `missed_calls`, `organisation_twilio_senders`, `ingest_twilio_inbound_sms_ledger`, `communication_preferences`, `communication_preference_events`, `sms_messages`, `missed_call_office_reviews`, `agent_reminders`, `profiles` |
 | 3 | `20261011000000_sms_automation_settings.sql` | `a652022ac07a0717565fa0bc865396c267de038559477ef2e202e0e57803437b` | files 1–2; `companies`, `sms_messages`, `profiles`, `is_platform_operator()`, `communication_preferences`, `organisation_twilio_senders`, `agent_reminders` |
 | 4 | `20261012000000_companies_time_zone.sql` | `116296377041dd37ee8120d004cf81894a53f0397ddd92691a046d2ee0a423e9` | file 1 (`public.companies`); `pg_timezone_names` |
 | 5 | `20261013000000_sms_purpose_copy_consent.sql` | `eafa3edd918278ff8113906eb5876c006e1f63f747e5c51254cb665cdb1e8a53` | files 3 and 4 (`sms_automation_settings`, `companies.time_zone`, `is_iana_time_zone`) |
@@ -61,12 +83,18 @@ SELECT to_regclass('public.companies') AS companies,
 Expected: `companies` = `companies`. `organisations` = `NULL`.
 
 ```sql
-SELECT version
+SELECT count(*) AS n
+  FROM supabase_migrations.schema_migrations;
+
+SELECT version, name
   FROM supabase_migrations.schema_migrations
- WHERE version = '20261009000000';
+ ORDER BY version DESC
+ LIMIT 1;
 ```
 
-Expected: one row.
+Expected: `n` = **88**. Newest `name` matches
+`20261009000000_missed_call_bootstrap_assert.sql`. `version` is a new
+apply-time timestamp, not `20261009000000`.
 
 ---
 
@@ -74,8 +102,12 @@ Expected: one row.
 
 **sha256:** `20911e51a5eec432809a76329cbb00d75b4ed4b9e4534be08f996c6e412b127f`
 
-**Depends on:** file 1; existing `public.missed_call_sms_threads` and
-`public.missed_call_booking_commands`.
+**Depends on:** file 1; existing `public.missed_call_sms_threads`,
+`public.missed_call_booking_commands`, `public.missed_calls`,
+`public.organisation_twilio_senders`, `public.ingest_twilio_inbound_sms_ledger`,
+`public.communication_preferences`, `public.communication_preference_events`,
+`public.sms_messages`, `public.missed_call_office_reviews`,
+`public.agent_reminders`, `public.profiles`.
 
 **Objects:** default `qualification_required = false`; function
 `prevent_missed_call_autobook()`; trigger `prevent_missed_call_autobook` on
@@ -143,12 +175,17 @@ Expected: one row. `table_name` = `missed_call_booking_commands`.
 `definition` is `BEFORE INSERT` … `EXECUTE FUNCTION public.prevent_missed_call_autobook()`.
 
 ```sql
-SELECT version
+SELECT count(*) AS n
+  FROM supabase_migrations.schema_migrations;
+
+SELECT version, name
   FROM supabase_migrations.schema_migrations
- WHERE version = '20261010000000';
+ ORDER BY version DESC
+ LIMIT 1;
 ```
 
-Expected: one row.
+Expected: `n` = **89**. Newest `name` matches
+`20261010000000_missed_call_autobook_off.sql`.
 
 ---
 
@@ -273,12 +310,17 @@ Expected:
 | `sms_outbound_cap_used` | `p_message sms_messages, p_window interval` |
 
 ```sql
-SELECT version
+SELECT count(*) AS n
+  FROM supabase_migrations.schema_migrations;
+
+SELECT version, name
   FROM supabase_migrations.schema_migrations
- WHERE version = '20261011000000';
+ ORDER BY version DESC
+ LIMIT 1;
 ```
 
-Expected: one row.
+Expected: `n` = **90**. Newest `name` matches
+`20261011000000_sms_automation_settings.sql`.
 
 ---
 
@@ -302,7 +344,17 @@ SELECT column_name, data_type, column_default, is_nullable
 ```
 
 Expected: `data_type` = `text`. `column_default` contains `Australia/Brisbane`.
-`is_nullable` = `NO`.
+`is_nullable` = `NO`. Existing companies receive that default on `ADD COLUMN`.
+
+```sql
+SELECT count(*) AS companies,
+       count(*) FILTER (WHERE time_zone = 'Australia/Brisbane') AS brisbane,
+       count(*) FILTER (WHERE time_zone IS DISTINCT FROM 'Australia/Brisbane') AS other
+  FROM public.companies;
+```
+
+Expected: `other` = 0. `brisbane` = `companies`. Every existing row is
+`Australia/Brisbane`.
 
 ```sql
 SELECT con.conname, pg_get_constraintdef(con.oid) AS definition
@@ -328,12 +380,17 @@ SELECT p.proname,
 Expected: one row, args `p_name text`.
 
 ```sql
-SELECT version
+SELECT count(*) AS n
+  FROM supabase_migrations.schema_migrations;
+
+SELECT version, name
   FROM supabase_migrations.schema_migrations
- WHERE version = '20261012000000';
+ ORDER BY version DESC
+ LIMIT 1;
 ```
 
-Expected: one row.
+Expected: `n` = **91**. Newest `name` matches
+`20261012000000_companies_time_zone.sql`.
 
 ---
 
@@ -347,7 +404,9 @@ Expected: one row.
 **Objects:** `sms_messages.purpose` / `segments` / `payload_hash` plus checks;
 `sms_is_gsm7` and the ack/thanks/HELP body helpers; tenant-local cap windows;
 `sms_outbound_cap_used` re-signed to `(sms_messages, text, timestamptz)`
-(interval signature dropped); claim/authorize/ingest replaced.
+(interval signature dropped); claim/authorize and inbound ingest **replaced**.
+**Creates** `ingest_twilio_voice_status` (absent in prod — this is not a
+replace of an existing function).
 
 ### SELECTs
 
@@ -442,12 +501,17 @@ Expected (interval `sms_outbound_cap_used` is gone):
 | `sms_tenant_time_zone` | `p_organisation_id uuid` |
 
 ```sql
-SELECT version
+SELECT count(*) AS n
+  FROM supabase_migrations.schema_migrations;
+
+SELECT version, name
   FROM supabase_migrations.schema_migrations
- WHERE version = '20261013000000';
+ ORDER BY version DESC
+ LIMIT 1;
 ```
 
-Expected: one row.
+Expected: `n` = **92**. Newest `name` matches
+`20261013000000_sms_purpose_copy_consent.sql`.
 
 ---
 
@@ -500,12 +564,17 @@ SELECT pg_get_functiondef(p.oid) LIKE '%enquiry_help%' AS mentions_enquiry_help
 Expected: `true` for both.
 
 ```sql
-SELECT version
+SELECT count(*) AS n
+  FROM supabase_migrations.schema_migrations;
+
+SELECT version, name
   FROM supabase_migrations.schema_migrations
- WHERE version = '20261014000000';
+ ORDER BY version DESC
+ LIMIT 1;
 ```
 
-Expected: one row.
+Expected: `n` = **93**. Newest `name` matches
+`20261014000000_sms_enquiry_help.sql`.
 
 ---
 
@@ -597,12 +666,17 @@ Expected:
 | `dismiss_missed_call_enquiry` | `p_thread_id uuid, p_reason text, p_idempotency_key text` | `true` |
 
 ```sql
-SELECT version
+SELECT count(*) AS n
+  FROM supabase_migrations.schema_migrations;
+
+SELECT version, name
   FROM supabase_migrations.schema_migrations
- WHERE version = '20261015000000';
+ ORDER BY version DESC
+ LIMIT 1;
 ```
 
-Expected: one row.
+Expected: `n` = **94**. Newest `name` matches
+`20261015000000_missed_call_enquiry_draft.sql`.
 
 ---
 
@@ -653,12 +727,17 @@ Expected: one row. `definition` is
 `CHECK ((enabled IS NOT TRUE) OR public.sms_display_name_valid(business_name))`.
 
 ```sql
-SELECT version
+SELECT count(*) AS n
+  FROM supabase_migrations.schema_migrations;
+
+SELECT version, name
   FROM supabase_migrations.schema_migrations
- WHERE version = '20261016000000';
+ ORDER BY version DESC
+ LIMIT 1;
 ```
 
-Expected: one row.
+Expected: `n` = **95**. Newest `name` matches
+`20261016000000_sms_textback_admin_write.sql`.
 
 ---
 
@@ -734,12 +813,17 @@ SELECT pg_get_functiondef(p.oid) LIKE '%position(''$'' IN p_body)%' AS blocks_do
 Expected: `true`. The `$` guard rides in PR-J and blocks any `$` in custom replies.
 
 ```sql
-SELECT version
+SELECT count(*) AS n
+  FROM supabase_migrations.schema_migrations;
+
+SELECT version, name
   FROM supabase_migrations.schema_migrations
- WHERE version = '20261017000000';
+ ORDER BY version DESC
+ LIMIT 1;
 ```
 
-Expected: one row.
+Expected: `n` = **96**. Newest `name` matches
+`20261017000000_sms_reply_templates.sql`.
 
 ---
 
@@ -792,25 +876,31 @@ Expected: `def` contains `regexp_replace` and the spelled-out domain pattern
 (`d` / `o0` / `t` … `com|co|au|net|org`).
 
 ```sql
-SELECT version
+SELECT count(*) AS n
+  FROM supabase_migrations.schema_migrations;
+
+SELECT version, name
   FROM supabase_migrations.schema_migrations
- WHERE version = '20261018000000';
+ ORDER BY version DESC
+ LIMIT 1;
 ```
 
-Expected: one row.
+Expected: `n` = **97**. Newest `name` matches
+`20261018000000_sms_reply_filter_hardening.sql`.
 
 ---
 
 ## After all ten
 
 ```sql
-SELECT version
-  FROM supabase_migrations.schema_migrations
- WHERE version BETWEEN '20261009000000' AND '20261018000000'
- ORDER BY version;
+SELECT count(*) AS n
+  FROM supabase_migrations.schema_migrations;
 ```
 
-Expected: the ten author-time versions above. The 71 old apply-time rows remain.
+Expected: `n` = **97** (87 today + 10 new apply-time rows). The 71
+same-name / version-mismatch rows are still in that 97. The ten author-time
+prefixes `20261009`–`20261018` are **not** stored as `version`. No manual
+`INSERT` into `schema_migrations` and no `repair` without Coach review.
 
 ```sql
 SELECT to_regclass('public.organisations') AS organisations;

@@ -22,15 +22,16 @@ PR-J runs **one prod step at a time**. Each step needs Coach SIGN before it exec
 2. **Edge secrets** — names only in any log. Values stay in the secret store. Never print tokens.
 3. **sms-tick wrangler deploy** — reviewed manual `wrangler deploy` of `grafter-missed-call-sms-tick` only. Not booking-tick. wrangler@3 on Node 20.
 4. **Twilio webhooks** — messaging + voice-status on sender `PNb67e96dc23fa486ead392be6c92075a3` (`+61485064111`). No Messaging Service.
-5. **Flag-on build PR** — `ENQUIRY_SURFACE_LIVE = true` in a separate code PR. Vitest on the flag-on path plus frames of the Jobs **Enquiries** tab and Company Settings **Texting**. Coach SIGN on those frames before the const flip merges.
-6. **Smoke** — `+61418893602` **ONLY**: missed call, ack, reply, enquiry appears, STOP, no further texts. Test mode on. Default texts. Allowlist only.
+5. **Settings row** — one reviewed `INSERT … ON CONFLICT` via `execute_sql`, run once. See step 5.
+6. **Flag-on build PR** — `ENQUIRY_SURFACE_LIVE = true` in a separate code PR. Vitest on the flag-on path plus frames of the Jobs **Enquiries** tab and Company Settings **Texting**. Coach SIGN on those frames before the const flip merges.
+7. **Smoke** — `+61418893602` **ONLY**: missed call, ack, reply, enquiry appears, STOP, no further texts. Test mode on. Default texts. Allowlist only.
 
 ## 0. Before any apply
 
 - [ ] Baseline reconcile r5 is SIGNED. Prod `schema_migrations` matches `docs/operations/baseline-reconcile.md` (CoS proof table).
-- [ ] Repair runbook from that doc has been executed (or confirmed unnecessary). PR-J applies only the ten Lane 2 files via `apply_migration` (that records ten new version rows). The 71 old apply-time version rows stay; accept them. Do not `db push`.
+- [ ] Repair runbook from that doc has been executed (or confirmed unnecessary). PR-J applies only the ten Lane 2 files via `apply_migration`. That records **ten new apply-time** `schema_migrations` rows (count 87 → 97). The 71 same-name / version-mismatch rows are a subset of today’s 87; they stay. Do not `INSERT` into `schema_migrations` by hand. Do not `repair` without Coach review. Do not `db push`.
 - [ ] Do **not** apply 053, 056, 057, 058, 060, 062, remap, or phase_2b. Those stay PARKED as NOT-applied. No stubs. No applied marks.
-- [ ] `ENQUIRY_SURFACE_LIVE` is still the const `false` in the live build until step 5.
+- [ ] `ENQUIRY_SURFACE_LIVE` is still the const `false` in the live build until step 6.
 - [ ] No Messaging Service. Number SID `PNb67e96dc23fa486ead392be6c92075a3` (`+61485064111`) only.
 - [ ] Prod has `pg_cron` 1.6.4, 0 `cron.job` rows, and no `pg_net`. Do not enable `pg_net`. Do not insert Perth reminder `cron.job` rows.
 - [ ] Auto-booking stays off. Do not deploy `grafter-missed-call-booking-tick`. Do not set `MISSED_CALL_BOOKING_WORKER_SECRET`.
@@ -56,7 +57,11 @@ Run that file's SELECTs before the next SIGN.
 | 9 | `20261017000000_sms_reply_templates.sql` | Three default texts. |
 | 10 | `20261018000000_sms_reply_filter_hardening.sql` | Phone and `$` guards. The `$` guard rides in PR-J and blocks any `$` in custom replies. |
 
-`apply_migration` records each of these ten as a new `schema_migrations` version. It does not replace the 71 old apply-time rows. Accept those 71 rows.
+`apply_migration` records a **new apply-time** `version` per file, not the
+author-time prefix in the file name. After file 10 the count is **97**. Newest
+`name` matches the file just applied. The 71 figure is the same-name /
+version-mismatch subset of today’s 87 rows, not “87 minus ten.” No manual
+`INSERT` or `repair` without review.
 
 Do not apply any other repo file in this go-live.
 
@@ -122,7 +127,63 @@ On Incoming Phone Number `PNb67e96dc23fa486ead392be6c92075a3` (`+61485064111`):
   - `provider_sender_sid` = `PNb67e96dc23fa486ead392be6c92075a3`
   - `active` = true
 
-## 5. Flag-on build PR (Coach SIGN)
+## 5. Settings row (Coach SIGN)
+
+One reviewed `INSERT … ON CONFLICT` via `execute_sql`. Run **once**. Every
+value is set explicitly. Do not rely on table defaults for the allowlist: the
+default `test_allowlist` is `'{}'`, which **blocks the smoke test**
+(`test_mode_blocked`).
+
+`business_name` is GSM-7, 20 characters or fewer, and must be set **before**
+`enabled` is true (same statement is fine if the name is already valid). Caps
+stay placeholders until Jack confirms them.
+
+```sql
+INSERT INTO public.sms_automation_settings (
+  organisation_id,
+  enabled,
+  test_mode,
+  test_allowlist,
+  forward_from_e164,
+  business_name,
+  hourly_message_cap,
+  daily_message_cap,
+  monthly_message_cap,
+  ack_ttl_minutes
+) VALUES (
+  '<ORGANISATION_ID>'::uuid,
+  true,
+  true,
+  ARRAY['+61418893602']::text[],
+  NULL,                    -- or '<FORWARD_FROM_E164>' if needed
+  '<BUSINESS_NAME>',       -- GSM-7, 2–20 chars; required because enabled is true
+  <HOURLY>,
+  <DAILY>,
+  <MONTHLY>,
+  30
+)
+ON CONFLICT (organisation_id) DO UPDATE
+SET
+  enabled = EXCLUDED.enabled,
+  test_mode = EXCLUDED.test_mode,
+  test_allowlist = EXCLUDED.test_allowlist,
+  forward_from_e164 = EXCLUDED.forward_from_e164,
+  business_name = EXCLUDED.business_name,
+  hourly_message_cap = EXCLUDED.hourly_message_cap,
+  daily_message_cap = EXCLUDED.daily_message_cap,
+  monthly_message_cap = EXCLUDED.monthly_message_cap,
+  ack_ttl_minutes = EXCLUDED.ack_ttl_minutes,
+  updated_at = now();
+```
+
+- [ ] Coach SIGN on this `execute_sql`. Jack has confirmed `<BUSINESS_NAME>` and the three caps.
+- [ ] `test_mode` = true. Stays on.
+- [ ] `test_allowlist` = `{+61418893602}` only.
+- [ ] Default texts only. Custom ack / thanks / HELP needs Jack's OK. The `$` guard rides in PR-J and blocks any `$` in custom replies.
+
+Do not run this from this docs PR.
+
+## 6. Flag-on build PR (Coach SIGN)
 
 This is a **code PR**, not an env toggle. `ENQUIRY_SURFACE_LIVE` is a `const` in
 `src/lib/missedCallEnquiry.ts`. The production build drops the
@@ -138,17 +199,6 @@ Do not flip until the pre-flip proof exists on a flag-on preview build:
 
 Rollback of the flag is the same kind of change: set the const back to `false`
 and redeploy.
-
-## 6. Settings row (before smoke)
-
-Insert or update `sms_automation_settings` for the live company.
-
-- [ ] `business_name` set first. GSM-7. 2–20 characters. Jack's approved display name only.
-- [ ] Then `enabled`. Do not enable with a null or invalid name.
-- [ ] `test_mode` = true. Stays on.
-- [ ] `test_allowlist` = `{+61418893602}` only.
-- [ ] Caps: hourly `10`, daily `20`, monthly `300`.
-- [ ] Default texts only. Custom ack / thanks / HELP needs Jack's OK. The `$` guard rides in PR-J and blocks any `$` in custom replies.
 
 ## 7. Smoke (Coach SIGN) — `+61418893602` ONLY
 
