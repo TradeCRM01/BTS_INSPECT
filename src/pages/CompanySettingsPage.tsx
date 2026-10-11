@@ -634,7 +634,7 @@ export function CompanySettingsPage() {
       targets.includes(current) ? current : (targets[0] ?? '')
     ));
     return observeCompanySettingsSections(targets, setActiveSettingsSection);
-  }, [isAdmin]);
+  }, [isAdmin, company?.id]);
 
   // Company details
   const [name, setName] = useState(company?.name ?? '');

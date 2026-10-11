@@ -6,6 +6,7 @@ import {
   COMPANY_SETTINGS_NAV_ROW_PX,
   companySettingsNavChips,
   companySettingsNavObserveTargets,
+  companySettingsNavScrollBehavior,
 } from './companySettingsNav';
 
 describe('company settings nav chips', () => {
@@ -69,5 +70,7 @@ describe('company settings nav chips', () => {
     expect(companySettingsNavObserveTargets(companySettingsNavChips({ isAdmin: true }))).not.toContain(
       'accounting',
     );
+    expect(companySettingsNavScrollBehavior({ matches: true })).toBe('auto');
+    expect(companySettingsNavScrollBehavior({ matches: false })).toBe('smooth');
   });
 });

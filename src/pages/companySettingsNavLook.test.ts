@@ -33,7 +33,9 @@ describe('company settings nav LOOK — existing sections only', () => {
     expect(lib).toContain('settings-team');
     expect(lib).toContain('settings-business');
     expect(lib).toContain('IntersectionObserver');
-    expect(lib).toContain("behavior: 'smooth'");
+    expect(lib).toContain("prefers-reduced-motion: reduce");
+    expect(lib).toContain("companySettingsNavScrollBehavior");
+    expect(page).toContain('company?.id');
     expect(page).toContain('data-settings-nav="1"');
     expect(page).toContain('data-settings-chip={chip.id}');
     expect(page).toContain('aria-current={current ? \'true\' : undefined}');

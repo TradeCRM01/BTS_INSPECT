@@ -45,8 +45,19 @@ export function companySettingsNavChips(input: {
   });
 }
 
+export function companySettingsNavScrollBehavior(
+  media: Pick<MediaQueryList, 'matches'> | null = typeof window === 'undefined'
+    ? null
+    : window.matchMedia('(prefers-reduced-motion: reduce)'),
+): ScrollBehavior {
+  return media?.matches ? 'auto' : 'smooth';
+}
+
 export function scrollCompanySettingsSection(target: string): void {
-  document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById(target)?.scrollIntoView({
+    behavior: companySettingsNavScrollBehavior(),
+    block: 'start',
+  });
 }
 
 export function observeCompanySettingsSections(
