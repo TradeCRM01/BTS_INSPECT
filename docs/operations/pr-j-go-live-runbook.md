@@ -9,10 +9,12 @@ Allowlist stays `+61418893602` only. Default texts only. Custom wording needs Ja
 
 ## 0. Before any apply
 
-- [ ] Baseline reconcile is SIGNED. Prod `schema_migrations` matches the table in `docs/operations/baseline-reconcile.md`.
-- [ ] Repair runbook from that doc has been executed (or confirmed unnecessary) so apply will see only `20261009`–`20261018`.
-- [ ] `ENQUIRY_SURFACE_LIVE` is still `false` in the live build.
+- [ ] Baseline reconcile r2 is SIGNED. Prod `schema_migrations` matches `docs/operations/baseline-reconcile.md` (CoS proof table).
+- [ ] Repair runbook from that doc has been executed (or confirmed unnecessary). PR-J still applies only the ten Lane 2 files via `apply_migration`. Do not `db push`.
+- [ ] Do **not** apply 053, 056, 057, 058, 062, remap, or phase_2b. Those stay pending for Coach (or are no-op stubs).
+- [ ] `ENQUIRY_SURFACE_LIVE` is still the const `false` in the live build.
 - [ ] No Messaging Service. Number SID `PNb67e96dc23fa486ead392be6c92075a3` (`+61485064111`) only.
+- [ ] `cron.job` dump from `docs/operations/baseline-catalog-queries.sql` has been read. Perth jobs call `invoke_job_client_reminders()`, not the missing `send_due_*` functions.
 
 ## 1. Apply order (one reviewed file, Coach SIGN, `apply_migration`)
 
@@ -31,7 +33,7 @@ Apply these ten files in this order. One file per SIGN. Stop if a file fails.
 | 9 | `20261017000000_sms_reply_templates.sql` | Three default texts. |
 | 10 | `20261018000000_sms_reply_filter_hardening.sql` | Phone and `$` guards. |
 
-Do not apply any other repo file in this go-live.
+Do not apply any other repo file in this go-live. That includes 053 / 056 / 057 / 058 / 062 (NOT in prod: Coach decides apply or stub) and the two organisations-stack no-op stubs.
 
 ## 2. Edge secret names only
 
@@ -91,12 +93,16 @@ Insert or update `sms_automation_settings` for the live company.
 
 ## 7. Flag flip (`ENQUIRY_SURFACE_LIVE`)
 
-The live Pages build currently drops the flag-off branch. Do not flip until the pre-flip proof exists.
+This is a **code PR**, not an env toggle. `ENQUIRY_SURFACE_LIVE` is a `const` in `src/lib/missedCallEnquiry.ts`. The production build drops the `|| ENQUIRY_SURFACE_LIVE` OR (dead-code elimination while the const is `false`), so the live bundle never takes the flag-on branch. Flipping means changing that const to `true` and deploying that commit.
 
-- [ ] Vitest on the flag-on path (Enquiries surface and Texting chip / replies) is green.
-- [ ] Flag-on preview build frames: Enquiries tab, and Company Settings Texting.
+Do not flip until the pre-flip proof exists on a flag-on preview build (const set `true` in that preview only):
+
+- [ ] Vitest on the flag-on path (Enquiries surface and Texting) is green.
+- [ ] Flag-on preview frames prove the output: Jobs **Enquiries** tab, and Company Settings **Texting** (missed-call text-back + replies).
 - [ ] Coach SIGN on those frames.
-- [ ] Then flip `ENQUIRY_SURFACE_LIVE` to `true` in a reviewed deploy.
+- [ ] Then merge the const flip in a reviewed deploy.
+
+Rollback of the flag is the same kind of change: set the const back to `false` and redeploy.
 
 ## 8. Smoke
 
@@ -107,7 +113,7 @@ The live Pages build currently drops the flag-off branch. Do not flip until the 
 ## 9. Rollback
 
 - [ ] Set `sms_automation_settings.enabled` = false.
-- [ ] Set `ENQUIRY_SURFACE_LIVE` = false and redeploy.
+- [ ] Set the `ENQUIRY_SURFACE_LIVE` const back to `false` and redeploy (code PR; the live build drops the OR while it is false).
 - [ ] Pause both worker schedules.
 - [ ] Set the sender `active` = false.
 - [ ] Leave the ten applied files in place unless Coach SIGN asks for a revert of a specific version (`repair --status reverted` then a reviewed follow-up). Do not `db reset` prod.
