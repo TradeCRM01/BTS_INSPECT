@@ -23,12 +23,13 @@ describe('company settings nav chips', () => {
       'Company',
       'Accounting',
     ]);
-    expect(COMPANY_SETTINGS_NAV_CHIPS.at(-1)).toMatchObject({
+    const lastChip = COMPANY_SETTINGS_NAV_CHIPS[COMPANY_SETTINGS_NAV_CHIPS.length - 1];
+    expect(lastChip).toMatchObject({
       id: 'accounting',
       label: 'Accounting',
       href: '/settings/accounting',
     });
-    expect(COMPANY_SETTINGS_NAV_CHIPS.at(-1)?.target).toBeUndefined();
+    expect(lastChip?.target).toBeUndefined();
     expect(companySettingsNavChips({ isAdmin: true }).map((chip) => chip.id)).toEqual([
       'invoicing',
       'branding',
