@@ -108,7 +108,7 @@ Each tick POSTs one of:
 - `https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/missed-call-sms-worker`
 - `https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/missed-call-booking-worker`
 
-with `Authorization: Bearer` from that Worker's secret. At most one item per tick (the edge function already enforces that). A `2xx` completes the tick. Retry transport errors and `5xx` on the **next** minute, not in a tight loop.
+with `Authorization: Bearer` from that Worker's secret. At most one item per tick (the edge function already enforces that). Throughput is one item per minute per worker, which is fine for the pilot. A `2xx` completes the tick. Retry transport errors and `5xx` on the **next** minute, not in a tight loop.
 
 ### PR-J deploy (after PR-W merges — Coach SIGN)
 

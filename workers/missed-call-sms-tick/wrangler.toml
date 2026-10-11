@@ -1,0 +1,13 @@
+# Cloudflare Cron Trigger for missed-call-sms-worker.
+# Deploy with wrangler@3 on Node 20 (wrangler 4 needs Node 22).
+# No deploy from this PR. Bind secrets later with `wrangler secret put` (names only):
+#   MISSED_CALL_SMS_WORKER_SECRET
+name = "grafter-missed-call-sms-tick"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+SUPABASE_URL = "https://ezszahvwwmbuekpedumf.supabase.co"
