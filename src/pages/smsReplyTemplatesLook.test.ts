@@ -34,6 +34,7 @@ describe('sms reply templates LOOK — existing company settings section', () =>
     expect(page).toContain('is-refused');
     expect(page).toContain('#B42318');
     expect(lib).toContain('SMS_REPLY_FORBIDDEN');
+    expect(lib).toContain('Remove booked, quote, price, today, $ and the other blocked words.');
     expect(lib).toContain('{Business}');
     expect(lib).toContain('Reply STOP to opt out');
     expect(lib).toContain('START to opt back in');
