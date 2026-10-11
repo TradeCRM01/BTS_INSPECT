@@ -404,3 +404,32 @@ Org-stack no-op stubs — not PR-J, not marked applied:
 
 - `20260921020000_tradecrm_organisation_remap`
 - `20260921043000_missed_call_phase_2b`
+
+## Gates (r2)
+
+- `tsc --noEmit`: 181 (baseline, unchanged)
+- vitest: 19 failed | 241 passed (260 files). Same 19 as main. Not a regression from this PR.
+- `npm run build`: ok
+- Local reset + `test:sms-db`: `RESET_EXIT=0`, `SMS_DB_EXIT=0`
+
+The 19 vitest fails (look / wiring / theme, pre-existing):
+
+1. `src/pages/dashboardLaptopLook.test.ts`
+2. `src/pages/quoteInvoiceSendNextLook.test.ts`
+3. `src/pages/quotesEditorTheme.test.ts`
+4. `src/lib/formFieldFit.test.ts`
+5. `src/lib/inspectionsList.test.ts`
+6. `src/lib/invoiceSendClientEmail.test.ts`
+7. `src/lib/invoiceSendClientPhone.test.ts`
+8. `src/lib/invoiceSheetClientEmail.test.ts`
+9. `src/lib/invoiceSheetClientPhone.test.ts`
+10. `src/lib/jobReminder.test.ts`
+11. `src/lib/jobReminderClientAttach.test.ts`
+12. `src/lib/pageAudit.test.ts`
+13. `src/lib/quoteSendClientEmail.test.ts`
+14. `src/lib/quoteSendClientPhone.test.ts`
+15. `src/lib/quoteSendClientWrite.test.ts`
+16. `src/lib/sendInvoiceDeliver.test.ts`
+17. `src/lib/sendReportDeliver.test.ts`
+18. `src/reports/jha/compose.test.ts`
+19. `src/reports/take5/theme.test.ts`
