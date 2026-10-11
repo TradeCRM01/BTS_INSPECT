@@ -104,15 +104,21 @@ where organisation_id = 'ORGANISATION_UUID'
 
 ## 4. Schedule the two queue workers
 
-Use one trusted scheduler and two jobs. A practical starting pattern is once
-per minute for each endpoint:
+Named scheduler, owner, and creation steps live in
+`docs/operations/pr-j-go-live-runbook.md` section 5: Cloudflare Cron Triggers
+on Jack's Cloudflare account (Pages project `bts-inspect`). Coach SIGN before
+create. Not `pg_cron` + `pg_net`. Workers are not dashboard-only: after #368,
+PR-W adds `workers/missed-call-sms-tick` and `workers/missed-call-booking-tick`;
+PR-J deploys with a reviewed manual `wrangler deploy`.
+
+Pattern (one POST per minute, secret names only):
 
 ```text
 * * * * *  POST https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/missed-call-sms-worker
-             Authorization: Bearer SMS_WORKER_RANDOM_SECRET
+             Authorization: Bearer MISSED_CALL_SMS_WORKER_SECRET
 
 * * * * *  POST https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/missed-call-booking-worker
-             Authorization: Bearer BOOKING_WORKER_DIFFERENT_RANDOM_SECRET
+             Authorization: Bearer MISSED_CALL_BOOKING_WORKER_SECRET
 ```
 
 Keep the secrets different. Each invocation processes at most one item, so a
