@@ -1,21 +1,23 @@
-# Baseline reconcile r3
+# Baseline reconcile r4
 
-Source of truth: CoS per-file proof (`uploads/368-baseline-proof.md`, prod
+Source of truth: CoS per-file proof (`docs/operations/368-baseline-proof.md`, prod
 `ezszahvwwmbuekpedumf`, 2026-10-11 ~21:30 AEST) plus the r3 catalog capture
-(`uploads/368-catalog-capture.md`, 18 read-only SELECTs). No prod writes. Repair
+(`docs/operations/368-catalog-capture.md`, 18 read-only SELECTs). No prod writes. Repair
 commands below are a runbook only. Do not execute them from this PR.
+
+r4 is docs only. Migration files are unchanged from r3 (`1d24d49e`). No new RAW log.
 
 ## Counts
 
 - Prod rows: 87
-- Repo files after r3: 133 (126 + 7 keep-applied catalog stubs; 2 org-stack files are no-op stubs at the same versions)
+- Repo files: 133 (126 + 7 keep-applied catalog stubs; 2 org-stack files are no-op stubs at the same versions)
 - Exact version+name match: 7 keep-applied stubs at the prod timestamps
-- Same name, version mismatch: 71 (all PROVEN or N/A comment-only)
+- Same name, version mismatch: 71 (all PROVEN or N/A comment-only). Accept these 71 old prod version rows; `apply_migration` in PR-J only records the ten new Lane 2 versions.
 - Same version, name mismatch: 0
 - Prod-only: 16 (9 revert-and-map, 7 keep-applied + stub)
-- Repo-only non-pending on r1: 45 (38 PROVEN, 7 MISSING)
+- Repo-only non-pending on r1: 45 = **37 PROVEN** + **1 PARTIAL** (060) + **7 MISSING**
 - Pending Lane 2 (do not repair): 10 (`20261009`–`20261018`)
-- Pending MISSING, Coach decides (do not repair, do not apply in PR-J): 5 (053 / 056 / 057 / 058 / 062)
+- Pending Coach decides (do not repair, do not apply in PR-J): 6 (053 / 056 / 057 / 058 / 060 PARTIAL / 062)
 - Pending org-stack no-op stubs (do not repair, do not apply in PR-J): 2 (remap / phase_2b)
 
 ## What r2 changed in the repo
@@ -36,6 +38,16 @@ Filled the seven keep-applied stubs from the catalog capture. Definitions are co
 - `20260919115303_save_job_dispatch_clock_semantics` — `dispatch_json_clock` and `dispatch_time_to_minutes` from `pg_get_functiondef` verbatim.
 - `20260911152122_reminders_visibility_tags_tick_only` — `agent_reminders_tagged_tick_only()` plus its trigger, guarded.
 - `20260903103230_072_member_tickets_due_invoke` — stays `SELECT 1`. Catalog 5a / 5b / 5c are empty: prod has no ticket function and no `cron.job` row.
+
+## What r4 changed in the repo
+
+Docs only. No SQL.
+
+- PR-J worker schedules named: Cloudflare Cron Triggers on the Pages account. Not `pg_cron` + `pg_net`.
+- `060_inspection_due_reminder_autofire` reclassified **PARTIAL** (SQL objects present; Perth `cron.job` rows absent). Coach decision list with 053–062.
+- Proof and catalog capture live under `docs/operations/` (no `uploads/` paths).
+- GRANTs on the seven stubs were not compared. Read-only check listed below.
+- After PR-J, `apply_migration` records the ten new versions; the 71 old apply-time rows stay and are accepted.
 
 ## Proof table
 
@@ -137,9 +149,9 @@ Filled the seven keep-applied stubs from the catalog capture. Definitions are co
 | repo-only | 20260814115005 | profile_saved_signature.sql |  | PROVEN | 1 | 0 |  |
 | repo-only | 20260820120000 | 055_invoice_source_quote_unique.sql |  | PROVEN | 3 | 0 |  |
 | repo-only | 20260821120000 | 056_job_client_reminder.sql |  | MISSING | 0 | 0 | jobs.client_reminder_sent_at + idx_jobs_company_scheduled_date absent |
-| repo-only | 20260821133000 | 057_job_reminder_cron.sql |  | MISSING | 1 | 0 | jobs.client_reminder_sent_for_date absent (cron job not verifiable: cron.job outside allowed catalogs) |
+| repo-only | 20260821133000 | 057_job_reminder_cron.sql |  | MISSING | 1 | 0 | jobs.client_reminder_sent_for_date absent; cron.job has 0 rows |
 | repo-only | 20260821150000 | 058_job_reminder_autofire.sql |  | MISSING | 1 | 0 | send_due_job_client_reminders() absent |
-| repo-only | 20260821170000 | 060_inspection_due_reminder_autofire.sql |  | PROVEN | 1 | 1 |  |
+| repo-only | 20260821170000 | 060_inspection_due_reminder_autofire.sql |  | PARTIAL | 1 | 1 | SQL objects present; Perth cron jobs (`job-client-reminder-perth-morning` / `afternoon`) absent (`cron.job` has 0 rows) |
 | repo-only | 20260821190000 | 061_invoice_chased_at.sql |  | PROVEN | 1 | 0 |  |
 | repo-only | 20260821200000 | 062_job_reminder_edge_autofire.sql |  | MISSING | 1 | 0 | send_due_job_client_reminders()/send_due_inspection_reminders() absent; invoke_job_client_reminders exists |
 | repo-only | 20260821210000 | 063_overdue_invoice_chase_autofire.sql |  | PROVEN | 1 | 0 |  |
@@ -171,21 +183,22 @@ Filled the seven keep-applied stubs from the catalog capture. Definitions are co
 | pending | 20261018000000 | sms_reply_filter_hardening.sql |  | ABSENT (correct) | 0 | 0 | new objects absent: sms_reply_has_forbidden_word, sms_reply_has_link_or_phone |
 
 
-## P1-1 — seven MISSING files, do not mark applied
+## P1-1 — MISSING / PARTIAL files, do not mark applied
 
-These were in the r1 "mark applied" list. Prod does not have their objects.
+These were in the r1 "mark applied" list (060 was in the r2 PROVEN list). Do not mark them applied. Do not apply them in PR-J.
 
-| Repo version | File | Missing in prod | Action |
-| --- | --- | --- | --- |
-| 20260807190000 | 053_stc_zone_ranges | `stc_zones`, `stc_zone_ranges` | **NOT in prod: needs a reviewed apply or a stub.** Coach decides. Leave pending. Do not apply in PR-J. |
-| 20260821120000 | 056_job_client_reminder | `jobs.client_reminder_sent_at`, `idx_jobs_company_scheduled_date` | **NOT in prod: needs a reviewed apply or a stub.** Coach decides. Leave pending. Do not apply in PR-J. |
-| 20260821133000 | 057_job_reminder_cron | `jobs.client_reminder_sent_for_date` (cron.job was out of scope in the first pass) | **NOT in prod: needs a reviewed apply or a stub.** Coach decides. Leave pending. Do not apply in PR-J. |
-| 20260821150000 | 058_job_reminder_autofire | `send_due_job_client_reminders()` | **NOT in prod: needs a reviewed apply or a stub.** Coach decides. Leave pending. Do not apply in PR-J. |
-| 20260821200000 | 062_job_reminder_edge_autofire | `send_due_job_client_reminders()`, `send_due_inspection_reminders()` (`invoke_job_client_reminders` exists) | **NOT in prod: needs a reviewed apply or a stub.** Coach decides. Leave pending. Do not apply in PR-J. |
-| 20260921020000 | tradecrm_organisation_remap | `public.job_visits` + policy + 3 indexes | No-op stub in place. Original held. Do not mark applied. Do not apply in PR-J. |
-| 20260921043000 | missed_call_phase_2b | `jobs_organisation_id_key`, `agent_reminders_organisation_id_key` | No-op stub in place. Original held. Do not mark applied. Do not apply in PR-J. |
+| Repo version | File | Status | Missing / partial in prod | Action |
+| --- | --- | --- | --- | --- |
+| 20260807190000 | 053_stc_zone_ranges | MISSING | `stc_zones`, `stc_zone_ranges` | **NOT in prod: needs a reviewed apply or a stub.** Coach decides. Leave pending. |
+| 20260821120000 | 056_job_client_reminder | MISSING | `jobs.client_reminder_sent_at`, `idx_jobs_company_scheduled_date` | **NOT in prod: needs a reviewed apply or a stub.** Coach decides. Leave pending. |
+| 20260821133000 | 057_job_reminder_cron | MISSING | `jobs.client_reminder_sent_for_date`; `cron.job` has 0 rows | **NOT in prod: needs a reviewed apply or a stub.** Coach decides. Leave pending. |
+| 20260821150000 | 058_job_reminder_autofire | MISSING | `send_due_job_client_reminders()` | **NOT in prod: needs a reviewed apply or a stub.** Coach decides. Leave pending. |
+| 20260821170000 | 060_inspection_due_reminder_autofire | PARTIAL | SQL objects present; Perth `cron.job` rows absent (`cron.job` has 0 rows) | **PARTIAL: needs a reviewed apply of the cron half, or a stub.** Coach decides. Leave pending. Applying the file would insert Perth `cron.job` rows. |
+| 20260821200000 | 062_job_reminder_edge_autofire | MISSING | `send_due_job_client_reminders()`, `send_due_inspection_reminders()` (`invoke_job_client_reminders` exists) | **NOT in prod: needs a reviewed apply or a stub.** Coach decides. Leave pending. |
+| 20260921020000 | tradecrm_organisation_remap | MISSING | `public.job_visits` + policy + 3 indexes | No-op stub in place. Original held. Do not mark applied. |
+| 20260921043000 | missed_call_phase_2b | MISSING | `jobs_organisation_id_key`, `agent_reminders_organisation_id_key` | No-op stub in place. Original held. Do not mark applied. |
 
-PR-J apply order stays the ten Lane 2 files only. Do not add these seven.
+PR-J apply order stays the ten Lane 2 files only. Do not add these.
 
 ## P1-2 — sixteen prod-only versions
 
@@ -221,11 +234,38 @@ Do not revert. Repo files exist at the prod timestamps. r3 filled them from the 
 | 20260919114909 | save_job_dispatch_clear_times | later redefinition of `save_job_dispatch` | `SELECT 1` — live body already at 20411 |
 | 20260919115303 | save_job_dispatch_clock_semantics | `dispatch_json_clock`, `dispatch_time_to_minutes` | filled, `pg_get_functiondef` verbatim |
 
-Read-only capture: `docs/operations/baseline-catalog-queries.sql`. Output: `uploads/368-catalog-capture.md`.
+Read-only capture: `docs/operations/baseline-catalog-queries.sql`. Output: `docs/operations/368-catalog-capture.md`.
 
-## P1-3 — 38 PROVEN repo-only (replace the r1 blanket 45)
+GRANTs on these seven stubs were **not** compared. Catalog capture did not include `information_schema.role_table_grants` or `routine_privileges`. Before treating the stubs as privilege-complete, Coach runs this read-only check:
 
-Mark these applied so a later apply does not replay live objects. Each row is PROVEN in the CoS table.
+```sql
+SELECT grantee, table_schema, table_name, privilege_type
+FROM information_schema.role_table_grants
+WHERE table_schema = 'public'
+  AND table_name IN (
+    'staff_hours',
+    'dispatch_resources',
+    'dispatch_events',
+    'dispatch_skills',
+    'dispatch_member_qualifications'
+  )
+ORDER BY table_name, grantee, privilege_type;
+
+SELECT grantee, routine_schema, routine_name, privilege_type
+FROM information_schema.routine_privileges
+WHERE routine_schema = 'public'
+  AND routine_name IN (
+    'save_job_dispatch',
+    'dispatch_json_clock',
+    'dispatch_time_to_minutes',
+    'agent_reminders_tagged_tick_only'
+  )
+ORDER BY routine_name, grantee, privilege_type;
+```
+
+## P1-3 — 37 PROVEN repo-only (replace the r1 blanket 45; 060 is PARTIAL)
+
+Mark these applied so a later apply does not replay live objects. Each row is PROVEN. 060 is PARTIAL and is not in this list.
 
 - `supabase migration repair --status applied 20260806100000` — 042_stock_transfer_movement (PROVEN)
 - `supabase migration repair --status applied 20260807041903` — profile_schedule_color (PROVEN)
@@ -248,7 +288,6 @@ Mark these applied so a later apply does not replay live objects. Each row is PR
 - `supabase migration repair --status applied 20260814112005` — jha_reports_storage_upsert (PROVEN)
 - `supabase migration repair --status applied 20260814115005` — profile_saved_signature (PROVEN)
 - `supabase migration repair --status applied 20260820120000` — 055_invoice_source_quote_unique (PROVEN)
-- `supabase migration repair --status applied 20260821170000` — 060_inspection_due_reminder_autofire (PROVEN)
 - `supabase migration repair --status applied 20260821190000` — 061_invoice_chased_at (PROVEN)
 - `supabase migration repair --status applied 20260821210000` — 063_overdue_invoice_chase_autofire (PROVEN)
 - `supabase migration repair --status applied 20260821220000` — 064_logos_delete_policy (PROVEN)
@@ -266,13 +305,15 @@ Mark these applied so a later apply does not replay live objects. Each row is PR
 - `supabase migration repair --status applied 20260923010000` — organisation_twilio_sender_admin_write (PROVEN; maps prod-only organisation_twilio_senders_for_live_app)
 - `supabase migration repair --status applied 20261006230000` — 087_invoice_payments_update_rls (PROVEN)
 
-Do **not** add 053, 056, 057, 058, 062, remap, or phase_2b to this list.
+Do **not** add 053, 056, 057, 058, 060, 062, remap, or phase_2b to this list.
 
 ## Repair runbook (do not execute from this PR)
 
+PR-J applies the ten Lane 2 files with `apply_migration`. That command records **new** `schema_migrations` rows (author-time `20261009`–`20261018`). It does not rewrite or drop the 71 existing prod rows whose versions are apply-time timestamps. **Accept those 71 old version rows.** The `--status applied` lines below add the matching repo author-time versions so a later apply does not replay the SQL. They do not replace the old rows.
+
 ### `--status applied` — 71 version-mismatch (name match)
 
-Prod already applied the same name under an apply-time timestamp. Mark the repo author-time version applied.
+Prod already applied the same name under an apply-time timestamp. Mark the repo author-time version applied. Leave the 71 old prod version rows in place.
 
 - `supabase migration repair --status applied 20260426023532` — 001_companies_and_profiles already live as prod `20260806002256` (PROVEN)
 - `supabase migration repair --status applied 20260426023557` — 002_templates_inspections_photos_reports already live as prod `20260806002405` (PROVEN)
@@ -362,15 +403,15 @@ Only after Coach SIGN, and only for one of the five stc/reminder files (or a stu
 supabase migration repair --status reverted <version>
 ```
 
-is **not** used for those five now — they were never applied. A later SIGN can `apply_migration` one reviewed file, or replace it with a stub.
+is **not** used for those five now — they were never applied. A later SIGN can `apply_migration` one reviewed file, or replace it with a stub. 060 is PARTIAL (objects present, cron absent) and stays off this revert path too.
 
 ## cron.job check
 
-Catalog capture query 0 returned `[]`. **Prod has zero `cron.job` rows.** Queries 5a / 5b / 5c are also empty: no ticket/due-invoke function and no ticket cron row.
+Catalog capture query 0 returned `[]`. **Prod has `pg_cron` 1.6.4, zero `cron.job` rows, and no `pg_net`.** Queries 5a / 5b / 5c are also empty: no ticket/due-invoke function and no ticket cron row.
 
-The PR-J worker schedules (`missed-call-sms-worker` and `missed-call-booking-worker`, one-minute cadence, edge functions — not `pg_cron`) will be the first scheduled jobs on this project. Do not add Perth reminder `cron.job` rows in PR-J.
+PR-J does **not** insert `cron.job` rows. The worker ticks are Cloudflare Cron Triggers (see `docs/operations/pr-j-go-live-runbook.md` section 5). That is the fewest prod-change option: zero extension writes, zero `cron.job` inserts. `pg_cron` + `net.http_post` would need `CREATE EXTENSION pg_net` as an explicit reviewed prod write plus two `cron.schedule` inserts. Do not do that in PR-J. Do not add Perth reminder `cron.job` rows.
 
-Repo files that call `cron.schedule` (057 / 058 / 060 / 062) are still MISSING or, for 060, PROVEN for SQL objects only. None of those job names exist in prod:
+Repo files that call `cron.schedule` (057 / 058 / 060 / 062) are MISSING or, for 060, **PARTIAL**. None of those job names exist in prod (`cron.job` has 0 rows):
 
 | jobname | schedule | 057 command | 058 command | 060 command | 062 command |
 | --- | --- | --- | --- | --- | --- |
@@ -400,12 +441,13 @@ Lane 2 — PR-J apply_migration only:
 - `20261017000000_sms_reply_templates`
 - `20261018000000_sms_reply_filter_hardening`
 
-MISSING, Coach decides — not PR-J:
+MISSING / PARTIAL, Coach decides — not PR-J:
 
 - `20260807190000_053_stc_zone_ranges`
 - `20260821120000_056_job_client_reminder`
 - `20260821133000_057_job_reminder_cron`
 - `20260821150000_058_job_reminder_autofire`
+- `20260821170000_060_inspection_due_reminder_autofire` (PARTIAL)
 - `20260821200000_062_job_reminder_edge_autofire`
 
 Org-stack no-op stubs — not PR-J, not marked applied:
@@ -413,12 +455,13 @@ Org-stack no-op stubs — not PR-J, not marked applied:
 - `20260921020000_tradecrm_organisation_remap`
 - `20260921043000_missed_call_phase_2b`
 
-## Gates (r2)
+## Gates (r4 — docs only, no new log)
 
-- `tsc --noEmit`: 181 (baseline, unchanged)
+r3 RAW log still stands (`1d24d49e`, md5 `fd893396fb71b02b84bf2d26e8210ec3`). r4 does not change migrations, so no second tee.
+
+- `tsc --noEmit`: unchanged (181)
 - vitest: 19 failed | 241 passed (260 files). Same 19 as main. Not a regression from this PR.
 - `npm run build`: ok
-- Local reset + `test:sms-db`: `RESET_EXIT=0`, `SMS_DB_EXIT=0`
 
 The 19 vitest fails (look / wiring / theme, pre-existing):
 

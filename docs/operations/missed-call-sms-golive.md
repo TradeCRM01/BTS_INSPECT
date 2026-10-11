@@ -104,8 +104,12 @@ where organisation_id = 'ORGANISATION_UUID'
 
 ## 4. Schedule the two queue workers
 
-Use one trusted scheduler and two jobs. A practical starting pattern is once
-per minute for each endpoint:
+Named scheduler, owner, and creation steps live in
+`docs/operations/pr-j-go-live-runbook.md` section 5: Cloudflare Cron Triggers
+on the `bts-inspect` Pages account (Building Technology Solutions Pty Ltd).
+Coach SIGN before create. Not `pg_cron` + `pg_net`.
+
+Pattern (one POST per minute, secrets named only):
 
 ```text
 * * * * *  POST https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/missed-call-sms-worker

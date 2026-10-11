@@ -9,12 +9,12 @@ Allowlist stays `+61418893602` only. Default texts only. Custom wording needs Ja
 
 ## 0. Before any apply
 
-- [ ] Baseline reconcile r3 is SIGNED. Prod `schema_migrations` matches `docs/operations/baseline-reconcile.md` (CoS proof table).
-- [ ] Repair runbook from that doc has been executed (or confirmed unnecessary). PR-J still applies only the ten Lane 2 files via `apply_migration`. Do not `db push`.
-- [ ] Do **not** apply 053, 056, 057, 058, 062, remap, or phase_2b. Those stay pending for Coach (or are no-op stubs).
+- [ ] Baseline reconcile r4 is SIGNED. Prod `schema_migrations` matches `docs/operations/baseline-reconcile.md` (CoS proof table).
+- [ ] Repair runbook from that doc has been executed (or confirmed unnecessary). PR-J applies only the ten Lane 2 files via `apply_migration` (that records ten new version rows). The 71 old apply-time version rows stay; accept them. Do not `db push`.
+- [ ] Do **not** apply 053, 056, 057, 058, 060, 062, remap, or phase_2b. Those stay pending for Coach (or are no-op stubs). 060 is PARTIAL.
 - [ ] `ENQUIRY_SURFACE_LIVE` is still the const `false` in the live build.
 - [ ] No Messaging Service. Number SID `PNb67e96dc23fa486ead392be6c92075a3` (`+61485064111`) only.
-- [ ] Prod `cron.job` is empty (catalog capture query 0). The PR-J worker schedules in section 5 will be the first scheduled jobs. Do not add Perth reminder `pg_cron` rows.
+- [ ] Prod has `pg_cron` 1.6.4, 0 `cron.job` rows, and no `pg_net`. Do not enable `pg_net`. Do not insert Perth reminder `cron.job` rows. Worker ticks are section 5 (Cloudflare Cron Triggers).
 
 ## 1. Apply order (one reviewed file, Coach SIGN, `apply_migration`)
 
@@ -33,7 +33,9 @@ Apply these ten files in this order. One file per SIGN. Stop if a file fails.
 | 9 | `20261017000000_sms_reply_templates.sql` | Three default texts. |
 | 10 | `20261018000000_sms_reply_filter_hardening.sql` | Phone and `$` guards. |
 
-Do not apply any other repo file in this go-live. That includes 053 / 056 / 057 / 058 / 062 (NOT in prod: Coach decides apply or stub) and the two organisations-stack no-op stubs.
+`apply_migration` records each of these ten as a new `schema_migrations` version. It does not replace the 71 old apply-time rows. Accept those 71 rows.
+
+Do not apply any other repo file in this go-live. That includes 053 / 056 / 057 / 058 / 060 (PARTIAL) / 062 (Coach decides apply or stub) and the two organisations-stack no-op stubs.
 
 ## 2. Edge secret names only
 
@@ -72,15 +74,62 @@ On Incoming Phone Number `PNb67e96dc23fa486ead392be6c92075a3` (`+61485064111`):
   - `active` = true
 - [ ] No Messaging Service.
 
-## 5. Worker schedules
+## 5. Worker schedules (reviewed step — Coach SIGN)
 
-Prod has zero `cron.job` rows. These two edge-function schedules will be the first jobs on the project. They are not `pg_cron`.
+**Scheduler:** Cloudflare Cron Triggers.  
+**Owner:** the Cloudflare account that already owns Pages project `bts-inspect` (deploys `bts-inspect.pages.dev` / `grafter.com.au`). Operator: Building Technology Solutions Pty Ltd.
 
-One trusted scheduler. Two jobs. Different secrets. At most one item per tick.
+This is a reviewed prod-adjacent step. **Do not create the Workers until Coach SIGN.** This PR does not create them.
 
-- [ ] `POST https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/missed-call-sms-worker` with `Authorization: Bearer <MISSED_CALL_SMS_WORKER_SECRET>` on a one-minute cadence.
-- [ ] `POST https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/missed-call-booking-worker` with `Authorization: Bearer <MISSED_CALL_BOOKING_WORKER_SECRET>` on a one-minute cadence.
-- [ ] Scheduler logs omit headers, bodies, and phone numbers.
+### Why not `pg_cron` + `net.http_post`
+
+Prod already has `pg_cron` 1.6.4, **0** `cron.job` rows, and **no** `pg_net`. Wiring the ticks through `cron.schedule` + `net.http_post` would need:
+
+1. `CREATE EXTENSION pg_net` — explicit reviewed prod write, listed in the apply order if that path is ever chosen
+2. Two `cron.schedule` inserts
+
+That is three prod writes. Cloudflare Cron Triggers need **zero** catalog, extension, or `cron.job` writes. Fewest prod changes. GitHub Actions `schedule` is already how Pages deploys (`deploy-pages.yml`) but cannot hold a reliable one-minute cadence, so it is not the worker scheduler.
+
+If Coach later picks `pg_cron` + `net.http_post` instead, stop and add `enable pg_net` as its own SIGN'd apply step before any `cron.schedule`. Do not do that in this go-live.
+
+### Create (after Coach SIGN)
+
+Two Workers, so the secrets stay different and a fault on one tick does not skip the other.
+
+1. Cloudflare dashboard → Workers & Pages → Create → Worker. Name `grafter-missed-call-sms-tick`.
+2. Repeat for `grafter-missed-call-booking-tick`.
+3. Each Worker → Settings → Triggers → Cron Triggers → Add: `* * * * *`.
+4. Each Worker → Settings → Variables and Secrets → Encrypt. Names only:
+   - `grafter-missed-call-sms-tick` gets `MISSED_CALL_SMS_WORKER_SECRET`
+   - `grafter-missed-call-booking-tick` gets `MISSED_CALL_BOOKING_WORKER_SECRET`
+   Values stay in the secret store. Never print them. Never `VITE_*`.
+5. Worker body (sms tick). Booking tick is the same shape against the booking URL and the booking secret:
+
+```js
+export default {
+  async scheduled(controller, env, ctx) {
+    const url = 'https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/missed-call-sms-worker';
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${env.MISSED_CALL_SMS_WORKER_SECRET}` },
+    });
+    if (!res.ok && res.status < 500) {
+      throw new Error(`sms-tick ${res.status}`);
+    }
+  },
+};
+```
+
+Booking URL: `https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/missed-call-booking-worker`. Header secret name: `MISSED_CALL_BOOKING_WORKER_SECRET`.
+
+6. Observability: do not log `Authorization`, bodies, or phone numbers.
+7. Each edge invocation already processes at most one item. A `2xx` completes that tick. Retry transport errors and `5xx` on the **next** minute, not in a tight loop. Do not run concurrent retries for the same worker to raise throughput.
+
+- [ ] Coach SIGN on this section.
+- [ ] Both Workers exist on the `bts-inspect` Cloudflare account.
+- [ ] Each has cron `* * * * *`.
+- [ ] Secrets named `MISSED_CALL_SMS_WORKER_SECRET` and `MISSED_CALL_BOOKING_WORKER_SECRET` (values not in this PR).
+- [ ] First ticks after SIGN: one SMS worker POST and one booking worker POST, allowlist only.
 
 ## 6. Settings row
 
@@ -116,6 +165,6 @@ Rollback of the flag is the same kind of change: set the const back to `false` a
 
 - [ ] Set `sms_automation_settings.enabled` = false.
 - [ ] Set the `ENQUIRY_SURFACE_LIVE` const back to `false` and redeploy (code PR; the live build drops the OR while it is false).
-- [ ] Pause both worker schedules.
+- [ ] Pause both Cloudflare Cron Triggers (`grafter-missed-call-sms-tick` and `grafter-missed-call-booking-tick`).
 - [ ] Set the sender `active` = false.
 - [ ] Leave the ten applied files in place unless Coach SIGN asks for a revert of a specific version (`repair --status reverted` then a reviewed follow-up). Do not `db reset` prod.
