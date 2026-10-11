@@ -40,11 +40,13 @@ describe('sms reply templates LOOK — existing company settings section', () =>
     expect(lib).toContain('No links or phone numbers');
     expect(lib).toContain('SMS_REPLY_SPELLED_DOMAIN');
     expect(lib).toContain('smsReplyDigitRun');
-    expect(lib).toContain("replace(/[ .+\\-]/g, '')");
-    expect(lib).toContain('/\\bdot\\s+(?:co|com|au|net)\\b/i');
-    expect(filterSql).toContain("regexp_replace(coalesce(p_body, ''), '[ .+\\-]', '', 'g')");
+    expect(lib).toContain("replace(/[ ()/_+.\\t\\u00A0-]/g, '')");
+    expect(lib).toContain('/\\b[(\\[]*d[o0]t[)\\]]*\\s*(?:com|co|au|net|org|c\\s*o\\s*m)\\b/i');
+    expect(filterSql).toContain("chr(9)");
+    expect(filterSql).toContain("chr(160)");
+    expect(filterSql).toContain("[ ()/_+.' || chr(9) || chr(160) || '-]");
     expect(filterSql).toContain("~ '[0-9]{6,}'");
-    expect(filterSql).toContain("\\mdot[[:space:]]+(co|com|au|net)\\M");
+    expect(filterSql).toContain("\\m[\\(\\[]*d[o0]t[\\)\\]]*[[:space:]]*(com|co|au|net|org|c[[:space:]]*o[[:space:]]*m)\\M");
     expect(lib).toContain('SMS_REPLY_STOP_END');
     expect(lib).toContain('ENQUIRY_SURFACE_LIVE');
     expect(copy).toContain('SMS_REPLY_FORBIDDEN');

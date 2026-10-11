@@ -139,6 +139,51 @@ describe('sms reply templates', () => {
       'Field Audit Co',
       'ack',
     )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Hi {Business}. Call (04) 001 (11) 222 Reply STOP to opt out.',
+      'Field Audit Co',
+      'ack',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Thanks {Business}. Call 0400/111/222 Reply STOP to opt out.',
+      'Field Audit Co',
+      'thanks',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Hi {Business}. See us at dotcom Reply STOP to opt out.',
+      'Field Audit Co',
+      'ack',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Thanks {Business}. See us at grafter (dot) com Reply STOP to opt out.',
+      'Field Audit Co',
+      'thanks',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      '{Business}: see grafter[dot]com Reply STOP to opt out, START to opt back in.',
+      'Field Audit Co',
+      'help',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Hi {Business}. See us at grafter d0t com Reply STOP to opt out.',
+      'Field Audit Co',
+      'ack',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Thanks {Business}. See us at grafter dot c o m Reply STOP to opt out.',
+      'Field Audit Co',
+      'thanks',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      '{Business}: see grafter dot org Reply STOP to opt out, START to opt back in.',
+      'Field Audit Co',
+      'help',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Hi {Business}. The fee is $1500.00 Reply STOP to opt out.',
+      'Field Audit Co',
+      'ack',
+    )).toBe(null);
     expect(smsReplyTemplateError(SMS_REPLY_DEFAULT_TEMPLATES.ack, 'Field Audit Co', 'ack')).toBe(null);
     expect(smsReplyTemplateError(SMS_REPLY_DEFAULT_TEMPLATES.thanks, 'Field Audit Co', 'thanks')).toBe(null);
     expect(smsReplyTemplateError(SMS_REPLY_DEFAULT_TEMPLATES.help, 'Field Audit Co', 'help')).toBe(null);

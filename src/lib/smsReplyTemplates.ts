@@ -43,10 +43,12 @@ export const SMS_REPLY_STOP_END: Record<SmsReplyKind, RegExp> = {
 export const SMS_REPLY_LINK_OR_PHONE =
   /https?:\/\/|\bwww\.|[a-z0-9][a-z0-9-]*\.[a-z]{2,}/i;
 
-export const SMS_REPLY_SPELLED_DOMAIN = /\bdot\s+(?:co|com|au|net)\b/i;
+export const SMS_REPLY_SPELLED_DOMAIN =
+  /\b[(\[]*d[o0]t[)\]]*\s*(?:com|co|au|net|org|c\s*o\s*m)\b/i;
 
 export function smsReplyDigitRun(body: string): boolean {
-  return /[0-9]{6,}/.test(body.replace(/[ .+\-]/g, ''));
+  const keepPrice = body.replace(/(\d)\.(\d{2})(?!\d)/g, '$1x$2');
+  return /[0-9]{6,}/.test(keepPrice.replace(/[ ()/_+.\t\u00A0-]/g, ''));
 }
 
 export type SmsReplyTemplates = {
