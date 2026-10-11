@@ -15,13 +15,16 @@ describe('company settings nav LOOK — existing sections only', () => {
     expect(lib).toContain("when: 'enquiry'");
     expect(lib).toContain("label: 'Texting'");
     expect(lib).not.toContain('supabase');
-    expect(lib).not.toContain("label: 'Accounting'");
+    expect(lib).toContain("label: 'Accounting'");
+    expect(lib).toContain("href: '/settings/accounting'");
+    expect(lib).toContain('companySettingsNavObserveTargets');
     expect(lib).toContain('Invoicing & tax');
     expect(lib).toContain('Branding');
     expect(lib).toContain('Inspections');
     expect(lib).toContain('Email');
     expect(lib).toContain('Team');
-    expect(lib).toContain('Business');
+    expect(lib).toContain("label: 'Company'");
+    expect(lib).not.toContain("label: 'Business'");
     expect(lib).toContain('settings-invoicing');
     expect(lib).toContain('settings-branding');
     expect(lib).toContain('settings-inspections');
@@ -36,6 +39,9 @@ describe('company settings nav LOOK — existing sections only', () => {
     expect(page).toContain('aria-current={current ? \'true\' : undefined}');
     expect(page).toContain('scrollCompanySettingsSection');
     expect(page).toContain('observeCompanySettingsSections');
+    expect(page).toContain('companySettingsNavObserveTargets');
+    expect(page).toContain('to={chip.href}');
+    expect(page).toContain('ArrowRight');
     expect(page).toContain('companySettingsNavChips');
     expect(page).toContain('enquirySurfaceLive: ENQUIRY_SURFACE_LIVE');
     expect(page).toContain('id="settings-invoicing"');

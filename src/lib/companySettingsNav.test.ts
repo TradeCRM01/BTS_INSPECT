@@ -5,6 +5,7 @@ import {
   COMPANY_SETTINGS_NAV_CHIPS,
   COMPANY_SETTINGS_NAV_ROW_PX,
   companySettingsNavChips,
+  companySettingsNavObserveTargets,
 } from './companySettingsNav';
 
 describe('company settings nav chips', () => {
@@ -19,21 +20,30 @@ describe('company settings nav chips', () => {
       'Texting',
       'Email',
       'Team',
-      'Business',
+      'Company',
+      'Accounting',
     ]);
+    expect(COMPANY_SETTINGS_NAV_CHIPS.at(-1)).toMatchObject({
+      id: 'accounting',
+      label: 'Accounting',
+      href: '/settings/accounting',
+    });
+    expect(COMPANY_SETTINGS_NAV_CHIPS.at(-1)?.target).toBeUndefined();
     expect(companySettingsNavChips({ isAdmin: true }).map((chip) => chip.id)).toEqual([
       'invoicing',
       'branding',
       'inspections',
       'email',
       'team',
-      'business',
+      'company',
+      'accounting',
     ]);
     expect(companySettingsNavChips({ isAdmin: false }).map((chip) => chip.id)).toEqual([
       'invoicing',
       'branding',
       'inspections',
-      'business',
+      'company',
+      'accounting',
     ]);
     expect(companySettingsNavChips({ isAdmin: true, enquirySurfaceLive: true }).map((chip) => chip.id))
       .toEqual([
@@ -43,9 +53,20 @@ describe('company settings nav chips', () => {
         'texting',
         'email',
         'team',
-        'business',
+        'company',
+        'accounting',
       ]);
     expect(companySettingsNavChips({ isAdmin: true }).some((chip) => chip.id === 'texting')).toBe(false);
-    expect(COMPANY_SETTINGS_NAV_CHIPS.some((chip) => chip.label === 'Accounting')).toBe(false);
+    expect(companySettingsNavObserveTargets(companySettingsNavChips({ isAdmin: true }))).toEqual([
+      'settings-invoicing',
+      'settings-branding',
+      'settings-inspections',
+      'settings-email',
+      'settings-team',
+      'settings-business',
+    ]);
+    expect(companySettingsNavObserveTargets(companySettingsNavChips({ isAdmin: true }))).not.toContain(
+      'accounting',
+    );
   });
 });

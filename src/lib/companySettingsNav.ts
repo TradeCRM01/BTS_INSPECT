@@ -8,11 +8,12 @@ export type CompanySettingsNavWhen = 'always' | 'admin' | 'enquiry';
 export type CompanySettingsNavChip = {
   id: string;
   label: string;
-  target: string;
+  target?: string;
+  href?: string;
   when: CompanySettingsNavWhen;
 };
 
-/** Document order on Company Settings. */
+/** Document order on Company Settings. Accounting is last and is a route, not a section. */
 export const COMPANY_SETTINGS_NAV_CHIPS: readonly CompanySettingsNavChip[] = [
   { id: 'invoicing', label: 'Invoicing & tax', target: 'settings-invoicing', when: 'always' },
   { id: 'branding', label: 'Branding', target: 'settings-branding', when: 'always' },
@@ -20,8 +21,17 @@ export const COMPANY_SETTINGS_NAV_CHIPS: readonly CompanySettingsNavChip[] = [
   { id: 'texting', label: 'Texting', target: 'settings-texting', when: 'enquiry' },
   { id: 'email', label: 'Email', target: 'settings-email', when: 'admin' },
   { id: 'team', label: 'Team', target: 'settings-team', when: 'admin' },
-  { id: 'business', label: 'Business', target: 'settings-business', when: 'always' },
+  { id: 'company', label: 'Company', target: 'settings-business', when: 'always' },
+  { id: 'accounting', label: 'Accounting', href: '/settings/accounting', when: 'always' },
 ];
+
+export function companySettingsNavObserveTargets(
+  chips: readonly CompanySettingsNavChip[],
+): string[] {
+  return chips
+    .filter((chip) => chip.target && !chip.href)
+    .map((chip) => chip.target as string);
+}
 
 export function companySettingsNavChips(input: {
   isAdmin: boolean;

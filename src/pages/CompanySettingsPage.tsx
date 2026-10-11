@@ -3,6 +3,7 @@ import {
   COMPANY_SETTINGS_NAV_CHIP_PX,
   COMPANY_SETTINGS_NAV_ROW_PX,
   companySettingsNavChips,
+  companySettingsNavObserveTargets,
   observeCompanySettingsSections,
   scrollCompanySettingsSection,
 } from '../lib/companySettingsNav';
@@ -13,7 +14,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
-import { Check, Upload, Plus, Trash2, Mail, Eye, EyeOff, AlertCircle, CheckCircle2, Users, Palette, Download } from 'lucide-react';
+import { ArrowRight, Check, Upload, Plus, Trash2, Mail, Eye, EyeOff, AlertCircle, CheckCircle2, Users, Palette, Download } from 'lucide-react';
 import { companyExportClientFromSupabase, downloadCompanyExport } from '../lib/companyExport';
 import {
   COMPANY_LOGO_ACCEPT,
@@ -137,6 +138,10 @@ const COMPANY_LOOK_CSS = `
 }
 .hub-company-snav-row::-webkit-scrollbar { display: none; }
 .hub-company-snav-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   flex: 0 0 auto;
   height: ${COMPANY_SETTINGS_NAV_CHIP_PX}px;
   min-height: ${COMPANY_SETTINGS_NAV_CHIP_PX}px;
@@ -151,10 +156,15 @@ const COMPANY_LOOK_CSS = `
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
+  text-decoration: none;
 }
 .hub-company-snav-chip.is-current {
   background: var(--co-look-ink);
   color: var(--co-look-page);
+}
+.hub-company-snav-chip.is-link {
+  background: var(--co-look-page);
+  color: var(--co-look-ink);
 }
 .hub-company-snav-chip:focus-visible {
   outline: 2px solid var(--co-look-action);
@@ -608,10 +618,10 @@ export function CompanySettingsPage() {
     enquirySurfaceLive: ENQUIRY_SURFACE_LIVE,
   });
   const [activeSettingsSection, setActiveSettingsSection] = useState(
-    () => companySettingsNavChips({
+    () => companySettingsNavObserveTargets(companySettingsNavChips({
       isAdmin,
       enquirySurfaceLive: ENQUIRY_SURFACE_LIVE,
-    })[0]?.target ?? '',
+    }))[0] ?? '',
   );
 
   useEffect(() => {
@@ -619,7 +629,7 @@ export function CompanySettingsPage() {
       isAdmin,
       enquirySurfaceLive: ENQUIRY_SURFACE_LIVE,
     });
-    const targets = chips.map((chip) => chip.target);
+    const targets = companySettingsNavObserveTargets(chips);
     setActiveSettingsSection((current) => (
       targets.includes(current) ? current : (targets[0] ?? '')
     ));
@@ -1256,6 +1266,19 @@ export function CompanySettingsPage() {
         <nav className="hub-company-snav" data-settings-nav="1" aria-label="Settings sections">
           <div className="hub-company-snav-row">
             {settingsNavChips.map((chip) => {
+              if (chip.href) {
+                return (
+                  <Link
+                    key={chip.id}
+                    to={chip.href}
+                    className="hub-company-snav-chip is-link"
+                    data-settings-chip={chip.id}
+                  >
+                    {chip.label}
+                    <ArrowRight size={14} aria-hidden="true" />
+                  </Link>
+                );
+              }
               const current = activeSettingsSection === chip.target;
               return (
                 <button
@@ -1264,7 +1287,9 @@ export function CompanySettingsPage() {
                   className={`hub-company-snav-chip${current ? ' is-current' : ''}`}
                   data-settings-chip={chip.id}
                   aria-current={current ? 'true' : undefined}
-                  onClick={() => scrollCompanySettingsSection(chip.target)}
+                  onClick={() => {
+                    if (chip.target) scrollCompanySettingsSection(chip.target);
+                  }}
                 >
                   {chip.label}
                 </button>
