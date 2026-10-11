@@ -5,7 +5,7 @@ export const HELP_TEMPLATE_VERSION = 'help-v1';
 export const SMS_REPLY_BUSINESS_TOKEN = '{Business}';
 export const SMS_REPLY_STOP_SUFFIX = 'Reply STOP to opt out';
 export const SMS_REPLY_FORBIDDEN =
-  /\b(booked|quote|plumber|electrician|carpenter|tomorrow|today|\$|price|hourly)\b/i;
+  /\b(booked|quote|plumber|electrician|carpenter|tomorrow|today|price|hourly)\b|\$/i;
 
 const GSM7_BASIC =
   '@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&\'()*+,-./0123456789:;<=>?'

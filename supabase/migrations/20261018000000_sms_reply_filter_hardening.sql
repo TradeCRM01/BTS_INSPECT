@@ -9,7 +9,7 @@ SET search_path = ''
 AS $$
   SELECT
     p_body ~* '\m(booked|quote|plumber|electrician|carpenter|tomorrow|today|price|hourly)\M'
-    OR p_body ~ '\$([^0-9]|$)'
+    OR position('$' IN p_body) > 0
 $$;
 
 REVOKE ALL ON FUNCTION public.sms_reply_has_forbidden_word(text)

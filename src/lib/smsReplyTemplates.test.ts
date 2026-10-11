@@ -224,10 +224,20 @@ describe('sms reply templates', () => {
       'ack',
     )).toBe(null);
     expect(smsReplyTemplateError(
-      'Hi {Business}. The fee is $1500.00 Reply STOP to opt out.',
+      'Hi {Business}. The fee is 1500.00 Reply STOP to opt out.',
       'Field Audit Co',
       'ack',
     )).toBe(null);
+    expect(smsReplyTemplateError(
+      'Hi {Business}. The fee is $1500.00 Reply STOP to opt out.',
+      'Field Audit Co',
+      'ack',
+    )).toBe(SMS_REPLY_FORBIDDEN_WORD);
+    expect(smsReplyTemplateError(
+      'Hi {Business}. Fee $50 Reply STOP to opt out.',
+      'Field Audit Co',
+      'ack',
+    )).toBe(SMS_REPLY_FORBIDDEN_WORD);
     expect(smsReplyTemplateError(SMS_REPLY_DEFAULT_TEMPLATES.ack, 'Field Audit Co', 'ack')).toBe(null);
     expect(smsReplyTemplateError(SMS_REPLY_DEFAULT_TEMPLATES.thanks, 'Field Audit Co', 'thanks')).toBe(null);
     expect(smsReplyTemplateError(SMS_REPLY_DEFAULT_TEMPLATES.help, 'Field Audit Co', 'help')).toBe(null);

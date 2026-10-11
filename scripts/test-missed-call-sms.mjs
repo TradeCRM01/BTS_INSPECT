@@ -1716,15 +1716,33 @@ try {
   );
   assert.ok(dotConnection.ack_template, 'dot connection is not a spelled domain');
 
+  const dottedLeadPhone = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hi {Business}. Call 04.00.11.12.22 Reply STOP to opt out.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assertTemplateRejected(dottedLeadPhone, 'ack', 'dotted pairs 04.00.11.12.22 is rejected');
+  const dollarPrice = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hi {Business}. The fee is $1500.00 Reply STOP to opt out.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assertTemplateRejected(dollarPrice, 'ack', '$1500.00 is a forbidden word');
+  const feeFifty = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: null,
+    p_thanks_template: 'Thanks {Business}. Fee $50 Reply STOP to opt out.',
+    p_help_template: null,
+  });
+  assertTemplateRejected(feeFifty, 'thanks', 'Fee $50 is a forbidden word');
   const priceSave = await must(
     clientC.rpc('save_sms_reply_templates', {
-      p_ack_template: 'Hi {Business}. The fee is $1500.00 Reply STOP to opt out.',
+      p_ack_template: 'Hi {Business}. The fee is 1500.00 Reply STOP to opt out.',
       p_thanks_template: null,
       p_help_template: null,
     }),
-    '$1500.00 still saves',
+    '1500.00 still saves',
   );
-  assert.ok(priceSave.ack_template, '$1500.00 is not a phone number');
+  assert.ok(priceSave.ack_template, '1500.00 is not a phone number');
 
   const jackAck = 'Hi, this is {Business}. Sorry we missed your call. Reply with what you need done and your suburb and we will get back to you. Reply STOP to opt out.';
   const jackThanks = 'Thanks, got it. We have passed this to the office and someone from {Business} will be in touch. Reply STOP to opt out.';

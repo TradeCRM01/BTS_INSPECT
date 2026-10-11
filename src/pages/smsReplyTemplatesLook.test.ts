@@ -43,6 +43,9 @@ describe('sms reply templates LOOK — existing company settings section', () =>
     expect(lib).toContain("replace(/[^0-9a-z]/gi, '')");
     expect(lib).toContain('(?![\\d.])');
     expect(lib).toContain('/[(\\[{]*d[.\\s]*[o0][.\\s]*t[)\\]}]*\\s*(?:com|co|au|net|org|c\\s*o\\s*m)\\b/i');
+    expect(filterSql).toContain("position('$' IN p_body) > 0");
+    expect(filterSql).not.toContain('\\$([^0-9]|$)');
+    expect(copy).toContain('/\\b(booked|quote|plumber|electrician|carpenter|tomorrow|today|price|hourly)\\b|\\$/i');
     expect(filterSql).toContain("[^0-9a-z]");
     expect(filterSql).toContain("'gi'");
     expect(filterSql).toContain("~ '[0-9]{6,}'");
