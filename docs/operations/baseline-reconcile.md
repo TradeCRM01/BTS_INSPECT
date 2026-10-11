@@ -1,11 +1,12 @@
-# Baseline reconcile r4
+# Baseline reconcile r5
 
 Source of truth: CoS per-file proof (`docs/operations/368-baseline-proof.md`, prod
-`ezszahvwwmbuekpedumf`, 2026-10-11 ~21:30 AEST) plus the r3 catalog capture
-(`docs/operations/368-catalog-capture.md`, 18 read-only SELECTs). No prod writes. Repair
-commands below are a runbook only. Do not execute them from this PR.
+`ezszahvwwmbuekpedumf`, 2026-10-11 ~21:30 AEST) plus the catalog capture
+(`docs/operations/368-catalog-capture.md`, 18 read-only SELECTs plus query 19
+`pg_extension`). No prod writes. Repair commands below are a runbook only. Do
+not execute them from this PR.
 
-r4 is docs only. Migration files are unchanged from r3 (`1d24d49e`). No new RAW log.
+r5 is docs only. Migration files are unchanged from r3 (`1d24d49e`). No new RAW log.
 
 ## Counts
 
@@ -48,6 +49,15 @@ Docs only. No SQL.
 - Proof and catalog capture live under `docs/operations/` (no `uploads/` paths).
 - GRANTs on the seven stubs were not compared. Read-only check listed below.
 - After PR-J, `apply_migration` records the ten new versions; the 71 old apply-time rows stay and are accepted.
+
+## What r5 changed in the repo
+
+Docs only. No SQL.
+
+- Scheduler owner is **Jack's Cloudflare account**. Do not claim Pages `bts-inspect` serves `grafter.com.au`.
+- Catalog capture query 19 (`pg_extension`) proves `pg_net` is absent.
+- Workers are not dashboard-only. After #368, PR-W adds `workers/missed-call-*-tick` (source, wrangler crons, secret bindings, mocked-fetch tests, no deploy). PR-J deploy is a reviewed manual `wrangler deploy`.
+- The `$` guard rides in PR-J (`20261018000000_sms_reply_filter_hardening`) and blocks any `$` in custom replies.
 
 ## Proof table
 
@@ -407,7 +417,7 @@ is **not** used for those five now — they were never applied. A later SIGN can
 
 ## cron.job check
 
-Catalog capture query 0 returned `[]`. **Prod has `pg_cron` 1.6.4, zero `cron.job` rows, and no `pg_net`.** Queries 5a / 5b / 5c are also empty: no ticket/due-invoke function and no ticket cron row.
+Catalog capture query 0 returned `[]`. Query 19 (`pg_extension`) lists `pg_cron` 1.6.4 and does **not** list `pg_net`. **Prod has `pg_cron` 1.6.4, zero `cron.job` rows, and no `pg_net`.** Queries 5a / 5b / 5c are also empty: no ticket/due-invoke function and no ticket cron row.
 
 PR-J does **not** insert `cron.job` rows. The worker ticks are Cloudflare Cron Triggers (see `docs/operations/pr-j-go-live-runbook.md` section 5). That is the fewest prod-change option: zero extension writes, zero `cron.job` inserts. `pg_cron` + `net.http_post` would need `CREATE EXTENSION pg_net` as an explicit reviewed prod write plus two `cron.schedule` inserts. Do not do that in PR-J. Do not add Perth reminder `cron.job` rows.
 
@@ -455,9 +465,9 @@ Org-stack no-op stubs — not PR-J, not marked applied:
 - `20260921020000_tradecrm_organisation_remap`
 - `20260921043000_missed_call_phase_2b`
 
-## Gates (r4 — docs only, no new log)
+## Gates (r5 — docs only, no new log)
 
-r3 RAW log still stands (`1d24d49e`, md5 `fd893396fb71b02b84bf2d26e8210ec3`). r4 does not change migrations, so no second tee.
+r3 RAW log still stands (`1d24d49e`, md5 `fd893396fb71b02b84bf2d26e8210ec3`). r4 and r5 do not change migrations, so no second tee.
 
 - `tsc --noEmit`: unchanged (181)
 - vitest: 19 failed | 241 passed (260 files). Same 19 as main. Not a regression from this PR.

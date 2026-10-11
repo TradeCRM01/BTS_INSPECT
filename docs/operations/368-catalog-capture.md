@@ -1,7 +1,7 @@
 # PR #368 catalog capture — prod ezszahvwwmbuekpedumf
 
 Source: TradeCRM01/BTS_INSPECT docs/operations/baseline-catalog-queries.sql @ 5490836d570e6d4f9c77091f8068237ee6a99a6f
-Run via Supabase execute_sql, read-only SELECTs only, 2026-10-11 (AEST). 18 run, 0 skipped.
+Run via Supabase execute_sql, read-only SELECTs only, 2026-10-11 (AEST). 18 run, 0 skipped. Query 19 (`pg_extension`) added 2026-10-11 21:36 AEST.
 
 ## 0. cron.job (all)
 
@@ -218,3 +218,19 @@ Result (verbatim):
 ```json
 []
 ```
+
+## 19. pg_extension (proves `pg_net` is absent)
+
+Run via Supabase `execute_sql`, read-only, 2026-10-11 21:36 AEST.
+
+```sql
+select extname, extversion from pg_extension order by extname
+```
+
+Result (verbatim):
+
+```json
+[{"extname":"pg_cron","extversion":"1.6.4"},{"extname":"pg_stat_statements","extversion":"1.11"},{"extname":"pgcrypto","extversion":"1.3"},{"extname":"plpgsql","extversion":"1.0"},{"extname":"supabase_vault","extversion":"0.3.1"},{"extname":"uuid-ossp","extversion":"1.1"}]
+```
+
+`pg_net` is not in this list. Prod extensions are `pg_cron` 1.6.4, `pg_stat_statements` 1.11, `pgcrypto` 1.3, `plpgsql` 1.0, `supabase_vault` 0.3.1, `uuid-ossp` 1.1.

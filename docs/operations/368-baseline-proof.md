@@ -1,4 +1,4 @@
-# PR #368 baseline proof (head b6996303, base a4f03ab5)
+# PR #368 baseline proof (CoS catalog pass 2026-10-11; PR base a4f03ab5)
 
 Prod `ezszahvwwmbuekpedumf`, read-only `list_migrations` + catalog SELECTs (information_schema, pg_proc, pg_policies, pg_trigger, pg_indexes, pg_type, pg_constraint), 2026-10-11 ~21:30 AEST. No writes.
 
