@@ -12,6 +12,7 @@ describe('sms reply templates LOOK — existing company settings section', () =>
     const lib = src('src/lib/smsReplyTemplates.ts');
     const copy = src('src/lib/missedCallSmsCopy.ts');
     const sql = src('supabase/migrations/20261017000000_sms_reply_templates.sql');
+    const filterSql = src('supabase/migrations/20261018000000_sms_reply_filter_hardening.sql');
     expect(page).toContain('Text replies');
     expect(page).toContain('data-sms-replies="1"');
     expect(page).toContain('smsReplyFitLabel');
@@ -37,6 +38,13 @@ describe('sms reply templates LOOK — existing company settings section', () =>
     expect(lib).toContain('Reply STOP to opt out');
     expect(lib).toContain('START to opt back in');
     expect(lib).toContain('No links or phone numbers');
+    expect(lib).toContain('SMS_REPLY_SPELLED_DOMAIN');
+    expect(lib).toContain('smsReplyDigitRun');
+    expect(lib).toContain("replace(/[ .+\\-]/g, '')");
+    expect(lib).toContain('/\\bdot\\s+(?:co|com|au|net)\\b/i');
+    expect(filterSql).toContain("regexp_replace(coalesce(p_body, ''), '[ .+\\-]', '', 'g')");
+    expect(filterSql).toContain("~ '[0-9]{6,}'");
+    expect(filterSql).toContain("\\mdot[[:space:]]+(co|com|au|net)\\M");
     expect(lib).toContain('SMS_REPLY_STOP_END');
     expect(lib).toContain('ENQUIRY_SURFACE_LIVE');
     expect(copy).toContain('SMS_REPLY_FORBIDDEN');

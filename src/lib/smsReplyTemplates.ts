@@ -41,7 +41,13 @@ export const SMS_REPLY_STOP_END: Record<SmsReplyKind, RegExp> = {
 };
 
 export const SMS_REPLY_LINK_OR_PHONE =
-  /https?:\/\/|\bwww\.|[a-z0-9][a-z0-9-]*\.[a-z]{2,}|\d{6,}/i;
+  /https?:\/\/|\bwww\.|[a-z0-9][a-z0-9-]*\.[a-z]{2,}/i;
+
+export const SMS_REPLY_SPELLED_DOMAIN = /\bdot\s+(?:co|com|au|net)\b/i;
+
+export function smsReplyDigitRun(body: string): boolean {
+  return /[0-9]{6,}/.test(body.replace(/[ .+\-]/g, ''));
+}
 
 export type SmsReplyTemplates = {
   ack: string;
@@ -81,7 +87,11 @@ export function smsReplyHasForbiddenWord(body: string): boolean {
 }
 
 export function smsReplyHasLinkOrPhone(body: string): boolean {
-  return SMS_REPLY_LINK_OR_PHONE.test(body);
+  return (
+    SMS_REPLY_LINK_OR_PHONE.test(body)
+    || SMS_REPLY_SPELLED_DOMAIN.test(body)
+    || smsReplyDigitRun(body)
+  );
 }
 
 export function smsReplyEndsWithStop(template: string, kind: SmsReplyKind): boolean {
