@@ -1597,6 +1597,36 @@ try {
     p_help_template: null,
   });
   assertTemplateRejected(slashPhone, 'thanks', 'slashed phone 0400/111/222 is rejected');
+  const commaPhone = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hi {Business}. Call 0400,111,222 Reply STOP to opt out.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assertTemplateRejected(commaPhone, 'ack', 'comma phone 0400,111,222 is rejected');
+  const tabNbspPhone = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: null,
+    p_thanks_template: 'Thanks {Business}. Call 0400\t\u00A0111\t\u00A0222 Reply STOP to opt out.',
+    p_help_template: null,
+  });
+  assertTemplateRejected(tabNbspPhone, 'thanks', 'tab+NBSP phone is rejected');
+  const underscorePhone = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: null,
+    p_thanks_template: null,
+    p_help_template: '{Business}: call 0400_111_222 Reply STOP to opt out, START to opt back in.',
+  });
+  assertTemplateRejected(underscorePhone, 'help', 'underscore phone 0400_111_222 is rejected');
+  const pipePhone = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hi {Business}. Call 0400|111|222 Reply STOP to opt out.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assertTemplateRejected(pipePhone, 'ack', 'pipe phone 0400|111|222 is rejected');
+  const dottedPairsPhone = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: null,
+    p_thanks_template: 'Thanks {Business}. Call 0400.11.12.22 Reply STOP to opt out.',
+    p_help_template: null,
+  });
+  assertTemplateRejected(dottedPairsPhone, 'thanks', 'dotted pairs 0400.11.12.22 is rejected');
 
   const spelledDotCo = await clientC.rpc('save_sms_reply_templates', {
     p_ack_template: 'Hi {Business}. See us at grafter dot co Reply STOP to opt out.',
@@ -1658,6 +1688,33 @@ try {
     p_help_template: '{Business}: see grafter dot org Reply STOP to opt out, START to opt back in.',
   });
   assertTemplateRejected(spelledDotOrg, 'help', 'spelled-out dot org is rejected');
+  const gluedDotcom = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: 'Hi {Business}. See us at btsdotcom Reply STOP to opt out.',
+    p_thanks_template: null,
+    p_help_template: null,
+  });
+  assertTemplateRejected(gluedDotcom, 'ack', 'glued btsdotcom is rejected');
+  const bracedDot = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: null,
+    p_thanks_template: 'Thanks {Business}. See us at bts{dot}com Reply STOP to opt out.',
+    p_help_template: null,
+  });
+  assertTemplateRejected(bracedDot, 'thanks', 'braced bts{dot}com is rejected');
+  const dottedLetters = await clientC.rpc('save_sms_reply_templates', {
+    p_ack_template: null,
+    p_thanks_template: null,
+    p_help_template: '{Business}: see d.o.t com Reply STOP to opt out, START to opt back in.',
+  });
+  assertTemplateRejected(dottedLetters, 'help', 'd.o.t com is rejected');
+  const dotConnection = await must(
+    clientC.rpc('save_sms_reply_templates', {
+      p_ack_template: 'Hi {Business}. The dot connection is open Reply STOP to opt out.',
+      p_thanks_template: null,
+      p_help_template: null,
+    }),
+    'dot connection still saves',
+  );
+  assert.ok(dotConnection.ack_template, 'dot connection is not a spelled domain');
 
   const priceSave = await must(
     clientC.rpc('save_sms_reply_templates', {

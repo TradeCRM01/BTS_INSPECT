@@ -28,12 +28,12 @@ AS $$
     p_body ~* 'https?://'
     OR p_body ~* '\mwww\.'
     OR p_body ~* '[a-z0-9][a-z0-9-]*\.[a-z]{2,}'
-    OR p_body ~* '\m[\(\[]*d[o0]t[\)\]]*[[:space:]]*(com|co|au|net|org|c[[:space:]]*o[[:space:]]*m)\M'
+    OR p_body ~* '[\(\{\[]*d[[:space:].]*[o0][[:space:].]*t[\)\}\]]*[[:space:]]*(com|co|au|net|org|c[[:space:]]*o[[:space:]]*m)\M'
     OR regexp_replace(
-         regexp_replace(coalesce(p_body, ''), '(\d)\.(\d{2})([^0-9]|$)', '\1x\2\3', 'g'),
-         '[ ()/_+.' || chr(9) || chr(160) || '-]',
+         regexp_replace(coalesce(p_body, ''), '(\d)\.(\d{2})([^0-9.]|$)', '\1x\2\3', 'g'),
+         '[^0-9a-z]',
          '',
-         'g'
+         'gi'
        ) ~ '[0-9]{6,}'
 $$;
 
