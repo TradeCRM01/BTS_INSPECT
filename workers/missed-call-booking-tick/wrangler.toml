@@ -1,0 +1,10 @@
+# Cloudflare Cron Trigger for missed-call-booking-worker.
+# No deploy from this PR. Bind secrets later with `wrangler secret put` (names only):
+#   MISSED_CALL_BOOKING_WORKER_SECRET
+# Bind SUPABASE_URL as a var or secret. Do not put the value in this file.
+name = "grafter-missed-call-booking-tick"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+
+[triggers]
+crons = ["* * * * *"]
