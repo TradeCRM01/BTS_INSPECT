@@ -11,7 +11,7 @@ AS $function$
     WHEN p IS NULL OR key IS NULL OR NOT (p ? key) THEN fallback
     ELSE nullif(btrim(p ->> key), '')
   END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.dispatch_time_to_minutes(t text)
  RETURNS integer
@@ -24,4 +24,4 @@ AS $function$
     ELSE (split_part(t, ':', 1)::integer * 60)
       + coalesce(nullif(split_part(t, ':', 2), '')::integer, 0)
   END;
-$function$
+$function$;

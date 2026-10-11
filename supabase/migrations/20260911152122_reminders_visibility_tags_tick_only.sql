@@ -24,7 +24,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$function$
+$function$;
 
 DROP TRIGGER IF EXISTS agent_reminders_tagged_tick_only ON public.agent_reminders;
 CREATE TRIGGER agent_reminders_tagged_tick_only BEFORE UPDATE ON public.agent_reminders FOR EACH ROW EXECUTE FUNCTION agent_reminders_tagged_tick_only();

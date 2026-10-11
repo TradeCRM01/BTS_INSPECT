@@ -499,4 +499,4 @@ BEGIN
     'conflicts', v_conflicts
   );
 END;
-$function$
+$function$;
