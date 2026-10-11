@@ -19,8 +19,10 @@ import {
   approvedSmsReplyBody,
   renderSmsReplyTemplate,
   shouldQueryLiveSmsReplies,
+  smsReplyDigitRun,
   smsReplyFieldError,
   smsReplyFitLabel,
+  smsReplyHasLinkOrPhone,
   smsReplyTemplateError,
   smsTextbackMemberStatus,
   storedSmsReplyTemplate,
@@ -96,6 +98,149 @@ describe('sms reply templates', () => {
       'Field Audit Co',
       'ack',
     )).toBe(`Missed-call reply: ${SMS_REPLY_FORBIDDEN_WORD}`);
+  });
+
+  it('rejects spaced phones and spelled-out domains, and keeps Jack\'s three defaults', () => {
+    expect(smsReplyTemplateError(
+      'Hi {Business}. Call 0400 111 222 Reply STOP to opt out.',
+      'Field Audit Co',
+      'ack',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Thanks {Business}. Call +61 400 111 222 Reply STOP to opt out.',
+      'Field Audit Co',
+      'thanks',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      '{Business}: call 0400.111.222 Reply STOP to opt out, START to opt back in.',
+      'Field Audit Co',
+      'help',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Hi {Business}. Call 0400-111-222 Reply STOP to opt out.',
+      'Field Audit Co',
+      'ack',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Hi {Business}. See us at grafter dot co Reply STOP to opt out.',
+      'Field Audit Co',
+      'ack',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Thanks {Business}. See us at grafter DOT COM Reply STOP to opt out.',
+      'Field Audit Co',
+      'thanks',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      '{Business}: see grafter dot au Reply STOP to opt out, START to opt back in.',
+      'Field Audit Co',
+      'help',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Hi {Business}. See us at grafter Dot Net Reply STOP to opt out.',
+      'Field Audit Co',
+      'ack',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Hi {Business}. Call (04) 001 (11) 222 Reply STOP to opt out.',
+      'Field Audit Co',
+      'ack',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Thanks {Business}. Call 0400/111/222 Reply STOP to opt out.',
+      'Field Audit Co',
+      'thanks',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Hi {Business}. See us at dotcom Reply STOP to opt out.',
+      'Field Audit Co',
+      'ack',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Thanks {Business}. See us at grafter (dot) com Reply STOP to opt out.',
+      'Field Audit Co',
+      'thanks',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      '{Business}: see grafter[dot]com Reply STOP to opt out, START to opt back in.',
+      'Field Audit Co',
+      'help',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Hi {Business}. See us at grafter d0t com Reply STOP to opt out.',
+      'Field Audit Co',
+      'ack',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Thanks {Business}. See us at grafter dot c o m Reply STOP to opt out.',
+      'Field Audit Co',
+      'thanks',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      '{Business}: see grafter dot org Reply STOP to opt out, START to opt back in.',
+      'Field Audit Co',
+      'help',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Hi {Business}. Call 0400,111,222 Reply STOP to opt out.',
+      'Field Audit Co',
+      'ack',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyHasLinkOrPhone('Thanks {Business}. Call 0400\t\u00A0111\t\u00A0222 Reply STOP to opt out.')).toBe(true);
+    expect(smsReplyDigitRun('0400\t\u00A0111\t\u00A0222')).toBe(true);
+    expect(smsReplyTemplateError(
+      '{Business}: call 0400_111_222 Reply STOP to opt out, START to opt back in.',
+      'Field Audit Co',
+      'help',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Hi {Business}. Call 0400|111|222 Reply STOP to opt out.',
+      'Field Audit Co',
+      'ack',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Thanks {Business}. Call 0400.11.12.22 Reply STOP to opt out.',
+      'Field Audit Co',
+      'thanks',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Hi {Business}. See us at btsdotcom Reply STOP to opt out.',
+      'Field Audit Co',
+      'ack',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Thanks {Business}. See us at bts{dot}com Reply STOP to opt out.',
+      'Field Audit Co',
+      'thanks',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      '{Business}: see d.o.t com Reply STOP to opt out, START to opt back in.',
+      'Field Audit Co',
+      'help',
+    )).toBe(SMS_REPLY_NO_CONTACT);
+    expect(smsReplyTemplateError(
+      'Hi {Business}. The dot connection is open Reply STOP to opt out.',
+      'Field Audit Co',
+      'ack',
+    )).toBe(null);
+    expect(smsReplyTemplateError(
+      'Hi {Business}. The fee is 1500.00 Reply STOP to opt out.',
+      'Field Audit Co',
+      'ack',
+    )).toBe(null);
+    expect(smsReplyTemplateError(
+      'Hi {Business}. The fee is $1500.00 Reply STOP to opt out.',
+      'Field Audit Co',
+      'ack',
+    )).toBe(SMS_REPLY_FORBIDDEN_WORD);
+    expect(smsReplyTemplateError(
+      'Hi {Business}. Fee $50 Reply STOP to opt out.',
+      'Field Audit Co',
+      'ack',
+    )).toBe(SMS_REPLY_FORBIDDEN_WORD);
+    expect(smsReplyTemplateError(SMS_REPLY_DEFAULT_TEMPLATES.ack, 'Field Audit Co', 'ack')).toBe(null);
+    expect(smsReplyTemplateError(SMS_REPLY_DEFAULT_TEMPLATES.thanks, 'Field Audit Co', 'thanks')).toBe(null);
+    expect(smsReplyTemplateError(SMS_REPLY_DEFAULT_TEMPLATES.help, 'Field Audit Co', 'help')).toBe(null);
   });
 
   it('keeps live template queries off until the enquiry flag is on', () => {
