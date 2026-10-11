@@ -9,12 +9,12 @@ Allowlist stays `+61418893602` only. Default texts only. Custom wording needs Ja
 
 ## 0. Before any apply
 
-- [ ] Baseline reconcile r2 is SIGNED. Prod `schema_migrations` matches `docs/operations/baseline-reconcile.md` (CoS proof table).
+- [ ] Baseline reconcile r3 is SIGNED. Prod `schema_migrations` matches `docs/operations/baseline-reconcile.md` (CoS proof table).
 - [ ] Repair runbook from that doc has been executed (or confirmed unnecessary). PR-J still applies only the ten Lane 2 files via `apply_migration`. Do not `db push`.
 - [ ] Do **not** apply 053, 056, 057, 058, 062, remap, or phase_2b. Those stay pending for Coach (or are no-op stubs).
 - [ ] `ENQUIRY_SURFACE_LIVE` is still the const `false` in the live build.
 - [ ] No Messaging Service. Number SID `PNb67e96dc23fa486ead392be6c92075a3` (`+61485064111`) only.
-- [ ] `cron.job` dump from `docs/operations/baseline-catalog-queries.sql` has been read. Perth jobs call `invoke_job_client_reminders()`, not the missing `send_due_*` functions.
+- [ ] Prod `cron.job` is empty (catalog capture query 0). The PR-J worker schedules in section 5 will be the first scheduled jobs. Do not add Perth reminder `pg_cron` rows.
 
 ## 1. Apply order (one reviewed file, Coach SIGN, `apply_migration`)
 
@@ -73,6 +73,8 @@ On Incoming Phone Number `PNb67e96dc23fa486ead392be6c92075a3` (`+61485064111`):
 - [ ] No Messaging Service.
 
 ## 5. Worker schedules
+
+Prod has zero `cron.job` rows. These two edge-function schedules will be the first jobs on the project. They are not `pg_cron`.
 
 One trusted scheduler. Two jobs. Different secrets. At most one item per tick.
 

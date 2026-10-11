@@ -1,14 +1,15 @@
-# Baseline reconcile r2
+# Baseline reconcile r3
 
 Source of truth: CoS per-file proof (`uploads/368-baseline-proof.md`, prod
-`ezszahvwwmbuekpedumf`, 2026-10-11 ~21:30 AEST). No prod writes. Repair
+`ezszahvwwmbuekpedumf`, 2026-10-11 ~21:30 AEST) plus the r3 catalog capture
+(`uploads/368-catalog-capture.md`, 18 read-only SELECTs). No prod writes. Repair
 commands below are a runbook only. Do not execute them from this PR.
 
 ## Counts
 
 - Prod rows: 87
-- Repo files after r2: 133 (126 + 7 PENDING catalog stubs; 2 org-stack files are now no-op stubs at the same versions)
-- Exact version+name match: 0 on the r1 head; 7 exact-version stubs land once catalog DDL is filled
+- Repo files after r3: 133 (126 + 7 keep-applied catalog stubs; 2 org-stack files are no-op stubs at the same versions)
+- Exact version+name match: 7 keep-applied stubs at the prod timestamps
 - Same name, version mismatch: 71 (all PROVEN or N/A comment-only)
 - Same version, name mismatch: 0
 - Prod-only: 16 (9 revert-and-map, 7 keep-applied + stub)
@@ -20,9 +21,21 @@ commands below are a runbook only. Do not execute them from this PR.
 ## What r2 changed in the repo
 
 - `20260921020000_tradecrm_organisation_remap` and `20260921043000_missed_call_phase_2b` are no-op stubs (`SELECT 1`) at the same versions. Original SQL is in `docs/operations/held-org-stack/`. Why stub in place, not move out: local `db reset` keeps the same timestamp order, and an accidental apply of these versions now runs empty SQL instead of creating organisations-stack objects. Live remains `missed_call_companies_*`.
-- Seven keep-applied prod-only versions have repo files at the prod timestamps. Bodies are `SELECT 1` marked **PENDING catalog capture**. Fill them only from `docs/operations/baseline-catalog-queries.sql` output.
+- Seven keep-applied prod-only versions have repo files at the prod timestamps. r2 bodies were `SELECT 1` marked **PENDING catalog capture**.
 - Eighteen `*.sql.sql` files were renamed to `*.sql`. Versions (the leading 14 digits) are unchanged, so `db reset` order does not change.
 - `docs/operations/baseline-catalog-queries.sql` is the read-only catalog capture. Includes `cron.job`.
+
+## What r3 changed in the repo
+
+Filled the seven keep-applied stubs from the catalog capture. Definitions are copied, not invented.
+
+- `20260910203517_068_staff_hours` — table, constraints (DO-block guards), 4 policies (`DROP POLICY IF EXISTS` then `CREATE POLICY`), indexes (`CREATE INDEX IF NOT EXISTS`).
+- `20260918120319_save_job_dispatch_tables` — `dispatch_*` tables + `jobs.dispatch_ready` / `jobs.dispatch_version` (`ADD COLUMN IF NOT EXISTS`). Earliest version that created those objects.
+- `20260918120411_save_job_dispatch` — `save_job_dispatch(jsonb)` from `pg_get_functiondef` verbatim. Earliest version that created the function.
+- `20260919114909_save_job_dispatch_clear_times` — `SELECT 1`. Later redefinition; the live body already sits at `20260918120411`.
+- `20260919115303_save_job_dispatch_clock_semantics` — `dispatch_json_clock` and `dispatch_time_to_minutes` from `pg_get_functiondef` verbatim.
+- `20260911152122_reminders_visibility_tags_tick_only` — `agent_reminders_tagged_tick_only()` plus its trigger, guarded.
+- `20260903103230_072_member_tickets_due_invoke` — stays `SELECT 1`. Catalog 5a / 5b / 5c are empty: prod has no ticket function and no `cron.job` row.
 
 ## Proof table
 
@@ -194,21 +207,21 @@ Prod version is superseded by a PROVEN repo file. Mark the prod version reverted
 
 075 is already in the version-mismatch applied list (prod `20260904024201`). After reverting the two 072 ticket iterations, still mark `20260904080000` applied (idempotent if already listed).
 
-### Keep applied + PENDING catalog stub (7)
+### Keep applied + catalog stub (7)
 
-Do not revert. Repo files exist at the prod timestamps. Bodies are placeholders until the catalog dump lands.
+Do not revert. Repo files exist at the prod timestamps. r3 filled them from the catalog capture.
 
-| Prod version | Name | Objects (from proof, not invented) | Repo stub |
+| Prod version | Name | Objects | Repo stub |
 | --- | --- | --- | --- |
-| 20260903103230 | 072_member_tickets_due_invoke | due-ticket invoke + cron.job | `20260903103230_072_member_tickets_due_invoke.sql` |
-| 20260910203517 | 068_staff_hours | `staff_hours` (10 cols) + 4 policies | `20260910203517_068_staff_hours.sql` |
-| 20260911152122 | reminders_visibility_tags_tick_only | `agent_reminders_tagged_tick_only()` | `20260911152122_reminders_visibility_tags_tick_only.sql` |
-| 20260918120319 | save_job_dispatch_tables | `dispatch_resources` / `events` / `skills` / `member_qualifications`, `jobs.dispatch_*` | `20260918120319_save_job_dispatch_tables.sql` |
-| 20260918120411 | save_job_dispatch | `save_job_dispatch(jsonb)` | `20260918120411_save_job_dispatch.sql` |
-| 20260919114909 | save_job_dispatch_clear_times | redefines `save_job_dispatch` | `20260919114909_save_job_dispatch_clear_times.sql` |
-| 20260919115303 | save_job_dispatch_clock_semantics | `dispatch_json_clock`, `dispatch_time_to_minutes` | `20260919115303_save_job_dispatch_clock_semantics.sql` |
+| 20260903103230 | 072_member_tickets_due_invoke | none in prod (5a/5b/5c empty; `cron.job` empty) | `SELECT 1` — nothing to recreate |
+| 20260910203517 | 068_staff_hours | `staff_hours` (10 cols) + 6 constraints + 4 policies + 4 indexes | filled, idempotent |
+| 20260911152122 | reminders_visibility_tags_tick_only | `agent_reminders_tagged_tick_only()` + trigger | filled, guarded |
+| 20260918120319 | save_job_dispatch_tables | `dispatch_*` tables + `jobs.dispatch_ready` / `dispatch_version` | filled, earliest version |
+| 20260918120411 | save_job_dispatch | `save_job_dispatch(jsonb)` | filled, `pg_get_functiondef` verbatim |
+| 20260919114909 | save_job_dispatch_clear_times | later redefinition of `save_job_dispatch` | `SELECT 1` — live body already at 20411 |
+| 20260919115303 | save_job_dispatch_clock_semantics | `dispatch_json_clock`, `dispatch_time_to_minutes` | filled, `pg_get_functiondef` verbatim |
 
-Read-only capture: `docs/operations/baseline-catalog-queries.sql`. Stop here. Do not invent DDL.
+Read-only capture: `docs/operations/baseline-catalog-queries.sql`. Output: `uploads/368-catalog-capture.md`.
 
 ## P1-3 — 38 PROVEN repo-only (replace the r1 blanket 45)
 
@@ -353,23 +366,18 @@ is **not** used for those five now — they were never applied. A later SIGN can
 
 ## cron.job check
 
-First proof pass could not read `cron.job`. r2 adds it to `docs/operations/baseline-catalog-queries.sql`.
+Catalog capture query 0 returned `[]`. **Prod has zero `cron.job` rows.** Queries 5a / 5b / 5c are also empty: no ticket/due-invoke function and no ticket cron row.
 
-Repo files that call `cron.schedule` (057 / 058 / 060 / 062) all target the same two job names:
+The PR-J worker schedules (`missed-call-sms-worker` and `missed-call-booking-worker`, one-minute cadence, edge functions — not `pg_cron`) will be the first scheduled jobs on this project. Do not add Perth reminder `cron.job` rows in PR-J.
+
+Repo files that call `cron.schedule` (057 / 058 / 060 / 062) are still MISSING or, for 060, PROVEN for SQL objects only. None of those job names exist in prod:
 
 | jobname | schedule | 057 command | 058 command | 060 command | 062 command |
 | --- | --- | --- | --- | --- | --- |
 | job-client-reminder-perth-morning | `0 23 * * *` | `invoke_job_client_reminders()` | `send_due_job_client_reminders()` | `send_due_*` both | `invoke_job_client_reminders()` |
 | job-client-reminder-perth-afternoon | `0 8 * * *` | same | same | same | same |
 
-Proof: `invoke_job_client_reminders` exists; `send_due_job_client_reminders` and `send_due_inspection_reminders` do not. So prod's cron command, if those job names exist, should be the invoke form (062 / 057), not the 058 / 060 send_due form.
-
-After the catalog dump, check:
-
-- [ ] Both Perth job names exist, or document what exists instead
-- [ ] `command` is `SELECT public.invoke_job_client_reminders()` (or paste the exact command)
-- [ ] 072_member_tickets_due_invoke's cron.job row is present (name + command + schedule)
-- [ ] No extra jobs that the repo does not know
+`invoke_job_client_reminders` exists as a function; `send_due_job_client_reminders` and `send_due_inspection_reminders` do not. There is still no cron row that calls either.
 
 Do not change cron from this PR.
 
