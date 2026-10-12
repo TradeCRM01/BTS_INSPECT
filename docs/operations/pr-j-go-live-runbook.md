@@ -1,24 +1,48 @@
 # PR-J go-live runbook
 
-Checklist only. Coach SIGN on each apply. No `db push`. No prod writes from this PR.
+Checklist only. Coach SIGN on each prod step before it executes. No `db push`.
+This docs PR executes nothing against prod. Never merge from this PR.
 
 Production is `grafter.com.au` on Supabase `ezszahvwwmbuekpedumf`.
 Do not point the live SPA or Twilio callbacks at `fbtmwpkfyjxamxqjxiaq`.
 
 Allowlist stays `+61418893602` only. Default texts only. Custom wording needs Jack's OK.
+Test mode stays on.
+
+## Coach conditions
+
+- Auto-booking stays **OFF**.
+- Deploy **ONLY** `grafter-missed-call-sms-tick`.
+- The booking-tick Worker (`grafter-missed-call-booking-tick`) stays **undeployed**.
+- Do **not** create or bind `MISSED_CALL_BOOKING_WORKER_SECRET`.
+
+PR-J runs **one prod step at a time**. Each step needs Coach SIGN before it executes:
+
+1. **Migrations** — the ten Lane 2 files in `docs/operations/pr-j-step1-migrations.md`. One file per SIGN. Read-only SELECTs after each apply. Stop if a file fails.
+2. **Edge secrets** — `docs/operations/pr-j-step2-edge-secrets.md`. Names only in any log. Values stay in the secret store. Never print tokens.
+3. **sms-tick wrangler deploy** — reviewed manual `wrangler deploy` of `grafter-missed-call-sms-tick` only. Not booking-tick. wrangler@3 on Node 20.
+4. **Twilio webhooks** — messaging + voice-status on sender `PNb67e96dc23fa486ead392be6c92075a3` (`+61485064111`). No Messaging Service.
+5. **Settings row** — one reviewed `INSERT … ON CONFLICT` via `execute_sql`, run once. See step 5.
+6. **Flag-on build PR** — `ENQUIRY_SURFACE_LIVE = true` in a separate code PR. Vitest on the flag-on path plus frames of the Jobs **Enquiries** tab and Company Settings **Texting**. Coach SIGN on those frames before the const flip merges.
+7. **Smoke** — `+61418893602` **ONLY**: missed call, ack, reply, enquiry appears, STOP, no further texts. Test mode on. Default texts. Allowlist only.
 
 ## 0. Before any apply
 
 - [ ] Baseline reconcile r5 is SIGNED. Prod `schema_migrations` matches `docs/operations/baseline-reconcile.md` (CoS proof table).
-- [ ] Repair runbook from that doc has been executed (or confirmed unnecessary). PR-J applies only the ten Lane 2 files via `apply_migration` (that records ten new version rows). The 71 old apply-time version rows stay; accept them. Do not `db push`.
-- [ ] Do **not** apply 053, 056, 057, 058, 060, 062, remap, or phase_2b. Those stay pending for Coach (or are no-op stubs). 060 is PARTIAL.
-- [ ] `ENQUIRY_SURFACE_LIVE` is still the const `false` in the live build.
+- [ ] Repair runbook from that doc has been executed (or confirmed unnecessary). PR-J applies only the ten Lane 2 files via `apply_migration`. That records **ten new apply-time** `schema_migrations` rows (count 87 → 97). The 71 same-name / version-mismatch rows are a subset of today’s 87; they stay. Do not `INSERT` into `schema_migrations` by hand. Do not `repair` without Coach review. Do not `db push`.
+- [ ] Do **not** apply 053, 056, 057, 058, 060, 062, remap, or phase_2b. Those stay PARKED as NOT-applied. No stubs. No applied marks.
+- [ ] `ENQUIRY_SURFACE_LIVE` is still the const `false` in the live build until step 6.
 - [ ] No Messaging Service. Number SID `PNb67e96dc23fa486ead392be6c92075a3` (`+61485064111`) only.
-- [ ] Prod has `pg_cron` 1.6.4, 0 `cron.job` rows, and no `pg_net`. Do not enable `pg_net`. Do not insert Perth reminder `cron.job` rows. Worker ticks are section 5 (Cloudflare Cron Triggers).
+- [ ] Prod has `pg_cron` 1.6.4, 0 `cron.job` rows, and no `pg_net`. Do not enable `pg_net`. Do not insert Perth reminder `cron.job` rows.
+- [ ] Auto-booking stays off. Do not deploy `grafter-missed-call-booking-tick`. Do not set `MISSED_CALL_BOOKING_WORKER_SECRET`.
 
-## 1. Apply order (one reviewed file, Coach SIGN, `apply_migration`)
+## 1. Migrations (Coach SIGN, then one file)
+
+Apply order, sha256, dependencies, and the read-only verification SELECTs live in
+`docs/operations/pr-j-step1-migrations.md`.
 
 Apply these ten files in this order. One file per SIGN. Stop if a file fails.
+Run that file's SELECTs before the next SIGN.
 
 | Order | File | Notes |
 | --- | --- | --- |
@@ -33,26 +57,64 @@ Apply these ten files in this order. One file per SIGN. Stop if a file fails.
 | 9 | `20261017000000_sms_reply_templates.sql` | Three default texts. |
 | 10 | `20261018000000_sms_reply_filter_hardening.sql` | Phone and `$` guards. The `$` guard rides in PR-J and blocks any `$` in custom replies. |
 
-`apply_migration` records each of these ten as a new `schema_migrations` version. It does not replace the 71 old apply-time rows. Accept those 71 rows.
+`apply_migration` records a **new apply-time** `version` per file, not the
+author-time prefix in the file name. After file 10 the count is **97**. Newest
+`name` matches the file just applied. The 71 figure is the same-name /
+version-mismatch subset of today’s 87 rows, not “87 minus ten.” No manual
+`INSERT` or `repair` without review.
 
-Do not apply any other repo file in this go-live. That includes 053 / 056 / 057 / 058 / 060 (PARTIAL) / 062 (Coach decides apply or stub) and the two organisations-stack no-op stubs.
+Do not apply any other repo file in this go-live.
 
-## 2. Edge secret names only
+## 2. Edge secrets (Coach SIGN)
 
-Set these names on the project. Values stay in the secret store. Never `VITE_*`. Never print tokens.
+Names, readers, and `file:line` cites: `docs/operations/pr-j-step2-edge-secrets.md`.
 
-- `TWILIO_ACCOUNT_SID`
-- `TWILIO_AUTH_TOKEN`
-- `TWILIO_WEBHOOK_URL`
-- `TWILIO_VOICE_STATUS_WEBHOOK_URL`
-- `MISSED_CALL_SMS_WORKER_SECRET`
-- `MISSED_CALL_BOOKING_WORKER_SECRET`
-- optional: `MISSED_CALL_SMS_WORKER_ID`
-- optional: `MISSED_CALL_BOOKING_WORKER_ID`
+Jack or Coach uses the `--env-file` procedure in
+`docs/operations/pr-j-step2-edge-secrets.md`. Never inline `NAME=value`.
+Verify with `npx supabase secrets list --project-ref ezszahvwwmbuekpedumf`
+(names only). Already-set in prod is unknown until that list.
+
+- [ ] `TWILIO_ACCOUNT_SID`
+- [ ] `TWILIO_AUTH_TOKEN`
+- [ ] `TWILIO_WEBHOOK_URL`
+- [ ] `TWILIO_VOICE_STATUS_WEBHOOK_URL`
+- [ ] `MISSED_CALL_SMS_WORKER_SECRET` — same value as the sms-tick Worker binding
+- [ ] optional: `MISSED_CALL_SMS_WORKER_ID`
+
+Do **not** set `MISSED_CALL_BOOKING_WORKER_SECRET`.
+Do **not** set `MISSED_CALL_BOOKING_WORKER_ID`.
+Do **not** set `TWILIO_FROM_NUMBER` (never `+61485064111`). No Messaging Service SID.
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are supplied by the platform.
 
-## 3. Twilio webhooks
+## 3. sms-tick wrangler deploy (Coach SIGN)
+
+Reviewed **manual** `wrangler deploy` of `grafter-missed-call-sms-tick` from
+Jack's Cloudflare account. wrangler@3 on Node 20 (wrangler 4 needs Node 22).
+Not a dashboard Create-Worker click. Not a CI deploy. Not booking-tick.
+
+#369 (PR-W) added the source under `workers/missed-call-sms-tick` and
+`workers/missed-call-booking-tick`. Booking-tick source stays in the repo and
+stays undeployed.
+
+- [ ] Coach SIGN on this deploy step.
+- [ ] `wrangler deploy` for `grafter-missed-call-sms-tick` only.
+- [ ] `printf '%s' "$(cat /home/box/.secrets/missed-call-sms-worker.secret)" | wrangler secret put MISSED_CALL_SMS_WORKER_SECRET` (64 bytes, no newline; see step-2 doc), then `shred -u` that file. Never print it. Never `VITE_*`. If the file is lost, regenerate and re-set Edge and the Worker (step 2).
+- [ ] Do **not** deploy `grafter-missed-call-booking-tick`.
+- [ ] Do **not** bind `MISSED_CALL_BOOKING_WORKER_SECRET`.
+- [ ] First tick after SIGN: one SMS worker POST, allowlist only.
+
+Throughput is one item per minute on the sms-tick Worker, which is fine for the
+pilot. A `2xx` completes the tick. Retry transport errors and `5xx` on the
+**next** minute, not in a tight loop.
+
+### Why not `pg_cron` + `net.http_post`
+
+Catalog capture query 19 (`pg_extension`) lists `pg_cron` 1.6.4 and does **not**
+list `pg_net`. Prod has **0** `cron.job` rows. Cloudflare Cron Triggers need
+zero catalog, extension, or `cron.job` writes.
+
+## 4. Twilio webhooks (Coach SIGN)
 
 On Incoming Phone Number `PNb67e96dc23fa486ead392be6c92075a3` (`+61485064111`):
 
@@ -65,95 +127,123 @@ On Incoming Phone Number `PNb67e96dc23fa486ead392be6c92075a3` (`+61485064111`):
 - [ ] `TWILIO_WEBHOOK_URL` matches the messaging URL byte-for-byte.
 - [ ] `TWILIO_VOICE_STATUS_WEBHOOK_URL` matches the voice-status URL byte-for-byte.
 - [ ] Existing voice handler is unchanged.
-
-## 4. Sender mapping
-
 - [ ] `organisation_twilio_senders` has one active row for the live company:
   - `phone_e164` = `+61485064111`
   - `provider_sender_sid` = `PNb67e96dc23fa486ead392be6c92075a3`
   - `active` = true
-- [ ] No Messaging Service.
 
-## 5. Worker schedules (reviewed step — Coach SIGN)
+## 5. Settings row (Coach SIGN)
 
-**Scheduler:** Cloudflare Cron Triggers.  
-**Owner:** Jack's Cloudflare account (Pages project `bts-inspect` / `bts-inspect.pages.dev`).
+One reviewed `INSERT … ON CONFLICT` via `execute_sql`. Run **once**. Every
+value is set explicitly. Do not rely on table defaults for the allowlist: the
+default `test_allowlist` is `'{}'`, which **blocks the smoke test**
+(`test_mode_blocked`).
 
-Workers must **not** be dashboard-only. This PR does not add them. After #368 merges, a separate thin PR (**PR-W**) adds source under `workers/missed-call-sms-tick` and `workers/missed-call-booking-tick`. Do not build PR-W yet.
+`organisation_id` is derived from `organisation_twilio_senders` where
+`provider_sender_sid = 'PNb67e96dc23fa486ead392be6c92075a3'` **and**
+`active`. Assert **exactly 1** active row. Do not paste a company UUID.
 
-### Why not `pg_cron` + `net.http_post`
+`business_name` is `BTS Electrical` (Jack's pick: 14 characters, GSM-7, **20
+characters or fewer**). The DB check rejects longer names. (CoS floated
+Building Technology Solutions; that string is 29 characters and would fail.)
+Must be set **before** `enabled` is true (same statement is fine if the name
+is already valid). Caps are hourly 10, daily 20, monthly 300.
 
-Catalog capture query 19 (`pg_extension`) lists `pg_cron` 1.6.4 and does **not** list `pg_net`. Prod has **0** `cron.job` rows. Wiring ticks through `cron.schedule` + `net.http_post` would need:
+One `execute_sql` call — assert and insert in a single `DO` block.
 
-1. `CREATE EXTENSION pg_net` — explicit reviewed prod write, listed in the apply order if that path is ever chosen
-2. Two `cron.schedule` inserts
+```sql
+DO $step$
+DECLARE
+  n integer;
+  v_org uuid;
+BEGIN
+  SELECT count(*), min(organisation_id)
+    INTO n, v_org
+    FROM public.organisation_twilio_senders
+   WHERE provider_sender_sid = 'PNb67e96dc23fa486ead392be6c92075a3'
+     AND active;
+  IF n <> 1 THEN
+    RAISE EXCEPTION
+      'expected exactly 1 active organisation_twilio_senders row for PNb67e96dc23fa486ead392be6c92075a3';
+  END IF;
 
-That is three prod writes. Cloudflare Cron Triggers need **zero** catalog, extension, or `cron.job` writes. Fewest prod changes. GitHub Actions `schedule` is already how Pages deploys (`deploy-pages.yml`) but cannot hold a reliable one-minute cadence, so it is not the worker scheduler.
+  INSERT INTO public.sms_automation_settings (
+    organisation_id,
+    enabled,
+    test_mode,
+    test_allowlist,
+    forward_from_e164,
+    business_name,
+    hourly_message_cap,
+    daily_message_cap,
+    monthly_message_cap,
+    ack_ttl_minutes
+  ) VALUES (
+    v_org,
+    true,
+    true,
+    ARRAY['+61418893602']::text[],
+    NULL,
+    'BTS Electrical',  -- Jack: 14 characters, GSM-7, 20 or fewer
+    10,
+    20,
+    300,
+    30
+  )
+  ON CONFLICT (organisation_id) DO UPDATE
+  SET
+    enabled = EXCLUDED.enabled,
+    test_mode = EXCLUDED.test_mode,
+    test_allowlist = EXCLUDED.test_allowlist,
+    forward_from_e164 = EXCLUDED.forward_from_e164,
+    business_name = EXCLUDED.business_name,
+    hourly_message_cap = EXCLUDED.hourly_message_cap,
+    daily_message_cap = EXCLUDED.daily_message_cap,
+    monthly_message_cap = EXCLUDED.monthly_message_cap,
+    ack_ttl_minutes = EXCLUDED.ack_ttl_minutes,
+    updated_at = now();
+END
+$step$;
+```
 
-If Coach later picks `pg_cron` + `net.http_post` instead, stop and add `enable pg_net` as its own SIGN'd apply step before any `cron.schedule`. Do not do that in this go-live.
-
-### PR-W (after #368 merges — do not build in this PR)
-
-A thin follow-up PR. Source plus wrangler config. **No deploy.**
-
-- [ ] `workers/missed-call-sms-tick` and `workers/missed-call-booking-tick`
-- [ ] wrangler config with `[triggers] crons = ["* * * * *"]`
-- [ ] Secret bindings by name only: `MISSED_CALL_SMS_WORKER_SECRET` and `MISSED_CALL_BOOKING_WORKER_SECRET`
-- [ ] `console.error` on 5xx and network failures (do not log `Authorization`, bodies, or phone numbers)
-- [ ] Unit tests with a mocked `fetch`
-- [ ] No `wrangler deploy` from PR-W
-
-Each tick POSTs one of:
-
-- `https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/missed-call-sms-worker`
-- `https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/missed-call-booking-worker`
-
-with `Authorization: Bearer` from that Worker's secret. At most one item per tick (the edge function already enforces that). Throughput is one item per minute per worker, which is fine for the pilot. A `2xx` completes the tick. Retry transport errors and `5xx` on the **next** minute, not in a tight loop.
-
-### PR-J deploy (after PR-W merges — Coach SIGN)
-
-Reviewed **manual** `wrangler deploy` from Jack's Cloudflare account. Not a dashboard Create-Worker click. Not a CI deploy.
-
-- [ ] Coach SIGN on this deploy step.
-- [ ] `wrangler deploy` for `missed-call-sms-tick`
-- [ ] `wrangler deploy` for `missed-call-booking-tick`
-- [ ] Secrets bound by name (`MISSED_CALL_SMS_WORKER_SECRET`, `MISSED_CALL_BOOKING_WORKER_SECRET`). Values stay in the secret store. Never print them. Never `VITE_*`.
-- [ ] First ticks after SIGN: one SMS worker POST and one booking worker POST, allowlist only.
-
-## 6. Settings row
-
-Insert or update `sms_automation_settings` for the live company.
-
-- [ ] `business_name` set first. GSM-7. 2–20 characters. Jack's approved display name only.
-- [ ] Then `enabled`. Do not enable with a null or invalid name.
-- [ ] `test_mode` = true.
+- [ ] Coach SIGN on this one `execute_sql`. Jack has confirmed `BTS Electrical` (14 characters, GSM-7, 20 or fewer). Caps are 10 / 20 / 300.
+- [ ] `test_mode` = true. Stays on.
 - [ ] `test_allowlist` = `{+61418893602}` only.
-- [ ] Caps: hourly `10`, daily `20`, monthly `300`.
 - [ ] Default texts only. Custom ack / thanks / HELP needs Jack's OK. The `$` guard rides in PR-J and blocks any `$` in custom replies.
 
-## 7. Flag flip (`ENQUIRY_SURFACE_LIVE`)
+Do not run this from this docs PR.
 
-This is a **code PR**, not an env toggle. `ENQUIRY_SURFACE_LIVE` is a `const` in `src/lib/missedCallEnquiry.ts`. The production build drops the `|| ENQUIRY_SURFACE_LIVE` OR (dead-code elimination while the const is `false`), so the live bundle never takes the flag-on branch. Flipping means changing that const to `true` and deploying that commit.
+## 6. Flag-on build PR (Coach SIGN)
 
-Do not flip until the pre-flip proof exists on a flag-on preview build (const set `true` in that preview only):
+This is a **code PR**, not an env toggle. `ENQUIRY_SURFACE_LIVE` is a `const` in
+`src/lib/missedCallEnquiry.ts`. The production build drops the
+`|| ENQUIRY_SURFACE_LIVE` OR while the const is `false`. Flipping means changing
+that const to `true` and deploying that commit.
+
+Do not flip until the pre-flip proof exists on a flag-on preview build:
 
 - [ ] Vitest on the flag-on path (Enquiries surface and Texting) is green.
 - [ ] Flag-on preview frames prove the output: Jobs **Enquiries** tab, and Company Settings **Texting** (missed-call text-back + replies).
 - [ ] Coach SIGN on those frames.
 - [ ] Then merge the const flip in a reviewed deploy.
 
-Rollback of the flag is the same kind of change: set the const back to `false` and redeploy.
+Rollback of the flag is the same kind of change: set the const back to `false`
+and redeploy.
 
-## 8. Smoke
+## 7. Smoke (Coach SIGN) — `+61418893602` ONLY
 
-- [ ] One missed call and one inbound SMS to `+61418893602` only.
-- [ ] Confirm one outbound text-back, HELP, and STOP on that number only.
-- [ ] No other destination.
+- [ ] Missed call from `+61418893602` only.
+- [ ] Accept one outbound ack to that number only.
+- [ ] Reply from that number only.
+- [ ] Enquiry appears on the Jobs Enquiries tab.
+- [ ] STOP from that number. No further texts.
+- [ ] No other destination. Test mode on. Default texts. Allowlist only.
 
-## 9. Rollback
+## 8. Rollback
 
 - [ ] Set `sms_automation_settings.enabled` = false.
 - [ ] Set the `ENQUIRY_SURFACE_LIVE` const back to `false` and redeploy (code PR; the live build drops the OR while it is false).
-- [ ] Pause both Cloudflare Cron Triggers (`missed-call-sms-tick` and `missed-call-booking-tick`).
+- [ ] Pause the Cloudflare Cron Trigger on `grafter-missed-call-sms-tick` only.
 - [ ] Set the sender `active` = false.
 - [ ] Leave the ten applied files in place unless Coach SIGN asks for a revert of a specific version (`repair --status reverted` then a reviewed follow-up). Do not `db reset` prod.
+- [ ] Booking-tick was never deployed. Leave it undeployed.
