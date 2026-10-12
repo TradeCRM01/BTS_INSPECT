@@ -99,7 +99,7 @@ stays undeployed.
 
 - [ ] Coach SIGN on this deploy step.
 - [ ] `wrangler deploy` for `grafter-missed-call-sms-tick` only.
-- [ ] `wrangler secret put MISSED_CALL_SMS_WORKER_SECRET` reading `/home/box/.secrets/missed-call-sms-worker.secret` from stdin, then `shred -u` that file. Never print it. Never `VITE_*`. If the file is lost, regenerate and re-set Edge and the Worker (step 2).
+- [ ] `printf '%s' "$(cat /home/box/.secrets/missed-call-sms-worker.secret)" | wrangler secret put MISSED_CALL_SMS_WORKER_SECRET` (64 bytes, no newline; see step-2 doc), then `shred -u` that file. Never print it. Never `VITE_*`. If the file is lost, regenerate and re-set Edge and the Worker (step 2).
 - [ ] Do **not** deploy `grafter-missed-call-booking-tick`.
 - [ ] Do **not** bind `MISSED_CALL_BOOKING_WORKER_SECRET`.
 - [ ] First tick after SIGN: one SMS worker POST, allowlist only.
