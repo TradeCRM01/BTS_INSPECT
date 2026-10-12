@@ -7,10 +7,12 @@ Source: `supabase/functions` on `origin/main` at
 `796f3b71f6feece170837c6bdd2187103003b40b` (#369). Every `Deno.env.get(...)`
 on the missed-call SMS path is listed below with `file:line`.
 
-**Method:** Jack or Coach runs a reviewed `supabase secrets set NAME=...` on
-project `ezszahvwwmbuekpedumf`. One SIGN, then the set. Values never logged.
-Verify afterwards with `supabase secrets list` (names only). Whether a name is
-already set in prod is **unknown** until that list is read.
+**Method:** Jack or Coach writes names into a mode-600 env file and runs
+`npx supabase secrets set --env-file` with `--project-ref ezszahvwwmbuekpedumf`.
+Never inline `NAME=value` on the command line, in chat, or in this PR. Verify
+with `npx supabase secrets list --project-ref ezszahvwwmbuekpedumf` (names
+only). Whether a name is already set in prod is **unknown** until that list
+is read.
 
 Auto-booking stays off. Do **not** set `MISSED_CALL_BOOKING_WORKER_SECRET`.
 Do **not** set `MISSED_CALL_BOOKING_WORKER_ID`.
@@ -34,17 +36,17 @@ Supabase injects these into every Edge Function. Do not put them in
 
 | Name | Function(s) | `Deno.env.get` | Purpose | Value comes from | Already in prod |
 | --- | --- | --- | --- | --- | --- |
-| `TWILIO_AUTH_TOKEN` | `twilio-inbound`, `twilio-voice-status`, `missed-call-sms-worker` | `twilio-inbound/index.ts:35`, `twilio-voice-status/index.ts:32`, `missed-call-sms-worker/index.ts:66` | Validate Twilio request signatures; Basic auth when the SMS worker POSTs `Messages.json` | Twilio console (Account → Auth token) | unknown — `supabase secrets list` (names only) |
-| `TWILIO_ACCOUNT_SID` | `twilio-inbound`, `twilio-voice-status` | `twilio-inbound/index.ts:36`, `twilio-voice-status/index.ts:33` | Expected Account SID on inbound and voice-status webhooks | Twilio console (`AC…`) | unknown — `supabase secrets list` (names only) |
-| `TWILIO_WEBHOOK_URL` | `twilio-inbound` | `twilio-inbound/index.ts:37` | Public URL Twilio signed; must match the messaging webhook byte-for-byte | Twilio console messaging webhook = `https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/twilio-inbound` | unknown — `supabase secrets list` (names only) |
-| `TWILIO_VOICE_STATUS_WEBHOOK_URL` | `twilio-voice-status` | `twilio-voice-status/index.ts:34` | Public URL Twilio signed; must match the voice-status callback byte-for-byte | Twilio console voice status callback = `https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/twilio-voice-status` | unknown — `supabase secrets list` (names only) |
-| `MISSED_CALL_SMS_WORKER_SECRET` | `missed-call-sms-worker` | `missed-call-sms-worker/index.ts:65` | Bearer that authorizes the sms-tick Worker POST | Generated random **32+ bytes**. **Same value** as the Cloudflare Worker binding `MISSED_CALL_SMS_WORKER_SECRET` on `grafter-missed-call-sms-tick` (step 3). Do not log it. | unknown — `supabase secrets list` (names only) |
+| `TWILIO_AUTH_TOKEN` | `twilio-inbound`, `twilio-voice-status`, `missed-call-sms-worker` | `twilio-inbound/index.ts:35`, `twilio-voice-status/index.ts:32`, `missed-call-sms-worker/index.ts:66` | Validate Twilio request signatures; Basic auth when the SMS worker POSTs `Messages.json` | Twilio console (Account → Auth token) | unknown — `secrets list --project-ref` (names only) |
+| `TWILIO_ACCOUNT_SID` | `twilio-inbound`, `twilio-voice-status` | `twilio-inbound/index.ts:36`, `twilio-voice-status/index.ts:33` | Expected Account SID on inbound and voice-status webhooks | Twilio console (`AC…`) | unknown — `secrets list --project-ref` (names only) |
+| `TWILIO_WEBHOOK_URL` | `twilio-inbound` | `twilio-inbound/index.ts:37` | Public URL Twilio signed; must match the messaging webhook byte-for-byte | Twilio console messaging webhook = `https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/twilio-inbound` | unknown — `secrets list --project-ref` (names only) |
+| `TWILIO_VOICE_STATUS_WEBHOOK_URL` | `twilio-voice-status` | `twilio-voice-status/index.ts:34` | Public URL Twilio signed; must match the voice-status callback byte-for-byte | Twilio console voice status callback = `https://ezszahvwwmbuekpedumf.supabase.co/functions/v1/twilio-voice-status` | unknown — `secrets list --project-ref` (names only) |
+| `MISSED_CALL_SMS_WORKER_SECRET` | `missed-call-sms-worker` | `missed-call-sms-worker/index.ts:65` | Bearer that authorizes the sms-tick Worker POST | `openssl rand -hex 32` written straight to `/home/box/.secrets/missed-call-sms-worker.secret` (mode 600, outside git). Never echoed. Same file is the step-3 `wrangler secret put` stdin. | unknown — `secrets list --project-ref` (names only) |
 
 ### Optional
 
 | Name | Function | `Deno.env.get` | Purpose | Value comes from | Already in prod |
 | --- | --- | --- | --- | --- | --- |
-| `MISSED_CALL_SMS_WORKER_ID` | `missed-call-sms-worker` | `missed-call-sms-worker/index.ts:22` and `:67` | Claim `p_worker_id` / worker label. Default if unset: `missed-call-sms-worker` | Optional stable label. Skip unless Coach wants a non-default id | unknown — `supabase secrets list` (names only) |
+| `MISSED_CALL_SMS_WORKER_ID` | `missed-call-sms-worker` | `missed-call-sms-worker/index.ts:22` and `:67` | Claim `p_worker_id` / worker label. Default if unset: `missed-call-sms-worker` | Optional stable label. Skip unless Coach wants a non-default id | unknown — `secrets list --project-ref` (names only) |
 
 ## Do not set
 
@@ -61,38 +63,59 @@ Supabase injects these into every Edge Function. Do not put them in
 
 ## Reviewed set (Jack or Coach)
 
-After Coach SIGN, on `ezszahvwwmbuekpedumf`, names only in the command the
-operator types locally. Do not paste values here.
+After Coach SIGN. Never inline `NAME=value`. `set +x`. Do not `echo` values.
+`TWILIO_*` are copied from the box env into `$f` without printing them.
+Generate the worker secret with `openssl rand -hex 32` straight into a
+mode-600 file. Never echo that output.
 
 ```sh
-# Values stay in the operator's terminal. Do not commit. Do not paste into chat.
-npx supabase secrets set \
-  TWILIO_ACCOUNT_SID= \
-  TWILIO_AUTH_TOKEN= \
-  TWILIO_WEBHOOK_URL= \
-  TWILIO_VOICE_STATUS_WEBHOOK_URL= \
-  MISSED_CALL_SMS_WORKER_SECRET=
+set +x
+umask 077
+mkdir -p /home/box/.secrets
+openssl rand -hex 32 > /home/box/.secrets/missed-call-sms-worker.secret
+chmod 600 /home/box/.secrets/missed-call-sms-worker.secret
+
+f=$(mktemp)
+{
+  printf 'TWILIO_ACCOUNT_SID=%s\n' "$TWILIO_ACCOUNT_SID"
+  printf 'TWILIO_AUTH_TOKEN=%s\n' "$TWILIO_AUTH_TOKEN"
+  printf 'TWILIO_WEBHOOK_URL=%s\n' "$TWILIO_WEBHOOK_URL"
+  printf 'TWILIO_VOICE_STATUS_WEBHOOK_URL=%s\n' "$TWILIO_VOICE_STATUS_WEBHOOK_URL"
+  printf 'MISSED_CALL_SMS_WORKER_SECRET='
+  cat /home/box/.secrets/missed-call-sms-worker.secret
+  printf '\n'
+} > "$f"
+chmod 600 "$f"
+
+npx supabase secrets set --env-file "$f" --project-ref ezszahvwwmbuekpedumf
+shred -u "$f"
+
+npx supabase secrets list --project-ref ezszahvwwmbuekpedumf
 ```
 
-Optional, only if Coach wants a non-default worker id:
+Do not add `MISSED_CALL_SMS_WORKER_ID` unless Coach asks. If they do, write it
+into `$f` the same way (from the box env, no inline `NAME=value`).
 
-```sh
-npx supabase secrets set MISSED_CALL_SMS_WORKER_ID=
-```
-
-Then names-only verify:
-
-```sh
-npx supabase secrets list
-```
-
-Expected names present: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
+Expected names on `secrets list`: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
 `TWILIO_WEBHOOK_URL`, `TWILIO_VOICE_STATUS_WEBHOOK_URL`,
-`MISSED_CALL_SMS_WORKER_SECRET`. Optional: `MISSED_CALL_SMS_WORKER_ID`.
-`MISSED_CALL_BOOKING_WORKER_SECRET` must be absent (or left untouched — do not
-create it). List output is names only; if a value appears, stop and treat it
-as a leak.
+`MISSED_CALL_SMS_WORKER_SECRET`. `MISSED_CALL_BOOKING_WORKER_SECRET` must be
+absent (do not create it). List is names only; if a value appears, stop and
+treat it as a leak.
 
-Step 3 binds the **same** `MISSED_CALL_SMS_WORKER_SECRET` on
-`grafter-missed-call-sms-tick`. Generate once. Set Edge first (this step),
-bind the Worker later. Never write the value into wrangler.toml or git.
+Keep `/home/box/.secrets/missed-call-sms-worker.secret` (mode 600, outside
+git) until step 3. That is the handoff. Do not commit it. Do not paste it.
+
+## Handoff to step 3
+
+Step 3 reads that file on stdin and then deletes it:
+
+```sh
+set +x
+wrangler secret put MISSED_CALL_SMS_WORKER_SECRET < /home/box/.secrets/missed-call-sms-worker.secret
+shred -u /home/box/.secrets/missed-call-sms-worker.secret
+```
+
+If the file is lost, regenerate with `openssl rand -hex 32` straight into the
+same path (mode 600, never echoed), re-run this step’s `--env-file` set so
+Edge matches, then `wrangler secret put` again. Both sides must match. Never
+write the value into wrangler.toml or git.

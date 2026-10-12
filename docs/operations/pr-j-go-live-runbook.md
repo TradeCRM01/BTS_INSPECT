@@ -69,9 +69,10 @@ Do not apply any other repo file in this go-live.
 
 Names, readers, and `file:line` cites: `docs/operations/pr-j-step2-edge-secrets.md`.
 
-Jack or Coach runs a reviewed `supabase secrets set NAME=...`. Values never
-logged or pasted into chat or PRs. Verify with `supabase secrets list` (names
-only). Already-set in prod is unknown until that list.
+Jack or Coach uses the `--env-file` procedure in
+`docs/operations/pr-j-step2-edge-secrets.md`. Never inline `NAME=value`.
+Verify with `npx supabase secrets list --project-ref ezszahvwwmbuekpedumf`
+(names only). Already-set in prod is unknown until that list.
 
 - [ ] `TWILIO_ACCOUNT_SID`
 - [ ] `TWILIO_AUTH_TOKEN`
@@ -98,7 +99,7 @@ stays undeployed.
 
 - [ ] Coach SIGN on this deploy step.
 - [ ] `wrangler deploy` for `grafter-missed-call-sms-tick` only.
-- [ ] Bind `MISSED_CALL_SMS_WORKER_SECRET` by name. Value stays in the secret store. Never print it. Never `VITE_*`.
+- [ ] `wrangler secret put MISSED_CALL_SMS_WORKER_SECRET` reading `/home/box/.secrets/missed-call-sms-worker.secret` from stdin, then `shred -u` that file. Never print it. Never `VITE_*`. If the file is lost, regenerate and re-set Edge and the Worker (step 2).
 - [ ] Do **not** deploy `grafter-missed-call-booking-tick`.
 - [ ] Do **not** bind `MISSED_CALL_BOOKING_WORKER_SECRET`.
 - [ ] First tick after SIGN: one SMS worker POST, allowlist only.
@@ -139,67 +140,73 @@ default `test_allowlist` is `'{}'`, which **blocks the smoke test**
 (`test_mode_blocked`).
 
 `organisation_id` is derived from `organisation_twilio_senders` where
-`provider_sender_sid = 'PNb67e96dc23fa486ead392be6c92075a3'`. Assert **exactly
-1 row**. Do not paste a company UUID.
+`provider_sender_sid = 'PNb67e96dc23fa486ead392be6c92075a3'` **and**
+`active`. Assert **exactly 1** active row. Do not paste a company UUID.
 
-`business_name` is GSM-7, 20 characters or fewer, and must be set **before**
-`enabled` is true (same statement is fine if the name is already valid). Caps
-are hourly 10, daily 20, monthly 300.
+`business_name` is `<BUSINESS_NAME>` pending Jack's choice: GSM-7, **20
+characters or fewer**. The DB check rejects longer names. (CoS floated
+Building Technology Solutions; that string is 29 characters and would fail.)
+Must be set **before** `enabled` is true (same statement is fine if the name
+is already valid). Caps are hourly 10, daily 20, monthly 300.
+
+One `execute_sql` call — assert and insert in a single `DO` block.
 
 ```sql
-DO $assert$
+DO $step$
+DECLARE
+  n integer;
+  v_org uuid;
 BEGIN
-  IF (
-    SELECT count(*)
-      FROM public.organisation_twilio_senders
-     WHERE provider_sender_sid = 'PNb67e96dc23fa486ead392be6c92075a3'
-  ) <> 1 THEN
+  SELECT count(*), min(organisation_id)
+    INTO n, v_org
+    FROM public.organisation_twilio_senders
+   WHERE provider_sender_sid = 'PNb67e96dc23fa486ead392be6c92075a3'
+     AND active;
+  IF n <> 1 THEN
     RAISE EXCEPTION
-      'expected exactly 1 organisation_twilio_senders row for PNb67e96dc23fa486ead392be6c92075a3';
+      'expected exactly 1 active organisation_twilio_senders row for PNb67e96dc23fa486ead392be6c92075a3';
   END IF;
-END
-$assert$;
 
-INSERT INTO public.sms_automation_settings (
-  organisation_id,
-  enabled,
-  test_mode,
-  test_allowlist,
-  forward_from_e164,
-  business_name,
-  hourly_message_cap,
-  daily_message_cap,
-  monthly_message_cap,
-  ack_ttl_minutes
-)
-SELECT
-  sender.organisation_id,
-  true,
-  true,
-  ARRAY['+61418893602']::text[],
-  NULL,                    -- or a reviewed forward-from E.164 if needed
-  '<BUSINESS_NAME>',       -- GSM-7, 2–20 chars; required because enabled is true
-  10,
-  20,
-  300,
-  30
-FROM public.organisation_twilio_senders AS sender
-WHERE sender.provider_sender_sid = 'PNb67e96dc23fa486ead392be6c92075a3'
-ON CONFLICT (organisation_id) DO UPDATE
-SET
-  enabled = EXCLUDED.enabled,
-  test_mode = EXCLUDED.test_mode,
-  test_allowlist = EXCLUDED.test_allowlist,
-  forward_from_e164 = EXCLUDED.forward_from_e164,
-  business_name = EXCLUDED.business_name,
-  hourly_message_cap = EXCLUDED.hourly_message_cap,
-  daily_message_cap = EXCLUDED.daily_message_cap,
-  monthly_message_cap = EXCLUDED.monthly_message_cap,
-  ack_ttl_minutes = EXCLUDED.ack_ttl_minutes,
-  updated_at = now();
+  INSERT INTO public.sms_automation_settings (
+    organisation_id,
+    enabled,
+    test_mode,
+    test_allowlist,
+    forward_from_e164,
+    business_name,
+    hourly_message_cap,
+    daily_message_cap,
+    monthly_message_cap,
+    ack_ttl_minutes
+  ) VALUES (
+    v_org,
+    true,
+    true,
+    ARRAY['+61418893602']::text[],
+    NULL,
+    '<BUSINESS_NAME>',  -- Jack: GSM-7, 20 characters or fewer
+    10,
+    20,
+    300,
+    30
+  )
+  ON CONFLICT (organisation_id) DO UPDATE
+  SET
+    enabled = EXCLUDED.enabled,
+    test_mode = EXCLUDED.test_mode,
+    test_allowlist = EXCLUDED.test_allowlist,
+    forward_from_e164 = EXCLUDED.forward_from_e164,
+    business_name = EXCLUDED.business_name,
+    hourly_message_cap = EXCLUDED.hourly_message_cap,
+    daily_message_cap = EXCLUDED.daily_message_cap,
+    monthly_message_cap = EXCLUDED.monthly_message_cap,
+    ack_ttl_minutes = EXCLUDED.ack_ttl_minutes,
+    updated_at = now();
+END
+$step$;
 ```
 
-- [ ] Coach SIGN on this `execute_sql`. Jack has confirmed `<BUSINESS_NAME>`. Caps are 10 / 20 / 300.
+- [ ] Coach SIGN on this one `execute_sql`. Jack has confirmed `<BUSINESS_NAME>` (GSM-7, 20 characters or fewer). Caps are 10 / 20 / 300.
 - [ ] `test_mode` = true. Stays on.
 - [ ] `test_allowlist` = `{+61418893602}` only.
 - [ ] Default texts only. Custom ack / thanks / HELP needs Jack's OK. The `$` guard rides in PR-J and blocks any `$` in custom replies.
