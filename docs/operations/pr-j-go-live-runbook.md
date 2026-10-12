@@ -143,8 +143,8 @@ default `test_allowlist` is `'{}'`, which **blocks the smoke test**
 `provider_sender_sid = 'PNb67e96dc23fa486ead392be6c92075a3'` **and**
 `active`. Assert **exactly 1** active row. Do not paste a company UUID.
 
-`business_name` is `<BUSINESS_NAME>` pending Jack's choice: GSM-7, **20
-characters or fewer**. The DB check rejects longer names. (CoS floated
+`business_name` is `BTS Electrical` (Jack's pick: 14 characters, GSM-7, **20
+characters or fewer**). The DB check rejects longer names. (CoS floated
 Building Technology Solutions; that string is 29 characters and would fail.)
 Must be set **before** `enabled` is true (same statement is fine if the name
 is already valid). Caps are hourly 10, daily 20, monthly 300.
@@ -184,7 +184,7 @@ BEGIN
     true,
     ARRAY['+61418893602']::text[],
     NULL,
-    '<BUSINESS_NAME>',  -- Jack: GSM-7, 20 characters or fewer
+    'BTS Electrical',  -- Jack: 14 characters, GSM-7, 20 or fewer
     10,
     20,
     300,
@@ -206,7 +206,7 @@ END
 $step$;
 ```
 
-- [ ] Coach SIGN on this one `execute_sql`. Jack has confirmed `<BUSINESS_NAME>` (GSM-7, 20 characters or fewer). Caps are 10 / 20 / 300.
+- [ ] Coach SIGN on this one `execute_sql`. Jack has confirmed `BTS Electrical` (14 characters, GSM-7, 20 or fewer). Caps are 10 / 20 / 300.
 - [ ] `test_mode` = true. Stays on.
 - [ ] `test_allowlist` = `{+61418893602}` only.
 - [ ] Default texts only. Custom ack / thanks / HELP needs Jack's OK. The `$` guard rides in PR-J and blocks any `$` in custom replies.
