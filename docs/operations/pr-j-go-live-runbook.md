@@ -19,7 +19,7 @@ Test mode stays on.
 PR-J runs **one prod step at a time**. Each step needs Coach SIGN before it executes:
 
 1. **Migrations** — the ten Lane 2 files in `docs/operations/pr-j-step1-migrations.md`. One file per SIGN. Read-only SELECTs after each apply. Stop if a file fails.
-2. **Edge secrets** — names only in any log. Values stay in the secret store. Never print tokens.
+2. **Edge secrets** — `docs/operations/pr-j-step2-edge-secrets.md`. Names only in any log. Values stay in the secret store. Never print tokens.
 3. **sms-tick wrangler deploy** — reviewed manual `wrangler deploy` of `grafter-missed-call-sms-tick` only. Not booking-tick. wrangler@3 on Node 20.
 4. **Twilio webhooks** — messaging + voice-status on sender `PNb67e96dc23fa486ead392be6c92075a3` (`+61485064111`). No Messaging Service.
 5. **Settings row** — one reviewed `INSERT … ON CONFLICT` via `execute_sql`, run once. See step 5.
@@ -67,18 +67,22 @@ Do not apply any other repo file in this go-live.
 
 ## 2. Edge secrets (Coach SIGN)
 
-Set these names on the project. Values stay in the secret store. Never `VITE_*`.
-Never print tokens. Names only in any log.
+Names, readers, and `file:line` cites: `docs/operations/pr-j-step2-edge-secrets.md`.
 
-- `TWILIO_ACCOUNT_SID`
-- `TWILIO_AUTH_TOKEN`
-- `TWILIO_WEBHOOK_URL`
-- `TWILIO_VOICE_STATUS_WEBHOOK_URL`
-- `MISSED_CALL_SMS_WORKER_SECRET`
-- optional: `MISSED_CALL_SMS_WORKER_ID`
+Jack or Coach runs a reviewed `supabase secrets set NAME=...`. Values never
+logged or pasted into chat or PRs. Verify with `supabase secrets list` (names
+only). Already-set in prod is unknown until that list.
+
+- [ ] `TWILIO_ACCOUNT_SID`
+- [ ] `TWILIO_AUTH_TOKEN`
+- [ ] `TWILIO_WEBHOOK_URL`
+- [ ] `TWILIO_VOICE_STATUS_WEBHOOK_URL`
+- [ ] `MISSED_CALL_SMS_WORKER_SECRET` — same value as the sms-tick Worker binding
+- [ ] optional: `MISSED_CALL_SMS_WORKER_ID`
 
 Do **not** set `MISSED_CALL_BOOKING_WORKER_SECRET`.
 Do **not** set `MISSED_CALL_BOOKING_WORKER_ID`.
+Do **not** set `TWILIO_FROM_NUMBER` (never `+61485064111`). No Messaging Service SID.
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are supplied by the platform.
 
@@ -134,11 +138,28 @@ value is set explicitly. Do not rely on table defaults for the allowlist: the
 default `test_allowlist` is `'{}'`, which **blocks the smoke test**
 (`test_mode_blocked`).
 
+`organisation_id` is derived from `organisation_twilio_senders` where
+`provider_sender_sid = 'PNb67e96dc23fa486ead392be6c92075a3'`. Assert **exactly
+1 row**. Do not paste a company UUID.
+
 `business_name` is GSM-7, 20 characters or fewer, and must be set **before**
 `enabled` is true (same statement is fine if the name is already valid). Caps
-stay placeholders until Jack confirms them.
+are hourly 10, daily 20, monthly 300.
 
 ```sql
+DO $assert$
+BEGIN
+  IF (
+    SELECT count(*)
+      FROM public.organisation_twilio_senders
+     WHERE provider_sender_sid = 'PNb67e96dc23fa486ead392be6c92075a3'
+  ) <> 1 THEN
+    RAISE EXCEPTION
+      'expected exactly 1 organisation_twilio_senders row for PNb67e96dc23fa486ead392be6c92075a3';
+  END IF;
+END
+$assert$;
+
 INSERT INTO public.sms_automation_settings (
   organisation_id,
   enabled,
@@ -150,18 +171,20 @@ INSERT INTO public.sms_automation_settings (
   daily_message_cap,
   monthly_message_cap,
   ack_ttl_minutes
-) VALUES (
-  '<ORGANISATION_ID>'::uuid,
+)
+SELECT
+  sender.organisation_id,
   true,
   true,
   ARRAY['+61418893602']::text[],
-  NULL,                    -- or '<FORWARD_FROM_E164>' if needed
+  NULL,                    -- or a reviewed forward-from E.164 if needed
   '<BUSINESS_NAME>',       -- GSM-7, 2–20 chars; required because enabled is true
-  <HOURLY>,
-  <DAILY>,
-  <MONTHLY>,
+  10,
+  20,
+  300,
   30
-)
+FROM public.organisation_twilio_senders AS sender
+WHERE sender.provider_sender_sid = 'PNb67e96dc23fa486ead392be6c92075a3'
 ON CONFLICT (organisation_id) DO UPDATE
 SET
   enabled = EXCLUDED.enabled,
@@ -176,7 +199,7 @@ SET
   updated_at = now();
 ```
 
-- [ ] Coach SIGN on this `execute_sql`. Jack has confirmed `<BUSINESS_NAME>` and the three caps.
+- [ ] Coach SIGN on this `execute_sql`. Jack has confirmed `<BUSINESS_NAME>`. Caps are 10 / 20 / 300.
 - [ ] `test_mode` = true. Stays on.
 - [ ] `test_allowlist` = `{+61418893602}` only.
 - [ ] Default texts only. Custom ack / thanks / HELP needs Jack's OK. The `$` guard rides in PR-J and blocks any `$` in custom replies.
