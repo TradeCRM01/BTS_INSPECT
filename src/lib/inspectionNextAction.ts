@@ -2,7 +2,7 @@ import { evaluateShowIf } from './conditionEval';
 import { isNaAnswer } from '../types/template';
 import type { Section, TemplateSchema } from '../types/template';
 
-export type InspectionActionKey = 'save' | 'site' | 'section' | 'review' | 'pdf' | 'open' | 'send';
+export type InspectionActionKey = 'save' | 'site' | 'section' | 'review' | 'pdf' | 'open' | 'send' | 'issue';
 
 export type InspectionListBucket = 'open' | 'done';
 
@@ -145,6 +145,9 @@ export function recommendInspectionFillAction(ctx: InspectionFillActionContext):
 
 /** List-card next — open fill, review, or the PDF as appropriate. */
 export function recommendInspectionListAction(ctx: InspectionListActionContext): RecommendedInspectionAction {
+  if (ctx.status === 'completed' && ctx.hasReport === true) {
+    return { key: 'issue', label: 'Issue', detail: 'Mark this report issued. Generating the PDF does not issue it.' };
+  }
   if (ctx.hasReport === true) {
     return { key: 'send', label: 'Send', detail: 'Email this report to the client. Status becomes sent only if it delivers.' };
   }
@@ -167,7 +170,7 @@ export function inspectionOpenPath(
   id: string,
   nextKey: InspectionActionKey,
 ): string {
-  if (nextKey === 'pdf' || nextKey === 'send') return `/inspections/${id}/report`;
+  if (nextKey === 'pdf' || nextKey === 'send' || nextKey === 'issue') return `/inspections/${id}/report`;
   if (nextKey === 'review') return `/inspections/${id}/review`;
   return `/inspections/${id}`;
 }

@@ -11,7 +11,7 @@ import {
 import { inspectionOpenPath } from './inspectionNextAction';
 
 /** Default Field Work list: what the sparkie can open now. */
-export type InspectionListFilter = 'action' | 'all' | 'draft' | 'completed' | 'issued';
+export type InspectionListFilter = 'action' | 'all' | 'draft' | 'completed' | 'issued' | 'archived';
 
 export type InspectionListFloorBucket = 'due' | 'open' | 'done';
 
@@ -114,6 +114,14 @@ export function formatInspectionListDate(ymd: string | null | undefined): string
   return format(new Date(y, m - 1, d), 'd MMM yyyy');
 }
 
+/** Activity stamps (started_at / completed_at) in AU local time, not the UTC date prefix. */
+export function formatInspectionListStamp(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return formatInspectionListDate(iso);
+  return formatInspectionListDate(todayYmd(date, VAN_TIME_ZONE));
+}
+
 export function inspectionListDueLabel(
   dueOn: string | null | undefined,
   now = new Date(),
@@ -194,7 +202,7 @@ export function inspectionMatchesListFilter(
   filter: InspectionListFilter,
 ): boolean {
   if (filter === 'action') return item.bucket === 'due' || item.bucket === 'open';
-  if (filter === 'all') return true;
+  if (filter === 'all' || filter === 'archived') return true;
   return item.row.status === filter;
 }
 
@@ -264,7 +272,7 @@ export function inspectionsListWhisper(args: {
   loading?: boolean;
   error?: boolean;
 }): string {
-  const filterLabel = args.archived
+  const filterLabel = args.archived || args.filter === 'archived'
     ? 'Archived'
     : args.filter === 'action'
       ? 'Open or due'

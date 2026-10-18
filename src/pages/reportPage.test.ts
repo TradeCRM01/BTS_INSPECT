@@ -123,7 +123,7 @@ describe('persistGeneratedReportPdf', () => {
     expect(db.issued).toEqual([]);
   });
 
-  it('retries issued when a report already exists and the inspection is not issued', async () => {
+  it('does not mark issued when a report is generated for a completed inspection', async () => {
     const db = store();
     const result = await persistGeneratedReportPdf({
       ...base,
@@ -133,7 +133,7 @@ describe('persistGeneratedReportPdf', () => {
     }, db);
     expect(result.ok).toBe(true);
     expect(db.inserts).toEqual([]);
-    expect(db.issued).toEqual(['insp-1']);
+    expect(db.issued).toEqual([]);
   });
 
   it('does not mark issued when the inspection is already sent', async () => {
