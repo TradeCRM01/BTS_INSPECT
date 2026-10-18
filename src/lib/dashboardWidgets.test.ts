@@ -8,6 +8,7 @@ import {
   dashboardWidgetPixelSize,
   decideDashboardWidgetSeed,
   defaultDashboardWidgetInserts,
+  dashboardWidgetPickerTypes,
   placeAddedDashboardWidget,
   repairDashboardWidgetLayout,
   resolveDashboardWidgets,
@@ -202,7 +203,7 @@ describe('dashboard widget grid placement', () => {
     for (const type of ['weather', 'client_stats', 'clock', 'low_stock']) {
       const place = placeAddedDashboardWidget(rows, type);
       expect(place).not.toBeNull();
-      rows = [...rows, { id: `add-${type}`, widget_type: type, ...place!, config: {} }];
+      rows = [...rows, { id: `add-${type}`, widget_type: type, ...place! }];
     }
     expect(rows).toHaveLength(7);
     expect(dashboardWidgetLayoutOverlaps(rows)).toBe(false);
@@ -234,5 +235,15 @@ describe('dashboard widget grid placement', () => {
     expect(widgets.some(w => w.widget_type === 'bitcoin' || w.widget_type === 'crypto' || w.widget_type === 'stock_market')).toBe(false);
     expect(widgets.map(w => w.widget_type)).toEqual([...DEFAULT_DASHBOARD_WIDGET_TYPES]);
     expect(dashboardWidgetLayoutOverlaps(widgets)).toBe(false);
+  });
+
+  it('keeps bitcoin, crypto, and market widgets out of the picker', () => {
+    const types = dashboardWidgetPickerTypes();
+    expect(types).not.toContain('bitcoin');
+    expect(types).not.toContain('crypto');
+    expect(types).not.toContain('stock_market');
+    expect(types).toContain('weather');
+    expect(types).toContain('upcoming_jobs');
+    expect(placeAddedDashboardWidget([], 'bitcoin')).toBeNull();
   });
 });

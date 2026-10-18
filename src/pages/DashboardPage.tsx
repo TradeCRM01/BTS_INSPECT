@@ -48,7 +48,9 @@ import {
   todaysDashboardJobs,
 } from '../lib/dashboardHome';
 import {
-  dashboardWidgetPixelSize,
+  isRetiredDashboardWidgetType,
+  placeAddedDashboardWidget,
+  repairDashboardWidgetLayout,
   defaultDashboardWidgetInserts,
   resolveDashboardWidgets,
 } from '../lib/dashboardWidgets';
@@ -66,6 +68,29 @@ interface DashboardWidget {
   grid_w: number; // pixel width
   grid_h: number; // pixel height
   config: Json;
+}
+
+async function persistDashboardWidgetRepair(
+  before: DashboardWidget[],
+  repaired: { widgets: DashboardWidget[]; droppedIds: string[] },
+) {
+  const afterById = new Map(repaired.widgets.map(row => [row.id, row]));
+  for (const id of repaired.droppedIds) {
+    await supabase.from('dashboard_widgets').delete().eq('id', id);
+  }
+  for (const prev of before) {
+    const next = afterById.get(prev.id);
+    if (!next) continue;
+    if (next.grid_x === prev.grid_x && next.grid_y === prev.grid_y) continue;
+    await supabase
+      .from('dashboard_widgets')
+      .update({
+        grid_x: next.grid_x,
+        grid_y: next.grid_y,
+        updated_at: new Date().toISOString(),
+      } as never)
+      .eq('id', prev.id);
+  }
 }
 
 const MIN_W = 180;
@@ -358,10 +383,10 @@ export function DashboardPage() {
   const { data: widgets, isLoading: widgetsLoading, error } = useQuery<DashboardWidget[]>({
     queryKey: ['dashboard-widgets'],
     queryFn: async () => {
-      if (lookDashboardJack) return dashboardJackLookWidgets();
-      if (lookDashboard) return dashboardLookWidgets();
+      if (lookDashboardJack) return repairDashboardWidgetLayout(dashboardJackLookWidgets()).widgets;
+      if (lookDashboard) return repairDashboardWidgetLayout(dashboardLookWidgets()).widgets;
       const mock = getAuditDashboardWidgets();
-      if (mock) return mock;
+      if (mock) return repairDashboardWidgetLayout(mock as DashboardWidget[]).widgets;
       if (!profile?.id) return [];
 
       const loadRows = async (): Promise<DashboardWidget[]> => {
@@ -373,7 +398,7 @@ export function DashboardPage() {
         return (data ?? []) as DashboardWidget[];
       };
 
-      return resolveDashboardWidgets<DashboardWidget>({
+      const rows = await resolveDashboardWidgets<DashboardWidget>({
         loadRows,
         loadSeeded: async () => {
           const { data, error } = await supabase
@@ -420,6 +445,11 @@ export function DashboardPage() {
           if (error) throw error;
         },
       });
+      const repaired = repairDashboardWidgetLayout(rows);
+      if (repaired.changed) {
+        void persistDashboardWidgetRepair(rows, repaired);
+      }
+      return repaired.widgets;
     },
     enabled: !!profile,
   });
@@ -548,19 +578,29 @@ export function DashboardPage() {
   // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ CRUD Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   const addWidget = async (widgetType: string) => {
     const def = getWidgetDef(widgetType);
-    if (!def) return;
+    if (!def || isRetiredDashboardWidgetType(widgetType)) return;
     const w = widgets ?? [];
-    // Place at a staggered offset so new widgets don't overlap exactly
-    const offset = w.length * 30;
-    const size = dashboardWidgetPixelSize(widgetType);
+    const placed = placeAddedDashboardWidget(w, widgetType);
+    if (!placed) return;
+    const local = lookDashboard || !!getAuditDashboardWidgets();
+    if (local) {
+      queryClient.setQueryData<DashboardWidget[]>(['dashboard-widgets'], [
+        ...w,
+        {
+          id: `local-${widgetType}-${w.length}`,
+          widget_type: widgetType,
+          ...placed,
+          config: {} as Json,
+        },
+      ]);
+      setShowPicker(false);
+      return;
+    }
     const { data, error } = await supabase
       .from('dashboard_widgets')
       .insert({
         widget_type: widgetType,
-        grid_x: Math.min(offset, 400),
-        grid_y: 20,
-        grid_w: size.grid_w,
-        grid_h: size.grid_h,
+        ...placed,
         config: {} as Json,
       } as never)
       .select('id, widget_type, grid_x, grid_y, grid_w, grid_h, config')
@@ -1113,7 +1153,9 @@ function WidgetPicker({
 }) {
   const [category, setCategory] = useState<string>('system');
 
-  const filtered = WIDGET_REGISTRY.filter(w => w.category === category);
+  const filtered = WIDGET_REGISTRY.filter(
+    w => w.category === category && !isRetiredDashboardWidgetType(w.type),
+  );
 
   return (
     <div className="overlay-backdrop">
