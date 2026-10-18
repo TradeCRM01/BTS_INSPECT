@@ -1,20 +1,33 @@
-export type InspectionFillSaveStatus = 'saved' | 'saving' | 'error' | 'offline';
+export type UnsavedChangesStatus = 'saved' | 'saving' | 'unsaved' | 'error' | 'offline';
 
-export function inspectionFillSaveHint(status: InspectionFillSaveStatus): string {
+export function unsavedChangesHint(status: UnsavedChangesStatus): string {
   if (status === 'saved') return 'Saved';
   if (status === 'saving') return 'Saving…';
+  if (status === 'unsaved') return 'Unsaved';
   if (status === 'error') return 'Save failed';
   return 'Offline';
 }
 
-export function inspectionFillLeaveNeedsWarn(args: {
-  status: InspectionFillSaveStatus;
-  hasPending: boolean;
-}): boolean {
-  return args.hasPending || args.status === 'saving' || args.status === 'error';
+export function unsavedChangesNeedsWarn(
+  status: UnsavedChangesStatus,
+  hasPending = false,
+): boolean {
+  return hasPending || status === 'unsaved' || status === 'saving' || status === 'error';
 }
 
-export function bindInspectionFillFlush(args: {
+export function unsavedChangesLeaveCopy(): {
+  title: string;
+  message: string;
+  confirmLabel: string;
+} {
+  return {
+    title: 'Leave without saving?',
+    message: 'You have unsaved changes. If you leave now, those edits will be lost.',
+    confirmLabel: 'Leave',
+  };
+}
+
+export function bindUnsavedChangesFlush(args: {
   flush: () => void;
   shouldWarn: () => boolean;
   root?: Document | HTMLElement;

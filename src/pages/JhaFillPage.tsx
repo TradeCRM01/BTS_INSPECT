@@ -40,6 +40,8 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { duplicateJhaDocument } from '../lib/duplicateJhaDocument';
+import { UnsavedChangesDialog } from '../components/unsaved/UnsavedChangesDialog';
+import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard';
 
 function generateJhaNumber(): string {
   const now = new Date();
@@ -583,6 +585,11 @@ export function JhaFillPage() {
     }
   }
 
+  const unsaved = useUnsavedChangesGuard({
+    status: saveState,
+    flush: () => { void doSave('draft', { navigateOnCreate: false }).catch(() => {}); },
+  });
+
   async function handlePublish() {
     if (!profile || !company || !schema) return;
     const errors = validate();
@@ -884,12 +891,7 @@ export function JhaFillPage() {
     scrollToId(target);
   }
 
-  const saveHint =
-    saveState === 'saved' && docIdState ? 'Saved'
-      : saveState === 'saving' ? 'Saving…'
-        : saveState === 'unsaved' ? 'Unsaved'
-          : saveState === 'error' ? 'Save failed'
-            : null;
+  const saveHint = unsaved.hint;
 
   const jobBound = !!jobId;
   const docColors = jhaDocumentColors(
@@ -914,8 +916,8 @@ export function JhaFillPage() {
           >
             JHA documents
           </Link>
-          {saveHint && saveState !== 'saved' && (
-            <span className={`hub-jha-save ${saveState === 'error' ? 'is-bad' : ''}`}>
+          {saveHint && (
+            <span className={`hub-jha-save ${saveState === 'error' ? 'is-bad' : ''}`} data-save-status={saveState}>
               {saveHint}
             </span>
           )}
@@ -1619,6 +1621,7 @@ export function JhaFillPage() {
           </div>
         </article>
       </div>
+      <UnsavedChangesDialog guard={unsaved} />
     </AppShell>
   );
 }
