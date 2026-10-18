@@ -1,6 +1,5 @@
 import { getWidgetDef, WIDGET_REGISTRY } from '../widgets/registry';
 
-/** Pixel size used when placing a registry widget on the dashboard canvas. */
 export const DASHBOARD_WIDGET_CELL_W = 130;
 export const DASHBOARD_WIDGET_CELL_H = 90;
 
@@ -41,7 +40,6 @@ export type DashboardWidgetRect = {
 
 export type DashboardWidgetSeedDecision = 'keep' | 'seed' | 'empty';
 
-/** IO used so first-visit / delete-all / CAS can be tested without a live table. */
 export type DashboardWidgetSeedIo<T> = {
   loadRows: () => Promise<T[]>;
   loadSeeded: () => Promise<boolean>;
