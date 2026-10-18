@@ -86,7 +86,9 @@ describe('dashboard widgets stay on the paper', () => {
     expect(helper).toContain('outstanding_invoices');
     expect(helper).toContain('compliance_deadlines');
     expect(helper).toContain('decideDashboardWidgetSeed');
-    expect(helper).not.toMatch(/['"]bitcoin['"]/);
+    expect(helper).toContain('RETIRED_DASHBOARD_WIDGET_TYPES');
+    expect(helper).toContain('placeAddedDashboardWidget');
+    expect(helper).toContain('repairDashboardWidgetLayout');
     expect(helper).not.toMatch(/electric|electrical/i);
 
     const migration = src('supabase/migrations/20260903140000_073_dashboard_widgets_seeded.sql');

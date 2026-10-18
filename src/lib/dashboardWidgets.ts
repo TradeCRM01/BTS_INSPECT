@@ -16,6 +16,11 @@ export const DEFAULT_DASHBOARD_WIDGET_TYPES = [
 
 export type DefaultDashboardWidgetType = (typeof DEFAULT_DASHBOARD_WIDGET_TYPES)[number];
 
+export const RETIRED_DASHBOARD_WIDGET_TYPES = ['bitcoin', 'crypto', 'stock_market'] as const;
+
+export const DASHBOARD_WIDGET_ORIGIN = 20;
+export const DASHBOARD_WIDGET_CANVAS_W = 1100;
+
 export type DashboardWidgetInsert = {
   widget_type: string;
   grid_x: number;
@@ -23,6 +28,15 @@ export type DashboardWidgetInsert = {
   grid_w: number;
   grid_h: number;
   config: Record<string, never>;
+};
+
+export type DashboardWidgetRect = {
+  id?: string;
+  widget_type: string;
+  grid_x: number;
+  grid_y: number;
+  grid_w: number;
+  grid_h: number;
 };
 
 export type DashboardWidgetSeedDecision = 'keep' | 'seed' | 'empty';
@@ -51,6 +65,52 @@ export function dashboardWidgetPixelSize(type: string): { grid_w: number; grid_h
   return {
     grid_w: (def?.defaultSize.w ?? 2) * DASHBOARD_WIDGET_CELL_W,
     grid_h: (def?.defaultSize.h ?? 2) * DASHBOARD_WIDGET_CELL_H,
+  };
+}
+
+export function isRetiredDashboardWidgetType(type: string): boolean {
+  return (RETIRED_DASHBOARD_WIDGET_TYPES as readonly string[]).includes(type);
+}
+
+export function dashboardWidgetRectsOverlap(a: DashboardWidgetRect, b: DashboardWidgetRect): boolean {
+  return a.grid_x < b.grid_x + b.grid_w
+    && b.grid_x < a.grid_x + a.grid_w
+    && a.grid_y < b.grid_y + b.grid_h
+    && b.grid_y < a.grid_y + a.grid_h;
+}
+
+export function dashboardWidgetLayoutOverlaps(widgets: readonly DashboardWidgetRect[]): boolean {
+  for (let i = 0; i < widgets.length; i += 1) {
+    for (let j = i + 1; j < widgets.length; j += 1) {
+      if (dashboardWidgetRectsOverlap(widgets[i], widgets[j])) return true;
+    }
+  }
+  return false;
+}
+
+export function placeAddedDashboardWidget(
+  existing: readonly DashboardWidgetRect[],
+  widgetType: string,
+  _canvasW = DASHBOARD_WIDGET_CANVAS_W,
+): { grid_x: number; grid_y: number; grid_w: number; grid_h: number } | null {
+  if (isRetiredDashboardWidgetType(widgetType)) return null;
+  const size = dashboardWidgetPixelSize(widgetType);
+  const offset = existing.length * 30;
+  return {
+    ...size,
+    grid_x: Math.min(offset, 400),
+    grid_y: 20,
+  };
+}
+
+export function repairDashboardWidgetLayout<T extends DashboardWidgetRect>(
+  widgets: readonly T[],
+  _canvasW = DASHBOARD_WIDGET_CANVAS_W,
+): { widgets: T[]; changed: boolean; droppedIds: string[] } {
+  return {
+    widgets: [...widgets],
+    changed: false,
+    droppedIds: [],
   };
 }
 

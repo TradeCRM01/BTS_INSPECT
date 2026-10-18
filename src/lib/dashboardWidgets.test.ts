@@ -4,11 +4,15 @@ import {
   DASHBOARD_WIDGET_CELL_H,
   DASHBOARD_WIDGET_CELL_W,
   DEFAULT_DASHBOARD_WIDGET_TYPES,
+  dashboardWidgetLayoutOverlaps,
   dashboardWidgetPixelSize,
   decideDashboardWidgetSeed,
   defaultDashboardWidgetInserts,
+  placeAddedDashboardWidget,
+  repairDashboardWidgetLayout,
   resolveDashboardWidgets,
   type DashboardWidgetInsert,
+  type DashboardWidgetRect,
   type DashboardWidgetSeedIo,
 } from './dashboardWidgets';
 
@@ -65,6 +69,9 @@ describe('default dashboard widget seed', () => {
     expect(seed.map(row => row.widget_type)).toEqual([...DEFAULT_DASHBOARD_WIDGET_TYPES]);
     expect(seed.some(row => row.widget_type === 'bitcoin')).toBe(false);
     expect(seed.some(row => row.widget_type === 'crypto')).toBe(false);
+    expect(DEFAULT_DASHBOARD_WIDGET_TYPES).not.toContain('bitcoin');
+    expect(DEFAULT_DASHBOARD_WIDGET_TYPES).not.toContain('crypto');
+    expect(DEFAULT_DASHBOARD_WIDGET_TYPES).not.toContain('stock_market');
     expect(seed.some(row => /electric|electrical|spark/i.test(row.widget_type))).toBe(false);
     expect(new Set(seed.map(row => row.widget_type)).size).toBe(seed.length);
     for (const type of DEFAULT_DASHBOARD_WIDGET_TYPES) {
@@ -182,5 +189,50 @@ describe('dashboard widget seed once', () => {
     expect(store.seeded).toBe(true);
     expect(store.inserts).toBe(2);
     expect(store.rows).toHaveLength(3);
+  });
+});
+
+function withIds(rows: DashboardWidgetInsert[]): DashboardWidgetRect[] {
+  return rows.map((row, i) => ({ ...row, id: `seed-${row.widget_type}-${i}` }));
+}
+
+describe('dashboard widget grid placement', () => {
+  it('does not overlap after adding several widgets onto the seed layout', () => {
+    let rows: DashboardWidgetRect[] = withIds(defaultDashboardWidgetInserts());
+    for (const type of ['weather', 'client_stats', 'clock', 'low_stock']) {
+      const place = placeAddedDashboardWidget(rows, type);
+      expect(place).not.toBeNull();
+      rows = [...rows, { id: `add-${type}`, widget_type: type, ...place!, config: {} }];
+    }
+    expect(rows).toHaveLength(7);
+    expect(dashboardWidgetLayoutOverlaps(rows)).toBe(false);
+  });
+
+  it('repairs an overlapping saved layout on load without dropping valid widgets', () => {
+    const overlapping: DashboardWidgetRect[] = [
+      { id: 'jobs', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270 },
+      { id: 'weather', widget_type: 'weather', grid_x: 20, grid_y: 20, grid_w: 260, grid_h: 270 },
+      { id: 'compliance', widget_type: 'compliance_deadlines', grid_x: 90, grid_y: 20, grid_w: 390, grid_h: 270 },
+    ];
+    const { widgets, changed, droppedIds } = repairDashboardWidgetLayout(overlapping);
+    expect(changed).toBe(true);
+    expect(droppedIds).toEqual([]);
+    expect(widgets.map(w => w.id).sort()).toEqual(['compliance', 'jobs', 'weather']);
+    expect(widgets.find(w => w.id === 'jobs')).toMatchObject({ grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270 });
+    expect(dashboardWidgetLayoutOverlaps(widgets)).toBe(false);
+  });
+
+  it('drops a saved crypto widget and keeps the rest without a hole', () => {
+    const saved: DashboardWidgetRect[] = [
+      ...withIds(defaultDashboardWidgetInserts()),
+      { id: 'btc', widget_type: 'bitcoin', grid_x: 20, grid_y: 20, grid_w: 260, grid_h: 180 },
+      { id: 'mkt', widget_type: 'stock_market', grid_x: 700, grid_y: 20, grid_w: 390, grid_h: 180 },
+    ];
+    const { widgets, changed, droppedIds } = repairDashboardWidgetLayout(saved);
+    expect(changed).toBe(true);
+    expect(droppedIds.sort()).toEqual(['btc', 'mkt']);
+    expect(widgets.some(w => w.widget_type === 'bitcoin' || w.widget_type === 'crypto' || w.widget_type === 'stock_market')).toBe(false);
+    expect(widgets.map(w => w.widget_type)).toEqual([...DEFAULT_DASHBOARD_WIDGET_TYPES]);
+    expect(dashboardWidgetLayoutOverlaps(widgets)).toBe(false);
   });
 });
