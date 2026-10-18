@@ -1,4 +1,6 @@
-import { getWidgetDef } from '../widgets/registry';
+import { getWidgetDef, WIDGET_REGISTRY, isRetiredWidgetType, RETIRED_WIDGET_TYPES } from '../widgets/registry';
+
+export const RETIRED_DASHBOARD_WIDGET_TYPES = RETIRED_WIDGET_TYPES;
 
 /** Pixel size used when placing a registry widget on the dashboard canvas. */
 export const DASHBOARD_WIDGET_CELL_W = 130;
@@ -16,6 +18,10 @@ export const DEFAULT_DASHBOARD_WIDGET_TYPES = [
 
 export type DefaultDashboardWidgetType = (typeof DEFAULT_DASHBOARD_WIDGET_TYPES)[number];
 
+export const DASHBOARD_WIDGET_ORIGIN = 20;
+export const DASHBOARD_WIDGET_CANVAS_W = 1100;
+export const DASHBOARD_WIDGET_GAP = 20;
+
 export type DashboardWidgetInsert = {
   widget_type: string;
   grid_x: number;
@@ -23,6 +29,15 @@ export type DashboardWidgetInsert = {
   grid_w: number;
   grid_h: number;
   config: Record<string, never>;
+};
+
+export type DashboardWidgetRect = {
+  id?: string;
+  widget_type: string;
+  grid_x: number;
+  grid_y: number;
+  grid_w: number;
+  grid_h: number;
 };
 
 export type DashboardWidgetSeedDecision = 'keep' | 'seed' | 'empty';
@@ -52,6 +67,159 @@ export function dashboardWidgetPixelSize(type: string): { grid_w: number; grid_h
     grid_w: (def?.defaultSize.w ?? 2) * DASHBOARD_WIDGET_CELL_W,
     grid_h: (def?.defaultSize.h ?? 2) * DASHBOARD_WIDGET_CELL_H,
   };
+}
+
+export function isRetiredDashboardWidgetType(type: string): boolean {
+  return isRetiredWidgetType(type);
+}
+
+export function dashboardWidgetRectsOverlap(a: DashboardWidgetRect, b: DashboardWidgetRect): boolean {
+  return a.grid_x < b.grid_x + b.grid_w
+    && b.grid_x < a.grid_x + a.grid_w
+    && a.grid_y < b.grid_y + b.grid_h
+    && b.grid_y < a.grid_y + a.grid_h;
+}
+
+export function dashboardWidgetRectsConflict(
+  a: DashboardWidgetRect,
+  b: DashboardWidgetRect,
+  gap = DASHBOARD_WIDGET_GAP,
+): boolean {
+  return a.grid_x < b.grid_x + b.grid_w + gap
+    && b.grid_x < a.grid_x + a.grid_w + gap
+    && a.grid_y < b.grid_y + b.grid_h + gap
+    && b.grid_y < a.grid_y + a.grid_h + gap;
+}
+
+export function dashboardWidgetLayoutOverlaps(widgets: readonly DashboardWidgetRect[]): boolean {
+  for (let i = 0; i < widgets.length; i += 1) {
+    for (let j = i + 1; j < widgets.length; j += 1) {
+      if (dashboardWidgetRectsOverlap(widgets[i], widgets[j])) return true;
+    }
+  }
+  return false;
+}
+
+export function dashboardWidgetFitsCanvas(
+  row: Pick<DashboardWidgetRect, 'grid_x' | 'grid_w'>,
+  canvasW: number,
+): boolean {
+  if (row.grid_w > canvasW) return row.grid_x === DASHBOARD_WIDGET_ORIGIN;
+  return row.grid_x + row.grid_w <= canvasW;
+}
+
+export function measureDashboardCanvasWidth(
+  ...els: Array<{ clientWidth: number } | null | undefined>
+): number {
+  for (const el of els) {
+    const width = el?.clientWidth ?? 0;
+    if (width > 0) return width;
+  }
+  return DASHBOARD_WIDGET_CANVAS_W;
+}
+
+export function firstFreeDashboardWidgetSlot(
+  existing: readonly DashboardWidgetRect[],
+  size: Pick<DashboardWidgetRect, 'grid_w' | 'grid_h'>,
+  canvasW = DASHBOARD_WIDGET_CANVAS_W,
+): { grid_x: number; grid_y: number } {
+  const w = Math.max(1, size.grid_w);
+  const h = Math.max(1, size.grid_h);
+  const floor = existing.reduce(
+    (max, row) => Math.max(max, row.grid_y + row.grid_h),
+    DASHBOARD_WIDGET_ORIGIN,
+  );
+  const lastY = floor + DASHBOARD_WIDGET_CELL_H * 16;
+  const maxX = Math.max(DASHBOARD_WIDGET_ORIGIN, canvasW - w);
+
+  for (let y = DASHBOARD_WIDGET_ORIGIN; y <= lastY; y += DASHBOARD_WIDGET_CELL_H) {
+    for (let x = DASHBOARD_WIDGET_ORIGIN; x <= maxX; x += DASHBOARD_WIDGET_CELL_W) {
+      if (w <= canvasW && x + w > canvasW) continue;
+      const candidate: DashboardWidgetRect = {
+        widget_type: '',
+        grid_x: x,
+        grid_y: y,
+        grid_w: w,
+        grid_h: h,
+      };
+      if (!existing.some(row => dashboardWidgetRectsConflict(candidate, row))) {
+        return { grid_x: x, grid_y: y };
+      }
+    }
+  }
+
+  return { grid_x: DASHBOARD_WIDGET_ORIGIN, grid_y: floor + DASHBOARD_WIDGET_GAP };
+}
+
+export function placeAddedDashboardWidget(
+  existing: readonly DashboardWidgetRect[],
+  widgetType: string,
+  canvasW = DASHBOARD_WIDGET_CANVAS_W,
+): { grid_x: number; grid_y: number; grid_w: number; grid_h: number } | null {
+  if (isRetiredDashboardWidgetType(widgetType)) return null;
+  const size = dashboardWidgetPixelSize(widgetType);
+  return { ...size, ...firstFreeDashboardWidgetSlot(existing, size, canvasW) };
+}
+
+function widgetOriginallyCollides<T extends DashboardWidgetRect>(widget: T, others: readonly T[]): boolean {
+  return others.some(row => row !== widget && dashboardWidgetRectsOverlap(widget, row));
+}
+
+export function repairDashboardWidgetLayout<T extends DashboardWidgetRect>(
+  widgets: readonly T[],
+  canvasW = DASHBOARD_WIDGET_CANVAS_W,
+): { widgets: T[]; changed: boolean; droppedIds: string[] } {
+  const droppedIds = widgets
+    .filter(row => isRetiredDashboardWidgetType(row.widget_type) && row.id)
+    .map(row => row.id as string);
+  const kept = widgets.filter(row => !isRetiredDashboardWidgetType(row.widget_type));
+  const anchors = kept.filter(row => !widgetOriginallyCollides(row, kept));
+  const colliders = kept
+    .filter(row => widgetOriginallyCollides(row, kept))
+    .sort((a, b) => {
+      if (a.grid_y !== b.grid_y) return a.grid_y - b.grid_y;
+      if (a.grid_x !== b.grid_x) return a.grid_x - b.grid_x;
+      return (a.id ?? a.widget_type).localeCompare(b.id ?? b.widget_type);
+    });
+
+  const nextByWidget = new Map<T, T>();
+  for (const row of anchors) nextByWidget.set(row, row);
+
+  const placed: T[] = [...anchors];
+  let moved = false;
+  for (const widget of colliders) {
+    const obstacles = placed;
+    if (!obstacles.some(row => dashboardWidgetRectsOverlap(widget, row))) {
+      placed.push(widget);
+      nextByWidget.set(widget, widget);
+      continue;
+    }
+    moved = true;
+    const next = { ...widget, ...firstFreeDashboardWidgetSlot(obstacles, widget, canvasW) };
+    placed.push(next);
+    nextByWidget.set(widget, next);
+  }
+
+  return {
+    widgets: kept.map(row => nextByWidget.get(row) ?? row),
+    changed: droppedIds.length > 0 || moved,
+    droppedIds,
+  };
+}
+
+export function pickerDashboardWidgets(category: string) {
+  return WIDGET_REGISTRY.filter(
+    def => def.category === category && !isRetiredDashboardWidgetType(def.type),
+  );
+}
+
+export function dashboardWidgetPickerTypes(): string[] {
+  return pickerDashboardWidgets('data')
+    .concat(pickerDashboardWidgets('system'))
+    .concat(pickerDashboardWidgets('tools'))
+    .concat(pickerDashboardWidgets('fun'))
+    .concat(pickerDashboardWidgets('intelligence'))
+    .map(def => def.type);
 }
 
 /**

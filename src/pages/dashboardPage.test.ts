@@ -86,6 +86,18 @@ describe('dashboard widgets stay on the paper', () => {
     expect(helper).toContain('outstanding_invoices');
     expect(helper).toContain('compliance_deadlines');
     expect(helper).toContain('decideDashboardWidgetSeed');
+    expect(helper).toContain('RETIRED_DASHBOARD_WIDGET_TYPES');
+    expect(helper).toContain('placeAddedDashboardWidget');
+    expect(helper).toContain('repairDashboardWidgetLayout');
+    expect(helper).toContain('pickerDashboardWidgets');
+    expect(helper).toContain('measureDashboardCanvasWidth');
+    expect(page).toContain('placeAddedDashboardWidget');
+    expect(page).toContain('isRetiredDashboardWidgetType');
+    expect(page).toContain('persistDashboardWidgetRepair');
+    expect(page).toContain('pickerDashboardWidgets');
+    expect(page).toContain('measureDashboardCanvasWidth');
+    expect(page).toContain('addingWidget');
+    expect(page).toContain('.catch(');
     expect(helper).not.toMatch(/['"]bitcoin['"]/);
     expect(helper).not.toMatch(/electric|electrical/i);
 

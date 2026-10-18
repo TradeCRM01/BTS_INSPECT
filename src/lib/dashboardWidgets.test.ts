@@ -4,11 +4,17 @@ import {
   DASHBOARD_WIDGET_CELL_H,
   DASHBOARD_WIDGET_CELL_W,
   DEFAULT_DASHBOARD_WIDGET_TYPES,
+  dashboardWidgetLayoutOverlaps,
   dashboardWidgetPixelSize,
+  dashboardWidgetRectsOverlap,
   decideDashboardWidgetSeed,
   defaultDashboardWidgetInserts,
+  pickerDashboardWidgets,
+  placeAddedDashboardWidget,
+  repairDashboardWidgetLayout,
   resolveDashboardWidgets,
   type DashboardWidgetInsert,
+  type DashboardWidgetRect,
   type DashboardWidgetSeedIo,
 } from './dashboardWidgets';
 
@@ -65,6 +71,9 @@ describe('default dashboard widget seed', () => {
     expect(seed.map(row => row.widget_type)).toEqual([...DEFAULT_DASHBOARD_WIDGET_TYPES]);
     expect(seed.some(row => row.widget_type === 'bitcoin')).toBe(false);
     expect(seed.some(row => row.widget_type === 'crypto')).toBe(false);
+    expect(DEFAULT_DASHBOARD_WIDGET_TYPES).not.toContain('bitcoin');
+    expect(DEFAULT_DASHBOARD_WIDGET_TYPES).not.toContain('crypto');
+    expect(DEFAULT_DASHBOARD_WIDGET_TYPES).not.toContain('stock_market');
     expect(seed.some(row => /electric|electrical|spark/i.test(row.widget_type))).toBe(false);
     expect(new Set(seed.map(row => row.widget_type)).size).toBe(seed.length);
     for (const type of DEFAULT_DASHBOARD_WIDGET_TYPES) {
@@ -182,5 +191,170 @@ describe('dashboard widget seed once', () => {
     expect(store.seeded).toBe(true);
     expect(store.inserts).toBe(2);
     expect(store.rows).toHaveLength(3);
+  });
+});
+
+function withIds(rows: DashboardWidgetInsert[]): DashboardWidgetRect[] {
+  return rows.map((row, i) => ({ ...row, id: `seed-${row.widget_type}-${i}` }));
+}
+
+/** Independent AABB — do not call the module overlap helper here. */
+function rawOverlap(
+  a: Pick<DashboardWidgetRect, 'grid_x' | 'grid_y' | 'grid_w' | 'grid_h'>,
+  b: Pick<DashboardWidgetRect, 'grid_x' | 'grid_y' | 'grid_w' | 'grid_h'>,
+): boolean {
+  return a.grid_x < b.grid_x + b.grid_w
+    && b.grid_x < a.grid_x + a.grid_w
+    && a.grid_y < b.grid_y + b.grid_h
+    && b.grid_y < a.grid_y + a.grid_h;
+}
+
+function rawLayoutOverlaps(widgets: readonly DashboardWidgetRect[]): boolean {
+  for (let i = 0; i < widgets.length; i += 1) {
+    for (let j = i + 1; j < widgets.length; j += 1) {
+      if (rawOverlap(widgets[i], widgets[j])) return true;
+    }
+  }
+  return false;
+}
+
+function addTypes(
+  start: DashboardWidgetRect[],
+  types: string[],
+  canvasW?: number,
+): DashboardWidgetRect[] {
+  let rows = [...start];
+  for (const type of types) {
+    const place = placeAddedDashboardWidget(rows, type, canvasW);
+    expect(place).not.toBeNull();
+    expect(place!.grid_x + place!.grid_w).toBeLessThanOrEqual(Math.max(canvasW ?? 1100, place!.grid_w + 20));
+    rows = [...rows, { id: `add-${type}`, widget_type: type, ...place! }];
+  }
+  return rows;
+}
+
+describe('dashboard widget grid placement', () => {
+  const jobs: DashboardWidgetRect = {
+    id: 'jobs', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270,
+  };
+  const weatherOnJobs: DashboardWidgetRect = {
+    id: 'weather', widget_type: 'weather', grid_x: 20, grid_y: 20, grid_w: 260, grid_h: 270,
+  };
+  const complianceClear: DashboardWidgetRect = {
+    id: 'compliance', widget_type: 'compliance_deadlines', grid_x: 430, grid_y: 20, grid_w: 390, grid_h: 270,
+  };
+
+  it('detects real overlap and clearance without using the layout helper', () => {
+    expect(rawOverlap(jobs, weatherOnJobs)).toBe(true);
+    expect(dashboardWidgetRectsOverlap(jobs, weatherOnJobs)).toBe(true);
+    expect(rawOverlap(jobs, complianceClear)).toBe(false);
+    expect(dashboardWidgetRectsOverlap(jobs, complianceClear)).toBe(false);
+    expect(rawOverlap(weatherOnJobs, complianceClear)).toBe(false);
+    expect(dashboardWidgetRectsOverlap(weatherOnJobs, complianceClear)).toBe(false);
+  });
+
+  it('does not overlap after adding several widgets onto the seed layout', () => {
+    const rows = addTypes(withIds(defaultDashboardWidgetInserts()), [
+      'weather', 'client_stats', 'clock', 'low_stock',
+    ]);
+    expect(rows).toHaveLength(7);
+    expect(rawLayoutOverlaps(rows)).toBe(false);
+    expect(dashboardWidgetLayoutOverlaps(rows)).toBe(false);
+  });
+
+  it('keeps new widgets inside a 910 px canvas', () => {
+    const rows = addTypes(withIds(defaultDashboardWidgetInserts()), [
+      'weather', 'clock', 'calendar',
+    ], 910);
+    for (const row of rows.filter(w => w.id?.startsWith('add-'))) {
+      expect(row.grid_x).toBeGreaterThanOrEqual(20);
+      expect(row.grid_x + row.grid_w).toBeLessThanOrEqual(910);
+    }
+    expect(rawLayoutOverlaps(rows)).toBe(false);
+  });
+
+  it('keeps new widgets inside a 686 px canvas', () => {
+    const rows = addTypes(withIds(defaultDashboardWidgetInserts()), [
+      'weather', 'clock', 'calendar',
+    ], 686);
+    for (const row of rows.filter(w => w.id?.startsWith('add-'))) {
+      expect(row.grid_x).toBeGreaterThanOrEqual(20);
+      expect(row.grid_x + row.grid_w).toBeLessThanOrEqual(686);
+    }
+    expect(rawLayoutOverlaps(rows)).toBe(false);
+  });
+
+  it('repairs an overlapping saved layout on load without dropping valid widgets', () => {
+    const overlapping: DashboardWidgetRect[] = [
+      jobs,
+      weatherOnJobs,
+      { id: 'stacked', widget_type: 'compliance_deadlines', grid_x: 90, grid_y: 20, grid_w: 390, grid_h: 270 },
+    ];
+    const { widgets, changed, droppedIds } = repairDashboardWidgetLayout(overlapping);
+    expect(changed).toBe(true);
+    expect(droppedIds).toEqual([]);
+    expect(widgets.map(w => w.id).sort()).toEqual(['jobs', 'stacked', 'weather']);
+    expect(widgets.find(w => w.id === 'jobs')).toMatchObject({ grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270 });
+    expect(rawLayoutOverlaps(widgets)).toBe(false);
+    expect(dashboardWidgetLayoutOverlaps(widgets)).toBe(false);
+  });
+
+  it('does not move a saved layout that already has no overlaps', () => {
+    const seed = withIds(defaultDashboardWidgetInserts());
+    const { widgets, changed, droppedIds } = repairDashboardWidgetLayout(seed);
+    expect(changed).toBe(false);
+    expect(droppedIds).toEqual([]);
+    expect(widgets).toEqual(seed);
+    expect(rawLayoutOverlaps(widgets)).toBe(false);
+  });
+
+  it('leaves a non-colliding widget at its saved coordinates', () => {
+    const saved: DashboardWidgetRect[] = [jobs, weatherOnJobs, complianceClear];
+    const { widgets, changed, droppedIds } = repairDashboardWidgetLayout(saved);
+    expect(changed).toBe(true);
+    expect(droppedIds).toEqual([]);
+    const compliance = widgets.find(w => w.id === 'compliance');
+    expect(compliance).toMatchObject({
+      id: 'compliance',
+      grid_x: 430,
+      grid_y: 20,
+      grid_w: 390,
+      grid_h: 270,
+    });
+    const keptJobs = widgets.find(w => w.id === 'jobs');
+    expect(keptJobs).toMatchObject({ grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270 });
+    const movedWeather = widgets.find(w => w.id === 'weather');
+    expect(movedWeather).toBeTruthy();
+    expect(movedWeather).not.toMatchObject({ grid_x: 20, grid_y: 20 });
+    expect(rawOverlap(keptJobs!, compliance!)).toBe(false);
+    expect(rawOverlap(movedWeather!, keptJobs!)).toBe(false);
+    expect(rawOverlap(movedWeather!, compliance!)).toBe(false);
+    expect(rawLayoutOverlaps(widgets)).toBe(false);
+  });
+
+  it('drops retired rows and leaves remaining widgets at their saved coordinates', () => {
+    const seed = withIds(defaultDashboardWidgetInserts());
+    const saved: DashboardWidgetRect[] = [
+      ...seed,
+      { id: 'btc', widget_type: 'bitcoin', grid_x: 20, grid_y: 20, grid_w: 260, grid_h: 180 },
+      { id: 'mkt', widget_type: 'stock_market', grid_x: 700, grid_y: 20, grid_w: 390, grid_h: 180 },
+    ];
+    const { widgets, changed, droppedIds } = repairDashboardWidgetLayout(saved);
+    expect(changed).toBe(true);
+    expect(droppedIds.sort()).toEqual(['btc', 'mkt']);
+    expect(widgets.some(w => w.widget_type === 'bitcoin' || w.widget_type === 'crypto' || w.widget_type === 'stock_market')).toBe(false);
+    expect(widgets).toEqual(seed);
+    expect(rawLayoutOverlaps(widgets)).toBe(false);
+  });
+
+  it('filters the picker with the same helper the page uses', () => {
+    const data = pickerDashboardWidgets('data').map(def => def.type);
+    const system = pickerDashboardWidgets('system').map(def => def.type);
+    expect(data).not.toContain('bitcoin');
+    expect(data).not.toContain('crypto');
+    expect(data).not.toContain('stock_market');
+    expect(data).toContain('weather');
+    expect(system).toContain('upcoming_jobs');
+    expect(placeAddedDashboardWidget([], 'bitcoin')).toBeNull();
   });
 });

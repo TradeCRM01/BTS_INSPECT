@@ -1,6 +1,6 @@
 import {
-  CloudSun, Bitcoin, Clock, ClipboardList, LayoutTemplate,
-  FileText, TrendingUp, Calendar, Activity, DollarSign,
+  CloudSun, Clock, ClipboardList, LayoutTemplate,
+  FileText, Calendar, Activity, DollarSign,
   Gauge, ListTodo, Calculator, Users, Briefcase,
   ShoppingCart, Package, Receipt,
   Bot, Newspaper, Shield, Zap, Wrench, CheckCircle2,
@@ -72,37 +72,6 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     maxSize: { w: 4, h: 4 },
     category: 'data',
     hasConfig: true,
-  },
-  {
-    type: 'bitcoin',
-    label: 'Bitcoin Price',
-    description: 'Live BTC price in USD',
-    icon: Bitcoin,
-    defaultSize: { w: 2, h: 2 },
-    minSize: { w: 2, h: 2 },
-    maxSize: { w: 4, h: 3 },
-    category: 'data',
-  },
-  {
-    type: 'crypto',
-    label: 'Crypto Price',
-    description: 'Live price for any cryptocurrency',
-    icon: DollarSign,
-    defaultSize: { w: 2, h: 2 },
-    minSize: { w: 2, h: 2 },
-    maxSize: { w: 4, h: 3 },
-    category: 'data',
-    hasConfig: true,
-  },
-  {
-    type: 'stock_market',
-    label: 'Market Overview',
-    description: 'S&P 500, Nasdaq, and Dow Jones indices',
-    icon: TrendingUp,
-    defaultSize: { w: 3, h: 2 },
-    minSize: { w: 2, h: 2 },
-    maxSize: { w: 5, h: 4 },
-    category: 'data',
   },
   // Tools
   {
@@ -304,6 +273,13 @@ export const WIDGET_MAP = new Map(WIDGET_REGISTRY.map(w => [w.type, w]));
 
 export function getWidgetDef(type: string): WidgetDefinition | undefined {
   return WIDGET_MAP.get(type);
+}
+
+/** Saved rows of these types are deleted on load. They are not in the picker. */
+export const RETIRED_WIDGET_TYPES = ['bitcoin', 'crypto', 'stock_market'] as const;
+
+export function isRetiredWidgetType(type: string): boolean {
+  return (RETIRED_WIDGET_TYPES as readonly string[]).includes(type);
 }
 
 export const WIDGET_CATEGORIES: { id: string; label: string }[] = [

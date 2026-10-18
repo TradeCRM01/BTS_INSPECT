@@ -31,7 +31,7 @@ import {
   Plus, X, GripVertical, Trash2, Sparkles, Briefcase, MoreHorizontal,
 } from 'lucide-react';
 import { sortDashboardWidgetsForView } from '../lib/dashboardWidgetView';
-import { WIDGET_REGISTRY, WIDGET_CATEGORIES, getWidgetDef } from '../widgets/registry';
+import { WIDGET_CATEGORIES, getWidgetDef } from '../widgets/registry';
 import { WidgetRenderer } from '../widgets/WidgetComponents';
 import type { Json } from '../types/database';
 import type { Client, Job, JobWithClient } from '../types/crm';
@@ -48,7 +48,11 @@ import {
   todaysDashboardJobs,
 } from '../lib/dashboardHome';
 import {
-  dashboardWidgetPixelSize,
+  isRetiredDashboardWidgetType,
+  measureDashboardCanvasWidth,
+  pickerDashboardWidgets,
+  placeAddedDashboardWidget,
+  repairDashboardWidgetLayout,
   defaultDashboardWidgetInserts,
   resolveDashboardWidgets,
 } from '../lib/dashboardWidgets';
@@ -66,6 +70,29 @@ interface DashboardWidget {
   grid_w: number; // pixel width
   grid_h: number; // pixel height
   config: Json;
+}
+
+async function persistDashboardWidgetRepair(
+  before: DashboardWidget[],
+  repaired: { widgets: DashboardWidget[]; droppedIds: string[] },
+) {
+  const afterById = new Map(repaired.widgets.map(row => [row.id, row]));
+  for (const id of repaired.droppedIds) {
+    await supabase.from('dashboard_widgets').delete().eq('id', id);
+  }
+  for (const prev of before) {
+    const next = afterById.get(prev.id);
+    if (!next) continue;
+    if (next.grid_x === prev.grid_x && next.grid_y === prev.grid_y) continue;
+    await supabase
+      .from('dashboard_widgets')
+      .update({
+        grid_x: next.grid_x,
+        grid_y: next.grid_y,
+        updated_at: new Date().toISOString(),
+      } as never)
+      .eq('id', prev.id);
+  }
 }
 
 const MIN_W = 180;
@@ -344,8 +371,11 @@ export function DashboardPage() {
   const lookDashboard = lookParam === DASHBOARD_LOOK || lookCrewS8dDashboard || lookDashboardJack;
   const [editMode, setEditMode] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
+  const [addingWidget, setAddingWidget] = useState(false);
+  const addingWidgetRef = useRef(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const widgetsBoxRef = useRef<HTMLDivElement>(null);
   const now = new Date();
   const todayKey = dashboardTodayKey(now);
   const tomorrowKey = dashboardTodayKey(addDays(now, 1));
@@ -358,10 +388,10 @@ export function DashboardPage() {
   const { data: widgets, isLoading: widgetsLoading, error } = useQuery<DashboardWidget[]>({
     queryKey: ['dashboard-widgets'],
     queryFn: async () => {
-      if (lookDashboardJack) return dashboardJackLookWidgets();
-      if (lookDashboard) return dashboardLookWidgets();
+      if (lookDashboardJack) return repairDashboardWidgetLayout(dashboardJackLookWidgets()).widgets;
+      if (lookDashboard) return repairDashboardWidgetLayout(dashboardLookWidgets()).widgets;
       const mock = getAuditDashboardWidgets();
-      if (mock) return mock;
+      if (mock) return repairDashboardWidgetLayout(mock as DashboardWidget[]).widgets;
       if (!profile?.id) return [];
 
       const loadRows = async (): Promise<DashboardWidget[]> => {
@@ -373,7 +403,7 @@ export function DashboardPage() {
         return (data ?? []) as DashboardWidget[];
       };
 
-      return resolveDashboardWidgets<DashboardWidget>({
+      const rows = await resolveDashboardWidgets<DashboardWidget>({
         loadRows,
         loadSeeded: async () => {
           const { data, error } = await supabase
@@ -420,6 +450,13 @@ export function DashboardPage() {
           if (error) throw error;
         },
       });
+      const repaired = repairDashboardWidgetLayout(rows);
+      if (repaired.changed) {
+        void persistDashboardWidgetRepair(rows, repaired).catch((err) => {
+          console.error('Dashboard widget repair write failed', err);
+        });
+      }
+      return repaired.widgets;
     },
     enabled: !!profile,
   });
@@ -545,30 +582,51 @@ export function DashboardPage() {
   const toggleReminderDone = (id: string, done: boolean) => void runReminder(() => setReminderDone(id, done));
   const postponeReminderTo = (id: string, choice: PostponeChoice) => void runReminder(() => postponeReminder(id, choice));
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ CRUD Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   const addWidget = async (widgetType: string) => {
+    if (addingWidgetRef.current) return;
     const def = getWidgetDef(widgetType);
-    if (!def) return;
+    if (!def || isRetiredDashboardWidgetType(widgetType)) return;
     const w = widgets ?? [];
-    // Place at a staggered offset so new widgets don't overlap exactly
-    const offset = w.length * 30;
-    const size = dashboardWidgetPixelSize(widgetType);
-    const { data, error } = await supabase
-      .from('dashboard_widgets')
-      .insert({
-        widget_type: widgetType,
-        grid_x: Math.min(offset, 400),
-        grid_y: 20,
-        grid_w: size.grid_w,
-        grid_h: size.grid_h,
-        config: {} as Json,
-      } as never)
-      .select('id, widget_type, grid_x, grid_y, grid_w, grid_h, config')
-      .single();
-    if (!error && data) {
-      queryClient.setQueryData<DashboardWidget[]>(['dashboard-widgets'], [...w, data as DashboardWidget]);
+    const canvasW = measureDashboardCanvasWidth(
+      canvasRef.current,
+      widgetsBoxRef.current,
+    );
+    const placed = placeAddedDashboardWidget(w, widgetType, canvasW);
+    if (!placed) return;
+    addingWidgetRef.current = true;
+    setAddingWidget(true);
+    try {
+      const local = lookDashboard || !!getAuditDashboardWidgets();
+      if (local) {
+        queryClient.setQueryData<DashboardWidget[]>(['dashboard-widgets'], [
+          ...w,
+          {
+            id: `local-${widgetType}-${w.length}`,
+            widget_type: widgetType,
+            ...placed,
+            config: {} as Json,
+          },
+        ]);
+        setShowPicker(false);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('dashboard_widgets')
+        .insert({
+          widget_type: widgetType,
+          ...placed,
+          config: {} as Json,
+        } as never)
+        .select('id, widget_type, grid_x, grid_y, grid_w, grid_h, config')
+        .single();
+      if (!error && data) {
+        queryClient.setQueryData<DashboardWidget[]>(['dashboard-widgets'], [...w, data as DashboardWidget]);
+      }
+      setShowPicker(false);
+    } finally {
+      addingWidgetRef.current = false;
+      setAddingWidget(false);
     }
-    setShowPicker(false);
   };
 
   const removeWidget = async (id: string) => {
@@ -857,7 +915,7 @@ export function DashboardPage() {
             {widgetsLoading ? (
               <div className="dashboard-home-widgets flex justify-center py-12"><LoadingSpinner /></div>
             ) : (widgets ?? []).length === 0 ? null : (
-              <div className="dashboard-home-widgets" data-dashboard-widgets="1">
+              <div className="dashboard-home-widgets" data-dashboard-widgets="1" ref={widgetsBoxRef}>
                 {editMode ? (
                   <>
                     <div className="md:hidden dashboard-home-widget-stack">
@@ -925,8 +983,9 @@ export function DashboardPage() {
       {showPicker && (
         <WidgetPicker
           onAdd={addWidget}
-          onClose={() => setShowPicker(false)}
+          onClose={() => { if (!addingWidget) setShowPicker(false); }}
           existingTypes={new Set((widgets ?? []).map(w => w.widget_type))}
+          busy={addingWidget}
         />
       )}
     </AppShell>
@@ -1105,15 +1164,16 @@ function FreeWidget({
 
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Widget Picker Modal Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 function WidgetPicker({
-  onAdd, onClose, existingTypes,
+  onAdd, onClose, existingTypes, busy = false,
 }: {
   onAdd: (type: string) => void;
   onClose: () => void;
   existingTypes: Set<string>;
+  busy?: boolean;
 }) {
   const [category, setCategory] = useState<string>('system');
 
-  const filtered = WIDGET_REGISTRY.filter(w => w.category === category);
+  const filtered = pickerDashboardWidgets(category);
 
   return (
     <div className="overlay-backdrop">
@@ -1159,9 +1219,9 @@ function WidgetPicker({
                 <button
                   key={w.type}
                   onClick={() => onAdd(w.type)}
-                  disabled={added && w.category === 'system'}
+                  disabled={busy || added}
                   className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all ${
-                    added && w.category === 'system'
+                    busy || added
                       ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
                       : 'border-gray-200 hover:border-blue-300 hover:shadow-md hover:bg-blue-50/30'
                   }`}
@@ -1172,7 +1232,7 @@ function WidgetPicker({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <p className="text-sm font-semibold text-[#1A1A1A]">{w.label}</p>
-                      {added && w.category === 'system' && (
+                      {added && (
                         <span className="text-[9px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full">Added</span>
                       )}
                     </div>
