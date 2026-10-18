@@ -4,7 +4,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '../contexts/AuthContext';
 import { ToastProvider } from '../components/ui';
@@ -149,18 +149,23 @@ async function renderPage() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  const router = createMemoryRouter([
+    {
+      path: '/inspections/:id',
+      element: (
+        <AuthProvider>
+          <ToastProvider>
+            <InspectionFillPage />
+          </ToastProvider>
+        </AuthProvider>
+      ),
+    },
+    { path: '/inspections', element: <div>Inspections list</div> },
+  ], { initialEntries: [`/inspections/${harness.inspectionId}`] });
   await act(async () => {
     root.render(
       <QueryClientProvider client={client}>
-        <AuthProvider>
-          <ToastProvider>
-            <MemoryRouter initialEntries={[`/inspections/${harness.inspectionId}`]}>
-              <Routes>
-                <Route path="/inspections/:id" element={<InspectionFillPage />} />
-              </Routes>
-            </MemoryRouter>
-          </ToastProvider>
-        </AuthProvider>
+        <RouterProvider router={router} />
       </QueryClientProvider>,
     );
   });
@@ -199,5 +204,39 @@ describe('inspection fill page flush', () => {
 
     expect(harness.updates.length).toBeGreaterThan(0);
     expect(JSON.stringify(harness.updates[0])).toContain('keep this note');
+  });
+
+  it('warns on Inspections while saving and keeps the note if you cancel', async () => {
+    await renderPage();
+    const notes = await waitForNotes();
+
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+      setter?.call(notes, 'keep this note');
+      notes.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(document.body.textContent).toContain('Saving…');
+    expect(document.body.textContent).not.toContain('Inspections list');
+
+    const back = Array.from(document.body.querySelectorAll('a')).find(link => (
+      link.textContent?.replace(/\s+/g, ' ').trim() === 'Inspections'
+    ));
+    if (!back) throw new Error('missing Inspections link');
+    await act(async () => {
+      back.click();
+    });
+    expect(document.body.textContent).toContain('Leave without saving?');
+    expect(document.body.textContent).toContain('unsaved changes');
+    expect((container.querySelector('textarea') as HTMLTextAreaElement).value).toBe('keep this note');
+    expect(document.body.textContent).not.toContain('Inspections list');
+
+    const cancel = Array.from(document.body.querySelectorAll('button')).find(btn => btn.textContent === 'Cancel');
+    if (!cancel) throw new Error('missing Cancel');
+    await act(async () => {
+      cancel.click();
+    });
+    expect(document.body.textContent).not.toContain('Leave without saving?');
+    expect((container.querySelector('textarea') as HTMLTextAreaElement).value).toBe('keep this note');
+    expect(document.body.textContent).not.toContain('Inspections list');
   });
 });

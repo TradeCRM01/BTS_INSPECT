@@ -24,14 +24,11 @@ import { applyLivingJobToInspection } from '../lib/livingJha';
 import { inspectionDocumentColors } from '../reports/generic_inspection/theme';
 import { getAuditClient, getAuditInspection, getAuditJobs } from '../lib/devFieldAuditDocs';
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
-import {
-  bindInspectionFillFlush,
-  inspectionFillLeaveNeedsWarn,
-  inspectionFillSaveHint,
-  type InspectionFillSaveStatus,
-} from '../lib/inspectionFillSave';
+import { UnsavedChangesDialog } from '../components/unsaved/UnsavedChangesDialog';
+import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard';
+import type { UnsavedChangesStatus } from '../lib/unsavedChangesGuard';
 
-type SaveStatus = InspectionFillSaveStatus;
+type SaveStatus = UnsavedChangesStatus;
 
 interface PhotoRecord {
   id?: string;
@@ -268,15 +265,11 @@ export function InspectionFillPage() {
   const saveStatusRef = useRef<SaveStatus>(saveStatus);
   saveStatusRef.current = saveStatus;
 
-  useEffect(() => {
-    return bindInspectionFillFlush({
-      flush: flushPending,
-      shouldWarn: () => inspectionFillLeaveNeedsWarn({
-        status: saveStatusRef.current,
-        hasPending: pendingSaveRef.current != null || saveTimerRef.current != null,
-      }),
-    });
-  }, [flushPending]);
+  const unsaved = useUnsavedChangesGuard({
+    status: saveStatus,
+    hasPending: pendingSaveRef.current != null || saveTimerRef.current != null,
+    flush: flushPending,
+  });
 
   const livingJob = selectedJobForLiving
     ? {
@@ -629,7 +622,7 @@ export function InspectionFillPage() {
     setCurrentSectionIdx(i => Math.min(visibleSections.length - 1, i + 1));
   }
 
-  const saveHint = inspectionFillSaveHint(saveStatus);
+  const saveHint = unsaved.hint;
 
   const docColors = inspectionDocumentColors(
     (company as { report_theme?: unknown } | null)?.report_theme ?? null,
@@ -936,6 +929,7 @@ export function InspectionFillPage() {
           </div>
         </article>
       </div>
+      <UnsavedChangesDialog guard={unsaved} />
     </AppShell>
   );
 }

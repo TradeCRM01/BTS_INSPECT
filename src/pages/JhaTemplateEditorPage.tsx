@@ -6,6 +6,8 @@ import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
+import { UnsavedChangesDialog } from '../components/unsaved/UnsavedChangesDialog';
+import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard';
 import { nanoid } from '../lib/nanoid';
 import type { JhaTemplateSchema, RiskLevel, PpeOption, SignOffRole, JhaCustomField, JhaStep } from '../types/jha';
 import { formatControlMeasuresText, normalizeJhaStep } from '../types/jha';
@@ -13,7 +15,7 @@ import { JHA_STEP_PACKS, clonePackSteps } from '../lib/jhaStepPacks';
 import { JhaSwmsLibraryPicker } from '../components/jha/JhaSwmsLibraryPicker';
 import {
   ChevronLeft, Save, Trash2, Plus, ShieldCheck, AlertCircle,
-  HardHat, X, Check, GripVertical, Library,
+  HardHat, X, GripVertical, Library,
 } from 'lucide-react';
 
 type SaveState = 'saved' | 'saving' | 'unsaved' | 'error';
@@ -344,6 +346,11 @@ export function JhaTemplateEditorPage() {
     }
   }
 
+  const unsaved = useUnsavedChangesGuard({
+    status: saveState,
+    flush: () => { void doSave(); },
+  });
+
   async function handleDelete() {
     if (!templateId) return;
     if (!confirm('Delete this JHA template? This cannot be undone.')) return;
@@ -410,10 +417,7 @@ export function JhaTemplateEditorPage() {
           </button>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <span className="text-xs text-[#6B7280] shrink-0">v{templateVersion}</span>
-            {saveState === 'saved' && <span className="text-xs text-[#1B7F3A] flex items-center gap-1 shrink-0"><Check size={12} /> Saved</span>}
-            {saveState === 'saving' && <span className="text-xs text-[#4A5568] flex items-center gap-1 shrink-0"><LoadingSpinner size="sm" /> Saving...</span>}
-            {saveState === 'unsaved' && <span className="text-xs text-[#92400E] shrink-0">Unsaved changes</span>}
-            {saveState === 'error' && <span className="text-xs text-[#B42318] shrink-0">Save failed</span>}
+            <span className="text-xs text-[#4A5568] shrink-0" data-save-status={saveState}>{unsaved.hint}</span>
             {templateId && (
               <button type="button" onClick={handleDelete} className="p-1.5 text-[#4A5568] hover:text-[#B42318] hover:bg-red-50 rounded transition-colors" title="Delete template">
                 <Trash2 size={16} />
@@ -781,6 +785,7 @@ export function JhaTemplateEditorPage() {
           </SectionCard>
         </div>
       </div>
+      <UnsavedChangesDialog guard={unsaved} />
     </AppShell>
   );
 }

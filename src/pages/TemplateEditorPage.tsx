@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,14 +11,10 @@ import { AppShell } from '../components/layout/AppShell';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
+import { UnsavedChangesDialog } from '../components/unsaved/UnsavedChangesDialog';
 import { getAuditTemplate } from '../lib/devFieldAuditDocs';
-import {
-  bindTemplateEditorLeave,
-  requestTemplateEditorLeave,
-  templateEditorLeaveCopy,
-  templateEditorLeaveNeedsWarn,
-  templateQuestionDeleteCopy,
-} from '../lib/templateEditorGuard';
+import { templateQuestionDeleteCopy } from '../lib/templateEditorGuard';
+import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard';
 import { SectionPanel } from '../components/template-editor/SectionPanel';
 import { QuestionEditor } from '../components/template-editor/QuestionEditor';
 import { MobilePreview } from '../components/template-editor/MobilePreview';
@@ -26,7 +22,7 @@ import { PdfPreviewModal } from '../components/template-editor/PdfPreviewModal';
 import { QuestionTypePicker } from '../components/template-editor/QuestionTypePicker';
 import { ShowIfEditor } from '../components/template-editor/ShowIfEditor';
 import {
-  ChevronLeft, Save, CheckCircle, AlertCircle, Plus, Layers, Trash2, Settings2, X, Library, FileText
+  ChevronLeft, Save, AlertCircle, Plus, Layers, Trash2, Settings2, X, Library, FileText
 } from 'lucide-react';
 import { nanoid } from '../lib/nanoid';
 import {
@@ -60,27 +56,9 @@ export function TemplateEditorPage() {
   const [templateId, setTemplateId] = useState<string | null>(isNew ? null : id);
   const [renderers, setRenderers] = useState<Array<{ key: string; label: string }>>([]);
   const [deleteQuestionId, setDeleteQuestionId] = useState<string | null>(null);
-  const [leaveOpen, setLeaveOpen] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const autoSaveRef = useRef<ReturnType<typeof setTimeout>>();
-  const saveStateRef = useRef<SaveState>(saveState);
-  const pendingLeaveRef = useRef<(() => void) | null>(null);
-  saveStateRef.current = saveState;
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
-  const leaveNeedsWarn = templateEditorLeaveNeedsWarn(saveState);
-
-  const askLeave = useCallback((proceed: () => void) => {
-    pendingLeaveRef.current = proceed;
-    setLeaveOpen(true);
-  }, []);
-
-  const requestLeave = useCallback((leave: () => void) => {
-    requestTemplateEditorLeave({
-      unsaved: templateEditorLeaveNeedsWarn(saveStateRef.current),
-      leave,
-      ask: askLeave,
-    });
-  }, [askLeave]);
 
   const { data: existingTemplate, isLoading, isError, refetch } = useQuery({
     queryKey: ['template', id],
@@ -150,15 +128,6 @@ export function TemplateEditorPage() {
       }
     }
   }, [existingTemplate]);
-
-  useEffect(() => {
-    return bindTemplateEditorLeave({
-      shouldWarn: () => templateEditorLeaveNeedsWarn(saveStateRef.current),
-      onInAppLeave: href => {
-        requestLeave(() => navigate(href));
-      },
-    });
-  }, [navigate, requestLeave]);
 
   // Autosave: debounce 2s after any change, only for already-persisted templates
   useEffect(() => {
@@ -235,6 +204,14 @@ export function TemplateEditorPage() {
       setSaveState('error');
       const msg = err instanceof Error ? err.message : String(err);
       setValidationErrors(prev => prev.length > 0 ? prev : [msg]);
+    },
+  });
+
+  const unsaved = useUnsavedChangesGuard({
+    status: saveState,
+    flush: () => {
+      if (!templateId || getAuditTemplate(templateId)) return;
+      saveMutation.mutate();
     },
   });
 
@@ -511,7 +488,7 @@ export function TemplateEditorPage() {
         <div className="max-w-[1200px] mx-auto px-3 md:px-4 py-2 md:py-1 md:min-h-12 flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-3">
           <button
             type="button"
-            onClick={() => requestLeave(() => navigate('/templates'))}
+            onClick={() => navigate('/templates')}
             className="text-[#4A5568] hover:text-[#1A1A1A] flex items-center gap-1 text-sm min-h-10 md:min-h-0"
           >
             <ChevronLeft size={16} /> Templates
@@ -536,10 +513,9 @@ export function TemplateEditorPage() {
           {/* Save indicator */}
           <div className="hidden md:flex items-center gap-1.5 text-xs text-[#4A5568] shrink-0">
             {isLoading && <><LoadingSpinner size="sm" /> Loading...</>}
-            {!isLoading && saveState === 'saving' && <><LoadingSpinner size="sm" /> Saving...</>}
-            {!isLoading && saveState === 'saved' && <><CheckCircle size={13} className="text-[#1B7F3A]" /> Saved</>}
-            {!isLoading && saveState === 'unsaved' && <><div className="w-2 h-2 rounded-full bg-amber-400" /> {templateId ? 'Saving soon…' : 'Unsaved'}</>}
-            {!isLoading && saveState === 'error' && <><AlertCircle size={13} className="text-[#B42318]" /> Error</>}
+            {!isLoading && (
+              <span data-save-status={saveState}>{unsaved.hint}</span>
+            )}
           </div>
 
           <div className="flex gap-2 w-full md:w-auto">
@@ -958,28 +934,7 @@ export function TemplateEditorPage() {
         schema={schema}
       />
 
-      {leaveOpen && (() => {
-        const leave = templateEditorLeaveCopy();
-        return (
-          <ConfirmDialog
-            open
-            title={leave.title}
-            message={leave.message}
-            confirmLabel={leave.confirmLabel}
-            variant="danger"
-            onConfirm={() => {
-              const proceed = pendingLeaveRef.current;
-              pendingLeaveRef.current = null;
-              setLeaveOpen(false);
-              proceed?.();
-            }}
-            onCancel={() => {
-              pendingLeaveRef.current = null;
-              setLeaveOpen(false);
-            }}
-          />
-        );
-      })()}
+      <UnsavedChangesDialog guard={unsaved} />
       {deleteQuestionId && (() => {
         const label = schema.sections.flatMap(section => section.questions).find(q => q.id === deleteQuestionId)?.label;
         const copy = templateQuestionDeleteCopy(label);

@@ -4,7 +4,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '../contexts/AuthContext';
 import { ToastProvider } from '../components/ui';
@@ -135,19 +135,23 @@ async function renderPage() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  const router = createMemoryRouter([
+    {
+      path: '/templates/:id',
+      element: (
+        <AuthProvider>
+          <ToastProvider>
+            <TemplateEditorPage />
+          </ToastProvider>
+        </AuthProvider>
+      ),
+    },
+    { path: '/templates', element: <div>Templates list</div> },
+  ], { initialEntries: [`/templates/${harness.templateId}`] });
   await act(async () => {
     root.render(
       <QueryClientProvider client={client}>
-        <AuthProvider>
-          <ToastProvider>
-            <MemoryRouter initialEntries={[`/templates/${harness.templateId}`]}>
-              <Routes>
-                <Route path="/templates" element={<div>Templates list</div>} />
-                <Route path="/templates/:id" element={<TemplateEditorPage />} />
-              </Routes>
-            </MemoryRouter>
-          </ToastProvider>
-        </AuthProvider>
+        <RouterProvider router={router} />
       </QueryClientProvider>,
     );
   });
