@@ -10,7 +10,8 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { FileText, ChevronLeft, CreditCard as Edit2, PenLine, MoreHorizontal } from 'lucide-react';
 import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
-import { persistGeneratedReportPdf, reportIsSent, reportPdfFilename, reportSiteName } from '../lib/sendReport';
+import { InspectionIssueControl } from '../components/inspection/InspectionIssueControl';
+import { issueInspectionRecord, persistGeneratedReportPdf, reportIsSent, reportPdfFilename, reportSiteName } from '../lib/sendReport';
 import { applyLivingJobToInspection } from '../lib/livingJha';
 import { safeFormatDate } from '../lib/safeDate';
 import { PdfViewer } from '../components/pdf/PdfViewer';
@@ -58,6 +59,7 @@ export function ReportPage() {
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [sendingReport, setSendingReport] = useState(false);
+  const [issuing, setIssuing] = useState(false);
   const [sendNotice, setSendNotice] = useState('');
   const originalPdfBytesRef = useRef<Uint8Array | null>(null);
   const moreRef = useRef<HTMLDetailsElement>(null);
@@ -299,14 +301,6 @@ export function ReportPage() {
           const { error } = await supabase.from('reports').update({ pdf_storage_path: path }).eq('id', reportId);
           return { error };
         },
-        markIssued: async inspectionId => {
-          const { error } = await supabase
-            .from('inspections')
-            .update({ status: 'issued' })
-            .eq('id', inspectionId)
-            .not('status', 'in', '(issued,sent)');
-          return { error };
-        },
         remove: path => supabase.storage.from('reports').remove([path]),
       });
       if (!saved.ok) {
@@ -360,6 +354,26 @@ export function ReportPage() {
     } finally {
       setDownloading(false);
     }
+  }
+
+  async function handleIssue() {
+    if (!inspection) return;
+    setIssuing(true);
+    setError('');
+    const result = await issueInspectionRecord(inspection.id, inspection.status, async inspectionId => {
+      const { error } = await supabase
+        .from('inspections')
+        .update({ status: 'issued' })
+        .eq('id', inspectionId)
+        .not('status', 'in', '(issued,sent)');
+      return { error };
+    });
+    if (!result.ok) setError(result.error);
+    else {
+      queryClient.invalidateQueries({ queryKey: ['inspection', id] });
+      queryClient.invalidateQueries({ queryKey: ['inspections'] });
+    }
+    setIssuing(false);
   }
 
   function handleEmail() {
@@ -585,6 +599,12 @@ export function ReportPage() {
           </div>
           <div className="hub-invoices">
             <div className="hub-invoice-editor-act">
+              <InspectionIssueControl
+                status={inspection.status}
+                hasReport={!!existingReport}
+                busy={issuing}
+                onIssue={() => { void handleIssue(); }}
+              />
               {existingReport ? (
                 <button type="button" onClick={handleEmail} className="btn-primary">
                   Send

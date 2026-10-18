@@ -24,8 +24,14 @@ import { applyLivingJobToInspection } from '../lib/livingJha';
 import { inspectionDocumentColors } from '../reports/generic_inspection/theme';
 import { getAuditClient, getAuditInspection, getAuditJobs } from '../lib/devFieldAuditDocs';
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
+import {
+  bindInspectionFillFlush,
+  inspectionFillLeaveNeedsWarn,
+  inspectionFillSaveHint,
+  type InspectionFillSaveStatus,
+} from '../lib/inspectionFillSave';
 
-type SaveStatus = 'saved' | 'saving' | 'error' | 'offline';
+type SaveStatus = InspectionFillSaveStatus;
 
 interface PhotoRecord {
   id?: string;
@@ -231,6 +237,13 @@ export function InspectionFillPage() {
     });
   }
 
+  const flushPending = useCallback(() => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = undefined;
+    const pending = pendingSaveRef.current;
+    if (pending) void saveInspection(pending);
+  }, [saveInspection]);
+
   async function flushAndNavigate(path: string) {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     const job = jobs.find(j => j.id === jobId);
@@ -251,6 +264,19 @@ export function InspectionFillPage() {
     }, 30000);
     return () => clearInterval(interval);
   }, [saveInspection]);
+
+  const saveStatusRef = useRef<SaveStatus>(saveStatus);
+  saveStatusRef.current = saveStatus;
+
+  useEffect(() => {
+    return bindInspectionFillFlush({
+      flush: flushPending,
+      shouldWarn: () => inspectionFillLeaveNeedsWarn({
+        status: saveStatusRef.current,
+        hasPending: pendingSaveRef.current != null || saveTimerRef.current != null,
+      }),
+    });
+  }, [flushPending]);
 
   const livingJob = selectedJobForLiving
     ? {
@@ -603,12 +629,7 @@ export function InspectionFillPage() {
     setCurrentSectionIdx(i => Math.min(visibleSections.length - 1, i + 1));
   }
 
-  const saveHint =
-    saveStatus === 'saved' ? 'Saved'
-      : saveStatus === 'saving' ? 'Saving…'
-        : saveStatus === 'error' ? 'Save failed'
-          : saveStatus === 'offline' ? 'Offline'
-            : null;
+  const saveHint = inspectionFillSaveHint(saveStatus);
 
   const docColors = inspectionDocumentColors(
     (company as { report_theme?: unknown } | null)?.report_theme ?? null,
@@ -632,8 +653,11 @@ export function InspectionFillPage() {
           >
             Inspections
           </Link>
-          {saveHint && saveStatus !== 'saved' && (
-            <span className={`hub-inspections-save ${saveStatus === 'error' ? 'is-bad' : ''}`}>
+          {saveHint && (
+            <span
+              className={`hub-inspections-save ${saveStatus === 'error' ? 'is-bad' : ''}`}
+              data-save-status={saveStatus}
+            >
               {saveHint}
             </span>
           )}
