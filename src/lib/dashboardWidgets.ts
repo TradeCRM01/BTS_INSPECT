@@ -1,5 +1,8 @@
-import { getWidgetDef, WIDGET_REGISTRY } from '../widgets/registry';
+import { getWidgetDef, WIDGET_REGISTRY, isRetiredWidgetType, RETIRED_WIDGET_TYPES } from '../widgets/registry';
 
+export const RETIRED_DASHBOARD_WIDGET_TYPES = RETIRED_WIDGET_TYPES;
+
+/** Pixel size used when placing a registry widget on the dashboard canvas. */
 export const DASHBOARD_WIDGET_CELL_W = 130;
 export const DASHBOARD_WIDGET_CELL_H = 90;
 
@@ -15,10 +18,9 @@ export const DEFAULT_DASHBOARD_WIDGET_TYPES = [
 
 export type DefaultDashboardWidgetType = (typeof DEFAULT_DASHBOARD_WIDGET_TYPES)[number];
 
-export const RETIRED_DASHBOARD_WIDGET_TYPES = ['bitcoin', 'crypto', 'stock_market'] as const;
-
 export const DASHBOARD_WIDGET_ORIGIN = 20;
 export const DASHBOARD_WIDGET_CANVAS_W = 1100;
+export const DASHBOARD_WIDGET_GAP = 20;
 
 export type DashboardWidgetInsert = {
   widget_type: string;
@@ -40,6 +42,7 @@ export type DashboardWidgetRect = {
 
 export type DashboardWidgetSeedDecision = 'keep' | 'seed' | 'empty';
 
+/** IO used so first-visit / delete-all / CAS can be tested without a live table. */
 export type DashboardWidgetSeedIo<T> = {
   loadRows: () => Promise<T[]>;
   loadSeeded: () => Promise<boolean>;
@@ -67,7 +70,7 @@ export function dashboardWidgetPixelSize(type: string): { grid_w: number; grid_h
 }
 
 export function isRetiredDashboardWidgetType(type: string): boolean {
-  return (RETIRED_DASHBOARD_WIDGET_TYPES as readonly string[]).includes(type);
+  return isRetiredWidgetType(type);
 }
 
 export function dashboardWidgetRectsOverlap(a: DashboardWidgetRect, b: DashboardWidgetRect): boolean {
@@ -77,6 +80,17 @@ export function dashboardWidgetRectsOverlap(a: DashboardWidgetRect, b: Dashboard
     && b.grid_y < a.grid_y + a.grid_h;
 }
 
+export function dashboardWidgetRectsConflict(
+  a: DashboardWidgetRect,
+  b: DashboardWidgetRect,
+  gap = DASHBOARD_WIDGET_GAP,
+): boolean {
+  return a.grid_x < b.grid_x + b.grid_w + gap
+    && b.grid_x < a.grid_x + a.grid_w + gap
+    && a.grid_y < b.grid_y + b.grid_h + gap
+    && b.grid_y < a.grid_y + a.grid_h + gap;
+}
+
 export function dashboardWidgetLayoutOverlaps(widgets: readonly DashboardWidgetRect[]): boolean {
   for (let i = 0; i < widgets.length; i += 1) {
     for (let j = i + 1; j < widgets.length; j += 1) {
@@ -84,6 +98,24 @@ export function dashboardWidgetLayoutOverlaps(widgets: readonly DashboardWidgetR
     }
   }
   return false;
+}
+
+export function dashboardWidgetFitsCanvas(
+  row: Pick<DashboardWidgetRect, 'grid_x' | 'grid_w'>,
+  canvasW: number,
+): boolean {
+  if (row.grid_w > canvasW) return row.grid_x === DASHBOARD_WIDGET_ORIGIN;
+  return row.grid_x + row.grid_w <= canvasW;
+}
+
+export function measureDashboardCanvasWidth(
+  ...els: Array<{ clientWidth: number } | null | undefined>
+): number {
+  for (const el of els) {
+    const width = el?.clientWidth ?? 0;
+    if (width > 0) return width;
+  }
+  return DASHBOARD_WIDGET_CANVAS_W;
 }
 
 export function firstFreeDashboardWidgetSlot(
@@ -97,11 +129,12 @@ export function firstFreeDashboardWidgetSlot(
     (max, row) => Math.max(max, row.grid_y + row.grid_h),
     DASHBOARD_WIDGET_ORIGIN,
   );
-  const lastY = floor + DASHBOARD_WIDGET_CELL_H * 12;
+  const lastY = floor + DASHBOARD_WIDGET_CELL_H * 16;
   const maxX = Math.max(DASHBOARD_WIDGET_ORIGIN, canvasW - w);
 
   for (let y = DASHBOARD_WIDGET_ORIGIN; y <= lastY; y += DASHBOARD_WIDGET_CELL_H) {
     for (let x = DASHBOARD_WIDGET_ORIGIN; x <= maxX; x += DASHBOARD_WIDGET_CELL_W) {
+      if (w <= canvasW && x + w > canvasW) continue;
       const candidate: DashboardWidgetRect = {
         widget_type: '',
         grid_x: x,
@@ -109,13 +142,13 @@ export function firstFreeDashboardWidgetSlot(
         grid_w: w,
         grid_h: h,
       };
-      if (!existing.some(row => dashboardWidgetRectsOverlap(candidate, row))) {
+      if (!existing.some(row => dashboardWidgetRectsConflict(candidate, row))) {
         return { grid_x: x, grid_y: y };
       }
     }
   }
 
-  return { grid_x: DASHBOARD_WIDGET_ORIGIN, grid_y: floor + DASHBOARD_WIDGET_ORIGIN };
+  return { grid_x: DASHBOARD_WIDGET_ORIGIN, grid_y: floor + DASHBOARD_WIDGET_GAP };
 }
 
 export function placeAddedDashboardWidget(
@@ -128,6 +161,10 @@ export function placeAddedDashboardWidget(
   return { ...size, ...firstFreeDashboardWidgetSlot(existing, size, canvasW) };
 }
 
+function widgetOriginallyCollides<T extends DashboardWidgetRect>(widget: T, others: readonly T[]): boolean {
+  return others.some(row => row !== widget && dashboardWidgetRectsOverlap(widget, row));
+}
+
 export function repairDashboardWidgetLayout<T extends DashboardWidgetRect>(
   widgets: readonly T[],
   canvasW = DASHBOARD_WIDGET_CANVAS_W,
@@ -136,34 +173,52 @@ export function repairDashboardWidgetLayout<T extends DashboardWidgetRect>(
     .filter(row => isRetiredDashboardWidgetType(row.widget_type) && row.id)
     .map(row => row.id as string);
   const kept = widgets.filter(row => !isRetiredDashboardWidgetType(row.widget_type));
-  const ordered = [...kept].sort((a, b) => {
-    if (a.grid_y !== b.grid_y) return a.grid_y - b.grid_y;
-    if (a.grid_x !== b.grid_x) return a.grid_x - b.grid_x;
-    return (a.id ?? a.widget_type).localeCompare(b.id ?? b.widget_type);
-  });
+  const anchors = kept.filter(row => !widgetOriginallyCollides(row, kept));
+  const colliders = kept
+    .filter(row => widgetOriginallyCollides(row, kept))
+    .sort((a, b) => {
+      if (a.grid_y !== b.grid_y) return a.grid_y - b.grid_y;
+      if (a.grid_x !== b.grid_x) return a.grid_x - b.grid_x;
+      return (a.id ?? a.widget_type).localeCompare(b.id ?? b.widget_type);
+    });
 
-  const placed: T[] = [];
+  const nextByWidget = new Map<T, T>();
+  for (const row of anchors) nextByWidget.set(row, row);
+
+  const placed: T[] = [...anchors];
   let moved = false;
-  for (const widget of ordered) {
-    if (!placed.some(row => dashboardWidgetRectsOverlap(widget, row))) {
+  for (const widget of colliders) {
+    const obstacles = placed;
+    if (!obstacles.some(row => dashboardWidgetRectsOverlap(widget, row))) {
       placed.push(widget);
+      nextByWidget.set(widget, widget);
       continue;
     }
     moved = true;
-    placed.push({ ...widget, ...firstFreeDashboardWidgetSlot(placed, widget, canvasW) });
+    const next = { ...widget, ...firstFreeDashboardWidgetSlot(obstacles, widget, canvasW) };
+    placed.push(next);
+    nextByWidget.set(widget, next);
   }
 
-  const byId = new Map(placed.map((row, i) => [row.id ?? `idx-${i}`, row]));
   return {
-    widgets: kept.map((row, i) => byId.get(row.id ?? `idx-${i}`) ?? row),
+    widgets: kept.map(row => nextByWidget.get(row) ?? row),
     changed: droppedIds.length > 0 || moved,
     droppedIds,
   };
 }
 
+export function pickerDashboardWidgets(category: string) {
+  return WIDGET_REGISTRY.filter(
+    def => def.category === category && !isRetiredDashboardWidgetType(def.type),
+  );
+}
+
 export function dashboardWidgetPickerTypes(): string[] {
-  return WIDGET_REGISTRY
-    .filter(def => !isRetiredDashboardWidgetType(def.type))
+  return pickerDashboardWidgets('data')
+    .concat(pickerDashboardWidgets('system'))
+    .concat(pickerDashboardWidgets('tools'))
+    .concat(pickerDashboardWidgets('fun'))
+    .concat(pickerDashboardWidgets('intelligence'))
     .map(def => def.type);
 }
 
