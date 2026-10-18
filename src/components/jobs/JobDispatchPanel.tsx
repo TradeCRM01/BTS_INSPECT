@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { TimeFieldInput } from '../ui/TimeFieldInput';
 import { isValidCompleteTimeValue, type TimeFieldHintKind } from '../../lib/timeFieldInput';
+import { jobClockOrderError } from '../../lib/dateTimeIntegrity';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Calendar, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -88,6 +89,7 @@ export function JobDispatchPanel({
   const crewHelper = crewAssignmentHelper(assigned, teamMembers);
   const [startDraft, setStartDraft] = useState(() => toTimeInput(job.start_time));
   const [endDraft, setEndDraft] = useState(() => toTimeInput(job.end_time));
+  const [timeErr, setTimeErr] = useState<string | null>(null);
   const startTimeHintRef = useRef<TimeFieldHintKind>('none');
   const endTimeHintRef = useRef<TimeFieldHintKind>('none');
   const startInputRef = useRef<HTMLInputElement | null>(null);
@@ -112,6 +114,16 @@ export function JobDispatchPanel({
       else setEndDraft(server);
       return;
     }
+    const nextStart = field === 'start_time' ? raw : startDraft;
+    const nextEnd = field === 'end_time' ? raw : endDraft;
+    const order = jobClockOrderError(nextStart, nextEnd);
+    if (order) {
+      setTimeErr(order);
+      if (field === 'start_time') setStartDraft(server);
+      else setEndDraft(server);
+      return;
+    }
+    setTimeErr(null);
     if (import.meta.env.DEV) {
       try {
         const w = window as Window & { __fix5aDispatchTimeSaves?: number };
@@ -171,6 +183,7 @@ export function JobDispatchPanel({
             />
           </label>
         </div>
+        {timeErr ? <p className="text-sm text-fail mb-3" role="alert">{timeErr}</p> : null}
         <p className="ops-meta mb-3">
           Set a date to book this job on the board. Tap a name below to assign crew.
         </p>

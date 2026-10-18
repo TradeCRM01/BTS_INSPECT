@@ -4510,6 +4510,7 @@ export function JobDetailPage() {
           presetJobId={job.id}
           blankTimesOnOpen
           lockJob
+          existingEntries={(timesheets ?? []).filter(e => myTimesheetIds.has(e.timesheet_id))}
           onClose={() => setShowTimeEntry(false)}
           onSaved={() => {
             setShowTimeEntry(false);

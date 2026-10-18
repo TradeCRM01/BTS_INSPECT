@@ -589,6 +589,7 @@ export function TimesheetsPage() {
           employeeId={selectedEmployee}
           presetJobId={presetJobId ?? undefined}
           blankTimesOnOpen
+          existingEntries={entries ?? []}
           onClose={() => {
             setShowEntryForm(false);
             if (presetJobId) {

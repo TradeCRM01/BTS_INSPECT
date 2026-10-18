@@ -10,7 +10,9 @@ import {
 } from '../../lib/jobCrewScheduleStatus';
 import { X, Trash2, GitBranch } from 'lucide-react';
 import { OverlayPortal } from '../ui/OverlayPortal';
+import { DateFieldInput } from '../ui/DateFieldInput';
 import { TimeFieldInput } from '../ui/TimeFieldInput';
+import { END_BEFORE_START_MESSAGE, jobClockOrderError } from '../../lib/dateTimeIntegrity';
 import {
   applyTimeFieldsSaveBlock,
   focusTimeFieldInput,
@@ -277,6 +279,11 @@ export function JobFormModal({
         });
         return;
       }
+      const order = jobClockOrderError(form.start_time ?? '', form.end_time ?? '');
+      if (order) {
+        setErr(order);
+        return;
+      }
     }
     setSaving(true);
     setErr('');
@@ -512,17 +519,14 @@ export function JobFormModal({
                     <span className="hub-schedule-from-booking">{dateCheck}</span>
                   ) : null}
                 </label>
-                <input
-                  type="date"
-                  lang="en-AU"
+                <DateFieldInput
                   value={form.scheduled_date ?? ''}
-                  onChange={e => {
-                    setForm(f => ({ ...f, scheduled_date: e.target.value }));
+                  onChange={scheduled_date => {
+                    setForm(f => ({ ...f, scheduled_date }));
                     setDateEdited(true);
                   }}
-                  className="form-input hub-date-input-en-au"
+                  className="form-input"
                 />
-                <p className="ops-meta mt-1">dd/mm/yyyy</p>
               </div>
               <div>
                 <label className="ops-field-label">
@@ -549,11 +553,17 @@ export function JobFormModal({
                 <div ref={endFieldRef}>
                   <TimeFieldInput
                     value={form.end_time ?? ''}
-                    onChange={v => setForm(f => ({ ...f, end_time: v }))}
+                    onChange={v => {
+                      setForm(f => ({ ...f, end_time: v }));
+                      if (err === END_BEFORE_START_MESSAGE) setErr('');
+                    }}
                     onTimeFieldHintChange={setEndTimeHint}
                     className="form-input"
                   />
                 </div>
+                {err === END_BEFORE_START_MESSAGE ? (
+                  <p className="text-sm text-fail mt-1" role="alert">{err}</p>
+                ) : null}
               </div>
               <div className="overlay-form-span-all hub-job-form-crew">
                 <label className="ops-field-label">

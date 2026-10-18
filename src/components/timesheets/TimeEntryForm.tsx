@@ -3,10 +3,12 @@ import { X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { isDevFieldAuditAuth } from '../../lib/devFieldAuditAuth';
-import { appendAuditTimesheetEntry, AUDIT_TIMESHEET_ID } from '../../lib/timesheetsList';
+import { appendAuditTimesheetEntry, AUDIT_TIMESHEET_ID, getAuditTimesheetEntries } from '../../lib/timesheetsList';
 import { OverlayPortal } from '../ui/OverlayPortal';
 import { ManagedSelect } from '../ui/ManagedSelect';
+import { DateFieldInput } from '../ui/DateFieldInput';
 import { TimeFieldInput } from '../ui/TimeFieldInput';
+import { timeEntrySaveError, type TimeEntrySibling } from '../../lib/dateTimeIntegrity';
 import {
   applyTimeFieldsSaveBlock,
   focusTimeFieldInput,
@@ -35,6 +37,7 @@ export function TimeEntryForm({
   presetEndTime,
   lockJob,
   blankTimesOnOpen,
+  existingEntries,
   onClose,
   onSaved,
 }: {
@@ -47,6 +50,7 @@ export function TimeEntryForm({
   presetEndTime?: string | null;
   lockJob?: boolean;
   blankTimesOnOpen?: boolean;
+  existingEntries?: TimeEntrySibling[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -90,23 +94,36 @@ export function TimeEntryForm({
       });
       return;
     }
+    const auditEntries = isDevFieldAuditAuth() ? (getAuditTimesheetEntries() ?? []) : [];
+    const siblings = [...(existingEntries ?? []), ...auditEntries];
+    const seen = new Set<string>();
+    const uniqueSiblings = siblings.filter(row => {
+      const key = row.id ?? `${row.start_time}|${row.end_time}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    const rangeErr = timeEntrySaveError({
+      date: form.date,
+      start: form.start_time,
+      end: form.end_time,
+      existing: uniqueSiblings,
+    });
+    if (rangeErr) {
+      setErr(rangeErr);
+      return;
+    }
     if (!profile?.company_id) return;
     saveLock.current = true;
     setSaving(true);
     setErr(null);
     try {
       const startDateTime = new Date(`${form.date}T${form.start_time}`);
-      let endDateTime = form.end_time ? new Date(`${form.date}T${form.end_time}`) : null;
-      if (endDateTime && endDateTime <= startDateTime) {
-        endDateTime = new Date(endDateTime.getTime() + 86400000);
-      }
+      const endDateTime = form.end_time ? new Date(`${form.date}T${form.end_time}`) : null;
 
       if (isDevFieldAuditAuth()) {
         const startDateTime = new Date(`${form.date}T${form.start_time}`);
-        let endDateTime = form.end_time ? new Date(`${form.date}T${form.end_time}`) : null;
-        if (endDateTime && endDateTime <= startDateTime) {
-          endDateTime = new Date(endDateTime.getTime() + 86400000);
-        }
+        const endDateTime = form.end_time ? new Date(`${form.date}T${form.end_time}`) : null;
         const auditId = `audit-time-add-${Date.now()}`;
         appendAuditTimesheetEntry({
           id: auditId,
@@ -177,14 +194,11 @@ export function TimeEntryForm({
           </div>
           <form onSubmit={handleSave} noValidate className="overlay-body flex flex-col gap-4">
             <Field label="Date">
-              <input
-                type="date"
-                lang="en-AU"
+              <DateFieldInput
                 value={form.date}
-                onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                className="form-input hub-date-input-en-au"
+                onChange={date => setForm(f => ({ ...f, date }))}
+                className="form-input"
               />
-              <p className="ops-meta mt-1">dd/mm/yyyy</p>
             </Field>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Start Time">
@@ -265,7 +279,7 @@ export function TimeEntryForm({
               />
               Billable time
             </label>
-            {err && <p className="text-sm text-fail">{err}</p>}
+            {err ? <p className="text-sm text-fail" role="alert">{err}</p> : null}
             <div className="hub-ops-form-footer flex justify-end gap-2 pt-2 border-t border-[#E2D9CC]">
               <button type="button" onClick={onClose} className="btn-secondary min-h-[44px]">Cancel</button>
               <button type="submit" disabled={saving} className="btn-primary min-h-[44px] disabled:opacity-50">

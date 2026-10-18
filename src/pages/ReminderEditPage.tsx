@@ -4,7 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, CheckCircle2, Lock, Users } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, useToast } from '../components/ui';
+import { DateFieldInput, LoadingSpinner, PageError, useToast } from '../components/ui';
+import { parseAuDate } from '../lib/dateTimeIntegrity';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import {
   REMINDER_ACCESS_NOTE,
@@ -129,7 +130,7 @@ function ReminderEditSheet({
       title,
       details,
       jobId: jobId || null,
-      dueAt: reminderDueFromInputs(date, time),
+      dueAt: reminderDueFromInputs(parseAuDate(date) ?? date, time),
       visibility,
       taggedUserIds,
     });
@@ -205,13 +206,12 @@ function ReminderEditSheet({
           <div className="reminders-when">
             <div>
               <label className="reminders-field-label" htmlFor="reminder-date">Date · optional</label>
-              <input
+              <DateFieldInput
                 id="reminder-date"
-                type="date"
                 className="reminders-field"
                 value={date}
                 disabled={!isOwner}
-                onChange={e => setDate(e.target.value)}
+                onChange={next => setDate(next)}
               />
             </div>
             <div>
