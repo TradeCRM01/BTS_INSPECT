@@ -20,6 +20,9 @@ import {
   Package, ArrowRight,
 } from 'lucide-react';
 import { safeFormatDate } from '../lib/safeDate';
+import { format, parseISO } from 'date-fns';
+import { committedMoneyOrZero, moneyDraftAllowed } from '../lib/parseDecimal';
+import { lineExGstAmount } from '../lib/gst';
 
 /** List chrome only. Same week-board / #145 quiet elevation. Not a new kit. */
 const PO_LIST_LOOK_CSS = `
@@ -351,7 +354,7 @@ function toPOLineEdit(li: POLineItem): POLineEdit {
   return { description: li.description, quantity: String(li.quantity), unit_cost: String(li.unit_cost), received_quantity: li.received_quantity ?? 0, stock_item_id: li.stock_item_id ?? null };
 }
 function fromPOLineEdit(li: POLineEdit): POLineItem {
-  return { description: li.description, quantity: parseFloat(li.quantity) || 0, unit_cost: parseFloat(li.unit_cost) || 0, received_quantity: li.received_quantity, stock_item_id: li.stock_item_id ?? null };
+  return { description: li.description, quantity: parseFloat(li.quantity) || 0, unit_cost: committedMoneyOrZero(li.unit_cost), received_quantity: li.received_quantity, stock_item_id: li.stock_item_id ?? null };
 }
 
 function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
@@ -391,7 +394,7 @@ function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
     });
   }, [profile?.company_id]);
 
-  const subtotal = useMemo(() => lines.reduce((s, l) => s + (parseFloat(l.quantity) || 0) * (parseFloat(l.unit_cost) || 0), 0), [lines]);
+  const subtotal = useMemo(() => lines.reduce((s, l) => s + lineExGstAmount({ quantity: l.quantity, unit_price: l.unit_cost }), 0), [lines]);
   const taxAmount = useMemo(() => subtotal * (parseFloat(form.tax_rate) || 0) / 100, [subtotal, form.tax_rate]);
   const grandTotal = subtotal + taxAmount;
 
@@ -534,12 +537,12 @@ function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
                   <input type="text" inputMode="decimal" value={line.unit_cost}
                     onChange={e => {
                       const raw = e.target.value;
-                      if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
+                      if (!moneyDraftAllowed(raw)) return;
                       updateLine(i, { unit_cost: raw });
                     }}
                     className="form-input-sm text-right min-w-0" placeholder="0.00" aria-label="Unit cost" />
                   <span className="text-sm text-right font-medium text-[#1A1A1A]">
-                    {formatMoney((parseFloat(line.quantity) || 0) * (parseFloat(line.unit_cost) || 0))}
+                    {formatMoney(lineExGstAmount({ quantity: line.quantity, unit_price: line.unit_cost }))}
                   </span>
                   <button type="button" onClick={() => removeLine(i)}
                     className="w-7 h-7 flex items-center justify-center rounded text-[#9CA3AF] hover:text-red-600 hover:bg-red-50 justify-self-end">

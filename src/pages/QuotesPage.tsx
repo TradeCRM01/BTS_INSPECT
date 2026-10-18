@@ -53,7 +53,8 @@ import {
   invoiceReuseOpen,
   quoteListInvoiceId,
 } from '../lib/invoiceFromQuote';
-import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel } from '../lib/gst';
+import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel, lineExGstAmount } from '../lib/gst';
+import { committedMoney, committedMoneyOrZero } from '../lib/parseDecimal';
 import { LineItemEditor, emptyLineItem, toEditLine, type EditLineItem } from '../components/invoicing/LineItemEditor';
 import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariationsEditor';
 import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
@@ -273,6 +274,43 @@ function fieldAuditConvertedQuotes(): QuoteListItem[] {
   ];
 }
 
+function fieldAuditCentsQuote(): QuoteListItem | null {
+  if (!isDevFieldAuditAuth()) return null;
+  return {
+    id: 'audit-quote-cents',
+    company_id: DEV_AUDIT_COMPANY.id,
+    quote_number: 3115,
+    client_id: AUDIT_DOC_CLIENT_ID,
+    job_id: null,
+    status: 'draft',
+    description: 'SWEEP-7 cents split — delete ok',
+    scope_of_works: 'Fractional qty × unit lines that used to split 311.52 / 311.51.',
+    line_items: [
+      { description: 'Labour', quantity: 2.5, unit_price: 41.535 },
+      { description: 'Fitting', quantity: 3.3, unit_price: 31.466 },
+      { description: 'Consumables', quantity: 4.7, unit_price: 22.093 },
+    ],
+    subtotal: 311.52,
+    tax_rate: 10,
+    tax_amount: 31.15,
+    total: 342.67,
+    validity_date: '2026-11-07',
+    notes: null,
+    inclusions: [],
+    exclusions: [],
+    scheduled_date: null,
+    assigned_team: [],
+    created_by: DEV_AUDIT_PROFILE.id,
+    created_at: '2026-10-18T00:00:00.000Z',
+    updated_at: '2026-10-18T00:00:00.000Z',
+    client_name: 'Northside Electrical',
+    client_email: 'accounts@northside.example',
+    job_title: null,
+    job_address: null,
+    invoice_id: null,
+  };
+}
+
 function fieldAuditGstQuote(): QuoteListItem | null {
   if (!isDevFieldAuditAuth()) return null;
   return {
@@ -447,7 +485,8 @@ export function QuotesPage() {
         if (lookLetterhead) return [convertQuote];
         const shareQuote = fieldAuditShareQuote();
         const gstQuote = fieldAuditGstQuote();
-        return [convertQuote, shareQuote, gstQuote, ...fieldAuditConvertedQuotes(), ...fieldAuditChaseQuotes()]
+        const centsQuote = fieldAuditCentsQuote();
+        return [convertQuote, shareQuote, gstQuote, centsQuote, ...fieldAuditConvertedQuotes(), ...fieldAuditChaseQuotes()]
           .filter((row): row is QuoteListItem => !!row);
       }
       const { data, error } = await supabase
@@ -1259,9 +1298,9 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
       .map(li => ({
         description: li.description.trim(),
         quantity: parseFloat(li.quantity) || 0,
-        unit_price: parseFloat(li.unit_price) || 0,
+        unit_price: committedMoneyOrZero(li.unit_price),
         charge_type: li.charge_type.trim() || null,
-        unit_cost: li.unit_cost ? parseFloat(li.unit_cost) : null,
+        unit_cost: li.unit_cost ? committedMoney(li.unit_cost) : null,
         markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
         cost_model_id: li.cost_model_id ?? null,
         gst_rate: li.gst_rate,
@@ -1303,11 +1342,11 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
       .map(li => ({
         description: li.description.trim(),
         quantity: parseFloat(li.quantity) || 0,
-        unit_price: parseFloat(li.unit_price) || 0,
+        unit_price: committedMoneyOrZero(li.unit_price),
         stock_item_id: li.stock_item_id ?? null,
         price_book_item_id: li.price_book_item_id ?? null,
         charge_type: li.charge_type.trim() || null,
-        unit_cost: li.unit_cost ? parseFloat(li.unit_cost) : null,
+        unit_cost: li.unit_cost ? committedMoney(li.unit_cost) : null,
         markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
         cost_model_id: li.cost_model_id ?? null,
         gst_rate: li.gst_rate,
@@ -1899,7 +1938,7 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
               <tbody>
                 {docLines.map((li, idx) => {
                   const qty = parseFloat(li.quantity) || 0;
-                  const unit = parseFloat(li.unit_price) || 0;
+                  const unit = committedMoneyOrZero(li.unit_price);
                   return (
                     <tr key={`${li.description}-${idx}`}>
                       <td>
@@ -1913,7 +1952,7 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
                       </td>
                       <td className="hub-quote-num">{qty}</td>
                       <td className="hub-quote-num">{formatMoney(unit)}</td>
-                      <td className="hub-quote-num">{formatMoney(qty * unit)}</td>
+                      <td className="hub-quote-num">{formatMoney(lineExGstAmount({ quantity: qty, unit_price: unit }))}</td>
                     </tr>
                   );
                 })}

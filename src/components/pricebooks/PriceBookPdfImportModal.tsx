@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { isDevFieldAuditAuth } from '../../lib/devFieldAuditAuth';
 import { formatMoney, type PriceBookItem } from '../../types/fsm';
+import { committedMoney, moneyDraftAllowed } from '../../lib/parseDecimal';
 
 export interface ExtractedPriceLine {
   code: string | null;
@@ -206,8 +207,8 @@ export function PriceBookPdfImportModal({
     let updated = 0;
     try {
       for (const r of toApply) {
-        const cost = r.cost_price.trim() !== '' ? parseFloat(r.cost_price) || 0 : null;
-        const sell = parseFloat(r.unit_price) || 0;
+        const cost = r.cost_price.trim() !== '' ? committedMoney(r.cost_price) : null;
+        const sell = committedMoney(r.unit_price) ?? 0;
         const payload = {
           price_book_id: priceBookId,
           company_id: profile.company_id,
@@ -379,20 +380,26 @@ export function PriceBookPdfImportModal({
                     <div>
                       <p className="text-[10px] text-[#6B7280] mb-1">Cost</p>
                       <input
-                        type="number"
-                        step="0.01"
+                        type="text"
+                        inputMode="decimal"
                         value={r.cost_price}
-                        onChange={e => updateRow(r.key, { cost_price: e.target.value })}
+                        onChange={e => {
+                          if (!moneyDraftAllowed(e.target.value)) return;
+                          updateRow(r.key, { cost_price: e.target.value });
+                        }}
                         className="form-input-sm w-full text-right min-w-0"
                       />
                     </div>
                     <div>
                       <p className="text-[10px] text-[#6B7280] mb-1">Sell</p>
                       <input
-                        type="number"
-                        step="0.01"
+                        type="text"
+                        inputMode="decimal"
                         value={r.unit_price}
-                        onChange={e => updateRow(r.key, { unit_price: e.target.value })}
+                        onChange={e => {
+                          if (!moneyDraftAllowed(e.target.value)) return;
+                          updateRow(r.key, { unit_price: e.target.value });
+                        }}
                         className="form-input-sm w-full text-right min-w-0"
                       />
                     </div>

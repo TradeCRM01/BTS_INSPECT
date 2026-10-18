@@ -21,6 +21,7 @@ import {
 } from '../../types/fsm';
 import { asModelLines, modelHourlyCost } from '../expenses/ExpenseModelsModals';
 import { DEFAULT_TAX_RATE } from '../../lib/gst';
+import { committedMoneyOrZero, moneyDraftAllowed } from '../../lib/parseDecimal';
 import { Link } from 'react-router-dom';
 import { createInvoiceFromJobBill, loadJobBillInvoicePreview } from '../../lib/createInvoiceFromJobBill';
 import { countZeroLabourBeforeJobBillInvoice } from '../../lib/requestJobBillInvoice';
@@ -275,7 +276,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   });
 
   const recalcPrice = (costStr: string, markupStr: string) => {
-    const cost = parseFloat(costStr) || 0;
+    const cost = committedMoneyOrZero(costStr);
     const markup = parseFloat(markupStr) || 0;
     return cost > 0 ? sellFromCost(cost, markup).toFixed(2) : '';
   };
@@ -381,9 +382,9 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     const note = form.description.trim();
     const description = note || nature || COST_TYPE_LABELS[form.cost_type];
     const qty = parseFloat(form.quantity) || 0;
-    const unitCost = parseFloat(form.unit_cost) || 0;
+    const unitCost = committedMoneyOrZero(form.unit_cost);
     const markup = parseFloat(form.markup_percent) || 0;
-    const unitPrice = parseFloat(form.unit_price) || sellFromCost(unitCost, markup);
+    const unitPrice = committedMoneyOrZero(form.unit_price) || sellFromCost(unitCost, markup);
     if (qty <= 0) return setFormErr('Enter a quantity');
     if (unitCost < 0 || unitPrice < 0) return setFormErr('Enter valid cost / charge amounts');
     if (!nature && !note && unitCost === 0 && unitPrice === 0 && !form.cost_model_id) {
@@ -536,8 +537,8 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     allocateParts.mutate({ item: selectedItem, qty });
   };
 
-  const previewCharge = (parseFloat(form.quantity) || 0) * (parseFloat(form.unit_price) || 0);
-  const previewCost = (parseFloat(form.quantity) || 0) * (parseFloat(form.unit_cost) || 0);
+  const previewCharge = (parseFloat(form.quantity) || 0) * committedMoneyOrZero(form.unit_price);
+  const previewCost = (parseFloat(form.quantity) || 0) * committedMoneyOrZero(form.unit_cost);
 
   return (
     <>
@@ -832,7 +833,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
               <input type="text" inputMode="decimal" value={form.unit_cost}
                 onChange={e => {
                   const raw = e.target.value;
-                  if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
+                  if (!moneyDraftAllowed(raw)) return;
                   setForm(f => ({
                     ...f,
                     unit_cost: raw,
@@ -864,7 +865,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
               <input type="text" inputMode="decimal" value={form.unit_price}
                 onChange={e => {
                   const raw = e.target.value;
-                  if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
+                  if (!moneyDraftAllowed(raw)) return;
                   setForm(f => ({ ...f, unit_price: raw }));
                 }}
                 className="form-input"

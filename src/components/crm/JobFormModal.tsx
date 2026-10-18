@@ -25,6 +25,7 @@ import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
 import { formatJobRef, nextCostCode, normalizeCostCode } from '../../lib/jobRef';
 import { JOB_COLORS, jobColorToStore } from '../../lib/jobColors';
 import { assumedTradeTag, checkDateTag, fromBookingTag } from '../../lib/quickBook';
+import { committedMoney, moneyDraftAllowed } from '../../lib/parseDecimal';
 import { getAuditClients, getAuditTeamMembers } from '../../lib/devFieldAuditDocs';
 import { crewAssignmentHelper } from '../../lib/jobDispatchCrew';
 import { FromBooking } from './FromBooking';
@@ -296,7 +297,7 @@ export function JobFormModal({
       description: form.description.trim() || null,
       priority: form.priority,
       address: form.address.trim() || null,
-      budget: form.budget ? Number(form.budget) : null,
+      budget: form.budget ? committedMoney(String(form.budget)) : null,
       parent_job_id: form.parent_job_id || null,
       cost_code: normalizeCostCode(form.cost_code) || null,
       color: jobColorToStore(form.color),
@@ -612,11 +613,13 @@ export function JobFormModal({
           <div>
             <label className="ops-field-label">Job Budget (AUD)</label>
             <input
-              type="number"
-              step="0.01"
-              min="0"
+              type="text"
+              inputMode="decimal"
               value={form.budget ?? ''}
-              onChange={e => setForm(f => ({ ...f, budget: e.target.value }))}
+              onChange={e => {
+                if (!moneyDraftAllowed(e.target.value)) return;
+                setForm(f => ({ ...f, budget: e.target.value }));
+              }}
               className="form-input"
               placeholder="0.00"
             />

@@ -14,6 +14,7 @@ import type { StockItem, StockItemWithSupplier, Supplier } from '../types/fsm';
 import { getStockLevel, STOCK_LEVEL_STYLES, STOCK_LEVEL_LABELS, formatMoney } from '../types/fsm';
 import { DriveCard } from './StockLocationPage';
 import { locationLabel, encodeLocationKey } from '../lib/stockLocations';
+import { committedMoney, moneyDraftAllowed } from '../lib/parseDecimal';
 import {
   Plus, Package, X, Trash2, Pencil, Archive, ArchiveRestore,
   ChevronDown, Tag, Boxes, Filter, HardDrive,
@@ -478,7 +479,7 @@ export function StockItemForm({ item, onClose, onSaved }: {
     name: item?.name ?? '', sku: item?.sku ?? '', description: item?.description ?? '', category: item?.category ?? '',
     unit_of_measure: item?.unit_of_measure ?? 'each', quantity_on_hand: String(item?.quantity_on_hand ?? 0),
     reorder_level: String(item?.reorder_level ?? 0), reorder_quantity: String(item?.reorder_quantity ?? 0),
-    storage_location: item?.storage_location ?? '', unit_cost: String(item?.unit_cost ?? 0), supplier_id: item?.supplier_id ?? '',
+    storage_location: item?.storage_location ?? '', unit_cost: item != null ? String(item.unit_cost) : '', supplier_id: item?.supplier_id ?? '',
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -508,7 +509,7 @@ export function StockItemForm({ item, onClose, onSaved }: {
       category: form.category.trim() || null, unit_of_measure: form.unit_of_measure.trim() || 'each',
       quantity_on_hand: Number(form.quantity_on_hand) || 0, reorder_level: Number(form.reorder_level) || 0,
       reorder_quantity: Number(form.reorder_quantity) || 0, storage_location: form.storage_location.trim() || null,
-      unit_cost: Number(form.unit_cost) || 0, supplier_id: form.supplier_id || null,
+      unit_cost: committedMoney(form.unit_cost) ?? 0, supplier_id: form.supplier_id || null,
     };
 
     const { error } = item
@@ -559,7 +560,20 @@ export function StockItemForm({ item, onClose, onSaved }: {
             <Input label="Reorder Qty" k="reorder_quantity" ph="0" type="number" form={form} setForm={setForm} />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input label="Unit Cost (AUD)" k="unit_cost" ph="0.00" type="number" step="0.01" min="0" form={form} setForm={setForm} />
+            <Field label="Unit Cost (AUD)">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={form.unit_cost}
+                onChange={e => {
+                  if (!moneyDraftAllowed(e.target.value)) return;
+                  setForm(f => ({ ...f, unit_cost: e.target.value }));
+                }}
+                onFocus={e => e.currentTarget.select()}
+                className="form-input"
+                placeholder="0.00"
+              />
+            </Field>
             <Field label="Supplier">
               <select value={form.supplier_id} onChange={e => setForm(f => ({ ...f, supplier_id: e.target.value }))} className="form-input">
                 <option value="">None</option>

@@ -1,8 +1,9 @@
 import type { InvoiceStatus } from '../types/fsm';
-import { formatMoney } from '../types/fsm';
+import { formatMoney, INVOICE_STATUS_LABELS } from '../types/fsm';
 import { todayIsoDate } from './invoiceStatus';
 import { isDevFieldAuditAuth } from './devFieldAuditAuth';
 import { supabase } from './supabase';
+import { parseMoneyInput } from './parseDecimal';
 
 export type InvoicePaymentMethod = 'cash' | 'card' | 'bank' | 'other';
 
@@ -179,11 +180,21 @@ export function recordPaymentOverpayMessage(
 }
 
 export function parseRecordPaymentAmount(raw: string): number | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  const n = Number(trimmed);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return roundInvoiceMoney(n);
+  const parsed = parseMoneyInput(raw);
+  if (parsed.status !== 'valid' || parsed.value <= 0) return null;
+  return roundInvoiceMoney(parsed.value);
+}
+
+/** Overpay is blocked. Never show Paid while Confirm is disabled. */
+export function recordPaymentStatusAfterLabel(
+  amountRaw: string,
+  total: number | string | null | undefined,
+  amountPaid: number | string | null | undefined,
+): string {
+  const amountNum = parseRecordPaymentAmount(amountRaw);
+  if (amountNum == null) return '—';
+  if (recordPaymentOverpayMessage(amountNum, total, amountPaid)) return 'Not recorded';
+  return INVOICE_STATUS_LABELS[previewInvoicePayment(total, amountPaid, amountNum).statusAfter];
 }
 
 export function invoicePaidBalanceLabel(

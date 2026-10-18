@@ -1,3 +1,5 @@
+import { committedMoneyOrZero } from './parseDecimal';
+
 /** Australian GST default — companies.default_tax_rate also defaults to 10. */
 export const DEFAULT_TAX_RATE = 10;
 
@@ -36,8 +38,13 @@ export function lineGstRate(line: LineForGst, fallbackRate: number): number {
   return Number.isFinite(value) ? value : (Number(fallbackRate) || 0);
 }
 
+/** Line amount in cents. AU invoices round each line, then sum. */
 export function lineExGstAmount(line: LineForGst): number {
-  return (Number(line.quantity) || 0) * (Number(line.unit_price) || 0);
+  const qty = Number(line.quantity) || 0;
+  const unit = typeof line.unit_price === 'string'
+    ? committedMoneyOrZero(line.unit_price)
+    : (Number(line.unit_price) || 0);
+  return moneyRound(qty * unit);
 }
 
 /** Per-line GST. Lines with no rate use the document tax rate so old quotes and invoices match calcDocumentTotals. */

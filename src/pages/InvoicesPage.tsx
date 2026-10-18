@@ -23,7 +23,8 @@ import type { CommercialPdfData } from '../reports/commercial/CommercialDocument
 import { asStringList } from '../lib/asStringList';
 import { checkPriceSendBlock } from '../lib/checkPriceGate';
 import { listQueryBusy } from '../lib/listQueryReady';
-import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel } from '../lib/gst';
+import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel, lineExGstAmount } from '../lib/gst';
+import { committedMoney, committedMoneyOrZero, parseMoneyInput } from '../lib/parseDecimal';
 import { lineNeedsLabourRate } from '../lib/hoursToJobBill';
 import {
   effectiveInvoiceStatus,
@@ -44,6 +45,7 @@ import {
   parseRecordPaymentAmount,
   persistInvoicePayment,
   previewInvoicePayment,
+  recordPaymentStatusAfterLabel,
   mergeAuditInvoicePaymentRow,
   seedAuditInvoicePaymentsList,
   fetchInvoicePayments,
@@ -104,7 +106,7 @@ import {
   INVOICE_MARKED_PAID_MESSAGE,
 } from '../lib/xeroAccounting';
 import { invoiceChase, invoiceChaseChipLabel, invoiceChasePatch } from '../lib/nudges';
-import { INVOICE_STATUS_LABELS, formatMoney } from '../types/fsm';
+import { formatMoney } from '../types/fsm';
 import { Plus, Receipt, Download, X, MoreHorizontal, Mail, Phone, User } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { safeFormatDate } from '../lib/safeDate';
@@ -732,12 +734,13 @@ export function InvoiceRecordPaymentSheet({
 }) {
   const [draft, setDraft] = useState(() => defaultRecordPaymentDraft(total, amountPaid));
   const [paidAtInvalid, setPaidAtInvalid] = useState(false);
+  const parsedAmount = parseMoneyInput(draft.amount);
   const amountNum = parseRecordPaymentAmount(draft.amount);
   const overpayMsg = amountNum
     ? recordPaymentOverpayMessage(amountNum, total, amountPaid)
     : null;
   const preview = previewInvoicePayment(total, amountPaid, amountNum ?? 0);
-  const statusLabel = INVOICE_STATUS_LABELS[preview.statusAfter];
+  const statusLabel = recordPaymentStatusAfterLabel(draft.amount, total, amountPaid);
   const balance = invoiceBalanceRemaining(total, amountPaid);
   return (
     <AppDialog
@@ -776,6 +779,9 @@ export function InvoiceRecordPaymentSheet({
               aria-label="Payment amount"
             />
             {overpayMsg ? <span className="hub-invoice-payment-overpay">{overpayMsg}</span> : null}
+            {parsedAmount.status === 'invalid' ? (
+              <span className="hub-invoice-payment-overpay">{parsedAmount.message}</span>
+            ) : null}
             {balance > 0 ? (
               <button
                 type="button"
@@ -824,8 +830,8 @@ export function InvoiceRecordPaymentSheet({
           {preview.amountPaidBefore > 0 ? (
             <div><dt>Paid to date</dt><dd>{formatMoney(preview.amountPaidBefore)}</dd></div>
           ) : null}
-          <div><dt>This payment</dt><dd>{formatMoney(preview.paymentReceived)}</dd></div>
-          <div><dt>Balance after</dt><dd>{formatMoney(preview.balanceAfter)}</dd></div>
+          <div><dt>This payment</dt><dd>{amountNum != null ? formatMoney(preview.paymentReceived) : '—'}</dd></div>
+          <div><dt>Balance after</dt><dd>{amountNum != null && !overpayMsg ? formatMoney(preview.balanceAfter) : formatMoney(balance)}</dd></div>
           <div><dt>Status after</dt><dd>{statusLabel}</dd></div>
         </dl>
         <div className="hub-invoice-payment-actions">
@@ -1127,9 +1133,9 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
       .map(li => ({
         description: li.description.trim(),
         quantity: parseFloat(li.quantity) || 0,
-        unit_price: parseFloat(li.unit_price) || 0,
+        unit_price: committedMoneyOrZero(li.unit_price),
         charge_type: li.charge_type.trim() || null,
-        unit_cost: li.unit_cost ? parseFloat(li.unit_cost) : null,
+        unit_cost: li.unit_cost ? committedMoney(li.unit_cost) : null,
         markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
         cost_model_id: li.cost_model_id ?? null,
         gst_rate: li.gst_rate,
@@ -1213,11 +1219,11 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
       .map(li => ({
         description: li.description.trim(),
         quantity: parseFloat(li.quantity) || 0,
-        unit_price: parseFloat(li.unit_price) || 0,
+        unit_price: committedMoneyOrZero(li.unit_price),
         stock_item_id: li.stock_item_id ?? null,
         price_book_item_id: li.price_book_item_id ?? null,
         charge_type: li.charge_type.trim() || null,
-        unit_cost: li.unit_cost ? parseFloat(li.unit_cost) : null,
+        unit_cost: li.unit_cost ? committedMoney(li.unit_cost) : null,
         markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
         cost_model_id: li.cost_model_id ?? null,
         gst_rate: li.gst_rate,
@@ -1705,7 +1711,7 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
               <tbody>
                 {docLines.map((li, idx) => {
                   const qty = parseFloat(li.quantity) || 0;
-                  const unit = parseFloat(li.unit_price) || 0;
+                  const unit = committedMoneyOrZero(li.unit_price);
                   return (
                     <tr key={`${li.description}-${idx}`}>
                       <td className="job-bill-line-desc">
@@ -1719,7 +1725,7 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
                       </td>
                       <td className="hub-invoice-num">{qty}</td>
                       <td className="hub-invoice-num">{formatMoney(unit)}</td>
-                      <td className="hub-invoice-num">{formatMoney(qty * unit)}</td>
+                      <td className="hub-invoice-num">{formatMoney(lineExGstAmount({ quantity: qty, unit_price: unit }))}</td>
                     </tr>
                   );
                 })}

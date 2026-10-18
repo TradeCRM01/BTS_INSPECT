@@ -24,6 +24,7 @@ import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import { ManagedSelect } from '../components/ui/ManagedSelect';
 import { LIST_KEYS } from '../lib/useManagedList';
 import { useCompanyAiKey } from '../lib/useCompanyAiKey';
+import { parseMoneyInput } from '../lib/parseDecimal';
 import {
   assertExpenseReceiptFile,
   expenseReceiptNoteLine,
@@ -691,10 +692,13 @@ export function buildExpenseSaveAmounts(input: {
 
 /** Allow partial decimal entry; strip currency noise. Returns null when invalid. */
 export function sanitizeExpenseDecimalDraft(raw: string): string | null {
-  const s = raw.trim().replace(/^\$/, '').replace(/,/g, '');
-  if (s === '') return '';
-  if (!/^\d*(\.\d*)?$/.test(s)) return null;
-  return s;
+  const parsed = parseMoneyInput(raw);
+  if (parsed.status === 'invalid') return null;
+  if (parsed.status === 'empty') return '';
+  const stripped = raw.trim().replace(/^AUD\s*/i, '').replace(/^\$/, '').replace(/\s/g, '');
+  if (parsed.status === 'valid') return stripped.replace(/,/g, '');
+  if (stripped.endsWith('.')) return `${parsed.partial ?? ''}.`;
+  return parsed.partial != null ? String(parsed.partial) : '';
 }
 
 export function formatExpenseDecimalBlur(raw: string): string {

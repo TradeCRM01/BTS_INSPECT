@@ -11,6 +11,8 @@ import { lineNeedsLabourRate } from '../../lib/hoursToJobBill';
 import { quoteLineFromPriceBookItem } from '../../lib/priceBookImport';
 import { QUICK_QUOTE_CHECK_PRICE } from '../../lib/quickQuote';
 import { checkPriceAfterUnitPrice } from '../../lib/checkPriceGate';
+import { calcLineDocumentTotals, lineExGstAmount } from '../../lib/gst';
+import { committedMoneyOrZero, moneyDraftAllowed } from '../../lib/parseDecimal';
 
 export interface EditLineItem {
   description: string;
@@ -197,7 +199,7 @@ export function LineItemEditor({
   };
 
   const handleMarkupChange = (idx: number, markupStr: string) => {
-    const cost = parseFloat(lines[idx].unit_cost ?? '0') || 0;
+    const cost = committedMoneyOrZero(lines[idx].unit_cost ?? '0');
     const markup = parseFloat(markupStr) || 0;
     const sellPrice = cost * (1 + markup / 100);
     const unitPrice = sellPrice.toFixed(2);
@@ -211,7 +213,7 @@ export function LineItemEditor({
   };
 
   const handleCostChange = (idx: number, costStr: string) => {
-    const cost = parseFloat(costStr) || 0;
+    const cost = committedMoneyOrZero(costStr);
     const markup = parseFloat(lines[idx].markup_percent ?? '0') || 0;
     const sellPrice = cost * (1 + markup / 100);
     const unitPrice = sellPrice.toFixed(2);
@@ -371,9 +373,10 @@ export function LineItemEditor({
         </div>
 
         {lines.map((li, idx) => {
-          const qty = parseFloat(li.quantity) || 0;
-          const price = parseFloat(li.unit_price) || 0;
-          const lineTotal = qty * price;
+          const lineTotal = lineExGstAmount({
+            quantity: parseFloat(li.quantity) || 0,
+            unit_price: committedMoneyOrZero(li.unit_price),
+          });
           const fromStock = !!li.stock_item_id;
           const fromBook = !!li.price_book_item_id;
           const fromModel = !!li.cost_model_id;
@@ -456,7 +459,7 @@ export function LineItemEditor({
                   value={li.unit_cost ?? ''}
                   onChange={e => {
                     const raw = e.target.value;
-                    if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
+                    if (!moneyDraftAllowed(raw)) return;
                     handleCostChange(idx, raw);
                   }}
                   className="form-input-sm text-right min-w-0"
@@ -488,7 +491,7 @@ export function LineItemEditor({
                   value={li.unit_price}
                   onChange={e => {
                     const raw = e.target.value;
-                    if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
+                    if (!moneyDraftAllowed(raw)) return;
                     updateLine(idx, {
                       unit_price: raw,
                       check_price: checkPriceAfterUnitPrice(raw, li.check_price),
@@ -530,7 +533,7 @@ export function LineItemEditor({
           {lines.filter(l => !l.stock_item_id && !l.price_book_item_id && !l.cost_model_id).length} manual
         </span>
         <span>
-          Subtotal {formatMoney(lines.reduce((s, li) => s + (parseFloat(li.quantity) || 0) * (parseFloat(li.unit_price) || 0), 0))}
+          Subtotal {formatMoney(calcSubtotal(lines))}
         </span>
       </div>
     </div>
@@ -538,5 +541,8 @@ export function LineItemEditor({
 }
 
 export function calcSubtotal(lines: EditLineItem[]): number {
-  return lines.reduce((s, li) => s + (parseFloat(li.quantity) || 0) * (parseFloat(li.unit_price) || 0), 0);
+  return calcLineDocumentTotals(lines.map(li => ({
+    quantity: parseFloat(li.quantity) || 0,
+    unit_price: committedMoneyOrZero(li.unit_price),
+  })), 0).subtotal;
 }
