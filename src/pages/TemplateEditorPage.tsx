@@ -8,8 +8,17 @@ import { TemplateSchemaValidator } from '../types/template';
 import { showIfQuestionIds } from '../lib/conditionEval';
 import { INSPECTION_TEMPLATE_PACKS, clonePackSections, packMetaDefaults } from '../lib/inspectionTemplatePacks';
 import { AppShell } from '../components/layout/AppShell';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
+import { getAuditTemplate } from '../lib/devFieldAuditDocs';
+import {
+  bindTemplateEditorLeave,
+  requestTemplateEditorLeave,
+  templateEditorLeaveCopy,
+  templateEditorLeaveNeedsWarn,
+  templateQuestionDeleteCopy,
+} from '../lib/templateEditorGuard';
 import { SectionPanel } from '../components/template-editor/SectionPanel';
 import { QuestionEditor } from '../components/template-editor/QuestionEditor';
 import { MobilePreview } from '../components/template-editor/MobilePreview';
@@ -50,13 +59,34 @@ export function TemplateEditorPage() {
   const [showMetaSettings, setShowMetaSettings] = useState(true);
   const [templateId, setTemplateId] = useState<string | null>(isNew ? null : id);
   const [renderers, setRenderers] = useState<Array<{ key: string; label: string }>>([]);
+  const [deleteQuestionId, setDeleteQuestionId] = useState<string | null>(null);
+  const [leaveOpen, setLeaveOpen] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const autoSaveRef = useRef<ReturnType<typeof setTimeout>>();
+  const saveStateRef = useRef<SaveState>(saveState);
+  const pendingLeaveRef = useRef<(() => void) | null>(null);
+  saveStateRef.current = saveState;
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const leaveNeedsWarn = templateEditorLeaveNeedsWarn(saveState);
+
+  const askLeave = useCallback((proceed: () => void) => {
+    pendingLeaveRef.current = proceed;
+    setLeaveOpen(true);
+  }, []);
+
+  const requestLeave = useCallback((leave: () => void) => {
+    requestTemplateEditorLeave({
+      unsaved: templateEditorLeaveNeedsWarn(saveStateRef.current),
+      leave,
+      ask: askLeave,
+    });
+  }, [askLeave]);
 
   const { data: existingTemplate, isLoading, isError, refetch } = useQuery({
     queryKey: ['template', id],
     queryFn: async () => {
+      const mock = id ? getAuditTemplate(id) : null;
+      if (mock) return mock as never;
       const { data, error } = await supabase
         .from('templates')
         .select('*')
@@ -121,9 +151,19 @@ export function TemplateEditorPage() {
     }
   }, [existingTemplate]);
 
+  useEffect(() => {
+    return bindTemplateEditorLeave({
+      shouldWarn: () => templateEditorLeaveNeedsWarn(saveStateRef.current),
+      onInAppLeave: href => {
+        requestLeave(() => navigate(href));
+      },
+    });
+  }, [navigate, requestLeave]);
+
   // Autosave: debounce 2s after any change, only for already-persisted templates
   useEffect(() => {
     if (saveState !== 'unsaved' || !templateId) return;
+    if (getAuditTemplate(templateId)) return;
     clearTimeout(autoSaveRef.current);
     autoSaveRef.current = setTimeout(() => {
       saveMutation.mutate();
@@ -470,7 +510,8 @@ export function TemplateEditorPage() {
       <div className="bg-white border-b border-[#E5E7EB] sticky top-0 z-30 shadow-sm">
         <div className="max-w-[1200px] mx-auto px-3 md:px-4 py-2 md:py-1 md:min-h-12 flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-3">
           <button
-            onClick={() => navigate('/templates')}
+            type="button"
+            onClick={() => requestLeave(() => navigate('/templates'))}
             className="text-[#4A5568] hover:text-[#1A1A1A] flex items-center gap-1 text-sm min-h-10 md:min-h-0"
           >
             <ChevronLeft size={16} /> Templates
@@ -832,7 +873,7 @@ export function TemplateEditorPage() {
                           index={idx}
                           allQuestions={allQuestions}
                           onChange={updates => updateQuestion(q.id, updates)}
-                          onDelete={() => deleteQuestion(q.id)}
+                          onDelete={() => setDeleteQuestionId(q.id)}
                         />
                       ))}
                     </div>
@@ -916,6 +957,47 @@ export function TemplateEditorPage() {
         renderer={renderer}
         schema={schema}
       />
+
+      {leaveOpen && (() => {
+        const leave = templateEditorLeaveCopy();
+        return (
+          <ConfirmDialog
+            open
+            title={leave.title}
+            message={leave.message}
+            confirmLabel={leave.confirmLabel}
+            variant="danger"
+            onConfirm={() => {
+              const proceed = pendingLeaveRef.current;
+              pendingLeaveRef.current = null;
+              setLeaveOpen(false);
+              proceed?.();
+            }}
+            onCancel={() => {
+              pendingLeaveRef.current = null;
+              setLeaveOpen(false);
+            }}
+          />
+        );
+      })()}
+      {deleteQuestionId && (() => {
+        const label = schema.sections.flatMap(section => section.questions).find(q => q.id === deleteQuestionId)?.label;
+        const copy = templateQuestionDeleteCopy(label);
+        return (
+          <ConfirmDialog
+            open
+            title={copy.title}
+            message={copy.message}
+            confirmLabel={copy.confirmLabel}
+            variant="danger"
+            onConfirm={() => {
+              deleteQuestion(deleteQuestionId);
+              setDeleteQuestionId(null);
+            }}
+            onCancel={() => setDeleteQuestionId(null)}
+          />
+        );
+      })()}
     </AppShell>
   );
 }

@@ -990,6 +990,10 @@ export function getAuditTemplates() {
   }];
 }
 
+export function getAuditTemplate(id: string) {
+  return getAuditTemplates()?.find(row => row.id === id) ?? null;
+}
+
 export function getAuditFix2JobInvoiceList(): {
   id: string;
   invoice_number: number;
