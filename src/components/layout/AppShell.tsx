@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { GlobalSearch } from '../search/GlobalSearch';
 import { useCompanyAiKey } from '../../lib/useCompanyAiKey';
+import { navItemAllowedForProfile } from '../../lib/templateAccess';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -259,10 +260,13 @@ export function AppShell({ children }: AppShellProps) {
   );
   const phoneTab = activePhoneTab(location.pathname, menuOpen);
 
+  const visibleItems = (group: NavGroup) =>
+    group.items.filter(item => navItemAllowedForProfile(item.to, profile));
+
   const renderGroupMenu = (group: NavGroup) => (
-    group.items.map((item) => {
+    visibleItems(group).map((item) => {
       const ItemIcon = item.icon;
-      const itemActive = isNavItemActive(item, location.pathname, group.items);
+      const itemActive = isNavItemActive(item, location.pathname, visibleItems(group));
       return (
         <Link
           key={item.to}
@@ -474,9 +478,9 @@ export function AppShell({ children }: AppShellProps) {
                   </button>
                   {isExpanded && (
                     <div className="pb-1">
-                      {group.items.map((item) => {
+                      {visibleItems(group).map((item) => {
                         const ItemIcon = item.icon;
-                        const itemActive = isNavItemActive(item, location.pathname, group.items);
+                        const itemActive = isNavItemActive(item, location.pathname, visibleItems(group));
                         return (
                           <Link key={item.to} to={item.to} onClick={() => setMenuOpen(false)}
                             className={`flex items-center gap-2.5 pl-11 pr-4 py-2.5 text-sm tracking-tight ${

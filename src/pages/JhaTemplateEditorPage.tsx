@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
+import { TemplateAccessDenied } from '../components/layout/TemplateAccessDenied';
+import { canViewTemplates } from '../lib/templateAccess';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { nanoid } from '../lib/nanoid';
@@ -353,6 +355,10 @@ export function JhaTemplateEditorPage() {
       return;
     }
     navigate('/templates');
+  }
+
+  if (!canViewTemplates(profile)) {
+    return <TemplateAccessDenied />;
   }
 
   if (!canEdit) {

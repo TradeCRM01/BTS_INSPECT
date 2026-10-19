@@ -8,6 +8,8 @@ import { TemplateSchemaValidator } from '../types/template';
 import { showIfQuestionIds } from '../lib/conditionEval';
 import { INSPECTION_TEMPLATE_PACKS, clonePackSections, packMetaDefaults } from '../lib/inspectionTemplatePacks';
 import { AppShell } from '../components/layout/AppShell';
+import { TemplateAccessDenied } from '../components/layout/TemplateAccessDenied';
+import { canViewTemplates } from '../lib/templateAccess';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { SectionPanel } from '../components/template-editor/SectionPanel';
@@ -443,6 +445,10 @@ export function TemplateEditorPage() {
   const allQuestions = schema.sections.flatMap(s =>
     s.questions.map(q => ({ ...q, sectionTitle: s.title }))
   );
+
+  if (!canViewTemplates(profile)) {
+    return <TemplateAccessDenied />;
+  }
 
   if (!isNew && isLoading) {
     return (

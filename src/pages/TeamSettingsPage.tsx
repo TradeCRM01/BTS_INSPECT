@@ -42,10 +42,12 @@ import {
   getAuditMemberExpenseCostModelId,
   getAuditTeamMembers,
 } from '../lib/devFieldAuditDocs';
+import { canEditTeamMemberExpenseCostModel } from '../lib/teamMemberCostModel';
 import {
-  canEditTeamMemberExpenseCostModel,
-  profileExpenseCostModelUpdatePayload,
-} from '../lib/teamMemberCostModel';
+  MEMBER_SETTINGS_NO_ROW,
+  memberSettingsCostModelPatch,
+  updateMemberSettings,
+} from '../lib/updateMemberSettings';
 import type { ExpenseCostModel } from '../types/fsm';
 import { DEV_AUDIT_PROFILE } from '../lib/devFieldAuditAuth';
 import { UserPlus, Mail, Eye, CreditCard as Edit2, EyeOff, Trash2, Crown, X, Check, AlertCircle, Send, Copy, MoreHorizontal } from 'lucide-react';
@@ -245,6 +247,16 @@ const TEAM_LOOK_CSS = `
   text-align: right;
   line-height: 1.35;
   max-width: 11rem;
+}
+.hub-team-save-error {
+  display: block;
+  width: 100%;
+  color: #9B1C1C;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 8px 0 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .hub-team-ledger-row--field {
   align-items: center;
@@ -524,6 +536,7 @@ interface Member {
   licence_number: string | null;
   role: string;
   template_access: TemplateAccess;
+  expense_cost_model_id?: string | null;
   created_at: string;
   email_confirmed_at: string | null;
   last_sign_in_at: string | null;
@@ -708,9 +721,13 @@ export function TeamSettingsPage() {
   const lookTeamList = searchParams.get('look') === TEAM_LIST_LOOK;
   const lookPersonTickets = searchParams.get('look') === PERSON_TICKETS_LOOK;
   const lookParam = searchParams.get('look');
-  const lookP331Team = lookParam === 'p331-team-select' || lookParam === 'p331-team-empty';
+  const lookP331Team = lookParam === 'p331-team-select' || lookParam === 'p331-team-empty' || lookParam === 'p331-team-fail';
   const lookTeamSeed = lookTeamList || lookPersonTickets || lookP331Team;
+  const lookFail = lookParam === 'p331-team-fail';
   const [search, setSearch] = useState('');
+  const [memberSettingsError, setMemberSettingsError] = useState(lookFail ? MEMBER_SETTINGS_NO_ROW : '');
+  const [costModelDraft, setCostModelDraft] = useState<string | null>(null);
+  const [templateAccessDraft, setTemplateAccessDraft] = useState<TemplateAccess | null>(null);
   const [listFilter, setListFilter] = useState<TeamListFilter>('all');
   const [showInvite, setShowInvite] = useState(false);
   const [invitedName, setInvitedName] = useState('');
@@ -719,10 +736,6 @@ export function TeamSettingsPage() {
   const [linkCopied, setLinkCopied] = useState(false);
   const isAdmin = lookTeamSeed || profile?.role === 'admin';
   const openedId = parseTeamSettingsMemberId(searchParams.get('id'));
-
-  if (profile && !isAdmin && !lookTeamSeed) {
-    return <Navigate to="/" replace />;
-  }
 
   const { data: members, isLoading, isError, refetch } = useQuery<Member[]>({
     queryKey: ['team-members', company?.id],
@@ -738,6 +751,7 @@ export function TeamSettingsPage() {
           template_access: (m.id === DEV_AUDIT_PROFILE.id
             ? DEV_AUDIT_PROFILE.template_access
             : 'view') as TemplateAccess,
+          expense_cost_model_id: null,
           created_at: '2026-01-01T00:00:00.000Z',
           email_confirmed_at: '2026-01-01T00:00:00.000Z',
           last_sign_in_at: '2026-08-20T00:00:00.000Z',
@@ -750,6 +764,7 @@ export function TeamSettingsPage() {
             licence_number: 'EC 123456',
             role: 'member',
             template_access: 'view',
+            expense_cost_model_id: null,
             created_at: '2026-08-01T00:00:00.000Z',
             email_confirmed_at: '2026-08-01T00:00:00.000Z',
             last_sign_in_at: '2026-08-20T00:00:00.000Z',
@@ -789,13 +804,20 @@ export function TeamSettingsPage() {
 
   const updateAccessMutation = useMutation({
     mutationFn: async ({ memberId, templateAccess }: { memberId: string; templateAccess: TemplateAccess }) => {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ template_access: templateAccess })
-        .eq('id', memberId);
-      if (error) throw error;
+      return updateMemberSettings(supabase, memberId, { template_access: templateAccess });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['team-members'] }),
+    onSuccess: (saved) => {
+      setMemberSettingsError('');
+      queryClient.setQueryData<Member[]>(['team-members', company?.id], current =>
+        (current ?? []).map(row => row.id === saved.id
+          ? { ...row, template_access: saved.template_access as TemplateAccess }
+          : row));
+      queryClient.invalidateQueries({ queryKey: ['team-members'] });
+    },
+    onError: (err: Error) => {
+      setTemplateAccessDraft(null);
+      setMemberSettingsError(err.message || MEMBER_SETTINGS_NO_ROW);
+    },
   });
 
   const ownerId = (company as { created_by?: string | null } | null)?.created_by ?? null;
@@ -805,7 +827,7 @@ export function TeamSettingsPage() {
     ownerId,
   });
 
-  const { data: expenseCostModels = [] } = useQuery<ExpenseCostModel[]>({
+  const costModelsQuery = useQuery<ExpenseCostModel[]>({
     queryKey: ['expense-cost-models-team', company?.id, lookParam],
     queryFn: async () => {
       const audit = getAuditExpenseCostModels();
@@ -820,35 +842,39 @@ export function TeamSettingsPage() {
     },
     enabled: !!company?.id && !!openedMember && !openedPending,
   });
+  const expenseCostModels = costModelsQuery.data ?? [];
+  const costModelsLoading = costModelsQuery.isPending;
+  const costModelsEmpty = costModelsQuery.isSuccess && expenseCostModels.length === 0;
 
-  const { data: memberExpenseCostModelId = null } = useQuery<string | null>({
-    queryKey: ['profile-expense-cost-model', openedMember?.id, lookParam],
-    queryFn: async () => {
-      if (!openedMember) return null;
-      const audit = getAuditMemberExpenseCostModelId(openedMember.id);
-      if (audit !== undefined) return audit;
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('expense_cost_model_id')
-        .eq('id', openedMember.id)
-        .maybeSingle();
-      if (error) throw error;
-      return (data?.expense_cost_model_id as string | null) ?? null;
-    },
-    enabled: !!openedMember && !openedPending,
-  });
+  const storedCostModelId = openedMember
+    ? (getAuditMemberExpenseCostModelId(openedMember.id) !== undefined
+      ? (getAuditMemberExpenseCostModelId(openedMember.id) ?? null)
+      : (openedMember.expense_cost_model_id ?? null))
+    : null;
+  const memberExpenseCostModelId = costModelDraft ?? storedCostModelId;
+
+  useEffect(() => {
+    setCostModelDraft(null);
+    setTemplateAccessDraft(null);
+    setMemberSettingsError(lookFail ? MEMBER_SETTINGS_NO_ROW : '');
+  }, [openedMember?.id, lookFail]);
 
   const updateExpenseCostModelMutation = useMutation({
     mutationFn: async ({ memberId, modelId }: { memberId: string; modelId: string }) => {
-      const { error } = await supabase
-        .from('profiles')
-        .update(profileExpenseCostModelUpdatePayload(modelId))
-        .eq('id', memberId);
-      if (error) throw error;
+      return updateMemberSettings(supabase, memberId, memberSettingsCostModelPatch(modelId));
     },
-    onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['profile-expense-cost-model', vars.memberId] });
+    onSuccess: (saved) => {
+      setMemberSettingsError('');
+      queryClient.setQueryData<Member[]>(['team-members', company?.id], current =>
+        (current ?? []).map(row => row.id === saved.id
+          ? { ...row, expense_cost_model_id: saved.expense_cost_model_id }
+          : row));
+      queryClient.invalidateQueries({ queryKey: ['team-members'] });
       invalidateAllJobBillInvoicePreviews(queryClient);
+    },
+    onError: (err: Error) => {
+      setCostModelDraft(null);
+      setMemberSettingsError(err.message || MEMBER_SETTINGS_NO_ROW);
     },
   });
 
@@ -856,13 +882,15 @@ export function TeamSettingsPage() {
     mutationFn: async ({ memberId, role }: { memberId: string; role: 'admin' | 'member' }) => {
       const member = listRows.find(row => row.id === memberId) ?? { id: memberId, role: undefined };
       assertCanChangeMemberRole({ member, members: listRows, ownerId, nextRole: role });
-      const { error } = await supabase
-        .from('profiles')
-        .update({ role })
-        .eq('id', memberId);
-      if (error) throw error;
+      return updateMemberSettings(supabase, memberId, { role });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['team-members'] }),
+    onSuccess: () => {
+      setMemberSettingsError('');
+      queryClient.invalidateQueries({ queryKey: ['team-members'] });
+    },
+    onError: (err: Error) => {
+      setMemberSettingsError(err.message || MEMBER_SETTINGS_NO_ROW);
+    },
   });
 
   const removeMutation = useMutation({
@@ -964,8 +992,11 @@ export function TeamSettingsPage() {
         ? 'Admin'
         : 'Member'
     : '';
+  const shownTemplateAccess = openedMember
+    ? (templateAccessDraft ?? openedMember.template_access)
+    : 'view';
   const openedAccessLabel = openedMember
-    ? ACCESS_OPTIONS.find(o => o.value === openedMember.template_access)?.label ?? openedMember.template_access
+    ? ACCESS_OPTIONS.find(o => o.value === shownTemplateAccess)?.label ?? shownTemplateAccess
     : '';
   const openedRoleLock = openedMember
     ? canChangeMemberRole({
@@ -978,6 +1009,10 @@ export function TeamSettingsPage() {
   const openedRemoveLock = openedMember
     ? canRemoveTeamMember({ member: openedMember, members: listRows, ownerId })
     : { ok: true as const };
+
+  if (profile && !isAdmin && !lookTeamSeed) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <AppShell>
@@ -1080,7 +1115,9 @@ export function TeamSettingsPage() {
                   <div className="hub-team-ledger-row hub-team-ledger-row--field">
                     <span>Cost model</span>
                     {canEditExpenseCostModel && !openedPending ? (
-                      expenseCostModels.length === 0 ? (
+                      costModelsLoading ? (
+                        <span className="hub-team-muted-hint" aria-busy="true">Loading cost models</span>
+                      ) : costModelsEmpty ? (
                         <span className="hub-team-muted-hint">Add a cost model in Expenses</span>
                       ) : (
                         <select
@@ -1089,6 +1126,8 @@ export function TeamSettingsPage() {
                           disabled={updateExpenseCostModelMutation.isPending}
                           aria-label="Cost model"
                           onChange={e => {
+                            setMemberSettingsError('');
+                            setCostModelDraft(e.target.value || null);
                             updateExpenseCostModelMutation.mutate({
                               memberId: openedMember.id,
                               modelId: e.target.value,
@@ -1103,9 +1142,11 @@ export function TeamSettingsPage() {
                       )
                     ) : (
                       <span className="hub-team-hours">
-                        {memberExpenseCostModelId
-                          ? (expenseCostModels.find(m => m.id === memberExpenseCostModelId)?.name ?? 'Assigned')
-                          : 'None'}
+                        {costModelsLoading
+                          ? 'Loading cost models'
+                          : memberExpenseCostModelId
+                            ? (expenseCostModels.find(m => m.id === memberExpenseCostModelId)?.name ?? 'Assigned')
+                            : 'None'}
                       </span>
                     )}
                   </div>
@@ -1113,11 +1154,16 @@ export function TeamSettingsPage() {
                     <span>Templates</span>
                     {isAdmin && !openedIsAdmin && !openedIsMe ? (
                       <select
-                        value={openedMember.template_access}
-                        onChange={e => updateAccessMutation.mutate({
-                          memberId: openedMember.id,
-                          templateAccess: e.target.value as TemplateAccess,
-                        })}
+                        value={shownTemplateAccess}
+                        onChange={e => {
+                          const next = e.target.value as TemplateAccess;
+                          setMemberSettingsError('');
+                          setTemplateAccessDraft(next);
+                          updateAccessMutation.mutate({
+                            memberId: openedMember.id,
+                            templateAccess: next,
+                          });
+                        }}
                         disabled={updateAccessMutation.isPending}
                         className="hub-team-select"
                         aria-label="Template access"
@@ -1130,6 +1176,9 @@ export function TeamSettingsPage() {
                       <span className="hub-team-hours">{openedAccessLabel}</span>
                     )}
                   </div>
+                  {memberSettingsError ? (
+                    <p className="hub-team-save-error" role="alert">{memberSettingsError}</p>
+                  ) : null}
                   {openedMember.last_sign_in_at && (
                     <div className="hub-team-ledger-row">
                       <span>Last sign in</span>

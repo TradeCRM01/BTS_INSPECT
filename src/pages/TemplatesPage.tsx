@@ -3,9 +3,11 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { canEditTemplates, canViewTemplates } from '../lib/templateAccess';
+import { TemplateAccessDenied } from '../components/layout/TemplateAccessDenied';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner as _LoadingSpinner, PageError } from '../components/ui';
+import { PageError } from '../components/ui';
 import { SkeletonList } from '../components/ui/Skeletons';
 import { Plus, LayoutTemplate, Zap, ChevronRight, Archive, ArchiveRestore, Copy, ShieldCheck } from 'lucide-react';
 import { safeFormatDate } from '../lib/safeDate';
@@ -20,20 +22,8 @@ export function TemplatesPage() {
   const [activeTab, setActiveTab] = useState<Tab>(() => searchParams.get('tab') === 'jha' ? 'jha' : 'inspections');
   const [showArchived, setShowArchived] = useState(false);
 
-  const canEdit = profile?.role === 'admin' || profile?.template_access === 'edit';
-  const canView = profile?.role === 'admin' || profile?.template_access === 'edit' || profile?.template_access === 'view';
-
-  if (!canView) {
-    return (
-      <AppShell>
-        <div className="max-w-[1200px] mx-auto px-4 py-16 text-center">
-          <LayoutTemplate size={40} className="mx-auto text-[#E5E7EB] mb-3" />
-          <p className="text-[#1A1A1A] font-medium">No template access</p>
-          <p className="text-sm text-[#4A5568] mt-1">Your account doesn't have permission to view templates. Contact your admin.</p>
-        </div>
-      </AppShell>
-    );
-  }
+  const canEdit = canEditTemplates(profile);
+  const canView = canViewTemplates(profile);
 
   // Inspection templates query
   const { data: templates, isLoading: inspLoading, isError: inspError, refetch: inspRefetch } = useQuery({
@@ -47,7 +37,7 @@ export function TemplatesPage() {
       if (error) throw error;
       return data;
     },
-    enabled: !!profile && activeTab === 'inspections',
+    enabled: canView && !!profile && activeTab === 'inspections',
   });
 
   // JHA templates query
@@ -62,7 +52,7 @@ export function TemplatesPage() {
       if (error) throw error;
       return data;
     },
-    enabled: !!profile && activeTab === 'jha',
+    enabled: canView && !!profile && activeTab === 'jha',
   });
 
   const unarchiveInspectionMutation = useMutation({
@@ -132,6 +122,10 @@ export function TemplatesPage() {
   const isLoading = activeTab === 'inspections' ? inspLoading : jhaLoading;
   const isError = activeTab === 'inspections' ? inspError : jhaError;
   const refetch = activeTab === 'inspections' ? inspRefetch : jhaRefetch;
+
+  if (!canView) {
+    return <TemplateAccessDenied />;
+  }
 
   return (
     <AppShell>

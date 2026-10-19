@@ -37,10 +37,11 @@ describe('canEditTeamMemberExpenseCostModel', () => {
 });
 
 describe('TeamSettings cost model writer', () => {
-  it('updates profiles.expense_cost_model_id via supabase', () => {
+  it('updates profiles.expense_cost_model_id via the member settings RPC', () => {
     const page = readFileSync(resolve(process.cwd(), 'src/pages/TeamSettingsPage.tsx'), 'utf8');
     expect(page).toContain('expense_cost_model_id');
-    expect(page).toContain('profileExpenseCostModelUpdatePayload');
+    expect(page).toContain('memberSettingsCostModelPatch');
+    expect(page).toContain('updateMemberSettings');
     expect(page).toContain('canEditTeamMemberExpenseCostModel');
   });
 });

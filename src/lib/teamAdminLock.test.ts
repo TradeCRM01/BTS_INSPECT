@@ -164,8 +164,8 @@ describe('UI disable and write/RLS reject without the button', () => {
       page.indexOf('const removeMutation'),
       page.indexOf('const [resendingId'),
     );
-    expect(roleWrite.indexOf('assertCanChangeMemberRole')).toBeLessThan(roleWrite.indexOf(".from('profiles')"));
-    expect(roleWrite.indexOf('assertCanChangeMemberRole')).toBeLessThan(roleWrite.indexOf('update({ role })'));
+    expect(roleWrite.indexOf('assertCanChangeMemberRole')).toBeLessThan(roleWrite.indexOf('updateMemberSettings'));
+    expect(roleWrite.indexOf('assertCanChangeMemberRole')).toBeLessThan(roleWrite.indexOf("{ role }"));
     expect(removeWrite.indexOf('assertCanRemoveTeamMember')).toBeLessThan(removeWrite.indexOf('remove-member'));
   });
 

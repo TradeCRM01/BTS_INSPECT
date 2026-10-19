@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
+import { TemplateAccessRoute } from './components/layout/TemplateAccessRoute';
 import { OperatorOnlyPage, OperatorRoute } from './components/layout/OperatorRoute';
 import { PageErrorBoundary } from './components/layout/PageErrorBoundary';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
@@ -121,9 +122,9 @@ export default function App() {
 
       {/* Protected routes — each page is a separate JS chunk */}
       <Route path="/" element={<RootPage />} />
-      <Route path="/templates" element={<Protected><TemplatesPage /></Protected>} />
-      <Route path="/templates/new" element={<Protected><TemplateEditorPage /></Protected>} />
-      <Route path="/templates/:id" element={<Protected><TemplateEditorPage /></Protected>} />
+      <Route path="/templates" element={<Protected><TemplateAccessRoute><TemplatesPage /></TemplateAccessRoute></Protected>} />
+      <Route path="/templates/new" element={<Protected><TemplateAccessRoute><TemplateEditorPage /></TemplateAccessRoute></Protected>} />
+      <Route path="/templates/:id" element={<Protected><TemplateAccessRoute><TemplateEditorPage /></TemplateAccessRoute></Protected>} />
       <Route path="/inspections" element={<Protected><InspectionsPage /></Protected>} />
       <Route path="/inspections/new" element={<Protected><NewInspectionPage /></Protected>} />
       <Route path="/inspections/:id" element={<Protected><InspectionFillPage /></Protected>} />
@@ -141,8 +142,8 @@ export default function App() {
       <Route path="/assistant" element={<Protected><AiAssistantPage /></Protected>} />
       <Route path="/settings/ai" element={<Protected><AiSettingsPage /></Protected>} />
       <Route path="/jha-templates" element={<Navigate to="/templates" replace />} />
-      <Route path="/jha-templates/new" element={<Protected><JhaTemplateEditorPage /></Protected>} />
-      <Route path="/jha-templates/:id" element={<Protected><JhaTemplateEditorPage /></Protected>} />
+      <Route path="/jha-templates/new" element={<Protected><TemplateAccessRoute><JhaTemplateEditorPage /></TemplateAccessRoute></Protected>} />
+      <Route path="/jha-templates/:id" element={<Protected><TemplateAccessRoute><JhaTemplateEditorPage /></TemplateAccessRoute></Protected>} />
       <Route path="/jha" element={<Protected><JhaDocumentsPage /></Protected>} />
       <Route path="/jha/swms-library" element={<Protected><SwmsLibraryPage /></Protected>} />
       <Route path="/jha/new" element={<Protected><JhaFillPage /></Protected>} />
