@@ -1,0 +1,1481 @@
+{
+  "b2": {
+    "main-375": {
+      "maxRight": 458.64,
+      "innerWidth": 375,
+      "worst": "BUTTON.hub-jobs-list-filter.",
+      "scrollWidth": 375
+    },
+    "main-390": {
+      "maxRight": 458.64,
+      "innerWidth": 390,
+      "worst": "BUTTON.hub-jobs-list-filter.",
+      "scrollWidth": 390
+    },
+    "s2-375": {
+      "maxRight": 458.64,
+      "innerWidth": 375,
+      "worst": "BUTTON.hub-jobs-list-filter.",
+      "scrollWidth": 375
+    },
+    "s2-390": {
+      "maxRight": 458.64,
+      "innerWidth": 390,
+      "worst": "BUTTON.hub-jobs-list-filter.",
+      "scrollWidth": 390
+    }
+  },
+  "snippetB": [
+    {
+      "width": 768,
+      "pass": true,
+      "bad": [],
+      "mitre": {
+        "markH": 24,
+        "barH": 56,
+        "fullHeaderH": 69,
+        "ratio": 0.429,
+        "attr": "24",
+        "method": "mark.getBoundingClientRect().height / inner h-14 bar; spec 24/56=0.429. Padded .shell-header includes safe-area paddingTop and is not the denominator."
+      },
+      "shorts": [
+        "Today",
+        "Jobs",
+        "Field",
+        "Money",
+        "Stock"
+      ],
+      "fulls": []
+    },
+    {
+      "width": 1024,
+      "pass": true,
+      "bad": [],
+      "mitre": {
+        "markH": 24,
+        "barH": 56,
+        "fullHeaderH": 69,
+        "ratio": 0.429,
+        "attr": "24",
+        "method": "mark.getBoundingClientRect().height / inner h-14 bar; spec 24/56=0.429. Padded .shell-header includes safe-area paddingTop and is not the denominator."
+      },
+      "shorts": [],
+      "fulls": [
+        "Dashboard",
+        "CRM",
+        "Field Work",
+        "Financials",
+        "Inventory"
+      ]
+    },
+    {
+      "width": 1280,
+      "pass": true,
+      "bad": [],
+      "mitre": {
+        "markH": 24,
+        "barH": 56,
+        "fullHeaderH": 69,
+        "ratio": 0.429,
+        "attr": "24",
+        "method": "mark.getBoundingClientRect().height / inner h-14 bar; spec 24/56=0.429. Padded .shell-header includes safe-area paddingTop and is not the denominator."
+      },
+      "shorts": [],
+      "fulls": [
+        "Dashboard",
+        "CRM",
+        "Field Work",
+        "Financials",
+        "Inventory"
+      ]
+    },
+    {
+      "width": 1920,
+      "pass": true,
+      "bad": [],
+      "mitre": {
+        "markH": 24,
+        "barH": 56,
+        "fullHeaderH": 69,
+        "ratio": 0.429,
+        "attr": "24",
+        "method": "mark.getBoundingClientRect().height / inner h-14 bar; spec 24/56=0.429. Padded .shell-header includes safe-area paddingTop and is not the denominator."
+      },
+      "shorts": [],
+      "fulls": [
+        "Dashboard",
+        "CRM",
+        "Field Work",
+        "Financials",
+        "Inventory"
+      ]
+    }
+  ],
+  "section1": [
+    {
+      "label": "jobs-390-light",
+      "width": 390,
+      "dark": false,
+      "minCR": 19.66,
+      "below7": [],
+      "strayCount": 0,
+      "strays": [],
+      "greenOutsidePills": [],
+      "efp": {
+        "header": "ok",
+        "logo": "ok",
+        "tabbar": "ok"
+      },
+      "mitre": {
+        "markH": 24,
+        "barH": 56,
+        "fullHeaderH": 69,
+        "ratio": 0.429,
+        "attr": "24",
+        "method": "mark.getBoundingClientRect().height / inner h-14 bar; spec 24/56=0.429. Padded .shell-header includes safe-area paddingTop and is not the denominator."
+      },
+      "themeSwitch": null,
+      "install": false,
+      "bg": "#F5F5F7",
+      "allowDark": "false",
+      "theme": "light"
+    },
+    {
+      "label": "jobs-390-dark-forced",
+      "width": 390,
+      "dark": true,
+      "minCR": 18,
+      "below7": [],
+      "strayCount": 0,
+      "strays": [],
+      "greenOutsidePills": [],
+      "efp": {
+        "header": "ok",
+        "logo": "ok",
+        "tabbar": "ok"
+      },
+      "mitre": {
+        "markH": 24,
+        "barH": 56,
+        "fullHeaderH": 69,
+        "ratio": 0.429,
+        "attr": "24",
+        "method": "mark.getBoundingClientRect().height / inner h-14 bar; spec 24/56=0.429. Padded .shell-header includes safe-area paddingTop and is not the denominator."
+      },
+      "themeSwitch": {
+        "compared": 50,
+        "identical": 50
+      },
+      "install": false,
+      "bg": "#0A0A0B",
+      "allowDark": "true",
+      "theme": "dark"
+    },
+    {
+      "label": "jobs-1280-light",
+      "width": 1280,
+      "dark": false,
+      "minCR": 7.34,
+      "below7": [],
+      "strayCount": 0,
+      "strays": [],
+      "greenOutsidePills": [],
+      "efp": {
+        "header": "ok",
+        "logo": "ok",
+        "tabbar": "missing"
+      },
+      "mitre": {
+        "markH": 24,
+        "barH": 56,
+        "fullHeaderH": 69,
+        "ratio": 0.429,
+        "attr": "24",
+        "method": "mark.getBoundingClientRect().height / inner h-14 bar; spec 24/56=0.429. Padded .shell-header includes safe-area paddingTop and is not the denominator."
+      },
+      "themeSwitch": null,
+      "install": false,
+      "bg": "#F5F5F7",
+      "allowDark": "false",
+      "theme": "light"
+    },
+    {
+      "label": "jobs-1280-dark-forced",
+      "width": 1280,
+      "dark": true,
+      "minCR": 6.66,
+      "below7": [
+        {
+          "t": "Search…",
+          "ratio": 6.66,
+          "img": false,
+          "pill": false
+        }
+      ],
+      "strayCount": 0,
+      "strays": [],
+      "greenOutsidePills": [],
+      "efp": {
+        "header": "ok",
+        "logo": "ok",
+        "tabbar": "missing"
+      },
+      "mitre": {
+        "markH": 24,
+        "barH": 56,
+        "fullHeaderH": 69,
+        "ratio": 0.429,
+        "attr": "24",
+        "method": "mark.getBoundingClientRect().height / inner h-14 bar; spec 24/56=0.429. Padded .shell-header includes safe-area paddingTop and is not the denominator."
+      },
+      "themeSwitch": {
+        "compared": 50,
+        "identical": 50
+      },
+      "install": false,
+      "bg": "#0A0A0B",
+      "allowDark": "true",
+      "theme": "dark"
+    }
+  ],
+  "more": {
+    "after": {
+      "innerWidth": 390,
+      "maxRight": 458.64,
+      "worst": "BUTTON.hub-jobs-list-filter.",
+      "scrollWidth": 390,
+      "snippetB": {
+        "pass": false,
+        "bad": [
+          [
+            "overflow",
+            "AllScheduledIn ProgressCompletedCancelle"
+          ],
+          [
+            "off-screen",
+            "Cancelled"
+          ],
+          [
+            "clamp/mask",
+            "Northside Electrical"
+          ],
+          [
+            "clamp/mask",
+            "Harbour Lights"
+          ],
+          [
+            "clamp/mask",
+            "Midland Workshops"
+          ],
+          [
+            "clamp/mask",
+            "Bayswater Body Corporate"
+          ],
+          [
+            "clamp/mask",
+            "Coastal Holiday Rentals"
+          ],
+          [
+            "clamp/mask",
+            "Osborne Park Medical"
+          ]
+        ]
+      },
+      "minCR": 8.77,
+      "below7": [],
+      "contrastSamples": 33,
+      "strays": [],
+      "greenOutsidePills": [],
+      "efp": {
+        "header": "ok",
+        "logo": "ok",
+        "tabbar": "ok"
+      },
+      "mitre": {
+        "markH": 24,
+        "barH": 56,
+        "fullHeaderH": 676,
+        "ratio": 0.429,
+        "attr": "24",
+        "method": "mark.getBoundingClientRect().height / inner h-14 bar; spec 24/56=0.429. Padded .shell-header includes safe-area paddingTop and is not the denominator."
+      },
+      "top50": [
+        {
+          "t": "DIV.",
+          "x": 0,
+          "y": 0,
+          "w": 390,
+          "h": 844
+        },
+        {
+          "t": "DIV.shell-root.flex",
+          "x": 0,
+          "y": 0,
+          "w": 390,
+          "h": 844
+        },
+        {
+          "t": "HEADER.shell-header",
+          "x": 0,
+          "y": 0,
+          "w": 390,
+          "h": 676
+        },
+        {
+          "t": "DIV.max-w-[1400px].mx-auto",
+          "x": 0,
+          "y": 12,
+          "w": 390,
+          "h": 56
+        },
+        {
+          "t": "A.flex.items-center",
+          "x": 16,
+          "y": 28,
+          "w": 105.7,
+          "h": 24
+        },
+        {
+          "t": "SPAN.flex.items-center",
+          "x": 16,
+          "y": 28,
+          "w": 105.7,
+          "h": 24
+        },
+        {
+          "t": "svg.shrink-0",
+          "x": 16,
+          "y": 28,
+          "w": 24,
+          "h": 24
+        },
+        {
+          "t": "path.",
+          "x": 17.5,
+          "y": 29.5,
+          "w": 21,
+          "h": 21
+        },
+        {
+          "t": "SPAN.font-semibold.uppercase",
+          "x": 48,
+          "y": 30.3,
+          "w": 73.7,
+          "h": 19.5
+        },
+        {
+          "t": "DIV.shell-phone-menu.md:hidden",
+          "x": 0,
+          "y": 68,
+          "w": 390,
+          "h": 607
+        },
+        {
+          "t": "BUTTON.shell-phone-link.flex",
+          "x": 0,
+          "y": 69,
+          "w": 390,
+          "h": 44
+        },
+        {
+          "t": "svg.lucide.lucide-search",
+          "x": 16,
+          "y": 83,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "t": "circle.",
+          "x": 18,
+          "y": 85,
+          "w": 10.7,
+          "h": 10.7
+        },
+        {
+          "t": "path.",
+          "x": 27.1,
+          "y": 94.1,
+          "w": 2.9,
+          "h": 2.9
+        },
+        {
+          "t": "DIV.shell-phone-group",
+          "x": 0,
+          "y": 113,
+          "w": 390,
+          "h": 45
+        },
+        {
+          "t": "BUTTON.shell-phone-link.w-full",
+          "x": 0,
+          "y": 114,
+          "w": 390,
+          "h": 44
+        },
+        {
+          "t": "svg.lucide.lucide-home",
+          "x": 16,
+          "y": 128,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "t": "path.",
+          "x": 18,
+          "y": 129.3,
+          "w": 12,
+          "h": 13.3
+        },
+        {
+          "t": "polyline.",
+          "x": 22,
+          "y": 136,
+          "w": 4,
+          "h": 6.7
+        },
+        {
+          "t": "SPAN.flex-1.text-left",
+          "x": 42,
+          "y": 126,
+          "w": 308,
+          "h": 20
+        },
+        {
+          "t": "svg.lucide.lucide-chevron-down",
+          "x": 360,
+          "y": 129,
+          "w": 14,
+          "h": 14
+        },
+        {
+          "t": "path.",
+          "x": 363.5,
+          "y": 134.3,
+          "w": 7,
+          "h": 3.5
+        },
+        {
+          "t": "DIV.shell-phone-group",
+          "x": 0,
+          "y": 158,
+          "w": 390,
+          "h": 45
+        },
+        {
+          "t": "BUTTON.shell-phone-link.w-full",
+          "x": 0,
+          "y": 159,
+          "w": 390,
+          "h": 44
+        },
+        {
+          "t": "svg.lucide.lucide-briefcase",
+          "x": 16,
+          "y": 173,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "t": "rect.",
+          "x": 17.3,
+          "y": 177.7,
+          "w": 13.3,
+          "h": 9.3
+        },
+        {
+          "t": "path.",
+          "x": 21.3,
+          "y": 175,
+          "w": 5.3,
+          "h": 12
+        },
+        {
+          "t": "SPAN.flex-1.text-left",
+          "x": 42,
+          "y": 171,
+          "w": 308,
+          "h": 20
+        },
+        {
+          "t": "svg.lucide.lucide-chevron-down",
+          "x": 360,
+          "y": 174,
+          "w": 14,
+          "h": 14
+        },
+        {
+          "t": "path.",
+          "x": 363.5,
+          "y": 179.3,
+          "w": 7,
+          "h": 3.5
+        },
+        {
+          "t": "DIV.shell-phone-group",
+          "x": 0,
+          "y": 203,
+          "w": 390,
+          "h": 45
+        },
+        {
+          "t": "BUTTON.shell-phone-link.w-full",
+          "x": 0,
+          "y": 204,
+          "w": 390,
+          "h": 44
+        },
+        {
+          "t": "svg.lucide.lucide-wrench",
+          "x": 16,
+          "y": 218,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "t": "path.",
+          "x": 18,
+          "y": 219.3,
+          "w": 12.7,
+          "h": 12.7
+        },
+        {
+          "t": "SPAN.flex-1.text-left",
+          "x": 42,
+          "y": 216,
+          "w": 308,
+          "h": 20
+        },
+        {
+          "t": "svg.lucide.lucide-chevron-down",
+          "x": 360,
+          "y": 219,
+          "w": 14,
+          "h": 14
+        },
+        {
+          "t": "path.",
+          "x": 363.5,
+          "y": 224.3,
+          "w": 7,
+          "h": 3.5
+        },
+        {
+          "t": "DIV.shell-phone-group",
+          "x": 0,
+          "y": 248,
+          "w": 390,
+          "h": 45
+        },
+        {
+          "t": "BUTTON.shell-phone-link.w-full",
+          "x": 0,
+          "y": 249,
+          "w": 390,
+          "h": 44
+        },
+        {
+          "t": "svg.lucide.lucide-file-text",
+          "x": 16,
+          "y": 263,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "t": "path.",
+          "x": 18.7,
+          "y": 264.3,
+          "w": 10.7,
+          "h": 13.3
+        },
+        {
+          "t": "path.",
+          "x": 25.3,
+          "y": 264.3,
+          "w": 4,
+          "h": 4
+        },
+        {
+          "t": "SPAN.flex-1.text-left",
+          "x": 42,
+          "y": 261,
+          "w": 308,
+          "h": 20
+        },
+        {
+          "t": "svg.lucide.lucide-chevron-down",
+          "x": 360,
+          "y": 264,
+          "w": 14,
+          "h": 14
+        },
+        {
+          "t": "path.",
+          "x": 363.5,
+          "y": 269.3,
+          "w": 7,
+          "h": 3.5
+        },
+        {
+          "t": "DIV.shell-phone-group",
+          "x": 0,
+          "y": 293,
+          "w": 390,
+          "h": 45
+        },
+        {
+          "t": "BUTTON.shell-phone-link.w-full",
+          "x": 0,
+          "y": 294,
+          "w": 390,
+          "h": 44
+        },
+        {
+          "t": "svg.lucide.lucide-package",
+          "x": 16,
+          "y": 308,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "t": "path.",
+          "x": 21,
+          "y": 310.8,
+          "w": 6,
+          "h": 3.4
+        },
+        {
+          "t": "path.",
+          "x": 18,
+          "y": 309.3,
+          "w": 12,
+          "h": 13.3
+        }
+      ],
+      "install": false,
+      "moreOpen": true,
+      "searchOpen": false,
+      "allowDark": "false",
+      "theme": "light",
+      "bg": "#F5F5F7"
+    }
+  },
+  "search": {
+    "after-1024": {
+      "innerWidth": 1024,
+      "maxRight": 1024,
+      "worst": "DIV.",
+      "scrollWidth": 1024,
+      "snippetB": {
+        "pass": false,
+        "bad": [
+          [
+            "ellipsis",
+            "291 prove switchboard and after-hours co"
+          ]
+        ]
+      },
+      "minCR": 8.72,
+      "below7": [],
+      "contrastSamples": 9,
+      "strays": [],
+      "greenOutsidePills": [],
+      "efp": {
+        "header": "covered by DIV.overlay-backdrop",
+        "logo": "covered by DIV.overlay-backdrop",
+        "tabbar": "missing"
+      },
+      "mitre": {
+        "markH": 24,
+        "barH": 56,
+        "fullHeaderH": 69,
+        "ratio": 0.429,
+        "attr": "24",
+        "method": "mark.getBoundingClientRect().height / inner h-14 bar; spec 24/56=0.429. Padded .shell-header includes safe-area paddingTop and is not the denominator."
+      },
+      "top50": [
+        {
+          "t": "DIV.",
+          "x": 0,
+          "y": 0,
+          "w": 1024,
+          "h": 844
+        },
+        {
+          "t": "DIV.shell-root.flex",
+          "x": 0,
+          "y": 0,
+          "w": 1024,
+          "h": 844
+        },
+        {
+          "t": "HEADER.shell-header",
+          "x": 0,
+          "y": 0,
+          "w": 1024,
+          "h": 69
+        },
+        {
+          "t": "DIV.max-w-[1400px].mx-auto",
+          "x": 0,
+          "y": 12,
+          "w": 1024,
+          "h": 56
+        },
+        {
+          "t": "A.flex.items-center",
+          "x": 16,
+          "y": 28,
+          "w": 111.4,
+          "h": 24
+        },
+        {
+          "t": "SPAN.flex.items-center",
+          "x": 16,
+          "y": 28,
+          "w": 111.4,
+          "h": 24
+        },
+        {
+          "t": "svg.shrink-0",
+          "x": 16,
+          "y": 28,
+          "w": 24,
+          "h": 24
+        },
+        {
+          "t": "path.",
+          "x": 17.5,
+          "y": 29.5,
+          "w": 21,
+          "h": 21
+        },
+        {
+          "t": "SPAN.font-semibold.uppercase",
+          "x": 48,
+          "y": 30,
+          "w": 79.4,
+          "h": 20
+        },
+        {
+          "t": "NAV.hidden.md:flex",
+          "x": 139.4,
+          "y": 12,
+          "w": 608.1,
+          "h": 56
+        },
+        {
+          "t": "DIV.relative.h-full",
+          "x": 139.4,
+          "y": 12,
+          "w": 131,
+          "h": 56
+        },
+        {
+          "t": "BUTTON.shell-nav-btn.",
+          "x": 139.4,
+          "y": 12,
+          "w": 131,
+          "h": 56
+        },
+        {
+          "t": "svg.lucide.lucide-home",
+          "x": 151.4,
+          "y": 32,
+          "w": 14,
+          "h": 14
+        },
+        {
+          "t": "path.",
+          "x": 153.2,
+          "y": 33.2,
+          "w": 10.5,
+          "h": 11.7
+        },
+        {
+          "t": "polyline.",
+          "x": 156.7,
+          "y": 39,
+          "w": 3.5,
+          "h": 5.8
+        },
+        {
+          "t": "SPAN.shell-nav-label-full",
+          "x": 171.4,
+          "y": 28.5,
+          "w": 70,
+          "h": 21
+        },
+        {
+          "t": "svg.lucide.lucide-chevron-down",
+          "x": 247.4,
+          "y": 33.5,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "t": "path.",
+          "x": 250.2,
+          "y": 37.6,
+          "w": 5.5,
+          "h": 2.8
+        },
+        {
+          "t": "DIV.relative.h-full",
+          "x": 272.4,
+          "y": 12,
+          "w": 92.5,
+          "h": 56
+        },
+        {
+          "t": "BUTTON.shell-nav-btn.shell-nav-btn-active",
+          "x": 272.4,
+          "y": 12,
+          "w": 92.5,
+          "h": 56
+        },
+        {
+          "t": "svg.lucide.lucide-briefcase",
+          "x": 284.4,
+          "y": 32,
+          "w": 14,
+          "h": 14
+        },
+        {
+          "t": "rect.",
+          "x": 285.6,
+          "y": 36.1,
+          "w": 11.7,
+          "h": 8.2
+        },
+        {
+          "t": "path.",
+          "x": 289.1,
+          "y": 33.8,
+          "w": 4.7,
+          "h": 10.5
+        },
+        {
+          "t": "SPAN.shell-nav-label-full",
+          "x": 304.4,
+          "y": 28.5,
+          "w": 31.5,
+          "h": 21
+        },
+        {
+          "t": "svg.lucide.lucide-chevron-down",
+          "x": 341.9,
+          "y": 33.5,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "t": "path.",
+          "x": 344.7,
+          "y": 37.6,
+          "w": 5.5,
+          "h": 2.8
+        },
+        {
+          "t": "DIV.relative.h-full",
+          "x": 366.9,
+          "y": 12,
+          "w": 129.6,
+          "h": 56
+        },
+        {
+          "t": "BUTTON.shell-nav-btn.",
+          "x": 366.9,
+          "y": 12,
+          "w": 129.6,
+          "h": 56
+        },
+        {
+          "t": "svg.lucide.lucide-wrench",
+          "x": 378.9,
+          "y": 32,
+          "w": 14,
+          "h": 14
+        },
+        {
+          "t": "path.",
+          "x": 380.7,
+          "y": 33.2,
+          "w": 11.1,
+          "h": 11.1
+        },
+        {
+          "t": "SPAN.shell-nav-label-full",
+          "x": 398.9,
+          "y": 28.5,
+          "w": 68.6,
+          "h": 21
+        },
+        {
+          "t": "svg.lucide.lucide-chevron-down",
+          "x": 473.5,
+          "y": 33.5,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "t": "path.",
+          "x": 476.2,
+          "y": 37.6,
+          "w": 5.5,
+          "h": 2.8
+        },
+        {
+          "t": "DIV.relative.h-full",
+          "x": 498.5,
+          "y": 12,
+          "w": 125.8,
+          "h": 56
+        },
+        {
+          "t": "BUTTON.shell-nav-btn.",
+          "x": 498.5,
+          "y": 12,
+          "w": 125.8,
+          "h": 56
+        },
+        {
+          "t": "svg.lucide.lucide-file-text",
+          "x": 510.5,
+          "y": 32,
+          "w": 14,
+          "h": 14
+        },
+        {
+          "t": "path.",
+          "x": 512.8,
+          "y": 33.2,
+          "w": 9.3,
+          "h": 11.7
+        },
+        {
+          "t": "path.",
+          "x": 518.7,
+          "y": 33.2,
+          "w": 3.5,
+          "h": 3.5
+        },
+        {
+          "t": "SPAN.shell-nav-label-full",
+          "x": 530.5,
+          "y": 28.5,
+          "w": 64.8,
+          "h": 21
+        },
+        {
+          "t": "svg.lucide.lucide-chevron-down",
+          "x": 601.3,
+          "y": 33.5,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "t": "path.",
+          "x": 604,
+          "y": 37.6,
+          "w": 5.5,
+          "h": 2.8
+        },
+        {
+          "t": "DIV.relative.h-full",
+          "x": 626.3,
+          "y": 12,
+          "w": 121.2,
+          "h": 56
+        },
+        {
+          "t": "BUTTON.shell-nav-btn.",
+          "x": 626.3,
+          "y": 12,
+          "w": 121.2,
+          "h": 56
+        },
+        {
+          "t": "svg.lucide.lucide-package",
+          "x": 638.3,
+          "y": 32,
+          "w": 14,
+          "h": 14
+        },
+        {
+          "t": "path.",
+          "x": 642.6,
+          "y": 34.5,
+          "w": 5.3,
+          "h": 3
+        },
+        {
+          "t": "path.",
+          "x": 640,
+          "y": 33.2,
+          "w": 10.5,
+          "h": 11.7
+        },
+        {
+          "t": "path.",
+          "x": 640.2,
+          "y": 36.1,
+          "w": 10.2,
+          "h": 2.9
+        },
+        {
+          "t": "SPAN.shell-nav-label-full",
+          "x": 658.3,
+          "y": 28.5,
+          "w": 60.2,
+          "h": 21
+        },
+        {
+          "t": "svg.lucide.lucide-chevron-down",
+          "x": 724.5,
+          "y": 33.5,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "t": "path.",
+          "x": 727.2,
+          "y": 37.6,
+          "w": 5.5,
+          "h": 2.8
+        }
+      ],
+      "install": false,
+      "moreOpen": false,
+      "searchOpen": true,
+      "allowDark": "false",
+      "theme": "light",
+      "bg": "#F5F5F7"
+    },
+    "after-1280": {
+      "innerWidth": 1280,
+      "maxRight": 1280,
+      "worst": "DIV.",
+      "scrollWidth": 1280,
+      "snippetB": {
+        "pass": false,
+        "bad": [
+          [
+            "ellipsis",
+            "291 prove switchboard and after-hours co"
+          ]
+        ]
+      },
+      "minCR": 7.34,
+      "below7": [],
+      "contrastSamples": 10,
+      "strays": [],
+      "greenOutsidePills": [],
+      "efp": {
+        "header": "covered by DIV.overlay-backdrop",
+        "logo": "covered by DIV.overlay-backdrop",
+        "tabbar": "missing"
+      },
+      "mitre": {
+        "markH": 24,
+        "barH": 56,
+        "fullHeaderH": 69,
+        "ratio": 0.429,
+        "attr": "24",
+        "method": "mark.getBoundingClientRect().height / inner h-14 bar; spec 24/56=0.429. Padded .shell-header includes safe-area paddingTop and is not the denominator."
+      },
+      "top50": [
+        {
+          "t": "DIV.",
+          "x": 0,
+          "y": 0,
+          "w": 1280,
+          "h": 844
+        },
+        {
+          "t": "DIV.shell-root.flex",
+          "x": 0,
+          "y": 0,
+          "w": 1280,
+          "h": 844
+        },
+        {
+          "t": "HEADER.shell-header",
+          "x": 0,
+          "y": 0,
+          "w": 1280,
+          "h": 69
+        },
+        {
+          "t": "DIV.max-w-[1400px].mx-auto",
+          "x": 0,
+          "y": 12,
+          "w": 1280,
+          "h": 56
+        },
+        {
+          "t": "A.flex.items-center",
+          "x": 16,
+          "y": 28,
+          "w": 111.4,
+          "h": 24
+        },
+        {
+          "t": "SPAN.flex.items-center",
+          "x": 16,
+          "y": 28,
+          "w": 111.4,
+          "h": 24
+        },
+        {
+          "t": "svg.shrink-0",
+          "x": 16,
+          "y": 28,
+          "w": 24,
+          "h": 24
+        },
+        {
+          "t": "path.",
+          "x": 17.5,
+          "y": 29.5,
+          "w": 21,
+          "h": 21
+        },
+        {
+          "t": "SPAN.font-semibold.uppercase",
+          "x": 48,
+          "y": 30,
+          "w": 79.4,
+          "h": 20
+        },
+        {
+          "t": "NAV.hidden.md:flex",
+          "x": 139.4,
+          "y": 12,
+          "w": 608.1,
+          "h": 56
+        },
+        {
+          "t": "DIV.relative.h-full",
+          "x": 139.4,
+          "y": 12,
+          "w": 131,
+          "h": 56
+        },
+        {
+          "t": "BUTTON.shell-nav-btn.",
+          "x": 139.4,
+          "y": 12,
+          "w": 131,
+          "h": 56
+        },
+        {
+          "t": "svg.lucide.lucide-home",
+          "x": 151.4,
+          "y": 32,
+          "w": 14,
+          "h": 14
+        },
+        {
+          "t": "path.",
+          "x": 153.2,
+          "y": 33.2,
+          "w": 10.5,
+          "h": 11.7
+        },
+        {
+          "t": "polyline.",
+          "x": 156.7,
+          "y": 39,
+          "w": 3.5,
+          "h": 5.8
+        },
+        {
+          "t": "SPAN.shell-nav-label-full",
+          "x": 171.4,
+          "y": 28.5,
+          "w": 70,
+          "h": 21
+        },
+        {
+          "t": "svg.lucide.lucide-chevron-down",
+          "x": 247.4,
+          "y": 33.5,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "t": "path.",
+          "x": 250.2,
+          "y": 37.6,
+          "w": 5.5,
+          "h": 2.8
+        },
+        {
+          "t": "DIV.relative.h-full",
+          "x": 272.4,
+          "y": 12,
+          "w": 92.5,
+          "h": 56
+        },
+        {
+          "t": "BUTTON.shell-nav-btn.shell-nav-btn-active",
+          "x": 272.4,
+          "y": 12,
+          "w": 92.5,
+          "h": 56
+        },
+        {
+          "t": "svg.lucide.lucide-briefcase",
+          "x": 284.4,
+          "y": 32,
+          "w": 14,
+          "h": 14
+        },
+        {
+          "t": "rect.",
+          "x": 285.6,
+          "y": 36.1,
+          "w": 11.7,
+          "h": 8.2
+        },
+        {
+          "t": "path.",
+          "x": 289.1,
+          "y": 33.8,
+          "w": 4.7,
+          "h": 10.5
+        },
+        {
+          "t": "SPAN.shell-nav-label-full",
+          "x": 304.4,
+          "y": 28.5,
+          "w": 31.5,
+          "h": 21
+        },
+        {
+          "t": "svg.lucide.lucide-chevron-down",
+          "x": 341.9,
+          "y": 33.5,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "t": "path.",
+          "x": 344.7,
+          "y": 37.6,
+          "w": 5.5,
+          "h": 2.8
+        },
+        {
+          "t": "DIV.relative.h-full",
+          "x": 366.9,
+          "y": 12,
+          "w": 129.6,
+          "h": 56
+        },
+        {
+          "t": "BUTTON.shell-nav-btn.",
+          "x": 366.9,
+          "y": 12,
+          "w": 129.6,
+          "h": 56
+        },
+        {
+          "t": "svg.lucide.lucide-wrench",
+          "x": 378.9,
+          "y": 32,
+          "w": 14,
+          "h": 14
+        },
+        {
+          "t": "path.",
+          "x": 380.7,
+          "y": 33.2,
+          "w": 11.1,
+          "h": 11.1
+        },
+        {
+          "t": "SPAN.shell-nav-label-full",
+          "x": 398.9,
+          "y": 28.5,
+          "w": 68.6,
+          "h": 21
+        },
+        {
+          "t": "svg.lucide.lucide-chevron-down",
+          "x": 473.5,
+          "y": 33.5,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "t": "path.",
+          "x": 476.2,
+          "y": 37.6,
+          "w": 5.5,
+          "h": 2.8
+        },
+        {
+          "t": "DIV.relative.h-full",
+          "x": 498.5,
+          "y": 12,
+          "w": 125.8,
+          "h": 56
+        },
+        {
+          "t": "BUTTON.shell-nav-btn.",
+          "x": 498.5,
+          "y": 12,
+          "w": 125.8,
+          "h": 56
+        },
+        {
+          "t": "svg.lucide.lucide-file-text",
+          "x": 510.5,
+          "y": 32,
+          "w": 14,
+          "h": 14
+        },
+        {
+          "t": "path.",
+          "x": 512.8,
+          "y": 33.2,
+          "w": 9.3,
+          "h": 11.7
+        },
+        {
+          "t": "path.",
+          "x": 518.7,
+          "y": 33.2,
+          "w": 3.5,
+          "h": 3.5
+        },
+        {
+          "t": "SPAN.shell-nav-label-full",
+          "x": 530.5,
+          "y": 28.5,
+          "w": 64.8,
+          "h": 21
+        },
+        {
+          "t": "svg.lucide.lucide-chevron-down",
+          "x": 601.3,
+          "y": 33.5,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "t": "path.",
+          "x": 604,
+          "y": 37.6,
+          "w": 5.5,
+          "h": 2.8
+        },
+        {
+          "t": "DIV.relative.h-full",
+          "x": 626.3,
+          "y": 12,
+          "w": 121.2,
+          "h": 56
+        },
+        {
+          "t": "BUTTON.shell-nav-btn.",
+          "x": 626.3,
+          "y": 12,
+          "w": 121.2,
+          "h": 56
+        },
+        {
+          "t": "svg.lucide.lucide-package",
+          "x": 638.3,
+          "y": 32,
+          "w": 14,
+          "h": 14
+        },
+        {
+          "t": "path.",
+          "x": 642.6,
+          "y": 34.5,
+          "w": 5.3,
+          "h": 3
+        },
+        {
+          "t": "path.",
+          "x": 640,
+          "y": 33.2,
+          "w": 10.5,
+          "h": 11.7
+        },
+        {
+          "t": "path.",
+          "x": 640.2,
+          "y": 36.1,
+          "w": 10.2,
+          "h": 2.9
+        },
+        {
+          "t": "SPAN.shell-nav-label-full",
+          "x": 658.3,
+          "y": 28.5,
+          "w": 60.2,
+          "h": 21
+        },
+        {
+          "t": "svg.lucide.lucide-chevron-down",
+          "x": 724.5,
+          "y": 33.5,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "t": "path.",
+          "x": 727.2,
+          "y": 37.6,
+          "w": 5.5,
+          "h": 2.8
+        }
+      ],
+      "install": false,
+      "moreOpen": false,
+      "searchOpen": true,
+      "allowDark": "false",
+      "theme": "light",
+      "bg": "#F5F5F7"
+    }
+  },
+  "frames": [
+    "docs/look/s2/s2-more-view-light-after-390.png",
+    "docs/look/s2/s2-more-view-light-before-390.png",
+    "docs/look/s2/s2-search-open-light-after-1024.png",
+    "docs/look/s2/s2-search-open-light-before-1024.png"
+  ],
+  "rawSource": [
+    {
+      "file": "src/components/layout/appShellTheme.ts",
+      "hits": [
+        "navy: '#0A2540',",
+        "accent: '#2E75B6',",
+        "accentLight: '#D6E8F7',",
+        "navyLight: '#153558',"
+      ]
+    },
+    {
+      "file": "src/components/search/GlobalSearch.tsx",
+      "hits": [
+        "// Strip leading '#' (so \"#0001\" -> \"0001\") and chars that break PostgREST or()."
+      ]
+    },
+    {
+      "file": "src/index.css .shell-*",
+      "hits": [
+        "background-color: #0A2540;",
+        "linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),",
+        "linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);",
+        "background: #FFFDF8;",
+        "color: #0A2540;",
+        "border: 1px solid #E5E7EB;",
+        "box-shadow: 0 8px 24px rgba(10, 37, 64, 0.12);"
+      ]
+    }
+  ]
+}

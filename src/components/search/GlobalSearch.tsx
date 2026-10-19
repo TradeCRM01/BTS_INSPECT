@@ -247,10 +247,12 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
   return (
     <div
       className="overlay-backdrop"
+      style={{ background: 'var(--g-scrim)' }}
       onClick={dismiss}
     >
       <div
         className="overlay-panel-xl animate-slide-up"
+        style={{ background: 'var(--g-surface)', color: 'var(--g-ink)', boxShadow: 'var(--g-sh-2)' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div
