@@ -235,6 +235,32 @@ function JobFrame() {
   );
 }
 
+function BoardChipLabel({
+  jobRef,
+  title,
+  time,
+  className = '',
+}: {
+  jobRef: string;
+  title: string;
+  time: string;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`hub-marketing-block hub-marketing-block-long !block sm:!flex !h-auto sm:!h-6 !overflow-visible !text-[11px] leading-tight !px-1 sm:!px-2 !left-1 !right-1 !w-auto sm:!left-[4%] sm:!right-auto sm:!w-[88%] ${className}`.trim()}
+    >
+      <span className="w-full min-w-0 whitespace-normal sm:whitespace-nowrap tracking-tighter sm:tracking-normal">
+        <span className="whitespace-nowrap sm:whitespace-nowrap">{jobRef} · {title}</span>
+        <span className="block sm:inline">
+          <span className="hidden sm:inline"> · </span>
+          {time}
+        </span>
+      </span>
+    </span>
+  );
+}
+
 function ScheduleFrame() {
   return (
     <div className="hub-marketing-board">
@@ -252,7 +278,11 @@ function ScheduleFrame() {
           {LANDING_SEED_JOB.crew}
         </span>
         <div className="hub-marketing-lane">
-          <span className="hub-marketing-block hub-marketing-block-long !text-[11px] truncate">{LANDING_SEED_JOB.ref} · {LANDING_SEED_JOB.title} · {LANDING_SEED_JOB.time}</span>
+          <BoardChipLabel
+            jobRef={LANDING_SEED_JOB.ref}
+            title={LANDING_SEED_JOB.title}
+            time={LANDING_SEED_JOB.time}
+          />
         </div>
       </div>
       <div className="hub-marketing-board-row mt-2">
@@ -261,7 +291,12 @@ function ScheduleFrame() {
           {LANDING_SEED_TOM.crew}
         </span>
         <div className="hub-marketing-lane">
-          <span className="hub-marketing-block hub-marketing-block-long !bg-zebra !border-l-warning !text-[11px] truncate">{LANDING_SEED_TOM.ref} · {LANDING_SEED_TOM.title} · {LANDING_SEED_TOM.time}</span>
+          <BoardChipLabel
+            jobRef={LANDING_SEED_TOM.ref}
+            title={LANDING_SEED_TOM.title}
+            time={LANDING_SEED_TOM.time}
+            className="!bg-zebra !border-l-warning"
+          />
         </div>
       </div>
     </div>
