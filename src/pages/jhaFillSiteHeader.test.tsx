@@ -235,6 +235,7 @@ describe('JHA fill — site stays while typing, header Save draft vs Sign off', 
     await renderPage();
     await waitFor('site field', () => document.body.textContent?.includes('Site / location') === true);
     expect(document.body.textContent).toContain('Signed Sam Field');
+    expect(document.body.textContent).not.toContain('Save draft');
 
     const site = [...document.querySelectorAll('input')].find(el =>
       el.placeholder === 'Where is the work?',

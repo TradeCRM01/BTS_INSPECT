@@ -107,19 +107,44 @@ async function waitFor(label: string, find: () => boolean) {
   throw new Error(`timed out waiting for ${label}: ${document.body.textContent?.slice(0, 400)}`);
 }
 
+function tabButtons() {
+  return [...document.querySelectorAll('[role="tablist"][aria-label="Take 5 status"] [role="tab"]')] as HTMLButtonElement[];
+}
+
 describe('Take 5 list Open / Done tabs', () => {
-  it('renders Open and Done tabs and switches the list', async () => {
+  it('Open shows only non-completed rows and Done shows only completed, and switching changes the list', async () => {
     await renderList();
     await waitFor('tabs', () => !!document.querySelector('[role="tablist"][aria-label="Take 5 status"]'));
 
-    const tabs = [...document.querySelectorAll('[role="tablist"][aria-label="Take 5 status"] [role="tab"]')];
+    const tabs = tabButtons();
     expect(tabs.map(tab => tab.textContent)).toEqual(['Open', 'Done']);
-
+    const open = tabs.find(tab => tab.textContent === 'Open') as HTMLButtonElement;
     const done = tabs.find(tab => tab.textContent === 'Done') as HTMLButtonElement;
+
+    await act(async () => {
+      open.click();
+    });
+    expect(open.getAttribute('aria-selected')).toBe('true');
+    expect(document.body.textContent).toMatch(/Open · 0 Take 5/);
+    expect(document.body.textContent).not.toContain('Northside Electrical');
+    expect(document.body.textContent).not.toContain('Harbour Lights');
+    expect(document.body.textContent).not.toContain('Midland Workshops');
+
     await act(async () => {
       done.click();
     });
     expect(done.getAttribute('aria-selected')).toBe('true');
-    expect(document.body.textContent).toMatch(/Done · \d+ Take 5/);
+    expect(open.getAttribute('aria-selected')).toBe('false');
+    expect(document.body.textContent).toMatch(/Done · 3 Take 5/);
+    expect(document.body.textContent).toContain('Northside Electrical');
+    expect(document.body.textContent).toContain('Harbour Lights');
+    expect(document.body.textContent).toContain('Midland Workshops');
+
+    await act(async () => {
+      open.click();
+    });
+    expect(open.getAttribute('aria-selected')).toBe('true');
+    expect(document.body.textContent).not.toContain('Northside Electrical');
   });
 });
+
