@@ -414,11 +414,9 @@ verify_jwt = false
 [functions.stripe-webhook]
 verify_jwt = false
 
-# Public magic-link access. Auth is the share/portal token in the body.
 [functions.client-portal]
 verify_jwt = false
 
-# Cron calls with a service/anon JWT. The gateway requires a JWT.
 [functions.job-reminder]
 verify_jwt = true
 
