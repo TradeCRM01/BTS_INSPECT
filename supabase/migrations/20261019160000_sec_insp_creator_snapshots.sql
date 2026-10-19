@@ -87,7 +87,7 @@ CREATE TRIGGER trg_jha_documents_fill_creator_snapshot
 
 DROP TRIGGER IF EXISTS trg_jobs_fill_creator_snapshot ON public.jobs;
 CREATE TRIGGER trg_jobs_fill_creator_snapshot
-  BEFORE INSERT OR UPDATE OF created_by ON public.jobs
+  BEFORE INSERT OR UPDATE OF created_by, creator_name_snapshot ON public.jobs
   FOR EACH ROW
   EXECUTE FUNCTION public.fill_creator_name_snapshot();
 

@@ -319,7 +319,7 @@ BEGIN
   FROM public.inspections WHERE id = 'd0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
   INSERT INTO proof_result VALUES (
     'member_reassign_fills_hidden_teammate',
-    r LIKE '00000|1|%' AND s_id = '33333333-3333-3333-3333-333333333333' AND s_name = 'Sam Spark',
+    coalesce(r LIKE '00000|1|%' AND s_id = '33333333-3333-3333-3333-333333333333' AND s_name = 'Sam Spark', false),
     coalesce(r, 'null') || '|' || coalesce(s_id::text, 'null') || '|' || coalesce(s_name, 'null')
   );
 END $$;

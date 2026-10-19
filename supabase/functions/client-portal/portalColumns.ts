@@ -1,3 +1,7 @@
+/**
+ * Taken from information_schema after every supabase/migrations file on real Postgres.
+ * Regenerate with: scripts/dump-portal-columns.sh
+ */
 export const CLIENT_PORTAL_TABLE_COLUMNS: Record<string, readonly string[]> = {
   client_portal_tokens: [
     "client_id",
@@ -150,8 +154,8 @@ export const CLIENT_PORTAL_TABLE_COLUMNS: Record<string, readonly string[]> = {
     "cost_code",
     "created_at",
     "created_by",
-    "creator_name_snapshot",
     "created_via",
+    "creator_name_snapshot",
     "description",
     "dispatch_ready",
     "dispatch_version",

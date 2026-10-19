@@ -141,6 +141,88 @@ ORDER BY rel.relname, att.attname;
 SQL
 }
 
+split_rollback_statements() {
+  python3 - "$1" "$2" <<'PY'
+import pathlib, re, sys
+src, dest = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+dest.mkdir(parents=True, exist_ok=True)
+text = "\n".join(
+    line for line in src.read_text().splitlines() if not line.strip().startswith("--")
+)
+text = re.sub(r"\bBEGIN\s*;", "", text, flags=re.I)
+text = re.sub(r"\bCOMMIT\s*;", "", text, flags=re.I)
+stmts = []
+i = 0
+n = len(text)
+while i < n:
+    while i < n and text[i].isspace():
+        i += 1
+    if i >= n:
+        break
+    do = re.match(r"DO\s+\$\$", text[i:], flags=re.I)
+    if do:
+        end = text.find("$$;", i + do.end())
+        if end < 0:
+            raise SystemExit("unclosed DO block")
+        stmts.append(text[i : end + 3].strip())
+        i = end + 3
+        continue
+    semi = text.find(";", i)
+    if semi < 0:
+        rest = text[i:].strip()
+        if rest:
+            stmts.append(rest)
+        break
+    stmt = text[i : semi + 1].strip()
+    if stmt:
+        stmts.append(stmt)
+    i = semi + 1
+if not stmts:
+    raise SystemExit(f"no statements in {src}")
+for idx, stmt in enumerate(stmts, 1):
+    (dest / f"{idx:02d}.sql").write_text(stmt if stmt.endswith("\n") else stmt + "\n")
+print(len(stmts))
+PY
+}
+
+run_rollback_stop_on_error() {
+  local pgv="$1"
+  local db="$2"
+  local sqlfile="$3"
+  local label="$4"
+  local stmt_dir="${RB_OUT}/pg${pgv}-${db}-stmts"
+  rm -rf "${stmt_dir}"
+  split_rollback_statements "${sqlfile}" "${stmt_dir}" >/dev/null
+  local f
+  for f in "${stmt_dir}"/*.sql; do
+    if ! psql -h "${PGHOST}" -p "${PGPORT}" -U postgres -X -q -v ON_ERROR_STOP=1 -d "${db}" -f "${f}"; then
+      echo "stop-on-error ${label} halted at $(basename "${f}")"
+      return 0
+    fi
+  done
+  echo "stop-on-error ${label} ran to completion"
+}
+
+count_insp_snap_cols() {
+  local db="$2"
+  psql -h "${PGHOST}" -p "${PGPORT}" -U postgres -X -q -At -d "${db}" -c "
+    SELECT count(*) FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'inspections'
+      AND column_name IN ('inspector_name_snapshot', 'inspector_licence_snapshot')
+  "
+}
+
+count_creator_snap_cols() {
+  local db="$2"
+  psql -h "${PGHOST}" -p "${PGPORT}" -U postgres -X -q -At -d "${db}" -c "
+    SELECT count(*) FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name IN ('templates', 'jha_templates', 'jha_documents', 'jobs')
+      AND column_name = 'creator_name_snapshot'
+  "
+}
+
 run_one() {
   local PGV="$1"
   local PORT="$2"
@@ -301,6 +383,84 @@ run_one() {
   fi
   "${PSQL[@]}" -d insp2_cnullrb -c "SELECT creator_name_snapshot FROM templates LIMIT 1" >/dev/null
   echo "creator NULL-present rollback aborted and kept snapshot columns"
+
+  echo "== NULL-present statement-by-statement stop-on-error (inspector) =="
+  "${PSQL[@]}" -d postgres -c "DROP DATABASE IF EXISTS insp2_nullstmt"
+  "${PSQL[@]}" -d postgres -c "CREATE DATABASE insp2_nullstmt"
+  "${PSQL[@]}" -d insp2_nullstmt -v sec_insp2_fixture_only=1 -f "${SQL}"
+  "${PSQL[@]}" -d insp2_nullstmt -f "${MIG}"
+  "${PSQL[@]}" -d insp2_nullstmt -c "UPDATE inspections SET inspector_id = NULL"
+  run_rollback_stop_on_error "${PGV}" insp2_nullstmt "${RB}" as_shipped
+  kept="$(count_insp_snap_cols "${PGV}" insp2_nullstmt)"
+  if [ "${kept}" != "2" ]; then
+    echo "inspector stmt-by-stmt as-shipped kept ${kept}/2 snapshot columns"
+    return 1
+  fi
+  echo "inspector stmt-by-stmt stop-on-error kept 2/2 snapshot columns"
+
+  python3 - "${RB}" "${RB_OUT}/pg${PGV}-insp-rb-set-null-last.sql" <<'PY'
+import pathlib, sys
+src, dest = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+text = src.read_text()
+set_null = "ALTER TABLE public.inspections\n  ALTER COLUMN inspector_id SET NOT NULL;"
+if set_null not in text:
+    raise SystemExit("inspector SET NOT NULL block missing")
+dest.write_text(text.replace(set_null, "", 1).replace("COMMIT;", set_null + "\n\nCOMMIT;"))
+PY
+  "${PSQL[@]}" -d postgres -c "DROP DATABASE IF EXISTS insp2_nullstmtm"
+  "${PSQL[@]}" -d postgres -c "CREATE DATABASE insp2_nullstmtm"
+  "${PSQL[@]}" -d insp2_nullstmtm -v sec_insp2_fixture_only=1 -f "${SQL}"
+  "${PSQL[@]}" -d insp2_nullstmtm -f "${MIG}"
+  "${PSQL[@]}" -d insp2_nullstmtm -c "UPDATE inspections SET inspector_id = NULL"
+  echo "mutant inspector_set_not_null_after_drops APPLIED"
+  run_rollback_stop_on_error "${PGV}" insp2_nullstmtm "${RB_OUT}/pg${PGV}-insp-rb-set-null-last.sql" mutant
+  kept="$(count_insp_snap_cols "${PGV}" insp2_nullstmtm)"
+  if [ "${kept}" = "2" ]; then
+    echo "mutant inspector_set_not_null_after_drops was not killed"
+    return 1
+  fi
+  echo "mutant inspector_set_not_null_after_drops KILLED by stmt-by-stmt kept ${kept}/2"
+
+  echo "== NULL-present statement-by-statement stop-on-error (creator) =="
+  "${PSQL[@]}" -d postgres -c "DROP DATABASE IF EXISTS insp2_cnullstmt"
+  "${PSQL[@]}" -d postgres -c "CREATE DATABASE insp2_cnullstmt"
+  "${PSQL[@]}" -d insp2_cnullstmt -v sec_insp2_creator_fixture_only=1 -f "${CREATOR_SQL}"
+  "${PSQL[@]}" -d insp2_cnullstmt -f "${CREATOR_MIG}"
+  "${PSQL[@]}" -d insp2_cnullstmt -c "UPDATE templates SET created_by = NULL"
+  run_rollback_stop_on_error "${PGV}" insp2_cnullstmt "${CREATOR_RB}" as_shipped
+  kept="$(count_creator_snap_cols "${PGV}" insp2_cnullstmt)"
+  if [ "${kept}" != "4" ]; then
+    echo "creator stmt-by-stmt as-shipped kept ${kept}/4 snapshot columns"
+    return 1
+  fi
+  echo "creator stmt-by-stmt stop-on-error kept 4/4 snapshot columns"
+
+  python3 - "${CREATOR_RB}" "${RB_OUT}/pg${PGV}-creator-rb-set-null-last.sql" <<'PY'
+import pathlib, sys
+src, dest = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+text = src.read_text()
+block = (
+    "ALTER TABLE public.templates ALTER COLUMN created_by SET NOT NULL;\n"
+    "ALTER TABLE public.jha_templates ALTER COLUMN created_by SET NOT NULL;\n"
+    "ALTER TABLE public.jha_documents ALTER COLUMN created_by SET NOT NULL;\n"
+)
+if block not in text:
+    raise SystemExit("creator SET NOT NULL block missing")
+dest.write_text(text.replace(block, "", 1).replace("COMMIT;", block + "\nCOMMIT;"))
+PY
+  "${PSQL[@]}" -d postgres -c "DROP DATABASE IF EXISTS insp2_cnullstmtm"
+  "${PSQL[@]}" -d postgres -c "CREATE DATABASE insp2_cnullstmtm"
+  "${PSQL[@]}" -d insp2_cnullstmtm -v sec_insp2_creator_fixture_only=1 -f "${CREATOR_SQL}"
+  "${PSQL[@]}" -d insp2_cnullstmtm -f "${CREATOR_MIG}"
+  "${PSQL[@]}" -d insp2_cnullstmtm -c "UPDATE templates SET created_by = NULL"
+  echo "mutant creator_set_not_null_after_drops APPLIED"
+  run_rollback_stop_on_error "${PGV}" insp2_cnullstmtm "${RB_OUT}/pg${PGV}-creator-rb-set-null-last.sql" mutant
+  kept="$(count_creator_snap_cols "${PGV}" insp2_cnullstmtm)"
+  if [ "${kept}" = "4" ]; then
+    echo "mutant creator_set_not_null_after_drops was not killed"
+    return 1
+  fi
+  echo "mutant creator_set_not_null_after_drops KILLED by stmt-by-stmt kept ${kept}/4"
 
   echo "All prove-sec-insp-2 PG${PGV} steps passed"
 }

@@ -298,6 +298,17 @@ BEGIN
     coalesce(kept_name, 'null')
   );
 
+  UPDATE public.jobs
+    SET creator_name_snapshot = 'Forged Creator'
+    WHERE id = '54111111-1111-1111-1111-111111111111';
+  SELECT creator_name_snapshot INTO kept_name
+  FROM public.jobs WHERE id = '54111111-1111-1111-1111-111111111111';
+  INSERT INTO proof_result VALUES (
+    'jobs_update_snapshot_only_keeps_old_name',
+    kept_name = 'Pat Snapshot',
+    coalesce(kept_name, 'null')
+  );
+
   INSERT INTO proof_result VALUES (
     'creator_helper_no_public_anon_execute',
     NOT has_function_privilege('anon', 'public.fill_creator_name_snapshot()', 'EXECUTE')
@@ -387,7 +398,7 @@ BEGIN
   FROM public.templates WHERE id = '51111111-1111-1111-1111-111111111111';
   INSERT INTO proof_result VALUES (
     'creator_member_reassign_fills_hidden_teammate',
-    r LIKE '00000|1|%' AND s_id = '33333333-3333-3333-3333-333333333333' AND s_name = 'Sam Spark',
+    coalesce(r LIKE '00000|1|%' AND s_id = '33333333-3333-3333-3333-333333333333' AND s_name = 'Sam Spark', false),
     coalesce(r, 'null') || '|' || coalesce(s_id::text, 'null') || '|' || coalesce(s_name, 'null')
   );
 END $$;
@@ -439,6 +450,44 @@ BEGIN
 END $$;
 
 ALTER FUNCTION public.fill_creator_name_snapshot() SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_jobs_fill_creator_snapshot ON public.jobs;
+CREATE TRIGGER trg_jobs_fill_creator_snapshot
+  BEFORE INSERT OR UPDATE OF created_by ON public.jobs
+  FOR EACH ROW
+  EXECUTE FUNCTION public.fill_creator_name_snapshot();
+
+DO $$
+DECLARE
+  forged_name text;
+  kept_ok boolean;
+BEGIN
+  UPDATE public.jobs
+    SET creator_name_snapshot = 'Forged After Mutant'
+    WHERE id = '54111111-1111-1111-1111-111111111111';
+  SELECT creator_name_snapshot INTO forged_name
+  FROM public.jobs WHERE id = '54111111-1111-1111-1111-111111111111';
+  kept_ok := forged_name = 'Pat Snapshot';
+  INSERT INTO proof_result VALUES (
+    'mutant_jobs_trigger_omits_snapshot_col_applied',
+    forged_name = 'Forged After Mutant',
+    coalesce(forged_name, 'null')
+  );
+  INSERT INTO proof_result VALUES (
+    'mutant_jobs_trigger_omits_snapshot_col_killed',
+    kept_ok IS NOT TRUE,
+    'killed by jobs_update_snapshot_only_keeps_old_name ' || coalesce(forged_name, 'null')
+  );
+END $$;
+
+DROP TRIGGER IF EXISTS trg_jobs_fill_creator_snapshot ON public.jobs;
+UPDATE public.jobs
+  SET creator_name_snapshot = 'Pat Snapshot'
+  WHERE id = '54111111-1111-1111-1111-111111111111';
+CREATE TRIGGER trg_jobs_fill_creator_snapshot
+  BEFORE INSERT OR UPDATE OF created_by, creator_name_snapshot ON public.jobs
+  FOR EACH ROW
+  EXECUTE FUNCTION public.fill_creator_name_snapshot();
 
 UPDATE public.templates SET created_by = '22222222-2222-2222-2222-222222222222' WHERE created_by IS NULL;
 UPDATE public.jha_templates SET created_by = '22222222-2222-2222-2222-222222222222' WHERE created_by IS NULL;

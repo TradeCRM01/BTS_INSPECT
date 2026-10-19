@@ -97,5 +97,37 @@ apply_and_kill \
   "src/lib/jhaList.test.ts" \
   "keeps creator_name_snapshot on the JHA list select so a deleted member still names the row"
 
+FOLDER_TEST="src/lib/inspectorSnapshot.test.ts"
+FOLDER_NAME="remove-member function folder ships only index.ts and publicError.ts"
+FOLDER_LINE="$(python3 - "${ROOT}/${FOLDER_TEST}" "${FOLDER_NAME}" <<'PY'
+import pathlib, sys
+path, name = pathlib.Path(sys.argv[1]), sys.argv[2]
+for i, line in enumerate(path.read_text().splitlines(), 1):
+    if name in line and ("it(" in line or "test(" in line):
+        print(i)
+        break
+else:
+    print("?")
+PY
+)"
+cp "${ROOT}/scripts/remove-member/import_map.json" "${ROOT}/supabase/functions/remove-member/import_map.json"
+cp "${ROOT}/scripts/remove-member/mock_supabase.ts" "${ROOT}/supabase/functions/remove-member/mock_supabase.ts"
+cp "${ROOT}/scripts/remove-member/empty.d.ts" "${ROOT}/supabase/functions/remove-member/empty.d.ts"
+echo "mutant remove_member_ships_harness APPLIED"
+if run_named "${FOLDER_TEST}" "${FOLDER_NAME}"; then
+  rm -f \
+    "${ROOT}/supabase/functions/remove-member/import_map.json" \
+    "${ROOT}/supabase/functions/remove-member/mock_supabase.ts" \
+    "${ROOT}/supabase/functions/remove-member/empty.d.ts"
+  echo "mutant remove_member_ships_harness was not killed"
+  exit 1
+fi
+echo "mutant remove_member_ships_harness KILLED by ${FOLDER_TEST}:${FOLDER_LINE} ${FOLDER_NAME}"
+rm -f \
+  "${ROOT}/supabase/functions/remove-member/import_map.json" \
+  "${ROOT}/supabase/functions/remove-member/mock_supabase.ts" \
+  "${ROOT}/supabase/functions/remove-member/empty.d.ts"
+run_named "${FOLDER_TEST}" "${FOLDER_NAME}"
+
 echo "All prove-sec-insp-2-app mutants passed"
 bash "${ROOT}/scripts/prove-remove-member-harness.sh"

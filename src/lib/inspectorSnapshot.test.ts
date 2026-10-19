@@ -1,3 +1,5 @@
+import { readdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   documentCreatorLine,
@@ -107,6 +109,13 @@ describe('inspection PDF uses the snapshot when inspector_id is null', () => {
 });
 
 describe('remove-member unexpected errors stay friendly', () => {
+  it('remove-member function folder ships only index.ts and publicError.ts', () => {
+    const names = readdirSync(resolve(__dirname, '../../supabase/functions/remove-member'))
+      .filter((name) => !name.startsWith('.'))
+      .sort();
+    expect(names).toEqual(['index.ts', 'publicError.ts']);
+  });
+
   it('does not leak a raw database message', () => {
     const raw = {
       message: 'null value in column "inspector_id" of relation "inspections" violates not-null constraint',
