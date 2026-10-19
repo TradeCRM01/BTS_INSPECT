@@ -112,19 +112,19 @@ export function MarketingPage() {
           <p className="hub-marketing-kicker">Pricing</p>
           <h2 className="hub-marketing-subhead">What it costs.</h2>
           <p>
-            2 months free. Then one simple weekly price. AUD, GST included.
+            One plan. Every feature. AUD, GST included.
           </p>
-          <div className="hub-marketing-grid min-[800px]:!grid-cols-2">
-            <article>
+          <div className="hub-marketing-grid">
+            <article className="max-w-md">
               <p className="hub-marketing-kicker">Up to 10 seats</p>
-              <p>2 months free. Then one simple weekly price. GST included.</p>
+              <p className="hub-marketing-subhead text-navy" data-price-slot="crew">2 months free</p>
+              <p className="text-muted">Then one simple weekly price for up to 10 seats. GST included.</p>
               <Link to="/signup" className="hub-marketing-btn mt-4">Create a workspace</Link>
             </article>
-            <article>
-              <p className="hub-marketing-kicker">Crews over 10</p>
-              <p>Talk to us.</p>
-            </article>
           </div>
+          <p className="text-muted">
+            Crews over 10 seats: talk to us.
+          </p>
           <p>
             Same Grafter either way. Jobs, custom templates, JHA, Take 5, SWMS.
           </p>

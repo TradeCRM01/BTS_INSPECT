@@ -72,7 +72,8 @@ describe('public Grafter landing', () => {
     expect(page).not.toMatch(/Accept books the job/i);
     expect(page).not.toMatch(/Accept schedules the job/i);
 
-    expect(page).not.toContain('data-price-slot');
+    expect(page).toContain('data-price-slot="crew"');
+    expect(page).toContain('hub-marketing-subhead text-navy');
     expect(page).not.toContain('$59');
     expect(page).not.toContain('$119');
     expect(page).not.toContain('$199');
@@ -85,14 +86,18 @@ describe('public Grafter landing', () => {
     expect(page).not.toContain('3-month');
     expect(page).not.toContain('seat pack');
     expect(page).toContain('2 months free. Then one simple weekly price.');
+    expect(page).toContain('One plan. Every feature. AUD, GST included.');
     expect(page).toContain('Up to 10 seats');
-    expect(page).toContain('2 months free. Then one simple weekly price. GST included.');
-    expect(page).toContain('Crews over 10');
-    expect(page).toContain('Talk to us.');
+    expect(page).toContain('>2 months free<');
+    expect(page).toContain('Then one simple weekly price for up to 10 seats. GST included.');
+    expect(page).toContain('Crews over 10 seats: talk to us.');
+    expect(page).not.toContain('Crews over 10</p>');
+    expect(page).not.toContain('Talk to us.');
     expect(page).toContain('One plan up to 10 seats, and bigger crews talk to us.');
     expect(page).toContain('Prices are AUD, GST included.');
     expect(page).toContain('2 months free. Instant signup. Your jobs, your templates, your letterhead.');
     expect(page).toContain('Same Grafter either way. Jobs, custom templates, JHA, Take 5, SWMS.');
+    expect(page).toContain('max-w-md');
     expect(page).toContain('Crew');
     expect(page).not.toContain('Company');
     expect(page).not.toContain('Plant');
@@ -177,7 +182,7 @@ describe('public landing dollar-free pricing cards', () => {
     host = null;
   });
 
-  it('renders two cards with no dollar figures and no signup on Talk to us', async () => {
+  it('renders one card with no dollar figures and no signup on talk to us', async () => {
     host = document.createElement('div');
     document.body.appendChild(host);
     root = createRoot(host);
@@ -186,10 +191,11 @@ describe('public landing dollar-free pricing cards', () => {
     });
 
     const text = host.innerText || host.textContent || '';
+    expect(text).toContain('One plan. Every feature. AUD, GST included.');
     expect(text).toContain('Up to 10 seats');
-    expect(text).toContain('2 months free. Then one simple weekly price. GST included.');
-    expect(text).toContain('Crews over 10');
-    expect(text).toContain('Talk to us.');
+    expect(text).toContain('2 months free');
+    expect(text).toContain('Then one simple weekly price for up to 10 seats. GST included.');
+    expect(text).toContain('Crews over 10 seats: talk to us.');
     expect(text).toContain('Create a workspace');
     expect(text).not.toContain('$');
     expect(text).not.toContain('3 months');
@@ -199,14 +205,15 @@ describe('public landing dollar-free pricing cards', () => {
 
     const pricing = host.querySelector('#pricing');
     expect(pricing).toBeTruthy();
+    expect(pricing!.querySelectorAll('article').length).toBe(1);
     const workspaceLinks = [...pricing!.querySelectorAll('a')].filter((a) =>
       (a.textContent || '').includes('Create a workspace'),
     );
     expect(workspaceLinks.length).toBe(1);
     expect(workspaceLinks[0]?.getAttribute('href')).toBe('/signup');
 
-    const talkMatches = [...host.querySelectorAll('#pricing *')].filter((el) =>
-      (el.textContent || '').trim() === 'Talk to us.',
+    const talkMatches = [...pricing!.querySelectorAll('*')].filter((el) =>
+      /talk to us/i.test((el.textContent || '').trim()) && (el.textContent || '').trim().length < 80,
     );
     expect(talkMatches.length).toBeGreaterThan(0);
     for (const el of talkMatches) {
