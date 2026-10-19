@@ -17,6 +17,11 @@ const harness = vi.hoisted(() => ({
   userId: '00000000-0000-4000-8000-0000000000aa',
   companyId: '00000000-0000-4000-8000-0000000000bb',
   inspectionId: '00000000-0000-4000-8000-0000000000cc',
+  inspectionStatus: 'draft',
+  inspectionMeta: { siteName: 'Phone site' } as Record<string, string>,
+  inspectionCrmJobId: null as string | null,
+  inspectionArchived: false,
+  jobs: [] as Array<Record<string, unknown>>,
   schema: {
     meta: {
       requiresSiteName: false,
@@ -62,25 +67,27 @@ vi.mock('../lib/supabase', () => {
     email: 'qa@example.com',
   };
   const company = { id: harness.companyId, name: 'QA Co' };
-  const inspection = {
-    id: harness.inspectionId,
-    status: 'draft',
-    responses: {},
-    meta: { siteName: 'Phone site' },
-    template_snapshot: { name: 'CoS 069 prove template', schema: harness.schema },
-    started_at: '2026-10-19T00:00:00.000Z',
-    completed_at: null,
-    inspector_id: harness.userId,
-    crm_job_id: null,
-    client_id: null,
-    archived: false,
-  };
+  function inspectionRow() {
+    return {
+      id: harness.inspectionId,
+      status: harness.inspectionStatus,
+      responses: {},
+      meta: harness.inspectionMeta,
+      template_snapshot: { name: 'CoS 069 prove template', schema: harness.schema },
+      started_at: '2026-10-19T00:00:00.000Z',
+      completed_at: harness.inspectionStatus === 'draft' ? null : '2026-10-19T00:00:00.000Z',
+      inspector_id: harness.userId,
+      crm_job_id: harness.inspectionCrmJobId,
+      client_id: null,
+      archived: harness.inspectionArchived,
+    };
+  }
 
   function resultFor(table: string) {
     if (table === 'profiles') return { data: profile, error: null };
     if (table === 'companies') return { data: company, error: null };
-    if (table === 'inspections') return { data: inspection, error: null };
-    if (table === 'jobs') return { data: [], error: null };
+    if (table === 'inspections') return { data: inspectionRow(), error: null };
+    if (table === 'jobs') return { data: harness.jobs, error: null };
     if (table === 'photos') return { data: [], error: null };
     if (table === 'clients') return { data: null, error: null };
     return { data: [], error: null };
@@ -99,8 +106,8 @@ vi.mock('../lib/supabase', () => {
         if (table === 'inspections') harness.updates.push(payload);
         if (table === 'inspections' && harness.emptyUpdate) {
           promise = Promise.resolve({ data: [], error: null });
-        } else if (table === 'inspections') {
-          promise = Promise.resolve({ data: [{ id: inspection.id, ...payload }], error: null });
+        } else         if (table === 'inspections') {
+          promise = Promise.resolve({ data: [{ id: harness.inspectionId, ...payload }], error: null });
         }
         return query;
       },
@@ -140,6 +147,11 @@ beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   harness.updates = [];
   harness.emptyUpdate = false;
+  harness.inspectionStatus = 'draft';
+  harness.inspectionMeta = { siteName: 'Phone site' };
+  harness.inspectionCrmJobId = null;
+  harness.inspectionArchived = false;
+  harness.jobs = [];
   sessionStorage.clear();
   container = document.createElement('div');
   document.body.appendChild(container);
@@ -350,10 +362,20 @@ describe('inspection fill page flush', () => {
 
   it('a failed Review save stays on the fill page and shows the error', async () => {
     await renderPage();
-    await waitForNotes();
+    const notes = await waitForNotes();
     harness.emptyUpdate = true;
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+      setter?.call(notes, 'kept?');
+      notes.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 800));
+    });
+    expect(harness.updates.length).toBeGreaterThan(0);
+    expect(JSON.stringify(harness.updates[0])).toContain('kept?');
     const review = Array.from(document.body.querySelectorAll('button')).find(btn => (
-      /Review/.test(btn.textContent || '') && !/Cancel|Leave/.test(btn.textContent || '')
+      /Review|Save/.test(btn.textContent || '') && !/Cancel|Leave/.test(btn.textContent || '')
     ));
     if (!review) throw new Error('missing Review');
     await act(async () => {
@@ -362,7 +384,6 @@ describe('inspection fill page flush', () => {
     await act(async () => {
       await new Promise(resolve => setTimeout(resolve, 200));
     });
-    expect(harness.updates.length).toBeGreaterThan(0);
     expect(document.body.textContent).not.toContain('REVIEW PAGE');
     expect(container.querySelector('[data-save-status]')?.getAttribute('data-save-status')).toBe('error');
   });
@@ -417,4 +438,169 @@ describe('inspection fill page flush', () => {
     expect(document.body.textContent).not.toContain('Leave without saving?');
     expect(document.body.textContent).toContain('REVIEW PAGE');
   });
+
+  it('does not write an issued inspection on retry, flush, or View PDF', async () => {
+    const walked = await finalisedWalk('issued');
+    expect(walked).toMatchObject({
+      lock: true,
+      textareaDisabled: true,
+      updates: 0,
+      rest: 0,
+      navigated: 'report',
+    });
+    expect(walked.follows).toBe(false);
+  });
+
+  it('does not persist a draft when the living job matches stored meta', async () => {
+    harness.inspectionMeta = { siteName: 'Same St', siteAddress: 'Same St', clientName: '' };
+    harness.inspectionCrmJobId = 'job-1';
+    harness.jobs = [{
+      id: 'job-1',
+      title: 'Same St',
+      client_id: null,
+      address: 'Same St',
+      job_number: 7,
+      scheduled_date: '2026-10-19',
+      company_id: harness.companyId,
+      start_time: null,
+    }];
+    await renderPage();
+    await waitForNotes();
+    const started = Date.now();
+    while (Date.now() - started < 2000 && harness.updates.length === 0) {
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
+    }
+    expect(harness.updates).toEqual([]);
+  });
 });
+
+function forceType(el: HTMLTextAreaElement | HTMLInputElement, value: string) {
+  const proto = el instanceof HTMLTextAreaElement
+    ? window.HTMLTextAreaElement.prototype
+    : window.HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto, 'value')?.set?.call(el, value);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+async function tick(ms: number) {
+  await act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+}
+
+async function finalisedWalk(status: string, archived = false) {
+  vi.stubEnv('VITE_SUPABASE_URL', 'https://proj.supabase.co');
+  vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'ANON_KEY_123');
+  const calls: string[] = [];
+  const orig = globalThis.fetch;
+  globalThis.fetch = ((url: string) => {
+    calls.push(String(url));
+    return Promise.resolve(new Response(null, { status: 204 }));
+  }) as typeof fetch;
+  harness.inspectionStatus = status;
+  harness.inspectionArchived = archived;
+  harness.inspectionMeta = { siteName: 'Old St', siteAddress: 'Old St', clientName: 'Old Client' };
+  harness.inspectionCrmJobId = 'job-1';
+  harness.jobs = [{
+    id: 'job-1',
+    title: 'New job',
+    client_id: 'client-1',
+    address: 'New St',
+    job_number: 41,
+    scheduled_date: '2026-10-19',
+    company_id: harness.companyId,
+    start_time: null,
+  }];
+  const out = {
+    lock: false,
+    follows: false,
+    textareaDisabled: false,
+    updates: 0,
+    rest: 0,
+    navigated: '',
+  };
+  try {
+    vi.useFakeTimers();
+    await renderPage();
+    for (let i = 0; i < 20 && !container.querySelector('textarea'); i++) await tick(50);
+    const body = document.body.textContent || '';
+    out.lock = body.includes('Locked. Contact the office to amend.');
+    out.follows = body.includes('Site follows this job.') || body.includes('Client follows this job');
+    const ta = container.querySelector('textarea') as HTMLTextAreaElement | null;
+    out.textareaDisabled = !!ta?.matches(':disabled');
+    if (ta) await act(async () => { forceType(ta, 'forced edit'); });
+    await tick(700);
+    await tick(31000);
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('pagehide'));
+      window.dispatchEvent(new Event('beforeunload', { cancelable: true }));
+    });
+    const btn = Array.from(document.body.querySelectorAll('button')).find(b => (
+      /View PDF|Review|Next/.test(b.textContent || '')
+    ));
+    if (btn) await act(async () => { btn.click(); });
+    await tick(100);
+    out.updates = harness.updates.length;
+    out.rest = calls.filter(u => u.includes('/rest/v1/inspections')).length;
+    out.navigated = (document.body.textContent || '').includes('REPORT PAGE')
+      ? 'report'
+      : ((document.body.textContent || '').includes('REVIEW PAGE') ? 'review' : 'stayed');
+    return out;
+  } finally {
+    globalThis.fetch = orig;
+    vi.unstubAllEnvs();
+    vi.useRealTimers();
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+  }
+}
+
+describe('finalised write guards', () => {
+  it('living effect returns before persist when the inspection is finalised', async () => {
+    const walked = await finalisedWalk('issued');
+    expect(walked.updates).toBe(0);
+    expect(walked.rest).toBe(0);
+    expect(walked.lock).toBe(true);
+  });
+
+  it('saveInspection returns before update when the inspection is finalised', async () => {
+    const walked = await finalisedWalk('completed');
+    expect(walked).toMatchObject({ lock: true, follows: false, textareaDisabled: true, updates: 0, rest: 0, navigated: 'report' });
+  });
+
+  it('flush and retry skip saveInspection when the inspection is finalised', async () => {
+    const walked = await finalisedWalk('sent');
+    expect(walked.updates).toBe(0);
+    expect(walked.rest).toBe(0);
+    expect(walked.lock).toBe(true);
+    expect(walked.follows).toBe(false);
+  });
+
+  it('living effect does not persist when the living job matches stored meta', async () => {
+    harness.inspectionStatus = 'draft';
+    harness.inspectionMeta = { siteName: 'Same St', siteAddress: 'Same St', clientName: '' };
+    harness.inspectionCrmJobId = 'job-1';
+    harness.jobs = [{
+      id: 'job-1',
+      title: 'Same St',
+      client_id: null,
+      address: 'Same St',
+      job_number: 7,
+      scheduled_date: '2026-10-19',
+      company_id: harness.companyId,
+      start_time: null,
+    }];
+    await renderPage();
+    await waitForNotes();
+    const started = Date.now();
+    while (Date.now() - started < 2000 && harness.updates.length === 0) {
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
+    }
+    expect(harness.updates).toEqual([]);
+  });
+
+  it('locks a draft with the archived flag and writes nothing after forced input', async () => {
+    const walked = await finalisedWalk('draft', true);
+    expect(walked).toMatchObject({ lock: true, follows: false, textareaDisabled: true, updates: 0, rest: 0 });
+  });
+});
+

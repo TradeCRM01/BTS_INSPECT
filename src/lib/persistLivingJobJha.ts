@@ -1,5 +1,9 @@
 import { supabase } from './supabase';
 import {
+  FINALISED_INSPECTION_STATUS_IN,
+  isFinalisedInspection,
+} from './isFinalisedInspection';
+import {
   applyLivingJobToInspection,
   applyLivingJobToJha,
   applyLivingJobToTake5,
@@ -110,20 +114,24 @@ export async function persistLivingJobOnBoundJhas(jobId: string): Promise<{ upda
 
   const { data: inspections, error: inspErr } = await supabase
     .from('inspections')
-    .select('id, meta, client_id')
-    .eq('crm_job_id', jobId);
+    .select('id, meta, client_id, status, archived')
+    .eq('crm_job_id', jobId)
+    .not('status', 'in', FINALISED_INSPECTION_STATUS_IN)
+    .eq('archived', false);
   if (inspErr) throw inspErr;
 
-  const bound = [...(inspections ?? [])];
+  const bound = [...(inspections ?? [])].filter(row => !isFinalisedInspection(row.status, row.archived));
   const extraId = typeof job.inspection_id === 'string' ? job.inspection_id : '';
   if (extraId && !bound.some(row => row.id === extraId)) {
     const { data: extra, error: extraErr } = await supabase
       .from('inspections')
-      .select('id, meta, client_id')
+      .select('id, meta, client_id, status, archived')
       .eq('id', extraId)
+      .not('status', 'in', FINALISED_INSPECTION_STATUS_IN)
+      .eq('archived', false)
       .maybeSingle();
     if (extraErr) throw extraErr;
-    if (extra) bound.push(extra);
+    if (extra && !isFinalisedInspection(extra.status, extra.archived)) bound.push(extra);
   }
 
   const crmBoundIds = new Set((inspections ?? []).map(row => row.id));
@@ -132,7 +140,9 @@ export async function persistLivingJobOnBoundJhas(jobId: string): Promise<{ upda
     let q = supabase
       .from('inspections')
       .update({ meta: patch.meta, client_id: patch.clientId })
-      .eq('id', patch.id);
+      .eq('id', patch.id)
+      .not('status', 'in', FINALISED_INSPECTION_STATUS_IN)
+      .eq('archived', false);
     if (crmBoundIds.has(patch.id)) q = q.eq('crm_job_id', jobId);
     const { error: upErr } = await q;
     if (upErr) throw upErr;

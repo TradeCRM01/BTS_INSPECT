@@ -12,6 +12,8 @@ import {
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
 import { ConfirmDialog, EmptyState, LoadingSpinner, PageError, SearchBar, opsSiteLabel, useToast } from '../components/ui';
+import { inspectionArchiveFailCopy } from '../lib/inspectionArchiveCopy';
+import { resolveInspectionPrintFieldsFromRow } from '../lib/inspectionPrintSnapshot';
 import { inspectionListConfirmCopy, type InspectionListConfirmKind } from '../lib/inspectionListConfirm';
 import { issueInspectionRecord, shouldMarkInspectionIssued } from '../lib/sendReport';
 import {
@@ -61,6 +63,10 @@ interface Inspection {
   inspector_licence?: string | null;
   inspector_name_snapshot?: string | null;
   inspector_licence_snapshot?: string | null;
+  client_name_snapshot?: string | null;
+  job_title_snapshot?: string | null;
+  site_name_snapshot?: string | null;
+  site_address_snapshot?: string | null;
   archived: boolean;
   parent_inspection_id: string | null;
   crm_job_id: string | null;
@@ -227,7 +233,7 @@ export function InspectionsPage() {
 
       const { data, error } = await supabase
         .from('inspections')
-        .select('id, status, meta, started_at, completed_at, template_snapshot, inspector_id, inspector_name_snapshot, inspector_licence_snapshot, archived, parent_inspection_id, crm_job_id, responses, due_on')
+        .select('id, status, meta, started_at, completed_at, template_snapshot, inspector_id, inspector_name_snapshot, inspector_licence_snapshot, client_name_snapshot, job_title_snapshot, site_name_snapshot, site_address_snapshot, archived, parent_inspection_id, crm_job_id, responses, due_on')
         .order('started_at', { ascending: false });
       if (error) throw error;
 
@@ -291,7 +297,13 @@ export function InspectionsPage() {
       const { error } = await supabase.from('inspections').update({ archived }).eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['inspections'] }),
+    onSuccess: () => {
+      setDeleteError(null);
+      queryClient.invalidateQueries({ queryKey: ['inspections'] });
+    },
+    onError: (err: { message?: string; code?: string }) => {
+      setDeleteError(inspectionArchiveFailCopy(err));
+    },
   });
 
   const deleteMutation = useMutation({
@@ -831,6 +843,12 @@ function InspectionRow({
         }
       : null,
   );
+  const printed = resolveInspectionPrintFieldsFromRow(doc, {
+    clientName: doc.job_client_name,
+    jobTitle: doc.job_title,
+    siteName: living.siteName,
+    siteAddress: living.siteAddress || doc.job_address,
+  });
   const recommended = recommendInspectionListAction(inspectionListContext({
     ...doc,
     hasReport: !!doc.report_id,
@@ -852,15 +870,15 @@ function InspectionRow({
   const href = inspectionListOpenHref(doc.id);
   const displayStatus = inspectionDisplayStatus(doc.status, doc.report_sent_at);
   const site = doc.crm_job_id
-    ? opsSiteLabel(living.siteName, living.siteAddress)
-    : opsSiteLabel(doc.meta?.siteName, doc.meta?.siteAddress, doc.job_address, doc.job_title);
+    ? opsSiteLabel(living.siteName, living.siteAddress, printed.siteName)
+    : opsSiteLabel(printed.siteName, printed.siteAddress, printed.clientName, doc.job_address, doc.job_title);
   const title = doc.template_snapshot?.name || 'Inspection';
   const when = formatInspectionListStamp(doc.completed_at || doc.started_at);
   const inspector = inspectionInspectorLine({
     name: doc.inspector_name || 'Unknown',
     licence: doc.inspector_licence ?? null,
   });
-  const muted = [title, when].filter(Boolean).join(' · ');
+  const muted = [printed.clientName, title, when].filter(Boolean).join(' · ');
 
   return (
     <div

@@ -67,6 +67,8 @@ export function isDevFieldAuditAuth(): boolean {
       || params.get('look') === 'inspections-list'
       || params.get('look') === 'inspection-snapshot-view'
       || params.get('look') === 'inspection-snapshot-edit'
+      || params.get('look') === 'inspection-issued-view'
+      || params.get('look') === 'inspection-issued-edit'
       || window.location.pathname === '/__field-audit'
     ) {
       sessionStorage.setItem(AUDIT_KEY, '1');

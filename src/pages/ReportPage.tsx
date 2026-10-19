@@ -13,6 +13,8 @@ import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
 import { InspectionIssueControl } from '../components/inspection/InspectionIssueControl';
 import { issueInspectionRecord, persistGeneratedReportPdf, reportIsSent, reportPdfFilename, reportSiteName } from '../lib/sendReport';
 import { applyLivingJobToInspection } from '../lib/livingJha';
+import { isFinalisedInspection } from '../lib/isFinalisedInspection';
+import { resolveInspectionPrintFields, inspectionPrintSnapshotsFromRow } from '../lib/inspectionPrintSnapshot';
 import { safeFormatDate } from '../lib/safeDate';
 import { PdfViewer } from '../components/pdf/PdfViewer';
 import { AnnotationToolbar } from '../components/pdf/AnnotationToolbar';
@@ -229,6 +231,29 @@ export function ReportPage() {
   }
 
   function livingReportMeta(raw: Record<string, string> | null | undefined): Record<string, string> {
+    const finalised = isFinalisedInspection(
+      inspection?.status,
+      (inspection as { archived?: boolean | null } | null)?.archived,
+    );
+    if (finalised) {
+      const printed = resolveInspectionPrintFields({
+        meta: raw,
+        snapshots: inspectionPrintSnapshotsFromRow(inspection as {
+          client_name_snapshot?: string | null;
+          job_title_snapshot?: string | null;
+          site_name_snapshot?: string | null;
+          site_address_snapshot?: string | null;
+        } | null),
+        finalised: true,
+      });
+      return {
+        ...(raw ?? {}),
+        siteName: printed.siteName,
+        siteAddress: printed.siteAddress,
+        clientName: printed.clientName,
+        jobDescription: printed.jobTitle || (raw?.jobDescription ?? ''),
+      };
+    }
     return applyLivingJobToInspection(
       raw,
       livingReportJob(),
@@ -263,6 +288,10 @@ export function ReportPage() {
           inspector_id: (inspection as { inspector_id?: string | null }).inspector_id ?? null,
           inspector_name_snapshot: (inspection as { inspector_name_snapshot?: string | null }).inspector_name_snapshot ?? null,
           inspector_licence_snapshot: (inspection as { inspector_licence_snapshot?: string | null }).inspector_licence_snapshot ?? null,
+          client_name_snapshot: (inspection as { client_name_snapshot?: string | null }).client_name_snapshot ?? null,
+          job_title_snapshot: (inspection as { job_title_snapshot?: string | null }).job_title_snapshot ?? null,
+          site_name_snapshot: (inspection as { site_name_snapshot?: string | null }).site_name_snapshot ?? null,
+          site_address_snapshot: (inspection as { site_address_snapshot?: string | null }).site_address_snapshot ?? null,
         },
         template: snapshot,
         profile,

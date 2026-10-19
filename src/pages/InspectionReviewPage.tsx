@@ -8,6 +8,8 @@ import { evaluateShowIf } from '../lib/conditionEval';
 import type { TemplateSchema, SignOffRole, InspectionCountersign } from '../types/template';
 import { parseCountersignatures } from '../types/template';
 import { applyLivingJobToInspection } from '../lib/livingJha';
+import { isFinalisedInspection } from '../lib/isFinalisedInspection';
+import { resolveInspectionPrintFields, inspectionPrintSnapshotsFromRow } from '../lib/inspectionPrintSnapshot';
 import { useAuth } from '../contexts/AuthContext';
 import { inspectionDocumentColors } from '../reports/generic_inspection/theme';
 import { getAuditEmptyList, getAuditInspection, getAuditJob } from '../lib/devFieldAuditDocs';
@@ -201,8 +203,16 @@ export function InspectionReviewPage() {
     setCountersignDraft(next);
   }, [inspection?.id, signOffRoles.map(r => r.id).join(',')]);
 
+  const alreadyFinalised = isFinalisedInspection(
+    inspection?.status,
+    (inspection as { archived?: boolean | null } | null)?.archived,
+  );
+
   const completeMutation = useMutation({
     mutationFn: async (countersignatures: InspectionCountersign[]) => {
+      if (alreadyFinalised) {
+        throw new Error('This inspection is locked. Contact the office to amend.');
+      }
       const existingMeta = (inspection?.meta as Record<string, unknown>) ?? {};
       const { error } = await supabase
         .from('inspections')
@@ -302,7 +312,7 @@ export function InspectionReviewPage() {
     return !draft?.name?.trim() || !draft?.signature;
   });
 
-  const canComplete = missingRequired.length === 0 && missingCountersign.length === 0;
+  const canComplete = !alreadyFinalised && missingRequired.length === 0 && missingCountersign.length === 0;
 
   function buildCountersignatures(): InspectionCountersign[] {
     const today = format(new Date(), 'yyyy-MM-dd');
@@ -322,7 +332,7 @@ export function InspectionReviewPage() {
   }
 
   function handleComplete() {
-    if (!canComplete) return;
+    if (alreadyFinalised || !canComplete) return;
     completeMutation.mutate(buildCountersignatures());
   }
 
@@ -346,14 +356,27 @@ export function InspectionReviewPage() {
         <div className="flex-1">
           <p className="text-sm font-medium">Review Inspection</p>
           <p className="text-[11px] text-white/60">
-            {applyLivingJobToInspection(meta, boundJob).siteName || (boundJob ? 'Inspection' : (meta?.siteName || 'Inspection'))}
+            {alreadyFinalised
+              ? (resolveInspectionPrintFields({
+                  meta,
+                  snapshots: inspectionPrintSnapshotsFromRow(inspection),
+                  finalised: true,
+                }).siteName || 'Inspection')
+              : (applyLivingJobToInspection(meta, boundJob).siteName || (boundJob ? 'Inspection' : (meta?.siteName || 'Inspection')))}
           </p>
         </div>
       </div>
 
       <div className="max-w-[720px] mx-auto px-4 py-6 pb-32">
+        {alreadyFinalised ? (
+          <div className="bg-[#F5F0E6] border border-[#D9D2C5] rounded-lg p-4 mb-4" data-issued-lock="1">
+            <p className="text-sm font-medium text-[#0A2540]">
+              Locked. Contact the office to amend.
+            </p>
+          </div>
+        ) : null}
         {/* Missing required */}
-        {!canComplete && (
+        {!alreadyFinalised && !canComplete && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
               <AlertCircle size={16} className="text-red-600" />
@@ -547,11 +570,13 @@ export function InspectionReviewPage() {
         </button>
         <button
           onClick={handleComplete}
-          disabled={!canComplete || completeMutation.isPending}
+          disabled={alreadyFinalised || !canComplete || completeMutation.isPending}
           className="flex items-center gap-2 bg-[#1B7F3A] text-white px-5 py-2.5 rounded-md text-sm font-medium hover:bg-[#166a30] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <ClipboardCheck size={16} />
-          {completeMutation.isPending ? 'Completing...' : 'Complete Inspection'}
+          {alreadyFinalised
+            ? 'Locked'
+            : completeMutation.isPending ? 'Completing...' : 'Complete Inspection'}
         </button>
       </div>
     </div>

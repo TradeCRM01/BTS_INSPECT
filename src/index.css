@@ -14691,6 +14691,27 @@
     font-weight: 500;
   }
 
+  .hub-inspections-document .hub-inspections-issued-lock {
+    margin: 8px 0 0;
+    max-width: 100%;
+    min-width: 0;
+    color: var(--insp-look-muted);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .hub-inspections-document .hub-inspections-fill-lock {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+    min-inline-size: 0;
+  }
+
   .hub-inspections-tools {
     display: flex;
     flex-wrap: wrap;
