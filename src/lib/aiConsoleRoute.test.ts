@@ -19,6 +19,9 @@ describe('SWEEP-AI console hide', () => {
     expect(shell).toContain('isPlatformOperator && companyAiKey');
     expect(settings).not.toContain('adminToolsEnabled');
     expect(settings).not.toContain('query and modify');
+    expect(settings).not.toContain('slice(-4)');
+    expect(settings).not.toContain('maskedKey');
+    expect(settings).not.toContain('last4');
     expect(settings).toContain('The assistant can look up this company');
   });
 });

@@ -1,6 +1,8 @@
 /**
  * @vitest-environment jsdom
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
@@ -62,6 +64,19 @@ describe('SWEEP-AI settings UI', () => {
     expect(text).not.toContain('query and modify');
     expect(text).not.toContain('Can modify data');
     expect(text).not.toContain('admin_tools_enabled');
+    expect(text).not.toContain('abcd');
+    expect(text).not.toContain('last4');
     expect(container.querySelector('[data-ai-settings="1"]')).not.toBeNull();
+  });
+
+  it('starts with tools and key status off and never renders last-4', () => {
+    const page = readFileSync(resolve(process.cwd(), 'src/pages/AiSettingsPage.tsx'), 'utf8');
+    expect(page).toContain('const [keySet, setKeySet] = useState(false)');
+    expect(page).not.toContain('adminToolsEnabled');
+    expect(page).not.toContain('admin_tools_enabled');
+    expect(page).not.toContain('slice(-4)');
+    expect(page).not.toContain('maskedKey');
+    expect(page).not.toContain('last4');
+    expect(page).toContain('API key is set');
   });
 });

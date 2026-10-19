@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { ANTHROPIC_KEY_TEST_FAILED, publicAiSettings } from "./aiSettingsPublic.ts";
+import { ANTHROPIC_KEY_TEST_FAILED, buildAiSettingsUpsert, publicAiSettings } from "./aiSettingsPublic.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -94,13 +94,7 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      // Build upsert payload — only include fields that were sent
-      const payload: Record<string, unknown> = {
-        company_id: ctx.companyId,
-        updated_at: new Date().toISOString(),
-      };
-      if (body.anthropic_api_key !== undefined) payload.anthropic_api_key = body.anthropic_api_key;
-      if (body.model !== undefined) payload.model = body.model;
+      const payload = buildAiSettingsUpsert(ctx.companyId, body, new Date().toISOString());
 
       const { error } = await supabase
         .from("ai_settings")
