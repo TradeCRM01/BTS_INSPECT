@@ -1,3 +1,5 @@
+import { assertPortalColumn } from "./portalColumns.ts";
+
 export type FilterCall = { method: string; args: unknown[] };
 
 export type QueryCall = {
@@ -5,6 +7,7 @@ export type QueryCall = {
   op: "select" | "update" | "insert" | "delete";
   select?: string;
   filters: FilterCall[];
+  payload?: unknown;
 };
 
 export type SignedUrlCall = {
@@ -246,7 +249,7 @@ export function sameCompanySeed(): PortalSeed {
           inspection_id: IDS.inspectionA,
           report_number: "R-A",
           pdf_storage_path: "a.pdf",
-          created_at: STAMP,
+          generated_at: STAMP,
         },
         {
           id: IDS.reportB,
@@ -254,7 +257,7 @@ export function sameCompanySeed(): PortalSeed {
           inspection_id: IDS.inspectionB,
           report_number: "B-LEAK-REPORT",
           pdf_storage_path: "b-secret.pdf",
-          created_at: STAMP,
+          generated_at: STAMP,
         },
       ],
       client_portal_tokens: [
@@ -316,16 +319,17 @@ export function mixedInspectorSeed(): PortalSeed {
     inspection_id: "inspection-mixed-b",
     report_number: "B-LEAK-REPORT",
     pdf_storage_path: "b-secret.pdf",
-    created_at: STAMP,
+    generated_at: STAMP,
   });
   return seed;
 }
 
-function project(row: StubRow, select: string | undefined): StubRow {
+function project(table: string, row: StubRow, select: string | undefined): StubRow {
   if (!select || select.trim() === "*") return { ...row };
   const cols = select.split(",").map((part) => part.trim()).filter(Boolean);
   const out: StubRow = {};
   for (const col of cols) {
+    assertPortalColumn(table, col);
     out[col] = row[col];
   }
   return out;
@@ -349,6 +353,26 @@ class QueryBuilder {
   private filters: FilterCall[] = [];
   private payload: unknown = null;
   private pending: Promise<{ data: unknown; error: unknown }> | null = null;
+  private schemaError: { code: string; message: string } | null = null;
+
+  private noteColumn(column: string) {
+    try {
+      assertPortalColumn(this.table, column);
+    } catch {
+      this.schemaError ??= {
+        code: "42703",
+        message: `column ${this.table}.${column} does not exist`,
+      };
+    }
+  }
+
+  private notePayload(payload: unknown) {
+    const rows = Array.isArray(payload) ? payload : [payload];
+    for (const row of rows) {
+      if (!row || typeof row !== "object") continue;
+      for (const key of Object.keys(row as StubRow)) this.noteColumn(key);
+    }
+  }
 
   constructor(
     private table: string,
@@ -358,30 +382,40 @@ class QueryBuilder {
 
   select(cols: string) {
     this.selectCols = cols;
+    if (cols && cols.trim() !== "*") {
+      for (const col of cols.split(",").map((part) => part.trim()).filter(Boolean)) {
+        this.noteColumn(col);
+      }
+    }
     return this;
   }
 
   eq(col: string, val: unknown) {
+    this.noteColumn(col);
     this.filters.push({ method: "eq", args: [col, val] });
     return this;
   }
 
   neq(col: string, val: unknown) {
+    this.noteColumn(col);
     this.filters.push({ method: "neq", args: [col, val] });
     return this;
   }
 
   in(col: string, val: unknown) {
+    this.noteColumn(col);
     this.filters.push({ method: "in", args: [col, val] });
     return this;
   }
 
   is(col: string, val: unknown) {
+    this.noteColumn(col);
     this.filters.push({ method: "is", args: [col, val] });
     return this;
   }
 
-  order(_col: string, _opts?: unknown) {
+  order(col: string, _opts?: unknown) {
+    this.noteColumn(col);
     return this;
   }
 
@@ -392,12 +426,14 @@ class QueryBuilder {
   update(payload: unknown) {
     this.op = "update";
     this.payload = payload;
+    this.notePayload(payload);
     return this;
   }
 
   insert(payload: unknown) {
     this.op = "insert";
     this.payload = payload;
+    this.notePayload(payload);
     return this;
   }
 
@@ -434,7 +470,9 @@ class QueryBuilder {
       op: this.op,
       select: this.selectCols,
       filters: [...this.filters],
+      payload: this.payload,
     });
+    if (this.schemaError) return { data: null, error: this.schemaError };
     if (this.op === "insert") {
       const incoming = Array.isArray(this.payload) ? this.payload : [this.payload];
       const rows = incoming.map((row, index) => {
@@ -454,7 +492,7 @@ class QueryBuilder {
       return { data: merged[0] ?? { id: rows[0]?.id ?? "updated-id" }, error: null };
     }
     const rows = (this.seed.tables[this.table] ?? []).filter((row) => matches(row, this.filters));
-    const projected = rows.map((row) => project(row, this.selectCols));
+    const projected = rows.map((row) => project(this.table, row, this.selectCols));
     if (mode === "many") return { data: projected, error: null };
     if (projected.length === 0) return { data: null, error: null };
     return { data: projected[0], error: null };

@@ -290,10 +290,14 @@ export async function handleClientPortalRequest(req: Request) {
         return json({ error: "Link expired" }, 403);
       }
 
-      await admin
+      const { error: shareAccessErr } = await admin
         .from("inspection_report_shares")
         .update({ last_accessed_at: new Date().toISOString() })
         .eq("id", share.id);
+      if (shareAccessErr) {
+        console.error("client-portal share last_accessed_at", shareAccessErr);
+        return json({ error: "Portal error" }, 500);
+      }
 
       const { data: inspection } = await admin
         .from("inspections")
@@ -312,12 +316,16 @@ export async function handleClientPortalRequest(req: Request) {
         }
       }
 
-      const { data: report } = await admin
+      const { data: report, error: reportErr } = await admin
         .from("reports")
-        .select("id, report_number, pdf_storage_path, created_at")
+        .select("id, report_number, pdf_storage_path, generated_at")
         .eq("inspection_id", share.inspection_id)
         .eq("company_id", share.company_id)
         .maybeSingle();
+      if (reportErr) {
+        console.error("client-portal share reports", reportErr);
+        return json({ error: "Portal error" }, 500);
+      }
 
       if (!inspection?.inspector_id && !report) {
         return json({ error: "Invalid link" }, 403);
@@ -364,7 +372,7 @@ export async function handleClientPortalRequest(req: Request) {
           docVersion: inspection?.doc_version ?? 1,
           amendmentReason: inspection?.amendment_reason ?? null,
           pdfUrl,
-          issuedAt: report?.created_at ?? null,
+          issuedAt: report?.generated_at ?? null,
         },
       });
     }
@@ -382,10 +390,14 @@ export async function handleClientPortalRequest(req: Request) {
       return json({ error: "Link expired" }, 403);
     }
 
-    await admin
+    const { error: portalAccessErr } = await admin
       .from("client_portal_tokens")
       .update({ last_accessed_at: new Date().toISOString() })
       .eq("id", portal.id);
+    if (portalAccessErr) {
+      console.error("client-portal portal last_accessed_at", portalAccessErr);
+      return json({ error: "Portal error" }, 500);
+    }
 
     const { data: client } = await admin
       .from("clients")
@@ -500,10 +512,10 @@ export async function handleClientPortalRequest(req: Request) {
     );
 
     const inspectionIds = scopedInspections.map((i) => i.id);
-    const { data: reports } = inspectionIds.length
+    const reportLoad = inspectionIds.length
       ? await admin
         .from("reports")
-        .select("id, inspection_id, report_number, pdf_storage_path, created_at")
+        .select("id, inspection_id, report_number, pdf_storage_path, generated_at")
         .in("inspection_id", inspectionIds)
         .eq("company_id", portal.company_id)
       : { data: [] as Array<{
@@ -511,8 +523,13 @@ export async function handleClientPortalRequest(req: Request) {
         inspection_id: string;
         report_number: string;
         pdf_storage_path: string;
-        created_at: string;
-      }> };
+        generated_at: string;
+      }>, error: null };
+    if (reportLoad.error) {
+      console.error("client-portal portal reports", reportLoad.error);
+      return json({ error: "Portal error" }, 500);
+    }
+    const { data: reports } = reportLoad;
 
     const reportByInspection = new Map((reports ?? []).map((r) => [r.inspection_id, r]));
 
@@ -537,7 +554,7 @@ export async function handleClientPortalRequest(req: Request) {
           completedAt: insp.completed_at,
           docVersion: insp.doc_version ?? 1,
           pdfUrl,
-          issuedAt: report?.created_at ?? null,
+          issuedAt: report?.generated_at ?? null,
         };
       }),
     );
