@@ -998,6 +998,12 @@ interface EditorState {
   end_time: string;
 }
 
+export function quotePreviewLines(form: { line_items: EditLineItem[] }): QuoteLineItem[] {
+    const committed = commitCommercialLines(form.line_items);
+    const cleanLines: QuoteLineItem[] = committed.ok ? committed.lines : [];
+    return cleanLines;
+}
+
 export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert, onFocusedConvert, onClose, onSaved, onRequestSend }: {
   quote: QuoteListItem | null;
   presetClientId?: string | null;
@@ -1266,8 +1272,7 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
 
   const previewData = useMemo((): CommercialPdfData | null => {
     if (!company) return null;
-    const committed = commitCommercialLines(form.line_items);
-    const cleanLines: QuoteLineItem[] = committed.ok ? committed.lines : [];
+    const cleanLines: QuoteLineItem[] = quotePreviewLines(form);
     return commercialPdfPreviewData({
       kind: 'quote',
       title: 'Quoted prices',
@@ -1576,18 +1581,7 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
       onClose={onClose}
       title="Quote"
       panelClassName="overlay-panel-xl hub-quote-editor"
-      footer={linesLocked ? (
-        <div className="hub-editor-sticky-footer" data-quote-view-footer="1">
-          <button
-            type="button"
-            data-editor-sticky-cancel="1"
-            onClick={onClose}
-            className="hub-editor-sticky-cancel"
-          >
-            Close
-          </button>
-        </div>
-      ) : (
+      footer={(
         <EditorStickyFooter
           onCancel={onClose}
           onSave={() => { void persist(form.status, { close: true }); }}
@@ -1695,7 +1689,6 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
                 >
                   Preview PDF
                 </button>
-                {!linesLocked && (
                 <button
                   type="button"
                   role="menuitem"
@@ -1704,7 +1697,6 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
                 >
                   {saving ? 'Saving...' : quote || savedId ? 'Save' : 'Save draft'}
                 </button>
-                )}
                 <button
                   type="button"
                   role="menuitem"

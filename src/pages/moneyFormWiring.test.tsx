@@ -8,8 +8,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DECIMAL_INVALID, MONEY_COMMA_HINT } from '../lib/parseDecimal';
-import { commitCommercialLines } from '../lib/commitCommercialLines';
+import { DECIMAL_EMPTY, DECIMAL_INVALID, MONEY_COMMA_HINT, numberDraftAllowed } from '../lib/parseDecimal';
+import { commercialLinesForPreview, commitCommercialLines } from '../lib/commitCommercialLines';
 import { calcSubtotal, emptyLineItem, LineItemEditor } from '../components/invoicing/LineItemEditor';
 import { ToastProvider } from '../components/ui/Toast';
 
@@ -85,16 +85,16 @@ vi.mock('../lib/supabase', () => ({
 }));
 
 import { useState } from 'react';
-import { ExpenseEditorModal } from './ExpensesPage';
+import { ExpenseEditorModal, sanitizeExpenseDecimalDraft } from './ExpensesPage';
 import { PriceBookItemForm, commitPriceBookPrices } from './PriceBooksPage';
 import { StockItemForm, commitStockQtyOnHand } from './StockPage';
 import { StockAdjustmentForm, commitStockAdjustment } from './StockDetailPage';
 import { POEditorModal, commitPOLine } from './PurchaseOrdersPage';
 import { InvoiceEditorModal, InvoiceRecordPaymentSheet } from './InvoicesPage';
-import { QuoteEditorModal } from './QuotesPage';
+import { QuoteEditorModal, quotePreviewLines } from './QuotesPage';
 import { JobFormModal, commitJobBudget } from '../components/crm/JobFormModal';
 import { PriceBookPdfImportModal } from '../components/pricebooks/PriceBookPdfImportModal';
-import { ApplyEmployeeCostModelModal, commitModelLine } from '../components/expenses/ExpenseModelsModals';
+import { ApplyEmployeeCostModelModal, ManageCostModelsModal, commitModelLine, commitModelLines } from '../components/expenses/ExpenseModelsModals';
 import { JobCostingPanel, commitJobBillCharge } from '../components/jobs/JobCostingPanel';
 import userEvent from '@testing-library/user-event';
 
@@ -137,10 +137,13 @@ async function flush() {
 }
 
 async function waitFor(selector: string) {
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 60; i++) {
     const el = pageRoot().querySelector(selector);
     if (el) return el;
     await flush();
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 10));
+    });
   }
   return pageRoot().querySelector(selector);
 }
@@ -225,6 +228,18 @@ describe('commit helpers reject 1,5 on every money form', () => {
       ok: false,
       message: MONEY_COMMA_HINT,
     });
+    expect(commitPOLine({ description: 'Conduit', quantity: '1,5', unit_cost: '10', received_quantity: 0 })).toMatchObject({
+      ok: true,
+      line: { quantity: 1.5, unit_cost: 10 },
+    });
+    expect(commitPOLine({ description: 'Conduit', quantity: '1,250', unit_cost: '10', received_quantity: 0 })).toMatchObject({
+      ok: true,
+      line: { quantity: 1250, unit_cost: 10 },
+    });
+    expect(commitPOLine({ description: 'Conduit', quantity: '1,250', unit_cost: '10', received_quantity: 0 })).not.toMatchObject({
+      ok: true,
+      line: { quantity: 1.25 },
+    });
     expect(commitJobBillCharge('1', '10', '1,5')).toEqual({ ok: false, message: MONEY_COMMA_HINT });
     expect(commitJobBillCharge('1,5', '10', '20')).toEqual({
       ok: true,
@@ -242,6 +257,64 @@ describe('commit helpers reject 1,5 on every money form', () => {
       time_unit: 'hourly',
       tax_rate: '',
     })).toEqual({ ok: false, message: MONEY_COMMA_HINT });
+    expect(commitModelLine({
+      employee_cost_type: 'wages',
+      category: 'Wages',
+      description: 'Base',
+      amount: '45',
+      amount_mode: 'fixed',
+      hours: '',
+      time_unit: 'hourly',
+      tax_rate: '1,5',
+    })).toMatchObject({ ok: true, line: { amount: 45, tax_rate: 1.5 } });
+    expect(commitModelLine({
+      employee_cost_type: 'wages',
+      category: 'Wages',
+      description: 'Base',
+      amount: '45',
+      amount_mode: 'fixed',
+      hours: '',
+      time_unit: 'hourly',
+      tax_rate: '1,5',
+    })).not.toMatchObject({ ok: true, line: { tax_rate: 1 } });
+    expect(commitModelLines([{
+      employee_cost_type: 'wages',
+      category: 'Wages',
+      description: 'Base',
+      amount: '1,5',
+      amount_mode: 'fixed',
+      hours: '',
+      time_unit: 'hourly',
+      tax_rate: '',
+    }])).toEqual({ ok: false, message: MONEY_COMMA_HINT });
+    expect(commercialLinesForPreview([{
+      ...emptyLineItem(),
+      description: 'Labour',
+      quantity: '1',
+      unit_price: '1,5',
+    }])).toEqual([]);
+    expect(commercialLinesForPreview([{
+      ...emptyLineItem(),
+      description: 'Labour',
+      quantity: '1',
+      unit_price: '1,250',
+    }])).toMatchObject([{ quantity: 1, unit_price: 1250 }]);
+    expect(quotePreviewLines({ line_items: [{
+      ...emptyLineItem(),
+      description: 'Labour',
+      quantity: '1',
+      unit_price: '1,5',
+    }] })).toEqual([]);
+    expect(quotePreviewLines({ line_items: [{
+      ...emptyLineItem(),
+      description: 'Labour',
+      quantity: '1',
+      unit_price: '1,250',
+    }] })).toMatchObject([{ quantity: 1, unit_price: 1250 }]);
+    expect(numberDraftAllowed('abc')).toBe(false);
+    expect(numberDraftAllowed('1,5')).toBe(true);
+    expect(sanitizeExpenseDecimalDraft('nope')).toBeNull();
+    expect(sanitizeExpenseDecimalDraft('1,5')).toBe('1,5');
     expect(commitStockQtyOnHand('1,5')).toEqual({ ok: true, value: 1.5 });
     expect(commitStockQtyOnHand('1,250')).toEqual({ ok: true, value: 1250 });
     expect(commitStockQtyOnHand('1,')).toEqual({ ok: false, message: DECIMAL_INVALID });
@@ -515,6 +588,53 @@ describe('Budget, price book, stock, PO, PDF import', () => {
     await flush();
     expect(harness.inserts.filter(row => row.table === 'price_book_items')).toEqual([]);
   });
+
+  it('PDF import cost 1,5 on a later row validates all first and inserts none', async () => {
+    await renderNode(
+      <PriceBookPdfImportModal
+        priceBookId="pb-1"
+        existingItems={[]}
+        defaultMarkup={20}
+        onClose={() => {}}
+        onImported={() => {}}
+        seedRows={[
+          {
+            key: 'r1',
+            selected: true,
+            action: 'insert',
+            matchId: null,
+            code: 'PVC-20',
+            description: '20mm PVC',
+            unit: 'each',
+            category: 'conduit',
+            cost_price: '4.80',
+            unit_price: '10',
+            existingCost: null,
+            existingSell: null,
+          },
+          {
+            key: 'r2',
+            selected: true,
+            action: 'insert',
+            matchId: null,
+            code: 'PVC-25',
+            description: '25mm PVC',
+            unit: 'each',
+            category: 'conduit',
+            cost_price: '1,5',
+            unit_price: '12',
+            existingCost: null,
+            existingSell: null,
+          },
+        ]}
+      />,
+    );
+    expect(container.textContent).toContain(MONEY_COMMA_HINT);
+    const apply = Array.from(container.querySelectorAll('button')).find(b => /Import|Apply/i.test(b.textContent || '')) as HTMLButtonElement;
+    await act(async () => { apply?.click(); });
+    await flush();
+    expect(harness.inserts.filter(row => row.table === 'price_book_items')).toEqual([]);
+  });
 });
 
 describe('Record payment reason and overpay label', () => {
@@ -533,7 +653,11 @@ describe('Record payment reason and overpay label', () => {
     const confirm = () => Array.from(pageRoot().querySelectorAll('button')).find(b => /Confirm payment/i.test(b.textContent || '')) as HTMLButtonElement;
 
     await act(async () => { setNativeValue(amount, ''); });
-    expect(pageRoot().textContent).toContain('Enter an amount');
+    expect(pageRoot().textContent).toContain(DECIMAL_EMPTY);
+    expect(confirm().disabled).toBe(true);
+
+    await act(async () => { setNativeValue(amount, '0'); });
+    expect(pageRoot().textContent).toContain(DECIMAL_EMPTY);
     expect(confirm().disabled).toBe(true);
 
     await typeKeys(amount, '1,5');
@@ -901,9 +1025,9 @@ describe('Issued invoice locks lines and shows stored totals', () => {
     quote_id: null,
     status: 'sent',
     line_items: [
-      { description: 'Labour', quantity: 1.5, unit_price: 87.35 },
-      { description: 'Fitting', quantity: 3, unit_price: 33.33 },
-      { description: 'Consumables', quantity: 7, unit_price: 11.5 },
+      { description: 'Labour', quantity: 1.5, unit_price: 87.35, stored_token: 'keep-me' },
+      { description: 'Fitting', quantity: 3, unit_price: 33.33, stored_token: 'keep-me' },
+      { description: 'Consumables', quantity: 7, unit_price: 11.5, stored_token: 'keep-me' },
     ],
     subtotal: 311.51,
     tax_rate: 10,
@@ -942,16 +1066,93 @@ describe('Issued invoice locks lines and shows stored totals', () => {
     expect(pageRoot().textContent).not.toContain('$342.67');
     const price = pageRoot().querySelector('[aria-label="Unit price"]') as HTMLInputElement;
     expect(price.disabled).toBe(true);
-    const save = Array.from(pageRoot().querySelectorAll('button')).find(b => /Save/i.test(b.textContent || '')) as HTMLButtonElement;
-    if (save) {
-      await act(async () => { save.click(); });
-      await flush();
-    }
+    const save = Array.from(pageRoot().querySelectorAll('button')).find(b => /^Save$/i.test(b.textContent || '')) as HTMLButtonElement;
+    expect(save).toBeTruthy();
+    await act(async () => { save.click(); });
+    await flush();
     const updates = harness.updates.filter(row => row.table === 'invoices');
-    for (const row of updates) {
-      expect(row.payload.total).toBe(342.66);
-      expect(row.payload.line_items).toEqual(storedInvoice.line_items);
-    }
+    expect(updates.length).toBeGreaterThan(0);
+    expect(updates[0]?.payload.total).toBe(342.66);
+    expect(updates[0]?.payload.line_items).toEqual(storedInvoice.line_items);
+    expect((updates[0]?.payload.line_items as { stored_token?: string }[])[0]?.stored_token).toBe('keep-me');
+  });
+});
+
+describe('Issued quote save keeps stored lines', () => {
+  it('accepted quote Save writes persistIssuedLines, not live cleanLines', async () => {
+    const storedLines = [
+      { description: 'Labour', quantity: 1, unit_price: 100, stored_token: 'keep-me' },
+    ];
+    await renderNode(
+      <QuoteEditorModal
+        quote={{
+          id: 'q-accepted',
+          company_id: 'co-1',
+          quote_number: 11,
+          client_id: 'cl-1',
+          job_id: null,
+          status: 'accepted',
+          description: 'Switchboard',
+          scope_of_works: '',
+          line_items: storedLines,
+          subtotal: 100,
+          tax_rate: 10,
+          tax_amount: 10,
+          total: 110,
+          validity_date: null,
+          notes: null,
+          inclusions: [],
+          exclusions: [],
+          scheduled_date: '2026-10-20',
+          assigned_team: ['user-1'],
+          created_by: 'user-1',
+          created_at: '2026-10-01T00:00:00.000Z',
+          updated_at: '2026-10-01T00:00:00.000Z',
+          invoice_id: null,
+        } as never}
+        defaultTaxRate={10}
+        onClose={() => {}}
+        onSaved={() => {}}
+        onRequestSend={() => {}}
+      />,
+    );
+    const edit = Array.from(pageRoot().querySelectorAll('button')).find(b => /Edit quote/i.test(b.textContent || '')) as HTMLButtonElement;
+    expect(edit).toBeTruthy();
+    await act(async () => { edit.click(); });
+    await flush();
+    const save = Array.from(pageRoot().querySelectorAll('button')).find(b => /^Save$/i.test(b.textContent || '')) as HTMLButtonElement;
+    expect(save).toBeTruthy();
+    await act(async () => { save.click(); });
+    await flush();
+    const updates = harness.updates.filter(row => row.table === 'quotes');
+    expect(updates.length).toBeGreaterThan(0);
+    expect(updates[0]?.payload.line_items).toEqual(storedLines);
+    expect(updates[0]?.payload.total).toBe(110);
+    expect((updates[0]?.payload.line_items as { stored_token?: string }[])[0]?.stored_token).toBe('keep-me');
+  });
+});
+
+describe('Cost model save uses commitModelLines', () => {
+  it('types amount 1,5 and does not insert a model', async () => {
+    await renderNode(
+      <ManageCostModelsModal onClose={() => {}} onChanged={() => {}} />,
+    );
+    const create = Array.from(pageRoot().querySelectorAll('button')).find(b => /New model/i.test(b.textContent || '')) as HTMLButtonElement;
+    expect(create).toBeTruthy();
+    await act(async () => { create.click(); });
+    await flush();
+    const name = pageRoot().querySelector('input[placeholder="e.g. Standard field tech"]') as HTMLInputElement;
+    await act(async () => { setNativeValue(name, 'Field tech'); });
+    const amount = pageRoot().querySelector('[aria-label="Amount ($)"]') as HTMLInputElement;
+    expect(amount).toBeTruthy();
+    await typeKeys(amount, '1,5');
+    expect(amount.value).toBe('1,5');
+    expect(pageRoot().textContent).toContain(MONEY_COMMA_HINT);
+    const save = Array.from(pageRoot().querySelectorAll('button')).find(b => /Save model/i.test(b.textContent || '')) as HTMLButtonElement;
+    await act(async () => { save.click(); });
+    await flush();
+    expect(harness.inserts.filter(row => row.table === 'expense_cost_models')).toEqual([]);
+    expect(pageRoot().textContent).toContain(MONEY_COMMA_HINT);
   });
 });
 

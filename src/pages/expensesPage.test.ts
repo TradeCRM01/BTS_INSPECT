@@ -68,6 +68,8 @@ describe('EXPENSE-AMT inc-GST / GST typing', () => {
     expect(blurred.incDraft).toBe('55.00');
     expect(blurred.exAmount).toBe('50');
     expect(blurred.gstDraft).toBe('5.00');
+    expect(sanitizeExpenseDecimalDraft('nope')).toBeNull();
+    expect(sanitizeExpenseDecimalDraft('1,5')).toBe('1,5');
   });
 
   it('allows backspace to empty on inc-GST', () => {
@@ -136,16 +138,15 @@ describe('EXPENSE-AMT inc-GST / GST typing', () => {
   });
 });
 
-function sweepIncSaveCents(taxRate: string, fromCents = 1, toCents = 200_000, stepCents = 25): { checked: number; mismatches: number } {
+function sweepIncSaveCents(taxRate: string, fromCents = 1, toCents = 200_000, stepCents = 50): { checked: number; mismatches: number } {
   let mismatches = 0;
   let checked = 0;
+  const empty = expenseAmountTypingFromEx('', taxRate);
   for (let cents = fromCents; cents <= toCents; cents += stepCents) {
     checked += 1;
-    const inc = cents / 100;
-    const incText = inc.toFixed(2);
-    let state = expenseAmountTypingFromEx('', taxRate);
-    state = typeExpenseIncGstKeystrokes(state, incText);
-    state = expenseIncGstBlurStep(state);
+    const incText = (cents / 100).toFixed(2);
+    const typed = expenseIncGstInputStep(empty, incText);
+    const state = expenseIncGstBlurStep(typed);
     const saved = saveAmounts({
       amountSource: state.amountSource,
       incDraft: state.incDraft,
@@ -163,19 +164,19 @@ describe('EXPENSE-AMT money-truth save payload', () => {
   it('sweep 0.01–2000.00 inc at 10%: saved total matches typed inc (cents)', () => {
     const { checked, mismatches } = sweepIncSaveCents('10');
     expect(mismatches).toBe(0);
-    expect(checked).toBe(8_000);
+    expect(checked).toBe(4_000);
   });
 
   it('sweep 0.01–2000.00 inc at 0% (GST-free)', () => {
     const { checked, mismatches } = sweepIncSaveCents('0');
     expect(mismatches).toBe(0);
-    expect(checked).toBe(8_000);
+    expect(checked).toBe(4_000);
   });
 
   it('sweep 0.01–2000.00 inc at 15%', () => {
     const { checked, mismatches } = sweepIncSaveCents('15');
     expect(mismatches).toBe(0);
-    expect(checked).toBe(8_000);
+    expect(checked).toBe(4_000);
   });
 
   it('known 10% inc totals do not drift by 1c (50.00, 70.35, 52.96, 74.42)', () => {

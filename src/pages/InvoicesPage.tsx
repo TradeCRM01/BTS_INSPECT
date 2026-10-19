@@ -25,7 +25,7 @@ import { checkPriceSendBlock } from '../lib/checkPriceGate';
 import { listQueryBusy } from '../lib/listQueryReady';
 import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel, lineExGstAmount } from '../lib/gst';
 import { commitDocumentLine } from '../lib/parseDecimal';
-import { commitCommercialLines } from '../lib/commitCommercialLines';
+import { commercialLinesForPreview, commitCommercialLines } from '../lib/commitCommercialLines';
 import { issuedDocumentLocksLines, persistDocumentMoney, persistIssuedLines } from '../lib/documentPersist';
 import { lineNeedsLabourRate } from '../lib/hoursToJobBill';
 import {
@@ -1146,8 +1146,7 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
 
   const previewData = useMemo((): CommercialPdfData | null => {
     if (!company) return null;
-    const committed = commitCommercialLines(form.line_items);
-    const cleanLines: InvoiceLineItem[] = committed.ok ? committed.lines : [];
+    const cleanLines: InvoiceLineItem[] = commercialLinesForPreview(form.line_items);
     return commercialPdfPreviewData({
       kind: 'invoice' as const,
       title: 'Invoice charges',
@@ -1338,7 +1337,7 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
   const showInvoiceActions = next.key === 'send' || next.key === 'mark_paid';
   const effectiveStatus = effectiveInvoiceStatus({ status: form.status, due_date: form.due_date });
   const paidReadPath = effectiveStatus === 'paid';
-  const showSaveFooter = showEdit && !paidReadPath && !linesLocked;
+  const showSaveFooter = showEdit && !paidReadPath;
 
   useEffect(() => {
     const look = searchParams.get('look');

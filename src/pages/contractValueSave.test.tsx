@@ -159,6 +159,17 @@ describe('Contract Value field save', () => {
     expect(container.textContent).toContain(DECIMAL_INVALID);
   });
 
+  it('shows the comma hint while typing, before Save', async () => {
+    await renderForm();
+    const value = container.querySelector('input[name="contract_value"]') as HTMLInputElement;
+    await act(async () => {
+      setNativeValue(value, '1,5');
+    });
+    expect(value.value).toBe('1,5');
+    expect(container.textContent).toContain(MONEY_COMMA_HINT);
+    expect(harness.inserts).toEqual([]);
+  });
+
   it('types 1,5 and does not save 15', async () => {
     await renderForm();
     await fillRequired();

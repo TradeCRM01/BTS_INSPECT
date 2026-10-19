@@ -55,3 +55,8 @@ export function commitCommercialLines(
   }
   return { ok: true, lines };
 }
+
+export function commercialLinesForPreview(items: CommercialLineDraft[]): CommercialLineCommitted[] {
+  const committed = commitCommercialLines(items);
+  return committed.ok ? committed.lines : [];
+}

@@ -719,7 +719,7 @@ export function ApplyEmployeeCostModelModal({
 
 // ── Manage cost models ───────────────────────────────────────────
 
-function ManageCostModelsModal({
+export function ManageCostModelsModal({
   onClose,
   onChanged,
 }: {

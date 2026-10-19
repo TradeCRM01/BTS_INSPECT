@@ -1,16 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DECIMAL_EMPTY,
   DECIMAL_NEGATIVE,
   MONEY_COMMA_HINT,
   committedMoney,
   committedNumber,
   moneyDraftAllowed,
+  numberDraftAllowed,
   parseDecimalInput,
   parseMoneyCommitted,
   parseMoneyInput,
   parseNumberInput,
 } from './parseDecimal';
-import { parseRecordPaymentAmount, recordPaymentStatusAfterLabel } from './invoicePayments';
+import { parseRecordPaymentAmount, recordPaymentAmountReason, recordPaymentStatusAfterLabel } from './invoicePayments';
 import {
   expenseIncGstBlurStep,
   expenseIncGstInputStep,
@@ -63,12 +65,21 @@ describe('parseMoneyInput', () => {
   it('rejects 1,2,3.5 and keeps negatives off money unless opted in', () => {
     expect(parseMoneyInput('1,2,3.5').status).toBe('invalid');
     expect(parseNumberInput('1,2,3.5').status).toBe('invalid');
+    expect(parseMoneyInput('1,2,3').status).toBe('invalid');
+    expect(parseMoneyInput('1,2,3')).not.toEqual({ status: 'valid', value: 123 });
+    expect(parseMoneyInput('12,3456').status).toBe('invalid');
+    expect(parseMoneyInput('12,3456')).not.toEqual({ status: 'valid', value: 123456 });
     expect(parseMoneyInput('-5').status).toBe('invalid');
     expect(parseMoneyInput('-5', { allowNegative: true })).toEqual({ status: 'valid', value: -5 });
     expect(moneyDraftAllowed('-', { allowNegative: true })).toBe(true);
     expect(moneyDraftAllowed('-5')).toBe(false);
+    expect(numberDraftAllowed('abc')).toBe(false);
+    expect(numberDraftAllowed('1,5')).toBe(true);
     expect(parseRecordPaymentAmount('-5')).toBeNull();
+    expect(parseRecordPaymentAmount('0')).toBeNull();
+    expect(recordPaymentAmountReason('0')).toBe(DECIMAL_EMPTY);
     expect(recordPaymentStatusAfterLabel('-5', 836, 0)).toBe('—');
+    expect(recordPaymentStatusAfterLabel('0', 836, 0)).toBe('—');
   });
 });
 
