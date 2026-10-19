@@ -115,16 +115,6 @@
     "excerpt": "<span>Grafter</span>"
   },
   {
-    "file": "src/pages/SignupPage.tsx",
-    "line": 84,
-    "excerpt": "title=\"Create a Grafter workspace\""
-  },
-  {
-    "file": "src/pages/SignupPage.tsx",
-    "line": 85,
-    "excerpt": "lede=\"Your business gets its own Grafter workspace.\""
-  },
-  {
     "file": "src/pages/TeamSettingsPage.tsx",
     "line": 617,
     "excerpt": "<p className=\"text-xs text-[#4A5568] mt-0.5\">They'll get an invitation email from your company to join Grafter.</p>"

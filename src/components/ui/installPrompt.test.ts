@@ -12,7 +12,7 @@ describe('Install Grafter overlay vs signup', () => {
     const css = src('src/index.css');
     const auth = css.slice(css.indexOf('.hub-auth {'), css.indexOf('#client-portal'));
     expect(signup).toContain('Create account');
-    expect(signup).toContain('Create a Grafter workspace');
+    expect(signup).toContain('Create your ${BRAND_NAME} workspace');
     expect(signup).toContain('hub-auth-submit');
     expect(signup).toContain('hub-auth-agree');
     expect(signup).toContain('By creating a workspace you agree to our');

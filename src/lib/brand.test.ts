@@ -189,12 +189,13 @@ describe('BRAND_NAME', () => {
     expect(leftover).toEqual([]);
   });
 
-  it('routes only the 10 A0 lines and keeps the 79-line SHELL allow-list after S1 head, layout, and vite', () => {
-    expect(SHELL_ALLOW).toHaveLength(56);
+  it('routes only the 10 A0 lines and keeps the 79-line SHELL allow-list after S1 head, layout, vite, and signup', () => {
+    expect(SHELL_ALLOW).toHaveLength(54);
     expect(SHELL_ALLOW.some((row) => row.file === 'index.html')).toBe(false);
     expect(SHELL_ALLOW.some((row) => row.file === 'vite.config.ts')).toBe(false);
     expect(SHELL_ALLOW.some((row) => row.file === 'src/components/layout/ProtectedRoute.tsx')).toBe(false);
     expect(SHELL_ALLOW.some((row) => row.file === 'src/lib/publicSeo.ts')).toBe(false);
+    expect(SHELL_ALLOW.some((row) => row.file === 'src/pages/SignupPage.tsx')).toBe(false);
     expect(SHELL_ALLOW.some((row) => row.file === 'src/pages/MarketingPage.tsx' && row.line === 97)).toBe(false);
     expect(unexpectedHits(collectHits())).toEqual([]);
   });

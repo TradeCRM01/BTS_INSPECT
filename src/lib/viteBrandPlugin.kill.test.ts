@@ -1,51 +1,70 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import { resolveConfig, type IndexHtmlTransformContext, type Plugin } from 'vite';
 
-vi.mock('./brand', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./brand')>();
-  return {
-    ...actual,
-    BRAND_NAME: 'Acmeco',
-    applyBrandHtml: (html: string, name = 'Acmeco') => actual.applyBrandHtml(html, name),
-    brandManifestFields: (name = 'Acmeco') => actual.brandManifestFields(name),
-  };
-});
-
-function src(rel: string): string {
-  return readFileSync(resolve(process.cwd(), rel), 'utf8');
+function flattenPlugins(plugins: readonly Plugin[]): Plugin[] {
+  return plugins.filter((plugin): plugin is Plugin => Boolean(plugin));
 }
 
-describe('vite brand plugin wiring with BRAND_NAME=Acmeco', () => {
+async function applyIndexHtmlTransforms(plugins: readonly Plugin[], html: string): Promise<string> {
+  const ctx = {
+    path: '/index.html',
+    filename: resolve(process.cwd(), 'index.html'),
+    originalUrl: '/',
+  } as IndexHtmlTransformContext;
+  let out = html;
+  for (const plugin of plugins) {
+    const hook = plugin.transformIndexHtml;
+    if (!hook) continue;
+    const handler = typeof hook === 'function'
+      ? hook
+      : 'handler' in hook
+        ? hook.handler
+        : hook.transform;
+    if (typeof handler !== 'function') continue;
+    const result = await (handler as (
+      html: string,
+      ctx: IndexHtmlTransformContext,
+    ) => string | { html?: string } | Promise<string | { html?: string } | void> | void)(out, ctx);
+    if (typeof result === 'string') out = result;
+    else if (result && typeof result === 'object' && 'html' in result && typeof result.html === 'string') {
+      out = result.html;
+    }
+  }
+  return out;
+}
+
+describe('resolved vite.config.ts brands the page and PWA manifest', () => {
   afterEach(() => {
-    vi.resetModules();
+    delete process.env.BRAND_NAME;
   });
 
-  it('runs transformIndexHtml and brandPwaManifest as Acmeco, and both mutants die', async () => {
-    expect(src('vite.config.ts')).toContain('brandHtmlPlugin');
-    expect(src('vite.config.ts')).toContain('...brandPwaManifest()');
-    expect(src('vite.config.ts')).not.toMatch(/name:\s*'Grafter'/);
-    expect(src('src/lib/brandVite.ts')).toContain('return applyBrandHtml(html)');
-    expect(src('src/lib/brandVite.ts')).toContain('return brandManifestFields()');
+  it('loads the real config with BRAND_NAME=Acmeco and leaves 0 placeholders', async () => {
+    process.env.BRAND_NAME = 'Acmeco';
+    const resolved = await resolveConfig(
+      { configFile: resolve(process.cwd(), 'vite.config.ts'), mode: 'production' },
+      'build',
+      'production',
+    );
+    const plugins = flattenPlugins(resolved.plugins as Plugin[]);
+    const html = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');
+    const out = await applyIndexHtmlTransforms(plugins, html);
 
-    const { brandHtmlPlugin, brandPwaManifest } = await import('./brandVite');
-    const html = src('index.html');
-    const out = brandHtmlPlugin.transformIndexHtml(html);
+    expect(out.includes('%BRAND_NAME%')).toBe(false);
     expect(out).toContain('<title>Acmeco — Trade job software for Australian crews</title>');
-    expect(out).toContain('content="Acmeco"');
-    expect(out).not.toContain('%BRAND_NAME%');
+    expect(out).toContain('property="og:site_name" content="Acmeco"');
     expect(out).not.toMatch(/\bGrafter\b/);
-    expect(brandPwaManifest()).toEqual({ name: 'Acmeco', short_name: 'Acmeco' });
 
-    const identityMutant = { transformIndexHtml: (page: string) => page };
-    const identityOut = identityMutant.transformIndexHtml(html);
-    expect(identityOut).toContain('%BRAND_NAME%');
-    expect(identityOut).not.toContain('<title>Acmeco');
-    expect(out).not.toEqual(identityOut);
-
-    const literalManifest = { name: 'Grafter', short_name: 'Grafter' };
-    expect(literalManifest).not.toEqual(brandPwaManifest());
-    expect(literalManifest.name).toBe('Grafter');
-    expect(brandPwaManifest().name).toBe('Acmeco');
-  });
+    const pwa = plugins.find((plugin) => plugin.name === 'vite-plugin-pwa' && plugin.api);
+    expect(pwa?.api).toBeTruthy();
+    const bundle: Record<string, { source?: string }> = {};
+    pwa!.api.generateBundle(bundle);
+    const manifestSource = bundle['manifest.webmanifest']?.source;
+    expect(typeof manifestSource).toBe('string');
+    const manifest = JSON.parse(manifestSource as string) as { name: string; short_name: string };
+    expect(manifest.name).toBe('Acmeco');
+    expect(manifest.short_name).toBe('Acmeco');
+    expect(JSON.stringify(manifest)).not.toMatch(/\bGrafter\b/);
+  }, 30000);
 });

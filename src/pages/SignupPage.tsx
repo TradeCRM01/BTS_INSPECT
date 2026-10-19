@@ -6,6 +6,7 @@ import { AuthShell } from '../components/auth/AuthShell';
 import { useAuth } from '../contexts/AuthContext';
 import { preparePasswordAuth } from '../lib/authSessionGuard';
 import { JOB_PACK_TEMPLATES, type JobPackTradeKey } from '../lib/jobPack';
+import { BRAND_NAME } from '../lib/brand';
 
 export function SignupPage() {
   const navigate = useNavigate();
@@ -81,8 +82,8 @@ export function SignupPage() {
   return (
     <AuthShell
       seoKey="signup"
-      title="Create a Grafter workspace"
-      lede="Your business gets its own Grafter workspace."
+      title={`Create your ${BRAND_NAME} workspace`}
+      lede={`Your business gets its own ${BRAND_NAME} workspace.`}
       footer={(
         <p>
           Already have an account?{' '}

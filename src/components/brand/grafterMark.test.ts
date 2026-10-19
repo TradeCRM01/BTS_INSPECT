@@ -92,7 +92,7 @@ describe('Mitre mark geometry', () => {
 
     const manifest = src('vite.config.ts');
     expect(manifest).toContain('...brandPwaManifest()');
-    expect(src('src/lib/brandVite.ts')).toContain('return brandManifestFields()');
+    expect(src('src/lib/brandVite.ts')).toContain('brandManifestFields(runtimeBrandName())');
     expect(src('src/lib/brand.ts')).toContain('short_name: name');
     expect(manifest).toContain('icon-192.png');
     expect(manifest).toContain('icon-maskable-512.png');

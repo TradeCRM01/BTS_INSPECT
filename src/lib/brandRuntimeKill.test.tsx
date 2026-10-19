@@ -13,6 +13,7 @@ import { applyBrandHtml, brandManifestFields } from './brand';
 import { applyPublicDocumentHead, type DocumentHeadLike, type HeadElementLike } from './publicSeo';
 import { Wordmark } from '../components/brand/Wordmark';
 import { AppShell } from '../components/layout/AppShell';
+import { SignupPage } from '../pages/SignupPage';
 
 vi.mock('./brand', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./brand')>();
@@ -25,6 +26,7 @@ vi.mock('./brand', async (importOriginal) => {
 
 vi.mock('../contexts/AuthContext', () => ({
   useAuth: () => ({
+    user: null,
     profile: { name: 'Field Audit', role: 'admin', company_id: 'c1' },
     company: { name: 'Northside', report_theme: null },
     signOut: async () => {},
@@ -71,6 +73,19 @@ describe('BRAND_NAME mocked to Acmeco reaches rendered surfaces', () => {
     expect(wm?.getAttribute('aria-label')).toBe('Acmeco');
     expect(wm?.textContent).not.toBe('Grafter');
     expect(wm?.className).toMatch(/\buppercase\b/);
+  });
+
+  it('renders signup heading as Create your Acmeco workspace', async () => {
+    await act(async () => {
+      root.render(
+        <MemoryRouter>
+          <SignupPage />
+        </MemoryRouter>,
+      );
+    });
+    expect(container.querySelector('.hub-auth-title')?.textContent).toBe('Create your Acmeco workspace');
+    expect(container.querySelector('.hub-auth-lede')?.textContent).toContain('Acmeco');
+    expect(container.textContent).not.toMatch(/\bGrafter\b/);
   });
 
   it('renders AppShell lockup aria as Acmeco', async () => {

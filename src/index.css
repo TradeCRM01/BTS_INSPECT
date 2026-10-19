@@ -11611,7 +11611,7 @@
       padding: 24px 16px 16px;
     }
 
-    /* Phone rail. 6px tab padding makes a 12px gap between hit boxes at 375.
+    /* Phone rail. 6px tab padding is 12px label spacing; the hit boxes touch.
        All four tabs stay unscrolled. A right-edge fade covers leftover scroll. */
     .hub-jobs-document .job-sheet-tabs {
       gap: 0;
