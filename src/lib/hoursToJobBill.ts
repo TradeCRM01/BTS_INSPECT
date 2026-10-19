@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
+import { moneyRound } from './gst';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { invalidateJobBillInvoicePreview } from './jobBillInvoicePreviewQuery';
 import { entryMinutes } from './timesheetJob';
@@ -407,10 +408,10 @@ export function buildJobCostFromTimesheetEntry(args: {
     description,
     quantity: qty,
     unit_cost: unitCost,
-    total_cost: Number((qty * unitCost).toFixed(2)),
+    total_cost: moneyRound(qty * unitCost),
     markup_percent: 0,
     unit_price: unitPrice,
-    total_price: Number((qty * unitPrice).toFixed(2)),
+    total_price: moneyRound(qty * unitPrice),
     charge_type: 'Labour',
     stock_item_id: null,
     purchase_order_id: null,

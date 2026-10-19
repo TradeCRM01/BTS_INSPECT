@@ -9,7 +9,15 @@ import { DateFieldInput } from '../ui/DateFieldInput';
 import { DATE_INVALID_MESSAGE, DATE_REQUIRED_MESSAGE, isoDateKey } from '../../lib/dateTimeIntegrity';
 import { ManagedSelect } from '../ui/ManagedSelect';
 import { LIST_KEYS } from '../../lib/useManagedList';
-import { committedMoney, committedNumber, moneyDraftAllowed, numberDraftAllowed } from '../../lib/parseDecimal';
+import {
+  commitMoneyField,
+  commitNumberField,
+  committedMoney,
+  committedNumber,
+  moneyDraftAllowed,
+  moneyFieldMessage,
+  numberDraftAllowed,
+} from '../../lib/parseDecimal';
 import {
   formatMoney,
   EMPLOYEE_COST_TYPE_LABELS,
@@ -88,18 +96,54 @@ function toEditModelLine(l: ExpenseCostModelLine): EditModelLine {
   };
 }
 
-function fromEditModelLine(l: EditModelLine): ExpenseCostModelLine {
+export function commitModelLine(l: EditModelLine) {
   const mode = l.amount_mode === 'percent_of_wages' ? 'percent_of_wages' : 'fixed';
+  const amount = mode === 'percent_of_wages'
+    ? commitNumberField(l.amount, 'zero')
+    : commitMoneyField(l.amount, 'zero');
+  if (!amount.ok) return amount;
+  const tax = commitNumberField(l.tax_rate, 'zero');
+  if (!tax.ok) return tax;
   return {
-    employee_cost_type: l.employee_cost_type || 'other',
-    category: l.category,
-    description: l.description,
-    amount: (mode === 'percent_of_wages' ? committedNumber(l.amount) : committedMoney(l.amount)) ?? 0,
-    amount_mode: mode,
-    hours: undefined,
-    time_unit: mode === 'percent_of_wages' ? 'hourly' : parseTimeUnit(l.time_unit),
-    tax_rate: committedNumber(l.tax_rate) ?? 0,
+    ok: true as const,
+    line: {
+      employee_cost_type: l.employee_cost_type || 'other',
+      category: l.category,
+      description: l.description,
+      amount: Number(amount.value) || 0,
+      amount_mode: mode,
+      hours: undefined,
+      time_unit: (mode === 'percent_of_wages' ? 'hourly' : parseTimeUnit(l.time_unit)) as ExpenseModelTimeUnit,
+      tax_rate: Number(tax.value) || 0,
+    } satisfies ExpenseCostModelLine,
   };
+}
+
+export function commitModelLines(lines: EditModelLine[]) {
+  const out: ExpenseCostModelLine[] = [];
+  for (const l of lines) {
+    const committed = commitModelLine(l);
+    if (!committed.ok) return committed;
+    out.push(committed.line);
+  }
+  return { ok: true as const, lines: out };
+}
+
+function fromEditModelLine(l: EditModelLine): ExpenseCostModelLine {
+  const committed = commitModelLine(l);
+  if (!committed.ok) {
+    return {
+      employee_cost_type: l.employee_cost_type || 'other',
+      category: l.category,
+      description: l.description,
+      amount: 0,
+      amount_mode: l.amount_mode === 'percent_of_wages' ? 'percent_of_wages' : 'fixed',
+      hours: undefined,
+      time_unit: l.amount_mode === 'percent_of_wages' ? 'hourly' : parseTimeUnit(l.time_unit),
+      tax_rate: 0,
+    };
+  }
+  return committed.line;
 }
 
 function editModelHourlyTotal(lines: EditModelLine[]): number {
@@ -305,6 +349,15 @@ function defaultSuperLine(): EditModelLine {
   };
 }
 
+export function wagesOverrideUnitLabel(model: ExpenseCostModel | null): string {
+  if (!model) return '$';
+  const wagesLine = model.lines.find(
+    l => l.employee_cost_type === 'wages' && l.amount_mode !== 'percent_of_wages',
+  );
+  if (wagesLine?.amount_mode === 'hours_x_rate') return '$/hr';
+  return `$${EXPENSE_MODEL_TIME_UNIT_SHORT[parseTimeUnit(wagesLine?.time_unit)]}`;
+}
+
 // ── Apply employee cost model ────────────────────────────────────
 
 export function ApplyEmployeeCostModelModal({
@@ -415,6 +468,12 @@ export function ApplyEmployeeCostModelModal({
     if (!isoDateKey(expenseDate)) {
       setErr(DATE_REQUIRED_MESSAGE);
       return;
+    }
+    for (const emp of selectedEmployees) {
+      const wageRaw = wageOverrides[emp.id]?.trim() ?? '';
+      if (!wageRaw) continue;
+      const wage = commitMoneyField(wageRaw, 'reject');
+      if (!wage.ok) { setErr(wage.message); return; }
     }
     setSaving(true);
     setErr('');
@@ -586,12 +645,15 @@ export function ApplyEmployeeCostModelModal({
                           <span className="truncate">{emp.name}</span>
                         </label>
                         <div>
-                          <p className="text-[10px] text-[#6B7280] mb-1 lg:hidden">Wage override</p>
+                          <p className="text-[10px] text-[#6B7280] mb-1 lg:hidden">
+                            Wage override {wagesOverrideUnitLabel(model)}
+                          </p>
                           <input
                             type="text"
                             inputMode="decimal"
                             placeholder="Default"
                             value={wageOverrides[emp.id] ?? ''}
+                            aria-label="Wage override"
                             onChange={e => {
                               const raw = e.target.value;
                               if (!moneyDraftAllowed(raw)) return;
@@ -600,6 +662,9 @@ export function ApplyEmployeeCostModelModal({
                             className="form-input-sm w-full text-right min-w-0"
                             disabled={!on}
                           />
+                          {moneyFieldMessage(wageOverrides[emp.id] ?? '') ? (
+                            <p className="text-xs text-[#B42318] mt-1">{moneyFieldMessage(wageOverrides[emp.id] ?? '')}</p>
+                          ) : null}
                         </div>
                         <div>
                           <p className="text-[10px] text-[#6B7280] mb-1 lg:hidden">Multiplier</p>
@@ -607,6 +672,7 @@ export function ApplyEmployeeCostModelModal({
                             type="text"
                             inputMode="decimal"
                             value={multipliers[emp.id] ?? '1'}
+                            aria-label="Package multiplier"
                             onChange={e => {
                               const raw = e.target.value;
                               if (!numberDraftAllowed(raw)) return;
@@ -617,7 +683,7 @@ export function ApplyEmployeeCostModelModal({
                             title="1 = full package, 0.5 = half, 1.2 = 20% more"
                           />
                         </div>
-                        <p className="text-right tabular-nums font-medium text-sm">
+                        <p className="text-right tabular-nums font-medium text-sm" aria-label="Wage package estimate">
                           {on ? formatMoney(est) : '—'}
                         </p>
                       </div>
@@ -706,8 +772,10 @@ function ManageCostModelsModal({
     if (!profile?.company_id) return;
     if (!form.name.trim()) { setErr('Name is required'); return; }
     if (form.lines.length === 0) { setErr('Add at least one line'); return; }
+    const committed = commitModelLines(form.lines);
+    if (!committed.ok) { setErr(committed.message); return; }
     setSaving(true); setErr('');
-    const lines = form.lines.map(fromEditModelLine);
+    const lines = committed.lines;
     const payload = {
       name: form.name.trim(),
       notes: form.notes?.trim() || null,
@@ -880,8 +948,12 @@ function ManageCostModelsModal({
                             updateLine(idx, { amount: raw });
                           }}
                           className="form-input-sm w-full"
+                          aria-label={line.amount_mode === 'percent_of_wages' ? '% of wages' : 'Amount ($)'}
                           placeholder={line.amount_mode === 'percent_of_wages' ? 'e.g. 11.5' : 'e.g. 45 or 200'}
                         />
+                        {line.amount_mode !== 'percent_of_wages' && moneyFieldMessage(line.amount) ? (
+                          <p className="text-xs text-[#B42318] mt-1">{moneyFieldMessage(line.amount)}</p>
+                        ) : null}
                       </div>
                       <div>
                         <label className="text-[10px] font-semibold text-[#0A2540]">Time variable</label>
@@ -1171,17 +1243,25 @@ function ManageExpenseTemplatesModal({
   const save = async () => {
     if (!profile?.company_id) return;
     if (!name.trim()) { setErr('Name required'); return; }
-    setSaving(true); setErr('');
-    const payload = {
-      name: name.trim(),
-      lines: lines.map(l => ({
+    const mapped = [];
+    for (const l of lines) {
+      const amount = commitMoneyField(l.amount, 'zero');
+      if (!amount.ok) { setErr(amount.message); return; }
+      const tax = commitNumberField(l.tax_rate, 'zero');
+      if (!tax.ok) { setErr(tax.message); return; }
+      mapped.push({
         cost_class: l.cost_class,
         category: l.category,
         description: l.description,
-        amount: committedMoney(l.amount) ?? 0,
-        tax_rate: committedNumber(l.tax_rate) ?? 0,
+        amount: Number(amount.value) || 0,
+        tax_rate: Number(tax.value) || 0,
         recurrence: l.recurrence,
-      })),
+      });
+    }
+    setSaving(true); setErr('');
+    const payload = {
+      name: name.trim(),
+      lines: mapped,
       updated_at: new Date().toISOString(),
     };
     const { error } = editing

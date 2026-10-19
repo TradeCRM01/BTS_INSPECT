@@ -1,19 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { calcLineDocumentTotals, lineExGstAmount, moneyRound } from './gst';
 import { calcSubtotal, type EditLineItem } from '../components/invoicing/LineItemEditor';
 import { formatMoney } from '../types/fsm';
 
-/** Fractional qty × unit lines that split line-level vs total-level rounding. */
-export const CENTS_SPLIT_LINES = [
-  { description: 'Labour', quantity: 2.5, unit_price: 41.535 },
-  { description: 'Fitting', quantity: 3.3, unit_price: 31.466 },
-  { description: 'Consumables', quantity: 4.7, unit_price: 22.093 },
+/** Prod sweep quote/invoice lines: 1.5×87.35 + 3×33.33 + 7×11.5. */
+export const SWEEP_PROD_LINES = [
+  { description: 'Labour', quantity: 1.5, unit_price: 87.35 },
+  { description: 'Fitting', quantity: 3, unit_price: 33.33 },
+  { description: 'Consumables', quantity: 7, unit_price: 11.5 },
 ] as const;
 
 function asEditLines(): EditLineItem[] {
-  return CENTS_SPLIT_LINES.map(line => ({
+  return SWEEP_PROD_LINES.map(line => ({
     description: line.description,
     quantity: String(line.quantity),
     unit_price: String(line.unit_price),
@@ -28,28 +26,32 @@ function asEditLines(): EditLineItem[] {
   }));
 }
 
-describe('quote/invoice totals share one cents path', () => {
-  it('pins $311.52: round each line to cents, then sum, including GST', () => {
-    const raw = CENTS_SPLIT_LINES.reduce((sum, line) => sum + line.quantity * line.unit_price, 0);
-    expect(Number(raw.toFixed(2))).toBe(311.51);
-    expect(CENTS_SPLIT_LINES.reduce((sum, line) => sum + moneyRound(line.quantity * line.unit_price), 0)).toBe(311.52);
+function toFixedHalfDown(n: number): number {
+  return Number(n.toFixed(2));
+}
 
-    const editor = calcLineDocumentTotals([...CENTS_SPLIT_LINES], 10);
-    const preview = calcLineDocumentTotals([...CENTS_SPLIT_LINES], 10);
-    const pdf = calcLineDocumentTotals([...CENTS_SPLIT_LINES], 10);
-    const lineEditor = calcSubtotal(asEditLines());
+describe('quote/invoice totals half-up on integer cents', () => {
+  it('pins 1.5 × 87.35 = 131.03 and the prod sweep $311.52 / $342.67', () => {
+    const rawLine = 1.5 * 87.35;
+    expect(toFixedHalfDown(rawLine)).toBe(131.02);
+    expect(moneyRound(rawLine)).toBe(131.03);
+    expect(lineExGstAmount(SWEEP_PROD_LINES[0])).toBe(131.03);
+    expect(lineExGstAmount(SWEEP_PROD_LINES[1])).toBe(99.99);
+    expect(lineExGstAmount(SWEEP_PROD_LINES[2])).toBe(80.5);
 
-    expect(editor).toEqual({ subtotal: 311.52, taxAmount: 31.15, total: 342.67 });
-    expect(preview).toEqual(editor);
-    expect(pdf).toEqual(editor);
-    expect(lineEditor).toBe(editor.subtotal);
-    expect(CENTS_SPLIT_LINES.map(line => lineExGstAmount(line))).toEqual([103.84, 103.84, 103.84]);
-    const pdfSrc = readFileSync(resolve(process.cwd(), 'src/reports/commercial/CommercialDocumentPdf.tsx'), 'utf8');
-    expect(pdfSrc).toContain('lineExGstAmount(');
-    const editorSrc = readFileSync(resolve(process.cwd(), 'src/components/invoicing/LineItemEditor.tsx'), 'utf8');
-    expect(editorSrc).toContain('calcLineDocumentTotals(');
-    expect(formatMoney(editor.subtotal)).toBe('$311.52');
-    expect(formatMoney(editor.taxAmount)).toBe('$31.15');
-    expect(formatMoney(editor.total)).toBe('$342.67');
+    const totals = calcLineDocumentTotals([...SWEEP_PROD_LINES], 10);
+    expect(totals).toEqual({ subtotal: 311.52, taxAmount: 31.15, total: 342.67 });
+    expect(calcSubtotal(asEditLines())).toBe(311.52);
+    expect(formatMoney(totals.subtotal)).toBe('$311.52');
+    expect(formatMoney(totals.total)).toBe('$342.67');
+  });
+
+  it('kills a toFixed / half-down moneyRound mutant', () => {
+    const raw = 1.5 * 87.35;
+    expect(moneyRound(raw)).not.toBe(toFixedHalfDown(raw));
+    expect(moneyRound(raw)).not.toBe(Math.round(raw * 100) / 100);
+    const mutantTotals = SWEEP_PROD_LINES.reduce((sum, line) => sum + toFixedHalfDown(line.quantity * line.unit_price), 0);
+    expect(mutantTotals).toBe(311.51);
+    expect(calcLineDocumentTotals([...SWEEP_PROD_LINES], 10).subtotal).not.toBe(mutantTotals);
   });
 });

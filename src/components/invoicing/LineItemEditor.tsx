@@ -12,7 +12,14 @@ import { quoteLineFromPriceBookItem } from '../../lib/priceBookImport';
 import { QUICK_QUOTE_CHECK_PRICE } from '../../lib/quickQuote';
 import { checkPriceAfterUnitPrice } from '../../lib/checkPriceGate';
 import { calcLineDocumentTotals, lineExGstAmount } from '../../lib/gst';
-import { committedMoneyOrZero, moneyDraftAllowed } from '../../lib/parseDecimal';
+import {
+  commitDocumentLine,
+  committedMoneyOrZero,
+  moneyDraftAllowed,
+  moneyFieldMessage,
+  numberDraftAllowed,
+  numberFieldMessage,
+} from '../../lib/parseDecimal';
 
 export interface EditLineItem {
   description: string;
@@ -373,10 +380,13 @@ export function LineItemEditor({
         </div>
 
         {lines.map((li, idx) => {
-          const lineTotal = lineExGstAmount({
-            quantity: parseFloat(li.quantity) || 0,
-            unit_price: committedMoneyOrZero(li.unit_price),
-          });
+          const committed = commitDocumentLine(li);
+          const lineTotal = committed.ok
+            ? lineExGstAmount({ quantity: committed.quantity, unit_price: committed.unit_price })
+            : null;
+          const priceHint = moneyFieldMessage(li.unit_price);
+          const costHint = moneyFieldMessage(li.unit_cost ?? '');
+          const qtyHint = numberFieldMessage(li.quantity);
           const fromStock = !!li.stock_item_id;
           const fromBook = !!li.price_book_item_id;
           const fromModel = !!li.cost_model_id;
@@ -444,12 +454,13 @@ export function LineItemEditor({
                   value={li.quantity}
                   onChange={e => {
                     const raw = e.target.value;
-                    if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
+                    if (!numberDraftAllowed(raw)) return;
                     updateLine(idx, { quantity: raw });
                   }}
                   className="form-input-sm text-right min-w-0"
                   aria-label="Quantity"
                 />
+                {qtyHint ? <p className="text-xs text-[#B42318] mt-1">{qtyHint}</p> : null}
               </div>
               <div className="hub-line-editor-ucost min-w-0">
                 <span className="hub-line-editor-lab">Unit cost</span>
@@ -466,6 +477,7 @@ export function LineItemEditor({
                   placeholder="0.00"
                   aria-label="Unit cost"
                 />
+                {costHint ? <p className="text-xs text-[#B42318] mt-1">{costHint}</p> : null}
               </div>
               <div className="hub-line-editor-markup min-w-0">
                 <span className="hub-line-editor-lab">Markup %</span>
@@ -501,10 +513,11 @@ export function LineItemEditor({
                   placeholder="0.00"
                   aria-label="Unit price"
                 />
+                {priceHint ? <p className="text-xs text-[#B42318] mt-1">{priceHint}</p> : null}
               </div>
               <div className="hub-line-editor-total text-sm text-right font-medium text-[#1A1A1A]">
                 <span className="hub-line-editor-lab">Line total</span>
-                <span>{formatMoney(lineTotal)}</span>
+                <span>{lineTotal == null ? '—' : formatMoney(lineTotal)}</span>
               </div>
               <button
                 type="button"
@@ -541,8 +554,11 @@ export function LineItemEditor({
 }
 
 export function calcSubtotal(lines: EditLineItem[]): number {
-  return calcLineDocumentTotals(lines.map(li => ({
-    quantity: parseFloat(li.quantity) || 0,
-    unit_price: committedMoneyOrZero(li.unit_price),
-  })), 0).subtotal;
+  const committed = [];
+  for (const li of lines) {
+    const row = commitDocumentLine(li);
+    if (!row.ok) continue;
+    committed.push({ quantity: row.quantity, unit_price: row.unit_price });
+  }
+  return calcLineDocumentTotals(committed, 0).subtotal;
 }

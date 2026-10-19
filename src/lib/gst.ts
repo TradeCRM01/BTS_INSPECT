@@ -1,4 +1,4 @@
-import { committedMoneyOrZero } from './parseDecimal';
+import { committedMoneyOrZero, committedNumber } from './parseDecimal';
 
 /** Australian GST default — companies.default_tax_rate also defaults to 10. */
 export const DEFAULT_TAX_RATE = 10;
@@ -9,9 +9,10 @@ export type DocumentTotals = {
   total: number;
 };
 
-/** Round money the same way on quote, invoice, and job-bill so GST cannot drift. */
+/** Half-up on integer cents. 1e-8 lifts binary 131.02499… so 1.5 × 87.35 is 131.03. */
 export function moneyRound(n: number): number {
-  return Number((Number(n) || 0).toFixed(2));
+  const x = Number(n) || 0;
+  return Math.round(x * 100 + 1e-8) / 100;
 }
 
 export function calcDocumentTotals(subtotal: number, taxRate: number): DocumentTotals {
@@ -38,13 +39,23 @@ export function lineGstRate(line: LineForGst, fallbackRate: number): number {
   return Number.isFinite(value) ? value : (Number(fallbackRate) || 0);
 }
 
+function lineQty(raw: LineForGst['quantity']): number {
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : 0;
+  const text = String(raw ?? '').trim();
+  if (/^-?\d+(\.\d+)?$/.test(text)) return Number(text);
+  return committedNumber(text) ?? 0;
+}
+
+function lineUnitPrice(raw: LineForGst['unit_price']): number {
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : 0;
+  const text = String(raw ?? '').trim();
+  if (/^-?\d+(\.\d+)?$/.test(text)) return Number(text);
+  return committedMoneyOrZero(text);
+}
+
 /** Line amount in cents. AU invoices round each line, then sum. */
 export function lineExGstAmount(line: LineForGst): number {
-  const qty = Number(line.quantity) || 0;
-  const unit = typeof line.unit_price === 'string'
-    ? committedMoneyOrZero(line.unit_price)
-    : (Number(line.unit_price) || 0);
-  return moneyRound(qty * unit);
+  return moneyRound(lineQty(line.quantity) * lineUnitPrice(line.unit_price));
 }
 
 /** Per-line GST. Lines with no rate use the document tax rate so old quotes and invoices match calcDocumentTotals. */

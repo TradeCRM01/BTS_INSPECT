@@ -14,7 +14,7 @@ import type { StockItem, StockItemWithSupplier, Supplier } from '../types/fsm';
 import { getStockLevel, STOCK_LEVEL_STYLES, STOCK_LEVEL_LABELS, formatMoney } from '../types/fsm';
 import { DriveCard } from './StockLocationPage';
 import { locationLabel, encodeLocationKey } from '../lib/stockLocations';
-import { committedMoney, moneyDraftAllowed } from '../lib/parseDecimal';
+import { commitMoneyField, moneyDraftAllowed, moneyFieldMessage } from '../lib/parseDecimal';
 import {
   Plus, Package, X, Trash2, Pencil, Archive, ArchiveRestore,
   ChevronDown, Tag, Boxes, Filter, HardDrive,
@@ -501,6 +501,8 @@ export function StockItemForm({ item, onClose, onSaved }: {
     e.preventDefault();
     if (!form.name.trim()) { setErr('Name is required'); return; }
     if (!profile?.company_id) return;
+    const cost = commitMoneyField(form.unit_cost, 'zero');
+    if (!cost.ok) { setErr(cost.message); return; }
     setSaving(true);
     setErr('');
 
@@ -509,7 +511,7 @@ export function StockItemForm({ item, onClose, onSaved }: {
       category: form.category.trim() || null, unit_of_measure: form.unit_of_measure.trim() || 'each',
       quantity_on_hand: Number(form.quantity_on_hand) || 0, reorder_level: Number(form.reorder_level) || 0,
       reorder_quantity: Number(form.reorder_quantity) || 0, storage_location: form.storage_location.trim() || null,
-      unit_cost: committedMoney(form.unit_cost) ?? 0, supplier_id: form.supplier_id || null,
+      unit_cost: cost.value, supplier_id: form.supplier_id || null,
     };
 
     const { error } = item
@@ -565,6 +567,7 @@ export function StockItemForm({ item, onClose, onSaved }: {
                 type="text"
                 inputMode="decimal"
                 value={form.unit_cost}
+                aria-label="Unit Cost (AUD)"
                 onChange={e => {
                   if (!moneyDraftAllowed(e.target.value)) return;
                   setForm(f => ({ ...f, unit_cost: e.target.value }));
@@ -573,6 +576,9 @@ export function StockItemForm({ item, onClose, onSaved }: {
                 className="form-input"
                 placeholder="0.00"
               />
+              {moneyFieldMessage(form.unit_cost) ? (
+                <p className="text-xs text-[#B42318] mt-1">{moneyFieldMessage(form.unit_cost)}</p>
+              ) : null}
             </Field>
             <Field label="Supplier">
               <select value={form.supplier_id} onChange={e => setForm(f => ({ ...f, supplier_id: e.target.value }))} className="form-input">

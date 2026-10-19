@@ -25,7 +25,7 @@ import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
 import { formatJobRef, nextCostCode, normalizeCostCode } from '../../lib/jobRef';
 import { JOB_COLORS, jobColorToStore } from '../../lib/jobColors';
 import { assumedTradeTag, checkDateTag, fromBookingTag } from '../../lib/quickBook';
-import { committedMoney, moneyDraftAllowed } from '../../lib/parseDecimal';
+import { commitMoneyField, moneyDraftAllowed, moneyFieldMessage } from '../../lib/parseDecimal';
 import { getAuditClients, getAuditTeamMembers } from '../../lib/devFieldAuditDocs';
 import { crewAssignmentHelper } from '../../lib/jobDispatchCrew';
 import { FromBooking } from './FromBooking';
@@ -68,6 +68,10 @@ interface JobFormModalProps {
   onAddStage?: () => void;
   onClose: () => void;
   onSaved: (jobId: string, opts?: { deleted?: boolean }) => void;
+}
+
+export function commitJobBudget(raw: string) {
+  return commitMoneyField(raw, 'null');
 }
 
 export function JobFormModal({
@@ -288,6 +292,8 @@ export function JobFormModal({
         return;
       }
     }
+    const budget = commitJobBudget(String(form.budget ?? ''));
+    if (!budget.ok) { setErr(budget.message); return; }
     setSaving(true);
     setErr('');
 
@@ -297,7 +303,7 @@ export function JobFormModal({
       description: form.description.trim() || null,
       priority: form.priority,
       address: form.address.trim() || null,
-      budget: form.budget ? committedMoney(String(form.budget)) : null,
+      budget: budget.value,
       parent_job_id: form.parent_job_id || null,
       cost_code: normalizeCostCode(form.cost_code) || null,
       color: jobColorToStore(form.color),
@@ -622,7 +628,11 @@ export function JobFormModal({
               }}
               className="form-input"
               placeholder="0.00"
+              aria-label="Job Budget (AUD)"
             />
+            {moneyFieldMessage(String(form.budget ?? '')) ? (
+              <p className="text-xs text-[#B42318] mt-1">{moneyFieldMessage(String(form.budget ?? ''))}</p>
+            ) : null}
           </div>
 
           <div className="overlay-form-span-all">

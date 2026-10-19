@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { isDevFieldAuditAuth } from '../../lib/devFieldAuditAuth';
 import { formatMoney, type PriceBookItem } from '../../types/fsm';
-import { committedMoney, moneyDraftAllowed } from '../../lib/parseDecimal';
+import { commitMoneyField, moneyDraftAllowed, moneyFieldMessage } from '../../lib/parseDecimal';
 
 export interface ExtractedPriceLine {
   code: string | null;
@@ -16,7 +16,7 @@ export interface ExtractedPriceLine {
   category: string | null;
 }
 
-interface ReviewRow {
+export interface ReviewRow {
   key: string;
   selected: boolean;
   action: 'insert' | 'update' | 'skip';
@@ -94,22 +94,25 @@ export function PriceBookPdfImportModal({
   defaultMarkup,
   onClose,
   onImported,
+  seedRows,
 }: {
   priceBookId: string;
   existingItems: PriceBookItem[];
   defaultMarkup: number;
   onClose: () => void;
   onImported: (summary: { inserted: number; updated: number }) => void;
+  seedRows?: ReviewRow[];
 }) {
   const { profile, session, company } = useAuth();
   const inputRef = useRef<HTMLInputElement>(null);
   const auditSeed = auditReviewSeed();
-  const [step, setStep] = useState<'upload' | 'review'>(auditSeed ? 'review' : 'upload');
+  const seeded = seedRows ?? auditSeed?.rows;
+  const [step, setStep] = useState<'upload' | 'review'>(seeded ? 'review' : 'upload');
   const [scanning, setScanning] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const [meta, setMeta] = useState<{ supplier_name?: string | null; invoice_number?: string | null; invoice_date?: string | null }>(auditSeed?.meta ?? {});
-  const [rows, setRows] = useState<ReviewRow[]>(auditSeed?.rows ?? []);
+  const [rows, setRows] = useState<ReviewRow[]>(seeded ?? []);
   const [fileName, setFileName] = useState(auditSeed?.fileName ?? '');
 
   const selectedCount = useMemo(() => rows.filter(r => r.selected && r.action !== 'skip').length, [rows]);
@@ -207,8 +210,20 @@ export function PriceBookPdfImportModal({
     let updated = 0;
     try {
       for (const r of toApply) {
-        const cost = r.cost_price.trim() !== '' ? committedMoney(r.cost_price) : null;
-        const sell = committedMoney(r.unit_price) ?? 0;
+        const sellRow = commitMoneyField(r.unit_price, 'zero');
+        if (!sellRow.ok) {
+          setErr(sellRow.message);
+          setSaving(false);
+          return;
+        }
+        const costRow = r.cost_price.trim() !== '' ? commitMoneyField(r.cost_price, 'null') : { ok: true as const, value: null };
+        if (!costRow.ok) {
+          setErr(costRow.message);
+          setSaving(false);
+          return;
+        }
+        const cost = costRow.value;
+        const sell = Number(sellRow.value) || 0;
         const payload = {
           price_book_id: priceBookId,
           company_id: profile.company_id,
@@ -383,12 +398,16 @@ export function PriceBookPdfImportModal({
                         type="text"
                         inputMode="decimal"
                         value={r.cost_price}
+                        aria-label="PDF import cost"
                         onChange={e => {
                           if (!moneyDraftAllowed(e.target.value)) return;
                           updateRow(r.key, { cost_price: e.target.value });
                         }}
                         className="form-input-sm w-full text-right min-w-0"
                       />
+                      {moneyFieldMessage(r.cost_price) ? (
+                        <p className="text-xs text-[#B42318] mt-1">{moneyFieldMessage(r.cost_price)}</p>
+                      ) : null}
                     </div>
                     <div>
                       <p className="text-[10px] text-[#6B7280] mb-1">Sell</p>
@@ -396,12 +415,16 @@ export function PriceBookPdfImportModal({
                         type="text"
                         inputMode="decimal"
                         value={r.unit_price}
+                        aria-label="PDF import sell"
                         onChange={e => {
                           if (!moneyDraftAllowed(e.target.value)) return;
                           updateRow(r.key, { unit_price: e.target.value });
                         }}
                         className="form-input-sm w-full text-right min-w-0"
                       />
+                      {moneyFieldMessage(r.unit_price) ? (
+                        <p className="text-xs text-[#B42318] mt-1">{moneyFieldMessage(r.unit_price)}</p>
+                      ) : null}
                     </div>
                   </div>
                 ))}

@@ -21,7 +21,14 @@ import {
 } from '../../types/fsm';
 import { asModelLines, modelHourlyCost } from '../expenses/ExpenseModelsModals';
 import { DEFAULT_TAX_RATE } from '../../lib/gst';
-import { committedMoneyOrZero, moneyDraftAllowed } from '../../lib/parseDecimal';
+import {
+  commitMoneyField,
+  commitNumberField,
+  moneyDraftAllowed,
+  moneyFieldMessage,
+  numberDraftAllowed,
+} from '../../lib/parseDecimal';
+import { moneyRound } from '../../lib/gst';
 import { Link } from 'react-router-dom';
 import { createInvoiceFromJobBill, loadJobBillInvoicePreview } from '../../lib/createInvoiceFromJobBill';
 import { countZeroLabourBeforeJobBillInvoice } from '../../lib/requestJobBillInvoice';
@@ -70,7 +77,7 @@ const STAT_BORDER: Record<CostType, string> = {
 };
 
 function sellFromCost(cost: number, markup: number): number {
-  return Number((cost * (1 + markup / 100)).toFixed(2));
+  return moneyRound(cost * (1 + markup / 100));
 }
 
 function guessCostType(nature: string): CostType | null {
@@ -79,6 +86,19 @@ function guessCostType(nature: string): CostType | null {
   if (/\b(materials?|parts?|stock|consumables?)\b/.test(n)) return 'materials';
   if (/\b(hire|rental|travel|fuel|other|misc)\b/.test(n)) return 'other';
   return null;
+}
+
+export function commitJobBillCharge(qtyRaw: string, costRaw: string, priceRaw: string) {
+  const qty = commitNumberField(qtyRaw, 'reject');
+  if (!qty.ok) return qty;
+  const cost = commitMoneyField(costRaw, 'zero');
+  if (!cost.ok) return cost;
+  if (priceRaw.trim()) {
+    const price = commitMoneyField(priceRaw, 'reject');
+    if (!price.ok) return price;
+    return { ok: true as const, quantity: qty.value, unit_cost: cost.value, unit_price: price.value };
+  }
+  return { ok: true as const, quantity: qty.value, unit_cost: cost.value, unit_price: 0 };
 }
 
 export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostingPanelProps) {
@@ -276,9 +296,10 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   });
 
   const recalcPrice = (costStr: string, markupStr: string) => {
-    const cost = committedMoneyOrZero(costStr);
+    const cost = commitMoneyField(costStr, 'zero');
+    if (!cost.ok) return '';
     const markup = parseFloat(markupStr) || 0;
-    return cost > 0 ? sellFromCost(cost, markup).toFixed(2) : '';
+    return Number(cost.value) > 0 ? sellFromCost(Number(cost.value) || 0, markup).toFixed(2) : '';
   };
 
   const applyCostModel = (modelId: string) => {
@@ -381,10 +402,18 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     const nature = form.charge_type.trim();
     const note = form.description.trim();
     const description = note || nature || COST_TYPE_LABELS[form.cost_type];
-    const qty = parseFloat(form.quantity) || 0;
-    const unitCost = committedMoneyOrZero(form.unit_cost);
+    const qtyRow = commitNumberField(form.quantity, 'reject');
+    if (!qtyRow.ok) return setFormErr(qtyRow.message);
+    const costRow = commitMoneyField(form.unit_cost, 'zero');
+    if (!costRow.ok) return setFormErr(costRow.message);
+    const priceRow = form.unit_price.trim()
+      ? commitMoneyField(form.unit_price, 'reject')
+      : { ok: true as const, value: 0 };
+    if (!priceRow.ok) return setFormErr(priceRow.message);
+    const qty = Number(qtyRow.value) || 0;
+    const unitCost = Number(costRow.value) || 0;
     const markup = parseFloat(form.markup_percent) || 0;
-    const unitPrice = committedMoneyOrZero(form.unit_price) || sellFromCost(unitCost, markup);
+    const unitPrice = Number(priceRow.value) || sellFromCost(unitCost, markup);
     if (qty <= 0) return setFormErr('Enter a quantity');
     if (unitCost < 0 || unitPrice < 0) return setFormErr('Enter valid cost / charge amounts');
     if (!nature && !note && unitCost === 0 && unitPrice === 0 && !form.cost_model_id) {
@@ -395,10 +424,10 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
       description,
       quantity: qty,
       unit_cost: unitCost,
-      total_cost: Number((qty * unitCost).toFixed(2)),
+      total_cost: moneyRound(qty * unitCost),
       markup_percent: markup,
       unit_price: unitPrice,
-      total_price: Number((qty * unitPrice).toFixed(2)),
+      total_price: moneyRound(qty * unitPrice),
       charge_type: nature || null,
       cost_model_id: form.cost_model_id || null,
     };
@@ -501,9 +530,9 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
       const { error: cErr } = await supabase.from('job_costs').insert({
         company_id: profile.company_id, job_id: jobId, cost_type: 'materials',
         description: item.name, quantity: qty, unit_cost: unitCost,
-        total_cost: Number((qty * unitCost).toFixed(2)),
+        total_cost: moneyRound(qty * unitCost),
         markup_percent: markup, unit_price: unitPrice,
-        total_price: Number((qty * unitPrice).toFixed(2)),
+        total_price: moneyRound(qty * unitPrice),
         charge_type: 'Materials',
         stock_item_id: item.id, purchase_order_id: null, cost_model_id: null, created_by: profile.id,
       });
@@ -537,8 +566,15 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     allocateParts.mutate({ item: selectedItem, qty });
   };
 
-  const previewCharge = (parseFloat(form.quantity) || 0) * committedMoneyOrZero(form.unit_price);
-  const previewCost = (parseFloat(form.quantity) || 0) * committedMoneyOrZero(form.unit_cost);
+  const previewQty = commitNumberField(form.quantity, 'zero');
+  const previewPrice = commitMoneyField(form.unit_price, 'zero');
+  const previewCostRow = commitMoneyField(form.unit_cost, 'zero');
+  const previewCharge = previewQty.ok && previewPrice.ok
+    ? moneyRound((Number(previewQty.value) || 0) * (Number(previewPrice.value) || 0))
+    : 0;
+  const previewCost = previewQty.ok && previewCostRow.ok
+    ? moneyRound((Number(previewQty.value) || 0) * (Number(previewCostRow.value) || 0))
+    : 0;
 
   return (
     <>
@@ -821,9 +857,10 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
             <div>
               <label className="block text-xs font-medium text-[#4A5568] mb-1">Qty</label>
               <input type="text" inputMode="decimal" value={form.quantity}
+                aria-label="Qty"
                 onChange={e => {
                   const raw = e.target.value;
-                  if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
+                  if (!numberDraftAllowed(raw)) return;
                   setForm(f => ({ ...f, quantity: raw }));
                 }}
                 className="form-input" />
@@ -842,7 +879,11 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
                 }}
                 className="form-input"
                 placeholder="0.00"
+                aria-label="Your cost (each)"
               />
+              {moneyFieldMessage(form.unit_cost) ? (
+                <p className="text-xs text-[#B42318] mt-1">{moneyFieldMessage(form.unit_cost)}</p>
+              ) : null}
             </div>
             <div>
               <label className="block text-xs font-medium text-[#4A5568] mb-1">Markup %</label>
@@ -870,7 +911,11 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
                 }}
                 className="form-input"
                 placeholder="0.00"
+                aria-label="Charge customer (each)"
               />
+              {moneyFieldMessage(form.unit_price) ? (
+                <p className="text-xs text-[#B42318] mt-1">{moneyFieldMessage(form.unit_price)}</p>
+              ) : null}
             </div>
           </div>
           {(form.unit_cost || form.unit_price) && (

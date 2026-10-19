@@ -75,6 +75,15 @@ describe('parseNumberInput disambiguates 1,250 from 1,5', () => {
     expect(parseMoneyInput('1,5')).not.toEqual({ status: 'valid', value: 15 });
     expect(parseMoneyInput('1,5').status).toBe('incomplete');
   });
+
+  it('accepts EU 1.250,50 and leading-dot .5, and rejects 1 5', () => {
+    expect(parseMoneyInput('1.250,50')).toEqual({ status: 'valid', value: 1250.5 });
+    expect(parseNumberInput('1.250,50')).toEqual({ status: 'valid', value: 1250.5 });
+    expect(parseMoneyInput('.5')).toEqual({ status: 'valid', value: 0.5 });
+    expect(parseNumberInput('.5')).toEqual({ status: 'valid', value: 0.5 });
+    expect(parseMoneyInput('1 5').status).toBe('invalid');
+    expect(parseNumberInput('1 5').status).toBe('invalid');
+  });
 });
 
 describe('expense GST split still accepts 1,250', () => {
@@ -88,9 +97,7 @@ describe('expense GST split still accepts 1,250', () => {
       exAmount: blurred.exAmount,
       taxRate: blurred.taxRate,
     });
-    expect(saved.total).toBe(1250);
-    expect(saved.amount).toBe(1136.36);
-    expect(saved.tax_amount).toBe(113.64);
+    expect(saved).toMatchObject({ ok: true, total: 1250, amount: 1136.36, tax_amount: 113.64 });
   });
 
   it('does not turn 1,5 into 15 on the expense inc field', () => {

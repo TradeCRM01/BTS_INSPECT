@@ -1,0 +1,531 @@
+/**
+ * @vitest-environment jsdom
+ */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { act, type ReactNode } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MONEY_COMMA_HINT } from '../lib/parseDecimal';
+import { commitCommercialLines } from '../lib/commitCommercialLines';
+import { persistDocumentMoney } from '../lib/documentPersist';
+import { calcSubtotal, emptyLineItem, LineItemEditor } from '../components/invoicing/LineItemEditor';
+import { ToastProvider } from '../components/ui/Toast';
+
+const harness = vi.hoisted(() => ({
+  inserts: [] as { table: string; payload: Record<string, unknown> }[],
+  updates: [] as { table: string; payload: Record<string, unknown> }[],
+  profile: { company_id: 'co-1', id: 'user-1', name: 'QA', role: 'admin' },
+  company: { id: 'co-1', name: 'QA Co', default_tax_rate: 10, default_material_markup: 20 },
+  models: [{
+    id: 'm1',
+    company_id: 'co-1',
+    name: 'Wages',
+    notes: null,
+    billing_period: 'monthly',
+    lines: [{
+      employee_cost_type: 'wages',
+      category: 'Wages & Salaries',
+      description: 'Base wages',
+      amount: 45,
+      amount_mode: 'hours_x_rate',
+      time_unit: 'hourly',
+      tax_rate: 0,
+    }],
+  }],
+  employees: [{ id: 'e1', name: 'Sam' }],
+}));
+
+function thenable<T>(data: T, table: string) {
+  const result = { data, error: null };
+  const query: Record<string, unknown> = {};
+  const self = () => query;
+  for (const key of ['select', 'eq', 'neq', 'is', 'or', 'order', 'limit', 'maybeSingle', 'single']) {
+    query[key] = self;
+  }
+  query.insert = (payload: Record<string, unknown> | Record<string, unknown>[]) => {
+    const rows = Array.isArray(payload) ? payload : [payload];
+    rows.forEach(row => harness.inserts.push({ table, payload: row }));
+    return Promise.resolve(result);
+  };
+  query.update = (payload: Record<string, unknown>) => {
+    harness.updates.push({ table, payload });
+    return query;
+  };
+  query.then = (onFulfilled: (value: unknown) => unknown, onRejected?: (reason: unknown) => unknown) =>
+    Promise.resolve(result).then(onFulfilled, onRejected);
+  return query;
+}
+
+vi.mock('../contexts/AuthContext', () => ({
+  useAuth: () => ({
+    profile: harness.profile,
+    company: harness.company,
+    session: { access_token: 'tok' },
+  }),
+}));
+
+vi.mock('../lib/supabase', () => ({
+  supabase: {
+    from(table: string) {
+      return thenable(
+        table === 'expense_cost_models' ? harness.models
+          : table === 'profiles' ? harness.employees
+            : table === 'clients' ? [{ id: 'cl-1', name: 'Northside' }]
+              : table === 'suppliers' ? []
+                : table === 'jobs' ? []
+                  : [],
+        table,
+      );
+    },
+    rpc() { return Promise.resolve({ data: [], error: null }); },
+    storage: { from() { return { upload: () => Promise.resolve({ error: null }) }; } },
+  },
+}));
+
+import { useState } from 'react';
+import { ExpenseEditorModal } from './ExpensesPage';
+import { PriceBookItemForm, commitPriceBookPrices } from './PriceBooksPage';
+import { StockItemForm } from './StockPage';
+import { POEditorModal, commitPOLine } from './PurchaseOrdersPage';
+import { InvoiceRecordPaymentSheet } from './InvoicesPage';
+import { JobFormModal, commitJobBudget } from '../components/crm/JobFormModal';
+import { PriceBookPdfImportModal } from '../components/pricebooks/PriceBookPdfImportModal';
+import { ApplyEmployeeCostModelModal, commitModelLine } from '../components/expenses/ExpenseModelsModals';
+import { commitJobBillCharge } from '../components/jobs/JobCostingPanel';
+
+let container: HTMLDivElement;
+let root: Root;
+
+beforeEach(() => {
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  harness.inserts = [];
+  harness.updates = [];
+  container = document.createElement('div');
+  document.body.appendChild(container);
+  root = createRoot(container);
+});
+
+afterEach(() => {
+  act(() => root.unmount());
+  container.remove();
+});
+
+function pageRoot() {
+  return document.body;
+}
+
+function setNativeValue(el: HTMLInputElement | HTMLSelectElement, value: string) {
+  const proto = el instanceof HTMLSelectElement
+    ? HTMLSelectElement.prototype
+    : HTMLInputElement.prototype;
+  const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+  desc?.set?.call(el, value);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+async function flush() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+async function waitFor(selector: string) {
+  for (let i = 0; i < 20; i++) {
+    const el = pageRoot().querySelector(selector);
+    if (el) return el;
+    await flush();
+  }
+  return pageRoot().querySelector(selector);
+}
+
+async function typeKeys(el: HTMLInputElement, text: string) {
+  await act(async () => {
+    el.focus();
+    setNativeValue(el, '');
+  });
+  for (const ch of text) {
+    await act(async () => {
+      setNativeValue(el, `${el.value}${ch}`);
+    });
+  }
+}
+
+function LineEditorHarness({
+  initial,
+  onLines,
+}: {
+  initial: ReturnType<typeof emptyLineItem>[];
+  onLines?: (lines: ReturnType<typeof emptyLineItem>[]) => void;
+}) {
+  const [lines, setLines] = useState(initial);
+  return (
+    <LineItemEditor
+      lines={lines}
+      stockItems={[]}
+      defaultMarkup={0}
+      onChange={next => {
+        setLines(next);
+        onLines?.(next);
+      }}
+    />
+  );
+}
+
+function wrap(node: ReactNode) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return (
+    <MemoryRouter>
+      <QueryClientProvider client={client}>
+        <ToastProvider>{node}</ToastProvider>
+      </QueryClientProvider>
+    </MemoryRouter>
+  );
+}
+
+async function renderNode(node: ReactNode) {
+  await act(async () => {
+    root.render(wrap(node));
+  });
+  await flush();
+}
+
+function src(rel: string) {
+  return readFileSync(resolve(process.cwd(), rel), 'utf8');
+}
+
+describe('commit helpers reject 1,5 on every money form', () => {
+  it('blocks quote/invoice lines, budget, price book, PO, stock, job bill, wage, and model line', () => {
+    expect(commitCommercialLines([{
+      ...emptyLineItem(),
+      description: 'Labour',
+      quantity: '1',
+      unit_price: '1,5',
+    }])).toEqual({ ok: false, message: MONEY_COMMA_HINT });
+    expect(commitCommercialLines([{
+      ...emptyLineItem(),
+      description: 'Labour',
+      quantity: '1,5',
+      unit_price: '10',
+    }])).toEqual({
+      ok: true,
+      lines: [expect.objectContaining({ quantity: 1.5, unit_price: 10 })],
+    });
+    expect(commitJobBudget('1,5')).toEqual({ ok: false, message: MONEY_COMMA_HINT });
+    expect(commitJobBudget('1,250')).toEqual({ ok: true, value: 1250 });
+    expect(commitPriceBookPrices('1,5', '')).toEqual({ ok: false, message: MONEY_COMMA_HINT });
+    expect(commitPriceBookPrices('1,250', '1,5')).toEqual({ ok: false, message: MONEY_COMMA_HINT });
+    expect(commitPOLine({ description: 'Conduit', quantity: '1', unit_cost: '1,5', received_quantity: 0 })).toEqual({
+      ok: false,
+      message: MONEY_COMMA_HINT,
+    });
+    expect(commitJobBillCharge('1', '10', '1,5')).toEqual({ ok: false, message: MONEY_COMMA_HINT });
+    expect(commitJobBillCharge('1,5', '10', '20')).toEqual({
+      ok: true,
+      quantity: 1.5,
+      unit_cost: 10,
+      unit_price: 20,
+    });
+    expect(commitModelLine({
+      employee_cost_type: 'wages',
+      category: 'Wages',
+      description: 'Base',
+      amount: '1,5',
+      amount_mode: 'fixed',
+      hours: '',
+      time_unit: 'hourly',
+      tax_rate: '',
+    })).toEqual({ ok: false, message: MONEY_COMMA_HINT });
+  });
+});
+
+describe('LineItemEditor unit price, qty, line total', () => {
+  it('types 1,5 into unit price, shows the hint, and keeps line total off $15', async () => {
+    let lines = [{ ...emptyLineItem(), description: 'Labour', quantity: '1', unit_price: '' }];
+    await renderNode(
+      <LineEditorHarness
+        initial={lines}
+        onLines={next => { lines = next; }}
+      />,
+    );
+    const price = pageRoot().querySelector('[aria-label="Unit price"]') as HTMLInputElement;
+    await typeKeys(price, '1,5');
+    expect(price.value).toBe('1,5');
+    expect(pageRoot().textContent).toContain(MONEY_COMMA_HINT);
+    expect(pageRoot().textContent).not.toContain('$15.00');
+    expect(calcSubtotal(lines)).toBe(0);
+  });
+
+  it('types qty 1,5 as 1.5 and 1,250 unit price as 1250', async () => {
+    let lines = [{ ...emptyLineItem(), description: 'Labour', quantity: '', unit_price: '' }];
+    await renderNode(
+      <LineEditorHarness
+        initial={lines}
+        onLines={next => { lines = next; }}
+      />,
+    );
+    await typeKeys(pageRoot().querySelector('[aria-label="Quantity"]') as HTMLInputElement, '1,5');
+    await typeKeys(pageRoot().querySelector('[aria-label="Unit price"]') as HTMLInputElement, '1,250');
+    const qty = pageRoot().querySelector('[aria-label="Quantity"]') as HTMLInputElement;
+    const price = pageRoot().querySelector('[aria-label="Unit price"]') as HTMLInputElement;
+    expect(qty.value).toBe('1,5');
+    expect(price.value).toBe('1,250');
+    expect(commitCommercialLines(lines)).toMatchObject({
+      ok: true,
+      lines: [{ quantity: 1.5, unit_price: 1250 }],
+    });
+    expect(calcSubtotal(lines)).toBe(1875);
+  });
+});
+
+describe('Quotes and invoices persist wiring', () => {
+  it('save paths use commitCommercialLines + persistDocumentMoney, not parseFloat on unit price', () => {
+    const quotes = src('src/pages/QuotesPage.tsx');
+    const invoices = src('src/pages/InvoicesPage.tsx');
+    expect(quotes).toContain('commitCommercialLines(form.line_items)');
+    expect(quotes).toContain('persistDocumentMoney(quote?.status');
+    expect(invoices).toContain('commitCommercialLines(form.line_items)');
+    expect(invoices).toContain('persistDocumentMoney(invoice?.status');
+    expect(quotes).not.toMatch(/unit_price:\s*parseFloat/);
+    expect(invoices).not.toMatch(/unit_price:\s*parseFloat/);
+    const saved = commitCommercialLines([{
+      ...emptyLineItem(),
+      description: 'Labour',
+      quantity: '1.5',
+      unit_price: '87.35',
+    }]);
+    expect(saved.ok).toBe(true);
+    if (saved.ok) {
+      const money = persistDocumentMoney('draft', { subtotal: 131.03, tax_amount: 13.1, total: 144.13 }, null);
+      expect(money.subtotal).toBe(131.03);
+      expect(persistDocumentMoney('sent', { subtotal: 131.03, tax_amount: 13.1, total: 144.13 }, {
+        subtotal: 131.02,
+        tax_amount: 13.1,
+        total: 144.12,
+      }).subtotal).toBe(131.02);
+    }
+  });
+});
+
+describe('Expense inc GST keystrokes', () => {
+  it('types 1,5 key by key and keeps 1,5 — never 15 or $15', async () => {
+    await renderNode(
+      <ExpenseEditorModal
+        expense={null}
+        defaultTaxRate={10}
+        formLookSeed={{ description: 'Fuel', category: 'Fuel' }}
+        onClose={() => {}}
+        onSaved={() => {}}
+        onDeleted={() => {}}
+      />,
+    );
+    const inc = pageRoot().querySelector('[aria-label="Amount (inc GST)"]') as HTMLInputElement;
+    await typeKeys(inc, '1,5');
+    expect(inc.value).toBe('1,5');
+    expect(inc.value).not.toBe('15');
+    expect(pageRoot().textContent).toContain(MONEY_COMMA_HINT);
+    const save = Array.from(pageRoot().querySelectorAll('button')).find(b => b.textContent === 'Save') as HTMLButtonElement;
+    await act(async () => { save.click(); });
+    await flush();
+    expect(harness.inserts.filter(row => row.table === 'expenses')).toEqual([]);
+    expect(pageRoot().textContent).toContain(MONEY_COMMA_HINT);
+  });
+
+  it('types 12,50 key by key and does not become 1250', async () => {
+    await renderNode(
+      <ExpenseEditorModal
+        expense={null}
+        defaultTaxRate={10}
+        formLookSeed={{ description: 'Fuel', category: 'Fuel' }}
+        onClose={() => {}}
+        onSaved={() => {}}
+        onDeleted={() => {}}
+      />,
+    );
+    const inc = pageRoot().querySelector('[aria-label="Amount (inc GST)"]') as HTMLInputElement;
+    await typeKeys(inc, '12,50');
+    expect(inc.value).toBe('12,50');
+    expect(inc.value).not.toBe('1250');
+    expect(pageRoot().textContent).toContain(MONEY_COMMA_HINT);
+  });
+});
+
+describe('Budget, price book, stock, PO, PDF import', () => {
+  it('budget 1,5 shows the hint and does not save', async () => {
+    await renderNode(
+      <JobFormModal
+        presetDate={null}
+        presetClientId={null}
+        job={{
+          id: 'j1',
+          company_id: 'co-1',
+          title: 'Switchboard',
+          client_id: 'cl-1',
+          description: null,
+          status: 'scheduled',
+          priority: 'medium',
+          scheduled_date: '2026-10-20',
+          start_time: '07:00',
+          end_time: '15:00',
+          address: null,
+          assigned_team: [],
+          budget: null,
+          parent_job_id: null,
+          cost_code: null,
+          color: null,
+        } as never}
+        fields="details"
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    );
+    const budget = pageRoot().querySelector('[aria-label="Job Budget (AUD)"]') as HTMLInputElement;
+    await typeKeys(budget, '1,5');
+    expect(budget.value).toBe('1,5');
+    expect(pageRoot().textContent).toContain(MONEY_COMMA_HINT);
+    const save = Array.from(pageRoot().querySelectorAll('button')).find(b => /Save Changes/i.test(b.textContent || '')) as HTMLButtonElement;
+    await act(async () => { save.click(); });
+    await flush();
+    expect(harness.updates.filter(row => row.table === 'jobs')).toEqual([]);
+  });
+
+  it('price book unit price 1,5 blocks Save', async () => {
+    await renderNode(
+      <PriceBookItemForm item={null} priceBookId="pb-1" onClose={() => {}} onSaved={() => {}} />,
+    );
+    const desc = container.querySelector('input[placeholder="e.g. Install double power point"]') as HTMLInputElement;
+    const unit = container.querySelector('[aria-label="Unit Price"]') as HTMLInputElement;
+    await act(async () => { setNativeValue(desc, 'Power point'); });
+    await typeKeys(unit, '1,5');
+    expect(container.textContent).toContain(MONEY_COMMA_HINT);
+    await act(async () => {
+      container.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+    await flush();
+    expect(harness.inserts.filter(row => row.table === 'price_book_items')).toEqual([]);
+  });
+
+  it('stock unit cost 1,5 blocks Save', async () => {
+    await renderNode(
+      <StockItemForm item={null} onClose={() => {}} onSaved={() => {}} />,
+    );
+    const name = container.querySelector('input[placeholder="e.g. 20mm PVC Conduit"]') as HTMLInputElement;
+    const cost = container.querySelector('[aria-label="Unit Cost (AUD)"]') as HTMLInputElement;
+    await act(async () => { setNativeValue(name, 'Conduit'); });
+    await typeKeys(cost, '1,5');
+    expect(container.textContent).toContain(MONEY_COMMA_HINT);
+    const add = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Add Item') as HTMLButtonElement;
+    await act(async () => { add.click(); });
+    await flush();
+    expect(harness.inserts.filter(row => row.table === 'stock_items')).toEqual([]);
+  });
+
+  it('PO unit cost 1,5 blocks Save', async () => {
+    await renderNode(
+      <POEditorModal po={null} onClose={() => {}} onSaved={() => {}} onRequestSend={() => {}} />,
+    );
+    const cost = container.querySelector('[aria-label="Unit cost"]') as HTMLInputElement;
+    await typeKeys(cost, '1,5');
+    expect(container.textContent).toContain(MONEY_COMMA_HINT);
+  });
+
+  it('PDF import sell 1,5 shows the hint and does not insert', async () => {
+    await renderNode(
+      <PriceBookPdfImportModal
+        priceBookId="pb-1"
+        existingItems={[]}
+        defaultMarkup={20}
+        onClose={() => {}}
+        onImported={() => {}}
+        seedRows={[{
+          key: 'r1',
+          selected: true,
+          action: 'insert',
+          matchId: null,
+          code: 'PVC-20',
+          description: '20mm PVC',
+          unit: 'each',
+          category: 'conduit',
+          cost_price: '4.80',
+          unit_price: '',
+          existingCost: null,
+          existingSell: null,
+        }]}
+      />,
+    );
+    const sell = container.querySelector('[aria-label="PDF import sell"]') as HTMLInputElement;
+    await typeKeys(sell, '1,5');
+    expect(sell.value).toBe('1,5');
+    expect(container.textContent).toContain(MONEY_COMMA_HINT);
+    const apply = Array.from(container.querySelectorAll('button')).find(b => /Import|Apply/i.test(b.textContent || '')) as HTMLButtonElement;
+    await act(async () => { apply?.click(); });
+    await flush();
+    expect(harness.inserts.filter(row => row.table === 'price_book_items')).toEqual([]);
+  });
+});
+
+describe('Record payment reason and overpay label', () => {
+  it('shows why Confirm is disabled for 1,5, 12,50 and empty, and honours overpay', async () => {
+    await renderNode(
+      <InvoiceRecordPaymentSheet
+        total={836}
+        amountPaid={0}
+        busy={false}
+        onCancel={() => {}}
+        onConfirm={() => {}}
+      />,
+    );
+    const amount = pageRoot().querySelector('[aria-label="Payment amount"]') as HTMLInputElement;
+    expect(amount).toBeTruthy();
+    const confirm = () => Array.from(pageRoot().querySelectorAll('button')).find(b => /Confirm payment/i.test(b.textContent || '')) as HTMLButtonElement;
+
+    await act(async () => { setNativeValue(amount, ''); });
+    expect(pageRoot().textContent).toContain('Enter an amount');
+    expect(confirm().disabled).toBe(true);
+
+    await typeKeys(amount, '1,5');
+    expect(pageRoot().textContent).toContain(MONEY_COMMA_HINT);
+    expect(confirm().disabled).toBe(true);
+
+    await act(async () => { setNativeValue(amount, ''); });
+    await typeKeys(amount, '12,50');
+    expect(pageRoot().textContent).toContain(MONEY_COMMA_HINT);
+    expect(confirm().disabled).toBe(true);
+
+    await act(async () => { setNativeValue(amount, '900'); });
+    expect(pageRoot().textContent).toContain('That\'s more than the $836.00 balance owing');
+    expect(pageRoot().textContent).toContain('Not recorded');
+    expect(confirm().disabled).toBe(true);
+  });
+});
+
+describe('Cost-model wage override', () => {
+  it('types 1,5 on the wage override and shows the hint', async () => {
+    await renderNode(
+      <ApplyEmployeeCostModelModal onClose={() => {}} onApplied={() => {}} />,
+    );
+    const wage = await waitFor('[aria-label="Wage override"]') as HTMLInputElement;
+    expect(wage).toBeTruthy();
+    await typeKeys(wage, '1,5');
+    expect(wage.value).toBe('1,5');
+    expect(pageRoot().textContent).toContain(MONEY_COMMA_HINT);
+    expect(pageRoot().textContent).toMatch(/\$\/hr/);
+  });
+
+  it('types 1,250 on the wage override and uses 1250, not parseFloat 1', async () => {
+    await renderNode(
+      <ApplyEmployeeCostModelModal onClose={() => {}} onApplied={() => {}} />,
+    );
+    const wage = await waitFor('[aria-label="Wage override"]') as HTMLInputElement;
+    expect(wage).toBeTruthy();
+    await typeKeys(wage, '1,250');
+    expect(wage.value).toBe('1,250');
+    const estimate = pageRoot().querySelector('[aria-label="Wage package estimate"]');
+    expect(estimate?.textContent).toContain('$190,000.00');
+    expect(estimate?.textContent).not.toContain('$152.00');
+  });
+});

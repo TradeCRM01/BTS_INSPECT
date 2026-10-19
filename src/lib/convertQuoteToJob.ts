@@ -1,3 +1,4 @@
+import { moneyRound } from './gst';
 import { isDevFieldAuditAuth } from './devFieldAuditAuth';
 import { getAuditClients } from './devFieldAuditDocs';
 import { mergeScheduleJobPatch } from './scheduleJobPatchStore';
@@ -128,10 +129,10 @@ export async function convertQuoteToJob(quote: ConvertibleQuote, profileId: stri
       description: li.description,
       quantity: qty,
       unit_cost: unitCost,
-      total_cost: Number((qty * unitCost).toFixed(2)),
+      total_cost: moneyRound(qty * unitCost),
       markup_percent: markup,
       unit_price: unitPrice,
-      total_price: Number((qty * unitPrice).toFixed(2)),
+      total_price: moneyRound(qty * unitPrice),
       charge_type: li.charge_type ?? null,
       stock_item_id: li.stock_item_id ?? null,
       purchase_order_id: null,

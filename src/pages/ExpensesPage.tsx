@@ -24,7 +24,7 @@ import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import { ManagedSelect } from '../components/ui/ManagedSelect';
 import { LIST_KEYS } from '../lib/useManagedList';
 import { useCompanyAiKey } from '../lib/useCompanyAiKey';
-import { parseMoneyInput } from '../lib/parseDecimal';
+import { commitMoneyField, moneyFieldMessage, parseMoneyInput } from '../lib/parseDecimal';
 import {
   assertExpenseReceiptFile,
   expenseReceiptNoteLine,
@@ -673,39 +673,35 @@ export function buildExpenseSaveAmounts(input: {
   incDraft: string;
   exAmount: string;
   taxRate: string;
-}): { amount: number; tax_rate: number; tax_amount: number; total: number } {
+}): { ok: true; amount: number; tax_rate: number; tax_amount: number; total: number } | { ok: false; message: string } {
   const rate = parseFloat(input.taxRate) || 0;
   const incTrim = input.incDraft.trim();
   if (input.amountSource === 'inc' && incTrim !== '') {
-    const blurred = formatExpenseDecimalBlur(incTrim);
-    const total = round2(parseFloat(blurred));
-    if (Number.isFinite(total)) {
-      const amount = round2(parseFloat(input.exAmount) || 0);
-      const tax_amount = round2(total - amount);
-      return { amount, tax_rate: rate, tax_amount, total };
-    }
+    const inc = commitMoneyField(incTrim, 'reject');
+    if (!inc.ok) return inc;
+    const total = round2(Number(inc.value) || 0);
+    const amount = round2(parseFloat(input.exAmount) || 0);
+    const tax_amount = round2(total - amount);
+    return { ok: true, amount, tax_rate: rate, tax_amount, total };
   }
   const amount = parseFloat(input.exAmount) || 0;
   const { tax_amount, total } = moneyTax(amount, rate);
-  return { amount, tax_rate: rate, tax_amount, total };
+  return { ok: true, amount, tax_rate: rate, tax_amount, total };
 }
 
-/** Allow partial decimal entry; strip currency noise. Returns null when invalid. */
+/** Keep the typed draft, including an incomplete comma. Never fold 1,5 into 15. */
 export function sanitizeExpenseDecimalDraft(raw: string): string | null {
   const parsed = parseMoneyInput(raw);
   if (parsed.status === 'invalid') return null;
   if (parsed.status === 'empty') return '';
-  const stripped = raw.trim().replace(/^AUD\s*/i, '').replace(/^\$/, '').replace(/\s/g, '');
-  if (parsed.status === 'valid') return stripped.replace(/,/g, '');
-  if (stripped.endsWith('.')) return `${parsed.partial ?? ''}.`;
-  return parsed.partial != null ? String(parsed.partial) : '';
+  return raw.trim().replace(/^AUD\s*/i, '').replace(/^\$/, '');
 }
 
 export function formatExpenseDecimalBlur(raw: string): string {
   if (raw === '') return '';
-  const n = parseFloat(raw);
-  if (!Number.isFinite(n)) return raw;
-  return n.toFixed(2);
+  const committed = commitMoneyField(raw, 'reject');
+  if (!committed.ok) return raw;
+  return Number(committed.value).toFixed(2);
 }
 
 export function taxRateFromExAndGst(ex: number, gst: number): number {
@@ -768,8 +764,11 @@ export function expenseIncGstInputStep(state: ExpenseAmountTypingState, raw: str
   if (sanitized === '') {
     return { ...state, incDraft: '', exAmount: '', gstDraft: '', amountSource: 'ex' };
   }
-  const inc = parseFloat(sanitized);
-  if (!Number.isFinite(inc)) return { ...state, incDraft: sanitized, amountSource: 'inc' };
+  const committed = commitMoneyField(sanitized, 'reject');
+  if (!committed.ok) {
+    return { ...state, incDraft: sanitized, amountSource: 'inc' };
+  }
+  const inc = committed.value as number;
   const rate = parseFloat(state.taxRate) || 0;
   const { amount, tax_amount } = expenseMoneyFromInc(inc, rate);
   return {
@@ -862,14 +861,14 @@ export function expenseTaxRateStep(state: ExpenseAmountTypingState, taxRate: str
   return { ...state, taxRate };
 }
 
-/** Type a string keystroke-by-keystroke into the inc-GST field. */
+/** Type as a user: each key is appended to the displayed draft, not a raw prefix. */
 export function typeExpenseIncGstKeystrokes(
   start: ExpenseAmountTypingState,
   text: string,
 ): ExpenseAmountTypingState {
   let state = start;
-  for (let i = 1; i <= text.length; i += 1) {
-    state = expenseIncGstInputStep(state, text.slice(0, i));
+  for (const ch of text) {
+    state = expenseIncGstInputStep(state, `${state.incDraft}${ch}`);
   }
   return state;
 }
@@ -1777,12 +1776,16 @@ export function ExpenseEditorModal({
   const previewUrl = receiptPreviewUrl ?? localPreviewUrl;
   const attachedName = attachFile?.name ?? receiptFile?.name ?? null;
 
-  const { amount: amountNum, tax_rate: taxRateNum, tax_amount, total } = buildExpenseSaveAmounts({
+  const savedAmounts = buildExpenseSaveAmounts({
     amountSource,
     incDraft: incGstDraft,
     exAmount: form.amount,
     taxRate: form.tax_rate,
   });
+  const amountNum = savedAmounts.ok ? savedAmounts.amount : 0;
+  const taxRateNum = savedAmounts.ok ? savedAmounts.tax_rate : 0;
+  const tax_amount = savedAmounts.ok ? savedAmounts.tax_amount : 0;
+  const total = savedAmounts.ok ? savedAmounts.total : 0;
 
   const suggestCategory = (costClass: ExpenseCostClass) => {
     if (form.category) return;
@@ -1801,6 +1804,7 @@ export function ExpenseEditorModal({
 
   const handleSave = async () => {
     if (!profile?.company_id) return;
+    if (!savedAmounts.ok) { setErr(savedAmounts.message); return; }
     if (!form.description.trim()) { setErr('Description is required'); return; }
     if (!form.category.trim()) { setErr('Pick a category'); return; }
     if (amountNum < 0) { setErr('Amount cannot be negative'); return; }
@@ -2117,11 +2121,15 @@ export function ExpenseEditorModal({
                   type="text"
                   inputMode="decimal"
                   value={incGstDraft}
+                  aria-label="Amount (inc GST)"
                   onChange={e => handleIncGstInput(e.target.value)}
                   onBlur={handleIncGstBlur}
                   className="form-input font-semibold text-[#0A2540]"
                   placeholder="0.00"
                 />
+                {moneyFieldMessage(incGstDraft) ? (
+                  <p className="text-xs text-[#B42318] mt-1">{moneyFieldMessage(incGstDraft)}</p>
+                ) : null}
               </Field>
               <Field label="Amount (ex GST)">
                 <input

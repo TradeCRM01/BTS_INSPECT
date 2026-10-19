@@ -24,7 +24,9 @@ import { asStringList } from '../lib/asStringList';
 import { checkPriceSendBlock } from '../lib/checkPriceGate';
 import { listQueryBusy } from '../lib/listQueryReady';
 import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel, lineExGstAmount } from '../lib/gst';
-import { committedMoney, committedMoneyOrZero, parseMoneyInput } from '../lib/parseDecimal';
+import { commitDocumentLine } from '../lib/parseDecimal';
+import { commitCommercialLines } from '../lib/commitCommercialLines';
+import { persistDocumentMoney } from '../lib/documentPersist';
 import { lineNeedsLabourRate } from '../lib/hoursToJobBill';
 import {
   effectiveInvoiceStatus,
@@ -43,6 +45,7 @@ import {
   INVOICE_PAYMENT_METHODS,
   INVOICE_PAYMENT_METHOD_LABELS,
   parseRecordPaymentAmount,
+  recordPaymentAmountReason,
   persistInvoicePayment,
   previewInvoicePayment,
   recordPaymentStatusAfterLabel,
@@ -779,8 +782,8 @@ export function InvoiceRecordPaymentSheet({
               aria-label="Payment amount"
             />
             {overpayMsg ? <span className="hub-invoice-payment-overpay">{overpayMsg}</span> : null}
-            {parsedAmount.status === 'invalid' ? (
-              <span className="hub-invoice-payment-overpay">{parsedAmount.message}</span>
+            {!overpayMsg && recordPaymentAmountReason(draft.amount) ? (
+              <span className="hub-invoice-payment-overpay">{recordPaymentAmountReason(draft.amount)}</span>
             ) : null}
             {balance > 0 ? (
               <button
@@ -1128,19 +1131,8 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
 
   const previewData = useMemo((): CommercialPdfData | null => {
     if (!company) return null;
-    const cleanLines: InvoiceLineItem[] = form.line_items
-      .filter(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0)
-      .map(li => ({
-        description: li.description.trim(),
-        quantity: parseFloat(li.quantity) || 0,
-        unit_price: committedMoneyOrZero(li.unit_price),
-        charge_type: li.charge_type.trim() || null,
-        unit_cost: li.unit_cost ? committedMoney(li.unit_cost) : null,
-        markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
-        cost_model_id: li.cost_model_id ?? null,
-        gst_rate: li.gst_rate,
-        price_book_item_id: li.price_book_item_id ?? null,
-      }));
+    const committed = commitCommercialLines(form.line_items);
+    const cleanLines: InvoiceLineItem[] = committed.ok ? committed.lines : [];
     return commercialPdfPreviewData({
       kind: 'invoice' as const,
       title: 'Invoice charges',
@@ -1214,33 +1206,23 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
     if (!profile?.company_id) return null;
     if (dueDateInvalid) { setErr(DATE_INVALID_MESSAGE); return null; }
     if (!form.client_id) { setErr('Please select a client'); return null; }
-    const cleanLines: InvoiceLineItem[] = form.line_items
-      .filter(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0)
-      .map(li => ({
-        description: li.description.trim(),
-        quantity: parseFloat(li.quantity) || 0,
-        unit_price: committedMoneyOrZero(li.unit_price),
-        stock_item_id: li.stock_item_id ?? null,
-        price_book_item_id: li.price_book_item_id ?? null,
-        charge_type: li.charge_type.trim() || null,
-        unit_cost: li.unit_cost ? committedMoney(li.unit_cost) : null,
-        markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
-        cost_model_id: li.cost_model_id ?? null,
-        gst_rate: li.gst_rate,
-      }));
+    const committed = commitCommercialLines(form.line_items);
+    if (!committed.ok) { setErr(committed.message); return null; }
+    const cleanLines = committed.lines;
     if (cleanLines.length === 0) { setErr('Add at least one line item'); return null; }
     setSaving(true); setErr(''); setXeroMiss('');
     const storedStatus = persistableInvoiceStatus(status);
+    const money = persistDocumentMoney(invoice?.status ?? form.status, { subtotal, tax_amount: taxAmount, total: grandTotal }, invoice);
     const payload = {
       client_id: form.client_id || null,
       job_id: form.job_id || null,
       quote_id: form.quote_id || null,
       status: storedStatus,
       line_items: cleanLines,
-      subtotal,
+      subtotal: money.subtotal,
       tax_rate: parseFloat(form.tax_rate) || 0,
-      tax_amount: taxAmount,
-      total: grandTotal,
+      tax_amount: money.tax_amount,
+      total: money.total,
       payment_terms: form.payment_terms.trim() || null,
       due_date: form.due_date || null,
       notes: form.notes.trim() || null,
@@ -1328,7 +1310,11 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
   const editorMoney = invoiceMoney(grandTotal);
   const editorSite = visibleSite(selectedJob?.address, selectedClient?.address);
   const editorTitle = invoice?.invoice_number != null ? invoiceTitle(invoice) : 'New invoice';
-  const docLines = form.line_items.filter(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0);
+  const docLines = form.line_items.filter(li => {
+    if (!li.description.trim()) return false;
+    const row = commitDocumentLine(li);
+    return row.ok && row.quantity > 0;
+  });
   const showInvoiceActions = next.key === 'send' || next.key === 'mark_paid';
   const effectiveStatus = effectiveInvoiceStatus({ status: form.status, due_date: form.due_date });
   const paidReadPath = effectiveStatus === 'paid';
@@ -1710,8 +1696,9 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
               </thead>
               <tbody>
                 {docLines.map((li, idx) => {
-                  const qty = parseFloat(li.quantity) || 0;
-                  const unit = committedMoneyOrZero(li.unit_price);
+                  const committedLine = commitDocumentLine(li);
+                  const qty = committedLine.ok ? committedLine.quantity : 0;
+                  const unit = committedLine.ok ? committedLine.unit_price : 0;
                   return (
                     <tr key={`${li.description}-${idx}`}>
                       <td className="job-bill-line-desc">
