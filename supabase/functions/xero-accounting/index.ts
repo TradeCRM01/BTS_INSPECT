@@ -136,7 +136,7 @@ async function loadCredentials(
     .eq("provider", "xero")
     .maybeSingle();
   if (error) throw error;
-  if (!data) return null;
+  if (!data?.access_token || !data?.refresh_token) return null;
   return data as StoredCredential;
 }
 
@@ -169,7 +169,7 @@ async function deleteCredentials(admin: ReturnType<typeof createClient>, company
 }
 
 function hasStoredCredentials(row: StoredCredential | null): boolean {
-  return row != null;
+  return Boolean(row?.access_token && row?.refresh_token);
 }
 
 async function xeroTokenRequest(body: URLSearchParams): Promise<Response> {

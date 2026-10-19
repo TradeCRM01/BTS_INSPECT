@@ -1,7 +1,3 @@
--- Xero tokens live on accounting_credentials. accounting_settings stays
--- member-readable, so settings jsonb cannot keep token keys.
--- get_accounting_connection returns connected, tenant_name, and last_synced_at.
-
 CREATE TABLE public.accounting_credentials (
   company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
   provider text NOT NULL,
@@ -52,6 +48,8 @@ AS $$
         FROM public.accounting_credentials AS c
         WHERE c.company_id = p_company_id
           AND c.provider = 'xero'
+          AND c.access_token <> ''
+          AND c.refresh_token <> ''
       )
       AND EXISTS (
         SELECT 1
@@ -62,7 +60,7 @@ AS $$
       )
     ) AS connected,
     (
-      SELECT s.settings #>> '{xero,tenant_name}'
+      SELECT NULLIF(btrim(s.settings #>> '{xero,tenant_name}'), '')
       FROM public.accounting_settings AS s
       WHERE s.company_id = p_company_id
     ) AS tenant_name,
