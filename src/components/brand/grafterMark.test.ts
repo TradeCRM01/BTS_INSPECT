@@ -53,7 +53,7 @@ describe('Mitre mark geometry', () => {
     const shell = src('src/components/layout/AppShell.tsx');
     expect(lockup).toContain('<BrandMark');
     expect(lockup).toContain('<Wordmark');
-    expect(lockup).toContain('tone="onDark"');
+    expect(lockup).toContain('tone="current"');
     expect(lockup).toContain('tone="ink"');
     expect(lockup).toContain('data-grafter-lockup="header"');
     expect(lockup).toContain('data-grafter-lockup="auth"');
@@ -68,7 +68,7 @@ describe('Mitre mark geometry', () => {
     expect(src('src/components/auth/AuthShell.tsx')).toContain("size=\"marketing\"");
     expect(shell).toContain("size=\"header\"");
     expect(shell).toContain('aria-label={BRAND_NAME}');
-    expect(lockup).toContain('size={16}');
+    expect(lockup).toContain('size={24}');
     expect(lockup).toContain('size={32}');
     expect(lockup).toContain('size={48}');
     expect(lockup).not.toContain('size={18}');

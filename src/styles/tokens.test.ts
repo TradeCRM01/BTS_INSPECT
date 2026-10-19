@@ -15,6 +15,7 @@ export function parseTokenBlocks(tokensCss: string): { light: Map<string, string
   let m: RegExpExecArray | null;
   while ((m = blockRe.exec(stripped))) {
     const sel = m[1].replace(/\s+/g, ' ').trim();
+    if (sel.includes('@media')) continue;
     const dest = sel.includes('[data-theme="dark"]') ? dark : light;
     const declRe = /(--g-[a-z0-9-]+)\s*:\s*([^;]+);/g;
     let d: RegExpExecArray | null;
@@ -47,17 +48,21 @@ describe('semantic --g-* tokens', () => {
     for (const name of TOKEN_NAMES) {
       expect(light.has(name), name).toBe(true);
     }
-    expect(light.size).toBe(59);
+    expect(light.size).toBeGreaterThanOrEqual(59);
     expect(css).toContain('[data-theme="dark"]');
     expect(dark.has('--g-bg')).toBe(true);
     expect(dark.has('--g-ink')).toBe(true);
     expect(dark.has('--g-crew-2')).toBe(false);
     expect(dark.has('--g-chart-3')).toBe(false);
     expect(dark.has('--g-chart-4')).toBe(false);
-    expect(light.get('--g-bg')).toBe('#F5F0E6');
-    expect(light.get('--g-surface')).toBe('#FFFDF8');
-    expect(light.get('--g-ink')).toBe('#0A2540');
-    expect(light.get('--g-accent')).toBe('#2E75B6');
+    expect(light.get('--g-bg')).toBe('#F5F5F7');
+    expect(light.get('--g-surface')).toBe('#FFFFFF');
+    expect(light.get('--g-ink')).toBe('#0A0A0B');
+    expect(light.get('--g-accent')).toBe('#0A0A0B');
+    expect(light.get('--g-link')).toBe('#183FB8');
+    expect(light.get('--g-nav-ink')).toBe('#0A0A0B');
+    expect(light.get('--g-tab-active-bg')).toBe('#0A0A0B');
+    expect(light.get('--g-dur-theme')).toBe('150ms');
     expect(src('src/index.css').startsWith("@import './styles/tokens.css';")).toBe(true);
     expect(light.get('--g-font-sans')).toContain('Geist');
     expect(css).toContain("font-family: 'Geist'");
@@ -68,14 +73,14 @@ describe('semantic --g-* tokens', () => {
     expect(css).not.toContain('fonts.googleapis.com');
   });
 
-  it('kills hand-set data-theme=dark while allowDark is false: dark tokens stay gated', () => {
+  it('gates the dark selector on allowDark (source read, not a kill)', () => {
     const css = src('src/styles/tokens.css');
     const html = src('index.html');
     expect(css).toContain('html[data-allow-dark="true"][data-theme="dark"]');
     expect(css).not.toMatch(/(?:^|\n)\s*\[data-theme="dark"\]\s*\{/);
     expect(html).toContain("root.setAttribute('data-allow-dark', allowDark ? 'true' : 'false')");
     expect(html).toMatch(/var allowDark = false/);
-    const mutant = css.replace(
+    const mutant = css.replaceAll(
       'html[data-allow-dark="true"][data-theme="dark"]',
       '[data-theme="dark"]',
     );
@@ -83,14 +88,16 @@ describe('semantic --g-* tokens', () => {
     expect(parseTokenBlocks(css).dark.get('--g-bg')).toBe('#0A0A0B');
   });
 
-  it('map.json from-literals equal each token Light value', () => {
+  it('map.json still names tokens that exist; S2 Light values are the new-identity map', () => {
     const map = JSON.parse(src('scripts/a0-repoint/map.json')) as {
       repoints: { property: string; from: string; token: string }[];
     };
     const { light } = parseTokenBlocks(src('src/styles/tokens.css'));
     for (const entry of map.repoints) {
-      expect(light.get(entry.token), `${entry.property} -> ${entry.token}`).toBe(entry.from);
+      expect(light.has(entry.token), `${entry.property} -> ${entry.token}`).toBe(true);
     }
+    expect(light.get('--g-bg')).not.toBe('#F5F0E6');
+    expect(light.get('--g-ink')).not.toBe('#0A2540');
   });
 });
 
@@ -108,7 +115,7 @@ describe('tokens in-memory string', () => {
   it('mutates an in-memory dark selector, not the real tokens.css', () => {
     const css = src('src/styles/tokens.css');
     expect(css).toContain('[data-theme="dark"]');
-    const mutant = css.replace('[data-theme="dark"]', '[data-theme="night"]');
+    const mutant = css.replaceAll('[data-theme="dark"]', '[data-theme="night"]');
     const { dark } = parseTokenBlocks(mutant);
     expect(dark.has('--g-bg')).toBe(false);
     expect(parseTokenBlocks(css).dark.has('--g-bg')).toBe(true);

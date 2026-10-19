@@ -190,7 +190,7 @@ describe('compliance due-or-open cream paper look', () => {
 
     const shell = src('src/components/layout/AppShell.tsx');
     expect(shell).not.toContain('hub-compliance');
-    expect(shell).toContain('resolveAppShellColors');
+    expect(shell).not.toContain('resolveAppShellColors');
   });
 
   it('LOOK frames cover the open-record document sheet desktop and phone only', () => {

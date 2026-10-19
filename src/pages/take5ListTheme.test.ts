@@ -93,7 +93,7 @@ describe('Take 5 list cream paper look', () => {
 
     const shell = src('src/components/layout/AppShell.tsx');
     expect(shell).not.toContain('hub-take5');
-    expect(shell).toContain('resolveAppShellColors');
+    expect(shell).not.toContain('resolveAppShellColors');
 
     const css = src('src/index.css');
     expect(css).toContain('.take5-doc-theme {');

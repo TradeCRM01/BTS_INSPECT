@@ -17,13 +17,13 @@ export function OperatorShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F4F6F8]">
-      <header className="bg-[#0A2540] text-white shrink-0">
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--g-bg)', color: 'var(--g-ink)' }}>
+      <header className="shell-header shrink-0">
         <div className="max-w-6xl mx-auto px-4 min-h-[52px] flex items-center gap-2 sm:gap-4">
           <Link to="/operator" className="shrink-0" aria-label={`${BRAND_NAME} operator`}>
             <BrandLockup size="header" />
           </Link>
-          <span className="hidden sm:inline text-xs font-semibold uppercase tracking-wide text-white/45">
+          <span className="hidden sm:inline text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--g-ink-subtle)' }}>
             Operator
           </span>
           <nav className="flex-1 flex items-center gap-1 min-w-0 overflow-x-auto" aria-label="Operator">
@@ -36,7 +36,7 @@ export function OperatorShell({ children }: { children: React.ReactNode }) {
                   end={item.end}
                   className={({ isActive }) =>
                     `flex items-center gap-1.5 px-3 min-h-[44px] text-sm tracking-tight whitespace-nowrap ${
-                      isActive ? 'text-white font-medium bg-white/10' : 'text-white/70 hover:text-white'
+                      isActive ? 'shell-nav-btn-active font-medium' : 'shell-ops-nav-idle'
                     }`
                   }
                 >
@@ -50,17 +50,18 @@ export function OperatorShell({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={() => navigate('/')}
-              className="hidden sm:flex items-center gap-1.5 px-3 min-h-[44px] text-sm text-white/70 hover:text-white"
+              className="hidden sm:flex items-center gap-1.5 px-3 min-h-[44px] text-sm"
+              style={{ color: 'var(--g-ink-muted)' }}
             >
               <ArrowLeft size={14} /> App
             </button>
-            <span className="hidden md:inline text-xs text-white/45 truncate max-w-[140px]">
+            <span className="hidden md:inline text-xs truncate max-w-[140px]" style={{ color: 'var(--g-ink-subtle)' }}>
               {profile?.email}
             </span>
             <button
               type="button"
               onClick={() => { void signOut(); }}
-              className="flex items-center gap-1.5 px-2 sm:px-3 min-h-[44px] text-sm text-[#FCA5A5]"
+              className="flex items-center gap-1.5 px-2 sm:px-3 min-h-[44px] text-sm shell-menu-danger"
             >
               <LogOut size={14} />
               <span className="hidden sm:inline">Sign out</span>

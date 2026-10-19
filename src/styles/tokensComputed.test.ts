@@ -36,11 +36,13 @@ function computedRoot(htmlAttr = ''): { getPropertyValue: (n: string) => string 
 }
 
 describe('computed --g-* tokens and re-points', () => {
-  it('kills M4 dropped Light token: computed --g-bg is cream', () => {
+  it('kills M4 dropped Light token: computed --g-bg is the new-identity page', () => {
     const style = computedRoot();
-    expect(style.getPropertyValue('--g-bg').trim()).toBe('#F5F0E6');
-    expect(style.getPropertyValue('--g-ink').trim()).toBe('#0A2540');
-    expect(style.getPropertyValue('--g-accent').trim()).toBe('#2E75B6');
+    expect(style.getPropertyValue('--g-bg').trim()).toBe('#F5F5F7');
+    expect(style.getPropertyValue('--g-ink').trim()).toBe('#0A0A0B');
+    expect(style.getPropertyValue('--g-accent').trim()).toBe('#0A0A0B');
+    expect(style.getPropertyValue('--g-link').trim()).toBe('#183FB8');
+    expect(style.getPropertyValue('--g-nav-ink').trim()).toBe('#0A0A0B');
   });
 
   it('kills hand-set data-theme=dark while allowDark=false: Light computed style is unchanged', () => {
@@ -50,8 +52,8 @@ describe('computed --g-* tokens and re-points', () => {
     const lightMap = Object.fromEntries(keys.map((k) => [k, light.getPropertyValue(k).trim()]));
     const forcedMap = Object.fromEntries(keys.map((k) => [k, forced.getPropertyValue(k).trim()]));
     expect(forcedMap).toEqual(lightMap);
-    expect(lightMap['--g-bg']).toBe('#F5F0E6');
-    expect(lightMap['--g-ink']).toBe('#0A2540');
+    expect(lightMap['--g-bg']).toBe('#F5F5F7');
+    expect(lightMap['--g-ink']).toBe('#0A0A0B');
     expect(lightMap['--g-font-sans']).toContain('Geist');
     expect(src('src/styles/tokens.css')).not.toMatch(/(?:^|\n)\s*\[data-theme="dark"\]\s*\{/);
     expect(src('src/styles/tokens.css')).toContain('html[data-allow-dark="true"][data-theme="dark"]');
@@ -59,7 +61,7 @@ describe('computed --g-* tokens and re-points', () => {
 
   it('kills a mutant that drops the allowDark gate: forced dark then paints #0A0A0B', () => {
     const tokens = src('src/styles/tokens.css');
-    const mutant = tokens.replace(
+    const mutant = tokens.replaceAll(
       'html[data-allow-dark="true"][data-theme="dark"]',
       '[data-theme="dark"]',
     );
@@ -74,7 +76,7 @@ describe('computed --g-* tokens and re-points', () => {
     const style = dom.window.getComputedStyle(dom.window.document.documentElement);
     expect(style.getPropertyValue('--g-bg').trim()).toBe('#0A0A0B');
     expect(style.getPropertyValue('--g-ink').trim()).toBe('#FAFAFA');
-    expect(computedRoot(' data-theme="dark"').getPropertyValue('--g-bg').trim()).toBe('#F5F0E6');
+    expect(computedRoot(' data-theme="dark"').getPropertyValue('--g-bg').trim()).toBe('#F5F5F7');
   });
 
   it('applies Dark tokens only when allowDark is true', () => {
@@ -88,6 +90,6 @@ describe('computed --g-* tokens and re-points', () => {
     const style = computedRoot();
     expect(style.getPropertyValue('--ops-navy').trim()).toBe('var(--g-ink)');
     expect(style.getPropertyValue('--ops-cream').trim()).toBe('var(--g-bg)');
-    expect(style.getPropertyValue('--g-ink').trim()).toBe('#0A2540');
+    expect(style.getPropertyValue('--g-ink').trim()).toBe('#0A0A0B');
   });
 });

@@ -3,21 +3,22 @@ import { useLocation } from 'react-router-dom';
 import { Download, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { canShowInstallOverlay } from '../../lib/publicAuthPath';
+import { BRAND_NAME } from '../../lib/brand';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-/** In-app Install Grafter sheet. Same cream paper tokens as the week board. */
+/** In-app Install sheet. Tokens only. Floats over the shell. */
 const INSTALL_LOOK_CSS = `
 .hub-install-anchor {
-  --install-look-page: #F5F0E6;
-  --install-look-sheet: #FFFDF8;
-  --install-look-ink: #0A2540;
-  --install-look-muted: #5B6B7C;
-  --install-look-line: #E2D9CC;
-  --install-look-action: #2E75B6;
+  --install-look-page: var(--g-bg);
+  --install-look-sheet: var(--g-surface);
+  --install-look-ink: var(--g-ink);
+  --install-look-muted: var(--g-ink-muted);
+  --install-look-line: var(--g-line);
+  --install-look-action: var(--g-accent);
   position: fixed;
   bottom: 16px;
   left: 50%;
@@ -34,12 +35,10 @@ const INSTALL_LOOK_CSS = `
   background: var(--install-look-sheet);
   color: var(--install-look-ink);
   border: 1px solid var(--install-look-line);
-  border-radius: 16px;
+  border-radius: var(--g-radius-lg);
   padding: 16px 16px 14px;
   overflow: hidden;
-  box-shadow:
-    inset 0 1px 0 #fff,
-    0 10px 28px rgba(10, 37, 64, 0.08);
+  box-shadow: var(--g-sh-2);
 }
 .hub-install-row {
   display: flex;
@@ -83,7 +82,7 @@ const INSTALL_LOOK_CSS = `
   border: none;
   border-radius: 12px;
   background: var(--install-look-action);
-  color: #fff;
+  color: var(--g-accent-ink);
   box-shadow: none;
   font-family: var(--g-font-title);
   font-size: 16px;
@@ -92,7 +91,7 @@ const INSTALL_LOOK_CSS = `
   cursor: pointer;
 }
 .hub-install-action:hover {
-  background: color-mix(in srgb, #2E75B6 86%, #0A2540);
+  background: var(--g-accent-hover);
 }
 .hub-install-dismiss {
   display: inline-flex;
@@ -175,7 +174,7 @@ export function InstallPrompt() {
       <div className="hub-install-sheet">
         <div className="hub-install-row">
           <div className="hub-install-copy-block">
-            <p className="hub-install-title">Install Grafter</p>
+            <p className="hub-install-title">Install {BRAND_NAME}</p>
             {isIos ? (
               <p className="hub-install-copy">
                 Tap <strong>Share</strong> then <strong>Add to Home Screen</strong> to install.

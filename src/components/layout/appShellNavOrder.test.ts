@@ -19,7 +19,7 @@ describe('AppShell nav follows the job', () => {
     expect(shell).not.toContain('[FIELD_GROUP, ...OFFICE_GROUPS]');
     expect(shell).not.toContain('FIELD_SHORTCUTS');
     expect(shell).not.toContain('aria-label="Field Work"');
-    const desktop = shell.slice(shell.indexOf('hidden md:flex items-center'), shell.indexOf('md:block w-48'));
+    const desktop = shell.slice(shell.indexOf('hidden md:flex items-center'), shell.indexOf('md:block w-11'));
     expect(desktop).toContain('{NAV_GROUPS.map((group) => {');
     const phone = shell.slice(shell.indexOf('{menuOpen &&'), shell.indexOf('Settings</p>'));
     expect(phone).toContain('{NAV_GROUPS.map((group) => {');

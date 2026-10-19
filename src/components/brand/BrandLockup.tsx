@@ -22,11 +22,12 @@ export function BrandLockup({ size = 'header', tagline }: BrandLockupProps) {
   if (size === 'header') {
     return (
       <span
-        className="flex items-center gap-2 min-w-0 text-white"
+        className="flex items-center gap-2 min-w-0"
+        style={{ color: 'var(--g-nav-ink)' }}
         data-grafter-lockup="header"
       >
-        <BrandMark size={16} className="shrink-0" />
-        <Wordmark size="header" tone="onDark" />
+        <BrandMark size={24} className="shrink-0" />
+        <Wordmark size="header" tone="current" />
       </span>
     );
   }

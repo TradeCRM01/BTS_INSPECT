@@ -84,7 +84,7 @@ describe('inspection review/sign-off report_theme colours', () => {
     expect(take5Fill).toContain('take5-doc-theme');
 
     const shell = src('src/components/layout/AppShell.tsx');
-    expect(shell).toContain('resolveAppShellColors');
+    expect(shell).not.toContain('resolveAppShellColors');
 
     const mark = src('src/components/brand/grafterMark.ts');
     expect(mark).toContain('MITRE_PATH');

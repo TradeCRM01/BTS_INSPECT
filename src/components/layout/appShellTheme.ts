@@ -1,4 +1,4 @@
-/** Keys already saved on companies.report_theme — same as documents. Do not invent new ones. */
+/** Document palette only. AppShell must not read this. */
 export const APP_SHELL_REPORT_THEME_KEYS = ['navy', 'accent', 'accentLight', 'navyLight'] as const;
 
 export type AppShellThemeTokens = {
@@ -30,7 +30,7 @@ export function parseAppShellTheme(raw: unknown): AppShellThemeTokens {
   return out;
 }
 
-/** Saved companies.report_theme palette, or the navy / blue document defaults. */
+/** Saved companies.report_theme palette for documents. Not the app shell. */
 export function resolveAppShellColors(reportTheme: unknown): AppShellColors {
   const theme = parseAppShellTheme(reportTheme);
   return {

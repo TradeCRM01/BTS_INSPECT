@@ -238,7 +238,7 @@ describe('signed-in dashboard document sheet look', () => {
 
     const shell = src('src/components/layout/AppShell.tsx');
     expect(shell).not.toContain('dashboard-home');
-    expect(shell).toContain('resolveAppShellColors');
+    expect(shell).not.toContain('resolveAppShellColors');
   });
 
   it('LOOK frames cover today\'s work as the document sheet on desktop and phone only', () => {

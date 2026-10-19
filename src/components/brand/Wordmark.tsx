@@ -1,7 +1,7 @@
 import { BRAND_NAME } from '../../lib/brand';
 
 export type WordmarkSize = 'header' | 'auth' | 'marketing';
-export type WordmarkTone = 'ink' | 'onDark';
+export type WordmarkTone = 'ink' | 'onDark' | 'current';
 
 const WORDMARK_SIZE: Record<WordmarkSize, string> = {
   marketing: 'text-[15px]',
@@ -10,8 +10,9 @@ const WORDMARK_SIZE: Record<WordmarkSize, string> = {
 };
 
 const WORDMARK_TONE: Record<WordmarkTone, string> = {
-  ink: 'text-navy',
-  onDark: 'text-white',
+  ink: 'text-[color:var(--g-ink)]',
+  onDark: 'text-[color:var(--g-nav-ink)]',
+  current: 'text-current',
 };
 
 export function Wordmark(props: {

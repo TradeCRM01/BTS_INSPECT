@@ -16766,25 +16766,96 @@
     cursor: not-allowed;
   }
 
-  /* ── App chrome (navy Looplet craft: hairlines, no mega-menu shadow) ─ */
-  /* Signed-in header / nav only. Saved report_theme paints navy / accent. */
+  /* ── App chrome. Tokens only. report_theme does not paint the shell. */
   .shell-header {
-    --shell-navy: #0A2540;
-    --shell-accent: #2E75B6;
-    @apply text-white sticky top-0 z-40 flex-shrink-0 border-b border-white/10;
-    background-color: var(--shell-navy);
+    color: var(--g-nav-ink);
+    background-color: var(--g-nav-bg);
+    border-bottom: 1px solid var(--g-glass-line);
+    backdrop-filter: saturate(180%) blur(16px);
+    -webkit-backdrop-filter: saturate(180%) blur(16px);
+    @apply sticky top-0 z-40 flex-shrink-0;
   }
 
-  .shell-header .bg-navy {
-    background-color: var(--shell-navy);
+  .shell-nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 44px;
+    min-height: 44px;
+    height: 100%;
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    color: var(--g-ink-subtle);
+    background: transparent;
   }
 
-  .shell-header .bg-accent {
-    background-color: var(--shell-accent);
+  .shell-nav-btn:hover {
+    color: var(--g-nav-ink);
+    border-bottom-color: var(--g-line-strong);
   }
 
-  .shell-header .border-accent {
-    border-color: var(--shell-accent);
+  .shell-nav-btn-active {
+    color: var(--g-nav-ink);
+    border-bottom-color: var(--g-nav-ink);
+  }
+
+  .shell-ops-nav-idle {
+    color: var(--g-ink-muted);
+  }
+
+  .shell-nav-label-short {
+    display: inline;
+  }
+
+  .shell-nav-label-full {
+    display: none;
+  }
+
+  .shell-nav-caret {
+    color: var(--g-ink-subtle);
+  }
+
+  @media (min-width: 1024px) {
+    .shell-nav-btn {
+      flex-direction: row;
+      gap: 6px;
+      padding: 0 12px;
+      font-size: 14px;
+    }
+
+    .shell-nav-label-short {
+      display: none;
+    }
+
+    .shell-nav-label-full {
+      display: inline;
+    }
+  }
+
+  .shell-search-btn {
+    color: var(--g-ink-subtle);
+    border: 1px solid var(--g-glass-line);
+    background: var(--g-press);
+  }
+
+  .shell-search-btn:hover {
+    color: var(--g-nav-ink);
+    border-color: var(--g-line-strong);
+  }
+
+  .shell-switcher-btn:hover {
+    background: var(--g-press);
+  }
+
+  .shell-switcher-avatar {
+    background: var(--g-accent);
+    color: var(--g-accent-ink);
   }
 
   .auth-navy {
@@ -16796,27 +16867,67 @@
   }
 
   .shell-menu {
-    @apply absolute top-full z-50 min-w-[200px] border border-white/15 py-1;
-    background-color: var(--shell-navy, #0A2540);
+    @apply absolute top-full z-50 min-w-[200px] py-1;
+    color: var(--g-ink);
+    background-color: var(--g-surface);
+    border: 1px solid var(--g-line);
+    box-shadow: var(--g-sh-2);
+  }
+
+  .shell-menu-head {
+    border-bottom: 1px solid var(--g-line);
+  }
+
+  .shell-menu-meta,
+  .shell-menu-kicker {
+    color: var(--g-ink-subtle);
+  }
+
+  .shell-menu-role {
+    color: var(--g-ink-muted);
+    border: 1px solid var(--g-line);
+  }
+
+  .shell-menu-rule {
+    border-top: 1px solid var(--g-line);
   }
 
   .shell-menu-item {
-    @apply flex items-center gap-2.5 px-3 py-2 text-sm tracking-tight text-white/70 hover:bg-white/5 hover:text-white;
+    @apply flex items-center gap-2.5 px-3 py-2 text-sm tracking-tight;
+    color: var(--g-ink-muted);
+  }
+
+  .shell-menu-item:hover {
+    background: var(--g-press);
+    color: var(--g-ink);
   }
 
   .shell-menu-item-active {
-    @apply bg-white/10 text-white font-medium;
+    background: var(--g-selected);
+    color: var(--g-ink);
+    font-weight: 500;
   }
 
-  /* Phone shell: navy bar bookends the header. Hidden from md up (Tailwind md:hidden on the nav). */
+  .shell-menu-danger {
+    color: var(--g-danger);
+  }
+
+  .shell-menu-danger:hover {
+    color: var(--g-danger-hover);
+    background: var(--g-press);
+  }
+
+  /* Phone shell: tab bar bookends the header. Hidden from md up (Tailwind md:hidden on the nav). */
   .shell-root {
     --shell-bottom-nav-h: 0px;
+    background-color: var(--g-bg);
+    color: var(--g-ink);
   }
 
   @media (max-width: 767px) {
     :root,
     .shell-root {
-      --shell-bottom-nav-h: calc(56px + env(safe-area-inset-bottom));
+      --shell-bottom-nav-h: calc(64px + env(safe-area-inset-bottom));
     }
   }
 
@@ -16895,26 +17006,59 @@
   /* The open menu stops above the bar. Header = h-14, its safe-area top pad, and two hairlines. */
   .shell-phone-menu {
     max-height: calc(100dvh - 58px - max(12px, env(safe-area-inset-top)) - var(--shell-bottom-nav-h, 0px));
+    background-color: var(--g-nav-bg);
+    color: var(--g-nav-ink);
+    border-top: 1px solid var(--g-glass-line);
+  }
+
+  .shell-phone-group {
+    border-top: 1px solid var(--g-glass-line);
+  }
+
+  .shell-phone-link {
+    color: var(--g-ink-muted);
+    min-height: 44px;
+  }
+
+  .shell-phone-link.is-active {
+    color: var(--g-nav-ink);
   }
 
   .shell-bottom-nav {
-    --shell-navy: #0A2540;
-    --shell-accent: #2E75B6;
-    @apply flex-shrink-0 grid grid-cols-4 border-t border-white/10 text-white;
+    @apply flex-shrink-0 grid grid-cols-4;
     box-sizing: border-box;
     height: var(--shell-bottom-nav-h);
-    background-color: var(--shell-navy);
+    color: var(--g-tab-ink);
+    background-color: var(--g-tab-bg);
+    border-top: 1px solid var(--g-glass-line);
+    backdrop-filter: saturate(180%) blur(16px);
+    -webkit-backdrop-filter: saturate(180%) blur(16px);
     padding-bottom: env(safe-area-inset-bottom);
   }
 
   .shell-bottom-tab {
-    @apply flex flex-col items-center justify-center gap-1 text-[11px] font-medium tracking-tight text-white/65 transition-colors;
+    @apply flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium tracking-tight;
+    min-width: 44px;
+    min-height: 44px;
+    color: var(--g-tab-ink);
     border-top: 2px solid transparent;
   }
 
+  .shell-bottom-tab-pip {
+    width: 60px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--g-radius-pill);
+  }
+
   .shell-bottom-tab-active {
-    @apply text-white;
-    border-top-color: var(--shell-accent);
+    color: var(--g-tab-ink);
+  }
+
+  .shell-bottom-tab-active .shell-bottom-tab-pip {
+    background: var(--g-tab-active-bg);
+    color: var(--g-tab-active-ink);
   }
 
   /* Field Work Take 5 — same whisper chrome as JHA documents. */

@@ -1,15 +1,14 @@
-import { useState, useRef, useEffect, useCallback, type CSSProperties } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { DevConsole } from '../ui/DevConsole';
 import { BrandLockup } from '../brand/BrandLockup';
 import { BRAND_NAME } from '../../lib/brand';
-import { resolveAppShellColors } from './appShellTheme';
 import { PHONE_TABS, activePhoneTab, type PhoneTabId } from './appShellPhoneNav';
 import {
   ClipboardList, LayoutTemplate, Settings, LogOut, Bell,
-  User, Menu, X, Zap, ChevronDown, Users, BrainCircuit, RotateCw, Sparkles, FileText,
+  User, X, Zap, ChevronDown, Users, BrainCircuit, RotateCw, Sparkles, FileText, MoreHorizontal,
   Calendar, Receipt, ShoppingCart, Package, Truck, FolderOpen,
   Briefcase, Wrench, Home, HardDrive, BookOpen, BarChart3, ScanLine, Link2, Building2, ListChecks, ShieldCheck, ShieldAlert, Wallet, Search, Shield, type LucideIcon,
 } from 'lucide-react';
@@ -23,12 +22,14 @@ interface AppShellProps {
 
 interface NavGroup {
   label: string;
+  shortLabel: string;
   icon: LucideIcon;
   items: { to: string; label: string; icon: LucideIcon }[];
 }
 
 const FIELD_GROUP: NavGroup = {
   label: 'Field Work',
+  shortLabel: 'Field',
   icon: Wrench,
   items: [
     { to: '/inspections', label: 'Inspections', icon: ClipboardList },
@@ -43,6 +44,7 @@ const FIELD_GROUP: NavGroup = {
 const OFFICE_GROUPS: NavGroup[] = [
   {
     label: 'Dashboard',
+    shortLabel: 'Today',
     icon: Home,
     items: [
       { to: '/', label: 'Overview', icon: Zap },
@@ -53,6 +55,7 @@ const OFFICE_GROUPS: NavGroup[] = [
   },
   {
     label: 'CRM',
+    shortLabel: 'Jobs',
     icon: Briefcase,
     items: [
       { to: '/jobs', label: 'Jobs', icon: Briefcase },
@@ -65,6 +68,7 @@ const OFFICE_GROUPS: NavGroup[] = [
   },
   {
     label: 'Financials',
+    shortLabel: 'Money',
     icon: FileText,
     items: [
       { to: '/quotes', label: 'Quotes', icon: FileText },
@@ -75,6 +79,7 @@ const OFFICE_GROUPS: NavGroup[] = [
   },
   {
     label: 'Inventory',
+    shortLabel: 'Stock',
     icon: Package,
     items: [
       { to: '/stock', label: 'Stock', icon: Package },
@@ -125,7 +130,7 @@ const PHONE_TAB_ICONS: Record<PhoneTabId, LucideIcon> = {
   today: Home,
   schedule: Calendar,
   jobs: Briefcase,
-  more: Menu,
+  more: MoreHorizontal,
 };
 
 /** Whisper chrome hooks — Take 5 matches JHA documents, not a second hero. */
@@ -256,9 +261,6 @@ export function AppShell({ children }: AppShellProps) {
     groupCloseTimer.current = setTimeout(() => setOpenGroup(null), 150);
   };
 
-  const chrome = resolveAppShellColors(
-    (company as { report_theme?: unknown } | null)?.report_theme ?? null,
-  );
   const switcherName = (company?.name || profile?.name || 'User').trim() || 'User';
   const phoneTab = activePhoneTab(location.pathname, menuOpen);
 
@@ -277,7 +279,7 @@ export function AppShell({ children }: AppShellProps) {
           className={menuItemClass(itemActive)}
           {...fieldWorkNavAttrs(item.to)}
         >
-          <ItemIcon size={15} className={itemActive ? 'text-white' : 'text-white/45'} />
+          <ItemIcon size={15} />
           {item.label}
         </Link>
       );
@@ -285,14 +287,12 @@ export function AppShell({ children }: AppShellProps) {
   );
 
   return (
-    <div className="shell-root bg-zebra flex flex-col overflow-hidden" style={{ height: '100dvh' }}>
+    <div className="shell-root flex flex-col overflow-hidden" style={{ height: '100dvh' }}>
       <header
         className="shell-header"
         style={{
           paddingTop: 'max(12px, env(safe-area-inset-top))',
-          '--shell-navy': chrome.navy,
-          '--shell-accent': chrome.accent,
-        } as CSSProperties}
+        }}
       >
         <div className="max-w-[1400px] mx-auto px-4 h-14 flex items-center justify-between gap-3">
           <Link to="/" className="flex items-center shrink-0" onClick={handleLogoTap} aria-label={BRAND_NAME}>
@@ -320,15 +320,13 @@ export function AppShell({ children }: AppShellProps) {
                       }
                     }}
                     aria-label={group.label}
-                  className={`flex items-center gap-1.5 h-full px-3 text-sm font-medium tracking-tight whitespace-nowrap border-b-2 transition-colors ${
-                      groupActive
-                        ? 'text-white border-accent'
-                        : 'text-white/65 border-transparent hover:text-white hover:border-white/25'
-                    }`}
+                    data-shell-nav-group={group.shortLabel}
+                    className={`shell-nav-btn ${groupActive ? 'shell-nav-btn-active' : ''}`}
                   >
                     <Icon size={14} />
-                    <span className="hidden lg:inline">{group.label}</span>
-                    <ChevronDown size={11} className={`text-white/40 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                    <span className="shell-nav-label-short">{group.shortLabel}</span>
+                    <span className="shell-nav-label-full">{group.label}</span>
+                    <ChevronDown size={11} className={`shell-nav-caret ${isOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {isOpen && (
@@ -349,7 +347,7 @@ export function AppShell({ children }: AppShellProps) {
               type="button"
               onClick={() => setSearchOpen(true)}
               aria-label="Search"
-              className="flex items-center justify-center xl:justify-start gap-2 w-full h-11 min-h-11 min-w-0 rounded-lg border border-white/15 bg-white/[0.04] px-1.5 xl:px-3 py-0 text-[13px] tracking-tight text-white/60 transition-colors hover:border-white/25 hover:text-white"
+              className="shell-search-btn flex items-center justify-center xl:justify-start gap-2 w-full h-11 min-h-11 min-w-0 rounded-lg px-1.5 xl:px-3 py-0 text-[13px] tracking-tight"
             >
               <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span className="hidden xl:block min-w-0 text-left">Search…</span>
@@ -360,100 +358,100 @@ export function AppShell({ children }: AppShellProps) {
             <div className="relative min-w-0">
               <button
                 onClick={() => setAvatarOpen(!avatarOpen)}
-                className="hidden md:flex items-center gap-2 px-2 py-1.5 min-h-11 hover:bg-white/5 transition-colors min-w-0 max-w-full"
+                className="shell-switcher-btn hidden md:flex items-center gap-2 px-2 py-1.5 min-h-11 min-w-0 max-w-full"
                 title={switcherName}
                 aria-label={switcherName}
               >
                 <div
                   data-shell-switcher-avatar
-                  className="w-7 h-7 rounded-full bg-accent flex items-center justify-center text-xs font-semibold shrink-0"
+                  className="shell-switcher-avatar w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
                 >
                   {switcherName.charAt(0).toUpperCase()}
                 </div>
                 <span
                   data-shell-switcher-name
-                  className="hidden lg:line-clamp-2 w-[7.5rem] max-w-[7.5rem] xl:w-auto xl:max-w-[14rem] shrink-0 text-sm tracking-tight text-white/80 leading-4 break-words text-left"
+                  className="hidden md:line-clamp-2 w-fit max-w-[7.5rem] xl:max-w-[14rem] shrink-0 text-sm tracking-tight leading-4 break-words text-left"
                   title={switcherName}
                 >
                   {switcherName}
                 </span>
-                <ChevronDown data-shell-switcher-chevron size={13} className="text-white/45 shrink-0" />
+                <ChevronDown data-shell-switcher-chevron size={13} className="shell-nav-caret shrink-0" />
               </button>
 
               {avatarOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setAvatarOpen(false)} />
                   <div className="shell-menu right-0 w-56">
-                    <div className="px-3 py-2.5 border-b border-white/10">
-                      <p className="text-sm font-medium text-white tracking-tight">{profile?.name}</p>
-                      <p className="text-xs text-white/45 truncate">{company?.name}</p>
+                    <div className="shell-menu-head px-3 py-2.5">
+                      <p className="text-sm font-medium tracking-tight">{profile?.name}</p>
+                      <p className="shell-menu-meta text-xs truncate">{company?.name}</p>
                       {profile?.role && (
-                        <span className="inline-flex items-center mt-1.5 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-white/70 border border-white/15 rounded-md">
+                        <span className="shell-menu-role inline-flex items-center mt-1.5 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide rounded-md">
                           {profile.role}
                         </span>
                       )}
                     </div>
                     <Link to="/settings/profile" onClick={() => setAvatarOpen(false)}
                       className="shell-menu-item">
-                      <User size={15} className="text-white/45" /> Profile
+                      <User size={15} /> Profile
                     </Link>
                     <Link to="/settings/company" onClick={() => setAvatarOpen(false)}
                       className="shell-menu-item">
-                      <Settings size={15} className="text-white/45" /> Company Settings
+                      <Settings size={15} /> Company Settings
                     </Link>
                     <Link to="/settings/lists" onClick={() => setAvatarOpen(false)}
                       className="shell-menu-item">
-                      <ListChecks size={15} className="text-white/45" /> Managed Lists
+                      <ListChecks size={15} /> Managed Lists
                     </Link>
                     {isPlatformOperator && companyAiKey && (
                       <Link to="/assistant" onClick={() => setAvatarOpen(false)}
                         className="shell-menu-item">
-                        <Sparkles size={15} className="text-white/45" /> AI Assistant
+                        <Sparkles size={15} /> AI Assistant
                       </Link>
                     )}
                     {isAdmin && (
                       <>
-                        <div className="border-t border-white/10 my-1" />
-                        <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white/35">Admin</p>
+                        <div className="shell-menu-rule my-1" />
+                        <p className="shell-menu-kicker px-3 py-1 text-xs font-semibold uppercase tracking-wide">Admin</p>
                         <Link to="/settings/team" onClick={() => setAvatarOpen(false)}
                           className="shell-menu-item">
-                          <Users size={15} className="text-white/45" /> Team
+                          <Users size={15} /> Team
                         </Link>
                         <Link to="/settings/billing" onClick={() => setAvatarOpen(false)}
                           className="shell-menu-item">
-                          <Wallet size={15} className="text-white/45" /> Billing
+                          <Wallet size={15} /> Billing
                         </Link>
                         <Link to="/settings/accounting" onClick={() => setAvatarOpen(false)}
                           className="shell-menu-item">
-                          <Building2 size={15} className="text-white/45" /> Accounting
+                          <Building2 size={15} /> Accounting
                         </Link>
                         {isPlatformOperator && (
                           <Link to="/settings/ai" onClick={() => setAvatarOpen(false)}
                             className="shell-menu-item">
-                            <BrainCircuit size={15} className="text-white/45" /> AI Settings
+                            <BrainCircuit size={15} /> AI Settings
                           </Link>
                         )}
                         {isPlatformOperator && companyAiKey && (
                           <Link to="/ai-console" onClick={() => setAvatarOpen(false)}
                             className="shell-menu-item">
-                            <Sparkles size={15} className="text-white/45" /> AI Console
+                            <Sparkles size={15} /> AI Console
                           </Link>
                         )}
                       </>
                     )}
                     {isPlatformOperator && (
                       <>
-                        <div className="border-t border-white/10 my-1" />
-                        <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white/35">Platform</p>
+                        <div className="shell-menu-rule my-1" />
+                        <p className="shell-menu-kicker px-3 py-1 text-xs font-semibold uppercase tracking-wide">Platform</p>
                         <Link to="/operator" onClick={() => setAvatarOpen(false)}
                           className="shell-menu-item">
-                          <Shield size={15} className="text-white/45" /> Operator
+                          <Shield size={15} /> Operator
                         </Link>
                       </>
                     )}
-                    <div className="border-t border-white/10 my-1" />
+                    <div className="shell-menu-rule my-1" />
                     <button onClick={handleSignOut}
-                      className="shell-menu-item text-[#FCA5A5] hover:text-white w-full text-left">
+                      className="shell-menu-item shell-menu-danger w-full text-left">
                       <LogOut size={15} /> Sign out
                     </button>
                   </div>
@@ -464,14 +462,14 @@ export function AppShell({ children }: AppShellProps) {
         </div>
 
         {menuOpen && (
-          <div className="shell-phone-menu md:hidden border-t border-white/10 bg-navy overflow-y-auto">
+          <div className="shell-phone-menu md:hidden overflow-y-auto">
             <button
               type="button"
               onClick={() => {
                 setMenuOpen(false);
                 setSearchOpen(true);
               }}
-              className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70 w-full text-left"
+              className="shell-phone-link flex items-center gap-2.5 px-4 py-3 text-sm w-full text-left"
             >
               <Search size={16} /> Search
             </button>
@@ -480,16 +478,16 @@ export function AppShell({ children }: AppShellProps) {
               const isExpanded = openGroup === group.label;
               const Icon = group.icon;
               return (
-                <div key={group.label} className="border-t border-white/10">
+                <div key={group.label} className="shell-phone-group">
                   <button
                     onClick={() => setOpenGroup(isExpanded ? null : group.label)}
-                    className={`w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium tracking-tight ${
-                      groupActive ? 'text-white' : 'text-white/70'
+                    className={`shell-phone-link w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium tracking-tight ${
+                      groupActive ? 'is-active' : ''
                     }`}
                   >
                     <Icon size={16} />
                     <span className="flex-1 text-left">{group.label}</span>
-                    <ChevronDown size={14} className={`text-white/35 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                    <ChevronDown size={14} className={`shell-nav-caret ${isExpanded ? 'rotate-180' : ''}`} />
                   </button>
                   {isExpanded && (
                     <div className="pb-1">
@@ -498,8 +496,8 @@ export function AppShell({ children }: AppShellProps) {
                         const itemActive = isNavItemActive(item, location.pathname, visibleItems(group));
                         return (
                           <Link key={item.to} to={item.to} onClick={() => setMenuOpen(false)}
-                            className={`flex items-center gap-2.5 pl-11 pr-4 py-2.5 text-sm tracking-tight ${
-                              itemActive ? 'text-white font-medium' : 'text-white/55'
+                            className={`shell-phone-link flex items-center gap-2.5 pl-11 pr-4 py-2.5 text-sm tracking-tight ${
+                              itemActive ? 'is-active font-medium' : ''
                             }`}
                             {...fieldWorkNavAttrs(item.to)}>
                             <ItemIcon size={15} /> {item.label}
@@ -511,51 +509,51 @@ export function AppShell({ children }: AppShellProps) {
                 </div>
               );
             })}
-            <div className="border-t border-white/10" />
-            <p className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-white/35">Settings</p>
-            <Link to="/settings/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
+            <div className="shell-menu-rule" />
+            <p className="shell-menu-kicker px-4 py-1.5 text-xs font-semibold uppercase tracking-wide">Settings</p>
+            <Link to="/settings/profile" onClick={() => setMenuOpen(false)} className="shell-phone-link flex items-center gap-2.5 px-4 py-3 text-sm">
               <User size={16} /> Profile
             </Link>
-            <Link to="/settings/company" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
+            <Link to="/settings/company" onClick={() => setMenuOpen(false)} className="shell-phone-link flex items-center gap-2.5 px-4 py-3 text-sm">
               <Settings size={16} /> Company Settings
             </Link>
-            <Link to="/settings/lists" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
+            <Link to="/settings/lists" onClick={() => setMenuOpen(false)} className="shell-phone-link flex items-center gap-2.5 px-4 py-3 text-sm">
               <ListChecks size={16} /> Managed Lists
             </Link>
             {isPlatformOperator && companyAiKey && (
-              <Link to="/assistant" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
+              <Link to="/assistant" onClick={() => setMenuOpen(false)} className="shell-phone-link flex items-center gap-2.5 px-4 py-3 text-sm">
                 <Sparkles size={16} /> AI Assistant
               </Link>
             )}
             {isAdmin && (
               <>
-                <Link to="/settings/team" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
+                <Link to="/settings/team" onClick={() => setMenuOpen(false)} className="shell-phone-link flex items-center gap-2.5 px-4 py-3 text-sm">
                   <Users size={16} /> Team
                 </Link>
-                <Link to="/settings/billing" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
+                <Link to="/settings/billing" onClick={() => setMenuOpen(false)} className="shell-phone-link flex items-center gap-2.5 px-4 py-3 text-sm">
                   <Wallet size={16} /> Billing
                 </Link>
-                <Link to="/settings/accounting" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
+                <Link to="/settings/accounting" onClick={() => setMenuOpen(false)} className="shell-phone-link flex items-center gap-2.5 px-4 py-3 text-sm">
                   <Building2 size={16} /> Accounting
                 </Link>
                 {isPlatformOperator && (
-                  <Link to="/settings/ai" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
+                  <Link to="/settings/ai" onClick={() => setMenuOpen(false)} className="shell-phone-link flex items-center gap-2.5 px-4 py-3 text-sm">
                     <BrainCircuit size={16} /> AI Settings
                   </Link>
                 )}
                 {isPlatformOperator && companyAiKey && (
-                  <Link to="/ai-console" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/80 font-medium">
+                  <Link to="/ai-console" onClick={() => setMenuOpen(false)} className="shell-phone-link flex items-center gap-2.5 px-4 py-3 text-sm font-medium">
                     <Sparkles size={16} /> AI Console
                   </Link>
                 )}
               </>
             )}
             {isPlatformOperator && (
-              <Link to="/operator" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
+              <Link to="/operator" onClick={() => setMenuOpen(false)} className="shell-phone-link flex items-center gap-2.5 px-4 py-3 text-sm">
                 <Shield size={16} /> Operator
               </Link>
             )}
-            <button onClick={handleSignOut} className="flex items-center gap-2.5 px-4 py-3 text-sm text-[#FCA5A5] w-full">
+            <button onClick={handleSignOut} className="shell-phone-link shell-menu-danger flex items-center gap-2.5 px-4 py-3 text-sm w-full">
               <LogOut size={16} /> Sign out
             </button>
           </div>
@@ -594,7 +592,6 @@ export function AppShell({ children }: AppShellProps) {
       <nav
         className="shell-bottom-nav md:hidden"
         aria-label="Phone navigation"
-        style={{ '--shell-navy': chrome.navy, '--shell-accent': chrome.accent } as CSSProperties}
       >
         {PHONE_TABS.map((tab) => {
           const active = phoneTab === tab.id;
@@ -610,7 +607,7 @@ export function AppShell({ children }: AppShellProps) {
                 onClick={() => setMenuOpen(!menuOpen)}
                 className={className}
               >
-                <MoreIcon size={20} />
+                <span className="shell-bottom-tab-pip"><MoreIcon size={20} /></span>
                 <span>{tab.label}</span>
               </button>
             );
@@ -625,7 +622,7 @@ export function AppShell({ children }: AppShellProps) {
               onClick={() => setMenuOpen(false)}
               className={className}
             >
-              <TabIcon size={20} />
+              <span className="shell-bottom-tab-pip"><TabIcon size={20} /></span>
               <span>{tab.label}</span>
             </Link>
           );
