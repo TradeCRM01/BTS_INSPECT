@@ -11,21 +11,16 @@ PORT="${PROOF_PGPORT:-55433}"
 LOG="${DATA_DIR}/postgres.log"
 
 prefer_pg_bin() {
-  if command -v initdb >/dev/null 2>&1; then
+  local d="/usr/lib/postgresql/${PGV}/bin"
+  if [ -x "${d}/initdb" ]; then
+    export PATH="${d}:${PATH}"
     return 0
   fi
-  local d
-  for d in "/usr/lib/postgresql/${PGV}/bin" /usr/lib/postgresql/16/bin; do
-    if [ -x "${d}/initdb" ]; then
-      export PATH="${d}:${PATH}"
-      return 0
-    fi
-  done
   return 1
 }
 
 if ! prefer_pg_bin; then
-  echo "initdb not found; install postgresql-16 to run DB proofs"
+  echo "initdb not found for PostgreSQL ${PGV}; install postgresql-${PGV} to run DB proofs"
   exit 2
 fi
 
@@ -46,8 +41,17 @@ done
 export PGHOST="${DATA_DIR}"
 export PGPORT="${PORT}"
 
-echo "== accounting_credentials proof =="
+echo "== accounting_credentials proof PG${PGV} =="
+SERVER_NUM="$(psql -h "${PGHOST}" -p "${PGPORT}" -U postgres -d postgres -tAc "SHOW server_version_num")"
+echo "server_version_num=${SERVER_NUM}"
+case "${SERVER_NUM}" in
+  "${PGV}"*) ;;
+  *)
+    echo "wanted PostgreSQL ${PGV}, got server_version_num=${SERVER_NUM}"
+    exit 1
+    ;;
+esac
 psql -h "${PGHOST}" -p "${PGPORT}" -U postgres -d postgres -v ON_ERROR_STOP=1 \
   -f "${ROOT}/supabase/tests/accounting_credentials.sql"
 
-echo "accounting_credentials proof and rollback round-trip passed"
+echo "accounting_credentials proof and rollback round-trip passed on PG${PGV}"

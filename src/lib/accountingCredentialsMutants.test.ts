@@ -9,7 +9,7 @@ import { accountingSettingsWrite } from './xeroAccounting';
 
 const execFileAsync = promisify(execFile);
 const ROOT = resolve(process.cwd());
-const MIGRATION = resolve(ROOT, 'supabase/migrations/20261019120000_090_accounting_credentials.sql');
+const MIGRATION = resolve(ROOT, 'supabase/migrations/20261019120000_091_accounting_credentials.sql');
 const SETUP = resolve(ROOT, 'supabase/tests/accounting_credentials_setup.sql');
 const SEED_SETTINGS = resolve(ROOT, 'supabase/tests/accounting_credentials_seed_settings.sql');
 const SEED_CREDS = resolve(ROOT, 'supabase/tests/accounting_credentials_seed_credentials.sql');
@@ -19,7 +19,8 @@ const USER_A = '11111111-1111-1111-1111-111111111111';
 const USER_B = '22222222-2222-2222-2222-222222222222';
 
 function preferPgBin(): string {
-  const dir = '/usr/lib/postgresql/16/bin';
+  const ver = process.env.PROOF_PGVER ?? '16';
+  const dir = `/usr/lib/postgresql/${ver}/bin`;
   try {
     readFileSync(join(dir, 'initdb'));
     return `${dir}:${process.env.PATH ?? ''}`;
@@ -220,6 +221,11 @@ describe('SEC-XERO postgres mutants', () => {
 
   beforeAll(async () => {
     pg = await startPg();
+    const major = process.env.PROOF_PGVER ?? '16';
+    const serverNum = (await psql(pg, 'SHOW server_version_num;')).trim();
+    if (!serverNum.startsWith(major)) {
+      throw new Error(`wanted PostgreSQL ${major}, got server_version_num=${serverNum}`);
+    }
     await psql(pg, SETUP, true);
     await psql(pg, SEED_SETTINGS, true);
   }, 60000);
