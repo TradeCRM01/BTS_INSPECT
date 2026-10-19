@@ -293,7 +293,7 @@ export function AppShell({ children }: AppShellProps) {
             <BrandLockup size="header" />
           </Link>
 
-          <nav className="hidden md:flex items-center gap-0.5 grow shrink-0 justify-center h-14">
+          <nav className="hidden md:flex items-center gap-0.5 grow justify-center h-14">
             {NAV_GROUPS.map((group) => {
               const groupActive = isGroupActive(group, location.pathname);
               const isOpen = openGroup === group.label;
@@ -301,7 +301,7 @@ export function AppShell({ children }: AppShellProps) {
               return (
                 <div
                   key={group.label}
-                  className="relative h-full flex items-center shrink-0"
+                  className="relative h-full flex items-center"
                   onMouseEnter={() => handleGroupEnter(group.label)}
                   onMouseLeave={handleGroupLeave}
                 >
