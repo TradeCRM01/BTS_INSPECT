@@ -117,7 +117,7 @@ export function MarketingPage() {
           <div className="hub-marketing-grid">
             <article className="max-w-md">
               <p className="hub-marketing-kicker">Up to 10 seats</p>
-              <p className="hub-marketing-subhead text-navy" data-price-slot="crew">2 months free</p>
+              <p className="hub-marketing-subhead !text-navy" data-price-slot="crew">2 months free</p>
               <p className="text-muted">Then one simple weekly price for up to 10 seats. GST included.</p>
               <Link to="/signup" className="hub-marketing-btn mt-4">Create a workspace</Link>
             </article>
@@ -126,7 +126,7 @@ export function MarketingPage() {
             Crews over 10 seats: talk to us.
           </p>
           <p>
-            Same Grafter either way. Jobs, custom templates, JHA, Take 5, SWMS.
+            Jobs, custom templates, JHA, Take 5 and SWMS, all included.
           </p>
         </section>
 

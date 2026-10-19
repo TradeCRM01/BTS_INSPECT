@@ -73,7 +73,7 @@ describe('public Grafter landing', () => {
     expect(page).not.toMatch(/Accept schedules the job/i);
 
     expect(page).toContain('data-price-slot="crew"');
-    expect(page).toContain('hub-marketing-subhead text-navy');
+    expect(page).toContain('hub-marketing-subhead !text-navy');
     expect(page).not.toContain('$59');
     expect(page).not.toContain('$119');
     expect(page).not.toContain('$199');
@@ -96,7 +96,8 @@ describe('public Grafter landing', () => {
     expect(page).toContain('One plan up to 10 seats, and bigger crews talk to us.');
     expect(page).toContain('Prices are AUD, GST included.');
     expect(page).toContain('2 months free. Instant signup. Your jobs, your templates, your letterhead.');
-    expect(page).toContain('Same Grafter either way. Jobs, custom templates, JHA, Take 5, SWMS.');
+    expect(page).toContain('Jobs, custom templates, JHA, Take 5 and SWMS, all included.');
+    expect(page).not.toContain('Same Grafter either way');
     expect(page).toContain('max-w-md');
     expect(page).toContain('Crew');
     expect(page).not.toContain('Company');
