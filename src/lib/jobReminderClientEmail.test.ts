@@ -191,7 +191,7 @@ describe('24h reminder client email — wiring', () => {
     expect(reminder).toContain('saveEmail.mutate()');
     expect(reminder).toContain('job-client-email');
     expect(reminder).toContain('job-client-email-save');
-    expect(reminder).toContain('aria-label="Client email"');
+    expect(reminder).toContain('aria-label="Reminder client email"');
     expect(reminder).toContain("kind === 'edit'");
     expect(reminder).toContain('jobClientEmailRow({');
     expect(reminder).toContain('clientId: job.client_id');
@@ -315,7 +315,7 @@ describe('24h reminder client email — wiring', () => {
     expect(reminder).toContain('jobClientEmailRow');
     expect(reminder).toContain('job-client-email');
     expect(reminder).toContain('job-client-email-save');
-    expect(reminder).toContain('aria-label="Client email"');
+    expect(reminder).toContain('aria-label="Reminder client email"');
     expect(reminder).toContain('JOB_REMINDER_NO_EMAIL_FIELD');
     expect(reminder).toContain('SMS To');
     expect(reminder).toContain('aria-label="Reminder SMS To"');

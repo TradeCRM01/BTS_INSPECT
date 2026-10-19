@@ -205,6 +205,7 @@ export function ManagedListsSettingsPage() {
                             onClick={() => reorderMut.mutate({ id: item.id, direction: 'up' })}
                             disabled={idx === 0}
                             className="w-7 h-7 flex items-center justify-center rounded text-[#6B7280] hover:bg-gray-200 disabled:opacity-30"
+                            aria-label="Move up"
                           >
                             <ArrowUp size={14} />
                           </button>
@@ -212,12 +213,14 @@ export function ManagedListsSettingsPage() {
                             onClick={() => reorderMut.mutate({ id: item.id, direction: 'down' })}
                             disabled={idx === (items?.length ?? 0) - 1}
                             className="w-7 h-7 flex items-center justify-center rounded text-[#6B7280] hover:bg-gray-200 disabled:opacity-30"
+                            aria-label="Move down"
                           >
                             <ArrowDown size={14} />
                           </button>
                           <button
                             onClick={() => deleteItemMut.mutate(item.id)}
                             className="w-7 h-7 flex items-center justify-center rounded text-red-500 hover:bg-red-50"
+                            aria-label="Remove item"
                           >
                             <Trash2 size={14} />
                           </button>

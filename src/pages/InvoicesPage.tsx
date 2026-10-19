@@ -82,15 +82,18 @@ import {
 } from '../lib/devFieldAuditDocs';
 import { companyPaymentMethodsForDocument } from '../lib/companyPaymentMethods';
 import {
+  decideJobClientEmailSave,
   jobClientEmailRow,
   jobClientEmailSaveToast,
   saveJobClientEmail,
 } from '../lib/saveJobClientEmail';
 import {
+  decideJobClientPhoneSave,
   jobClientPhoneRow,
   jobClientPhoneSaveToast,
   saveJobClientPhone,
 } from '../lib/saveJobClientPhone';
+import { FIELD_AU_PHONE, FIELD_EMAIL } from '../lib/fieldValidation';
 import {
   INVOICE_CLIENT_ATTACH_NO_CLIENTS,
   attachInvoiceClient,
@@ -924,6 +927,8 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
   const [savedId, setSavedId] = useState<string | null>(invoice?.id ?? null);
   const [clientEmailDraft, setClientEmailDraft] = useState(invoice?.client_email ?? '');
   const [clientPhoneDraft, setClientPhoneDraft] = useState(invoice?.client_phone ?? '');
+  const [clientEmailError, setClientEmailError] = useState('');
+  const [clientPhoneError, setClientPhoneError] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
   const [clientsLoaded, setClientsLoaded] = useState(false);
   const [writtenClientEmail, setWrittenClientEmail] = useState<{ clientId: string; email: string | null } | null>(null);
@@ -1064,10 +1069,12 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
         email: clientEmailDraft,
       });
     },
+    retry: 0,
     onSuccess: (result) => {
       setWrittenClientEmail({ clientId: result.clientId, email: result.email });
       setClients(cs => cs.map(c => c.id === result.clientId ? { ...c, email: result.email } : c));
       setClientEmailDraft(result.email ?? '');
+      setClientEmailError('');
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['invoice'] });
       queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
@@ -1075,7 +1082,7 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
       const toast = jobClientEmailSaveToast(result.email);
       showToast(toast.message, toast.kind);
     },
-    onError: (e: Error) => showToast(e.message, 'info'),
+    onError: (e: Error) => setClientEmailError(e.message),
   });
 
   const saveClientPhone = useMutation({
@@ -1085,10 +1092,12 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
         phone: clientPhoneDraft,
       });
     },
+    retry: 0,
     onSuccess: (result) => {
       setWrittenClientPhone({ clientId: result.clientId, phone: result.phone });
       setClients(cs => cs.map(c => c.id === result.clientId ? { ...c, phone: result.phone } : c));
       setClientPhoneDraft(result.phone ?? '');
+      setClientPhoneError('');
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['invoice'] });
       queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
@@ -1096,7 +1105,7 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
       const toast = jobClientPhoneSaveToast(result.phone);
       showToast(toast.message, toast.kind);
     },
-    onError: (e: Error) => showToast(e.message, 'info'),
+    onError: (e: Error) => setClientPhoneError(e.message),
   });
   const liveTaxRate = committedTaxRate(form.tax_rate);
   const liveGst = useMemo(
@@ -1650,6 +1659,15 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
                         className="job-client-phone"
                         onSubmit={e => {
                           e.preventDefault();
+                          const phoneDecision = decideJobClientPhoneSave({
+                            clientId: form.client_id || null,
+                            phone: clientPhoneDraft,
+                          });
+                          if (phoneDecision.action === 'miss') {
+                            setClientPhoneError(FIELD_AU_PHONE);
+                            return;
+                          }
+                          setClientPhoneError('');
                           saveClientPhone.mutate();
                         }}
                       >
@@ -1657,12 +1675,17 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
                         <input
                           type="tel"
                           value={clientPhoneDraft}
-                          onChange={e => setClientPhoneDraft(e.target.value)}
+                          onChange={e => {
+                            setClientPhoneDraft(e.target.value);
+                            setClientPhoneError('');
+                          }}
                           placeholder="Phone"
-                          className="form-input-sm"
+                          className={clientPhoneError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
                           aria-label="Client phone"
                           autoComplete="tel"
                           inputMode="tel"
+                          aria-invalid={clientPhoneError ? true : undefined}
+                          aria-describedby={clientPhoneError ? 'invoice-client-phone-error' : undefined}
                         />
                         <button
                           type="submit"
@@ -1671,6 +1694,7 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
                         >
                           Save
                         </button>
+                        {clientPhoneError ? <p id="invoice-client-phone-error" className="field-inline-error text-fail">{clientPhoneError}</p> : null}
                       </form>
                     )}
                     {emailRow.kind === 'mailto' && (
@@ -1683,6 +1707,15 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
                         className="job-client-email"
                         onSubmit={e => {
                           e.preventDefault();
+                          const emailDecision = decideJobClientEmailSave({
+                            clientId: form.client_id || null,
+                            email: clientEmailDraft,
+                          });
+                          if (emailDecision.action === 'miss') {
+                            setClientEmailError(FIELD_EMAIL);
+                            return;
+                          }
+                          setClientEmailError('');
                           saveClientEmail.mutate();
                         }}
                       >
@@ -1691,11 +1724,16 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
                           ref={emailInputRef}
                           type="email"
                           value={clientEmailDraft}
-                          onChange={e => setClientEmailDraft(e.target.value)}
+                          onChange={e => {
+                            setClientEmailDraft(e.target.value);
+                            setClientEmailError('');
+                          }}
                           placeholder="Email"
-                          className="form-input-sm"
+                          className={clientEmailError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
                           aria-label="Client email"
                           autoComplete="email"
+                          aria-invalid={clientEmailError ? true : undefined}
+                          aria-describedby={clientEmailError ? 'invoice-client-email-error' : undefined}
                         />
                         <button
                           type="submit"
@@ -1704,6 +1742,7 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
                         >
                           Save
                         </button>
+                        {clientEmailError ? <p id="invoice-client-email-error" className="field-inline-error text-fail">{clientEmailError}</p> : null}
                       </form>
                     )}
                   </div>

@@ -91,15 +91,18 @@ import {
 import { CompanyLetterheadMark } from '../lib/CompanyLetterheadMark';
 import { quoteClientDetailFromClient } from '../lib/clientRecords';
 import {
+  decideJobClientEmailSave,
   jobClientEmailRow,
   jobClientEmailSaveToast,
   saveJobClientEmail,
 } from '../lib/saveJobClientEmail';
 import {
+  decideJobClientPhoneSave,
   jobClientPhoneRow,
   jobClientPhoneSaveToast,
   saveJobClientPhone,
 } from '../lib/saveJobClientPhone';
+import { FIELD_AU_PHONE, FIELD_EMAIL } from '../lib/fieldValidation';
 import {
   QUOTE_CLIENT_ATTACH_NO_CLIENTS,
   attachQuoteClient,
@@ -1077,8 +1080,10 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
   const [clientsLoaded, setClientsLoaded] = useState(false);
   const [writtenClientEmail, setWrittenClientEmail] = useState<{ clientId: string; email: string | null } | null>(null);
   const [clientEmailDraft, setClientEmailDraft] = useState('');
+  const [clientEmailError, setClientEmailError] = useState('');
   const [writtenClientPhone, setWrittenClientPhone] = useState<{ clientId: string; phone: string | null } | null>(null);
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
+  const [clientPhoneError, setClientPhoneError] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
   const [jobs, setJobs] = useState<Job[]>([]);
   const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
@@ -1281,17 +1286,19 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
         email: clientEmailDraft,
       });
     },
+    retry: 0,
     onSuccess: (result) => {
       setWrittenClientEmail({ clientId: result.clientId, email: result.email });
       setClients(cs => cs.map(c => c.id === result.clientId ? { ...c, email: result.email } : c));
       setClientEmailDraft(result.email ?? '');
+      setClientEmailError('');
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
       queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       const toast = jobClientEmailSaveToast(result.email);
       showToast(toast.message, toast.kind);
     },
-    onError: (e: Error) => showToast(e.message, 'info'),
+    onError: (e: Error) => setClientEmailError(e.message),
   });
 
   const saveClientPhone = useMutation({
@@ -1301,17 +1308,19 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
         phone: clientPhoneDraft,
       });
     },
+    retry: 0,
     onSuccess: (result) => {
       setWrittenClientPhone({ clientId: result.clientId, phone: result.phone });
       setClients(cs => cs.map(c => c.id === result.clientId ? { ...c, phone: result.phone } : c));
       setClientPhoneDraft(result.phone ?? '');
+      setClientPhoneError('');
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
       queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       const toast = jobClientPhoneSaveToast(result.phone);
       showToast(toast.message, toast.kind);
     },
-    onError: (e: Error) => showToast(e.message, 'info'),
+    onError: (e: Error) => setClientPhoneError(e.message),
   });
 
   const previewPriceBookIds = useMemo(
@@ -1890,6 +1899,15 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
                       className="job-client-phone"
                       onSubmit={e => {
                         e.preventDefault();
+                        const phoneDecision = decideJobClientPhoneSave({
+                          clientId: form.client_id || null,
+                          phone: clientPhoneDraft,
+                        });
+                        if (phoneDecision.action === 'miss') {
+                          setClientPhoneError(FIELD_AU_PHONE);
+                          return;
+                        }
+                        setClientPhoneError('');
                         saveClientPhone.mutate();
                       }}
                     >
@@ -1897,12 +1915,17 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
                       <input
                         type="tel"
                         value={clientPhoneDraft}
-                        onChange={e => setClientPhoneDraft(e.target.value)}
+                        onChange={e => {
+                          setClientPhoneDraft(e.target.value);
+                          setClientPhoneError('');
+                        }}
                         placeholder="Phone"
-                        className="form-input-sm"
+                        className={clientPhoneError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
                         aria-label="Client phone"
                         autoComplete="tel"
                         inputMode="tel"
+                        aria-invalid={clientPhoneError ? true : undefined}
+                        aria-describedby={clientPhoneError ? 'quote-client-phone-error' : undefined}
                       />
                       <button
                         type="submit"
@@ -1911,6 +1934,7 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
                       >
                         Save
                       </button>
+                      {clientPhoneError ? <p id="quote-client-phone-error" className="field-inline-error text-fail">{clientPhoneError}</p> : null}
                     </form>
                   )}
                   {emailRow.kind === 'mailto' && (
@@ -1923,6 +1947,15 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
                       className="job-client-email"
                       onSubmit={e => {
                         e.preventDefault();
+                        const emailDecision = decideJobClientEmailSave({
+                          clientId: form.client_id || null,
+                          email: clientEmailDraft,
+                        });
+                        if (emailDecision.action === 'miss') {
+                          setClientEmailError(FIELD_EMAIL);
+                          return;
+                        }
+                        setClientEmailError('');
                         saveClientEmail.mutate();
                       }}
                     >
@@ -1931,11 +1964,16 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
                         ref={emailInputRef}
                         type="email"
                         value={clientEmailDraft}
-                        onChange={e => setClientEmailDraft(e.target.value)}
+                        onChange={e => {
+                          setClientEmailDraft(e.target.value);
+                          setClientEmailError('');
+                        }}
                         placeholder="Email"
-                        className="form-input-sm"
+                        className={clientEmailError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
                         aria-label="Client email"
                         autoComplete="email"
+                        aria-invalid={clientEmailError ? true : undefined}
+                        aria-describedby={clientEmailError ? 'quote-client-email-error' : undefined}
                       />
                       <button
                         type="submit"
@@ -1944,6 +1982,7 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
                       >
                         Save
                       </button>
+                      {clientEmailError ? <p id="quote-client-email-error" className="field-inline-error text-fail">{clientEmailError}</p> : null}
                     </form>
                   )}
                 </>

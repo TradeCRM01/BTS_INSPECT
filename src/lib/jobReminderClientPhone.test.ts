@@ -220,7 +220,7 @@ describe('24h reminder client phone — wiring', () => {
     expect(reminder).toContain('savePhone.mutate()');
     expect(reminder).toContain('job-client-phone');
     expect(reminder).toContain('job-client-phone-save');
-    expect(reminder).toContain('aria-label="Client phone"');
+    expect(reminder).toContain('aria-label="Reminder client phone"');
     expect(reminder).toContain("kind === 'edit'");
     expect(reminder).toContain('jobClientPhoneRow({');
     expect(reminder).toContain('clientId: job.client_id');
@@ -354,7 +354,7 @@ describe('24h reminder client phone — wiring', () => {
     expect(reminder).toContain('job-client-email');
     expect(reminder).toContain('job-client-email-save');
     expect(reminder).toContain('JOB_REMINDER_NO_EMAIL_FIELD');
-    expect(reminder).toContain('aria-label="Client email"');
+    expect(reminder).toContain('aria-label="Reminder client email"');
     expect(reminder).toContain('SMS To');
     expect(reminder).toContain('aria-label="Reminder SMS To"');
     expect(reminder).toContain('prefillSmsTo(liveClient?.phone)');

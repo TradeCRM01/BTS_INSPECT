@@ -180,6 +180,7 @@ export function ProfileSettingsPage() {
                   onClick={() => setShowCurrent(v => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[#4A5568] hover:text-[#1A1A1A] transition-colors"
                   tabIndex={-1}
+                  aria-label={showCurrent ? 'Hide current password' : 'Show current password'}
                 >
                   {showCurrent ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
@@ -203,6 +204,7 @@ export function ProfileSettingsPage() {
                   onClick={() => setShowNew(v => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[#4A5568] hover:text-[#1A1A1A] transition-colors"
                   tabIndex={-1}
+                  aria-label={showNew ? 'Hide new password' : 'Show new password'}
                 >
                   {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
@@ -230,6 +232,7 @@ export function ProfileSettingsPage() {
                   onClick={() => setShowConfirm(v => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[#4A5568] hover:text-[#1A1A1A] transition-colors"
                   tabIndex={-1}
+                  aria-label={showConfirm ? 'Hide confirm password' : 'Show confirm password'}
                 >
                   {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>

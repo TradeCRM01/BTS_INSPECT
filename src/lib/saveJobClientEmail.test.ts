@@ -101,6 +101,15 @@ describe('decideJobClientEmailSave', () => {
       email: '   ',
     })).toEqual({ action: 'write', clientId: 'c1', email: null });
   });
+
+  it('misses junk that used to save as not-an-email', () => {
+    expect(decideJobClientEmailSave({ clientId: 'c1', email: 'not-an-email' })).toEqual({
+      action: 'miss',
+      reason: 'invalid_email',
+      message: 'Enter a valid email',
+    });
+    expect(decideJobClientEmailSave({ clientId: 'c1', email: 'a@b..c' }).action).toBe('miss');
+  });
 });
 
 describe('clientEmailForSend after save', () => {
