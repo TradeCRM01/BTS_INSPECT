@@ -7,8 +7,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '../components/ui/Toast';
-import { QuoteEditorModal } from '../pages/QuotesPage';
-import { DATE_INVALID_MESSAGE } from './dateTimeIntegrity';
+import { QuoteEditorModal } from './QuotesPage';
+import { DATE_INVALID_MESSAGE } from '../lib/dateTimeIntegrity';
 
 const { writes, chain } = vi.hoisted(() => {
   const writes: unknown[] = [];
@@ -51,7 +51,7 @@ const { writes, chain } = vi.hoisted(() => {
   return { writes, chain };
 });
 
-vi.mock('./supabase', () => ({
+vi.mock('../lib/supabase', () => ({
   supabase: {
     from: (table: string) => chain(table),
     storage: { from: () => ({ upload: () => Promise.resolve({ error: null }) }) },
@@ -67,7 +67,7 @@ vi.mock('../contexts/AuthContext', () => ({
   }),
 }));
 
-vi.mock('./devFieldAuditAuth', () => ({
+vi.mock('../lib/devFieldAuditAuth', () => ({
   isDevFieldAuditAuth: () => false,
   pageQueryBlocked: () => false,
 }));
@@ -116,13 +116,13 @@ async function setNamedDate(id: string, value: string) {
   });
 }
 
-describe('probe G4', () => {
-  it('PROBE G4 blocks QuoteEditorModal Valid until with a line item', async () => {
+describe('QuoteEditorModal Valid until', () => {
+  it('blocks save when Valid until is invalid and a line item is present', async () => {
     const onSaved = vi.fn();
     await act(async () => {
       root.render(providers(
         <QuoteEditorModal
-          key="new-quote-g4"
+          key="new-quote-valid-until"
           quote={null}
           presetClientId="cl-1"
           defaultTaxRate={10}

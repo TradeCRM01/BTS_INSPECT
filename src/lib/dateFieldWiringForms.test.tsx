@@ -439,7 +439,7 @@ describe('expense / invoice payment date wiring', () => {
     await act(async () => {
       root.render(providers(
         <QuoteEditorModal
-          key="new-quote-g4"
+          key="new-quote-valid-until"
           quote={null}
           presetClientId="cl-1"
           defaultTaxRate={10}

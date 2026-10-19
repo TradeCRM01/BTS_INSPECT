@@ -30,8 +30,8 @@ TESTS = [
     'src/lib/dateListDisplay.test.tsx',
     'src/lib/clockPageGuards.test.tsx',
     'src/lib/createContractServiceJob.test.ts',
-    'src/lib/probeR4.test.tsx',
-    'src/lib/probeG4.test.tsx',
+    'src/pages/contractsNextServiceDate.test.tsx',
+    'src/pages/quoteValidUntilGuard.test.tsx',
 ]
 M = [
     ('M1a blank-date lib: scheduleSheetDateError always null', L,
@@ -404,7 +404,7 @@ def failset(path):
 
 def run_vitest(out):
     subprocess.run(
-        ['npx', 'vitest', 'run', '--reporter=json', '--outputFile=' + out, *TESTS],
+        ['npx', 'vitest', 'run', '--maxWorkers=2', '--reporter=json', '--outputFile=' + out, *TESTS],
         cwd=W, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
 

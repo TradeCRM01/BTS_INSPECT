@@ -6,15 +6,15 @@ import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ContractForm } from '../pages/ContractsPage';
-import { ComplianceForm } from '../pages/CompliancePage';
-import { DATE_INVALID_MESSAGE, DATE_REQUIRED_MESSAGE } from './dateTimeIntegrity';
-import { DATE_YEAR_RANGE_MESSAGE } from './safeDate';
+import { ContractForm } from './ContractsPage';
+import { ComplianceForm } from './CompliancePage';
+import { DATE_INVALID_MESSAGE, DATE_REQUIRED_MESSAGE } from '../lib/dateTimeIntegrity';
+import { DATE_YEAR_RANGE_MESSAGE } from '../lib/safeDate';
 import { ToastProvider } from '../components/ui/Toast';
 
 const insertContract = vi.fn();
 
-vi.mock('./supabase', () => ({
+vi.mock('../lib/supabase', () => ({
   supabase: {
     from: (table: string) => ({
       select: () => ({
@@ -114,7 +114,7 @@ function expectLinked(id: string, errId: string) {
   expect(document.getElementById(errId)).toBeTruthy();
   expect(input.closest('label')!.querySelectorAll('[role=alert]').length).toBe(1);
 }
-describe('probe r4', () => {
+describe('ContractForm next service date', () => {
   it('NS2: partial next service is flagged on the field even when the title is also blank', async () => {
     await mountContract(false);
     await act(async () => { setInput(el('contract-next-service-date'), '21/10/20'); });
