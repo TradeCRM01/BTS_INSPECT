@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { Navigate } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { Send, Plus, Trash2, MessageSquare, Bot, User, ChevronLeft, AlertCircle, HelpCircle } from 'lucide-react';
@@ -105,6 +106,7 @@ const SUGGESTIONS = [
 ];
 
 export function AiAssistantPage() {
+  const { profile } = useAuth();
   const { get, del, streamChat } = useEdgeFn();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -200,6 +202,8 @@ export function AiAssistantPage() {
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   }, [sendMessage]);
+
+  if (profile && profile.role !== 'admin') return <Navigate to="/" replace />;
 
   return (
     <AppShell>

@@ -2,9 +2,7 @@ import { supabase } from './supabase';
 
 export type AiSettingsGetResponse = {
   keySet?: boolean;
-  maskedKey?: string;
   model?: string;
-  adminToolsEnabled?: boolean;
   error?: string;
 };
 

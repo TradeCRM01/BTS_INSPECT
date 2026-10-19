@@ -412,7 +412,7 @@ export function AppShell({ children }: AppShellProps) {
                           className="shell-menu-item">
                           <BrainCircuit size={15} className="text-white/45" /> AI Settings
                         </Link>
-                        {companyAiKey && (
+                        {isPlatformOperator && companyAiKey && (
                           <Link to="/ai-console" onClick={() => setAvatarOpen(false)}
                             className="shell-menu-item">
                             <Sparkles size={15} className="text-white/45" /> AI Console
@@ -520,7 +520,7 @@ export function AppShell({ children }: AppShellProps) {
                 <Link to="/settings/ai" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
                   <BrainCircuit size={16} /> AI Settings
                 </Link>
-                {companyAiKey && (
+                {isPlatformOperator && companyAiKey && (
                   <Link to="/ai-console" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/80 font-medium">
                     <Sparkles size={16} /> AI Console
                   </Link>

@@ -48,6 +48,35 @@ export const DASHBOARD_COMPANY_ID_TABLES = [
 
 export const CROSS_COMPANY_CLIENT_ERROR = "Error: that client isn't in your company.";
 export const CROSS_COMPANY_JOB_ERROR = "Error: that job isn't in your company.";
+export const CROSS_COMPANY_INVOICE_ERROR = "Error: that invoice isn't in your company.";
+export const CROSS_COMPANY_COMPLIANCE_ERROR = "Error: that compliance item isn't in your company.";
+export const RELATED_TYPE_REQUIRED_ERROR =
+  "Error: related_type must be client, job, invoice, or compliance when related_id is set.";
+export const TOOL_REFUSED_NOT_OPERATOR = "Error: that tool is not available.";
+
+export const RELATED_KIND_TABLE = {
+  client: "clients",
+  job: "jobs",
+  invoice: "invoices",
+  compliance: "compliance_items",
+} as const;
+
+export type RelatedKind = keyof typeof RELATED_KIND_TABLE;
+
+export const CROSS_COMPANY_RELATED_ERROR: Record<RelatedKind, string> = {
+  client: CROSS_COMPANY_CLIENT_ERROR,
+  job: CROSS_COMPANY_JOB_ERROR,
+  invoice: CROSS_COMPANY_INVOICE_ERROR,
+  compliance: CROSS_COMPANY_COMPLIANCE_ERROR,
+};
+
+export const WRITE_TOOL_NAMES = ["create_job", "create_reminder", "create_compliance_item"] as const;
+export const OPERATOR_ONLY_TOOL_NAMES = [...WRITE_TOOL_NAMES, "list_tables"] as const;
+export const CUSTOMER_READ_TOOL_NAMES = [
+  "get_company_context",
+  "get_dashboard_summary",
+  "web_search",
+] as const;
 
 export type OwnedRowQuery = {
   select: (columns: string) => OwnedRowQuery;
@@ -59,13 +88,29 @@ export type CompanyOwnedRowClient = {
   from: (table: string) => OwnedRowQuery;
 };
 
-export function companyOwnedIdError(kind: "client" | "job"): string {
-  return kind === "job" ? CROSS_COMPANY_JOB_ERROR : CROSS_COMPANY_CLIENT_ERROR;
+export type OperatorLookupClient = {
+  from: (table: string) => {
+    select: (columns: string) => {
+      eq: (column: string, value: unknown) => {
+        maybeSingle: () => Promise<{ data: { user_id?: string } | null }>;
+      };
+    };
+  };
+};
+
+export function relatedKindFromType(relatedType: string): RelatedKind | null {
+  const key = relatedType.trim().toLowerCase();
+  if (key === "client" || key === "job" || key === "invoice" || key === "compliance") return key;
+  return null;
+}
+
+export function companyOwnedIdError(kind: RelatedKind): string {
+  return CROSS_COMPANY_RELATED_ERROR[kind];
 }
 
 export async function companyOwnsId(
   client: CompanyOwnedRowClient,
-  table: "clients" | "jobs",
+  table: (typeof RELATED_KIND_TABLE)[RelatedKind],
   id: string,
   companyId: string,
 ): Promise<boolean> {
@@ -79,16 +124,66 @@ export async function companyOwnsId(
   return Boolean(data?.id);
 }
 
-/** Reject a model-supplied client/job id that is not in this company. */
+/** Reject a model-supplied related id that is not in this company. */
 export async function rejectIfForeignOwned(
   client: CompanyOwnedRowClient,
-  kind: "client" | "job",
+  kind: RelatedKind,
   id: string,
   companyId: string,
 ): Promise<string | null> {
-  const table = kind === "job" ? "jobs" : "clients";
+  const table = RELATED_KIND_TABLE[kind];
   const ok = await companyOwnsId(client, table, id, companyId);
   return ok ? null : companyOwnedIdError(kind);
+}
+
+export function isOperatorOnlyTool(toolName: string): boolean {
+  return (OPERATOR_ONLY_TOOL_NAMES as readonly string[]).includes(toolName);
+}
+
+export function toolsAllowedForCaller(isOperator: boolean, isAdmin: boolean): readonly string[] {
+  if (isOperator) return [...CUSTOMER_READ_TOOL_NAMES, ...OPERATOR_ONLY_TOOL_NAMES];
+  if (isAdmin) return CUSTOMER_READ_TOOL_NAMES;
+  return [];
+}
+
+export function refuseToolIfUnauthorized(toolName: string, isOperator: boolean): string | null {
+  if (isOperatorOnlyTool(toolName) && !isOperator) return TOOL_REFUSED_NOT_OPERATOR;
+  return null;
+}
+
+export async function lookupPlatformOperator(
+  client: OperatorLookupClient,
+  userId: string,
+): Promise<boolean> {
+  if (!userId) return false;
+  const { data } = await client
+    .from("platform_operators")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return Boolean(data?.user_id);
+}
+
+export function acceptClientUserMessages(
+  raw: unknown,
+): Array<{ role: "user"; content: string }> {
+  if (!Array.isArray(raw)) return [];
+  const out: Array<{ role: "user"; content: string }> = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const role = (item as { role?: unknown }).role;
+    const content = (item as { content?: unknown }).content;
+    if (role !== "user") continue;
+    if (typeof content !== "string") continue;
+    const text = content.trim();
+    if (!text) continue;
+    out.push({ role: "user", content: text });
+  }
+  return out;
+}
+
+export function canUseAdminAiRoutes(isAdmin: boolean): boolean {
+  return isAdmin;
 }
 
 export function inspectorIdsFromProfiles(data: unknown): string[] {

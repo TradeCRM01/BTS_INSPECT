@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
-import { OperatorRoute } from './components/layout/OperatorRoute';
+import { OperatorOnlyPage, OperatorRoute } from './components/layout/OperatorRoute';
 import { PageErrorBoundary } from './components/layout/PageErrorBoundary';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { ToastProvider } from './components/ui/Toast';
@@ -137,7 +137,7 @@ export default function App() {
       <Route path="/settings/company" element={<Protected><CompanySettingsPage /></Protected>} />
       <Route path="/settings/billing" element={<Protected><BillingSettingsPage /></Protected>} />
       <Route path="/settings/team" element={<Protected><TeamSettingsPage /></Protected>} />
-      <Route path="/ai-console" element={<Protected><AiConsolePage /></Protected>} />
+      <Route path="/ai-console" element={<Protected><OperatorOnlyPage><AiConsolePage /></OperatorOnlyPage></Protected>} />
       <Route path="/assistant" element={<Protected><AiAssistantPage /></Protected>} />
       <Route path="/settings/ai" element={<Protected><AiSettingsPage /></Protected>} />
       <Route path="/jha-templates" element={<Navigate to="/templates" replace />} />

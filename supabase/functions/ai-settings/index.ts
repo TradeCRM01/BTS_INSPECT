@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { ANTHROPIC_KEY_TEST_FAILED, publicAiSettings } from "./aiSettingsPublic.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,25 +46,15 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // GET — return settings (mask key)
+    // GET — return whether a key is set, not the key itself
     if (req.method === "GET") {
       const { data } = await supabase
         .from("ai_settings")
-        .select("model, admin_tools_enabled, anthropic_api_key")
+        .select("model, anthropic_api_key")
         .eq("company_id", ctx.companyId)
         .maybeSingle();
 
-      const keySet = !!(data?.anthropic_api_key);
-      const maskedKey = keySet
-        ? `sk-ant-${"•".repeat(20)}${data!.anthropic_api_key!.slice(-4)}`
-        : "";
-
-      return new Response(JSON.stringify({
-        keySet,
-        maskedKey,
-        model: data?.model ?? "claude-opus-4-7",
-        adminToolsEnabled: data?.admin_tools_enabled ?? true,
-      }), {
+      return new Response(JSON.stringify(publicAiSettings(data)), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -73,7 +64,6 @@ Deno.serve(async (req: Request) => {
       const body = await req.json() as {
         anthropic_api_key?: string;
         model?: string;
-        admin_tools_enabled?: boolean;
         test_only?: boolean;
       };
 
@@ -97,8 +87,8 @@ Deno.serve(async (req: Request) => {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-        const errBody = await testRes.text();
-        return new Response(JSON.stringify({ ok: false, error: errBody }), {
+        await testRes.text().catch(() => "");
+        return new Response(JSON.stringify({ ok: false, error: ANTHROPIC_KEY_TEST_FAILED }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -111,7 +101,6 @@ Deno.serve(async (req: Request) => {
       };
       if (body.anthropic_api_key !== undefined) payload.anthropic_api_key = body.anthropic_api_key;
       if (body.model !== undefined) payload.model = body.model;
-      if (body.admin_tools_enabled !== undefined) payload.admin_tools_enabled = body.admin_tools_enabled;
 
       const { error } = await supabase
         .from("ai_settings")
