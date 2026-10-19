@@ -892,7 +892,7 @@ function InspectionRow({
                     role="menuitem"
                     onClick={() => { onArchive(doc.id, !doc.archived); closeMore(); }}
                   >
-                    {doc.archived ? 'Unarchive' : 'Archive'}
+                    {doc.archived ? 'Restore' : 'Archive'}
                   </button>
                   <button
                     type="button"
