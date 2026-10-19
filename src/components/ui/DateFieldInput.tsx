@@ -19,6 +19,7 @@ export function DateFieldInput({
   hideAlert,
   ariaInvalid,
   ariaDescribedBy,
+  requireFourDigitYear = true,
 }: {
   id?: string;
   value: string;
@@ -31,11 +32,14 @@ export function DateFieldInput({
   hideAlert?: boolean;
   ariaInvalid?: boolean;
   ariaDescribedBy?: string;
+  requireFourDigitYear?: boolean;
 }) {
   const [text, setText] = useState(() => formatAuDate(value));
   const [invalid, setInvalid] = useState(false);
   const lastEmittedRef = useRef(isoDateKey(value) ?? '');
   const focusedRef = useRef(false);
+  const ownAlertId = id ? `${id}-field-error` : undefined;
+  const describedBy = ariaDescribedBy || (invalid && !hideAlert ? ownAlertId : undefined);
 
   useEffect(() => {
     const incoming = isoDateKey(value) ?? '';
@@ -71,8 +75,8 @@ export function DateFieldInput({
         className={className}
         disabled={disabled}
         value={text}
-        aria-invalid={ariaInvalid || invalid || undefined}
-        aria-describedby={ariaDescribedBy}
+        aria-invalid={(ariaInvalid || (!hideAlert && invalid)) || undefined}
+        aria-describedby={describedBy}
         onFocus={() => {
           focusedRef.current = true;
         }}
@@ -85,7 +89,7 @@ export function DateFieldInput({
             emitIso('', false);
             return;
           }
-          const live = parseAuDate(trimmed, { requireFourDigitYear: true });
+          const live = parseAuDate(trimmed, { requireFourDigitYear });
           if (live) {
             lastEmittedRef.current = live;
             setValidity(false);
@@ -104,7 +108,7 @@ export function DateFieldInput({
             onBlurCommit?.('');
             return;
           }
-          const iso = parseAuDate(trimmed, { requireFourDigitYear: true });
+          const iso = parseAuDate(trimmed, { requireFourDigitYear });
           if (iso) {
             setText(formatAuDate(iso));
             emitIso(iso, false);
@@ -116,7 +120,7 @@ export function DateFieldInput({
           onBlurCommit?.('');
         }}
       />
-      {invalid && !hideAlert ? <p className="text-sm text-fail" role="alert">{DATE_INVALID_MESSAGE}</p> : null}
+      {invalid && !hideAlert ? <p id={ownAlertId} className="text-sm text-fail" role="alert">{DATE_INVALID_MESSAGE}</p> : null}
     </>
   );
 }

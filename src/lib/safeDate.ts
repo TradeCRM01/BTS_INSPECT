@@ -75,6 +75,7 @@ export function dateFieldYearError(raw: string, required = false): string | null
     if (!isRealYmd(year, Number(au[2]), Number(au[1]))) return DATE_INVALID_MESSAGE;
     return null;
   }
+  if (/[/.-]/.test(trimmed)) return DATE_INVALID_MESSAGE;
   const year = Number(/^(\d+)/.exec(trimmed)?.[1]);
   if (!isSupportedDateYear(year)) return DATE_YEAR_RANGE_MESSAGE;
   return DATE_INVALID_MESSAGE;

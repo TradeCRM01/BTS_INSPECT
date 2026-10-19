@@ -630,15 +630,15 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
                   setRangeErr(null);
                 }}
                 onValidityChange={setEndInvalid}
-                hideAlert={Boolean(endDateError)}
-                ariaInvalid={Boolean(endDateError || endInvalid)}
-                ariaDescribedBy={endDateError ? 'contract-end-date-error' : undefined}
+                hideAlert={Boolean(endDateError || rangeErr)}
+                ariaInvalid={Boolean(endDateError || endInvalid || rangeErr)}
+                ariaDescribedBy={endDateError ? 'contract-end-date-error' : rangeErr ? 'contract-date-range-error' : undefined}
                 className="form-input"
               />
               {endDateError ? (
                 <p id="contract-end-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{endDateError}</p>
               ) : null}
-              {rangeErr ? <p className="text-sm text-[#B42318] mt-1" role="alert">{rangeErr}</p> : null}
+              {rangeErr ? <p id="contract-date-range-error" className="text-sm text-[#B42318] mt-1" role="alert">{rangeErr}</p> : null}
             </Field>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -663,6 +663,7 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
               }}
               onTextChange={raw => { nextTypedRef.current = raw; }}
               onValidityChange={setNextInvalid}
+              requireFourDigitYear
               hideAlert={Boolean(nextServiceError)}
               ariaInvalid={Boolean(nextServiceError || nextInvalid)}
               ariaDescribedBy={nextServiceError ? 'contract-next-service-date-error' : undefined}
