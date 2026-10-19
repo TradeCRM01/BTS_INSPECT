@@ -1,5 +1,6 @@
 -- Run after ai_settings_interim_lock and the leftover-privs revoke on a local database.
--- Expect every can_*_api_key column and leftover table privilege to be false.
+-- Expect api_key column privileges and leftover table privileges to be false.
+-- authenticated SELECT on model stays true after the interim lock.
 
 SELECT
   has_column_privilege('authenticated', 'public.ai_settings', 'anthropic_api_key', 'SELECT')

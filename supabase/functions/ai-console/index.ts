@@ -692,7 +692,22 @@ Deno.serve(async (req: Request) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const body = JSON.parse(raw) as { messages?: unknown; sessionId?: string };
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        return new Response(JSON.stringify({ error: "messages required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return new Response(JSON.stringify({ error: "messages required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const body = parsed as { messages?: unknown; sessionId?: string };
       const messages = acceptClientUserMessages(body.messages);
       const sessionId = body.sessionId;
 
@@ -780,9 +795,9 @@ Deno.serve(async (req: Request) => {
       status: 404,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err) {
+  } catch {
     return new Response(
-      JSON.stringify({ error: err instanceof Error ? err.message : "Internal error" }),
+      JSON.stringify({ error: "Internal error" }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -30,5 +30,9 @@ describe('shared date year window', () => {
     expect(isAcceptableDueDate('0026-02-11')).toBe(false);
     expect(isAcceptableDueDate('1899-12-31')).toBe(false);
     expect(isAcceptableDueDate('2101-01-01')).toBe(false);
+    expect(isAcceptableDueDate('2027-02-30')).toBe(false);
+    expect(isAcceptableDueDate('2027-13-01')).toBe(false);
+    expect(isAcceptableDueDate('1900-01-01')).toBe(true);
+    expect(isAcceptableDueDate('2100-12-31')).toBe(true);
   });
 });

@@ -113,7 +113,7 @@ export function AiSettingsPage() {
       <div className="page-shell-narrow" data-ai-settings="1">
         <h1 className="text-xl font-semibold text-[#1A1A1A] mb-1">AI Settings</h1>
         <p className="text-sm text-[#4A5568] mb-6">
-          The assistant can look up this company. It cannot create or change records.
+          The assistant can look up this company and can create jobs, reminders, and compliance items.
         </p>
 
         {loading ? (

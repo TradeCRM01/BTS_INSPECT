@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { sbState } from './aiEdgeHarness/sbStub';
 import { DUE_DATE_INVALID_ERROR } from '../../supabase/functions/_shared/safeDate.ts';
+import { RELATED_TYPE_REQUIRED_ERROR } from '../../supabase/functions/ai-console/aiConsoleAdmin.ts';
 
 const g = globalThis as {
   EdgeRuntime?: { waitUntil: (p: unknown) => unknown };
@@ -160,6 +161,15 @@ describe('M14 to M18 company scope', () => {
     await chat('tok-op', ask);
     expect(inserts('compliance_items')).toEqual([]);
   });
+  it('R05 unknown related_type with a foreign related_id is refused', async () => {
+    anthropicQueue.push(
+      toolUse('create_reminder', { title: 'r', related_type: 'site', related_id: 'c-B' }),
+      text('done'),
+    );
+    await chat('tok-op', ask);
+    expect(toolResult()).toBe(RELATED_TYPE_REQUIRED_ERROR);
+    expect(inserts('agent_reminders')).toEqual([]);
+  });
   it.each([
     ['client', 'c-B'],
     ['job', 'j-B'],
@@ -210,6 +220,16 @@ describe('P0 year guard CALLS the edge function', () => {
       }
     },
   );
+  it('Y15 refuses create_compliance_item 2027-02-30 with no insert', async () => {
+    anthropicQueue.push(
+      toolUse('create_compliance_item', { client_id: 'c-A', title: 'x', first_due_date: '2027-02-30' }),
+      text('done'),
+    );
+    const r = await chat('tok-op', ask);
+    expect(r.status).toBe(200);
+    expect(toolResult()).toBe(DUE_DATE_INVALID_ERROR);
+    expect(inserts('compliance_items')).toEqual([]);
+  });
   it.each(YEAR_KILL_CASES)(
     'create_reminder due_date %s via /chat',
     async (d, ok) => {
@@ -275,6 +295,18 @@ describe('M52 M53 ai-settings admin and company', () => {
     expect(raw).not.toContain('maskedKey');
     expect(raw).not.toContain('anthropic_api_key');
   });
+  it('L02 L03 operator GET body is exactly keySet and model', async () => {
+    const res = await settingsHandler(new Request('http://edge.local/ai-settings', {
+      headers: { Authorization: 'Bearer tok-op' },
+    }));
+    const raw = await res.text();
+    expect(res.status).toBe(200);
+    expect(JSON.parse(raw)).toEqual({ keySet: true, model: 'claude-haiku-4-5' });
+    expect(Object.keys(JSON.parse(raw)).sort()).toEqual(['keySet', 'model']);
+    expect(raw).not.toContain('wxyz');
+    expect(raw).not.toContain('last4');
+    expect(raw).not.toContain('maskedKey');
+  });
 });
 
 describe('M56 M57 session scope', () => {
@@ -292,6 +324,22 @@ describe('M56 M57 session scope', () => {
       headers: { Authorization: 'Bearer tok-op' },
     }));
     expect(sbState().tables.ai_console_sessions.length).toBe(1);
+  });
+});
+
+describe('O05 actions operator gate', () => {
+  it('customer admin GET /actions is 403', async () => {
+    const res = await consoleHandler(new Request('http://edge.local/ai-console/actions', {
+      headers: { Authorization: 'Bearer tok-admin' },
+    }));
+    expect(res.status).toBe(403);
+  });
+  it('operator GET /actions is 200', async () => {
+    const res = await consoleHandler(new Request('http://edge.local/ai-console/actions', {
+      headers: { Authorization: 'Bearer tok-op' },
+    }));
+    expect(res.status).toBe(200);
+    expect(JSON.parse(await res.text())).toEqual({ actions: [] });
   });
 });
 
@@ -316,5 +364,21 @@ describe('caps and stream errors', () => {
     const r = await chat('tok-op', ask);
     expect(r.body).not.toContain('UPSTREAM-MIDSTREAM-DETAIL');
     expect(r.body).toContain('The assistant is unavailable');
+  });
+  it('E04 does not pass a non-ok Anthropic body through', async () => {
+    anthropicQueue.push(() => new Response('UPSTREAM-NONOK-DETAIL', { status: 529 }));
+    const r = await chat('tok-op', ask);
+    expect(r.body).not.toContain('UPSTREAM-NONOK-DETAIL');
+    expect(r.body).toContain('The assistant is unavailable');
+  });
+  it('null chat body is 400 not 500 and has no raw parse text', async () => {
+    const res = await consoleHandler(new Request('http://edge.local/ai-console/chat', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer tok-op', 'Content-Type': 'application/json' },
+      body: 'null',
+    }));
+    const raw = await res.text();
+    expect(res.status).toBe(400);
+    expect(raw).not.toMatch(/TypeError|Cannot read|undefined/i);
   });
 });

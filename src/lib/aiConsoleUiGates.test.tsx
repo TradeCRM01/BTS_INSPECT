@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OperatorOnlyPage } from '../components/layout/OperatorRoute';
 import { AiAssistantPage } from '../pages/AiAssistantPage';
 import { AppShell } from '../components/layout/AppShell';
+import { AiAgentWidget, AgentActivityWidget } from '../widgets/IntelligenceWidgets';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('../components/ui/LoadingSpinner', () => ({
@@ -87,7 +88,7 @@ describe('M45 to M48 UI gates', () => {
     expect(container.textContent).not.toContain('How do I create a new inspection template?');
   });
 
-  it('M48 AppShell hides AI nav from a customer admin', async () => {
+  async function renderShell() {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     await act(async () => {
       root.render(
@@ -100,17 +101,86 @@ describe('M45 to M48 UI gates', () => {
         </QueryClientProvider>,
       );
     });
-    const toggle = container.querySelector('button.md\\:hidden, button[aria-label]')
-      ?? [...container.querySelectorAll('button')].find((b) => b.innerHTML.includes('Menu') || b.querySelector('svg'));
-    if (toggle) {
-      await act(async () => {
-        toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      });
-    }
-    const text = container.textContent ?? '';
-    expect(text).not.toContain('AI Console');
-    expect(text).not.toContain('AI Settings');
-    expect(text).not.toContain('AI Assistant');
+  }
+
+  async function openAvatarMenu() {
+    const name = auth.profile?.name ?? '';
+    const avatar = [...container.querySelectorAll('button')].find((b) => {
+      const text = b.textContent ?? '';
+      return text.includes(name) && text.includes(name.charAt(0).toUpperCase());
+    });
+    expect(avatar, 'avatar menu button').toBeTruthy();
+    await act(async () => {
+      avatar!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+  }
+
+  async function openPhoneMore() {
+    const more = container.querySelector('button[data-phone-tab][aria-expanded]');
+    expect(more, 'phone More tab').toBeTruthy();
+    await act(async () => {
+      more!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+  }
+
+  function aiHrefs() {
+    return [...container.querySelectorAll('a')]
+      .map((a) => a.getAttribute('href') ?? '')
+      .filter((href) => href === '/assistant' || href === '/settings/ai' || href === '/ai-console');
+  }
+
+  it('G04-G09 customer admin sees 0 AI links after avatar and More open', async () => {
+    await renderShell();
+    await openAvatarMenu();
+    expect(aiHrefs()).toEqual([]);
+    await openPhoneMore();
+    expect(aiHrefs()).toEqual([]);
+    expect(container.textContent).not.toContain('AI Settings');
+    expect(container.textContent).not.toContain('AI Assistant');
+    expect(container.textContent).not.toContain('AI Console');
+  });
+
+  it('G04-G09 operator sees the 3 AI links in the avatar menu and the More tab', async () => {
+    auth.isPlatformOperator = true;
+    auth.profile = { role: 'admin', name: 'Op' };
+    await renderShell();
+    await openAvatarMenu();
+    expect(new Set(aiHrefs())).toEqual(new Set(['/assistant', '/settings/ai', '/ai-console']));
+    expect(container.textContent).toContain('AI Settings');
+    expect(container.textContent).toContain('AI Assistant');
+    expect(container.textContent).toContain('AI Console');
+    await openPhoneMore();
+    expect(new Set(aiHrefs())).toEqual(new Set(['/assistant', '/settings/ai', '/ai-console']));
+  });
+
+  it('G10 customer admin dashboard agent widget is Coming soon, not chat', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={client}>
+          <MemoryRouter>
+            <AiAgentWidget config={{}} />
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+    });
+    expect(container.textContent).toContain('Coming soon');
+    expect(container.textContent).not.toContain('What needs my attention today?');
+  });
+
+  it('G11 customer admin agent activity widget is Coming soon', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={client}>
+          <MemoryRouter>
+            <AgentActivityWidget />
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+    });
+    expect(container.textContent).toContain('Coming soon');
+    expect(container.textContent).not.toContain('Agent activity appears after a company AI key is set.');
   });
 
   it('M46 operator can open the operator-only page', async () => {
