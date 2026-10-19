@@ -290,10 +290,14 @@ export async function handleClientPortalRequest(req: Request) {
         return json({ error: "Link expired" }, 403);
       }
 
-      await admin
+      const { error: shareAccessErr } = await admin
         .from("inspection_report_shares")
         .update({ last_accessed_at: new Date().toISOString() })
         .eq("id", share.id);
+      if (shareAccessErr) {
+        console.error("client-portal share last_accessed_at", shareAccessErr);
+        return json({ error: "Portal error" }, 500);
+      }
 
       const { data: inspection } = await admin
         .from("inspections")
@@ -320,7 +324,7 @@ export async function handleClientPortalRequest(req: Request) {
         .maybeSingle();
       if (reportErr) {
         console.error("client-portal share reports", reportErr);
-        return json({ error: reportErr.message ?? "Portal error" }, 500);
+        return json({ error: "Portal error" }, 500);
       }
 
       if (!inspection?.inspector_id && !report) {
@@ -386,10 +390,14 @@ export async function handleClientPortalRequest(req: Request) {
       return json({ error: "Link expired" }, 403);
     }
 
-    await admin
+    const { error: portalAccessErr } = await admin
       .from("client_portal_tokens")
       .update({ last_accessed_at: new Date().toISOString() })
       .eq("id", portal.id);
+    if (portalAccessErr) {
+      console.error("client-portal portal last_accessed_at", portalAccessErr);
+      return json({ error: "Portal error" }, 500);
+    }
 
     const { data: client } = await admin
       .from("clients")
@@ -519,7 +527,7 @@ export async function handleClientPortalRequest(req: Request) {
       }>, error: null };
     if (reportLoad.error) {
       console.error("client-portal portal reports", reportLoad.error);
-      return json({ error: reportLoad.error.message ?? "Portal error" }, 500);
+      return json({ error: "Portal error" }, 500);
     }
     const { data: reports } = reportLoad;
 

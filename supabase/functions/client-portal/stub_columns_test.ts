@@ -4,13 +4,80 @@ import { createPortalStub, IDS, sameCompanySeed } from "./portalAdminStub.ts";
 import { setPortalAdminForTest } from "./portalAdmin.ts";
 import { handleClientPortalRequest } from "./index.ts";
 
+type QueryResult = { data: unknown; error: unknown };
+
+type QueryChain = {
+  select: (cols?: string) => QueryChain;
+  eq: (col?: string, val?: unknown) => QueryChain;
+  in: (col?: string, val?: unknown) => QueryChain;
+  update: (payload?: unknown) => QueryChain;
+  maybeSingle: () => Promise<QueryResult>;
+  then: (
+    onfulfilled?: ((value: QueryResult) => unknown) | null,
+    onrejected?: ((reason: unknown) => unknown) | null,
+  ) => Promise<unknown>;
+};
+
+const DB_COLUMN_GONE = "column reports.created_at does not exist";
+
+function failedQuery(message: string): QueryChain {
+  const result: QueryResult = { data: null, error: { code: "42703", message } };
+  const chain: QueryChain = {
+    select: () => chain,
+    eq: () => chain,
+    in: () => chain,
+    update: () => chain,
+    maybeSingle: async () => result,
+    then(onfulfilled, onrejected) {
+      return Promise.resolve(result).then(onfulfilled ?? undefined, onrejected ?? undefined);
+    },
+  };
+  return chain;
+}
+
+function wrapFrom(
+  stub: ReturnType<typeof createPortalStub>,
+  hijack: (table: string, inner: (table: string) => QueryChain) => QueryChain,
+) {
+  const inner = stub.admin.from.bind(stub.admin) as (table: string) => QueryChain;
+  return {
+    from(table: string) {
+      return hijack(table, inner);
+    },
+    storage: stub.admin.storage,
+  };
+}
+
+function wrapUpdateError(
+  stub: ReturnType<typeof createPortalStub>,
+  table: string,
+  message: string,
+) {
+  return wrapFrom(stub, (name, inner) => {
+    const query = inner(name);
+    if (name !== table) return query;
+    query.update = () => failedQuery(message);
+    return query;
+  });
+}
+
+function assertGeneric500(res: Response, body: { error?: string }) {
+  assertEquals(res.status, 500);
+  assertEquals(body.error, "Portal error");
+  const text = JSON.stringify(body);
+  assertEquals(text.includes("does not exist"), false);
+  assertEquals(text.includes("created_at"), false);
+  assertEquals(text.includes("42703"), false);
+  assertEquals(text.includes(DB_COLUMN_GONE), false);
+}
+
 Deno.test("stub rejects reports.created_at because it is not in the committed column map", async () => {
   const { admin } = createPortalStub(sameCompanySeed());
   const { data, error } = await admin.from("reports").select("id, created_at").maybeSingle();
   assertEquals(data, null);
   assertEquals(error, {
     code: "42703",
-    message: "column reports.created_at does not exist",
+    message: DB_COLUMN_GONE,
   });
 });
 
@@ -65,40 +132,65 @@ Deno.test("accepted quote job insert uses jobs.priority from the column map", as
   }
 });
 
-Deno.test("share reports select error is returned as 500, not an empty report", async () => {
+Deno.test("share reports select error is 500 Portal error, not the DB message", async () => {
   const stub = createPortalStub(sameCompanySeed());
-  const inner = stub.admin.from.bind(stub.admin);
-  stub.admin.from = (table: string) => {
-    const query = inner(table);
-    if (table !== "reports") return query;
-    const failed = {
-      select() { return failed; },
-      eq() { return failed; },
-      in() { return failed; },
-      maybeSingle: async () => ({
-        data: null,
-        error: { code: "42703", message: "column reports.created_at does not exist" },
-      }),
-      then(
-        onfulfilled?: ((value: { data: unknown; error: unknown }) => unknown) | null,
-        onrejected?: ((reason: unknown) => unknown) | null,
-      ) {
-        return Promise.resolve({
-          data: null,
-          error: { code: "42703", message: "column reports.created_at does not exist" },
-        }).then(onfulfilled ?? undefined, onrejected ?? undefined);
-      },
-    };
-    return failed;
-  };
-  setPortalAdminForTest(stub.admin);
+  setPortalAdminForTest(wrapFrom(stub, (table, inner) => (
+    table === "reports" ? failedQuery(DB_COLUMN_GONE) : inner(table)
+  )));
   try {
     const res = await handleClientPortalRequest(
       new Request(`https://portal.test/?token=${IDS.shareTokenA}`),
     );
     const body = await res.json() as { error?: string };
-    assertEquals(res.status, 500);
-    assertEquals(body.error, "column reports.created_at does not exist");
+    assertGeneric500(res, body);
+  } finally {
+    setPortalAdminForTest(null);
+  }
+});
+
+Deno.test("portal reports select error is 500 Portal error, not the DB message", async () => {
+  const stub = createPortalStub(sameCompanySeed());
+  setPortalAdminForTest(wrapFrom(stub, (table, inner) => (
+    table === "reports" ? failedQuery(DB_COLUMN_GONE) : inner(table)
+  )));
+  try {
+    const res = await handleClientPortalRequest(
+      new Request(`https://portal.test/?token=${IDS.portalTokenA}`),
+    );
+    const body = await res.json() as { error?: string };
+    assertGeneric500(res, body);
+  } finally {
+    setPortalAdminForTest(null);
+  }
+});
+
+Deno.test("share last_accessed_at update error is 500 Portal error, not the DB message", async () => {
+  const stub = createPortalStub(sameCompanySeed());
+  const message = "column inspection_report_shares.last_accessed_atx does not exist";
+  setPortalAdminForTest(wrapUpdateError(stub, "inspection_report_shares", message));
+  try {
+    const res = await handleClientPortalRequest(
+      new Request(`https://portal.test/?token=${IDS.shareTokenA}`),
+    );
+    const body = await res.json() as { error?: string };
+    assertGeneric500(res, body);
+    assertEquals(JSON.stringify(body).includes("last_accessed_atx"), false);
+  } finally {
+    setPortalAdminForTest(null);
+  }
+});
+
+Deno.test("portal last_accessed_at update error is 500 Portal error, not the DB message", async () => {
+  const stub = createPortalStub(sameCompanySeed());
+  const message = "column client_portal_tokens.last_accessed_atx does not exist";
+  setPortalAdminForTest(wrapUpdateError(stub, "client_portal_tokens", message));
+  try {
+    const res = await handleClientPortalRequest(
+      new Request(`https://portal.test/?token=${IDS.portalTokenA}`),
+    );
+    const body = await res.json() as { error?: string };
+    assertGeneric500(res, body);
+    assertEquals(JSON.stringify(body).includes("last_accessed_atx"), false);
   } finally {
     setPortalAdminForTest(null);
   }

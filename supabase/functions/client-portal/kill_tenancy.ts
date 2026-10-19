@@ -212,7 +212,7 @@ const MUTANTS: Mutant[] = [
         .maybeSingle();
       if (reportErr) {
         console.error("client-portal share reports", reportErr);
-        return json({ error: reportErr.message ?? "Portal error" }, 500);
+        return json({ error: "Portal error" }, 500);
       }
 
       if (!inspection?.inspector_id && !report) {
@@ -234,7 +234,7 @@ const MUTANTS: Mutant[] = [
         .maybeSingle();
       if (reportErr) {
         console.error("client-portal share reports", reportErr);
-        return json({ error: reportErr.message ?? "Portal error" }, 500);
+        return json({ error: "Portal error" }, 500);
       }
 
       if (!inspection?.inspector_id && !report) {
@@ -267,7 +267,7 @@ const MUTANTS: Mutant[] = [
         .maybeSingle();
       if (reportErr) {
         console.error("client-portal share reports", reportErr);
-        return json({ error: reportErr.message ?? "Portal error" }, 500);
+        return json({ error: "Portal error" }, 500);
       }
 
       if (!inspection?.inspector_id && !report) {
@@ -297,7 +297,7 @@ const MUTANTS: Mutant[] = [
         .maybeSingle();
       if (reportErr) {
         console.error("client-portal share reports", reportErr);
-        return json({ error: reportErr.message ?? "Portal error" }, 500);
+        return json({ error: "Portal error" }, 500);
       }
 
       if (!inspection?.inspector_id && !report) {
@@ -338,7 +338,7 @@ const MUTANTS: Mutant[] = [
         .maybeSingle();
       if (reportErr) {
         console.error("client-portal share reports", reportErr);
-        return json({ error: reportErr.message ?? "Portal error" }, 500);
+        return json({ error: "Portal error" }, 500);
       }
 
       if (!inspection?.inspector_id && !report) {
@@ -367,7 +367,7 @@ const MUTANTS: Mutant[] = [
         .maybeSingle();
       if (reportErr) {
         console.error("client-portal share reports", reportErr);
-        return json({ error: reportErr.message ?? "Portal error" }, 500);
+        return json({ error: "Portal error" }, 500);
       }
 
       if (!inspection?.inspector_id && !report) {
@@ -506,6 +506,54 @@ const MUTANTS: Mutant[] = [
         replace: `.select("id, inspection_id, report_number, pdf_storage_path, created_at")`,
       },
     ],
+  },
+  {
+    name: "N3b ignore share last_accessed_at update error",
+    file: "index.ts",
+    find: `      const { error: shareAccessErr } = await admin
+        .from("inspection_report_shares")
+        .update({ last_accessed_at: new Date().toISOString() })
+        .eq("id", share.id);
+      if (shareAccessErr) {
+        console.error("client-portal share last_accessed_at", shareAccessErr);
+        return json({ error: "Portal error" }, 500);
+      }`,
+    replace: `      await admin
+        .from("inspection_report_shares")
+        .update({ last_accessed_at: new Date().toISOString() })
+        .eq("id", share.id);`,
+  },
+  {
+    name: "N3c ignore portal last_accessed_at update error",
+    file: "index.ts",
+    find: `    const { error: portalAccessErr } = await admin
+      .from("client_portal_tokens")
+      .update({ last_accessed_at: new Date().toISOString() })
+      .eq("id", portal.id);
+    if (portalAccessErr) {
+      console.error("client-portal portal last_accessed_at", portalAccessErr);
+      return json({ error: "Portal error" }, 500);
+    }`,
+    replace: `    await admin
+      .from("client_portal_tokens")
+      .update({ last_accessed_at: new Date().toISOString() })
+      .eq("id", portal.id);`,
+  },
+  {
+    name: "N4a share reports 500 leaks PostgREST message",
+    file: "index.ts",
+    find: `        console.error("client-portal share reports", reportErr);
+        return json({ error: "Portal error" }, 500);`,
+    replace: `        console.error("client-portal share reports", reportErr);
+        return json({ error: reportErr.message ?? "Portal error" }, 500);`,
+  },
+  {
+    name: "N4b portal reports 500 leaks PostgREST message",
+    file: "index.ts",
+    find: `      console.error("client-portal portal reports", reportLoad.error);
+      return json({ error: "Portal error" }, 500);`,
+    replace: `      console.error("client-portal portal reports", reportLoad.error);
+      return json({ error: reportLoad.error.message ?? "Portal error" }, 500);`,
   },
 ];
 

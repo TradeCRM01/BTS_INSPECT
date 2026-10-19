@@ -18,12 +18,19 @@ import {
  * "column reports.created_at does not exist".
  */
 
-const PG16_INITDB = '/usr/lib/postgresql/16/bin/initdb';
-const PG17_INITDB = '/usr/lib/postgresql/17/bin/initdb';
-const missingInitdb = !existsSync(PG16_INITDB) || !existsSync(PG17_INITDB);
+function pgBin(version: string, name: string): string {
+  return `/usr/lib/postgresql/${version}/bin/${name}`;
+}
+
+function pgVersionBinsMissing(version: string): boolean {
+  return !['initdb', 'pg_ctl', 'psql'].every((name) => existsSync(pgBin(version, name)));
+}
+
+const skipPg16 = pgVersionBinsMissing('16');
+const skipPg17 = pgVersionBinsMissing('17');
 
 function findPgBin(version: string, name: string): string {
-  const dir = `/usr/lib/postgresql/${version}/bin/${name}`;
+  const dir = pgBin(version, name);
   if (!existsSync(dir)) {
     throw new Error(`Need PostgreSQL ${version} ${name} at /usr/lib/postgresql/${version}/bin`);
   }
@@ -178,21 +185,28 @@ unix_socket_directories = '${sockDir}'
   }
 }
 
-describe.skipIf(missingInitdb)(
-  missingInitdb
-    ? 'initdb for PG16/17 not found'
-    : 'client-portal schema guard on real Postgres',
-  () => {
-    it('PG16: every client-portal column exists after all supabase/migrations', async () => {
+describe('client-portal schema guard on real Postgres', () => {
+  it.skipIf(skipPg16)(
+    skipPg16
+      ? 'initdb for PG16 not found'
+      : 'PG16: every client-portal column exists after all supabase/migrations',
+    async () => {
       const result = await proveOnPostgres('16');
       expect(result.byTable.get('reports')).toContain('generated_at');
       expect(result.fileCount).toBeGreaterThan(100);
-    }, 180_000);
+    },
+    180_000,
+  );
 
-    it('PG17: every client-portal column exists after all supabase/migrations', async () => {
+  it.skipIf(skipPg17)(
+    skipPg17
+      ? 'initdb for PG17 not found'
+      : 'PG17: every client-portal column exists after all supabase/migrations',
+    async () => {
       const result = await proveOnPostgres('17');
       expect(result.byTable.get('reports')).toContain('generated_at');
       expect(result.fileCount).toBeGreaterThan(100);
-    }, 180_000);
-  },
-);
+    },
+    180_000,
+  );
+});
