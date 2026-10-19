@@ -42,6 +42,7 @@ const seed = vi.hoisted(() => ({
   rpc: 0,
   insertPayloads: [] as unknown[],
   emptyRenderers: false,
+  rpcError: null as { message: string } | null,
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -153,7 +154,10 @@ vi.mock('./supabase', () => {
     supabase: {
       from: (table: string) => chain(table),
       rpc: async (name: string) => {
-        if (name === 'ensure_builtin_renderers') seed.rpc += 1;
+        if (name === 'ensure_builtin_renderers') {
+          seed.rpc += 1;
+          return { data: null, error: seed.rpcError };
+        }
         return { data: null, error: null };
       },
       storage: { from: () => chain('storage') },
@@ -234,6 +238,7 @@ describe('0-row template writes show a visible failure', () => {
     seed.rpc = 0;
     seed.insertPayloads = [];
     seed.emptyRenderers = false;
+    seed.rpcError = null;
     auth.profile.role = 'admin';
     auth.profile.template_access = 'edit';
     vi.spyOn(window, 'confirm').mockReturnValue(true);
@@ -542,6 +547,32 @@ describe('0-row template writes show a visible failure', () => {
     container.remove();
   });
 
+  it('logs an ensure_builtin_renderers error once and still renders', async () => {
+    seed.emptyRenderers = true;
+    seed.rpcError = { message: 'seed failed' };
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { container, root } = await render(
+      <MemoryRouter initialEntries={['/templates/tmpl-1']}>
+        <Routes>
+          <Route path="/templates/:id" element={<TemplateEditorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitForText(container, 'Save');
+    await waitFor(
+      () => seed.rpc >= 1 && logged.mock.calls.length >= 1,
+      () => `rpc=${seed.rpc} console.error=${logged.mock.calls.length}`,
+    );
+    expect(seed.rpc).toBe(1);
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(logged).toHaveBeenCalledWith(seed.rpcError);
+    expect(container.textContent).toContain('Save');
+    expect(container.textContent).not.toContain('seed failed');
+    logged.mockRestore();
+    act(() => { root.unmount(); });
+    container.remove();
+  });
+
   it('clears the delete-failure copy on the next successful save', async () => {
     const { container, root } = await render(
       <MemoryRouter initialEntries={['/templates/tmpl-1']}>
@@ -562,6 +593,30 @@ describe('0-row template writes show a visible failure', () => {
       () => `delete copy still visible: ${(container.textContent || '').slice(0, 400)}`,
     );
     expect(container.textContent).not.toContain(TEMPLATE_DELETE_FAILED);
+    act(() => { root.unmount(); });
+    container.remove();
+  });
+
+  it('clears the delete-failure copy on a later successful delete', async () => {
+    const { container, root } = await render(
+      <MemoryRouter initialEntries={['/templates/tmpl-1']}>
+        <Routes>
+          <Route path="/templates/:id" element={<TemplateEditorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitForText(container, 'Delete');
+    const del = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Delete'));
+    await act(async () => { del!.click(); });
+    await waitForText(container, TEMPLATE_DELETE_FAILED);
+    write.result = { data: [{ id: 'tmpl-1' }], error: null };
+    await act(async () => { del!.click(); });
+    await waitFor(
+      () => !(container.textContent || '').includes(TEMPLATE_DELETE_FAILED),
+      () => `delete copy still visible: ${(container.textContent || '').slice(0, 400)}`,
+    );
+    expect(container.textContent).not.toContain(TEMPLATE_DELETE_FAILED);
+    expect(navigate).toHaveBeenCalledWith('/templates');
     act(() => { root.unmount(); });
     container.remove();
   });

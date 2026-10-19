@@ -95,7 +95,11 @@ export function TemplateEditorPage() {
 
   async function initializeBuiltInRenderers() {
     if (!profile?.company_id) return;
-    await supabase.rpc('ensure_builtin_renderers');
+    const { error } = await supabase.rpc('ensure_builtin_renderers');
+    if (error) {
+      console.error(error);
+      return;
+    }
     const { data } = await supabase
       .from('inspection_renderers')
       .select('key, label')
@@ -139,6 +143,7 @@ export function TemplateEditorPage() {
       throwIfNoRows(result);
     },
     onSuccess: () => {
+      setDeleteError(null);
       qc.invalidateQueries({ queryKey: ['templates'] });
       navigate('/templates');
     },

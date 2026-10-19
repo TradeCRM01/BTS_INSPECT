@@ -2,9 +2,11 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PAGE="$ROOT/src/pages/TemplateEditorPage.tsx"
-SRC="$(cat "$PAGE")"
-restore() { printf '%s' "$SRC" > "$PAGE"; }
-trap restore EXIT
+BACKUP="$(mktemp)"
+cp "$PAGE" "$BACKUP"
+restore() { cp "$BACKUP" "$PAGE"; }
+cleanup() { restore; rm -f "$BACKUP"; }
+trap cleanup EXIT
 
 run_expect_fail() {
   local name="$1"
@@ -77,9 +79,51 @@ new = """    onSuccess: () => {
       setSaveState('saved');
     },"""
 if old not in t:
-    raise SystemExit('clear mutant: onSuccess block not found')
+    raise SystemExit('clear-save mutant: onSuccess block not found')
 p.write_text(t.replace(old, new, 1))
 PY
-run_expect_fail clear src/lib/templateWriteNoRow.test.tsx 'clears the delete-failure copy'
+run_expect_fail clear_save src/lib/templateWriteNoRow.test.tsx 'clears the delete-failure copy on the next successful save'
+
+restore
+
+python3 - "$PAGE" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+t = p.read_text()
+old = """    onSuccess: () => {
+      setDeleteError(null);
+      qc.invalidateQueries({ queryKey: ['templates'] });
+      navigate('/templates');
+    },"""
+new = """    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['templates'] });
+      navigate('/templates');
+    },"""
+if old not in t:
+    raise SystemExit('clear-only-save mutant: delete onSuccess block not found')
+p.write_text(t.replace(old, new, 1))
+PY
+run_expect_fail clear_only_save src/lib/templateWriteNoRow.test.tsx 'clears the delete-failure copy on a later successful delete'
+
+restore
+
+python3 - "$PAGE" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+t = p.read_text()
+old = """    if (error) {
+      console.error(error);
+      return;
+    }"""
+new = """    if (error) {
+      return;
+    }"""
+if old not in t:
+    raise SystemExit('console.error mutant: block not found')
+p.write_text(t.replace(old, new, 1))
+PY
+run_expect_fail seed_console src/lib/templateWriteNoRow.test.tsx 'logs an ensure_builtin_renderers error once'
 
 echo "client mutants KILLED"

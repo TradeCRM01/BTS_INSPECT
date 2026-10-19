@@ -127,26 +127,6 @@ export const DEV_AUDIT_PROFILE = {
   template_access: 'edit',
 } as unknown as Profile;
 
-export function resolveDevAuditProfile(): Profile {
-  const profile = { ...DEV_AUDIT_PROFILE };
-  if (!import.meta.env.DEV) return profile;
-  try {
-    const access = new URLSearchParams(window.location.search).get('auditAccess');
-    if (access === 'view') {
-      profile.role = 'member';
-      profile.template_access = 'view';
-    } else if (access === 'none') {
-      profile.role = 'member';
-      profile.template_access = 'none';
-    } else if (access === 'editmember') {
-      profile.role = 'member';
-      profile.template_access = 'edit';
-    }
-  } catch {
-  }
-  return profile;
-}
-
 /** Lets the harness stand up a multi-trade company with ?trades=plumbing,electrical. */
 function devAuditCompanyTrades(): string[] {
   if (!import.meta.env.DEV) return [];
