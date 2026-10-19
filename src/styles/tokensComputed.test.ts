@@ -61,10 +61,7 @@ describe('computed --g-* tokens and re-points', () => {
 
   it('kills a mutant that drops the allowDark gate: forced dark then paints #0A0A0B', () => {
     const tokens = src('src/styles/tokens.css');
-    const mutant = tokens.replaceAll(
-      'html[data-allow-dark="true"][data-theme="dark"]',
-      '[data-theme="dark"]',
-    );
+    const mutant = tokens.split('html[data-allow-dark="true"][data-theme="dark"]').join('[data-theme="dark"]');
     expect(mutant).not.toBe(tokens);
     const indexCss = src('src/index.css');
     const mapping = [

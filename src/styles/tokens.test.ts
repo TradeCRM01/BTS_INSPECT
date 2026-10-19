@@ -80,10 +80,7 @@ describe('semantic --g-* tokens', () => {
     expect(css).not.toMatch(/(?:^|\n)\s*\[data-theme="dark"\]\s*\{/);
     expect(html).toContain("root.setAttribute('data-allow-dark', allowDark ? 'true' : 'false')");
     expect(html).toMatch(/var allowDark = false/);
-    const mutant = css.replaceAll(
-      'html[data-allow-dark="true"][data-theme="dark"]',
-      '[data-theme="dark"]',
-    );
+    const mutant = css.split('html[data-allow-dark="true"][data-theme="dark"]').join('[data-theme="dark"]');
     expect(mutant).toMatch(/(?:^|\n)\s*\[data-theme="dark"\]\s*\{/);
     expect(parseTokenBlocks(css).dark.get('--g-bg')).toBe('#0A0A0B');
   });
@@ -115,7 +112,7 @@ describe('tokens in-memory string', () => {
   it('mutates an in-memory dark selector, not the real tokens.css', () => {
     const css = src('src/styles/tokens.css');
     expect(css).toContain('[data-theme="dark"]');
-    const mutant = css.replaceAll('[data-theme="dark"]', '[data-theme="night"]');
+    const mutant = css.split('[data-theme="dark"]').join('[data-theme="night"]');
     const { dark } = parseTokenBlocks(mutant);
     expect(dark.has('--g-bg')).toBe(false);
     expect(parseTokenBlocks(css).dark.has('--g-bg')).toBe(true);
