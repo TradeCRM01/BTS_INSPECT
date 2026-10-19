@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
@@ -458,6 +458,7 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
   const [titleErr, setTitleErr] = useState<string | null>(null);
   const [clientErr, setClientErr] = useState<string | null>(null);
   const [startRequiredErr, setStartRequiredErr] = useState<string | null>(null);
+  const nextTypedRef = useRef<string | null>(null);
 
   useEffect(() => {
     supabase.from('clients').select('*').eq('company_id', profile!.company_id).eq('archived', false).order('name')
@@ -468,7 +469,7 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
     e.preventDefault();
     const startRaw = namedDateRaw('contract-start-date', form.start_date);
     const endRaw = namedDateRaw('contract-end-date', form.end_date);
-    const nextRaw = namedDateRaw('contract-next-service-date', form.next_service_date);
+    const nextRaw = nextTypedRef.current ?? namedDateRaw('contract-next-service-date', form.next_service_date);
     setStartDateError(null);
     setEndDateError(null);
     setNextServiceError(null);
@@ -525,12 +526,13 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
     setSaving(true);
     setErr(null);
     const next = requireNextServiceDate(nextComplete ?? nextRaw);
-    if (!next.ok) {
+    if (next.ok === false) {
       setNextServiceError(next.message);
       setErr(next.message);
       setSaving(false);
       return;
     }
+    const nextServiceDate = next.nextServiceDate;
     try {
       const payload = {
         company_id: profile!.company_id,
@@ -543,7 +545,7 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
         billing_cycle: form.billing_cycle,
         contract_value: parseFloat(form.contract_value) || 0,
         service_frequency: form.service_frequency,
-        next_service_date: next.nextServiceDate,
+        next_service_date: nextServiceDate,
         auto_generate_jobs: form.auto_generate_jobs,
         description: form.description || null,
         notes: form.notes || null,
@@ -573,8 +575,8 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
         </div>
         <form onSubmit={handleSave} noValidate className="overlay-body">
           <Field label="Title *">
-            <input required value={form.title} onChange={e => { setForm(f => ({ ...f, title: e.target.value })); setTitleErr(null); }} className="form-input" placeholder="e.g. Annual Maintenance Agreement" />
-            {titleErr ? <p className="text-sm text-[#B42318] mt-1" role="alert">{titleErr}</p> : null}
+            <input required value={form.title} onChange={e => { setForm(f => ({ ...f, title: e.target.value })); setTitleErr(null); }} className="form-input" placeholder="e.g. Annual Maintenance Agreement" aria-invalid={titleErr ? true : undefined} aria-describedby={titleErr ? 'contract-title-error' : undefined} />
+            {titleErr ? <p id="contract-title-error" className="text-sm text-[#B42318] mt-1" role="alert">{titleErr}</p> : null}
           </Field>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Client *">
@@ -606,14 +608,15 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
                   setRangeErr(null);
                 }}
                 onValidityChange={setStartInvalid}
+                hideAlert={Boolean(startDateError || startRequiredErr)}
+                ariaInvalid={Boolean(startDateError || startRequiredErr || startInvalid)}
+                ariaDescribedBy={startDateError || startRequiredErr ? 'contract-start-date-error' : undefined}
                 className="form-input"
               />
               {startDateError ? (
                 <p id="contract-start-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{startDateError}</p>
               ) : startRequiredErr ? (
-                <p className="text-sm text-[#B42318] mt-1" role="alert">{startRequiredErr}</p>
-              ) : startInvalid ? (
-                <p className="text-sm text-[#B42318] mt-1" role="alert">{DATE_INVALID_MESSAGE}</p>
+                <p id="contract-start-date-error" className="text-sm text-[#B42318] mt-1" role="alert">{startRequiredErr}</p>
               ) : null}
             </Field>
             <Field label="End Date">
@@ -626,12 +629,13 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
                   setRangeErr(null);
                 }}
                 onValidityChange={setEndInvalid}
+                hideAlert={Boolean(endDateError)}
+                ariaInvalid={Boolean(endDateError || endInvalid)}
+                ariaDescribedBy={endDateError ? 'contract-end-date-error' : undefined}
                 className="form-input"
               />
               {endDateError ? (
                 <p id="contract-end-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{endDateError}</p>
-              ) : endInvalid ? (
-                <p className="text-sm text-[#B42318] mt-1" role="alert">{DATE_INVALID_MESSAGE}</p>
               ) : null}
               {rangeErr ? <p className="text-sm text-[#B42318] mt-1" role="alert">{rangeErr}</p> : null}
             </Field>
@@ -656,13 +660,15 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
                 setNextServiceError(null);
                 setForm(f => ({ ...f, next_service_date }));
               }}
+              onTextChange={raw => { nextTypedRef.current = raw; }}
               onValidityChange={setNextInvalid}
+              hideAlert={Boolean(nextServiceError)}
+              ariaInvalid={Boolean(nextServiceError || nextInvalid)}
+              ariaDescribedBy={nextServiceError ? 'contract-next-service-date-error' : undefined}
               className="form-input"
             />
             {nextServiceError ? (
               <p id="contract-next-service-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{nextServiceError}</p>
-            ) : nextInvalid ? (
-              <p className="text-sm text-[#B42318] mt-1" role="alert">{DATE_INVALID_MESSAGE}</p>
             ) : null}
           </Field>
           <label className="flex items-center gap-2 text-sm text-[#1A1A1A]">

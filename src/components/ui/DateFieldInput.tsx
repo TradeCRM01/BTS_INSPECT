@@ -13,16 +13,24 @@ export function DateFieldInput({
   onChange,
   onValidityChange,
   onBlurCommit,
+  onTextChange,
   className,
   disabled,
+  hideAlert,
+  ariaInvalid,
+  ariaDescribedBy,
 }: {
   id?: string;
   value: string;
   onChange: (iso: string) => void;
   onValidityChange?: (invalid: boolean) => void;
   onBlurCommit?: (iso: string) => void;
+  onTextChange?: (raw: string) => void;
   className?: string;
   disabled?: boolean;
+  hideAlert?: boolean;
+  ariaInvalid?: boolean;
+  ariaDescribedBy?: string;
 }) {
   const [text, setText] = useState(() => formatAuDate(value));
   const [invalid, setInvalid] = useState(false);
@@ -63,12 +71,15 @@ export function DateFieldInput({
         className={className}
         disabled={disabled}
         value={text}
+        aria-invalid={ariaInvalid || invalid || undefined}
+        aria-describedby={ariaDescribedBy}
         onFocus={() => {
           focusedRef.current = true;
         }}
         onChange={e => {
           const next = e.target.value;
           setText(next);
+          onTextChange?.(next);
           const trimmed = next.trim();
           if (!trimmed) {
             emitIso('', false);
@@ -86,6 +97,7 @@ export function DateFieldInput({
         onBlur={() => {
           focusedRef.current = false;
           const trimmed = text.trim();
+          onTextChange?.(trimmed);
           if (!trimmed) {
             setText('');
             emitIso('', false);
@@ -103,7 +115,7 @@ export function DateFieldInput({
           onBlurCommit?.('');
         }}
       />
-      {invalid ? <p className="text-sm text-fail" role="alert">{DATE_INVALID_MESSAGE}</p> : null}
+      {invalid && !hideAlert ? <p className="text-sm text-fail" role="alert">{DATE_INVALID_MESSAGE}</p> : null}
     </>
   );
 }

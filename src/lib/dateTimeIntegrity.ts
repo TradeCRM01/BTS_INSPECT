@@ -287,7 +287,6 @@ export function clockOffSaveError(args: {
   if (startMs == null || endMs == null) return null;
   if (endMs <= startMs) return TIME_ENTRY_ZERO_LENGTH_MESSAGE;
   if (endMs - startMs < 60_000) return TIME_ENTRY_ZERO_LENGTH_MESSAGE;
-  if (localHm(args.startIso) === localHm(args.endIso)) return TIME_ENTRY_ZERO_LENGTH_MESSAGE;
   for (const row of args.existing ?? []) {
     const otherStart = instantMs(row.start_time);
     const otherEnd = row.end_time ? instantMs(row.end_time) : null;

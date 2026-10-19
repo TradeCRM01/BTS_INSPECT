@@ -1029,14 +1029,15 @@ export function ComplianceForm({
                   setForm(f => ({ ...f, first_due_date }));
                 }}
                 onValidityChange={setFirstDueInvalid}
+                hideAlert={Boolean(firstDueError || firstDueRequiredErr)}
+                ariaInvalid={Boolean(firstDueError || firstDueRequiredErr || firstDueInvalid)}
+                ariaDescribedBy={firstDueError || firstDueRequiredErr ? 'compliance-first-due-date-error' : undefined}
                 className="form-input"
               />
               {firstDueError ? (
                 <p id="compliance-first-due-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{firstDueError}</p>
               ) : firstDueRequiredErr ? (
-                <p className="text-sm text-[#B42318] mt-1" role="alert">{firstDueRequiredErr}</p>
-              ) : firstDueInvalid ? (
-                <p className="text-sm text-[#B42318] mt-1" role="alert">{DATE_INVALID_MESSAGE}</p>
+                <p id="compliance-first-due-date-error" className="text-sm text-[#B42318] mt-1" role="alert">{firstDueRequiredErr}</p>
               ) : null}
             </Field>
             <Field label="Last Completed (optional)">
@@ -1048,12 +1049,13 @@ export function ComplianceForm({
                   setForm(f => ({ ...f, last_completed_date }));
                 }}
                 onValidityChange={setLastCompletedInvalid}
+                hideAlert={Boolean(lastCompletedError)}
+                ariaInvalid={Boolean(lastCompletedError || lastCompletedInvalid)}
+                ariaDescribedBy={lastCompletedError ? 'compliance-last-completed-date-error' : undefined}
                 className="form-input"
               />
               {lastCompletedError ? (
                 <p id="compliance-last-completed-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{lastCompletedError}</p>
-              ) : lastCompletedInvalid ? (
-                <p className="text-sm text-[#B42318] mt-1" role="alert">{DATE_INVALID_MESSAGE}</p>
               ) : null}
             </Field>
           </div>

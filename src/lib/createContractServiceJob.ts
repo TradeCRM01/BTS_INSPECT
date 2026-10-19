@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { dateOnly, formatJobDate, todayYmd } from './jobReminder';
-import { dateFieldYearError } from './safeDate';
+import { DATE_INVALID_MESSAGE, dateFieldYearError } from './safeDate';
 
 export { dateOnly, todayYmd };
 
@@ -131,7 +131,7 @@ export function requireNextServiceDate(
   const day = dateOnly(value);
   if (!day) {
     const typed = (value ?? '').trim();
-    if (typed) return { ok: false, message: dateFieldYearError(typed) ?? 'Next service date is required.' };
+    if (typed) return { ok: false, message: dateFieldYearError(typed) ?? DATE_INVALID_MESSAGE };
     return { ok: false, message: 'Next service date is required.' };
   }
   const yearErr = dateFieldYearError(day);
