@@ -9,10 +9,12 @@
  *
  * Optional: LOOK_BASE_URL (default http://127.0.0.1:5173),
  * LOOK_CHROME (default /usr/bin/google-chrome).
- * Auth: /?auditAuth=1&look=dashboard. Injects the long company name.
+ * Auth: /?auditAuth=1&look=dashboard. Injects the long company name
+ * 'Brisbane Commercial Plumbing & Gas Services Pty Ltd'.
  * Exit 1 unless .shell-header max rect.right ≤ innerWidth, leaf
- * interactive intersections are 0, Field Work is one line, and the
- * switcher name is one truncated line with that title.
+ * interactive intersections are 0, Field Work is one line, the
+ * switcher name is one truncated line with that title, and
+ * getByRole('button', { name: /search/i }) is visible.
  */
 import { chromium } from 'playwright';
 
@@ -130,6 +132,8 @@ async function measureWidth(browser, width) {
   }, LONG_NAME);
   await page.waitForTimeout(50);
   const data = await page.evaluate(measureHeader);
+  const search = page.getByRole('button', { name: /search/i });
+  data.searchNamed = (await search.count()) >= 1 && await search.first().isVisible();
   await ctx.close();
   data.width = width;
   data.headerFits = Boolean(data.headerFits);
@@ -143,6 +147,7 @@ async function measureWidth(browser, width) {
     && data.nameNowrap
     && data.nameTitle === LONG_NAME
     && data.nameText === LONG_NAME
+    && data.searchNamed
   );
   return data;
 }
@@ -161,10 +166,10 @@ async function main() {
       const mark = row.pass ? 'PASS' : 'FAIL';
       if (!row.pass) failed += 1;
       process.stdout.write(
-        `${mark} @${width} headerR=${row.headerMaxRight}/${row.innerWidth} overlaps=${row.leafOverlapCount} fieldH=${row.fieldWorkHeight} fieldNowrap=${row.fieldNowrap} nameH=${row.nameHeight} nameNowrap=${row.nameNowrap} title=${row.nameTitle ? 'yes' : 'no'}\n`,
+        `${mark} @${width} headerR=${row.headerMaxRight}/${row.innerWidth} overlaps=${row.leafOverlapCount} fieldH=${row.fieldWorkHeight} fieldNowrap=${row.fieldNowrap} nameH=${row.nameHeight} nameNowrap=${row.nameNowrap} title=${row.nameTitle ? 'yes' : 'no'} search=${row.searchNamed ? 'named' : 'MISSING'}\n`,
       );
       if (!row.pass) {
-        process.stdout.write(`  why headerFits=${row.headerFits} el=${row.headerMaxRightEl} overlaps=${JSON.stringify(row.leafOverlaps)} fieldOne=${row.fieldWorkOneLine} fieldNowrap=${row.fieldNowrap} nameOne=${row.nameOneLine} nameNowrap=${row.nameNowrap}\n`);
+        process.stdout.write(`  why headerFits=${row.headerFits} el=${row.headerMaxRightEl} overlaps=${JSON.stringify(row.leafOverlaps)} fieldOne=${row.fieldWorkOneLine} fieldNowrap=${row.fieldNowrap} nameOne=${row.nameOneLine} nameNowrap=${row.nameNowrap} searchNamed=${row.searchNamed}\n`);
       }
     }
   } finally {
