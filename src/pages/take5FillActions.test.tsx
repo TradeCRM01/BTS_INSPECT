@@ -129,6 +129,13 @@ vi.mock('../lib/supabase', () => {
         }
         return query;
       },
+      upsert(payload: Record<string, unknown>) {
+        if (table === 'jha_take5') {
+          harness.updates.push(payload);
+          Object.assign(harness.take5, payload);
+        }
+        return query;
+      },
       insert() { return query; },
       then(onFulfilled: (value: unknown) => unknown, onRejected?: (reason: unknown) => unknown) {
         return promise.then(onFulfilled, onRejected);
