@@ -4,11 +4,11 @@ import { supabase } from '../lib/supabase';
 import type { Database } from '../types/database';
 import {
   DEV_AUDIT_COMPANY,
-  DEV_AUDIT_PROFILE,
   DEV_AUDIT_SESSION,
   DEV_AUDIT_USER,
   isDevFieldAuditAuth,
   isDevOperatorAudit,
+  resolveDevAuditProfile,
 } from '../lib/devFieldAuditAuth';
 import { shouldPurgeFailedProbe } from '../lib/authSessionGuard';
 import { loadIsPlatformOperator } from '../lib/platformOperator';
@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const auditAuth = isDevFieldAuditAuth();
   const [user, setUser] = useState<User | null>(auditAuth ? DEV_AUDIT_USER : null);
   const [session, setSession] = useState<Session | null>(auditAuth ? DEV_AUDIT_SESSION : null);
-  const [profile, setProfile] = useState<Profile | null>(auditAuth ? DEV_AUDIT_PROFILE : null);
+  const [profile, setProfile] = useState<Profile | null>(auditAuth ? resolveDevAuditProfile() : null);
   const [company, setCompany] = useState<Company | null>(auditAuth ? DEV_AUDIT_COMPANY : null);
   const [isPlatformOperator, setIsPlatformOperator] = useState(isDevOperatorAudit());
   const [loading, setLoading] = useState(!auditAuth);
@@ -109,7 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (isDevFieldAuditAuth()) {
       setUser(DEV_AUDIT_USER);
       setSession(DEV_AUDIT_SESSION);
-      setProfile(DEV_AUDIT_PROFILE);
+      setProfile(resolveDevAuditProfile());
       setCompany(DEV_AUDIT_COMPANY);
       setIsPlatformOperator(isDevOperatorAudit());
       setLoading(false);
