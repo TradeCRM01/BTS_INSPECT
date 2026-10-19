@@ -750,7 +750,6 @@ export function InvoiceRecordPaymentSheet({
 }) {
   const [draft, setDraft] = useState(() => defaultRecordPaymentDraft(total, amountPaid));
   const [paidAtInvalid, setPaidAtInvalid] = useState(false);
-  const parsedAmount = parseMoneyInput(draft.amount);
   const amountNum = parseRecordPaymentAmount(draft.amount);
   const overpayMsg = amountNum
     ? recordPaymentOverpayMessage(amountNum, total, amountPaid)

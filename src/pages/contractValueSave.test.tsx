@@ -110,11 +110,14 @@ async function renderForm() {
 async function fillRequired() {
   const title = container.querySelector('input[placeholder="e.g. Annual Maintenance Agreement"]') as HTMLInputElement;
   const client = container.querySelector('select') as HTMLSelectElement;
-  const next = container.querySelector('input[required][type="date"]') as HTMLInputElement;
+  const next = container.querySelector('#contract-next-service-date') as HTMLInputElement;
   await act(async () => {
     setNativeValue(title, 'Annual service');
     setNativeValue(client, 'cl-1');
-    setNativeValue(next, '2026-11-01');
+    next.focus();
+    setNativeValue(next, '01/11/2026');
+    next.blur();
+    next.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
   });
 }
 

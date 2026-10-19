@@ -99,9 +99,12 @@ function providers(node: ReactNode) {
   );
 }
 
-function setInput(el: HTMLInputElement, value: string) {
-  const proto = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
-  proto?.set?.call(el, value);
+function setInput(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
+  const proto = el instanceof HTMLTextAreaElement
+    ? window.HTMLTextAreaElement.prototype
+    : window.HTMLInputElement.prototype;
+  const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+  desc?.set?.call(el, value);
   el.dispatchEvent(new Event('input', { bubbles: true }));
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
@@ -133,9 +136,11 @@ describe('QuoteEditorModal Valid until', () => {
       ));
     });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
-    const desc = document.querySelector<HTMLInputElement>('input[placeholder="Description"]');
-    const qty = document.querySelector<HTMLInputElement>('input[placeholder="0"]');
-    const price = document.querySelector<HTMLInputElement>('input[placeholder="0.00"]');
+    const desc = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+      'textarea[aria-label="Description"], textarea[placeholder="Description"], input[placeholder="Description"]',
+    );
+    const qty = document.querySelector<HTMLInputElement>('input[aria-label="Quantity"], input[placeholder="0"]');
+    const price = document.querySelector<HTMLInputElement>('input[aria-label="Unit price"], input[placeholder="0.00"]');
     if (desc) await act(async () => { setInput(desc, 'Labour'); });
     if (qty && !qty.value) await act(async () => { setInput(qty, '1'); });
     if (price && !price.value) await act(async () => { setInput(price, '100'); });

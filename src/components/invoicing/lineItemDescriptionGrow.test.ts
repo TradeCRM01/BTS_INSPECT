@@ -460,6 +460,77 @@ describe('LineItemEditor Description grows in a real browser', () => {
     expect(rows).toHaveLength(2);
   }, 60_000);
 
+  it('shrinks quote and invoice Description to one line after typing Labour at 375', async () => {
+    const outDir = await bundleHarness();
+    const server = await serveDir(outDir);
+    const browser = await launchBrowser();
+    const page = await browser.newPage();
+    const rows: Array<{ kind: string } & FieldMetrics> = [];
+    try {
+      for (const kind of ['quote', 'invoice'] as const) {
+        await page.setViewportSize({ width: 375, height: 900 });
+        await page.goto(server.url, { waitUntil: 'load' });
+        await openDoc(page, kind, LONG);
+        const field = page.locator('textarea[aria-label="Description"]');
+        await field.waitFor();
+        await field.fill(LONG);
+        await page.waitForTimeout(80);
+        const grown = await page.evaluate(FIELD_METRICS) as FieldMetrics;
+        assertFits(`${kind} typed-shrink LONG`, grown);
+        expect(grown.sh).toBeGreaterThan(44);
+        await field.click();
+        await field.evaluate((el: HTMLTextAreaElement) => el.select());
+        await field.pressSequentially(LABOUR, { delay: 20 });
+        await page.waitForTimeout(80);
+        const shrunk = await page.evaluate(FIELD_METRICS) as FieldMetrics;
+        rows.push({ kind, ...shrunk });
+        expect(shrunk.value).toBe(LABOUR);
+        assertFits(`${kind} typed-shrink Labour`, shrunk);
+        expect(Math.abs(shrunk.h - shrunk.natural), `${kind} Labour h ${shrunk.h} natural ${shrunk.natural}`).toBeLessThanOrEqual(2);
+        expect(shrunk.h, `${kind} Labour h ${shrunk.h} (one-line ~44)`).toBeLessThanOrEqual(46);
+        expect(shrunk.sh, `${kind} Labour sh ${shrunk.sh} ch ${shrunk.ch}`).toBeLessThanOrEqual(shrunk.ch);
+      }
+    } finally {
+      await browser.close();
+      await server.close();
+    }
+    expect(rows).toHaveLength(2);
+  }, 60_000);
+
+  it('drops exactly one live observer when a line is removed', async () => {
+    const outDir = await bundleHarness();
+    const server = await serveDir(outDir);
+    const browser = await launchBrowser();
+    const page = await browser.newPage();
+    const rows: Array<{ kind: string; before: RoStats; after: RoStats; removed: number; disconnects: number }> = [];
+    try {
+      for (const kind of ['quote', 'invoice'] as const) {
+        await page.setViewportSize({ width: 375, height: 900 });
+        await page.goto(server.url, { waitUntil: 'load' });
+        await page.waitForFunction('typeof window.__roReset === "function"');
+        await page.evaluate('window.__roReset()');
+        await openDoc(page, kind, [LABOUR, LONG]);
+        await page.waitForFunction('document.querySelectorAll(\'textarea[aria-label="Description"]\').length === 2');
+        await page.waitForFunction('document.querySelectorAll(\'button[aria-label="Remove line"]\').length >= 2');
+        const before = await page.evaluate('window.__roStats()') as RoStats;
+        await page.evaluate(`document.querySelectorAll('button[aria-label="Remove line"]')[0].click()`);
+        await page.waitForFunction('document.querySelectorAll(\'textarea[aria-label="Description"]\').length === 1');
+        await page.waitForTimeout(40);
+        const after = await page.evaluate('window.__roStats()') as RoStats;
+        const removed = before.live - after.live;
+        const disconnects = after.disconnects - before.disconnects;
+        rows.push({ kind, before, after, removed, disconnects });
+        expect(before.live, `${kind} before live ${before.live}`).toBeGreaterThanOrEqual(2);
+        expect(removed, `${kind} live ${before.live}->${after.live}`).toBe(1);
+        expect(disconnects, `${kind} disconnects ${disconnects} removed ${removed}`).toBe(removed);
+      }
+    } finally {
+      await browser.close();
+      await server.close();
+    }
+    expect(rows).toHaveLength(2);
+  }, 60_000);
+
   it('disconnects description observers on unmount and line remove', async () => {
     const outDir = await bundleHarness();
     const server = await serveDir(outDir);
