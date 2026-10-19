@@ -14,7 +14,8 @@ describe('S1 head, manifest, and self-hosted Geist', () => {
     expect(html).toContain('content="%BRAND_NAME%"');
     expect(html).toContain('content="%BRAND_NAME% — Trade job software for Australian crews"');
     expect(html).not.toMatch(/\bGrafter\b/);
-    expect(src('vite.config.ts')).toContain('applyBrandHtml(html)');
+    expect(src('vite.config.ts')).toContain('brandHtmlPlugin');
+    expect(src('src/lib/brandVite.ts')).toContain('return applyBrandHtml(html)');
     expect(src('src/lib/brand.ts')).toContain("html.split('%BRAND_NAME%').join(name)");
     expect(src('vite.config.ts')).not.toMatch(/\bGrafter\b/);
     expect(BRAND_NAME).toBe('Grafter');

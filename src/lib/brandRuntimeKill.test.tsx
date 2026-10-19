@@ -127,6 +127,9 @@ describe('BRAND_NAME mocked to Acmeco reaches rendered surfaces', () => {
     };
     applyPublicDocumentHead(doc, 'login');
     expect(doc.title).toContain('Acmeco');
+    applyPublicDocumentHead(doc, 'signup');
+    expect(doc.title).toBe('Create your Acmeco account');
+    expect(doc.title).not.toMatch(/Create a Acmeco/);
     expect(doc.title).not.toMatch(/\bGrafter\b/);
     const site = metas.find((el) => el.attrs.property === 'og:site_name');
     expect(site?.attrs.content).toBe('Acmeco');

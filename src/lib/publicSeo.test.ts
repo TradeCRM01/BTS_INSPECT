@@ -83,6 +83,8 @@ describe('public SEO copy', () => {
     expect(PUBLIC_SEO.login.title).toContain(`Sign in to ${BRAND_NAME}`);
     expect(PUBLIC_SEO.login.description).not.toMatch(/electrical or trade/);
     expect(PUBLIC_SEO.login.description).toMatch(/Australian trade crew/);
+    expect(PUBLIC_SEO.signup.title).toBe(`Create your ${BRAND_NAME} account`);
+    expect(PUBLIC_SEO.signup.title).not.toMatch(/Create a /);
     expect(PUBLIC_SEO.signup.description).not.toMatch(/electrical or trade/);
     expect(PUBLIC_SEO.signup.description).toMatch(/your trade crew/);
     expect(PUBLIC_SEO.signup.robots).toBe('index,follow');

@@ -11611,21 +11611,22 @@
       padding: 24px 16px 16px;
     }
 
-    /* Phone rail. Padding is tight so Geist still fits Overview through Materials at 375.
-       A right-edge fade covers any leftover scroll instead of cutting a word. */
+    /* Phone rail. 6px tab padding makes a 12px gap between hit boxes at 375.
+       All four tabs stay unscrolled. A right-edge fade covers leftover scroll. */
     .hub-jobs-document .job-sheet-tabs {
       gap: 0;
       margin-left: -16px;
       margin-right: -16px;
-      padding: 0 12px 0 16px;
-      scroll-padding: 0 12px;
-      -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 12px), transparent);
-      mask-image: linear-gradient(to right, black 0, black calc(100% - 12px), transparent);
+      padding: 0 6px 0 10px;
+      scroll-padding: 0 6px;
+      -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 6px), transparent);
+      mask-image: linear-gradient(to right, black 0, black calc(100% - 6px), transparent);
     }
 
     .hub-jobs-document .job-sheet-tab {
-      padding: 0 2px;
-      font-size: 13px;
+      padding: 0 6px;
+      font-size: 12px;
+      min-width: 64px;
     }
 
     .hub-jobs-document .job-sheet-tab:first-child {
@@ -16985,6 +16986,11 @@
       min-width: 44px;
       height: 24px;
       width: 44px;
+    }
+
+    /* Job sheet tabs: 6px padding each side is a 12px gap. Keep each tab ≥64px. */
+    .hub-jobs-document .job-sheet-tab {
+      min-width: 64px;
     }
 
     /* Reveal/clear icons sit inside the field — a 44px hit box would cover the type. */

@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { applyBrandHtml, brandManifestFields } from './src/lib/brand';
+import { brandHtmlPlugin, brandPwaManifest } from './src/lib/brandVite';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 
@@ -27,12 +27,7 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    {
-      name: 'brand-html',
-      transformIndexHtml(html) {
-        return applyBrandHtml(html);
-      },
-    },
+    brandHtmlPlugin,
     VitePWA({
       // Unregister broken SWs that were causing Chrome ERR_FAILED on navigations.
       // Re-enable offline caching later once clients have recovered.
@@ -49,7 +44,7 @@ export default defineConfig({
         'fonts/OFL.txt',
       ],
       manifest: {
-        ...brandManifestFields(),
+        ...brandPwaManifest(),
         description: 'Field inspection and reporting platform',
         theme_color: '#0A0A0B',
         background_color: '#F5F5F7',

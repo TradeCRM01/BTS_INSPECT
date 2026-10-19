@@ -38,7 +38,7 @@ export const PUBLIC_SEO: Record<PublicSeoKey, PublicSeoEntry> = {
     robots: 'index,follow',
   },
   signup: {
-    title: `Create a ${BRAND_NAME} workspace — Trade job software`,
+    title: `Create your ${BRAND_NAME} account`,
     description:
       `Open a ${BRAND_NAME} workspace for your trade crew. Jobs, quotes, invoices, and SWMS in one Australian trade CRM.`,
     path: '/signup',
