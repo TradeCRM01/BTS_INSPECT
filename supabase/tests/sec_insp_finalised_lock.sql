@@ -46,10 +46,18 @@ INSERT INTO proof_result SELECT 'D_completed_at', x LIKE 'P0001%', x
 FROM pg_temp.t($$UPDATE public.inspections SET completed_at='2020-01-01' WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
 INSERT INTO proof_result SELECT 'D_doc_version', x LIKE 'P0001%', x
 FROM pg_temp.t($$UPDATE public.inspections SET doc_version=9 WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
-INSERT INTO proof_result SELECT 'D_inspector_name_snapshot', x LIKE 'P0001%', x
+INSERT INTO proof_result SELECT 'D_inspector_name_snapshot_forge', x = '00000', x
 FROM pg_temp.t($$UPDATE public.inspections SET inspector_name_snapshot='Forged' WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
-INSERT INTO proof_result SELECT 'D_inspector_licence_snapshot', x LIKE 'P0001%', x
+INSERT INTO proof_result SELECT 'D_inspector_name_snapshot_kept',
+  inspector_name_snapshot = 'Pat Snapshot',
+  coalesce(inspector_name_snapshot, 'null')
+FROM public.inspections WHERE id = 'e1000000-0000-0000-0000-000000000001';
+INSERT INTO proof_result SELECT 'D_inspector_licence_snapshot_forge', x = '00000', x
 FROM pg_temp.t($$UPDATE public.inspections SET inspector_licence_snapshot='FAKE' WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
+INSERT INTO proof_result SELECT 'D_inspector_licence_snapshot_kept',
+  inspector_licence_snapshot = 'EC-4411',
+  coalesce(inspector_licence_snapshot, 'null')
+FROM public.inspections WHERE id = 'e1000000-0000-0000-0000-000000000001';
 
 INSERT INTO proof_result SELECT 'B_cross_tenant_attach', x LIKE '42501%' OR x LIKE 'P0001%', x
 FROM pg_temp.t($$UPDATE public.inspections SET client_id='c1000000-0000-0000-0000-000000000004' WHERE id='e1000000-0000-0000-0000-000000000008'$$) x;
@@ -94,6 +102,15 @@ INSERT INTO proof_result SELECT 'D4_updated_by_is_caller',
   updated_by = '22222222-2222-2222-2222-222222222222' AND updated_at > '2001-01-01',
   coalesce(updated_by::text, 'null') || ' ' || coalesce(updated_at::date::text, 'null')
 FROM public.inspections WHERE id = 'e1000000-0000-0000-0000-000000000003';
+
+INSERT INTO proof_result SELECT 'J1_jobs_creator_snapshot_forge', x = '00000', x
+FROM pg_temp.t($$UPDATE public.jobs SET creator_name_snapshot='Forged' WHERE id='b1000000-0000-0000-0000-000000000001'$$) x;
+INSERT INTO proof_result SELECT 'J1b_jobs_creator_snapshot_kept',
+  creator_name_snapshot = 'Pat Snapshot',
+  coalesce(creator_name_snapshot, 'null')
+FROM public.jobs WHERE id = 'b1000000-0000-0000-0000-000000000001';
+INSERT INTO proof_result SELECT 'J1c_issued_still_locked', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET meta='{"siteName":"Forge"}' WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
 
 INSERT INTO proof_result SELECT 'K1_delete_client_bound_to_issued', x = '00000', x
 FROM pg_temp.t($$DELETE FROM public.clients WHERE id='c1000000-0000-0000-0000-000000000003'$$) x;

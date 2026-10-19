@@ -79,10 +79,10 @@ INSERT INTO public.clients(id, company_id, name) VALUES
   ('c1000000-0000-0000-0000-000000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Doomed Client'),
   ('c1000000-0000-0000-0000-000000000004', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Other Co Client');
 
-INSERT INTO public.jobs(id, company_id, client_id, title, address, scheduled_date) VALUES
-  ('b1000000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'c1000000-0000-0000-0000-000000000001', 'Job One', 'Old St', '2026-10-20'),
-  ('b1000000-0000-0000-0000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', NULL, 'Job Two', 'Two St', '2026-10-21'),
-  ('b1000000-0000-0000-0000-000000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', NULL, 'Doomed Job', 'Doom St', '2026-10-22');
+INSERT INTO public.jobs(id, company_id, client_id, title, address, scheduled_date, created_by) VALUES
+  ('b1000000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'c1000000-0000-0000-0000-000000000001', 'Job One', 'Old St', '2026-10-20', '22222222-2222-2222-2222-222222222222'),
+  ('b1000000-0000-0000-0000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', NULL, 'Job Two', 'Two St', '2026-10-21', NULL),
+  ('b1000000-0000-0000-0000-000000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', NULL, 'Doomed Job', 'Doom St', '2026-10-22', NULL);
 
 INSERT INTO public.inspections(id, template_id, template_snapshot, inspector_id, status, meta, responses, client_id, crm_job_id, archived) VALUES
   ('e1000000-0000-0000-0000-000000000001', '0eeeeeee-0000-0000-0000-000000000001', '{}', '22222222-2222-2222-2222-222222222222', 'issued', '{"siteName":"Old St","siteAddress":"Old St","clientName":"Old Client"}', '{"q":"a"}', 'c1000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', false),

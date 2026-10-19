@@ -99,6 +99,8 @@ export const CLIENT_PORTAL_TABLE_COLUMNS: Record<string, readonly string[]> = {
     "status",
     "template_id",
     "template_snapshot",
+    "updated_at",
+    "updated_by",
   ],
   invoices: [
     "amount_paid",
@@ -217,7 +219,6 @@ export const CLIENT_PORTAL_TABLE_COLUMNS: Record<string, readonly string[]> = {
   ],
   reports: [
     "company_id",
-    "created_at",
     "folder_id",
     "generated_at",
     "id",

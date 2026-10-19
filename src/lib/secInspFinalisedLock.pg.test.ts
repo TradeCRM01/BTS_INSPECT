@@ -126,6 +126,12 @@ unix_socket_directories = '${sockDir}'
     expect(last).toBe('22222222-2222-2222-2222-222222222222');
   });
 
+  it('keeps jobs.creator_name_snapshot when forged on a job bound to a finalised inspection', () => {
+    expect(catchSql(`UPDATE public.jobs SET creator_name_snapshot='Forged' WHERE id='b1000000-0000-0000-0000-000000000001'`)).toBe('00000');
+    expect(runSql(`SELECT creator_name_snapshot FROM public.jobs WHERE id='b1000000-0000-0000-0000-000000000001'`)).toBe('Pat Snapshot');
+    expect(catchSql(`UPDATE public.inspections SET meta='{"siteName":"Forge"}' WHERE id='e1000000-0000-0000-0000-000000000001'`)).toMatch(/^P0001/);
+  });
+
   it('allows client and job delete on a finalised row when print snapshots exist', () => {
     expect(catchSql(`DELETE FROM public.clients WHERE id='c1000000-0000-0000-0000-000000000003'`)).toBe('00000');
     expect(catchSql(`DELETE FROM public.jobs WHERE id='b1000000-0000-0000-0000-000000000003'`)).toBe('00000');
@@ -150,7 +156,10 @@ unix_socket_directories = '${sockDir}'
     expect(catchSql(`UPDATE public.inspections SET template_snapshot='{"name":"swapped"}' WHERE id='e1000000-0000-0000-0000-000000000001'`)).toMatch(/^P0001/);
     expect(catchSql(`UPDATE public.inspections SET completed_at='2020-01-01' WHERE id='e1000000-0000-0000-0000-000000000001'`)).toMatch(/^P0001/);
     expect(catchSql(`UPDATE public.inspections SET doc_version=9 WHERE id='e1000000-0000-0000-0000-000000000001'`)).toMatch(/^P0001/);
-    expect(catchSql(`UPDATE public.inspections SET inspector_name_snapshot='Forged' WHERE id='e1000000-0000-0000-0000-000000000001'`)).toMatch(/^P0001/);
+    expect(catchSql(`UPDATE public.inspections SET inspector_name_snapshot='Forged' WHERE id='e1000000-0000-0000-0000-000000000001'`)).toBe('00000');
+    expect(runSql(`SELECT inspector_name_snapshot FROM public.inspections WHERE id='e1000000-0000-0000-0000-000000000001'`)).toBe('Pat Snapshot');
+    expect(catchSql(`UPDATE public.inspections SET inspector_licence_snapshot='FAKE' WHERE id='e1000000-0000-0000-0000-000000000001'`)).toBe('00000');
+    expect(runSql(`SELECT inspector_licence_snapshot FROM public.inspections WHERE id='e1000000-0000-0000-0000-000000000001'`)).toBe('EC-4411');
   });
 
   it('blocks a finalised to draft status move', () => {
