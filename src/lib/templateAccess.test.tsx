@@ -172,6 +172,24 @@ describe('template guards render as a none member', () => {
     auth.profile.template_access = 'none';
   });
 
+  it('JhaTemplateEditorPage is read-only for a view member', async () => {
+    auth.profile.template_access = 'view';
+    auth.profile.role = 'member';
+    const { container, root } = await render(
+      <MemoryRouter initialEntries={['/jha-templates/abc']}>
+        <Routes>
+          <Route path="/jha-templates/:id" element={<JhaTemplateEditorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(container.textContent).toContain('No edit access');
+    expect(container.textContent).not.toContain('Saved');
+    expect([...container.querySelectorAll('button')].some(b => (b.textContent || '').trim() === 'Save')).toBe(false);
+    act(() => { root.unmount(); });
+    container.remove();
+    auth.profile.template_access = 'none';
+  });
+
   it('JhaTemplateEditorPage renders No access', async () => {
     const { container, root } = await render(
       <MemoryRouter initialEntries={['/jha-templates/abc']}>

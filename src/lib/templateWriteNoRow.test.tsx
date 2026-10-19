@@ -176,12 +176,28 @@ async function flush(times = 12) {
   }
 }
 
-async function waitForText(container: HTMLElement, needle: string, tries = 40) {
+async function waitFor(assert: () => boolean, label: string | (() => string), tries = 50) {
   for (let i = 0; i < tries; i += 1) {
-    if ((container.textContent || '').includes(needle)) return;
-    await flush(2);
+    if (assert()) return;
+    await act(async () => {
+      await new Promise<void>(resolve => { setTimeout(resolve, 0); });
+    });
   }
-  throw new Error(`missing "${needle}": ${(container.textContent || '').slice(0, 400)}`);
+  throw new Error(typeof label === 'function' ? label() : label);
+}
+
+async function waitForText(container: HTMLElement, needle: string) {
+  await waitFor(
+    () => (container.textContent || '').includes(needle),
+    () => `missing "${needle}": ${(container.textContent || '').slice(0, 400)}`,
+  );
+}
+
+function setInputValue(el: HTMLInputElement, value: string) {
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+  setter?.call(el, value);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
 async function render(ui: ReactElement): Promise<{ container: HTMLDivElement; root: Root }> {
@@ -218,10 +234,14 @@ describe('0-row template writes show a visible failure', () => {
         </Routes>
       </MemoryRouter>,
     );
+    await waitForText(container, 'Save');
     const save = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Save'));
     expect(save).toBeTruthy();
     await act(async () => { save!.click(); });
-    await flush(20);
+    await waitFor(
+      () => (container.querySelector('[role="alert"]')?.textContent || '').includes(TEMPLATE_WRITE_NO_ROW),
+      () => `missing alert: ${(container.textContent || '').slice(0, 400)}`,
+    );
     expect(container.querySelector('[role="alert"]')?.textContent).toContain(TEMPLATE_WRITE_NO_ROW);
     expect(container.textContent).toContain('Error');
     expect(container.textContent).not.toMatch(/\bSaved\b/);
@@ -237,10 +257,14 @@ describe('0-row template writes show a visible failure', () => {
         </Routes>
       </MemoryRouter>,
     );
+    await waitForText(container, 'Delete');
     const del = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Delete'));
     expect(del).toBeTruthy();
     await act(async () => { del!.click(); });
-    await flush(20);
+    await waitFor(
+      () => (container.querySelector('[role="alert"]')?.textContent || '').includes(TEMPLATE_WRITE_NO_ROW),
+      () => `missing alert: ${(container.textContent || '').slice(0, 400)}`,
+    );
     expect(container.querySelector('[role="alert"]')?.textContent).toContain(TEMPLATE_WRITE_NO_ROW);
     expect(navigate).not.toHaveBeenCalledWith('/templates');
     act(() => { root.unmount(); });
@@ -255,11 +279,17 @@ describe('0-row template writes show a visible failure', () => {
         </Routes>
       </MemoryRouter>,
     );
-    await waitForText(container, 'Save');
-    const save = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Save'));
+    await waitFor(
+      () => [...container.querySelectorAll('button')].some(b => (b.textContent || '').trim() === 'Save'),
+      () => `missing Save button: ${(container.textContent || '').slice(0, 400)}`,
+    );
+    const save = [...container.querySelectorAll('button')].find(b => (b.textContent || '').trim() === 'Save');
     expect(save).toBeTruthy();
     await act(async () => { save!.click(); });
-    await flush(20);
+    await waitFor(
+      () => (container.querySelector('[role="alert"]')?.textContent || '').includes(TEMPLATE_WRITE_NO_ROW),
+      () => `missing alert: ${(container.textContent || '').slice(0, 400)}`,
+    );
     expect(container.querySelector('[role="alert"]')?.textContent).toContain(TEMPLATE_WRITE_NO_ROW);
     expect(container.textContent).toContain('Save failed');
     expect(container.textContent).not.toMatch(/\bSaved\b/);
@@ -318,7 +348,103 @@ describe('0-row template writes show a visible failure', () => {
     const trash = row?.querySelector('button');
     expect(trash).toBeTruthy();
     await act(async () => { trash!.click(); });
-    await flush(20);
+    await waitFor(
+      () => (container.querySelector('[role="alert"]')?.textContent || '').includes(TEMPLATE_WRITE_NO_ROW),
+      () => `missing alert: ${(container.textContent || '').slice(0, 400)}`,
+    );
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(TEMPLATE_WRITE_NO_ROW);
+    act(() => { root.unmount(); });
+    container.remove();
+  });
+
+  it('JhaTemplateEditorPage shows the failure alert and does not leave after a 0-row delete', async () => {
+    const { container, root } = await render(
+      <MemoryRouter initialEntries={['/jha-templates/jha-1']}>
+        <Routes>
+          <Route path="/jha-templates/:id" element={<JhaTemplateEditorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(
+      () => !!container.querySelector('button[title="Delete template"]'),
+      () => `missing Delete: ${(container.textContent || '').slice(0, 400)}`,
+    );
+    const del = container.querySelector('button[title="Delete template"]') as HTMLButtonElement | null;
+    expect(del).toBeTruthy();
+    await act(async () => { del!.click(); });
+    await waitFor(
+      () => (container.querySelector('[role="alert"]')?.textContent || '').includes(TEMPLATE_WRITE_NO_ROW),
+      () => `missing delete alert: ${(container.textContent || '').slice(0, 400)}`,
+    );
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(TEMPLATE_WRITE_NO_ROW);
+    expect(navigate).not.toHaveBeenCalledWith('/templates');
+    act(() => { root.unmount(); });
+    container.remove();
+  });
+
+  it('TemplatesPage shows the failure after a 0-row JHA unarchive', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    const archivedJha = {
+      id: 'jha-1',
+      name: 'Heights',
+      archived: true,
+      updated_at: '2026-01-01T00:00:00.000Z',
+      schema: { riskLevels: [], ppeOptions: [], signOffRoles: [] },
+    };
+    qc.setQueryData(['jha-templates', false], [archivedJha]);
+    qc.setQueryData(['jha-templates', true], [archivedJha]);
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={qc}>
+          <MemoryRouter>
+            <TemplatesPage />
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+    });
+    await waitForText(container, 'JHA Templates');
+    const jhaTab = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('JHA Templates'));
+    expect(jhaTab).toBeTruthy();
+    await act(async () => { jhaTab!.click(); });
+    await waitForText(container, 'View archived templates');
+    const archived = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('View archived templates'));
+    expect(archived).toBeTruthy();
+    await act(async () => { archived!.click(); });
+    await waitForText(container, 'Unarchive');
+    const unarchive = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Unarchive'));
+    expect(unarchive).toBeTruthy();
+    await act(async () => { unarchive!.click(); });
+    await waitForText(container, TEMPLATE_WRITE_NO_ROW);
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(TEMPLATE_WRITE_NO_ROW);
+    act(() => { root.unmount(); });
+    container.remove();
+  });
+
+  it('CompanySettingsPage shows the failure after a 0-row renderer insert', async () => {
+    const { container, root } = await render(
+      <MemoryRouter>
+        <CompanySettingsPage />
+      </MemoryRouter>,
+    );
+    await waitForText(container, 'Add Type');
+    const add = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Add Type'));
+    expect(add).toBeTruthy();
+    await act(async () => { add!.click(); });
+    await waitFor(
+      () => !!container.querySelector('.hub-company-add input'),
+      () => `missing add form: ${(container.textContent || '').slice(0, 400)}`,
+    );
+    const input = container.querySelector('.hub-company-add input') as HTMLInputElement;
+    await act(async () => { setInputValue(input, 'Roof Check'); });
+    const form = container.querySelector('.hub-company-add') as HTMLFormElement;
+    await act(async () => { form.requestSubmit(); });
+    await waitFor(
+      () => (container.querySelector('[role="alert"]')?.textContent || '').includes(TEMPLATE_WRITE_NO_ROW),
+      () => `missing insert alert: ${(container.textContent || '').slice(0, 400)}`,
+    );
     expect(container.querySelector('[role="alert"]')?.textContent).toContain(TEMPLATE_WRITE_NO_ROW);
     act(() => { root.unmount(); });
     container.remove();
@@ -332,7 +458,9 @@ describe('0-row template writes show a visible failure', () => {
         <NewInspectionPage />
       </MemoryRouter>,
     );
-    await flush(16);
+    await waitForText(container, 'Board');
+    await waitForText(container, 'Ask someone with edit access');
+    expect(container.textContent).toContain('Ask someone with edit access to add questions before starting an inspection.');
     expect(container.textContent).not.toContain('Edit the template');
     act(() => { root.unmount(); });
     container.remove();

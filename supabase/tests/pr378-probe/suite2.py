@@ -4,7 +4,7 @@ Client cases run as SET ROLE authenticated with request.jwt.claims (Supabase aut
 usage: suite2.py PGVER VARIANT [MIG089_PATH|-] [OUT_JSON] [ONLY_IDS_COMMA]   VARIANT in base|089|alt"""
 import shutil, subprocess, sys, json, os
 HERE=os.path.dirname(os.path.abspath(__file__))
-REPO=os.environ.get('REPO','/workspace')
+REPO=os.environ.get('REPO') or os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 M088=f'{REPO}/supabase/migrations/20261019010000_088_update_member_settings.sql'
 M089=f'{REPO}/supabase/migrations/20261019020000_089_profile_self_escalation_and_template_rls.sql'
 PGV=sys.argv[1]; VARIANT=sys.argv[2]
@@ -12,8 +12,10 @@ MIG089=sys.argv[3] if len(sys.argv)>3 and sys.argv[3]!='-' else M089
 OUT=sys.argv[4] if len(sys.argv)>4 and sys.argv[4]!='-' else None
 ONLY=set(sys.argv[5].split(',')) if len(sys.argv)>5 else None
 PSQL=shutil.which('psql') or f'/usr/lib/postgresql/{PGV}/bin/psql'
-PGHOST=os.environ.get('PGHOST', f'/tmp/pg378r2-{PGV}')
-PGPORT=os.environ.get('PGPORT', os.environ.get('PROOF_PGPORT', f'554{PGV}'))
+PGHOST=os.environ.get('PGHOST')
+PGPORT=os.environ.get('PGPORT') or os.environ.get('PROOF_PGPORT')
+if not PGHOST or not PGPORT:
+    raise SystemExit('PGHOST and PGPORT are required (the prove script exports them)')
 BASE=[PSQL,'-h',PGHOST,'-p',str(PGPORT),'-U','postgres','-X','-q','-t','-A','-v','ON_ERROR_STOP=1']
 DB=f'r2_{VARIANT}_{os.getpid()}'
 OA='11111111-1111-1111-1111-111111111111'; AA='33333333-3333-3333-3333-333333333333'; MA='44444444-4444-4444-4444-444444444444'; MN='44444444-4444-4444-4444-444444444445'

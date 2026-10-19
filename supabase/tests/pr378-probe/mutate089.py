@@ -3,7 +3,9 @@
  (a) PR proof supabase/tests/update_member_settings.sql run against a copy of supabase/ with the mutated 089
  (b) our suite2.py (prod-faithful schema) VARIANT=089 with the mutated 089.  Usage: mutate089.py PGVER [IDS]"""
 import subprocess, sys, os, shutil, json, re
-P=os.path.dirname(os.path.abspath(__file__)); REPO=os.environ.get('REPO','/workspace'); PGV=sys.argv[1]
+P=os.path.dirname(os.path.abspath(__file__))
+REPO=os.environ.get('REPO') or os.path.abspath(os.path.join(P, '..', '..', '..'))
+PGV=sys.argv[1]
 SRC=open(f'{REPO}/supabase/migrations/20261019020000_089_profile_self_escalation_and_template_rls.sql').read()
 RPC_START=SRC.index('CREATE OR REPLACE FUNCTION public.update_member_settings(')
 def rpc_sub(old,new):
@@ -73,8 +75,10 @@ M['P_rend_upd_builtin']=('inspection_renderers UPDATE: drop built_in=false', pol
 M['P_rend_del_builtin']=('inspection_renderers DELETE: drop built_in=false', pol('Company admins can delete renderers', 'built_in = false AND ', ''))
 ids=sys.argv[2].split(',') if len(sys.argv)>2 else list(M)
 res={}
-PGHOST=os.environ.get('PGHOST', f'/tmp/pg378r2-{PGV}')
-PGPORT=os.environ.get('PGPORT', os.environ.get('PROOF_PGPORT', f'554{PGV}'))
+PGHOST=os.environ.get('PGHOST')
+PGPORT=os.environ.get('PGPORT') or os.environ.get('PROOF_PGPORT')
+if not PGHOST or not PGPORT:
+    raise SystemExit('PGHOST and PGPORT are required (the prove script exports them)')
 PSQL=shutil.which('psql') or f'/usr/lib/postgresql/{PGV}/bin/psql'
 for mid in ids:
     desc,fn=M[mid]; mutated=fn(SRC); assert mutated!=SRC, mid

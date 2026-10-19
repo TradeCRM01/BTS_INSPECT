@@ -4,13 +4,21 @@
 set -euo pipefail
 V=$1
 P="$(cd "$(dirname "$0")" && pwd)"
-R="${REPO:-/workspace}"
+if [ -n "${REPO:-}" ]; then
+  R="$REPO"
+else
+  R="$(cd "$P/../../.." && pwd)"
+fi
 PSQL_BIN="$(command -v psql || true)"
 if [ -z "$PSQL_BIN" ]; then
   PSQL_BIN="/usr/lib/postgresql/$V/bin/psql"
 fi
-PGHOST_VAL="${PGHOST:-/tmp/pg378r2-$V}"
-PGPORT_VAL="${PGPORT:-554$V}"
+if [ -z "${PGHOST:-}" ] || [ -z "${PGPORT:-}" ]; then
+  echo "PGHOST and PGPORT are required (the prove script exports them)" >&2
+  exit 2
+fi
+PGHOST_VAL="$PGHOST"
+PGPORT_VAL="$PGPORT"
 PS="$PSQL_BIN -h $PGHOST_VAL -p $PGPORT_VAL -U postgres -X -q -v ON_ERROR_STOP=1"
 OUT="${RB_OUT:-$P}"
 $PS -d postgres -c 'DROP DATABASE IF EXISTS rb' -c 'CREATE DATABASE rb'

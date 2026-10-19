@@ -147,7 +147,7 @@ export function TemplateEditorPage() {
     },
     onError: (err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err);
-      setValidationErrors(prev => (prev.length > 0 ? prev : [msg]));
+      setValidationErrors([msg]);
       setSaveState('error');
     },
   });

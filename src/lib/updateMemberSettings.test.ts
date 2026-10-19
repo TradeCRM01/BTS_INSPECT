@@ -113,8 +113,6 @@ describe('089 self-escalation and template RLS', () => {
       .toBeGreaterThan(rollback.lastIndexOf('CREATE POLICY "Company admins can delete renderers"'));
     expect(rollback.lastIndexOf('DROP FUNCTION IF EXISTS public.caller_can_edit_templates()'))
       .toBeGreaterThan(rollback.indexOf('CREATE POLICY "Company members can view templates"'));
-    const team = src('src/pages/TeamSettingsPage.tsx');
-    expect(team).toContain("{ value: 'none', label: 'No access', description: \"Can use templates on jobs, can't see or edit the template library\"");
     const app = src('src/App.tsx');
     expect(app).toContain('<Route path="/templates" element={<Protected><TemplateAccessRoute><TemplatesPage /></TemplateAccessRoute></Protected>} />');
     expect(app).toContain('<Route path="/templates/new" element={<Protected><TemplateAccessRoute><TemplateEditorPage /></TemplateAccessRoute></Protected>} />');

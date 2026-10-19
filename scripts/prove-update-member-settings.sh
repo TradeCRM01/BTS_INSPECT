@@ -3,12 +3,20 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export REPO="${REPO:-$ROOT}"
 PGV="${PROOF_PGVER:-16}"
-DATA_DIR="${PROOF_PGDATA:-/tmp/pg-update-member-settings}"
+if [ -n "${PROOF_PGDATA:-}" ]; then
+  DATA_DIR="${PROOF_PGDATA}"
+else
+  DATA_DIR="$(mktemp -d /tmp/pg-update-member-settings.XXXXXX)"
+fi
 PORT="${PROOF_PGPORT:-55432}"
 LOG="${DATA_DIR}/postgres.log"
 PROBE="${ROOT}/supabase/tests/pr378-probe"
-export RB_OUT="${RB_OUT:-/tmp/pr378-rollback}"
+if [ -z "${RB_OUT:-}" ]; then
+  RB_OUT="$(mktemp -d /tmp/pr378-rollback.XXXXXX)"
+fi
+export RB_OUT
 mkdir -p "${RB_OUT}"
+SUITE2_JSON="${SUITE2_JSON:-${RB_OUT}/suite2-pg${PGV}-089.json}"
 
 prefer_pg_bin() {
   if command -v initdb >/dev/null 2>&1; then
@@ -31,11 +39,14 @@ if ! prefer_pg_bin; then
 fi
 
 pg_ctl -D "${DATA_DIR}" stop -m fast >/dev/null 2>&1 || true
-rm -rf "${DATA_DIR}"
+rm -rf "${DATA_DIR:?}"
 initdb -D "${DATA_DIR}" --auth-local=trust --auth-host=trust --username=postgres >/dev/null
 pg_ctl -D "${DATA_DIR}" -o "-p ${PORT} -k ${DATA_DIR}" -l "${LOG}" start
 cleanup() {
   pg_ctl -D "${DATA_DIR}" stop -m fast >/dev/null 2>&1 || true
+  rm -rf "${DATA_DIR}" "${RB_OUT}"
+  rm -rf /tmp/pg-update-member-settings /tmp/pr378-rollback
+  rm -f /tmp/suite2-pg*-089.json
 }
 trap cleanup EXIT
 
@@ -55,6 +66,6 @@ echo "== 089 rollback round-trip =="
 bash "${PROBE}/rollback-test.sh" "${PGV}"
 
 echo "== CoS suite2 VARIANT=089 =="
-python3 "${PROBE}/suite2.py" "${PGV}" 089 - /tmp/suite2-pg${PGV}-089.json
+python3 "${PROBE}/suite2.py" "${PGV}" 089 - "${SUITE2_JSON}"
 
 echo "All prove-update-member-settings steps passed"

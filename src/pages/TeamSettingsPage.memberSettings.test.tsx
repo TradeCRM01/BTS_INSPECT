@@ -212,6 +212,25 @@ describe('TeamSettingsPage member settings render-and-act', () => {
     act(() => { root.unmount(); });
   });
 
+  it('renders No access as field use, not a hidden library', async () => {
+    const { container, root } = renderPage(
+      '/settings/team?look=p331-team-select&id=look-team-alex',
+    );
+    await waitFor(container, 'button');
+    const invite = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Invite member'));
+    expect(invite).toBeTruthy();
+    await act(async () => { invite!.click(); });
+    const help = "Can use templates on jobs, can't see or edit the template library";
+    for (let i = 0; i < 40; i += 1) {
+      if ((document.body.textContent || '').includes(help)) break;
+      await flush(2);
+    }
+    expect(document.body.textContent).toContain(help);
+    expect(document.body.textContent).toContain('Invite team member');
+    expect(document.body.textContent).toContain('No access');
+    act(() => { root.unmount(); });
+  });
+
   it('shows Make admin for the owner and hides it for a non-owner admin', async () => {
     const owner = renderPage('/settings/team?look=p331-team-select&id=look-team-alex');
     await waitFor(owner.container, 'select[aria-label="Cost model"]');

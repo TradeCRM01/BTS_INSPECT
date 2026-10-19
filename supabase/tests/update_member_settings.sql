@@ -94,7 +94,8 @@ DELETE FROM public.companies;
 
 INSERT INTO public.companies (id, created_by, name) VALUES
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 'Company A'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '22222222-2222-2222-2222-222222222222', 'Company B');
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '22222222-2222-2222-2222-222222222222', 'Company B'),
+  ('cccccccc-cccc-cccc-cccc-cccccccccccc', '70000000-0000-0000-0000-000000000001', 'Company C');
 
 INSERT INTO public.profiles (id, company_id, email, name, role, template_access) VALUES
   ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'owner-a@example.com', 'Owner A', 'admin', 'edit'),
@@ -112,7 +113,8 @@ INSERT INTO public.profiles (id, company_id, email, name, role, template_access,
   ('14141414-1414-4414-8414-141414141414', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'none-a@example.com', 'None A', 'member', 'none', NULL),
   ('15151515-1515-4515-8515-151515151515', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'edit-a@example.com', 'Edit A', 'member', 'edit', NULL),
   ('16161616-1616-4616-8616-161616161616', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'invitee-a@example.com', 'Invitee A', 'member', 'none', NULL),
-  ('44444444-4444-4444-4444-444444444445', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'none-tech@example.com', 'None Tech', 'member', 'none', NULL);
+  ('44444444-4444-4444-4444-444444444445', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'none-tech@example.com', 'None Tech', 'member', 'none', NULL),
+  ('70000000-0000-0000-0000-000000000001', 'cccccccc-cccc-cccc-cccc-cccccccccccc', 'founder-c@example.com', 'Founder C', 'member', 'edit', NULL);
 
 CREATE TABLE IF NOT EXISTS public.templates (
   id uuid PRIMARY KEY,
@@ -1457,6 +1459,80 @@ BEGIN
       coalesce(v_msg, 'insert succeeded')
     );
   END LOOP;
+END $$;
+
+-- Coach condition (1) INSERT. Member cannot insert built_in=true into their own
+-- company. Admin, founder, and member cannot insert into another company,
+-- built_in true or false. Each case is SQLSTATE 42501. Row count unchanged.
+DO $$
+DECLARE
+  c record;
+  v_state text;
+  v_n_before int;
+  v_n_after int;
+  v_n_case int;
+  v_all_ok boolean := true;
+BEGIN
+  SET session_replication_role = replica;
+  UPDATE public.profiles
+    SET role = 'member', template_access = 'view'
+    WHERE id = '44444444-4444-4444-4444-444444444444';
+  UPDATE public.profiles
+    SET role = 'member', template_access = 'none'
+    WHERE id = '44444444-4444-4444-4444-444444444445';
+  UPDATE public.profiles
+    SET role = 'admin'
+    WHERE id IN (
+      '11111111-1111-1111-1111-111111111111',
+      '33333333-3333-3333-3333-333333333333'
+    );
+  UPDATE public.profiles
+    SET role = 'member', template_access = 'edit'
+    WHERE id = '70000000-0000-0000-0000-000000000001';
+  SET session_replication_role = origin;
+
+  SELECT count(*) INTO v_n_before FROM public.inspection_renderers;
+  FOR c IN SELECT * FROM (VALUES
+    ('g_renderer_insert_member_view_own_builtin', '44444444-4444-4444-4444-444444444444', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', true),
+    ('g_renderer_insert_member_none_own_builtin', '44444444-4444-4444-4444-444444444445', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', true),
+    ('g_renderer_insert_member_view_cross_false', '44444444-4444-4444-4444-444444444444', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', false),
+    ('g_renderer_insert_member_view_cross_true',  '44444444-4444-4444-4444-444444444444', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', true),
+    ('g_renderer_insert_admin_cross_false',       '33333333-3333-3333-3333-333333333333', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', false),
+    ('g_renderer_insert_admin_cross_true',        '33333333-3333-3333-3333-333333333333', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', true),
+    ('g_renderer_insert_owner_cross_false',       '11111111-1111-1111-1111-111111111111', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', false),
+    ('g_renderer_insert_owner_cross_true',        '11111111-1111-1111-1111-111111111111', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', true),
+    ('g_renderer_insert_founder_c_cross_false',   '70000000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', false),
+    ('g_renderer_insert_founder_c_cross_true',    '70000000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', true)
+  ) t(check_id, uid, co, bi)
+  LOOP
+    v_state := 'ALLOWED';
+    PERFORM public.proof_as_authenticated(c.uid::uuid);
+    SET LOCAL ROLE authenticated;
+    BEGIN
+      INSERT INTO public.inspection_renderers (id, company_id, key, label, built_in)
+      VALUES (gen_random_uuid(), c.co::uuid, 'coach_cond1_probe', 'coach cond1 probe', c.bi);
+      v_state := 'ALLOWED';
+    EXCEPTION WHEN OTHERS THEN
+      v_state := SQLSTATE;
+    END;
+    RESET ROLE;
+    SELECT count(*) INTO v_n_case FROM public.inspection_renderers;
+    DELETE FROM public.inspection_renderers WHERE key = 'coach_cond1_probe';
+    INSERT INTO proof_result VALUES (
+      c.check_id,
+      v_state = '42501' AND v_n_case = v_n_before,
+      format('sqlstate=%s rows=%s', v_state, v_n_case)
+    );
+    IF v_state <> '42501' OR v_n_case <> v_n_before THEN
+      v_all_ok := false;
+    END IF;
+  END LOOP;
+  SELECT count(*) INTO v_n_after FROM public.inspection_renderers;
+  INSERT INTO proof_result VALUES (
+    'g_renderer_insert_coach_cond1',
+    v_all_ok AND v_n_after = v_n_before,
+    format('rows %s->%s', v_n_before, v_n_after)
+  );
 END $$;
 
 -- Mutant A1: admin no longer counts as edit -> admin with none cannot write templates.
