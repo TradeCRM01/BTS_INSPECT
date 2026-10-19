@@ -1,5 +1,3 @@
--- Rolled-back catalog probe for CoS on non-prod branch 5a106e2d.
--- BEGIN ... ROLLBACK only. No writes persist. Do not run against prod.
 BEGIN;
 
 SELECT
@@ -54,9 +52,6 @@ WHERE table_schema = 'public'
   )
 ORDER BY table_name, column_name;
 
--- Operator NULL-count check (read-only). Rollback cannot SET NOT NULL while
--- inspections / templates / jha_* counts are > 0. jobs.created_by is already
--- nullable in prod and is not SET NOT NULL on rollback.
 SELECT 'inspections.inspector_id NULL' AS check, count(*) FROM public.inspections WHERE inspector_id IS NULL;
 SELECT 'templates.created_by NULL' AS check, count(*) FROM public.templates WHERE created_by IS NULL;
 SELECT 'jha_templates.created_by NULL' AS check, count(*) FROM public.jha_templates WHERE created_by IS NULL;

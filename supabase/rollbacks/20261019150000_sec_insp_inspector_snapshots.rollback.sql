@@ -1,7 +1,3 @@
--- TRANSACTIONAL: BEGIN/COMMIT so a failed SET NOT NULL reverts later drops.
--- SET NOT NULL runs first. If any inspector_id is NULL the transaction aborts
--- and the snapshot columns stay.
---
 -- OPERATOR NOTE — rollback cannot run once inspector_id is NULL:
 --   SELECT count(*) FROM public.inspections WHERE inspector_id IS NULL;
 -- If that count is > 0, SET NOT NULL fails and (because this file is one

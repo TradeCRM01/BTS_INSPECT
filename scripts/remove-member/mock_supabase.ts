@@ -1,4 +1,3 @@
-// minimal supabase-js mock driven by globalThis.__RM
 type Op = { table: string; kind: string; filters: Record<string, unknown>; head?: boolean };
 export function createClient(_url: string, _key: string, _opts?: unknown) {
   const S = (globalThis as { __RM?: {

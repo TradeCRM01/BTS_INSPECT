@@ -324,7 +324,6 @@ BEGIN
   );
 END $$;
 
--- Mutant: snapshot trigger switched to SECURITY INVOKER (own-row profiles RLS hides teammate)
 ALTER FUNCTION public.inspections_fill_inspector_snapshots() SECURITY INVOKER;
 
 DO $$
@@ -373,7 +372,6 @@ END $$;
 
 ALTER FUNCTION public.inspections_fill_inspector_snapshots() SECURITY DEFINER;
 
--- Mutant: no backfill
 INSERT INTO public.profiles (id, company_id, email, name, licence_number, role)
 SELECT '22222222-2222-2222-2222-222222222222', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'pat@example.test', 'Pat Snapshot', 'EC-4411', 'member'
 WHERE NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = '22222222-2222-2222-2222-222222222222');
@@ -390,7 +388,6 @@ ALTER TABLE public.inspections ALTER COLUMN inspector_id SET NOT NULL;
 ALTER TABLE public.inspections
   ADD COLUMN inspector_name_snapshot text,
   ADD COLUMN inspector_licence_snapshot text;
--- skip backfill
 CREATE OR REPLACE FUNCTION public.inspections_fill_inspector_snapshots()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
@@ -423,7 +420,6 @@ END $$;
 
 \ir ../migrations/20261019150000_sec_insp_inspector_snapshots.sql
 
--- Mutant: trigger overwrites on NULL
 CREATE OR REPLACE FUNCTION public.inspections_fill_inspector_snapshots()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -469,7 +465,6 @@ END $$;
 
 \ir ../migrations/20261019150000_sec_insp_inspector_snapshots.sql
 
--- Mutant: trigger missing on UPDATE
 DROP TRIGGER IF EXISTS trg_inspections_fill_inspector_snapshots ON public.inspections;
 CREATE TRIGGER trg_inspections_fill_inspector_snapshots
   BEFORE INSERT ON public.inspections
@@ -502,7 +497,6 @@ END $$;
 
 \ir ../migrations/20261019150000_sec_insp_inspector_snapshots.sql
 
--- Mutant: NOT NULL kept
 DROP TRIGGER IF EXISTS trg_inspections_fill_inspector_snapshots ON public.inspections;
 DROP FUNCTION IF EXISTS public.inspections_fill_inspector_snapshots();
 ALTER TABLE public.inspections DROP COLUMN IF EXISTS inspector_name_snapshot;
@@ -533,7 +527,6 @@ $$;
 CREATE TRIGGER trg_inspections_fill_inspector_snapshots
   BEFORE INSERT OR UPDATE OF inspector_id ON public.inspections
   FOR EACH ROW EXECUTE FUNCTION public.inspections_fill_inspector_snapshots();
--- skip DROP NOT NULL
 
 DO $$
 DECLARE

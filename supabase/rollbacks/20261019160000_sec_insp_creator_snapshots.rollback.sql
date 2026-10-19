@@ -1,10 +1,3 @@
--- TRANSACTIONAL: BEGIN/COMMIT so a failed SET NOT NULL reverts later drops.
--- SET NOT NULL runs first on templates / jha_templates / jha_documents.
--- jobs.created_by is already nullable in prod (missed-call provenance) and
--- is not touched here.
--- Snapshot columns are dropped. Names rebuild on re-apply only while
--- created_by still points at a profile.
---
 -- OPERATOR NOTE — do not run after a live member delete. Check NULL counts:
 --   SELECT count(*) FROM public.templates WHERE created_by IS NULL;
 --   SELECT count(*) FROM public.jha_templates WHERE created_by IS NULL;
@@ -17,6 +10,24 @@ BEGIN;
 ALTER TABLE public.templates ALTER COLUMN created_by SET NOT NULL;
 ALTER TABLE public.jha_templates ALTER COLUMN created_by SET NOT NULL;
 ALTER TABLE public.jha_documents ALTER COLUMN created_by SET NOT NULL;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_attribute a
+    JOIN pg_class c ON c.oid = a.attrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'jobs'
+      AND a.attname = 'created_by'
+      AND a.attnum > 0
+      AND NOT a.attisdropped
+      AND a.attnotnull
+  ) THEN
+    RAISE EXCEPTION 'jobs.created_by must stay nullable';
+  END IF;
+END $$;
 
 DROP TRIGGER IF EXISTS trg_templates_fill_creator_snapshot ON public.templates;
 DROP TRIGGER IF EXISTS trg_jha_templates_fill_creator_snapshot ON public.jha_templates;
