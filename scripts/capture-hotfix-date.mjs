@@ -16,6 +16,7 @@ const browser = await chromium.launch({
 const widths = [
   { name: '375', width: 375, height: 812 },
   { name: '390', width: 390, height: 844 },
+  { name: '1024', width: 1024, height: 768 },
   { name: '1280', width: 1280, height: 800 },
 ];
 
