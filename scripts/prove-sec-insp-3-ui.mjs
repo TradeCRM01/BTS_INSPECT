@@ -11,13 +11,13 @@ const PAGES = [
     name: 'issued-view',
     path: '/inspections/look-insp-pat?auditAuth=1&look=inspection-issued-view',
     wait: '[data-issued-lock="1"]',
-    text: 'Issued. Contact the office to amend.',
+    text: 'Locked. Contact the office to amend.',
   },
   {
-    name: 'issued-edit',
+    name: 'details-expanded',
     path: '/inspections/look-insp-pat?auditAuth=1&look=inspection-issued-edit',
     wait: '[data-issued-lock="1"]',
-    text: 'Issued. Contact the office to amend.',
+    text: 'Locked. Contact the office to amend.',
   },
 ];
 
@@ -36,7 +36,6 @@ function overflowMeasure() {
     if (style.display === 'none' || style.visibility === 'hidden') continue;
     if (el.getAttribute('aria-hidden') === 'true') continue;
     if ((style.position === 'fixed' || style.position === 'absolute') && (r.right <= 0 || r.left >= innerWidth)) continue;
-    if (el.classList.contains('shell-root') || el.closest('.shell-root')) continue;
     let scrolled = false;
     for (let p = el.parentElement; p; p = p.parentElement) {
       const ps = getComputedStyle(p);
@@ -59,7 +58,7 @@ function overflowMeasure() {
     scrollWidth,
     maxRight: Math.round(maxRight),
     paperRight,
-    lockText: document.body.textContent?.includes('Issued. Contact the office to amend.') ?? false,
+    lockText: document.body.textContent?.includes('Locked. Contact the office to amend.') ?? false,
     clippedLock,
   };
 }

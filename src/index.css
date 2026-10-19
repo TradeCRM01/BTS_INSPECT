@@ -14691,12 +14691,12 @@
     font-weight: 500;
   }
 
-  .hub-inspections-issued-lock {
+  .hub-inspections-document .hub-inspections-issued-lock {
     margin: 8px 0 0;
     max-width: 100%;
     min-width: 0;
     color: var(--insp-look-muted);
-    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-family: inherit;
     font-size: 14px;
     font-weight: 500;
     line-height: 1.35;
@@ -14704,7 +14704,7 @@
     word-break: break-word;
   }
 
-  .hub-inspections-fill-lock {
+  .hub-inspections-document .hub-inspections-fill-lock {
     border: 0;
     margin: 0;
     padding: 0;

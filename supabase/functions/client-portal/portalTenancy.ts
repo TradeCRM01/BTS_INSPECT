@@ -39,3 +39,24 @@ export function inspectorSnapshotFields(row: {
     inspectorLicence: row.inspector_licence_snapshot ?? null,
   };
 }
+
+export function printSnapshotFields(row: {
+  meta?: Record<string, string> | null;
+  client_name_snapshot?: string | null;
+  job_title_snapshot?: string | null;
+  site_name_snapshot?: string | null;
+  site_address_snapshot?: string | null;
+}): {
+  siteName: string | null;
+  siteAddress: string | null;
+  clientName: string | null;
+  jobNumber: string | null;
+} {
+  const meta = row.meta ?? {};
+  return {
+    siteName: meta.siteName || row.site_name_snapshot || null,
+    siteAddress: meta.siteAddress || row.site_address_snapshot || null,
+    clientName: meta.clientName || row.client_name_snapshot || null,
+    jobNumber: meta.jobNumber ?? null,
+  };
+}

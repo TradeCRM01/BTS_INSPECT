@@ -1,6 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 
 type Filter = { op: string; col: string; val: unknown };
 
@@ -118,18 +116,6 @@ describe('persistLivingJobOnBoundJhas inspection sync', () => {
     harness.inspections = [];
   });
 
-  it('updates bound inspections on the same living persist — no new table, no responses write', () => {
-    const src = readFileSync(resolve(process.cwd(), 'src/lib/persistLivingJobJha.ts'), 'utf8');
-    expect(src).toContain('livingInspectionPatches');
-    expect(src).toContain("from('inspections')");
-    expect(src).toContain('crm_job_id');
-    expect(src).toContain('client_id');
-    expect(src).toContain("from('jobs')");
-    expect(src).not.toContain('responses');
-    expect(src).not.toContain('stop_think');
-    expect(src).not.toContain('create table');
-  });
-
   it('does not update an issued linked inspection', async () => {
     harness.inspections = [{
       id: 'iss-1',
@@ -176,19 +162,4 @@ describe('persistLivingJobOnBoundJhas inspection sync', () => {
     expect(inspUpdates[0].filters.some(filter => filter.op === 'eq' && filter.col === 'archived' && filter.val === false)).toBe(true);
   });
 
-  it('persistLivingJobOnBoundJhas filters finalised out of the inspection select', () => {
-    const src = readFileSync(resolve(process.cwd(), 'src/lib/persistLivingJobJha.ts'), 'utf8');
-    const selectIdx = src.indexOf(".select('id, meta, client_id, status, archived')");
-    expect(selectIdx).toBeGreaterThan(-1);
-    expect(src.slice(selectIdx, selectIdx + 220)).toContain(".not('status', 'in', FINALISED_INSPECTION_STATUS_IN)");
-    expect(src.slice(selectIdx, selectIdx + 220)).toContain(".eq('archived', false)");
-  });
-
-  it('persistLivingJobOnBoundJhas filters finalised out of the inspection update', () => {
-    const src = readFileSync(resolve(process.cwd(), 'src/lib/persistLivingJobJha.ts'), 'utf8');
-    const updateIdx = src.indexOf('.update({ meta: patch.meta, client_id: patch.clientId })');
-    expect(updateIdx).toBeGreaterThan(-1);
-    expect(src.slice(updateIdx)).toContain(".not('status', 'in', FINALISED_INSPECTION_STATUS_IN)");
-    expect(src.slice(updateIdx)).toContain(".eq('archived', false)");
-  });
 });

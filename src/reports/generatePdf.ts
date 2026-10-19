@@ -17,6 +17,10 @@ interface GenerateInput {
     inspector_id?: string | null;
     inspector_name_snapshot?: string | null;
     inspector_licence_snapshot?: string | null;
+    client_name_snapshot?: string | null;
+    job_title_snapshot?: string | null;
+    site_name_snapshot?: string | null;
+    site_address_snapshot?: string | null;
   };
   template: {
     name: string;

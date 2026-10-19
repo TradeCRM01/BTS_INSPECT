@@ -1,478 +1,122 @@
-BEGIN;
+-- SEC-INSP-3 proofs on the REAL migration chain. Do not create tables here.
+\ir sec_insp_finalised_lock_seed.sql
 
-DO $roles$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
-    CREATE ROLE authenticated NOLOGIN;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
-    CREATE ROLE anon NOLOGIN;
-  END IF;
-END
-$roles$;
-
-GRANT USAGE ON SCHEMA public TO authenticated, anon;
-
-CREATE SCHEMA IF NOT EXISTS auth;
-GRANT USAGE ON SCHEMA auth TO authenticated, anon;
-
-CREATE OR REPLACE FUNCTION auth.uid()
-RETURNS uuid
-LANGUAGE sql
-STABLE
-AS $$
-  SELECT NULLIF(
-    COALESCE(NULLIF(current_setting('request.jwt.claims', true), ''), '{}')::jsonb ->> 'sub',
-    ''
-  )::uuid
-$$;
-
-GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated, anon;
-
-CREATE TABLE IF NOT EXISTS public.companies (
-  id uuid PRIMARY KEY,
-  name text,
-  created_by uuid
-);
-
-CREATE TABLE IF NOT EXISTS public.profiles (
-  id uuid PRIMARY KEY,
-  company_id uuid REFERENCES public.companies(id),
-  email text,
-  name text NOT NULL,
-  licence_number text,
-  role text NOT NULL DEFAULT 'member'
-);
-
-ALTER TABLE public.companies
-  ADD CONSTRAINT companies_created_by_fkey
-  FOREIGN KEY (created_by) REFERENCES public.profiles(id);
-
-CREATE TABLE IF NOT EXISTS public.inspections (
-  id uuid PRIMARY KEY,
-  inspector_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE SET NULL,
-  status text NOT NULL DEFAULT 'draft',
-  meta jsonb NOT NULL DEFAULT '{}'::jsonb,
-  responses jsonb NOT NULL DEFAULT '{}'::jsonb,
-  client_id uuid,
-  crm_job_id uuid,
-  due_on date,
-  due_reminder_sent_at timestamptz,
-  due_reminder_sent_for_date date,
-  archived boolean NOT NULL DEFAULT false
-);
-
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.inspections ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
-CREATE POLICY "Users can view own profile"
-  ON public.profiles FOR SELECT
-  TO authenticated
-  USING (auth.uid() = id);
-
-CREATE OR REPLACE FUNCTION public.protect_company_admin_locks()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-BEGIN
-  IF TG_OP = 'DELETE' THEN
-    IF EXISTS (
-      SELECT 1 FROM public.companies c
-      WHERE c.id = OLD.company_id AND c.created_by = OLD.id
-    ) THEN
-      RAISE EXCEPTION 'The company owner cannot be removed or have their role changed.';
-    END IF;
-    RETURN OLD;
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS trg_protect_company_admin_locks ON public.profiles;
-CREATE TRIGGER trg_protect_company_admin_locks
-  BEFORE DELETE ON public.profiles
-  FOR EACH ROW
-  EXECUTE FUNCTION public.protect_company_admin_locks();
-
-GRANT SELECT ON public.profiles TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.inspections TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.profiles TO authenticated;
-GRANT SELECT ON public.companies TO authenticated;
-
-CREATE TABLE IF NOT EXISTS proof_result (
+CREATE TEMP TABLE proof_result (
   name text PRIMARY KEY,
   ok boolean NOT NULL,
   detail text
 );
+GRANT ALL ON proof_result TO authenticated;
 
-DELETE FROM public.inspections;
-DELETE FROM public.companies;
-DELETE FROM public.profiles;
-
-INSERT INTO public.profiles (id, company_id, email, name, licence_number, role) VALUES
-  ('11111111-1111-1111-1111-111111111111', NULL, 'owner@example.test', 'Owner Oak', 'OWN-1', 'admin'),
-  ('22222222-2222-2222-2222-222222222222', NULL, 'pat@example.test', 'Pat Snapshot', 'EC-4411', 'member'),
-  ('33333333-3333-3333-3333-333333333333', NULL, 'sam@example.test', 'Sam Spark', 'EL-1', 'member');
-
-INSERT INTO public.companies (id, name, created_by) VALUES
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Company A', '11111111-1111-1111-1111-111111111111');
-
-UPDATE public.profiles SET company_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-
-INSERT INTO public.inspections (id, inspector_id, status, meta, responses) VALUES
-  ('daaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'draft', '{"siteName":"Draft St"}', '{}'),
-  ('deaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '33333333-3333-3333-3333-333333333333', 'issued', '{"siteName":"Issued St"}', '{"q":"a"}'),
-  ('dfaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'sent', '{"siteName":"Sent St"}', '{}'),
-  ('d0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'completed', '{"siteName":"Ready St"}', '{}');
-
-\if :{?sec_insp3_fixture_only}
-\echo fixture_only
-\else
-
-\ir ../migrations/20261019150000_sec_insp_inspector_snapshots.sql
-\ir ../migrations/20261019160000_sec_insp_finalised_lock.sql
-
-DO $$
-DECLARE
-  meta_state text;
-  resp_state text;
-  client_state text;
-  crm_state text;
-  status_ok boolean;
-  due_ok boolean;
-  remind_ok boolean;
-  draft_ok boolean;
-  del_sqlstate text;
-  del_msg text;
-  kept_id uuid;
-  kept_name text;
-  stamp timestamptz;
-  who uuid;
-  snap_name text;
+CREATE OR REPLACE FUNCTION pg_temp.t(sql text) RETURNS text
+LANGUAGE plpgsql AS $f$
 BEGIN
-  BEGIN
-    UPDATE public.inspections SET meta = '{"siteName":"Nope"}'::jsonb
-      WHERE id = 'deaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-    meta_state := '00000';
-  EXCEPTION WHEN OTHERS THEN
-    meta_state := SQLSTATE;
-  END;
-  INSERT INTO proof_result VALUES (
-    'finalised_meta_change_raises',
-    meta_state = 'P0001',
-    meta_state
-  );
+  EXECUTE sql;
+  RETURN '00000';
+EXCEPTION WHEN OTHERS THEN
+  RETURN SQLSTATE || ':' || left(SQLERRM, 80);
+END
+$f$;
 
-  BEGIN
-    UPDATE public.inspections SET responses = '{"q":"b"}'::jsonb
-      WHERE id = 'deaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-    resp_state := '00000';
-  EXCEPTION WHEN OTHERS THEN
-    resp_state := SQLSTATE;
-  END;
-  INSERT INTO proof_result VALUES (
-    'finalised_responses_change_raises',
-    resp_state = 'P0001',
-    resp_state
-  );
+INSERT INTO proof_result SELECT 'U0_no_backfill_existing_rows_null',
+  count(*) FILTER (WHERE updated_at IS NOT NULL OR updated_by IS NOT NULL) = 0,
+  count(*) || ' rows, stamped=' || count(*) FILTER (WHERE updated_at IS NOT NULL)
+FROM public.inspections;
 
-  BEGIN
-    UPDATE public.inspections SET client_id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
-      WHERE id = 'deaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-    client_state := '00000';
-  EXCEPTION WHEN OTHERS THEN
-    client_state := SQLSTATE;
-  END;
-  INSERT INTO proof_result VALUES (
-    'finalised_client_id_change_raises',
-    client_state = 'P0001',
-    client_state
-  );
+INSERT INTO proof_result SELECT 'F1_issued_meta', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET meta='{"siteName":"New St"}' WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
+INSERT INTO proof_result SELECT 'F2_issued_responses', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET responses='{"q":"b"}' WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
+INSERT INTO proof_result SELECT 'F3_issued_client_id_value_change', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET client_id='c1000000-0000-0000-0000-000000000002' WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
+INSERT INTO proof_result SELECT 'F4_issued_crm_job_id_value_change', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET crm_job_id='b1000000-0000-0000-0000-000000000002' WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
+INSERT INTO proof_result SELECT 'F5_completed_meta', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET meta='{"siteName":"X"}' WHERE id='e1000000-0000-0000-0000-000000000002'$$) x;
+INSERT INTO proof_result SELECT 'F6_sent_meta', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET meta='{"siteName":"X"}' WHERE id='e1000000-0000-0000-0000-000000000004'$$) x;
+INSERT INTO proof_result SELECT 'F7_status_archived_meta', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET meta='{"siteName":"X"}' WHERE id='e1000000-0000-0000-0000-000000000005'$$) x;
+INSERT INTO proof_result SELECT 'C1_archived_flag_draft_meta', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET meta='{"siteName":"AF2"}' WHERE id='e1000000-0000-0000-0000-000000000006'$$) x;
+INSERT INTO proof_result SELECT 'A_status_issued_to_draft', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET status='draft' WHERE id='e1000000-0000-0000-0000-000000000008'$$) x;
+INSERT INTO proof_result SELECT 'D_template_snapshot', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET template_snapshot='{"name":"swapped"}' WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
+INSERT INTO proof_result SELECT 'D_completed_at', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET completed_at='2020-01-01' WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
+INSERT INTO proof_result SELECT 'D_doc_version', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET doc_version=9 WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
+INSERT INTO proof_result SELECT 'D_inspector_name_snapshot', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET inspector_name_snapshot='Forged' WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
+INSERT INTO proof_result SELECT 'D_inspector_licence_snapshot', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET inspector_licence_snapshot='FAKE' WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
 
-  BEGIN
-    UPDATE public.inspections SET crm_job_id = 'cccccccc-cccc-cccc-cccc-cccccccccccc'
-      WHERE id = 'deaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-    crm_state := '00000';
-  EXCEPTION WHEN OTHERS THEN
-    crm_state := SQLSTATE;
-  END;
-  INSERT INTO proof_result VALUES (
-    'finalised_crm_job_id_change_raises',
-    crm_state = 'P0001',
-    crm_state
-  );
+INSERT INTO proof_result SELECT 'B_cross_tenant_attach', x LIKE '42501%' OR x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET client_id='c1000000-0000-0000-0000-000000000004' WHERE id='e1000000-0000-0000-0000-000000000008'$$) x;
+INSERT INTO proof_result SELECT 'B_same_company_attach', x = '00000', x
+FROM pg_temp.t($$UPDATE public.inspections SET client_id='c1000000-0000-0000-0000-000000000002' WHERE id='e1000000-0000-0000-0000-000000000008'$$) x;
+INSERT INTO proof_result SELECT 'B_value_to_value_blocked', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET client_id='c1000000-0000-0000-0000-000000000001' WHERE id='e1000000-0000-0000-0000-000000000008'$$) x;
+INSERT INTO proof_result SELECT 'B_cross_tenant_attach_completed', x LIKE '42501%' OR x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET client_id='c1000000-0000-0000-0000-000000000004' WHERE id='e1000000-0000-0000-0000-000000000009'$$) x;
+INSERT INTO proof_result SELECT 'B_same_company_attach_completed', x = '00000', x
+FROM pg_temp.t($$UPDATE public.inspections SET client_id='c1000000-0000-0000-0000-000000000002' WHERE id='e1000000-0000-0000-0000-000000000009'$$) x;
+INSERT INTO proof_result SELECT 'A_null_out_without_client_snapshot', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET client_id=NULL WHERE id='e1000000-0000-0000-0000-000000000009'$$) x;
 
-  UPDATE public.inspections SET status = 'archived'
-    WHERE id = 'dfaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-  SELECT status = 'archived' INTO status_ok
-    FROM public.inspections WHERE id = 'dfaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-  INSERT INTO proof_result VALUES (
-    'finalised_status_transition_passes',
-    status_ok,
-    'sent->archived'
-  );
+INSERT INTO proof_result SELECT 'F10_noop_same_meta', x = '00000', x
+FROM pg_temp.t($$UPDATE public.inspections SET meta=meta, responses=responses WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
+INSERT INTO proof_result SELECT 'A1_issued_to_sent', x = '00000', x
+FROM pg_temp.t($$UPDATE public.inspections SET status='sent' WHERE id='e1000000-0000-0000-0000-000000000004'$$) x;
+INSERT INTO proof_result SELECT 'A2_issued_due_on', x = '00000', x
+FROM pg_temp.t($$UPDATE public.inspections SET due_on='2026-11-01' WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
+INSERT INTO proof_result SELECT 'A3_issued_reminder', x = '00000', x
+FROM pg_temp.t($$UPDATE public.inspections SET due_reminder_sent_at=now(), due_reminder_sent_for_date='2026-11-01' WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
+INSERT INTO proof_result SELECT 'A4_issued_archive_flag', x = '00000', x
+FROM pg_temp.t($$UPDATE public.inspections SET archived=true WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
+INSERT INTO proof_result SELECT 'A5_issued_position', x = '00000', x
+FROM pg_temp.t($$UPDATE public.inspections SET position_x=10, position_y=20 WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
 
-  UPDATE public.inspections SET due_on = DATE '2026-11-02'
-    WHERE id = 'deaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-  SELECT due_on = DATE '2026-11-02' INTO due_ok
-    FROM public.inspections WHERE id = 'deaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-  INSERT INTO proof_result VALUES (
-    'finalised_due_on_update_passes',
-    due_ok,
-    'due_on'
-  );
+INSERT INTO proof_result SELECT 'D1_draft_content', x = '00000', x
+FROM pg_temp.t($$UPDATE public.inspections SET meta='{"siteName":"New St"}', responses='{"q":"z"}' WHERE id='e1000000-0000-0000-0000-000000000003'$$) x;
 
-  UPDATE public.inspections
-    SET due_reminder_sent_at = TIMESTAMPTZ '2026-10-19 12:00:00+00',
-        due_reminder_sent_for_date = DATE '2026-11-02'
-    WHERE id = 'deaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-  SELECT due_reminder_sent_for_date = DATE '2026-11-02' INTO remind_ok
-    FROM public.inspections WHERE id = 'deaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-  INSERT INTO proof_result VALUES (
-    'finalised_reminder_update_passes',
-    remind_ok,
-    'reminder'
-  );
+SELECT set_config('request.jwt.claims', '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}', false);
+SET ROLE authenticated;
+INSERT INTO proof_result SELECT 'D3_auth_draft_edit', x = '00000', x
+FROM pg_temp.t($$UPDATE public.inspections SET meta='{"siteName":"Auth St"}' WHERE id='e1000000-0000-0000-0000-000000000003'$$) x;
+INSERT INTO proof_result SELECT 'F11_auth_issued_meta', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET meta='{"siteName":"Auth St"}' WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
+INSERT INTO proof_result SELECT 'F12_auth_forge_updated_by', x = '00000', x
+FROM pg_temp.t($$UPDATE public.inspections SET updated_by='33333333-3333-3333-3333-333333333333', updated_at='2000-01-01' WHERE id='e1000000-0000-0000-0000-000000000003'$$) x;
+RESET ROLE;
+SELECT set_config('request.jwt.claims', '', false);
+INSERT INTO proof_result SELECT 'D4_updated_by_is_caller',
+  updated_by = '22222222-2222-2222-2222-222222222222' AND updated_at > '2001-01-01',
+  coalesce(updated_by::text, 'null') || ' ' || coalesce(updated_at::date::text, 'null')
+FROM public.inspections WHERE id = 'e1000000-0000-0000-0000-000000000003';
 
-  UPDATE public.inspections
-    SET meta = '{"siteName":"Draft New"}'::jsonb,
-        responses = '{"note":"ok"}'::jsonb
-    WHERE id = 'daaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-  SELECT meta ->> 'siteName' = 'Draft New' INTO draft_ok
-    FROM public.inspections WHERE id = 'daaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-  INSERT INTO proof_result VALUES (
-    'draft_content_update_passes',
-    draft_ok,
-    'draft'
-  );
+INSERT INTO proof_result SELECT 'K1_delete_client_bound_to_issued', x = '00000', x
+FROM pg_temp.t($$DELETE FROM public.clients WHERE id='c1000000-0000-0000-0000-000000000003'$$) x;
+INSERT INTO proof_result SELECT 'K1b_client_snapshot_kept',
+  client_id IS NULL AND client_name_snapshot = 'Doomed Client',
+  coalesce(client_id::text, 'null') || '|' || coalesce(client_name_snapshot, 'null')
+FROM public.inspections WHERE id = 'e1000000-0000-0000-0000-000000000007';
+INSERT INTO proof_result SELECT 'K2_delete_job_bound_to_issued', x = '00000', x
+FROM pg_temp.t($$DELETE FROM public.jobs WHERE id='b1000000-0000-0000-0000-000000000003'$$) x;
+INSERT INTO proof_result SELECT 'K2b_job_snapshot_kept',
+  crm_job_id IS NULL
+    AND site_address_snapshot = 'Doom St'
+    AND job_title_snapshot = 'Doomed Job',
+  coalesce(crm_job_id::text, 'null') || '|' || coalesce(site_address_snapshot, 'null') || '|' || coalesce(job_title_snapshot, 'null')
+FROM public.inspections WHERE id = 'e1000000-0000-0000-0000-000000000007';
 
-  SELECT updated_at, updated_by INTO stamp, who
-    FROM public.inspections WHERE id = 'deaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-  INSERT INTO proof_result VALUES (
-    'updated_at_set_on_allowed_update',
-    stamp IS NOT NULL,
-    coalesce(stamp::text, 'null') || '|' || coalesce(who::text, 'null')
-  );
-
-  BEGIN
-    DELETE FROM public.profiles WHERE id = '33333333-3333-3333-3333-333333333333';
-    del_sqlstate := '00000';
-    del_msg := 'deleted';
-  EXCEPTION WHEN OTHERS THEN
-    del_sqlstate := SQLSTATE;
-    del_msg := SQLERRM;
-  END;
-  SELECT inspector_id, inspector_name_snapshot INTO kept_id, kept_name
-    FROM public.inspections WHERE id = 'deaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-  INSERT INTO proof_result VALUES (
-    'member_delete_on_finalised_passes',
-    del_sqlstate = '00000' AND kept_id IS NULL AND kept_name = 'Sam Spark',
-    del_sqlstate || '|' || coalesce(kept_id::text, 'null') || '|' || coalesce(kept_name, 'null') || '|' || del_msg
-  );
-
-  SELECT inspector_name_snapshot INTO snap_name
-    FROM public.inspections WHERE id = 'daaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-  INSERT INTO proof_result VALUES (
-    'snapshot_trigger_still_filled',
-    snap_name = 'Pat Snapshot',
-    coalesce(snap_name, 'null')
-  );
-END $$;
-
--- Mutant: drop meta check
-CREATE OR REPLACE FUNCTION public.inspections_guard_finalised()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-BEGIN
-  IF OLD.status IN ('completed', 'issued', 'sent', 'archived') THEN
-    IF NEW.responses IS DISTINCT FROM OLD.responses
-       OR NEW.client_id IS DISTINCT FROM OLD.client_id
-       OR NEW.crm_job_id IS DISTINCT FROM OLD.crm_job_id
-    THEN
-      RAISE EXCEPTION 'Finalised inspections cannot change meta, responses, client_id, or crm_job_id'
-        USING ERRCODE = 'P0001';
-    END IF;
-  END IF;
-  NEW.updated_at := clock_timestamp();
-  NEW.updated_by := auth.uid();
-  RETURN NEW;
-END;
-$$;
-
-DO $$
-DECLARE
-  meta_state text;
-BEGIN
-  BEGIN
-    UPDATE public.inspections SET meta = '{"siteName":"mutant-meta"}'::jsonb
-      WHERE id = 'd0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-    meta_state := '00000';
-  EXCEPTION WHEN OTHERS THEN
-    meta_state := SQLSTATE;
-  END;
-  INSERT INTO proof_result VALUES (
-    'mutant_drop_meta_check_applied',
-    meta_state = '00000',
-    meta_state
-  );
-  INSERT INTO proof_result VALUES (
-    'mutant_drop_meta_check_killed',
-    meta_state = '00000',
-    'killed by finalised_meta_change_raises ' || meta_state
-  );
-END $$;
-
-\ir ../migrations/20261019160000_sec_insp_finalised_lock.sql
-
--- Mutant: drop responses check
-CREATE OR REPLACE FUNCTION public.inspections_guard_finalised()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-BEGIN
-  IF OLD.status IN ('completed', 'issued', 'sent', 'archived') THEN
-    IF NEW.meta IS DISTINCT FROM OLD.meta
-       OR NEW.client_id IS DISTINCT FROM OLD.client_id
-       OR NEW.crm_job_id IS DISTINCT FROM OLD.crm_job_id
-    THEN
-      RAISE EXCEPTION 'Finalised inspections cannot change meta, responses, client_id, or crm_job_id'
-        USING ERRCODE = 'P0001';
-    END IF;
-  END IF;
-  NEW.updated_at := clock_timestamp();
-  NEW.updated_by := auth.uid();
-  RETURN NEW;
-END;
-$$;
-
-DO $$
-DECLARE
-  resp_state text;
-BEGIN
-  BEGIN
-    UPDATE public.inspections SET responses = '{"q":"mutant"}'::jsonb
-      WHERE id = 'd0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-    resp_state := '00000';
-  EXCEPTION WHEN OTHERS THEN
-    resp_state := SQLSTATE;
-  END;
-  INSERT INTO proof_result VALUES (
-    'mutant_drop_responses_check_applied',
-    resp_state = '00000',
-    resp_state
-  );
-  INSERT INTO proof_result VALUES (
-    'mutant_drop_responses_check_killed',
-    resp_state = '00000',
-    'killed by finalised_responses_change_raises ' || resp_state
-  );
-END $$;
-
-\ir ../migrations/20261019160000_sec_insp_finalised_lock.sql
-
--- Mutant: drop client_id check
-CREATE OR REPLACE FUNCTION public.inspections_guard_finalised()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-BEGIN
-  IF OLD.status IN ('completed', 'issued', 'sent', 'archived') THEN
-    IF NEW.meta IS DISTINCT FROM OLD.meta
-       OR NEW.responses IS DISTINCT FROM OLD.responses
-       OR NEW.crm_job_id IS DISTINCT FROM OLD.crm_job_id
-    THEN
-      RAISE EXCEPTION 'Finalised inspections cannot change meta, responses, client_id, or crm_job_id'
-        USING ERRCODE = 'P0001';
-    END IF;
-  END IF;
-  NEW.updated_at := clock_timestamp();
-  NEW.updated_by := auth.uid();
-  RETURN NEW;
-END;
-$$;
-
-DO $$
-DECLARE
-  client_state text;
-BEGIN
-  BEGIN
-    UPDATE public.inspections SET client_id = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
-      WHERE id = 'd0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-    client_state := '00000';
-  EXCEPTION WHEN OTHERS THEN
-    client_state := SQLSTATE;
-  END;
-  INSERT INTO proof_result VALUES (
-    'mutant_drop_client_id_check_applied',
-    client_state = '00000',
-    client_state
-  );
-  INSERT INTO proof_result VALUES (
-    'mutant_drop_client_id_check_killed',
-    client_state = '00000',
-    'killed by finalised_client_id_change_raises ' || client_state
-  );
-END $$;
-
-\ir ../migrations/20261019160000_sec_insp_finalised_lock.sql
-
--- Mutant: drop crm_job_id check
-CREATE OR REPLACE FUNCTION public.inspections_guard_finalised()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-BEGIN
-  IF OLD.status IN ('completed', 'issued', 'sent', 'archived') THEN
-    IF NEW.meta IS DISTINCT FROM OLD.meta
-       OR NEW.responses IS DISTINCT FROM OLD.responses
-       OR NEW.client_id IS DISTINCT FROM OLD.client_id
-    THEN
-      RAISE EXCEPTION 'Finalised inspections cannot change meta, responses, client_id, or crm_job_id'
-        USING ERRCODE = 'P0001';
-    END IF;
-  END IF;
-  NEW.updated_at := clock_timestamp();
-  NEW.updated_by := auth.uid();
-  RETURN NEW;
-END;
-$$;
-
-DO $$
-DECLARE
-  crm_state text;
-BEGIN
-  BEGIN
-    UPDATE public.inspections SET crm_job_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
-      WHERE id = 'd0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-    crm_state := '00000';
-  EXCEPTION WHEN OTHERS THEN
-    crm_state := SQLSTATE;
-  END;
-  INSERT INTO proof_result VALUES (
-    'mutant_drop_crm_job_id_check_applied',
-    crm_state = '00000',
-    crm_state
-  );
-  INSERT INTO proof_result VALUES (
-    'mutant_drop_crm_job_id_check_killed',
-    crm_state = '00000',
-    'killed by finalised_crm_job_id_change_raises ' || crm_state
-  );
-END $$;
-
-\ir ../migrations/20261019160000_sec_insp_finalised_lock.sql
+INSERT INTO proof_result SELECT 'M1_member_delete_on_finalised', x = '00000', x
+FROM pg_temp.t($$DELETE FROM public.profiles WHERE id='33333333-3333-3333-3333-333333333333'$$) x;
+INSERT INTO proof_result SELECT 'M2_inspector_snapshot_kept',
+  inspector_id IS NULL AND inspector_name_snapshot = 'Sam Spark',
+  coalesce(inspector_id::text, 'null') || '|' || coalesce(inspector_name_snapshot, 'null')
+FROM public.inspections WHERE id = 'e1000000-0000-0000-0000-000000000007';
 
 DO $$
 DECLARE
@@ -488,7 +132,3 @@ BEGIN
 END $$;
 
 SELECT name, ok, detail FROM proof_result ORDER BY name;
-
-\endif
-
-COMMIT;

@@ -786,7 +786,7 @@ export function InspectionFillPage() {
             {jobLine ? <p className="hub-inspections-jobline">{jobLine}</p> : null}
             {finalised ? (
               <p className="hub-inspections-issued-lock" data-issued-lock="1">
-                Issued. Contact the office to amend.
+                Locked. Contact the office to amend.
               </p>
             ) : null}
 
@@ -840,7 +840,9 @@ export function InspectionFillPage() {
                     {finalised
                       ? (meta.siteName || 'No site address on this job yet')
                       : (living.siteName || 'No site address on this job yet')}
-                    <span className="hub-inspections-muted"> Site follows this job.</span>
+                    {!finalised ? (
+                      <span className="hub-inspections-muted"> Site follows this job.</span>
+                    ) : null}
                   </p>
                 ) : (
                   <input
@@ -887,7 +889,7 @@ export function InspectionFillPage() {
                   ))}
                 </select>
               </div>
-              {jobBound && (
+              {jobBound && !finalised && (
                 <p className="hub-inspections-ledger-row">
                   <span className="hub-inspections-muted">
                     {living.clientName

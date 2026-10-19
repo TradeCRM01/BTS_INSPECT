@@ -5,6 +5,7 @@ import {
   inspectorCompanyMatches,
   inspectorSnapshotFields,
   inspectionsForTokenCompany,
+  printSnapshotFields,
 } from "./portalTenancy.ts";
 
 const corsHeaders = {
@@ -302,7 +303,7 @@ export async function handleClientPortalRequest(req: Request) {
 
       const { data: inspection } = await admin
         .from("inspections")
-        .select("id, meta, status, completed_at, doc_version, amendment_reason, template_snapshot, inspector_id, inspector_name_snapshot, inspector_licence_snapshot")
+        .select("id, meta, status, completed_at, doc_version, amendment_reason, template_snapshot, inspector_id, inspector_name_snapshot, inspector_licence_snapshot, client_name_snapshot, job_title_snapshot, site_name_snapshot, site_address_snapshot")
         .eq("id", share.inspection_id)
         .maybeSingle();
 
@@ -346,7 +347,7 @@ export async function handleClientPortalRequest(req: Request) {
         pdfUrl = signed?.signedUrl ?? null;
       }
 
-      const meta = (inspection?.meta ?? {}) as Record<string, string>;
+      const printed = printSnapshotFields(inspection ?? {});
       const snapshot = inspection?.template_snapshot as { name?: string } | null;
 
       return json({
@@ -364,10 +365,10 @@ export async function handleClientPortalRequest(req: Request) {
           inspectionId: share.inspection_id,
           reportNumber: report?.report_number ?? null,
           templateName: snapshot?.name ?? null,
-          siteName: meta.siteName ?? null,
-          siteAddress: meta.siteAddress ?? null,
-          clientName: meta.clientName ?? null,
-          jobNumber: meta.jobNumber ?? null,
+          siteName: printed.siteName,
+          siteAddress: printed.siteAddress,
+          clientName: printed.clientName,
+          jobNumber: printed.jobNumber,
           status: inspection?.status ?? null,
           completedAt: inspection?.completed_at ?? null,
           docVersion: inspection?.doc_version ?? 1,
@@ -492,7 +493,7 @@ export async function handleClientPortalRequest(req: Request) {
           .limit(50),
         admin
           .from("inspections")
-          .select("id, status, meta, completed_at, doc_version, template_snapshot, inspector_id, inspector_name_snapshot, inspector_licence_snapshot")
+          .select("id, status, meta, completed_at, doc_version, template_snapshot, inspector_id, inspector_name_snapshot, inspector_licence_snapshot, client_name_snapshot, job_title_snapshot, site_name_snapshot, site_address_snapshot")
           .eq("client_id", portal.client_id)
           .in("status", ["completed", "issued"])
           .order("completed_at", { ascending: false })
@@ -545,13 +546,13 @@ export async function handleClientPortalRequest(req: Request) {
             .createSignedUrl(report.pdf_storage_path, 60 * 60);
           pdfUrl = signed?.signedUrl ?? null;
         }
-        const meta = (insp.meta ?? {}) as Record<string, string>;
+        const printed = printSnapshotFields(insp);
         const snapshot = insp.template_snapshot as { name?: string } | null;
         return {
           inspectionId: insp.id,
           reportNumber: report?.report_number ?? null,
           templateName: snapshot?.name ?? null,
-          siteName: meta.siteName ?? null,
+          siteName: printed.siteName,
           status: insp.status,
           completedAt: insp.completed_at,
           docVersion: insp.doc_version ?? 1,

@@ -15,6 +15,7 @@ import {
 import type { PdfThemeTokens } from '../shared/styles';
 import { companyDocumentLogoUrl } from '../../lib/companyLogo';
 import { resolveInspectorIdentity } from '../../lib/inspectorSnapshot';
+import { resolveInspectionPrintFields } from '../../lib/inspectionPrintSnapshot';
 import { inspectionReportTheme } from './theme';
 
 interface ComposeInput {
@@ -28,6 +29,10 @@ interface ComposeInput {
     inspector_id?: string | null;
     inspector_name_snapshot?: string | null;
     inspector_licence_snapshot?: string | null;
+    client_name_snapshot?: string | null;
+    job_title_snapshot?: string | null;
+    site_name_snapshot?: string | null;
+    site_address_snapshot?: string | null;
   };
   template: {
     name: string;
@@ -62,6 +67,16 @@ export function composeGenericReport(input: ComposeInput): GenericReportData {
       licence: inspection.inspector_licence_snapshot,
     },
   });
+  const printed = resolveInspectionPrintFields({
+    meta,
+    snapshots: {
+      clientName: inspection.client_name_snapshot,
+      jobTitle: inspection.job_title_snapshot,
+      siteName: inspection.site_name_snapshot,
+      siteAddress: inspection.site_address_snapshot,
+    },
+    finalised: true,
+  });
   const sections = composeInspectionSections(template.schema, responses, photos);
   const overallVerdict = computeOverallVerdict(sections);
   const signatures = collectSignatures(sections, inspector.name);
@@ -79,11 +94,11 @@ export function composeGenericReport(input: ComposeInput): GenericReportData {
     reportNumber,
     issueDate: format(new Date(), 'd MMMM yyyy'),
     templateName: template.name,
-    siteName: meta.siteName,
-    siteAddress: meta.siteAddress,
-    clientName: meta.clientName,
+    siteName: printed.siteName || undefined,
+    siteAddress: printed.siteAddress || undefined,
+    clientName: printed.clientName || undefined,
     jobNumber: meta.jobNumber,
-    jobDescription: meta.jobDescription,
+    jobDescription: printed.jobTitle || undefined,
     customFields,
     inspectorName: inspector.name,
     inspectorLicence: inspector.licence ?? undefined,

@@ -1,8 +1,6 @@
 /**
  * @vitest-environment jsdom
  */
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -22,6 +20,7 @@ const harness = vi.hoisted(() => ({
   inspectionStatus: 'draft',
   inspectionMeta: { siteName: 'Phone site' } as Record<string, string>,
   inspectionCrmJobId: null as string | null,
+  inspectionArchived: false,
   jobs: [] as Array<Record<string, unknown>>,
   schema: {
     meta: {
@@ -80,7 +79,7 @@ vi.mock('../lib/supabase', () => {
       inspector_id: harness.userId,
       crm_job_id: harness.inspectionCrmJobId,
       client_id: null,
-      archived: false,
+      archived: harness.inspectionArchived,
     };
   }
 
@@ -151,6 +150,7 @@ beforeEach(() => {
   harness.inspectionStatus = 'draft';
   harness.inspectionMeta = { siteName: 'Phone site' };
   harness.inspectionCrmJobId = null;
+  harness.inspectionArchived = false;
   harness.jobs = [];
   sessionStorage.clear();
   container = document.createElement('div');
@@ -440,65 +440,15 @@ describe('inspection fill page flush', () => {
   });
 
   it('does not write an issued inspection on retry, flush, or View PDF', async () => {
-    vi.stubEnv('VITE_SUPABASE_URL', 'https://proj.supabase.co');
-    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'ANON_KEY_123');
-    const calls: Array<{ url: string; init: RequestInit }> = [];
-    const orig = globalThis.fetch;
-    globalThis.fetch = ((url: string, init?: RequestInit) => {
-      calls.push({ url: String(url), init: init ?? {} });
-      return Promise.resolve(new Response(null, { status: 204 }));
-    }) as typeof fetch;
-    harness.inspectionStatus = 'issued';
-    harness.inspectionMeta = { siteName: 'Old St', siteAddress: 'Old St', clientName: 'Old Client' };
-    harness.inspectionCrmJobId = 'job-1';
-    harness.jobs = [{
-      id: 'job-1',
-      title: 'New job',
-      client_id: 'client-1',
-      address: 'New St',
-      job_number: 41,
-      scheduled_date: '2026-10-19',
-      company_id: harness.companyId,
-      start_time: null,
-    }];
-    try {
-      vi.useFakeTimers();
-      await renderPage();
-      await act(async () => {
-        await Promise.resolve();
-        await Promise.resolve();
-      });
-      expect(document.body.textContent).toContain('Issued. Contact the office to amend.');
-      expect(document.body.textContent).toContain('View PDF');
-      expect(harness.updates).toEqual([]);
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(31000);
-      });
-      Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
-      await act(async () => {
-        document.dispatchEvent(new Event('visibilitychange'));
-        window.dispatchEvent(new Event('pagehide'));
-      });
-      const pdf = Array.from(document.body.querySelectorAll('button')).find(btn => (
-        /View PDF/.test(btn.textContent || '')
-      ));
-      if (!pdf) throw new Error('missing View PDF');
-      await act(async () => {
-        pdf.click();
-      });
-      await act(async () => {
-        await Promise.resolve();
-      });
-      expect(harness.updates).toEqual([]);
-      expect(calls.filter(call => call.url.includes('/rest/v1/inspections'))).toEqual([]);
-      expect(document.body.textContent).toContain('REPORT PAGE');
-    } finally {
-      globalThis.fetch = orig;
-      vi.unstubAllEnvs();
-      vi.useRealTimers();
-      Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
-    }
+    const walked = await finalisedWalk('issued');
+    expect(walked).toMatchObject({
+      lock: true,
+      textareaDisabled: true,
+      updates: 0,
+      rest: 0,
+      navigated: 'report',
+    });
+    expect(walked.follows).toBe(false);
   });
 
   it('does not persist a draft when the living job matches stored meta', async () => {
@@ -516,46 +466,141 @@ describe('inspection fill page flush', () => {
     }];
     await renderPage();
     await waitForNotes();
-    await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 700));
-    });
+    const started = Date.now();
+    while (Date.now() - started < 2000 && harness.updates.length === 0) {
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
+    }
     expect(harness.updates).toEqual([]);
   });
 });
 
+function forceType(el: HTMLTextAreaElement | HTMLInputElement, value: string) {
+  const proto = el instanceof HTMLTextAreaElement
+    ? window.HTMLTextAreaElement.prototype
+    : window.HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto, 'value')?.set?.call(el, value);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+async function tick(ms: number) {
+  await act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+}
+
+async function finalisedWalk(status: string, archived = false) {
+  vi.stubEnv('VITE_SUPABASE_URL', 'https://proj.supabase.co');
+  vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'ANON_KEY_123');
+  const calls: string[] = [];
+  const orig = globalThis.fetch;
+  globalThis.fetch = ((url: string) => {
+    calls.push(String(url));
+    return Promise.resolve(new Response(null, { status: 204 }));
+  }) as typeof fetch;
+  harness.inspectionStatus = status;
+  harness.inspectionArchived = archived;
+  harness.inspectionMeta = { siteName: 'Old St', siteAddress: 'Old St', clientName: 'Old Client' };
+  harness.inspectionCrmJobId = 'job-1';
+  harness.jobs = [{
+    id: 'job-1',
+    title: 'New job',
+    client_id: 'client-1',
+    address: 'New St',
+    job_number: 41,
+    scheduled_date: '2026-10-19',
+    company_id: harness.companyId,
+    start_time: null,
+  }];
+  const out = {
+    lock: false,
+    follows: false,
+    textareaDisabled: false,
+    updates: 0,
+    rest: 0,
+    navigated: '',
+  };
+  try {
+    vi.useFakeTimers();
+    await renderPage();
+    for (let i = 0; i < 20 && !container.querySelector('textarea'); i++) await tick(50);
+    const body = document.body.textContent || '';
+    out.lock = body.includes('Locked. Contact the office to amend.');
+    out.follows = body.includes('Site follows this job.') || body.includes('Client follows this job');
+    const ta = container.querySelector('textarea') as HTMLTextAreaElement | null;
+    out.textareaDisabled = !!ta?.matches(':disabled');
+    if (ta) await act(async () => { forceType(ta, 'forced edit'); });
+    await tick(700);
+    await tick(31000);
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('pagehide'));
+      window.dispatchEvent(new Event('beforeunload', { cancelable: true }));
+    });
+    const btn = Array.from(document.body.querySelectorAll('button')).find(b => (
+      /View PDF|Review|Next/.test(b.textContent || '')
+    ));
+    if (btn) await act(async () => { btn.click(); });
+    await tick(100);
+    out.updates = harness.updates.length;
+    out.rest = calls.filter(u => u.includes('/rest/v1/inspections')).length;
+    out.navigated = (document.body.textContent || '').includes('REPORT PAGE')
+      ? 'report'
+      : ((document.body.textContent || '').includes('REVIEW PAGE') ? 'review' : 'stayed');
+    return out;
+  } finally {
+    globalThis.fetch = orig;
+    vi.unstubAllEnvs();
+    vi.useRealTimers();
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+  }
+}
+
 describe('finalised write guards', () => {
-  const fillSrc = () => readFileSync(resolve(process.cwd(), 'src/pages/InspectionFillPage.tsx'), 'utf8');
-
-  it('living effect returns before persist when the inspection is finalised', () => {
-    const src = fillSrc();
-    const start = src.indexOf('if (!livingJob) return;');
-    const persist = src.indexOf('persist(responsesRef.current, applied.meta, livingJob.id);', start);
-    const guard = src.indexOf('isFinalisedInspection', start);
-    expect(start).toBeGreaterThan(-1);
-    expect(guard).toBeGreaterThan(start);
-    expect(guard).toBeLessThan(persist);
+  it('living effect returns before persist when the inspection is finalised', async () => {
+    const walked = await finalisedWalk('issued');
+    expect(walked.updates).toBe(0);
+    expect(walked.rest).toBe(0);
+    expect(walked.lock).toBe(true);
   });
 
-  it('saveInspection returns before update when the inspection is finalised', () => {
-    const src = fillSrc();
-    const start = src.indexOf('const saveInspection = useCallback');
-    const update = src.indexOf(".from('inspections')", start);
-    const guard = src.indexOf('isFinalisedInspection', start);
-    expect(guard).toBeGreaterThan(start);
-    expect(guard).toBeLessThan(update);
+  it('saveInspection returns before update when the inspection is finalised', async () => {
+    const walked = await finalisedWalk('completed');
+    expect(walked).toMatchObject({ lock: true, follows: false, textareaDisabled: true, updates: 0, rest: 0, navigated: 'report' });
   });
 
-  it('flush and retry skip saveInspection when the inspection is finalised', () => {
-    const src = fillSrc();
-    const flush = src.indexOf('const flushPending = useCallback');
-    const interval = src.indexOf('const interval = setInterval');
-    expect(src.slice(flush, flush + 400)).toContain('isFinalisedInspection');
-    expect(src.slice(interval, interval + 350)).toContain('isFinalisedInspection');
+  it('flush and retry skip saveInspection when the inspection is finalised', async () => {
+    const walked = await finalisedWalk('sent');
+    expect(walked.updates).toBe(0);
+    expect(walked.rest).toBe(0);
+    expect(walked.lock).toBe(true);
+    expect(walked.follows).toBe(false);
   });
 
-  it('living effect does not persist when the living job matches stored meta', () => {
-    const src = fillSrc();
-    expect(src).toContain('if (!applied.changed) return;');
+  it('living effect does not persist when the living job matches stored meta', async () => {
+    harness.inspectionStatus = 'draft';
+    harness.inspectionMeta = { siteName: 'Same St', siteAddress: 'Same St', clientName: '' };
+    harness.inspectionCrmJobId = 'job-1';
+    harness.jobs = [{
+      id: 'job-1',
+      title: 'Same St',
+      client_id: null,
+      address: 'Same St',
+      job_number: 7,
+      scheduled_date: '2026-10-19',
+      company_id: harness.companyId,
+      start_time: null,
+    }];
+    await renderPage();
+    await waitForNotes();
+    const started = Date.now();
+    while (Date.now() - started < 2000 && harness.updates.length === 0) {
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
+    }
+    expect(harness.updates).toEqual([]);
+  });
+
+  it('locks a draft with the archived flag and writes nothing after forced input', async () => {
+    const walked = await finalisedWalk('draft', true);
+    expect(walked).toMatchObject({ lock: true, follows: false, textareaDisabled: true, updates: 0, rest: 0 });
   });
 });
 

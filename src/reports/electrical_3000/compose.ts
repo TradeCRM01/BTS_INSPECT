@@ -15,6 +15,7 @@ import {
 import type { PdfThemeTokens } from '../shared/styles';
 import { companyDocumentLogoUrl } from '../../lib/companyLogo';
 import { resolveInspectorIdentity } from '../../lib/inspectorSnapshot';
+import { resolveInspectionPrintFields } from '../../lib/inspectionPrintSnapshot';
 import { inspectionReportTheme } from '../generic_inspection/theme';
 
 interface ComposeInput {
@@ -28,6 +29,10 @@ interface ComposeInput {
     inspector_id?: string | null;
     inspector_name_snapshot?: string | null;
     inspector_licence_snapshot?: string | null;
+    client_name_snapshot?: string | null;
+    job_title_snapshot?: string | null;
+    site_name_snapshot?: string | null;
+    site_address_snapshot?: string | null;
   };
   template: { name: string; schema: TemplateSchema };
   profile: { name: string; licence_number?: string | null };
@@ -57,6 +62,16 @@ export function composeElectricalReport(input: ComposeInput): ElectricalReportDa
       licence: inspection.inspector_licence_snapshot,
     },
   });
+  const printed = resolveInspectionPrintFields({
+    meta,
+    snapshots: {
+      clientName: inspection.client_name_snapshot,
+      jobTitle: inspection.job_title_snapshot,
+      siteName: inspection.site_name_snapshot,
+      siteAddress: inspection.site_address_snapshot,
+    },
+    finalised: true,
+  });
   const sections = composeInspectionSections(template.schema, responses, photos);
   const overallVerdict = computeOverallVerdict(sections);
   const signatures = collectSignatures(sections, inspector.name);
@@ -77,9 +92,9 @@ export function composeElectricalReport(input: ComposeInput): ElectricalReportDa
     meta: {
       reportNumber,
       issueDate: format(new Date(), 'd MMMM yyyy'),
-      site: meta.siteName ?? '',
-      siteAddress: meta.siteAddress ?? '',
-      client: meta.clientName ?? '',
+      site: printed.siteName,
+      siteAddress: printed.siteAddress,
+      client: printed.clientName,
       jobNumber: meta.jobNumber,
       inspector: inspector.name,
       licenceNumber: inspector.licence ?? '',
