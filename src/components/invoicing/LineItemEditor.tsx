@@ -84,6 +84,9 @@ function LineDescriptionInput({
 }) {
   const fieldRef = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => watchDescriptionFieldWidth(fieldRef.current), []);
+  useLayoutEffect(() => {
+    growDescriptionField(fieldRef.current);
+  }, [value]);
   return (
     <textarea
       ref={fieldRef}
