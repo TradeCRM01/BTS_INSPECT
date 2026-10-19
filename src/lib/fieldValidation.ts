@@ -47,17 +47,20 @@ export function isEmail(value: string): boolean {
 
 function isAuPhoneDigits(digits: string, plus: boolean): boolean {
   if (plus) {
-    return /^614\d{8}$/.test(digits) || /^61[2378]\d{8}$/.test(digits) || /^614\d{13}$/.test(digits);
+    return /^614\d{8}$/.test(digits) || /^61[2378]\d{8}$/.test(digits);
   }
   return (
     /^04\d{8}$/.test(digits)
-    || /^04\d{14}$/.test(digits)
     || /^0[2378]\d{8}$/.test(digits)
     || /^13\d{4}$/.test(digits)
-    || /^13\d{5}$/.test(digits)
     || /^1300\d{6}$/.test(digits)
     || /^1800\d{6}$/.test(digits)
   );
+}
+
+export function auPhoneDigitLengthOk(length: number, plus: boolean): boolean {
+  if (length === 6) return !plus;
+  return length >= 8 && length <= 15;
 }
 
 function auPhoneDigits(raw: string): { digits: string; plus: boolean } {
@@ -72,8 +75,8 @@ export function isAuPhone(value: string): boolean {
   if (!raw) return false;
   if (!hasAllowedPhoneChars(raw)) return false;
   const { digits, plus } = auPhoneDigits(raw);
-  if (digits.length === 6) return !plus && isAuPhoneDigits(digits, false);
-  return digits.length >= 8 && digits.length <= 15 && isAuPhoneDigits(digits, plus);
+  if (!auPhoneDigitLengthOk(digits.length, plus)) return false;
+  return isAuPhoneDigits(digits, plus);
 }
 
 export function isBsb(value: string): boolean {
@@ -192,16 +195,21 @@ export function companyDetailsFieldErrors(
   return errors;
 }
 
-export function paymentMethodFieldErrors(method: {
-  kind: string;
-  bsb: string;
-  account_number: string;
-}): FieldErrors {
+export function paymentMethodFieldErrors(
+  method: {
+    kind: string;
+    bsb: string;
+    account_number: string;
+  },
+  original?: { bsb?: string; account_number?: string },
+): FieldErrors {
   const errors: FieldErrors = {};
   if (method.kind !== 'bank_transfer') return errors;
   if (method.bsb.trim() || method.account_number.trim()) {
-    if (!isBsb(method.bsb)) errors.bsb = FIELD_BSB;
-    if (!isAccountNumber(method.account_number)) errors.account = FIELD_ACCOUNT;
+    if (fieldChanged(method.bsb, original?.bsb) && !isBsb(method.bsb)) errors.bsb = FIELD_BSB;
+    if (fieldChanged(method.account_number, original?.account_number) && !isAccountNumber(method.account_number)) {
+      errors.account = FIELD_ACCOUNT;
+    }
   }
   return errors;
 }

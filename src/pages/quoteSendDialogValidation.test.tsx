@@ -177,4 +177,30 @@ describe('Quote send client email and SMS To', () => {
     expect(phone!.getAttribute('aria-invalid')).toBe('true');
     expect(phone!.getAttribute('aria-describedby')).toBe('quote-send-client-phone-error');
   });
+
+  it('shows the miss-chrome email error for a@b..c instead of a native email popup', async () => {
+    harness.bundle.quote.line_items = [];
+    await renderDialog();
+    const email = document.querySelector('input[aria-label="Client email"]') as HTMLInputElement | null;
+    expect(email).toBeTruthy();
+    expect(document.querySelector('.hub-invoice-send-title')).toBeTruthy();
+    expect(document.querySelector('.hub-invoice-kicker')).toBeNull();
+    const form = email!.closest('form.job-client-email') as HTMLFormElement | null;
+    expect(form).toBeTruthy();
+    expect(form!.noValidate || email!.getAttribute('type') === 'text').toBe(true);
+    if (email!.getAttribute('type') === 'text') {
+      expect(email!.getAttribute('inputMode')).toBe('email');
+    }
+    await act(async () => {
+      setInput(email!, 'a@b..c');
+    });
+    await act(async () => {
+      document.querySelector('.job-client-email-save')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    const emailError = document.querySelector('#quote-send-client-email-error');
+    expect(emailError?.textContent).toBe(FIELD_EMAIL);
+    expect(email!.getAttribute('aria-invalid')).toBe('true');
+    expect(email!.getAttribute('aria-describedby')).toBe('quote-send-client-email-error');
+    expect(emailError?.closest('form.job-client-email')).toBe(email!.closest('form'));
+  });
 });

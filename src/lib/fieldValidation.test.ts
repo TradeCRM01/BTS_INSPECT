@@ -14,6 +14,7 @@ import {
   clientFormFieldErrors,
   companyDetailsFieldErrors,
   fieldSaveMiss,
+  auPhoneDigitLengthOk,
   isAbn,
   isAccountNumber,
   isAuPhone,
@@ -118,6 +119,19 @@ describe('fieldValidation predicates', () => {
     expect(isAuPhone('0400000000123456')).toBe(false);
   });
 
+  it('rejects AU phone digit lengths of 7 and 16', () => {
+    expect(auPhoneDigitLengthOk(7, false)).toBe(false);
+    expect(auPhoneDigitLengthOk(7, true)).toBe(false);
+    expect(auPhoneDigitLengthOk(16, false)).toBe(false);
+    expect(auPhoneDigitLengthOk(16, true)).toBe(false);
+    expect(auPhoneDigitLengthOk(8, false)).toBe(true);
+    expect(auPhoneDigitLengthOk(15, false)).toBe(true);
+    expect(auPhoneDigitLengthOk(6, false)).toBe(true);
+    expect(auPhoneDigitLengthOk(6, true)).toBe(false);
+    expect(isAuPhone('0412 345')).toBe(false);
+    expect(isAuPhone('0400000000123456')).toBe(false);
+  });
+
   it('rejects 1,5 and 1,000 on percent and amount', () => {
     expect(parsePercent('1,5')).toEqual({ ok: false });
     expect(parsePercent('1,000')).toEqual({ ok: false });
@@ -203,6 +217,25 @@ describe('field error maps', () => {
       bsb: '',
       account_number: '',
     })).toEqual({});
+  });
+
+  it('does not block a stored invalid BSB when only another payment field changes', () => {
+    const stored = { bsb: 'abc12', account_number: '12ab' };
+    expect(paymentMethodFieldErrors({
+      kind: 'bank_transfer',
+      bsb: stored.bsb,
+      account_number: stored.account_number,
+    }, stored)).toEqual({});
+    expect(paymentMethodFieldErrors({
+      kind: 'bank_transfer',
+      bsb: stored.bsb,
+      account_number: '12345678',
+    }, stored)).toEqual({});
+    expect(paymentMethodFieldErrors({
+      kind: 'bank_transfer',
+      bsb: 'abc',
+      account_number: stored.account_number,
+    }, stored).bsb).toBe(FIELD_BSB);
   });
 
   it('blocks a bad SMTP from-email and port', () => {

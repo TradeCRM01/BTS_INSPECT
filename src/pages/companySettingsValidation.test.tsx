@@ -169,6 +169,16 @@ beforeEach(() => {
   harness.company.abn = '';
   harness.company.phone = '';
   harness.company.email = 'jack@example.com';
+  harness.company.payment_methods = [{
+    id: 'pm1',
+    kind: 'bank_transfer',
+    label: 'Bank transfer',
+    account_name: 'CoS',
+    bsb: '',
+    account_number: '',
+    payid: '',
+    notes: '',
+  }];
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -656,6 +666,62 @@ describe('Company Settings field validation', () => {
     });
     expect(harness.writes.length).toBe(writesBefore);
     expect(container.querySelector('#smtp-from-error')?.textContent).toBe(FIELD_EMAIL);
+  });
+
+  it('saves a payment label edit when the stored BSB and account are invalid', async () => {
+    harness.company.payment_methods = [{
+      id: 'pm1',
+      kind: 'bank_transfer',
+      label: 'Bank transfer',
+      account_name: 'CoS',
+      bsb: 'abc12',
+      account_number: '12ab',
+      payid: '',
+      notes: '',
+    }];
+    await renderPage();
+    await act(async () => {
+      setInput(container.querySelector('input[aria-label="Payment method label"]') as HTMLInputElement, 'Westpac');
+    });
+    const savePay = Array.from(container.querySelectorAll('button')).find(btn => btn.textContent?.includes('Save payment methods'));
+    await act(async () => {
+      savePay!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const write = harness.writes.find(row => row.table === 'companies' && row.op === 'update');
+    expect(write).toBeTruthy();
+    expect((write?.payload as { payment_methods: Array<{ label: string; bsb: string; account_number: string }> }).payment_methods[0]).toMatchObject({
+      label: 'Westpac',
+      bsb: 'abc12',
+      account_number: '12ab',
+    });
+    expect(container.textContent).not.toContain(FIELD_BSB);
+    expect(container.textContent).not.toContain(FIELD_ACCOUNT);
+  });
+
+  it('blocks a changed invalid BSB', async () => {
+    harness.company.payment_methods = [{
+      id: 'pm1',
+      kind: 'bank_transfer',
+      label: 'Bank transfer',
+      account_name: 'CoS',
+      bsb: 'abc12',
+      account_number: '12345678',
+      payid: '',
+      notes: '',
+    }];
+    await renderPage();
+    await act(async () => {
+      setInput(container.querySelector('input[aria-label="BSB"]') as HTMLInputElement, 'abc');
+    });
+    const savePay = Array.from(container.querySelectorAll('button')).find(btn => btn.textContent?.includes('Save payment methods'));
+    const writesBefore = harness.writes.length;
+    await act(async () => {
+      savePay!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(harness.writes.length).toBe(writesBefore);
+    expect(container.textContent).toContain(FIELD_BSB);
   });
 
   it('shows the miss copy on a permission-denied SMTP save and does not leak the raw error', async () => {

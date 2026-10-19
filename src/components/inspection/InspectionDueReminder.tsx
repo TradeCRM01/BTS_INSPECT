@@ -340,6 +340,7 @@ export function InspectionDueReminder({
             {emailRow.kind === 'edit' ? (
               <form
                 className="job-client-email"
+                noValidate
                 onSubmit={e => {
                   e.preventDefault();
                   const emailDecision = decideJobClientEmailSave({
@@ -356,7 +357,8 @@ export function InspectionDueReminder({
               >
                 <Mail size={13} />
                 <input
-                  type="email"
+                  type="text"
+                  inputMode="email"
                   value={clientEmailDraft}
                   onChange={e => {
                     setClientEmailDraft(e.target.value);
@@ -380,7 +382,8 @@ export function InspectionDueReminder({
               </form>
             ) : (
               <input
-                type="email"
+                type="text"
+                inputMode="email"
                 readOnly
                 value={to}
                 placeholder="No client email"

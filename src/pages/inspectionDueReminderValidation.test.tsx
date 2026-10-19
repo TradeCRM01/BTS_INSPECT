@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { InspectionDueReminder } from '../components/inspection/InspectionDueReminder';
-import { FIELD_AU_PHONE } from '../lib/fieldValidation';
+import { FIELD_AU_PHONE, FIELD_EMAIL } from '../lib/fieldValidation';
 
 vi.mock('../lib/supabase', () => ({
   supabase: {
@@ -66,7 +66,7 @@ async function flush() {
   });
 }
 
-async function renderTray() {
+async function renderTray(clientEmail = 'jane@acme.com.au') {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: 1, retryDelay: 0 } },
   });
@@ -90,7 +90,7 @@ async function renderTray() {
               status: 'scheduled',
               scheduled_date: '2026-10-20',
             }}
-            client={{ id: 'c1', name: 'Acme', email: 'jane@acme.com.au', phone: '' }}
+            client={{ id: 'c1', name: 'Acme', email: clientEmail, phone: '' }}
             company={{ id: 'co1', name: 'Co', email: 'office@co.com.au' }}
           />
         </MemoryRouter>
@@ -129,5 +129,28 @@ describe('Inspection due reminder client phone', () => {
     expect(phone!.getAttribute('aria-invalid')).toBe('true');
     expect(phone!.getAttribute('aria-describedby')).toBe('inspection-due-client-phone-error');
     expect(phoneError?.closest('form.job-client-phone')).toBe(phone!.closest('form'));
+  });
+
+  it('shows the inline due-reminder email error for a@b..c instead of a native email popup', async () => {
+    await renderTray('');
+    const email = container.querySelector('input[aria-label="Client email"]') as HTMLInputElement | null;
+    expect(email).toBeTruthy();
+    const form = email!.closest('form.job-client-email') as HTMLFormElement | null;
+    expect(form).toBeTruthy();
+    expect(form!.noValidate || email!.getAttribute('type') === 'text').toBe(true);
+    if (email!.getAttribute('type') === 'text') {
+      expect(email!.getAttribute('inputMode')).toBe('email');
+    }
+    await act(async () => {
+      setInput(email!, 'a@b..c');
+    });
+    await act(async () => {
+      container.querySelector('.job-client-email-save')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    const emailError = container.querySelector('#inspection-due-client-email-error');
+    expect(emailError?.textContent).toBe(FIELD_EMAIL);
+    expect(email!.getAttribute('aria-invalid')).toBe('true');
+    expect(email!.getAttribute('aria-describedby')).toBe('inspection-due-client-email-error');
+    expect(emailError?.closest('form.job-client-email')).toBe(email!.closest('form'));
   });
 });

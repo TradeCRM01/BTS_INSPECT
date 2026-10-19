@@ -61,6 +61,13 @@ import {
   type CompanyPaymentKind,
   type CompanyPaymentMethod,
 } from '../lib/companyPaymentMethods';
+
+function paymentMethodOriginals(methods: CompanyPaymentMethod[]) {
+  return Object.fromEntries(methods.map(method => [method.id, {
+    bsb: method.bsb,
+    account_number: method.account_number,
+  }]));
+}
 import {
   emptyTwilioSenderSettings,
   twilioSenderSettingsFromRow,
@@ -679,6 +686,9 @@ export function CompanySettingsPage() {
   const [paymentMethods, setPaymentMethods] = useState<CompanyPaymentMethod[]>(
     () => parseCompanyPaymentMethods((company as { payment_methods?: unknown } | null)?.payment_methods),
   );
+  const [payOriginals, setPayOriginals] = useState<Record<string, { bsb: string; account_number: string }>>(
+    () => paymentMethodOriginals(parseCompanyPaymentMethods((company as { payment_methods?: unknown } | null)?.payment_methods)),
+  );
   const [savingPay, setSavingPay] = useState(false);
   const [savedPay, setSavedPay] = useState(false);
   const [payError, setPayError] = useState('');
@@ -761,7 +771,9 @@ export function CompanySettingsPage() {
       setLogoUrl(company.logo_url ?? '');
       setLogoCrop(companyLogoCropFrom(company));
       setLogoSizePx(companyLogoLetterheadSizePx(company));
-      setPaymentMethods(parseCompanyPaymentMethods((company as { payment_methods?: unknown }).payment_methods));
+      const nextPay = parseCompanyPaymentMethods((company as { payment_methods?: unknown }).payment_methods);
+      setPaymentMethods(nextPay);
+      setPayOriginals(paymentMethodOriginals(nextPay));
       const labourRate = (company as { default_labour_rate?: number | null }).default_labour_rate;
       setDefaultLabourRate(labourRate != null ? String(labourRate) : '');
       setTrades(parseCompanyTrades(company.trades));
@@ -1306,7 +1318,7 @@ export function CompanySettingsPage() {
     if (!company) return;
     const nextPay: Record<string, FieldErrors> = {};
     for (const method of paymentMethods) {
-      const rowErrors = paymentMethodFieldErrors(method);
+      const rowErrors = paymentMethodFieldErrors(method, payOriginals[method.id]);
       if (Object.keys(rowErrors).length) nextPay[method.id] = rowErrors;
     }
     setPayFieldErrors(nextPay);
@@ -1326,6 +1338,7 @@ export function CompanySettingsPage() {
     if (error || !updateWroteRows(data)) {
       setPayError(error ? fieldSaveMiss(error) : FIELD_SAVE_MISS);
     } else {
+      setPayOriginals(paymentMethodOriginals(paymentMethods));
       await refreshProfile();
       setSavedPay(true);
       setTimeout(() => setSavedPay(false), 2000);
