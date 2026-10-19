@@ -132,6 +132,18 @@ export function sameCompanySeed(): PortalSeed {
           updated_at: STAMP,
           description: "COMPANY_B_QUOTE",
         },
+        {
+          id: "quote-cross-list",
+          company_id: IDS.coB,
+          client_id: IDS.clientA,
+          quote_number: 66,
+          status: "sent",
+          job_id: null,
+          total: 1,
+          validity_date: "2099-12-31",
+          updated_at: STAMP,
+          description: "COMPANY_B_QUOTE",
+        },
       ],
       invoices: [
         {
@@ -152,6 +164,17 @@ export function sameCompanySeed(): PortalSeed {
           invoice_number: 99,
           status: "sent",
           total: 500,
+          amount_paid: 0,
+          due_date: "2099-01-01",
+          updated_at: STAMP,
+        },
+        {
+          id: "invoice-cross-list",
+          company_id: IDS.coB,
+          client_id: IDS.clientA,
+          invoice_number: 77,
+          status: "sent",
+          total: 1,
           amount_paid: 0,
           due_date: "2099-01-01",
           updated_at: STAMP,
@@ -177,6 +200,17 @@ export function sameCompanySeed(): PortalSeed {
           status: "scheduled",
           scheduled_date: "2099-02-02",
           job_number: 77,
+          address: "2 Bravo St",
+          updated_at: STAMP,
+        },
+        {
+          id: "job-cross-list",
+          company_id: IDS.coB,
+          client_id: IDS.clientA,
+          title: "COMPANY_B_JOB",
+          status: "scheduled",
+          scheduled_date: "2099-02-02",
+          job_number: 66,
           address: "2 Bravo St",
           updated_at: STAMP,
         },
@@ -313,6 +347,7 @@ class QueryBuilder {
   private op: QueryCall["op"] = "select";
   private selectCols: string | undefined;
   private filters: FilterCall[] = [];
+  private payload: unknown = null;
   private pending: Promise<{ data: unknown; error: unknown }> | null = null;
 
   constructor(
@@ -354,13 +389,15 @@ class QueryBuilder {
     return this;
   }
 
-  update(_payload: unknown) {
+  update(payload: unknown) {
     this.op = "update";
+    this.payload = payload;
     return this;
   }
 
-  insert(_payload: unknown) {
+  insert(payload: unknown) {
     this.op = "insert";
+    this.payload = payload;
     return this;
   }
 
@@ -398,8 +435,23 @@ class QueryBuilder {
       select: this.selectCols,
       filters: [...this.filters],
     });
+    if (this.op === "insert") {
+      const incoming = Array.isArray(this.payload) ? this.payload : [this.payload];
+      const rows = incoming.map((row, index) => {
+        const record = (row && typeof row === "object") ? row as StubRow : {};
+        return { id: record.id ?? `inserted-${this.table}-${index}`, ...record };
+      });
+      if (mode === "many") return { data: rows, error: null };
+      return { data: rows[0] ?? { id: `inserted-${this.table}` }, error: null };
+    }
     if (this.op !== "select") {
-      return { data: mode === "many" ? [] : null, error: null };
+      const rows = (this.seed.tables[this.table] ?? []).filter((row) => matches(row, this.filters));
+      const merged = rows.map((row) => ({
+        ...row,
+        ...(this.payload && typeof this.payload === "object" ? this.payload as StubRow : {}),
+      }));
+      if (mode === "many") return { data: merged, error: null };
+      return { data: merged[0] ?? { id: rows[0]?.id ?? "updated-id" }, error: null };
     }
     const rows = (this.seed.tables[this.table] ?? []).filter((row) => matches(row, this.filters));
     const projected = rows.map((row) => project(row, this.selectCols));
