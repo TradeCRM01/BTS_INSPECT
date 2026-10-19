@@ -1,5 +1,6 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { BrandLockup } from '../brand/BrandLockup';
+import { BRAND_NAME } from '../../lib/brand';
 import { useAuth } from '../../contexts/AuthContext';
 import { Building2, CreditCard, LayoutDashboard, LogOut, ScrollText, ArrowLeft, UserCog } from 'lucide-react';
 
@@ -19,7 +20,7 @@ export function OperatorShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex flex-col bg-[#F4F6F8]">
       <header className="bg-[#0A2540] text-white shrink-0">
         <div className="max-w-6xl mx-auto px-4 min-h-[52px] flex items-center gap-2 sm:gap-4">
-          <Link to="/operator" className="shrink-0" aria-label="Grafter operator">
+          <Link to="/operator" className="shrink-0" aria-label={`${BRAND_NAME} operator`}>
             <BrandLockup size="header" />
           </Link>
           <span className="hidden sm:inline text-xs font-semibold uppercase tracking-wide text-white/45">

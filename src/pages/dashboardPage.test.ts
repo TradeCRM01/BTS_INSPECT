@@ -177,11 +177,11 @@ describe('signed-in dashboard document sheet look', () => {
     expect(homeCss).toContain('.dashboard-home-hero');
     expect(homeCss).toContain('.dashboard-home-label');
     expect(homeCss).toContain('.dashboard-home.is-day-open');
-    expect(homeCss).toContain('--dashboard-home-page: #F5F0E6');
-    expect(homeCss).toContain('--dashboard-home-sheet: #FFFDF8');
-    expect(homeCss).toContain('--dashboard-home-ink: #0A2540');
-    expect(homeCss).toContain('--dashboard-home-muted: #5B6B7C');
-    expect(homeCss).toContain('--dashboard-home-line: #E2D9CC');
+    expect(homeCss).toContain('--dashboard-home-page: var(--g-bg)');
+    expect(homeCss).toContain('--dashboard-home-sheet: var(--g-surface)');
+    expect(homeCss).toContain('--dashboard-home-ink: var(--g-ink)');
+    expect(homeCss).toContain('--dashboard-home-muted: var(--g-ink-muted)');
+    expect(homeCss).toContain('--dashboard-home-line: var(--g-line)');
     expect(homeCss).toContain('#2E75B6');
     expect(homeCss).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(homeCss).toContain('inset 0 1px 0 #fff');

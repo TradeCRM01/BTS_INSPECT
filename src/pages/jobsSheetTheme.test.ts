@@ -69,11 +69,11 @@ describe('job hub open sheet LOOK', () => {
     expect(lookCss).toContain('.hub-job-more.is-shift');
     expect(lookCss).toContain('.hub-jobs-document .job-swms-more');
     expect(lookCss).toContain('display: none');
-    expect(lookCss).toContain('--job-look-page: #F5F0E6');
-    expect(lookCss).toContain('--job-look-sheet: #FFFDF8');
-    expect(lookCss).toContain('--job-look-ink: #0A2540');
-    expect(lookCss).toContain('--job-look-muted: #5B6B7C');
-    expect(lookCss).toContain('--job-look-line: #E2D9CC');
+    expect(lookCss).toContain('--job-look-page: var(--g-bg)');
+    expect(lookCss).toContain('--job-look-sheet: var(--g-surface)');
+    expect(lookCss).toContain('--job-look-ink: var(--g-ink)');
+    expect(lookCss).toContain('--job-look-muted: var(--g-ink-muted)');
+    expect(lookCss).toContain('--job-look-line: var(--g-line)');
     expect(lookCss).toContain('#2E75B6');
     expect(lookCss).toContain('.hub-jobs-row-next .btn-primary');
     expect(lookCss).toContain('.hub-jobs-row-next .ops-next-control-block');

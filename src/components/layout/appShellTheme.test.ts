@@ -50,7 +50,7 @@ describe('AppShell header/nav report_theme', () => {
     expect(shell).toContain('chrome.accent');
     expect(shell).toContain('BrandLockup');
     expect(shell).toContain("size=\"header\"");
-    expect(shell).toContain('aria-label="Grafter"');
+    expect(shell).toContain('aria-label={BRAND_NAME}');
     expect(shell).not.toContain('logo_url');
     expect(shell).not.toContain('companyDocumentLogoUrl');
 

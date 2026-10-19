@@ -1,0 +1,407 @@
+[
+  {
+    "file": "index.html",
+    "line": 8,
+    "excerpt": "<title>Grafter , Trade job software for Australian crews</title>"
+  },
+  {
+    "file": "index.html",
+    "line": 13,
+    "excerpt": "<meta property=\"og:site_name\" content=\"Grafter\" />"
+  },
+  {
+    "file": "index.html",
+    "line": 15,
+    "excerpt": "<meta property=\"og:title\" content=\"Grafter , Trade job software for Australian crews\" />"
+  },
+  {
+    "file": "index.html",
+    "line": 19,
+    "excerpt": "<meta name=\"twitter:title\" content=\"Grafter , Trade job software for Australian crews\" />"
+  },
+  {
+    "file": "index.html",
+    "line": 23,
+    "excerpt": "<meta name=\"apple-mobile-web-app-title\" content=\"Grafter\" />"
+  },
+  {
+    "file": "src/components/layout/ProtectedRoute.tsx",
+    "line": 88,
+    "excerpt": "cannot use Grafter right now. Ask the person who invited you, or email billing if you think this is a mistake."
+  },
+  {
+    "file": "src/components/ui/InstallPrompt.tsx",
+    "line": 178,
+    "excerpt": "<p className=\"hub-install-title\">Install Grafter</p>"
+  },
+  {
+    "file": "src/lib/inspectionDueReminder.ts",
+    "line": 399,
+    "excerpt": "<div style=\"font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase\">Grafter</div>"
+  },
+  {
+    "file": "src/lib/invoiceNextAction.ts",
+    "line": 95,
+    "excerpt": "detail: 'Download the PDF, copy the portal link, or open a mail draft. No Grafter SMTP.',"
+  },
+  {
+    "file": "src/lib/invoiceNextAction.ts",
+    "line": 105,
+    "excerpt": "detail: 'Download the PDF, copy the portal link, or open a mail draft. No Grafter SMTP.',"
+  },
+  {
+    "file": "src/lib/jobCalendar.ts",
+    "line": 160,
+    "excerpt": "'PRODID:-//Grafter//Job Calendar//EN',"
+  },
+  {
+    "file": "src/lib/jobReminder.ts",
+    "line": 359,
+    "excerpt": "const fromName = firstNonEmptyEnv(env.RESEND_FROM_NAME, env.FROM_NAME, company?.name) \\|\\| 'Grafter';"
+  },
+  {
+    "file": "src/lib/jobReminder.ts",
+    "line": 569,
+    "excerpt": "<div style=\"font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase\">Grafter</div>"
+  },
+  {
+    "file": "src/lib/jobReminder.ts",
+    "line": 656,
+    "excerpt": "<div style=\"font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase\">Grafter</div>"
+  },
+  {
+    "file": "src/lib/platformOperator.ts",
+    "line": 38,
+    "excerpt": "stripeProductHint: 'Product: Grafter Crew',"
+  },
+  {
+    "file": "src/lib/platformOperator.ts",
+    "line": 48,
+    "excerpt": "stripeProductHint: 'Product: Grafter Company',"
+  },
+  {
+    "file": "src/lib/platformOperator.ts",
+    "line": 58,
+    "excerpt": "stripeProductHint: 'Product: Grafter Plant',"
+  },
+  {
+    "file": "src/lib/platformOperator.ts",
+    "line": 150,
+    "excerpt": "'No Grafter account with that email. They must sign up first, then you can appoint them.';"
+  },
+  {
+    "file": "src/lib/platformOperator.ts",
+    "line": 152,
+    "excerpt": "export const APPOINT_NEED_EMAIL = 'Enter the email of an existing Grafter account.';"
+  },
+  {
+    "file": "src/lib/publicSeo.ts",
+    "line": 26,
+    "excerpt": "title: 'Grafter , Trade job software for Australian crews',"
+  },
+  {
+    "file": "src/lib/publicSeo.ts",
+    "line": 33,
+    "excerpt": "title: 'Sign in to Grafter , Trade job software',"
+  },
+  {
+    "file": "src/lib/publicSeo.ts",
+    "line": 35,
+    "excerpt": "'Sign in to Grafter to run jobs, quotes, invoices, and field paperwork for your Australian trade crew.',"
+  },
+  {
+    "file": "src/lib/publicSeo.ts",
+    "line": 40,
+    "excerpt": "title: 'Create a Grafter workspace , Trade job software',"
+  },
+  {
+    "file": "src/lib/publicSeo.ts",
+    "line": 42,
+    "excerpt": "'Open a Grafter workspace for your trade crew. Jobs, quotes, invoices, and SWMS in one Australian trade CRM.',"
+  },
+  {
+    "file": "src/lib/publicSeo.ts",
+    "line": 47,
+    "excerpt": "title: 'Reset your Grafter password',"
+  },
+  {
+    "file": "src/lib/publicSeo.ts",
+    "line": 48,
+    "excerpt": "description: 'Request a password reset for your Grafter trade workspace.',"
+  },
+  {
+    "file": "src/lib/publicSeo.ts",
+    "line": 53,
+    "excerpt": "title: 'Set your Grafter password',"
+  },
+  {
+    "file": "src/lib/publicSeo.ts",
+    "line": 54,
+    "excerpt": "description: 'Choose a password for your Grafter trade workspace.',"
+  },
+  {
+    "file": "src/lib/publicSeo.ts",
+    "line": 59,
+    "excerpt": "title: 'Accept your Grafter invitation',"
+  },
+  {
+    "file": "src/lib/publicSeo.ts",
+    "line": 60,
+    "excerpt": "description: 'Accept an invitation to a Grafter trade workspace.',"
+  },
+  {
+    "file": "src/lib/publicSeo.ts",
+    "line": 65,
+    "excerpt": "title: 'Grafter client portal',"
+  },
+  {
+    "file": "src/lib/publicSeo.ts",
+    "line": 73,
+    "excerpt": "'Privacy Policy for Grafter, Australian trade job software operated by [former company name] Pty Ltd.',"
+  },
+  {
+    "file": "src/lib/publicSeo.ts",
+    "line": 80,
+    "excerpt": "'Terms of Use for Grafter, Australian trade job software operated by [former company name] Pty Ltd.',"
+  },
+  {
+    "file": "src/lib/publicSeo.ts",
+    "line": 183,
+    "excerpt": "{ attr: 'property', key: 'og:site_name', content: () => 'Grafter' },"
+  },
+  {
+    "file": "src/lib/quoteNextAction.ts",
+    "line": 94,
+    "excerpt": "detail: 'Download the PDF, copy the portal link, or open a mail draft. No Grafter SMTP.',"
+  },
+  {
+    "file": "src/pages/AiAssistantPage.tsx",
+    "line": 274,
+    "excerpt": "<p className=\"text-sm text-[#4A5568] max-w-md mb-8\">Ask me anything about how to use Grafter , templates, inspections, reports, and more.</p"
+  },
+  {
+    "file": "src/pages/AuthConfirmPage.tsx",
+    "line": 45,
+    "excerpt": "return 'You\u2019ve been invited to Grafter. Click below to accept and set your password. This protects the invite from being used up by email sc"
+  },
+  {
+    "file": "src/pages/BillingSettingsPage.tsx",
+    "line": 361,
+    "excerpt": "Same Grafter on every plan. Seats are the only difference. Prices are AUD inc GST."
+  },
+  {
+    "file": "src/pages/BillingSettingsPage.tsx",
+    "line": 393,
+    "excerpt": "Your trial has ended. Pick a plan to keep Grafter for the crew. The workspace stays open , this is not a lock-out."
+  },
+  {
+    "file": "src/pages/CompanySettingsPage.tsx",
+    "line": 1856,
+    "excerpt": "placeholder=\"Grafter\""
+  },
+  {
+    "file": "src/pages/LoginPage.tsx",
+    "line": 54,
+    "excerpt": "title=\"Sign in to Grafter\""
+  },
+  {
+    "file": "src/pages/LoginPage.tsx",
+    "line": 59,
+    "excerpt": "New to Grafter?{' '}"
+  },
+  {
+    "file": "src/pages/MarketingPage.tsx",
+    "line": 40,
+    "excerpt": "<span>Grafter</span>"
+  },
+  {
+    "file": "src/pages/MarketingPage.tsx",
+    "line": 71,
+    "excerpt": "<span>Grafter</span>"
+  },
+  {
+    "file": "src/pages/MarketingPage.tsx",
+    "line": 97,
+    "excerpt": "3 months free. Then seats only , same Grafter on every plan. AUD, GST included."
+  },
+  {
+    "file": "src/pages/MarketingPage.tsx",
+    "line": 133,
+    "excerpt": "No. Grafter is for trade crews , plumbing, mechanical, carpentry, electrical, the lot."
+  },
+  {
+    "file": "src/pages/SignupPage.tsx",
+    "line": 84,
+    "excerpt": "title=\"Create a Grafter workspace\""
+  },
+  {
+    "file": "src/pages/SignupPage.tsx",
+    "line": 85,
+    "excerpt": "lede=\"Your business gets its own Grafter workspace.\""
+  },
+  {
+    "file": "src/pages/TeamSettingsPage.tsx",
+    "line": 617,
+    "excerpt": "<p className=\"text-xs text-[#4A5568] mt-0.5\">They'll get an invitation email from your company to join Grafter.</p>"
+  },
+  {
+    "file": "src/pages/operator/OperatorBillingPage.tsx",
+    "line": 36,
+    "excerpt": "subtitle=\"Charge companies a Grafter subscription. One Stripe Product per plan.\""
+  },
+  {
+    "file": "src/pages/operator/OperatorCompaniesPage.tsx",
+    "line": 59,
+    "excerpt": "subtitle=\"Every tenant. Suspend to lock them out of Grafter. Charge them from the company page.\""
+  },
+  {
+    "file": "src/pages/operator/OperatorCompanyDetailPage.tsx",
+    "line": 350,
+    "excerpt": "message=\"Everyone in this company will be locked out of Grafter until you restore access.\""
+  },
+  {
+    "file": "src/pages/operator/OperatorOperatorsPage.tsx",
+    "line": 79,
+    "excerpt": "subtitle=\"Appoint people who can run Grafter: companies, billing, and this console. Company admin is not this.\""
+  },
+  {
+    "file": "src/pages/operator/OperatorOperatorsPage.tsx",
+    "line": 85,
+    "excerpt": "They must already have a Grafter login. Enter that email. They get the same operator controls as you."
+  },
+  {
+    "file": "src/pages/operator/OperatorOperatorsPage.tsx",
+    "line": 116,
+    "excerpt": "<EmptyState icon={UserCog} title=\"No developers\" message=\"Appoint an existing Grafter account to help run the product.\" />"
+  },
+  {
+    "file": "src/pages/operator/OperatorOverviewPage.tsx",
+    "line": 40,
+    "excerpt": "title=\"Grafter operator\""
+  },
+  {
+    "file": "supabase/config.toml",
+    "line": 260,
+    "excerpt": "subject = \"You're invited to join a team on Grafter\""
+  },
+  {
+    "file": "supabase/functions/ai-console/index.ts",
+    "line": 47,
+    "excerpt": "const HELP_SYSTEM_PROMPT = 'You are a friendly AI assistant embedded inside Grafter , a field inspection and reporting app."
+  },
+  {
+    "file": "supabase/functions/ai-console/index.ts",
+    "line": 59,
+    "excerpt": "Be helpful, concise, and friendly. If a user asks you to make a change to the system, politely explain that this assistant cannot change rec"
+  },
+  {
+    "file": "supabase/functions/ai-console/index.ts",
+    "line": 61,
+    "excerpt": "const ADMIN_SYSTEM_PROMPT = 'You are an expert AI console embedded inside Grafter , a field inspection and reporting platform."
+  },
+  {
+    "file": "supabase/functions/forgot-password/index.ts",
+    "line": 160,
+    "excerpt": "We received a request to reset your password for your Grafter account."
+  },
+  {
+    "file": "supabase/functions/forgot-password/index.ts",
+    "line": 176,
+    "excerpt": "\"Reset your Grafter password\","
+  },
+  {
+    "file": "supabase/functions/invite-user/index.ts",
+    "line": 80,
+    "excerpt": "? '${inviter} re-sent your invitation to <strong style=\"color:#0A2540;\">${company}</strong> on Grafter.'"
+  },
+  {
+    "file": "supabase/functions/invite-user/index.ts",
+    "line": 81,
+    "excerpt": ": '${inviter} has invited you to join <strong style=\"color:#0A2540;\">${company}</strong> on Grafter , inspection and field service managemen"
+  },
+  {
+    "file": "supabase/functions/invite-user/index.ts",
+    "line": 93,
+    "excerpt": "<p style=\"margin:0;color:#2E75B6;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;\">Grafter</p>"
+  },
+  {
+    "file": "supabase/functions/invite-user/index.ts",
+    "line": 116,
+    "excerpt": "<p style=\"margin:0;color:#9CA3AF;font-size:11px;\">Sent by Grafter for ${company}.</p>"
+  },
+  {
+    "file": "supabase/functions/invite-user/index.ts",
+    "line": 334,
+    "excerpt": "const subject = 'You're invited to join ${companyName} on Grafter';"
+  },
+  {
+    "file": "supabase/functions/job-reminder/index.ts",
+    "line": 90,
+    "excerpt": ") \\|\\| \"Grafter\";"
+  },
+  {
+    "file": "supabase/functions/job-reminder/index.ts",
+    "line": 407,
+    "excerpt": "<div style=\"font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase\">Grafter</div>"
+  },
+  {
+    "file": "supabase/functions/job-reminder/index.ts",
+    "line": 503,
+    "excerpt": "<div style=\"font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase\">Grafter</div>"
+  },
+  {
+    "file": "supabase/functions/job-reminder/index.ts",
+    "line": 3426,
+    "excerpt": "<div style=\"font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase\">Grafter</div>"
+  },
+  {
+    "file": "supabase/functions/notify-jha-sign/index.ts",
+    "line": 138,
+    "excerpt": "<div style=\"font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase\">Grafter</div>"
+  },
+  {
+    "file": "supabase/functions/platform-operator/index.ts",
+    "line": 377,
+    "excerpt": "return json({ ok: false, error: \"Enter the email of an existing Grafter account.\" }, 400);"
+  },
+  {
+    "file": "supabase/functions/platform-operator/index.ts",
+    "line": 395,
+    "excerpt": "error: \"No Grafter account with that email. They must sign up first, then you can appoint them.\","
+  },
+  {
+    "file": "supabase/functions/test-smtp/index.ts",
+    "line": 62,
+    "excerpt": "const subject = \"Grafter , test email\";"
+  },
+  {
+    "file": "supabase/templates/invite.html",
+    "line": 6,
+    "excerpt": "<title>You're invited to Grafter</title>"
+  },
+  {
+    "file": "supabase/templates/invite.html",
+    "line": 15,
+    "excerpt": "<p style=\"margin:0;color:#2E75B6;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;\">Grafter</p>"
+  },
+  {
+    "file": "supabase/templates/invite.html",
+    "line": 28,
+    "excerpt": "on Grafter , inspection and field service management."
+  },
+  {
+    "file": "supabase/templates/invite.html",
+    "line": 52,
+    "excerpt": "Sent by Grafter for {{ if .Data.company_name }}{{ .Data.company_name }}{{ else }}your team{{ end }}."
+  },
+  {
+    "file": "vite.config.ts",
+    "line": 35,
+    "excerpt": "name: 'Grafter',"
+  },
+  {
+    "file": "vite.config.ts",
+    "line": 36,
+    "excerpt": "short_name: 'Grafter',"
+  }
+]

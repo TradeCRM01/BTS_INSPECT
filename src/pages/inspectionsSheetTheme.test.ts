@@ -48,11 +48,11 @@ describe('inspections open sheet LOOK', () => {
     expect(lookCss).toContain('.hub-inspections-hero');
     expect(lookCss).toContain('.hub-inspections-label');
     expect(lookCss).toContain('.hub-inspections.is-record-open');
-    expect(lookCss).toContain('--insp-look-page: #F5F0E6');
-    expect(lookCss).toContain('--insp-look-sheet: #FFFDF8');
-    expect(lookCss).toContain('--insp-look-ink: #0A2540');
-    expect(lookCss).toContain('--insp-look-muted: #5B6B7C');
-    expect(lookCss).toContain('--insp-look-line: #E2D9CC');
+    expect(lookCss).toContain('--insp-look-page: var(--g-bg)');
+    expect(lookCss).toContain('--insp-look-sheet: var(--g-surface)');
+    expect(lookCss).toContain('--insp-look-ink: var(--g-ink)');
+    expect(lookCss).toContain('--insp-look-muted: var(--g-ink-muted)');
+    expect(lookCss).toContain('--insp-look-line: var(--g-line)');
     expect(lookCss).toContain('#2E75B6');
     expect(lookCss).toContain('box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(lookCss).toContain('box-shadow: inset 0 1px 0 #fff');

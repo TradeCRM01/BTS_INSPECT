@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { BrandLockup } from '../brand/BrandLockup';
+import { BRAND_NAME } from '../../lib/brand';
 import { usePublicDocumentHead, type PublicSeoKey } from '../../lib/publicSeo';
 import { PublicLegalLinks } from './PublicLegalLinks';
 
@@ -17,7 +18,7 @@ export function LegalShell({
   return (
     <div className="hub-legal">
       <header className="hub-legal-nav">
-        <Link to="/" aria-label="Grafter">
+        <Link to="/" aria-label={BRAND_NAME}>
           <BrandLockup size="marketing" />
         </Link>
         <div className="hub-legal-nav-actions">

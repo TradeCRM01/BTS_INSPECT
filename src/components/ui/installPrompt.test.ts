@@ -22,8 +22,8 @@ describe('Install Grafter overlay vs signup', () => {
     expect(signup).not.toContain('InstallPrompt');
     expect(signup).not.toContain('Install Grafter');
     expect(signup).not.toContain('beforeinstallprompt');
-    expect(auth).toContain('--auth-look-sheet: #FFFDF8');
-    expect(auth).toContain('--auth-look-action: #2E75B6');
+    expect(auth).toContain('--auth-look-sheet: var(--g-surface)');
+    expect(auth).toContain('--auth-look-action: var(--g-accent)');
     expect(auth).toContain('min-height: 44px');
     expect(auth).not.toContain('background: var(--ops-navy)');
   });

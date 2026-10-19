@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { BrandLockup } from '../brand/BrandLockup';
+import { BRAND_NAME } from '../../lib/brand';
 import { usePublicDocumentHead, type PublicSeoKey } from '../../lib/publicSeo';
 import { PublicLegalLinks } from '../legal/PublicLegalLinks';
 
@@ -21,7 +22,7 @@ export function AuthShell({
   return (
     <div className="hub-auth">
       <header className="hub-auth-nav">
-        <Link to="/" aria-label="Grafter">
+        <Link to="/" aria-label={BRAND_NAME}>
           <BrandLockup size="marketing" />
         </Link>
       </header>
