@@ -145,7 +145,31 @@ unix_socket_directories = '${sockDir}'
     expect(catchSql(`UPDATE public.inspections SET client_id='c1000000-0000-0000-0000-000000000001' WHERE id='e1000000-0000-0000-0000-000000000008'`)).toMatch(/^P0001/);
     expect(catchSql(`UPDATE public.inspections SET client_id='c1000000-0000-0000-0000-000000000004' WHERE id='e1000000-0000-0000-0000-000000000002'`)).toMatch(/^(42501|P0001)/);
     expect(catchSql(`UPDATE public.inspections SET client_id='c1000000-0000-0000-0000-000000000002' WHERE id='e1000000-0000-0000-0000-000000000002'`)).toBe('00000');
-    expect(catchSql(`UPDATE public.inspections SET client_id=NULL WHERE id='e1000000-0000-0000-0000-000000000002'`)).toMatch(/^P0001/);
+    expect(catchSql(`UPDATE public.inspections SET client_id=NULL WHERE id='e1000000-0000-0000-0000-000000000011'`)).toMatch(/^P0001/);
+  });
+
+  it('restores an archived draft and then allows edits', () => {
+    expect(catchSql(`UPDATE public.inspections SET archived=true WHERE id='e1000000-0000-0000-0000-000000000003'`)).toBe('00000');
+    expect(catchSql(`UPDATE public.inspections SET archived=false WHERE id='e1000000-0000-0000-0000-000000000003'`)).toBe('00000');
+    expect(catchSql(`UPDATE public.inspections SET meta='{"siteName":"Restored St"}' WHERE id='e1000000-0000-0000-0000-000000000003'`)).toBe('00000');
+  });
+
+  it('blocks restoring archive on a completed row', () => {
+    expect(catchSql(`UPDATE public.inspections SET archived=true WHERE id='e1000000-0000-0000-0000-000000000002'`)).toBe('00000');
+    expect(catchSql(`UPDATE public.inspections SET archived=false WHERE id='e1000000-0000-0000-0000-000000000002'`)).toMatch(/^P0001/);
+  });
+
+  it('fills print snapshots on client attach so a later delete keeps the name', () => {
+    expect(catchSql(`UPDATE public.inspections SET client_id='c1000000-0000-0000-0000-000000000005' WHERE id='e1000000-0000-0000-0000-000000000010'`)).toBe('00000');
+    expect(runSql(`SELECT client_name_snapshot || '|' || site_address_snapshot FROM public.inspections WHERE id='e1000000-0000-0000-0000-000000000010'`)).toBe('Attach Client|Attach St');
+    expect(catchSql(`DELETE FROM public.clients WHERE id='c1000000-0000-0000-0000-000000000005'`)).toBe('00000');
+    expect(runSql(`SELECT client_id IS NULL AND client_name_snapshot='Attach Client' AND site_address_snapshot='Attach St' FROM public.inspections WHERE id='e1000000-0000-0000-0000-000000000010'`)).toBe('t');
+    expect(catchSql(`UPDATE public.inspections SET client_id='c1000000-0000-0000-0000-000000000004' WHERE id='e1000000-0000-0000-0000-000000000010'`)).toMatch(/^(42501|P0001)/);
+  });
+
+  it('blocks inspector_id swap and a print snapshot forge on a finalised row', () => {
+    expect(catchSql(`UPDATE public.inspections SET inspector_id='11111111-1111-1111-1111-111111111111' WHERE id='e1000000-0000-0000-0000-000000000001'`)).toMatch(/^P0001/);
+    expect(catchSql(`UPDATE public.inspections SET client_name_snapshot='Forged' WHERE id='e1000000-0000-0000-0000-000000000001'`)).toMatch(/^P0001/);
   });
 
   it('treats the archived flag as finalised in the trigger', () => {

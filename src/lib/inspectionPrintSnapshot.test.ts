@@ -5,6 +5,7 @@ import type { TemplateSchema } from '../types/template';
 import { printSnapshotFields } from '../../supabase/functions/client-portal/portalTenancy';
 import {
   resolveInspectionPrintFields,
+  resolveInspectionPrintFieldsFromRow,
 } from './inspectionPrintSnapshot';
 
 const emptySchema: TemplateSchema = {
@@ -18,6 +19,18 @@ const emptySchema: TemplateSchema = {
 };
 
 describe('inspection print snapshots', () => {
+  it('list identity still shows the attached client name after a null-out', () => {
+    const printed = resolveInspectionPrintFieldsFromRow({
+      status: 'issued',
+      archived: false,
+      meta: {},
+      client_name_snapshot: 'Attach Client',
+      site_address_snapshot: 'Attach St',
+    });
+    expect(printed.clientName).toBe('Attach Client');
+    expect(printed.siteAddress).toBe('Attach St');
+  });
+
   it('falls back to snapshot columns when meta and live FKs are empty', () => {
     const printed = resolveInspectionPrintFields({
       meta: {},

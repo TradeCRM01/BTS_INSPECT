@@ -18,7 +18,10 @@ END
 $f$;
 
 INSERT INTO proof_result SELECT 'U0_no_backfill_existing_rows_null',
-  count(*) FILTER (WHERE updated_at IS NOT NULL OR updated_by IS NOT NULL) = 0,
+  count(*) FILTER (
+    WHERE id <> 'e1000000-0000-0000-0000-000000000011'
+      AND (updated_at IS NOT NULL OR updated_by IS NOT NULL)
+  ) = 0,
   count(*) || ' rows, stamped=' || count(*) FILTER (WHERE updated_at IS NOT NULL)
 FROM public.inspections;
 
@@ -70,7 +73,7 @@ FROM pg_temp.t($$UPDATE public.inspections SET client_id='c1000000-0000-0000-000
 INSERT INTO proof_result SELECT 'B_same_company_attach_completed', x = '00000', x
 FROM pg_temp.t($$UPDATE public.inspections SET client_id='c1000000-0000-0000-0000-000000000002' WHERE id='e1000000-0000-0000-0000-000000000009'$$) x;
 INSERT INTO proof_result SELECT 'A_null_out_without_client_snapshot', x LIKE 'P0001%', x
-FROM pg_temp.t($$UPDATE public.inspections SET client_id=NULL WHERE id='e1000000-0000-0000-0000-000000000009'$$) x;
+FROM pg_temp.t($$UPDATE public.inspections SET client_id=NULL WHERE id='e1000000-0000-0000-0000-000000000011'$$) x;
 
 INSERT INTO proof_result SELECT 'F10_noop_same_meta', x = '00000', x
 FROM pg_temp.t($$UPDATE public.inspections SET meta=meta, responses=responses WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
@@ -102,6 +105,39 @@ INSERT INTO proof_result SELECT 'D4_updated_by_is_caller',
   updated_by = '22222222-2222-2222-2222-222222222222' AND updated_at > '2001-01-01',
   coalesce(updated_by::text, 'null') || ' ' || coalesce(updated_at::date::text, 'null')
 FROM public.inspections WHERE id = 'e1000000-0000-0000-0000-000000000003';
+
+INSERT INTO proof_result SELECT 'R1_archive_draft', x = '00000', x
+FROM pg_temp.t($$UPDATE public.inspections SET archived=true WHERE id='e1000000-0000-0000-0000-000000000003'$$) x;
+INSERT INTO proof_result SELECT 'R1_restore_draft', x = '00000', x
+FROM pg_temp.t($$UPDATE public.inspections SET archived=false WHERE id='e1000000-0000-0000-0000-000000000003'$$) x;
+INSERT INTO proof_result SELECT 'R1_restored_draft_editable', x = '00000', x
+FROM pg_temp.t($$UPDATE public.inspections SET meta='{"siteName":"Restored St"}' WHERE id='e1000000-0000-0000-0000-000000000003'$$) x;
+INSERT INTO proof_result SELECT 'R1_archive_completed', x = '00000', x
+FROM pg_temp.t($$UPDATE public.inspections SET archived=true WHERE id='e1000000-0000-0000-0000-000000000002'$$) x;
+INSERT INTO proof_result SELECT 'R1_restore_completed_blocked', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET archived=false WHERE id='e1000000-0000-0000-0000-000000000002'$$) x;
+
+INSERT INTO proof_result SELECT 'R2_attach_issued_no_client', x = '00000', x
+FROM pg_temp.t($$UPDATE public.inspections SET client_id='c1000000-0000-0000-0000-000000000005' WHERE id='e1000000-0000-0000-0000-000000000010'$$) x;
+INSERT INTO proof_result SELECT 'R2_attach_snapshots_filled',
+  client_name_snapshot = 'Attach Client' AND site_address_snapshot = 'Attach St',
+  coalesce(client_name_snapshot, 'null') || '|' || coalesce(site_address_snapshot, 'null')
+FROM public.inspections WHERE id = 'e1000000-0000-0000-0000-000000000010';
+INSERT INTO proof_result SELECT 'R2_delete_attached_client', x = '00000', x
+FROM pg_temp.t($$DELETE FROM public.clients WHERE id='c1000000-0000-0000-0000-000000000005'$$) x;
+INSERT INTO proof_result SELECT 'R2_snapshots_kept_after_delete',
+  client_id IS NULL
+    AND client_name_snapshot = 'Attach Client'
+    AND site_address_snapshot = 'Attach St',
+  coalesce(client_id::text, 'null') || '|' || coalesce(client_name_snapshot, 'null') || '|' || coalesce(site_address_snapshot, 'null')
+FROM public.inspections WHERE id = 'e1000000-0000-0000-0000-000000000010';
+INSERT INTO proof_result SELECT 'R2_cross_tenant_after_attach', x LIKE '42501%' OR x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET client_id='c1000000-0000-0000-0000-000000000004' WHERE id='e1000000-0000-0000-0000-000000000010'$$) x;
+
+INSERT INTO proof_result SELECT 'S_inspector_id_swap', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET inspector_id='11111111-1111-1111-1111-111111111111' WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
+INSERT INTO proof_result SELECT 'S_print_snapshot_forge', x LIKE 'P0001%', x
+FROM pg_temp.t($$UPDATE public.inspections SET client_name_snapshot='Forged' WHERE id='e1000000-0000-0000-0000-000000000001'$$) x;
 
 INSERT INTO proof_result SELECT 'J1_jobs_creator_snapshot_forge', x = '00000', x
 FROM pg_temp.t($$UPDATE public.jobs SET creator_name_snapshot='Forged' WHERE id='b1000000-0000-0000-0000-000000000001'$$) x;

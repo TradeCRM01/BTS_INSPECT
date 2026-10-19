@@ -49,6 +49,36 @@ BEGIN
     OLD.archived
     OR OLD.status IN ('completed', 'issued', 'sent', 'archived')
   ) THEN
+    IF OLD.client_id IS NULL AND NEW.client_id IS NOT NULL THEN
+      SELECT c.name, c.address INTO v_client, v_addr
+      FROM public.clients c
+      WHERE c.id = NEW.client_id;
+      NEW.client_name_snapshot := COALESCE(
+        NULLIF(BTRIM(COALESCE(v_client, '')), ''),
+        NULLIF(BTRIM(COALESCE(NEW.client_name_snapshot, '')), ''),
+        NULLIF(BTRIM(COALESCE(NEW.meta ->> 'clientName', '')), '')
+      );
+      NEW.site_address_snapshot := COALESCE(
+        NULLIF(BTRIM(COALESCE(v_addr, '')), ''),
+        NULLIF(BTRIM(COALESCE(NEW.site_address_snapshot, '')), ''),
+        NULLIF(BTRIM(COALESCE(NEW.meta ->> 'siteAddress', '')), '')
+      );
+    END IF;
+    IF OLD.crm_job_id IS NULL AND NEW.crm_job_id IS NOT NULL THEN
+      SELECT j.title, j.address INTO v_title, v_addr
+      FROM public.jobs j
+      WHERE j.id = NEW.crm_job_id;
+      NEW.job_title_snapshot := COALESCE(
+        NULLIF(BTRIM(COALESCE(v_title, '')), ''),
+        NULLIF(BTRIM(COALESCE(NEW.job_title_snapshot, '')), ''),
+        NULLIF(BTRIM(COALESCE(NEW.meta ->> 'jobDescription', '')), '')
+      );
+      NEW.site_address_snapshot := COALESCE(
+        NULLIF(BTRIM(COALESCE(v_addr, '')), ''),
+        NULLIF(BTRIM(COALESCE(NEW.site_address_snapshot, '')), ''),
+        NULLIF(BTRIM(COALESCE(NEW.meta ->> 'siteAddress', '')), '')
+      );
+    END IF;
     RETURN NEW;
   END IF;
 
@@ -129,6 +159,8 @@ DECLARE
   v_company uuid;
   v_print_client boolean;
   v_print_job boolean;
+  v_attach_client boolean;
+  v_attach_job boolean;
 BEGIN
   v_finalised := OLD.archived OR OLD.status IN ('completed', 'issued', 'sent', 'archived');
   IF NOT v_finalised THEN
@@ -137,11 +169,32 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  IF OLD.status = 'draft'
+     AND NEW.status = 'draft'
+     AND OLD.archived
+     AND NOT COALESCE(NEW.archived, false)
+  THEN
+    NEW.updated_at := clock_timestamp();
+    NEW.updated_by := auth.uid();
+    RETURN NEW;
+  END IF;
+
+  IF OLD.status IN ('completed', 'issued', 'sent', 'archived')
+     AND OLD.archived
+     AND NOT COALESCE(NEW.archived, false)
+  THEN
+    RAISE EXCEPTION 'Finalised inspections cannot be restored from archive'
+      USING ERRCODE = 'P0001';
+  END IF;
+
   v_still_finalised := NEW.archived OR NEW.status IN ('completed', 'issued', 'sent', 'archived');
   IF NOT v_still_finalised THEN
     RAISE EXCEPTION 'Finalised inspections cannot move to a non-finalised status'
       USING ERRCODE = 'P0001';
   END IF;
+
+  v_attach_client := OLD.client_id IS NULL AND NEW.client_id IS NOT NULL;
+  v_attach_job := OLD.crm_job_id IS NULL AND NEW.crm_job_id IS NOT NULL;
 
   IF NEW.meta IS DISTINCT FROM OLD.meta
      OR NEW.responses IS DISTINCT FROM OLD.responses
@@ -150,10 +203,10 @@ BEGIN
      OR NEW.doc_version IS DISTINCT FROM OLD.doc_version
      OR NEW.inspector_name_snapshot IS DISTINCT FROM OLD.inspector_name_snapshot
      OR NEW.inspector_licence_snapshot IS DISTINCT FROM OLD.inspector_licence_snapshot
-     OR NEW.client_name_snapshot IS DISTINCT FROM OLD.client_name_snapshot
-     OR NEW.job_title_snapshot IS DISTINCT FROM OLD.job_title_snapshot
+     OR (NOT v_attach_client AND NEW.client_name_snapshot IS DISTINCT FROM OLD.client_name_snapshot)
+     OR (NOT v_attach_job AND NEW.job_title_snapshot IS DISTINCT FROM OLD.job_title_snapshot)
      OR NEW.site_name_snapshot IS DISTINCT FROM OLD.site_name_snapshot
-     OR NEW.site_address_snapshot IS DISTINCT FROM OLD.site_address_snapshot
+     OR (NOT v_attach_client AND NOT v_attach_job AND NEW.site_address_snapshot IS DISTINCT FROM OLD.site_address_snapshot)
   THEN
     RAISE EXCEPTION 'Finalised inspections cannot change printed content'
       USING ERRCODE = 'P0001';

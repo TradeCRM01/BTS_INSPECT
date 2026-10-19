@@ -193,7 +193,7 @@ PY
     "drop_completed_status" \
     "v_finalised := OLD.archived OR OLD.status IN ('completed', 'issued', 'sent', 'archived');" \
     "v_finalised := OLD.archived OR OLD.status IN ('issued', 'sent', 'archived');" \
-    "UPDATE public.inspections SET meta='{\"siteName\":\"mut\"}' WHERE id='e1000000-0000-0000-0000-000000000002'" \
+    "UPDATE public.inspections SET meta='{\"siteName\":\"mut\"}' WHERE id='e1000000-0000-0000-0000-000000000009'" \
     "raise" \
     "src/lib/secInspFinalisedLock.pg.test.ts" \
     "blocks meta edit on a completed row"
@@ -264,7 +264,7 @@ PY
           USING ERRCODE = 'P0001';
       END IF;" \
     "      NULL;" \
-    "UPDATE public.inspections SET client_id=NULL WHERE id='e1000000-0000-0000-0000-000000000009'" \
+    "UPDATE public.inspections SET client_id=NULL WHERE id='e1000000-0000-0000-0000-000000000011'" \
     "raise" \
     "src/lib/secInspFinalisedLock.pg.test.ts" \
     "rejects a cross-tenant client attach and allows a same-company attach"
@@ -276,6 +276,40 @@ PY
     "raise" \
     "src/lib/secInspFinalisedLock.pg.test.ts" \
     "rejects a cross-tenant client attach and allows a same-company attach"
+  "${PSQL[@]}" -d insp3_proof -c "UPDATE public.inspections SET archived=true WHERE id='e1000000-0000-0000-0000-000000000003' AND status='draft'"
+  kill_sql_mutant \
+    "drop_draft_restore" \
+    "  IF OLD.status = 'draft'
+     AND NEW.status = 'draft'
+     AND OLD.archived
+     AND NOT COALESCE(NEW.archived, false)
+  THEN
+    NEW.updated_at := clock_timestamp();
+    NEW.updated_by := auth.uid();
+    RETURN NEW;
+  END IF;" \
+    "" \
+    "UPDATE public.inspections SET archived=false WHERE id='e1000000-0000-0000-0000-000000000003'" \
+    "pass" \
+    "src/lib/secInspFinalisedLock.pg.test.ts" \
+    "restores an archived draft and then allows edits"
+  kill_sql_mutant \
+    "allow_completed_unarchive" \
+    "    RAISE EXCEPTION 'Finalised inspections cannot be restored from archive'
+      USING ERRCODE = 'P0001';" \
+    "    NULL;" \
+    "UPDATE public.inspections SET archived=false WHERE id='e1000000-0000-0000-0000-000000000002'" \
+    "raise" \
+    "src/lib/secInspFinalisedLock.pg.test.ts" \
+    "blocks restoring archive on a completed row"
+  kill_sql_mutant \
+    "freeze_attach_snapshots" \
+    "     OR (NOT v_attach_client AND NEW.client_name_snapshot IS DISTINCT FROM OLD.client_name_snapshot)" \
+    "     OR NEW.client_name_snapshot IS DISTINCT FROM OLD.client_name_snapshot" \
+    "UPDATE public.inspections SET client_id='c1000000-0000-0000-0000-000000000002' WHERE id='e1000000-0000-0000-0000-000000000010'" \
+    "pass" \
+    "src/lib/secInspFinalisedLock.pg.test.ts" \
+    "fills print snapshots on client attach so a later delete keeps the name"
   echo "SQL mutants passed"
 
   echo "== apply -> rollback -> re-apply catalog trip =="

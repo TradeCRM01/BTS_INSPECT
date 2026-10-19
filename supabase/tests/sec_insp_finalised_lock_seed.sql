@@ -7,7 +7,9 @@ DELETE FROM public.inspections WHERE id IN (
   'e1000000-0000-0000-0000-000000000006',
   'e1000000-0000-0000-0000-000000000007',
   'e1000000-0000-0000-0000-000000000008',
-  'e1000000-0000-0000-0000-000000000009'
+  'e1000000-0000-0000-0000-000000000009',
+  'e1000000-0000-0000-0000-000000000010',
+  'e1000000-0000-0000-0000-000000000011'
 );
 DELETE FROM public.jobs WHERE id IN (
   'b1000000-0000-0000-0000-000000000001',
@@ -18,7 +20,8 @@ DELETE FROM public.clients WHERE id IN (
   'c1000000-0000-0000-0000-000000000001',
   'c1000000-0000-0000-0000-000000000002',
   'c1000000-0000-0000-0000-000000000003',
-  'c1000000-0000-0000-0000-000000000004'
+  'c1000000-0000-0000-0000-000000000004',
+  'c1000000-0000-0000-0000-000000000005'
 );
 DELETE FROM public.templates WHERE id = '0eeeeeee-0000-0000-0000-000000000001';
 DELETE FROM public.profiles WHERE id IN (
@@ -73,11 +76,12 @@ SELECT set_config('request.jwt.claims', '', false);
 INSERT INTO public.templates(id, company_id, created_by, name) VALUES
   ('0eeeeeee-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 'T-owner');
 
-INSERT INTO public.clients(id, company_id, name) VALUES
-  ('c1000000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Old Client'),
-  ('c1000000-0000-0000-0000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'New Client'),
-  ('c1000000-0000-0000-0000-000000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Doomed Client'),
-  ('c1000000-0000-0000-0000-000000000004', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Other Co Client');
+INSERT INTO public.clients(id, company_id, name, address) VALUES
+  ('c1000000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Old Client', NULL),
+  ('c1000000-0000-0000-0000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'New Client', NULL),
+  ('c1000000-0000-0000-0000-000000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Doomed Client', NULL),
+  ('c1000000-0000-0000-0000-000000000004', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Other Co Client', NULL),
+  ('c1000000-0000-0000-0000-000000000005', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Attach Client', 'Attach St');
 
 INSERT INTO public.jobs(id, company_id, client_id, title, address, scheduled_date, created_by) VALUES
   ('b1000000-0000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'c1000000-0000-0000-0000-000000000001', 'Job One', 'Old St', '2026-10-20', '22222222-2222-2222-2222-222222222222'),
@@ -93,4 +97,18 @@ INSERT INTO public.inspections(id, template_id, template_snapshot, inspector_id,
   ('e1000000-0000-0000-0000-000000000006', '0eeeeeee-0000-0000-0000-000000000001', '{}', '22222222-2222-2222-2222-222222222222', 'draft', '{"siteName":"AF St"}', '{"q":"a"}', NULL, NULL, true),
   ('e1000000-0000-0000-0000-000000000007', '0eeeeeee-0000-0000-0000-000000000001', '{}', '33333333-3333-3333-3333-333333333333', 'issued', '{"siteName":"Doom St","siteAddress":"Doom St","clientName":"Doomed Client"}', '{"q":"a"}', 'c1000000-0000-0000-0000-000000000003', 'b1000000-0000-0000-0000-000000000003', false),
   ('e1000000-0000-0000-0000-000000000008', '0eeeeeee-0000-0000-0000-000000000001', '{}', '22222222-2222-2222-2222-222222222222', 'issued', '{"siteName":"N St"}', '{"q":"a"}', NULL, NULL, false),
-  ('e1000000-0000-0000-0000-000000000009', '0eeeeeee-0000-0000-0000-000000000001', '{}', '22222222-2222-2222-2222-222222222222', 'completed', '{"siteName":"C2 St"}', '{"q":"a"}', NULL, NULL, false);
+  ('e1000000-0000-0000-0000-000000000009', '0eeeeeee-0000-0000-0000-000000000001', '{}', '22222222-2222-2222-2222-222222222222', 'completed', '{"siteName":"C2 St"}', '{"q":"a"}', NULL, NULL, false),
+  ('e1000000-0000-0000-0000-000000000010', '0eeeeeee-0000-0000-0000-000000000001', '{}', '22222222-2222-2222-2222-222222222222', 'issued', '{}', '{"q":"a"}', NULL, NULL, false),
+  ('e1000000-0000-0000-0000-000000000011', '0eeeeeee-0000-0000-0000-000000000001', '{}', '22222222-2222-2222-2222-222222222222', 'draft', '{}', '{"q":"a"}', 'c1000000-0000-0000-0000-000000000001', NULL, false);
+
+UPDATE public.inspections
+SET
+  client_name_snapshot = NULL,
+  job_title_snapshot = NULL,
+  site_name_snapshot = NULL,
+  site_address_snapshot = NULL,
+  meta = '{}'
+WHERE id = 'e1000000-0000-0000-0000-000000000011';
+UPDATE public.inspections
+SET status = 'completed'
+WHERE id = 'e1000000-0000-0000-0000-000000000011';
