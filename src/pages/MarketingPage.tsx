@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BrandLockup } from '../components/brand/BrandLockup';
 import { usePublicDocumentHead } from '../lib/publicSeo';
@@ -20,8 +21,23 @@ const LANDING_SEED_TOM = {
   crew: 'Tom Nguyen',
 } as const;
 
+export const LANDING_PRICE = { weekly: 20, founderWeekly: null as number | null };
+
+const landingWeekly = LANDING_PRICE.weekly;
+const landingMonthly = Math.round(landingWeekly * 52 / 12);
+const landingThenWeekly = `2 months free. Then $${landingWeekly} a week.`;
+const landingAboutMonthly = `Billed monthly, about $${landingMonthly}/month.`;
+const landingSellingPoints = [
+  'No job caps.',
+  'Texts included.',
+  'Your price is locked for good.',
+  'We move your data over from your old system, free.',
+  'Leave any time. Export all your data in one click.',
+] as const;
+
 export function MarketingPage() {
   usePublicDocumentHead('landing');
+  const founderWeekly = LANDING_PRICE.founderWeekly;
 
   return (
     <div className="hub-marketing">
@@ -45,7 +61,7 @@ export function MarketingPage() {
             Quote, schedule, invoice.
           </p>
           <p className="hub-marketing-lede">
-            3 months free. Then pick a seat pack.
+            {landingThenWeekly}
           </p>
           <div className="hub-marketing-cta">
             <Link to="/signup" className="hub-marketing-btn hub-marketing-btn-lg">Create a workspace</Link>
@@ -111,43 +127,37 @@ export function MarketingPage() {
           <p className="hub-marketing-kicker">Pricing</p>
           <h2 className="hub-marketing-subhead">What it costs.</h2>
           <p>
-            3 months free. Then you pay for seats. Every plan is the same Grafter. AUD, GST included.
+            {landingThenWeekly} AUD, GST included.
           </p>
-          <div className="hub-marketing-grid">
+          <div className="hub-marketing-grid md:!grid-cols-2">
             <article>
-              <p className="hub-marketing-kicker">Crew</p>
-              <p>1–5 seats</p>
-              <p className="hub-marketing-subhead" data-price-slot="crew">$59</p>
-              <p>
-                <span aria-hidden="true">mo</span>
-                <span className="sr-only">per month</span>
+              <p className="flex items-baseline gap-2" data-price-slot="lead">
+                <span className="hub-marketing-display !text-5xl md:!text-6xl !leading-none !whitespace-nowrap">
+                  ${landingWeekly}
+                </span>
+                <span aria-hidden="true" className="text-sm font-semibold">a week</span>
+                <span className="sr-only">${landingWeekly} per week</span>
               </p>
-              <p>GST included</p>
+              <p>{landingAboutMonthly}</p>
+              {founderWeekly != null ? (
+                <p className="text-xs">Founder price ${founderWeekly} a week.</p>
+              ) : null}
+              <p>Up to 10 seats. GST included.</p>
+              <ul className="mt-4 space-y-2">
+                {landingSellingPoints.map((point) => (
+                  <li key={point} className="flex items-start gap-2">
+                    <Check size={16} className="shrink-0 mt-1 text-accent" aria-hidden />
+                    <span>{point}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link to="/signup" className="hub-marketing-btn mt-4">Create a workspace</Link>
             </article>
             <article>
-              <p className="hub-marketing-kicker">Company</p>
-              <p>6–15 seats</p>
-              <p className="hub-marketing-subhead" data-price-slot="company">$119</p>
-              <p>
-                <span aria-hidden="true">mo</span>
-                <span className="sr-only">per month</span>
-              </p>
-              <p>GST included</p>
-            </article>
-            <article>
-              <p className="hub-marketing-kicker">Plant</p>
-              <p>16–40 seats</p>
-              <p className="hub-marketing-subhead" data-price-slot="plant">$199</p>
-              <p>
-                <span aria-hidden="true">mo</span>
-                <span className="sr-only">per month</span>
-              </p>
-              <p>GST included</p>
+              <p className="hub-marketing-subhead">Crew 11+</p>
+              <p>More than 10 seats? Talk to us.</p>
             </article>
           </div>
-          <p>
-            Every plan: jobs, custom templates, JHA, Take 5, SWMS. Seats are the only difference.
-          </p>
         </section>
 
         <section className="hub-marketing-band">
@@ -174,13 +184,13 @@ export function MarketingPage() {
             <details>
               <summary>How is GST handled?</summary>
               <p>
-                Prices are AUD, GST included. 3 months free, then the seat pack.
+                Prices are AUD, GST included. 2 months free, then ${landingWeekly} a week.
               </p>
             </details>
             <details>
               <summary>What’s the difference between the plans?</summary>
               <p>
-                Seats. Crew, Company, and Plant are the same product.
+                One plan up to 10 seats. Bigger crews talk to us.
               </p>
             </details>
           </div>
@@ -191,7 +201,7 @@ export function MarketingPage() {
             Create a workspace.
           </h2>
           <p className="hub-marketing-lede">
-            3 months free. Instant signup. Your jobs, your templates, your letterhead.
+            2 months free. Instant signup. Your jobs, your templates, your letterhead.
           </p>
           <div className="hub-marketing-cta">
             <Link to="/signup" className="hub-marketing-btn hub-marketing-btn-lg">Create a workspace</Link>
