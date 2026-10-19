@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,7 +22,7 @@ import { PdfPreviewModal } from '../components/template-editor/PdfPreviewModal';
 import { QuestionTypePicker } from '../components/template-editor/QuestionTypePicker';
 import { ShowIfEditor } from '../components/template-editor/ShowIfEditor';
 import {
-  ChevronLeft, Save, AlertCircle, Plus, Layers, Trash2, Settings2, X, Library, FileText
+  ChevronLeft, Save, CheckCircle, AlertCircle, Plus, Layers, Trash2, Settings2, X, Library, FileText
 } from 'lucide-react';
 import { nanoid } from '../lib/nanoid';
 import {
@@ -200,6 +200,10 @@ export function TemplateEditorPage() {
   });
 
   const persistTemplate = saveMutation.mutate;
+  const flushTemplate = useCallback(() => {
+    if (!templateId || getAuditTemplate(templateId)) return;
+    persistTemplate();
+  }, [templateId, persistTemplate]);
 
   useEffect(() => {
     if (saveState !== 'unsaved' || !templateId) return;
@@ -213,10 +217,7 @@ export function TemplateEditorPage() {
 
   const unsaved = useUnsavedChangesGuard({
     status: saveState,
-    flush: () => {
-      if (!templateId || getAuditTemplate(templateId)) return;
-      saveMutation.mutate();
-    },
+    flush: flushTemplate,
     allowLeaveRef,
   });
 
@@ -517,6 +518,7 @@ export function TemplateEditorPage() {
 
           <div className="hidden md:flex items-center gap-1.5 text-xs text-[#4A5568] shrink-0">
             {isLoading && <><LoadingSpinner size="sm" /> Loading...</>}
+            {!isLoading && saveState === 'saved' && <CheckCircle size={13} className="text-[#1B7F3A]" />}
             {!isLoading && (
               <span data-save-status={saveState}>{unsaved.hint}</span>
             )}

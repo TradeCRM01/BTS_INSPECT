@@ -43,6 +43,7 @@ import { duplicateJhaDocument } from '../lib/duplicateJhaDocument';
 import { UnsavedChangesDialog } from '../components/unsaved/UnsavedChangesDialog';
 import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard';
 import { nextClientDraftId } from '../lib/unsavedChangesGuard';
+import { jhaPersistStatus, planJhaDocumentWrite } from '../lib/jhaDocumentWrite';
 
 function generateJhaNumber(): string {
   const now = new Date();
@@ -130,6 +131,7 @@ export function JhaFillPage() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const allowLeaveRef = useRef(false);
   const createdIdRef = useRef<string | null>(docId);
+  const rowExistsRef = useRef(!!docId);
   const insertInFlightRef = useRef<Promise<string | null> | null>(null);
   const crewRef = useRef(crew);
   const metaRef = useRef(meta);
@@ -537,45 +539,47 @@ export function JhaFillPage() {
     setError('');
 
     try {
+      const persistAs = jhaPersistStatus(status, existingDoc?.status);
       const payload = {
         meta: persistableMeta(),
         steps,
         ppe: selectedPpe,
         sign_offs: signOffs,
-        status,
+        status: persistAs,
         client_id: clientId || null,
         job_id: jobId || null,
         doc_version: docVersion,
         amended_from_id: amendedFromId,
         amendment_reason: amendmentReason || null,
-        ...(status === 'completed' ? { completed_at: new Date().toISOString() } : {}),
+        ...(persistAs === 'completed'
+          ? { completed_at: existingDoc?.completed_at ?? new Date().toISOString() }
+          : {}),
       };
 
-      if (!createdIdRef.current && !docIdState && !templateId) {
-        throw new Error('Missing JHA template — go back and start from a template.');
-      }
       const savedId = nextClientDraftId(createdIdRef.current ?? docIdState);
       createdIdRef.current = savedId;
       if (insertInFlightRef.current) {
         await insertInFlightRef.current;
       }
+      const persistedId = docIdState || (rowExistsRef.current ? savedId : null);
+      const plan = planJhaDocumentWrite({
+        persistedId,
+        clientDraftId: savedId,
+        templateId,
+        templateName,
+        schema,
+        companyId: profile.company_id,
+        createdBy: profile.id,
+        payload,
+      });
       const pending = (async () => {
-        const { data, error } = await supabase
-          .from('jha_documents')
-          .upsert({
-            id: savedId,
-            ...(templateId ? {
-              template_id: templateId,
-              template_snapshot: { name: templateName, schema },
-              company_id: profile.company_id,
-              created_by: profile.id,
-            } : {}),
-            ...payload,
-          }, { onConflict: 'id' })
-          .select()
-          .maybeSingle();
+        const query = plan.op === 'insert'
+          ? supabase.from('jha_documents').insert(plan.row)
+          : supabase.from('jha_documents').update(plan.row).eq('id', plan.id);
+        const { data, error } = await query.select().maybeSingle();
         if (error) throw error;
-        return data?.id ?? savedId;
+        rowExistsRef.current = true;
+        return data?.id ?? plan.id;
       })();
       insertInFlightRef.current = pending.catch(() => savedId);
       try {
@@ -605,8 +609,7 @@ export function JhaFillPage() {
   const unsaved = useUnsavedChangesGuard({
     status: saveState,
     flush: () => {
-      const keepCompleted = existingDoc?.status === 'completed' || existingDoc?.status === 'published';
-      void doSave(keepCompleted ? 'completed' : 'draft').catch(() => {});
+      void doSave('draft').catch(() => {});
     },
     allowLeaveRef,
   });

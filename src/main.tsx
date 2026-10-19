@@ -130,22 +130,27 @@ const queryClient = new QueryClient({
   },
 });
 
-const appRouter = createBrowserRouter([
-  grafterRootRoute(
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <App />
-        <InstallPrompt />
-        <SWUpdatePrompt />
-      </AuthProvider>
-    </QueryClientProvider>,
-  ),
-]);
+export function createAppRouter(element: ReactNode) {
+  return createBrowserRouter([grafterRootRoute(element)]);
+}
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <RouterProvider router={appRouter} />
-    </ErrorBoundary>
-  </StrictMode>
+export const appRouter = createAppRouter(
+  <QueryClientProvider client={queryClient}>
+    <AuthProvider>
+      <App />
+      <InstallPrompt />
+      <SWUpdatePrompt />
+    </AuthProvider>
+  </QueryClientProvider>,
 );
+
+const rootEl = document.getElementById('root');
+if (rootEl) {
+  createRoot(rootEl).render(
+    <StrictMode>
+      <ErrorBoundary>
+        <RouterProvider router={appRouter} />
+      </ErrorBoundary>
+    </StrictMode>
+  );
+}

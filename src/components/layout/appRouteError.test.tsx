@@ -3,9 +3,9 @@
  */
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { createMemoryRouter, RouterProvider } from 'react-router-dom';
+import { RouterProvider } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { grafterRootRoute } from './AppRouteError';
+import { appRouter, createAppRouter } from '../../main';
 
 function Boom(): React.ReactElement {
   throw new Error('boom-route');
@@ -29,8 +29,9 @@ afterEach(() => {
 });
 
 describe('router errorElement', () => {
-  it('E1: a throwing route renders the app crash screen from grafterRootRoute', async () => {
-    const router = createMemoryRouter([grafterRootRoute(<Boom />)], { initialEntries: ['/boom'] });
+  it('E1: a throwing route renders the app crash screen from the main.tsx router', async () => {
+    expect(appRouter.routes[0]?.errorElement).toBeTruthy();
+    const router = createAppRouter(<Boom />);
 
     await act(async () => {
       root.render(<RouterProvider router={router} />);
