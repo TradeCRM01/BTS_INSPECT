@@ -1,4 +1,5 @@
 import { View, Text, Image } from '@react-pdf/renderer';
+import { inspectionSignOffCopy, inspectionSignOffHasSignature } from '../../lib/inspectionSignOff';
 import { pdfFonts, type PdfColors } from '../shared/styles';
 
 export function InspectionRunningHeader({
@@ -187,6 +188,11 @@ export function InspectionSignatureBlock({
   roleLabel?: string;
   colors: PdfColors;
 }) {
+  const copy = inspectionSignOffCopy({
+    hasSignature: inspectionSignOffHasSignature(signatureUrl),
+    name,
+    date,
+  });
   return (
     <View style={{ marginTop: 8 }}>
       {roleLabel ? (
@@ -224,7 +230,7 @@ export function InspectionSignatureBlock({
             }}
           />
           <Text style={{ fontFamily: pdfFonts.body, fontSize: 6.5, color: colors.accent, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase' }}>
-            Digitally Signed
+            {copy.badge}
           </Text>
         </View>
         {signatureUrl ? (
@@ -251,7 +257,7 @@ export function InspectionSignatureBlock({
         >
           <View>
             <Text style={{ fontFamily: pdfFonts.body, fontSize: 6.5, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 2 }}>
-              Signed By
+              {copy.byLabel}
             </Text>
             <Text style={{ fontFamily: pdfFonts.body, fontSize: 8.5, color: colors.navy, fontWeight: 700 }}>
               {name}
@@ -269,7 +275,7 @@ export function InspectionSignatureBlock({
           ) : null}
           <View>
             <Text style={{ fontFamily: pdfFonts.body, fontSize: 6.5, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 2 }}>
-              Date Signed
+              {copy.dateLabel}
             </Text>
             <Text style={{ fontFamily: pdfFonts.mono, fontSize: 8.5, color: colors.navy, fontWeight: 700 }}>
               {date}

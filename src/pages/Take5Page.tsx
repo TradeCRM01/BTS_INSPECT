@@ -18,6 +18,9 @@ import {
   take5StatusLabel,
 } from '../lib/take5NextAction';
 import { getAuditJhaDoc, getAuditJob, getAuditTake5, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
+import { UnsavedChangesDialog } from '../components/unsaved/UnsavedChangesDialog';
+import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard';
+import { nextClientDraftId, type UnsavedChangesStatus } from '../lib/unsavedChangesGuard';
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 
 type Take5Row = {
@@ -68,6 +71,8 @@ function Take5FillPage() {
   const sigRef = useRef<SignatureCanvas>(null);
 
   const [rowId, setRowId] = useState<string | null>(take5Id);
+  const rowIdRef = useRef<string | null>(take5Id);
+  const insertInFlightRef = useRef<Promise<string | null> | null>(null);
   const [stopThink, setStopThink] = useState('');
   const [identify, setIdentify] = useState('');
   const [assess, setAssess] = useState('');
@@ -82,12 +87,13 @@ function Take5FillPage() {
     crewSignOns: '',
   });
   const metaRef = useRef(meta);
+  const allowLeaveRef = useRef(false);
   metaRef.current = meta;
   const [statusKey, setStatusKey] = useState('draft');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [saveHint, setSaveHint] = useState<'saved' | 'saving' | 'error' | null>(null);
+  const [saveHint, setSaveHint] = useState<UnsavedChangesStatus>('saved');
   const [hydrated, setHydrated] = useState(!take5Id);
   const [showMoreIdentity, setShowMoreIdentity] = useState(false);
   const [activeTab, setActiveTab] = useState<'form' | 'preview'>('form');
@@ -160,6 +166,7 @@ function Take5FillPage() {
 
   useEffect(() => {
     if (!existing) return;
+    rowIdRef.current = existing.id;
     setRowId(existing.id);
     setStopThink(existing.stop_think || '');
     setIdentify(existing.identify_hazards || '');
@@ -285,20 +292,37 @@ function Take5FillPage() {
         go_no_go: goNoGo,
         signed_name: signedName,
         signature,
-        signed_at: status === 'completed' ? new Date().toISOString() : null,
+        signed_at: status === 'completed'
+          ? (existing?.signed_at ?? new Date().toISOString())
+          : null,
         updated_at: new Date().toISOString(),
       };
 
-      if (rowId) {
-        const { error: upErr } = await supabase.from('jha_take5').update(payload).eq('id', rowId);
+      const id = nextClientDraftId(rowIdRef.current);
+      rowIdRef.current = id;
+      if (insertInFlightRef.current) {
+        await insertInFlightRef.current;
+      }
+      const pending = (async () => {
+        const { data, error: upErr } = await supabase
+          .from('jha_take5')
+          .upsert({ id, ...payload }, { onConflict: 'id' })
+          .select()
+          .maybeSingle();
         if (upErr) throw upErr;
-      } else {
-        const { data, error: inErr } = await supabase.from('jha_take5').insert(payload).select().maybeSingle();
-        if (inErr) throw inErr;
-        if (data) {
-          setRowId(data.id);
-          navigate(`/jha/take5?jhaId=${jhaId}&id=${data.id}`, { replace: true });
+        return data?.id ?? id;
+      })();
+      insertInFlightRef.current = pending.catch(() => id);
+      try {
+        const savedId = await pending;
+        const firstWrite = !rowId;
+        setRowId(savedId);
+        if (firstWrite) {
+          allowLeaveRef.current = true;
+          navigate(`/jha/take5?jhaId=${jhaId}&id=${savedId}`, { replace: true });
         }
+      } finally {
+        insertInFlightRef.current = null;
       }
       queryClient.invalidateQueries({ queryKey: ['jha-take5-list'] });
       queryClient.invalidateQueries({ queryKey: ['jha-take5-all'] });
@@ -376,6 +400,14 @@ function Take5FillPage() {
           : 'take5-sign';
     document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+
+  const unsaved = useUnsavedChangesGuard({
+    status: saveHint,
+    flush: () => {
+      void save(statusKey === 'completed' ? 'completed' : 'draft');
+    },
+    allowLeaveRef,
+  });
 
   if (take5Id && take5Loading && !hydrated) {
     return (
@@ -457,11 +489,7 @@ function Take5FillPage() {
   const docColors = take5DocumentColors(
     (company as { report_theme?: unknown } | null)?.report_theme ?? null,
   );
-  const saveHintLabel =
-    saveHint === 'saved' ? 'Saved'
-      : saveHint === 'saving' ? 'Saving…'
-        : saveHint === 'error' ? 'Save failed'
-          : null;
+  const saveHintLabel = unsaved.hint;
 
   return (
     <AppShell>
@@ -481,8 +509,8 @@ function Take5FillPage() {
           >
             Take 5
           </Link>
-          {saveHintLabel && saveHint !== 'saved' && (
-            <span className={`hub-take5-save ${saveHint === 'error' ? 'is-bad' : ''}`}>
+          {saveHintLabel && (
+            <span className={`hub-take5-save ${saveHint === 'error' ? 'is-bad' : ''}`} data-save-status={saveHint}>
               {saveHintLabel}
             </span>
           )}
@@ -556,7 +584,7 @@ function Take5FillPage() {
                   <input
                     type="text"
                     value={meta.location}
-                    onChange={e => setMeta(m => ({ ...m, location: e.target.value }))}
+                    onChange={e => { setMeta(m => ({ ...m, location: e.target.value })); setSaveHint('unsaved'); }}
                     placeholder="Where is this check? (board, roof, plant room…)"
                     className="hub-take5-input"
                   />
@@ -583,7 +611,7 @@ function Take5FillPage() {
                 <input
                   type="date"
                   value={meta.date}
-                  onChange={e => setMeta(m => ({ ...m, date: e.target.value }))}
+                  onChange={e => { setMeta(m => ({ ...m, date: e.target.value })); setSaveHint('unsaved'); }}
                   className="hub-take5-input"
                 />
               </div>
@@ -592,7 +620,7 @@ function Take5FillPage() {
                 <input
                   type="time"
                   value={meta.time}
-                  onChange={e => setMeta(m => ({ ...m, time: e.target.value }))}
+                  onChange={e => { setMeta(m => ({ ...m, time: e.target.value })); setSaveHint('unsaved'); }}
                   className="hub-take5-input"
                 />
               </div>
@@ -623,16 +651,16 @@ function Take5FillPage() {
                       <ShieldAlert size={16} /> The five checks
                     </h2>
                   </div>
-                  <Area label="1. Stop & think — what am I about to do?" value={stopThink} onChange={setStopThink} />
-                  <Area label="2. Identify hazards — what could hurt me or others?" value={identify} onChange={setIdentify} />
-                  <Area label="3. Assess the risk — how bad / how likely?" value={assess} onChange={setAssess} />
-                  <Area label="4. Control actions — what will I do to stay safe?" value={controls} onChange={setControls} />
+                  <Area label="1. Stop & think — what am I about to do?" value={stopThink} onChange={v => { setStopThink(v); setSaveHint('unsaved'); }} />
+                  <Area label="2. Identify hazards — what could hurt me or others?" value={identify} onChange={v => { setIdentify(v); setSaveHint('unsaved'); }} />
+                  <Area label="3. Assess the risk — how bad / how likely?" value={assess} onChange={v => { setAssess(v); setSaveHint('unsaved'); }} />
+                  <Area label="4. Control actions — what will I do to stay safe?" value={controls} onChange={v => { setControls(v); setSaveHint('unsaved'); }} />
                   <div className="hub-take5-ledger-row hub-take5-field">
                     <label className="hub-take5-muted">5. Go / No-go</label>
                     <div className="hub-take5-choices">
                       <button
                         type="button"
-                        onClick={() => setGoNoGo('go')}
+                        onClick={() => { setGoNoGo('go'); setSaveHint('unsaved'); }}
                         data-go
                         className={`hub-take5-choice ${goNoGo === 'go' ? 'is-on' : ''}`}
                       >
@@ -640,7 +668,7 @@ function Take5FillPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setGoNoGo('stop')}
+                        onClick={() => { setGoNoGo('stop'); setSaveHint('unsaved'); }}
                         data-stop
                         className={`hub-take5-choice is-stop ${goNoGo === 'stop' ? 'is-on' : ''}`}
                       >
@@ -702,6 +730,7 @@ function Take5FillPage() {
           </div>
         </article>
       </div>
+      <UnsavedChangesDialog guard={unsaved} />
     </AppShell>
   );
 }

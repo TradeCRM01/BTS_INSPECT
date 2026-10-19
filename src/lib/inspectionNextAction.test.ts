@@ -128,6 +128,9 @@ describe('recommendInspectionListAction', () => {
     expect(recommendInspectionListAction({ status: 'completed', hasSite: true, requiredComplete: true }).key).toBe('pdf');
     expect(recommendInspectionListAction({ status: 'issued', hasSite: true, requiredComplete: true }).label).toBe('View PDF');
     expect(recommendInspectionListAction({
+      status: 'completed', hasSite: true, requiredComplete: true, hasReport: true, reportId: 'rep-1',
+    }).label).toBe('Issue');
+    expect(recommendInspectionListAction({
       status: 'issued', hasSite: true, requiredComplete: true, hasReport: true, reportId: 'rep-1',
     }).label).toBe('Send');
     expect(recommendInspectionListAction({

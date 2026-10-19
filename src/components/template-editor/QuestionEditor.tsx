@@ -87,6 +87,8 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
             placeholder="Heading text..."
           />
           <button
+            type="button"
+            aria-label="Delete question"
             onClick={onDelete}
             className="opacity-0 group-hover:opacity-100 text-[#4A5568] hover:text-[#B42318] p-0.5 rounded shrink-0"
           >
@@ -137,6 +139,8 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
             <Pencil size={12} />
           </button>
           <button
+            type="button"
+            aria-label="Delete question"
             onClick={e => { e.stopPropagation(); onDelete(); }}
             className="opacity-0 group-hover:opacity-100 text-[#4A5568] hover:text-[#B42318] p-0.5 rounded"
           >

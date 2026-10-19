@@ -219,9 +219,19 @@ export type ReportPdfStore = {
     pdf_storage_path: string;
   }) => Promise<{ error: { message?: string } | null }>;
   updateReportPath: (reportId: string, path: string) => Promise<{ error: { message?: string } | null }>;
-  markIssued: (inspectionId: string) => Promise<{ error: { message?: string } | null }>;
   remove: (path: string) => Promise<unknown>;
 };
+
+export async function issueInspectionRecord(
+  inspectionId: string,
+  status: string | null | undefined,
+  markIssued: (inspectionId: string) => Promise<{ error: { message?: string } | null }>,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!shouldMarkInspectionIssued(status)) return { ok: true };
+  const { error } = await markIssued(inspectionId);
+  if (error) return { ok: false, error: error.message ?? REPORT_PDF_UPLOAD_FAIL_MESSAGE };
+  return { ok: true };
+}
 
 export async function persistGeneratedReportPdf(
   input: {
@@ -274,14 +284,6 @@ export async function persistGeneratedReportPdf(
     const { error: pathErr } = await store.updateReportPath(input.existingReportId, storagePath);
     if (pathErr) {
       log.error(pathErr);
-      return { ok: false, error: REPORT_PDF_UPLOAD_FAIL_MESSAGE };
-    }
-  }
-
-  if (shouldMarkInspectionIssued(input.inspectionStatus)) {
-    const { error: issueErr } = await store.markIssued(input.inspectionId);
-    if (issueErr) {
-      log.error(issueErr);
       return { ok: false, error: REPORT_PDF_UPLOAD_FAIL_MESSAGE };
     }
   }

@@ -13,6 +13,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    setupFiles: ['src/test/requestSignalStrip.ts'],
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'workers/**/*.test.ts'],
     env: {
       VITE_SUPABASE_URL: 'https://example.supabase.co',

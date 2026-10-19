@@ -12,6 +12,7 @@ import {
 } from '../lib/devFieldAuditAuth';
 import { shouldPurgeFailedProbe } from '../lib/authSessionGuard';
 import { loadIsPlatformOperator } from '../lib/platformOperator';
+import { setKeepaliveAccessToken } from '../lib/unsavedChangesGuard';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type Company = Database['public']['Tables']['companies']['Row'];
@@ -39,6 +40,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(!auditAuth);
   const loadingProfileRef = useRef(false);
   const signedInAccessTokenRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    setKeepaliveAccessToken(session?.access_token ?? null);
+  }, [session]);
 
   async function purgeStaleSession() {
     try {

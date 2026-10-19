@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { act, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TEMPLATE_DELETE_FAILED, TEMPLATE_WRITE_NO_ROW } from './templateAccess';
@@ -251,11 +251,10 @@ describe('0-row template writes show a visible failure', () => {
 
   it('TemplateEditorPage shows the failure and does not say Saved after a 0-row update', async () => {
     const { container, root } = await render(
-      <MemoryRouter initialEntries={['/templates/tmpl-1']}>
-        <Routes>
-          <Route path="/templates/:id" element={<TemplateEditorPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <RouterProvider router={createMemoryRouter(
+        [{ path: '/templates/:id', element: <TemplateEditorPage /> }],
+        { initialEntries: ['/templates/tmpl-1'] },
+      )} />,
     );
     await waitForText(container, 'Save');
     const save = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Save'));
@@ -266,7 +265,7 @@ describe('0-row template writes show a visible failure', () => {
       () => `missing alert: ${(container.textContent || '').slice(0, 400)}`,
     );
     expect(container.querySelector('[role="alert"]')?.textContent).toContain(TEMPLATE_WRITE_NO_ROW);
-    expect(container.textContent).toContain('Error');
+    expect(container.textContent).toContain('Save failed');
     expect(container.textContent).not.toMatch(/\bSaved\b/);
     act(() => { root.unmount(); });
     container.remove();
@@ -274,11 +273,10 @@ describe('0-row template writes show a visible failure', () => {
 
   it('TemplateEditorPage stays on the page after a 0-row delete', async () => {
     const { container, root } = await render(
-      <MemoryRouter initialEntries={['/templates/tmpl-1']}>
-        <Routes>
-          <Route path="/templates/:id" element={<TemplateEditorPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <RouterProvider router={createMemoryRouter(
+        [{ path: '/templates/:id', element: <TemplateEditorPage /> }],
+        { initialEntries: ['/templates/tmpl-1'] },
+      )} />,
     );
     await waitForText(container, 'Delete');
     const del = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Delete'));
@@ -297,11 +295,10 @@ describe('0-row template writes show a visible failure', () => {
 
   it('JhaTemplateEditorPage shows the failure and does not say Saved after a 0-row update', async () => {
     const { container, root } = await render(
-      <MemoryRouter initialEntries={['/jha-templates/jha-1']}>
-        <Routes>
-          <Route path="/jha-templates/:id" element={<JhaTemplateEditorPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <RouterProvider router={createMemoryRouter(
+        [{ path: '/jha-templates/:id', element: <JhaTemplateEditorPage /> }],
+        { initialEntries: ['/jha-templates/jha-1'] },
+      )} />,
     );
     await waitFor(
       () => [...container.querySelectorAll('button')].some(b => (b.textContent || '').trim() === 'Save'),
@@ -350,8 +347,8 @@ describe('0-row template writes show a visible failure', () => {
     const archived = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('View archived templates'));
     expect(archived).toBeTruthy();
     await act(async () => { archived!.click(); });
-    await waitForText(container, 'Unarchive');
-    const unarchive = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Unarchive'));
+    await waitForText(container, 'Restore');
+    const unarchive = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Restore'));
     expect(unarchive).toBeTruthy();
     await act(async () => { unarchive!.click(); });
     await waitForText(container, TEMPLATE_WRITE_NO_ROW);
@@ -383,11 +380,10 @@ describe('0-row template writes show a visible failure', () => {
 
   it('JhaTemplateEditorPage shows the failure alert and does not leave after a 0-row delete', async () => {
     const { container, root } = await render(
-      <MemoryRouter initialEntries={['/jha-templates/jha-1']}>
-        <Routes>
-          <Route path="/jha-templates/:id" element={<JhaTemplateEditorPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <RouterProvider router={createMemoryRouter(
+        [{ path: '/jha-templates/:id', element: <JhaTemplateEditorPage /> }],
+        { initialEntries: ['/jha-templates/jha-1'] },
+      )} />,
     );
     await waitFor(
       () => !!container.querySelector('button[title="Delete template"]'),
@@ -437,8 +433,8 @@ describe('0-row template writes show a visible failure', () => {
     const archived = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('View archived templates'));
     expect(archived).toBeTruthy();
     await act(async () => { archived!.click(); });
-    await waitForText(container, 'Unarchive');
-    const unarchive = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Unarchive'));
+    await waitForText(container, 'Restore');
+    const unarchive = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Restore'));
     expect(unarchive).toBeTruthy();
     await act(async () => { unarchive!.click(); });
     await waitForText(container, TEMPLATE_WRITE_NO_ROW);
@@ -477,11 +473,10 @@ describe('0-row template writes show a visible failure', () => {
   it('initializeBuiltInRenderers calls ensure_builtin_renderers and does not insert built-ins', async () => {
     seed.emptyRenderers = true;
     const { container, root } = await render(
-      <MemoryRouter initialEntries={['/templates/tmpl-1']}>
-        <Routes>
-          <Route path="/templates/:id" element={<TemplateEditorPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <RouterProvider router={createMemoryRouter(
+        [{ path: '/templates/:id', element: <TemplateEditorPage /> }],
+        { initialEntries: ['/templates/tmpl-1'] },
+      )} />,
     );
     await waitForText(container, 'Save');
     await waitFor(
@@ -496,11 +491,10 @@ describe('0-row template writes show a visible failure', () => {
 
   it('K23: a failed delete replaces stale validation errors with the delete copy', async () => {
     const { container, root } = await render(
-      <MemoryRouter initialEntries={['/templates/tmpl-1']}>
-        <Routes>
-          <Route path="/templates/:id" element={<TemplateEditorPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <RouterProvider router={createMemoryRouter(
+        [{ path: '/templates/:id', element: <TemplateEditorPage /> }],
+        { initialEntries: ['/templates/tmpl-1'] },
+      )} />,
     );
     await waitForText(container, 'Save');
     const name = container.querySelector('input[placeholder="Template name"]') as HTMLInputElement;
@@ -527,11 +521,10 @@ describe('0-row template writes show a visible failure', () => {
 
   it('shows the delete-failure copy as its own message', async () => {
     const { container, root } = await render(
-      <MemoryRouter initialEntries={['/templates/tmpl-1']}>
-        <Routes>
-          <Route path="/templates/:id" element={<TemplateEditorPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <RouterProvider router={createMemoryRouter(
+        [{ path: '/templates/:id', element: <TemplateEditorPage /> }],
+        { initialEntries: ['/templates/tmpl-1'] },
+      )} />,
     );
     await waitForText(container, 'Delete');
     const del = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Delete'));
@@ -552,11 +545,10 @@ describe('0-row template writes show a visible failure', () => {
     seed.rpcError = { message: 'seed failed' };
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { container, root } = await render(
-      <MemoryRouter initialEntries={['/templates/tmpl-1']}>
-        <Routes>
-          <Route path="/templates/:id" element={<TemplateEditorPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <RouterProvider router={createMemoryRouter(
+        [{ path: '/templates/:id', element: <TemplateEditorPage /> }],
+        { initialEntries: ['/templates/tmpl-1'] },
+      )} />,
     );
     await waitForText(container, 'Save');
     await waitFor(
@@ -575,11 +567,10 @@ describe('0-row template writes show a visible failure', () => {
 
   it('clears the delete-failure copy on the next successful save', async () => {
     const { container, root } = await render(
-      <MemoryRouter initialEntries={['/templates/tmpl-1']}>
-        <Routes>
-          <Route path="/templates/:id" element={<TemplateEditorPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <RouterProvider router={createMemoryRouter(
+        [{ path: '/templates/:id', element: <TemplateEditorPage /> }],
+        { initialEntries: ['/templates/tmpl-1'] },
+      )} />,
     );
     await waitForText(container, 'Delete');
     const del = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Delete'));
@@ -599,11 +590,10 @@ describe('0-row template writes show a visible failure', () => {
 
   it('clears the delete-failure copy on a later successful delete', async () => {
     const { container, root } = await render(
-      <MemoryRouter initialEntries={['/templates/tmpl-1']}>
-        <Routes>
-          <Route path="/templates/:id" element={<TemplateEditorPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <RouterProvider router={createMemoryRouter(
+        [{ path: '/templates/:id', element: <TemplateEditorPage /> }],
+        { initialEntries: ['/templates/tmpl-1'] },
+      )} />,
     );
     await waitForText(container, 'Delete');
     const del = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Delete'));

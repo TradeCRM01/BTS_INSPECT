@@ -24,8 +24,11 @@ import { applyLivingJobToInspection } from '../lib/livingJha';
 import { inspectionDocumentColors } from '../reports/generic_inspection/theme';
 import { getAuditClient, getAuditInspection, getAuditJobs } from '../lib/devFieldAuditDocs';
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
+import { UnsavedChangesDialog } from '../components/unsaved/UnsavedChangesDialog';
+import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard';
+import { keepaliveRestWrite, saveConfirmedByRows, type UnsavedChangesStatus } from '../lib/unsavedChangesGuard';
 
-type SaveStatus = 'saved' | 'saving' | 'error' | 'offline';
+type SaveStatus = UnsavedChangesStatus;
 
 interface PhotoRecord {
   id?: string;
@@ -183,32 +186,47 @@ export function InspectionFillPage() {
   const snapshotRaw = inspection?.template_snapshot as unknown as { schema?: TemplateSchema } | null;
   const schema = snapshotRaw?.schema ?? null;
   const templateName = (inspection?.template_snapshot as unknown as { name?: string } | null)?.name ?? '';
+  const allowLeaveRef = useRef(false);
 
-  const saveInspection = useCallback(async (payload: PendingSave) => {
-    if (!id) return;
+  const saveInspection = useCallback(async (payload: PendingSave, opts?: { keepalive?: boolean }) => {
+    if (!id) return false;
     if (isDevFieldAuditAuth()) {
       setSaveStatus('saved');
       pendingSaveRef.current = null;
-      return;
+      return true;
+    }
+    const body = {
+      responses: payload.responses as unknown as Record<string, unknown>,
+      meta: payload.meta as unknown as Record<string, unknown>,
+      crm_job_id: payload.crm_job_id,
+      client_id: payload.client_id,
+    };
+    if (opts?.keepalive) {
+      keepaliveRestWrite({
+        table: 'inspections',
+        query: `id=eq.${id}`,
+        method: 'PATCH',
+        body,
+      });
+      return false;
     }
     setSaveStatus('saving');
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('inspections')
-        .update({
-          responses: payload.responses as unknown as Record<string, unknown>,
-          meta: payload.meta as unknown as Record<string, unknown>,
-          crm_job_id: payload.crm_job_id,
-          client_id: payload.client_id,
-        })
-        .eq('id', id);
+        .update(body)
+        .eq('id', id)
+        .select();
       if (error) throw error;
+      if (!saveConfirmedByRows(data)) throw new Error('Save wrote 0 rows');
       setSaveStatus('saved');
       pendingSaveRef.current = null;
+      return true;
     } catch {
       setSaveStatus('error');
       pendingSaveRef.current = payload;
       localStorage.setItem(`insp_${id}_responses`, JSON.stringify(payload.responses));
+      return false;
     }
   }, [id]);
 
@@ -216,7 +234,10 @@ export function InspectionFillPage() {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     setSaveStatus('saving');
     pendingSaveRef.current = payload;
-    saveTimerRef.current = setTimeout(() => { void saveInspection(payload); }, 600);
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = undefined;
+      void saveInspection(payload);
+    }, 600);
   }, [saveInspection]);
 
   function persist(nextResponses = responses, nextMeta = meta, nextJobId = jobId) {
@@ -231,10 +252,17 @@ export function InspectionFillPage() {
     });
   }
 
+  const flushPending = useCallback((opts?: { keepalive?: boolean }) => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = undefined;
+    const pending = pendingSaveRef.current;
+    if (pending) void saveInspection(pending, opts);
+  }, [saveInspection]);
+
   async function flushAndNavigate(path: string) {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     const job = jobs.find(j => j.id === jobId);
-    await saveInspection({
+    const ok = await saveInspection({
       responses,
       meta,
       crm_job_id: jobId || null,
@@ -242,6 +270,8 @@ export function InspectionFillPage() {
         ? (job.client_id ?? null)
         : ((inspection as { client_id?: string | null } | null)?.client_id ?? null),
     });
+    if (!ok) return;
+    allowLeaveRef.current = true;
     navigate(path);
   }
 
@@ -251,6 +281,16 @@ export function InspectionFillPage() {
     }, 30000);
     return () => clearInterval(interval);
   }, [saveInspection]);
+
+  const saveStatusRef = useRef<SaveStatus>(saveStatus);
+  saveStatusRef.current = saveStatus;
+
+  const unsaved = useUnsavedChangesGuard({
+    status: saveStatus,
+    hasPending: pendingSaveRef.current != null || saveTimerRef.current != null,
+    flush: flushPending,
+    allowLeaveRef,
+  });
 
   const livingJob = selectedJobForLiving
     ? {
@@ -603,12 +643,7 @@ export function InspectionFillPage() {
     setCurrentSectionIdx(i => Math.min(visibleSections.length - 1, i + 1));
   }
 
-  const saveHint =
-    saveStatus === 'saved' ? 'Saved'
-      : saveStatus === 'saving' ? 'Saving…'
-        : saveStatus === 'error' ? 'Save failed'
-          : saveStatus === 'offline' ? 'Offline'
-            : null;
+  const saveHint = unsaved.hint;
 
   const docColors = inspectionDocumentColors(
     (company as { report_theme?: unknown } | null)?.report_theme ?? null,
@@ -632,8 +667,11 @@ export function InspectionFillPage() {
           >
             Inspections
           </Link>
-          {saveHint && saveStatus !== 'saved' && (
-            <span className={`hub-inspections-save ${saveStatus === 'error' ? 'is-bad' : ''}`}>
+          {saveHint && (
+            <span
+              className={`hub-inspections-save ${saveStatus === 'error' ? 'is-bad' : ''}`}
+              data-save-status={saveStatus}
+            >
               {saveHint}
             </span>
           )}
@@ -912,6 +950,7 @@ export function InspectionFillPage() {
           </div>
         </article>
       </div>
+      <UnsavedChangesDialog guard={unsaved} />
     </AppShell>
   );
 }

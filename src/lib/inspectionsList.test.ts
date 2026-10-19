@@ -8,6 +8,7 @@ import {
   decorateInspectionList,
   filterInspectionListFloor,
   formatInspectionListDate,
+  formatInspectionListStamp,
   groupInspectionListFloor,
   inspectionListDueKind,
   inspectionListDueLabel,
@@ -162,6 +163,8 @@ describe('tap opens the existing inspection', () => {
 describe('due labels a sparkie can read', () => {
   it('names overdue, today, and upcoming from the existing date', () => {
     expect(formatInspectionListDate(today)).toBe('21 Aug 2026');
+    expect(formatInspectionListStamp('2026-10-18T16:00:00.000Z')).toBe('19 Oct 2026');
+    expect(formatInspectionListDate('2026-10-18T16:00:00.000Z')).toBe('18 Oct 2026');
     expect(inspectionListDueLabel(today, now)).toBe('Due today');
     expect(inspectionListDueLabel('2026-08-01', now)).toBe('Overdue · 1 Aug 2026');
     expect(inspectionListDueLabel('2026-09-03', now)).toBe('Due 3 Sep 2026');
