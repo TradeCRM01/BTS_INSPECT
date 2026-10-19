@@ -42,12 +42,32 @@ function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
-function quoteLinesTheadRule(css: string): string {
-  const start = css.indexOf('.hub-quote-lines thead {');
-  expect(start).toBeGreaterThan(-1);
-  const end = css.indexOf('}', start);
-  expect(end).toBeGreaterThan(start);
-  return css.slice(start, end + 1);
+function quotePhoneMediaBody(css: string): string {
+  const marker = '@media (max-width: 639px)';
+  let from = 0;
+  while (from < css.length) {
+    const mediaAt = css.indexOf(marker, from);
+    if (mediaAt < 0) return '';
+    const open = css.indexOf('{', mediaAt + marker.length);
+    if (open < 0) return '';
+    let depth = 0;
+    let close = -1;
+    for (let i = open; i < css.length; i++) {
+      if (css[i] === '{') depth += 1;
+      else if (css[i] === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          close = i;
+          break;
+        }
+      }
+    }
+    if (close < 0) return '';
+    const body = css.slice(open + 1, close);
+    if (body.includes('.hub-quote-lines')) return body;
+    from = close + 1;
+  }
+  return '';
 }
 
 let container: HTMLDivElement;
@@ -95,7 +115,6 @@ describe('quote editor Looplet document look', () => {
     expect(editor).not.toMatch(/Grafter|Relovi|Littleloop/);
 
     expect(editor).toContain('data-quote-lines="1"');
-    expect(quoteLinesTheadRule(css)).not.toMatch(/display\s*:\s*none/);
     expect(css).toContain('.hub-quote-lines td:nth-child(2)::before { content: \'Qty\'; }');
     expect(css).toContain('.hub-quote-lines td:nth-child(3)::before { content: \'Unit\'; }');
     expect(css).toContain('.hub-quote-lines td:nth-child(4)::before { content: \'Total\'; }');
@@ -111,12 +130,10 @@ describe('quote editor Looplet document look', () => {
 
   it('hides .hub-quote-lines thead at phone so the quote dialog has no clipped header', async () => {
     const css = src('src/index.css');
-    const theadRule = quoteLinesTheadRule(css);
-    expect(theadRule).not.toMatch(/display\s*:\s*none/);
 
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 375 });
     const style = document.createElement('style');
-    style.textContent = theadRule;
+    style.textContent = quotePhoneMediaBody(css);
     document.head.appendChild(style);
 
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

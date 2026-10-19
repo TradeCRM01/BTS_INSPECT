@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DECIMAL_EMPTY,
+  DECIMAL_INVALID,
   DECIMAL_NEGATIVE,
   MONEY_COMMA_HINT,
   committedMoney,
@@ -74,6 +75,11 @@ describe('parseMoneyInput', () => {
     expect(parseMoneyInput('-5', { allowNegative: true })).toEqual({ status: 'valid', value: -5 });
     expect(moneyDraftAllowed('-', { allowNegative: true })).toBe(true);
     expect(moneyDraftAllowed('-5')).toBe(true);
+    expect(moneyDraftAllowed('-a')).toBe(false);
+    expect(moneyDraftAllowed('-a', { allowNegative: true })).toBe(false);
+    expect(numberDraftAllowed('-a')).toBe(false);
+    expect(parseMoneyInput('- 5')).toEqual({ status: 'invalid', message: DECIMAL_INVALID });
+    expect(moneyFieldMessage('- 5')).toBe(DECIMAL_INVALID);
     expect(moneyFieldMessage('-5')).toBe(DECIMAL_NEGATIVE);
     expect(moneyFieldMessage('5.')).toBeNull();
     expect(moneyFieldMessage('1,250.')).toBeNull();
