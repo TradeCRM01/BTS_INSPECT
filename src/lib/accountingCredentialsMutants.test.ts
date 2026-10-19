@@ -21,7 +21,7 @@ function preferPgBin(): string {
       readFileSync(join(dir, 'initdb'));
       return `${dir}:${process.env.PATH ?? ''}`;
     } catch {
-      // keep looking
+      continue;
     }
   }
   return process.env.PATH ?? '';

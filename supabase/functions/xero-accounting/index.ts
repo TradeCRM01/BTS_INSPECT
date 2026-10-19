@@ -429,7 +429,6 @@ Deno.serve(async (req: Request) => {
             }
           }
         } catch {
-          // Local disconnect still wins if Xero revoke fails.
         }
       }
       await deleteCredentials(admin, ctx.companyId);

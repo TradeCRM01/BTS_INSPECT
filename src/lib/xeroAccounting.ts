@@ -8,7 +8,6 @@ export const XERO_SCOPES = 'offline_access accounting.transactions accounting.co
 export const ACCOUNTING_SETTINGS_PATH = '/settings/accounting';
 export const XERO_FUNCTION_NAME = 'xero-accounting';
 
-/** Columns the browser may read. Never select settings or accounting_credentials. */
 export const ACCOUNTING_SETTINGS_PUBLIC_COLUMNS =
   'id, company_id, provider, tenant_id, connection_status, last_synced_at, auto_sync, sync_invoices, sync_payments, sync_suppliers, created_at, updated_at';
 

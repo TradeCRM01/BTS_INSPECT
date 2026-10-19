@@ -1,7 +1,3 @@
--- Move Xero tokens off accounting_settings.settings. Only service_role can
--- read accounting_credentials. Members see connected state through
--- get_accounting_connection, which never returns tokens.
-
 CREATE TABLE public.accounting_credentials (
   company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
   provider text NOT NULL,
