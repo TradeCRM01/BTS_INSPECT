@@ -445,6 +445,30 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.sec_insp_test_reassign_own_to_teammate()
+RETURNS text
+LANGUAGE plpgsql AS $$
+BEGIN
+  RETURN public.sec_insp_test_reassign(
+    '11111111-1111-1111-1111-111111111111',
+    'daaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    '33333333-3333-3333-3333-333333333333'
+  );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.sec_insp_test_reassign_teammate_to_self()
+RETURNS text
+LANGUAGE plpgsql AS $$
+BEGIN
+  RETURN public.sec_insp_test_reassign(
+    '11111111-1111-1111-1111-111111111111',
+    'deaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    '11111111-1111-1111-1111-111111111111'
+  );
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.sec_insp_test_unscoped_select(p_uid uuid)
 RETURNS text
 LANGUAGE plpgsql AS $$
@@ -563,6 +587,8 @@ DECLARE
   r_team_b text;
   r_own_b text;
   r_null_ins text;
+  r_own_a2 text;
+  r_self_a text;
   r_np_sel text;
   r_nu_sel text;
   r_nc_sel text;
@@ -584,6 +610,8 @@ BEGIN
   r_team_b := public.sec_insp_test_reassign_teammate_to_b();
   r_own_b := public.sec_insp_test_reassign_own_to_b();
   r_null_ins := public.sec_insp_test_reassign_null_inspector();
+  r_own_a2 := public.sec_insp_test_reassign_own_to_teammate();
+  r_self_a := public.sec_insp_test_reassign_teammate_to_self();
   r_np_sel := public.sec_insp_test_unscoped_select('99999999-9999-4999-8999-999999999999');
   r_nu_sel := public.sec_insp_test_unscoped_select(NULL);
   r_nc_sel := public.sec_insp_test_unscoped_select('55555555-5555-5555-5555-555555555555');
@@ -655,6 +683,16 @@ BEGIN
     'fix_null_inspector_denied',
     split_part(r_null_ins, '|', 1) = '42501',
     r_null_ins
+  );
+  INSERT INTO proof_result VALUES (
+    'fix_own_reassign_to_teammate',
+    r_own_a2 = '00000|1',
+    r_own_a2
+  );
+  INSERT INTO proof_result VALUES (
+    'fix_teammate_reassign_to_self',
+    r_self_a = '00000|1',
+    r_self_a
   );
   INSERT INTO proof_result VALUES (
     'fix_noprofile_nulluid_nullco_select_zero',
@@ -896,6 +934,8 @@ DECLARE
   r_team_b text;
   r_own_b text;
   r_null_ins text;
+  r_own_a2 text;
+  r_self_a text;
   r_helper text;
 BEGIN
   r_sel := public.sec_insp_test_teammate_select();
@@ -908,6 +948,8 @@ BEGIN
   r_team_b := public.sec_insp_test_reassign_teammate_to_b();
   r_own_b := public.sec_insp_test_reassign_own_to_b();
   r_null_ins := public.sec_insp_test_reassign_null_inspector();
+  r_own_a2 := public.sec_insp_test_reassign_own_to_teammate();
+  r_self_a := public.sec_insp_test_reassign_teammate_to_self();
   r_helper := public.sec_insp_test_profile_helper_caller();
   INSERT INTO proof_result VALUES (
     'restore_teammate_select',
@@ -958,6 +1000,16 @@ BEGIN
     'restore_null_inspector_denied',
     split_part(r_null_ins, '|', 1) = '42501',
     r_null_ins
+  );
+  INSERT INTO proof_result VALUES (
+    'restore_own_reassign_to_teammate',
+    r_own_a2 = '00000|1',
+    r_own_a2
+  );
+  INSERT INTO proof_result VALUES (
+    'restore_teammate_reassign_to_self',
+    r_self_a = '00000|1',
+    r_self_a
   );
   INSERT INTO proof_result VALUES (
     'restore_profile_helper_caller_company',
