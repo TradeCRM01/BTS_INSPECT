@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -73,7 +73,7 @@ function fixtureHtml(css: string): string {
 type Boxes = { colour: number; checkbox: number; search: number };
 
 let browser: Awaited<ReturnType<typeof launchBrowser>>;
-let css: string;
+let css: string; const temps: string[] = [];
 
 beforeAll(async () => {
   css = await compileIndexCss();
@@ -81,12 +81,12 @@ beforeAll(async () => {
 }, 60000);
 
 afterAll(async () => {
-  await browser?.close();
+  await browser?.close(); for (const dir of temps) rmSync(dir, { recursive: true, force: true });
 });
 
 describe('overlay-panel-xl does not stretch non-search inputs', () => {
   it('keeps the Job details colour picker at 40px and the expense checkbox unstretched', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'overlay-xl-'));
+    const dir = mkdtempSync(join(tmpdir(), 'overlay-xl-')); temps.push(dir);
     const file = join(dir, 'overlay.html');
     writeFileSync(file, fixtureHtml(css));
     const page = await browser.newPage({ viewport: { width: 1024, height: 768 } });

@@ -22522,3 +22522,7 @@
 .overlay-panel-xl input[type="search"] {
   width: 100%;
 }
+.overlay-panel-xl input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}

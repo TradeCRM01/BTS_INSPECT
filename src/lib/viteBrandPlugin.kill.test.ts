@@ -1,7 +1,7 @@
-import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { resolveConfig, type IndexHtmlTransformContext, type Plugin } from 'vite';
 
 function flattenPlugins(plugins: readonly Plugin[]): Plugin[] {
@@ -39,7 +39,7 @@ async function applyIndexHtmlTransforms(plugins: readonly Plugin[], html: string
 describe('resolved vite.config.ts brands the page and PWA manifest', () => {
   afterEach(() => {
     delete process.env.BRAND_NAME;
-  });
+  }); const temps: string[] = [];
 
   it('loads the real config with BRAND_NAME=Acmeco and leaves 0 placeholders', async () => {
     process.env.BRAND_NAME = 'Acmeco';
@@ -71,7 +71,7 @@ describe('resolved vite.config.ts brands the page and PWA manifest', () => {
 
   it('uses the brand.ts constant when BRAND_NAME is unset', async () => {
     delete process.env.BRAND_NAME;
-    const dir = mkdtempSync(join(tmpdir(), 'k9g-'));
+    const dir = mkdtempSync(join(tmpdir(), 'k9g-')); temps.push(dir);
     mkdirSync(join(dir, 'src/lib'), { recursive: true });
     writeFileSync(join(dir, 'vite.config.ts'), readFileSync(resolve(process.cwd(), 'vite.config.ts')));
     writeFileSync(join(dir, 'index.html'), readFileSync(resolve(process.cwd(), 'index.html')));
@@ -110,5 +110,9 @@ describe('resolved vite.config.ts brands the page and PWA manifest', () => {
     expect(manifest.short_name).toBe('Acmeco');
     expect(JSON.stringify(manifest)).not.toMatch(/\bGrafter\b/);
   }, 30000);
+
+  afterAll(() => {
+    for (const dir of temps) rmSync(dir, { recursive: true, force: true });
+  });
 });
 
