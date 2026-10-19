@@ -90,6 +90,10 @@ describe('public Grafter landing', () => {
     expect(page).not.toMatch(/<details[^>]*\sopen\b/);
     expect(page).toContain('Custom templates, JHA and Take 5, with your SWMS attached, all filed on the job.');
     expect(page).toContain('#0036 · 12 Grange Rd, Stafford');
+    expect(page).toContain('#0036.01');
+    expect(page).toContain('>12 Grange Rd, Stafford<');
+    expect(page).not.toContain('Workshop Rd');
+    expect(page).not.toContain('0042');
     expect(page).toContain('Northside Plumbing & Gas · Mon 19 Oct · 07:00–10:30');
     expect(page).toContain('Dean Moretti');
     expect(page).toContain('Tom Nguyen');

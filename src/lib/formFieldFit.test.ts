@@ -273,7 +273,7 @@ describe('form fields fit their type', () => {
     expect(src('src/main.tsx')).toContain('isDevFieldAuditAuth()');
     expect(src('src/pages/RootPage.tsx')).toContain('MarketingPage');
     expect(src('src/pages/MarketingPage.tsx')).toContain('hub-marketing');
-    expect(src('src/pages/MarketingPage.tsx')).toContain('#0042.01');
+    expect(src('src/pages/MarketingPage.tsx')).toContain('#0036.01');
     expect(src('src/index.css')).toContain('.hub-marketing');
     expect(src('src/index.css')).toContain('Newsreader');
     expect(src('index.html')).toContain('Newsreader');
