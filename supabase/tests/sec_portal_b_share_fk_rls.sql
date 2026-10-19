@@ -404,6 +404,27 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.sec_portal_test_helper_caller_company()
+RETURNS text
+LANGUAGE plpgsql AS $$
+DECLARE
+  v_same uuid;
+  v_other uuid;
+BEGIN
+  PERFORM public.proof_as_authenticated('11111111-1111-1111-1111-111111111111');
+  SET LOCAL ROLE authenticated;
+  SELECT public.inspection_inspector_company_id('deaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa')
+    INTO v_same;
+  RESET ROLE;
+  PERFORM public.proof_as_authenticated('22222222-2222-2222-2222-222222222222');
+  SET LOCAL ROLE authenticated;
+  SELECT public.inspection_inspector_company_id('deaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa')
+    INTO v_other;
+  RESET ROLE;
+  RETURN coalesce(v_same::text, 'null') || '|' || coalesce(v_other::text, 'null');
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.sec_portal_test_anon_no_access()
 RETURNS text
 LANGUAGE plpgsql AS $$
@@ -620,6 +641,19 @@ END $$;
 DO $$
 DECLARE
   r text;
+BEGIN
+  r := public.sec_portal_test_helper_caller_company();
+  INSERT INTO proof_result VALUES (
+    'helper_caller_company',
+    split_part(r, '|', 1) = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+      AND split_part(r, '|', 2) = 'null',
+    r
+  );
+END $$;
+
+DO $$
+DECLARE
+  r text;
   v_auth_trunc boolean;
   v_auth_trig boolean;
   v_auth_ref boolean;
@@ -818,6 +852,42 @@ END $$;
 
 \ir ../migrations/20261019120000_sec_portal_b_share_fk_rls.sql
 
+CREATE OR REPLACE FUNCTION public.inspection_inspector_company_id(p_inspection_id uuid)
+RETURNS uuid
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT p.company_id
+  FROM public.inspections i
+  JOIN public.profiles p ON p.id = i.inspector_id
+  WHERE i.id = p_inspection_id
+$$;
+
+DO $$
+DECLARE
+  r text;
+  has_caller boolean;
+BEGIN
+  SELECT pg_get_functiondef('public.inspection_inspector_company_id(uuid)'::regprocedure)
+    LIKE '%caller.company_id%'
+  INTO has_caller;
+  r := public.sec_portal_test_helper_caller_company();
+  INSERT INTO proof_result VALUES (
+    'mutant_drop_helper_caller_check_applied',
+    has_caller IS NOT TRUE AND split_part(r, '|', 2) <> 'null',
+    'caller=' || coalesce(has_caller::text, 'null') || ' ' || r
+  );
+  INSERT INTO proof_result VALUES (
+    'mutant_drop_helper_caller_check_killed',
+    split_part(r, '|', 2) <> 'null',
+    'killed by sec_portal_test_helper_caller_company ' || r
+  );
+END $$;
+
+\ir ../migrations/20261019120000_sec_portal_b_share_fk_rls.sql
+
 GRANT ALL ON public.client_portal_tokens TO anon;
 GRANT ALL ON public.inspection_report_shares TO anon;
 
@@ -859,6 +929,13 @@ BEGIN
   INSERT INTO proof_result VALUES (
     'restore_shares_teammate_write',
     split_part(r, '|', 1) = '00000' AND split_part(r, '|', 2) = '00000',
+    r
+  );
+  r := public.sec_portal_test_helper_caller_company();
+  INSERT INTO proof_result VALUES (
+    'restore_helper_caller_company',
+    split_part(r, '|', 1) = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+      AND split_part(r, '|', 2) = 'null',
     r
   );
   r := public.sec_portal_test_anon_no_access();

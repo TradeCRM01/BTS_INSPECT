@@ -20,16 +20,11 @@ export RB_OUT
 mkdir -p "${RB_OUT}"
 
 prefer_pg_bin() {
-  if command -v initdb >/dev/null 2>&1; then
+  local d="/usr/lib/postgresql/${PGV}/bin"
+  if [ -x "${d}/initdb" ]; then
+    export PATH="${d}:${PATH}"
     return 0
   fi
-  local d
-  for d in "/usr/lib/postgresql/${PGV}/bin" /usr/lib/postgresql/16/bin /usr/lib/postgresql/17/bin; do
-    if [ -x "${d}/initdb" ]; then
-      export PATH="${d}:${PATH}"
-      return 0
-    fi
-  done
   return 1
 }
 
@@ -75,7 +70,7 @@ SQL
 }
 
 if ! prefer_pg_bin; then
-  echo "initdb not found; install local postgresql-16 to run DB proofs"
+  echo "initdb not found; install local postgresql-${PGV} to run DB proofs"
   echo "Test SQL is at supabase/tests/sec_portal_b_share_fk_rls.sql"
   exit 2
 fi
@@ -98,6 +93,7 @@ export PGHOST="${DATA_DIR}"
 export PGPORT="${PORT}"
 PSQL=(psql -h "${PGHOST}" -p "${PGPORT}" -U postgres -X -q -v ON_ERROR_STOP=1)
 
+echo "== SEC-PORTAL-b PG${PGV} $($(command -v psql) --version) =="
 echo "== SEC-PORTAL-b behavior + mutants =="
 "${PSQL[@]}" -d postgres -c "DROP DATABASE IF EXISTS portal_proof"
 "${PSQL[@]}" -d postgres -c "CREATE DATABASE portal_proof"

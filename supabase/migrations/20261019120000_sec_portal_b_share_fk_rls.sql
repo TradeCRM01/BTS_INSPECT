@@ -8,7 +8,9 @@ AS $$
   SELECT p.company_id
   FROM public.inspections i
   JOIN public.profiles p ON p.id = i.inspector_id
+  JOIN public.profiles caller ON caller.id = auth.uid()
   WHERE i.id = p_inspection_id
+    AND p.company_id = caller.company_id
 $$;
 
 REVOKE ALL ON FUNCTION public.inspection_inspector_company_id(uuid) FROM PUBLIC, anon;
