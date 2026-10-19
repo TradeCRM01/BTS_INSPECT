@@ -1,4 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { resolvePortalAdmin } from "./portalAdmin.ts";
+import {
+  clientBelongsToPortal,
+  inspectorCompanyMatches,
+  inspectionsForTokenCompany,
+} from "./portalTenancy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -242,7 +248,7 @@ async function ensureJobForAcceptedQuote(
   return { jobId, error: null };
 }
 
-Deno.serve(async (req) => {
+export async function handleClientPortalRequest(req: Request) {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
@@ -267,7 +273,7 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const admin = createClient(supabaseUrl, serviceKey);
+    const admin = resolvePortalAdmin(() => createClient(supabaseUrl, serviceKey));
 
     // 1) Per-report share token
     const { data: share } = await admin
@@ -290,14 +296,27 @@ Deno.serve(async (req) => {
 
       const { data: inspection } = await admin
         .from("inspections")
-        .select("id, meta, status, completed_at, doc_version, amendment_reason, template_snapshot")
+        .select("id, meta, status, completed_at, doc_version, amendment_reason, template_snapshot, inspector_id")
         .eq("id", share.inspection_id)
         .maybeSingle();
+
+      const { data: inspectorProfile } = inspection?.inspector_id
+        ? await admin
+          .from("profiles")
+          .select("id, company_id")
+          .eq("id", inspection.inspector_id)
+          .maybeSingle()
+        : { data: null };
+
+      if (!inspectorCompanyMatches(inspectorProfile, share.company_id)) {
+        return json({ error: "Invalid link" }, 403);
+      }
 
       const { data: report } = await admin
         .from("reports")
         .select("id, report_number, pdf_storage_path, created_at")
         .eq("inspection_id", share.inspection_id)
+        .eq("company_id", share.company_id)
         .maybeSingle();
 
       const { data: company } = await admin
@@ -413,9 +432,14 @@ Deno.serve(async (req) => {
 
     const { data: client } = await admin
       .from("clients")
-      .select("id, name, email, phone, address")
+      .select("id, name, email, phone, address, company_id")
       .eq("id", portal.client_id)
+      .eq("company_id", portal.company_id)
       .maybeSingle();
+
+    if (!clientBelongsToPortal(client, portal.company_id)) {
+      return json({ error: "Invalid link" }, 403);
+    }
 
     const { data: company } = await admin
       .from("companies")
@@ -429,6 +453,7 @@ Deno.serve(async (req) => {
           .from("quotes")
           .select("id, quote_number, status, job_id, total, validity_date, updated_at")
           .eq("client_id", portal.client_id)
+          .eq("company_id", portal.company_id)
           .neq("status", "draft")
           .order("updated_at", { ascending: false })
           .limit(50),
@@ -436,6 +461,7 @@ Deno.serve(async (req) => {
           .from("invoices")
           .select("id, invoice_number, status, total, amount_paid, due_date, updated_at")
           .eq("client_id", portal.client_id)
+          .eq("company_id", portal.company_id)
           .neq("status", "draft")
           .order("updated_at", { ascending: false })
           .limit(50),
@@ -443,23 +469,39 @@ Deno.serve(async (req) => {
           .from("jobs")
           .select("id, title, status, scheduled_date, job_number, address, updated_at")
           .eq("client_id", portal.client_id)
+          .eq("company_id", portal.company_id)
           .order("updated_at", { ascending: false })
           .limit(50),
         admin
           .from("inspections")
-          .select("id, status, meta, completed_at, doc_version, template_snapshot")
+          .select("id, status, meta, completed_at, doc_version, template_snapshot, inspector_id")
           .eq("client_id", portal.client_id)
           .in("status", ["completed", "issued"])
           .order("completed_at", { ascending: false })
           .limit(50),
       ]);
 
-    const inspectionIds = (inspections ?? []).map((i) => i.id);
+    const inspectorIds = [...new Set(
+      (inspections ?? [])
+        .map((row) => row.inspector_id as string | null | undefined)
+        .filter((id): id is string => Boolean(id)),
+    )];
+    const { data: inspectorProfiles } = inspectorIds.length
+      ? await admin.from("profiles").select("id, company_id").in("id", inspectorIds)
+      : { data: [] as Array<{ id: string; company_id: string }> };
+    const scopedInspections = inspectionsForTokenCompany(
+      inspections ?? [],
+      inspectorProfiles ?? [],
+      portal.company_id,
+    );
+
+    const inspectionIds = scopedInspections.map((i) => i.id);
     const { data: reports } = inspectionIds.length
       ? await admin
         .from("reports")
         .select("id, inspection_id, report_number, pdf_storage_path, created_at")
         .in("inspection_id", inspectionIds)
+        .eq("company_id", portal.company_id)
       : { data: [] as Array<{
         id: string;
         inspection_id: string;
@@ -471,7 +513,7 @@ Deno.serve(async (req) => {
     const reportByInspection = new Map((reports ?? []).map((r) => [r.inspection_id, r]));
 
     const reportCards = await Promise.all(
-      (inspections ?? []).map(async (insp) => {
+      scopedInspections.map(async (insp) => {
         const report = reportByInspection.get(insp.id);
         let pdfUrl: string | null = null;
         if (report?.pdf_storage_path) {
@@ -545,4 +587,8 @@ Deno.serve(async (req) => {
       500,
     );
   }
-});
+}
+
+if (import.meta.main) {
+  Deno.serve((req) => handleClientPortalRequest(req));
+}
