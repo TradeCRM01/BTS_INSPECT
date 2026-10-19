@@ -64,8 +64,6 @@ describe('dashboard widgets stay on the paper', () => {
   it('shows persisted widgets without Customize, and seeds an empty table once', () => {
     const page = src('src/pages/DashboardPage.tsx');
     expect(page).toContain("from('dashboard_widgets')");
-    expect(page).toContain(".order('grid_y', { ascending: true })");
-    expect(page).toContain(".order('id', { ascending: true })");
     expect(page).toContain('if (error) throw error');
     expect(page).toContain('resolveDashboardWidgets');
     expect(page).toContain('defaultDashboardWidgetInserts');

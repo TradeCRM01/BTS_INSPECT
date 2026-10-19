@@ -13,14 +13,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '../components/ui';
-import { DASHBOARD_WIDGET_GAP, dashboardWidgetMinNeighborGap } from '../lib/dashboardWidgets';
+import { DASHBOARD_WIDGET_GAP, dashboardWidgetLayoutOverlaps, dashboardWidgetMinNeighborGap } from '../lib/dashboardWidgets';
 import { DashboardPage } from './DashboardPage';
 
-type Call = { table: string; op: string; payload?: unknown; filters: Array<[string, unknown]> };
+type Call = { table: string; op: string; payload?: unknown; filters: Array<[string, unknown]>; order: string[] };
 const h = vi.hoisted(() => ({
   calls: [] as Call[],
   failOp: null as null | 'update' | 'delete',
   failIds: new Set<string>(),
+  loads: 0,
+  orderKeys: [] as string[][],
   rows: [] as Array<Record<string, unknown>>,
   onDragEnd: null as null | ((event: { active: { id: string }; delta: { x: number; y: number } }) => void),
 }));
@@ -47,7 +49,7 @@ vi.mock('../contexts/AuthContext', () => ({
 }));
 vi.mock('../lib/supabase', () => {
   function builder(table: string) {
-    const call: Call = { table, op: 'select', filters: [] };
+    const call: Call = { table, op: 'select', filters: [], order: [] };
     const result = () => {
       if (call.op === 'update' || call.op === 'delete' || call.op === 'insert') h.calls.push(call);
       const id = call.filters.find(f => f[0] === 'id')?.[1] as string | undefined;
@@ -72,9 +74,19 @@ vi.mock('../lib/supabase', () => {
         h.rows = h.rows.filter(r => r.id !== id);
       }
       if (table === 'dashboard_widgets' && call.op === 'select') {
-        const data = [...h.rows]
-          .sort((a, b) => (a.grid_y as number) - (b.grid_y as number) || String(a.id).localeCompare(String(b.id)))
-          .map(r => JSON.parse(JSON.stringify(r)));
+        h.loads += 1;
+        h.orderKeys.push([...call.order]);
+        const base = h.loads % 2 ? [...h.rows].reverse() : [...h.rows];
+        const cmp = (a: Record<string, unknown>, b: Record<string, unknown>) => {
+          for (const k of call.order) {
+            const x = a[k] as string | number;
+            const y = b[k] as string | number;
+            if (x < y) return -1;
+            if (x > y) return 1;
+          }
+          return 0;
+        };
+        const data = base.sort(cmp).map(r => JSON.parse(JSON.stringify(r)));
         return Promise.resolve({ data, error: null });
       }
       if (table === 'profiles') return Promise.resolve({ data: { id: 'u-1', dashboard_widgets_seeded: true }, error: null });
@@ -82,7 +94,8 @@ vi.mock('../lib/supabase', () => {
     };
     const q: Record<string, unknown> = {};
     const chain = () => q;
-    for (const m of ['select', 'order', 'in', 'gte', 'lte', 'lt', 'gt', 'limit', 'or', 'not', 'is', 'neq', 'range', 'ilike', 'match']) q[m] = chain;
+    q.order = (col: string) => { call.order.push(col); return q; };
+    for (const m of ['select', 'in', 'gte', 'lte', 'lt', 'gt', 'limit', 'or', 'not', 'is', 'neq', 'range', 'ilike', 'match']) q[m] = chain;
     q.eq = (col: string, v: unknown) => { call.filters.push([col, v]); return q; };
     q.update = (p: unknown) => { call.op = 'update'; call.payload = p; return q; };
     q.delete = () => { call.op = 'delete'; return q; };
@@ -112,7 +125,7 @@ const LIVE_PHONE_IDS = ['w-invoices', 'w-jobs', 'w-compliance', 'w-weather1', 'w
 let container: HTMLDivElement; let root: Root;
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-  h.calls.length = 0; h.failOp = null; h.failIds = new Set(); h.onDragEnd = null; h.rows = JSON.parse(JSON.stringify(LIVE));
+  h.calls.length = 0; h.failOp = null; h.failIds = new Set(); h.onDragEnd = null; h.rows = JSON.parse(JSON.stringify(LIVE)); h.loads = 0; h.orderKeys = [];
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ results: [{ latitude: 0, longitude: 0 }], current: {} }) })));
   container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
 });
@@ -130,7 +143,18 @@ async function mountPage() {
     root.render(<QueryClientProvider client={client}><ToastProvider><MemoryRouter initialEntries={['/']}><DashboardPage /></MemoryRouter></ToastProvider></QueryClientProvider>);
   });
   await waitFor(() => !!document.querySelector('.dashboard-home-more > summary') && !!document.querySelector('[data-dashboard-view-grid="1"] .dashboard-home-widget'), 'view grid');
+  await tick(60);
 }
+async function remount() { act(() => root.unmount()); root = createRoot(container); h.calls.length = 0; await mountPage(); }
+const W = (id: string, widget_type: string, grid_x: number, grid_y: number, grid_w = 260, grid_h = 270, config: Record<string, unknown> = {}) =>
+  ({ id, widget_type, grid_x, grid_y, grid_w, grid_h, config });
+const rect = (r: Record<string, unknown>) => ({ widget_type: String(r.widget_type), grid_x: r.grid_x as number, grid_y: r.grid_y as number, grid_w: r.grid_w as number, grid_h: r.grid_h as number });
+const REP = () => [
+  W('r-jobs', 'upcoming_jobs', 20, 20, 390, 270), W('r-wea1', 'weather', 20, 20), W('r-wea2', 'weather', 300, 30),
+  W('r-inv', 'outstanding_invoices', 420, 20, 260, 180), W('r-stock', 'stock_market', 700, 20, 260, 180, { symbols: ['ASX:BHP'] }),
+  W('r-btc', 'bitcoin', 20, 700, 260, 180), W('r-comp', 'compliance_deadlines', 20, 380, 390, 270), W('r-wea3', 'weather', 405, 380),
+  W('r-gut', 'weather', 690, 700, 260, 180),
+];
 async function mountCustomize() {
   await mountPage();
   await act(async () => { (document.querySelector('.dashboard-home-more > summary') as HTMLElement).click(); });
@@ -298,32 +322,66 @@ describe('PR377 probe: phone Customize persists to dashboard_widgets', () => {
     await mountPage();
     expect(spy.mock.calls.some(c => String(c[0]).includes('Dashboard widget repair write failed'))).toBe(true);
     expect(document.body.textContent).not.toContain('Could not load dashboard');
+    expect(document.body.textContent).toMatch(/could not repair the widget layout/i);
     expect(document.querySelector('[data-dashboard-view-grid="1"] .dashboard-home-widget')).toBeTruthy();
   });
 
-  it('reloads at 390 in grid_y then id order (P1-B)', async () => {
+  it('same-grid_y same-tier rows come back in one order on every reload (tie broken by id)', async () => {
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
     h.rows = [
-      { id: 'D', widget_type: 'weather', grid_x: 20, grid_y: 920, grid_w: 260, grid_h: 270, config: {} },
-      { id: 'B', widget_type: 'weather', grid_x: 20, grid_y: 320, grid_w: 260, grid_h: 270, config: {} },
-      { id: 'C', widget_type: 'weather', grid_x: 20, grid_y: 620, grid_w: 260, grid_h: 270, config: {} },
-      { id: 'A', widget_type: 'weather', grid_x: 20, grid_y: 20, grid_w: 260, grid_h: 270, config: {} },
+      W('w-d', 'weather', 668, 20, 200), W('w-a', 'weather', 20, 20, 200), W('w-c', 'weather', 452, 20, 200), W('w-b', 'weather', 236, 20, 200),
+      W('w-ops', 'pending_reports', 20, 310, 390, 180),
     ];
     await mountPage();
-    expect(viewIds()).toEqual(['A', 'B', 'C', 'D']);
-    await act(async () => { (document.querySelector('.dashboard-home-more > summary') as HTMLElement).click(); });
-    const customize = [...document.querySelectorAll('[role="menuitem"]')].find(e => e.textContent === 'Customize') as HTMLElement;
-    await act(async () => { customize.click(); });
-    await waitFor(() => !!document.querySelector('[data-dashboard-phone-stack="1"]'), 'stack');
-    await act(async () => { btn('C', 'Move Weather up').click(); }); await tick();
-    await act(async () => { btn('A', 'Remove Weather').click(); }); await tick();
-    expect(ids()).toEqual(['C', 'B', 'D']);
-    act(() => root.unmount());
-    root = createRoot(container);
-    h.rows = [h.rows.find(r => r.id === 'D')!, h.rows.find(r => r.id === 'C')!, h.rows.find(r => r.id === 'B')!];
-    h.calls.length = 0;
+    const first = viewIds();
+    expect(first).toEqual(['w-ops', 'w-a', 'w-b', 'w-c', 'w-d']);
+    for (let i = 0; i < 3; i += 1) {
+      await remount();
+      expect(viewIds()).toEqual(first);
+    }
+    expect(writes('update')).toEqual([]);
+    expect(h.orderKeys.every(k => k.join(',') === 'grid_y,id')).toBe(true);
+  });
+
+  it('a failed repair DELETE is logged and stops the repair (RP1)', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    h.rows = REP();
+    h.failOp = 'delete';
     await mountPage();
-    expect(viewIds()).toEqual(['C', 'B', 'D']);
+    expect(spy.mock.calls.some(c => String(c[0]).includes('Dashboard widget repair write failed'))).toBe(true);
+    expect(document.body.textContent).toMatch(/could not repair the widget layout/i);
+    expect(writes('delete')).toHaveLength(1);
+    expect(writes('update')).toHaveLength(0);
+    expect(h.rows.some(r => r.id === 'r-stock')).toBe(true);
+    expect(viewIds()).not.toContain('r-stock');
+  });
+
+  it('repair PATCH keeps grid_x when it moves a row (RP7)', async () => {
+    h.rows = REP();
+    await mountPage();
+    expect(writes('delete').map(c => c.filters)).toEqual([[['id', 'r-stock']], [['id', 'r-btc']]]);
+    const ups = writes('update');
+    expect(ups.length).toBeGreaterThan(0);
+    const moved = ups.filter(u => Object.prototype.hasOwnProperty.call(u.payload as object, 'grid_x'));
+    expect(moved.length).toBeGreaterThan(0);
+    for (const u of moved) {
+      const rest = strip(u.payload);
+      expect(rest).toHaveProperty('grid_x');
+      expect(rest).toHaveProperty('grid_y');
+    }
+    const stored = h.rows.filter(r => !['r-stock', 'r-btc'].includes(String(r.id))).map(rect);
+    expect(dashboardWidgetLayoutOverlaps(stored)).toBe(false);
+    expect(dashboardWidgetMinNeighborGap(stored)).toBeGreaterThanOrEqual(DASHBOARD_WIDGET_GAP);
+  });
+
+  it('a load-path repair move keeps the phone order on the next reload', async () => {
+    h.rows = [W('aaaa', 'weather', 20, 20, 1060, 270), W('cccc', 'weather', 20, 20), W('bbbb', 'weather', 20, 306)];
+    await mountPage();
+    const first = viewIds();
+    expect(first).toEqual(['aaaa', 'cccc', 'bbbb']);
+    expect(writes('update').length).toBeGreaterThan(0);
+    await remount();
+    expect(viewIds()).toEqual(first);
   });
 
   it('C up, remove A, reload, then B down still reorders (P1-B)', async () => {

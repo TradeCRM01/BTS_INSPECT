@@ -35,6 +35,7 @@ import {
   readDashboardWidgetPhoneOrder,
   sortDashboardWidgetsForView,
   swapAdjacentDashboardWidgetPhoneOrder,
+  withDashboardWidgetPhoneOrder,
 } from '../lib/dashboardWidgetView';
 import { WIDGET_CATEGORIES, getWidgetDef } from '../widgets/registry';
 import { WidgetRenderer } from '../widgets/WidgetComponents';
@@ -93,13 +94,15 @@ async function persistDashboardWidgetRepair(
   for (const prev of before) {
     const next = afterById.get(prev.id);
     if (!next) continue;
-    if (next.grid_x === prev.grid_x && next.grid_y === prev.grid_y) continue;
+    const orderChanged = readDashboardWidgetPhoneOrder(next.config) !== readDashboardWidgetPhoneOrder(prev.config);
+    if (next.grid_x === prev.grid_x && next.grid_y === prev.grid_y && !orderChanged) continue;
     const { error } = await supabase
       .from('dashboard_widgets')
       .update({
         grid_x: next.grid_x,
         grid_y: next.grid_y,
         updated_at: new Date().toISOString(),
+        ...(orderChanged ? { config: next.config } : {}),
       } as never)
       .eq('id', prev.id);
     if (error) throw error;
@@ -518,10 +521,17 @@ export function DashboardPage() {
       });
       const repaired = repairDashboardWidgetLayout(rows);
       if (repaired.changed) {
+        const keptBefore = rows.filter(row => !repaired.droppedIds.includes(row.id));
+        const rank = new Map(sortDashboardWidgetsForView(keptBefore).map((row, index) => [row.id, index]));
+        repaired.widgets = repaired.widgets.map(row => {
+          const order = rank.get(row.id);
+          return order === undefined ? row : withDashboardWidgetPhoneOrder(row, order);
+        });
         try {
           await persistDashboardWidgetRepair(rows, repaired);
         } catch (err) {
           console.error('Dashboard widget repair write failed', err);
+          showToast('Could not repair the widget layout.', 'error');
         }
       }
       return repaired.widgets;
@@ -1087,11 +1097,11 @@ export function DashboardPage() {
                     </div>
                   </>
                 ) : (
-                  <div className="dashboard-home-view-grid min-w-0" data-dashboard-view-grid="1">
+                  <div className="dashboard-home-view-grid" data-dashboard-view-grid="1">
                     {viewWidgets.map(w => (
                       <div
                         key={w.id}
-                        className="dashboard-home-widget dashboard-home-widget-card min-w-0"
+                        className="dashboard-home-widget dashboard-home-widget-card"
                         data-dashboard-widget-id={w.id}
                       >
                         <div className="dashboard-home-widget-ink">
@@ -1178,7 +1188,7 @@ export function DashboardPhoneEditStack<T extends {
         return (
           <div
             key={w.id}
-            className="dashboard-home-widget min-w-0"
+            className="dashboard-home-widget"
             data-dashboard-widget-id={w.id}
           >
             <div className="dashboard-home-phone-edit-bar">

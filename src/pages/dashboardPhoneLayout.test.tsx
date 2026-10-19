@@ -7,10 +7,14 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '../components/ui';
 import { swapAdjacentDashboardWidgetPhoneOrder } from '../lib/dashboardWidgetView';
 import { DashboardPage, DashboardPhoneEditStack } from './DashboardPage';
+import {
+  closeDashboardLookServer,
+  measureDashboardLook,
+} from './dashboardPhoneRenderedHarness';
 
 vi.mock('../components/layout/AppShell', () => ({
   AppShell: ({ children }: { children: React.ReactNode }) => <div data-app-shell="1">{children}</div>,
@@ -72,14 +76,6 @@ function lookCss(): string {
   const lookStart = css.indexOf('/* Signed-in home / only.');
   const lookEnd = css.indexOf('/* Field Work inspections list only.', lookStart);
   return css.slice(lookStart, lookEnd);
-}
-
-function ruleBeforeMedia(css: string, selector: string, media: string): string {
-  const start = css.indexOf(`${selector} {`);
-  expect(start).toBeGreaterThan(-1);
-  const mediaAt = css.indexOf(media, start);
-  const end = mediaAt === -1 ? css.length : mediaAt;
-  return css.slice(start, end);
 }
 
 let container: HTMLDivElement;
@@ -153,65 +149,64 @@ function phoneWidgetIds(): string[] {
   );
 }
 
-describe('dashboard phone layout', () => {
-  it('keeps the phone view grid able to shrink so widgets cannot force sideways overflow', () => {
-    const css = lookCss();
-    const view = ruleBeforeMedia(css, '.dashboard-home-view-grid', '@media (min-width: 640px)');
-    expect(view).toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\)/);
-    expect(view).not.toMatch(/grid-template-columns:\s*1fr;/);
-    expect(view).toMatch(/gap:\s*20px/);
-    const mdBlock = css.slice(css.indexOf('@media (min-width: 640px)'));
-    const mdViewStart = mdBlock.indexOf('.dashboard-home-view-grid {');
-    const mdView = mdBlock.slice(mdViewStart, mdBlock.indexOf('}', mdViewStart) + 1);
-    expect(mdView).toMatch(/gap:\s*16px/);
-    const stack = css.slice(css.indexOf('.dashboard-home-widget-stack {'));
-    const stackRule = stack.slice(0, stack.indexOf('}') + 1);
-    expect(stackRule).toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\)/);
-    expect(stackRule).not.toMatch(/grid-template-columns:\s*1fr;/);
-    expect(stackRule).toMatch(/gap:\s*20px/);
-    const stackInkStart = css.indexOf('.dashboard-home-widget-stack .dashboard-home-widget-ink {');
-    const stackInk = css.slice(stackInkStart, css.indexOf('}', stackInkStart) + 1);
-    expect(stackInk).toMatch(/height:\s*auto/);
-    expect(stackInk).not.toMatch(/height:\s*100%/);
+function phoneViewTracks(report: Awaited<ReturnType<typeof measureDashboardLook>>) {
+  return report.viewTracks.filter(rule => !/min-width:\s*640px|min-width:\s*1024px|min-width:\s*1280px/.test(rule.media));
+}
+
+describe('dashboard phone rendered layout', () => {
+  afterAll(async () => {
+    await closeDashboardLookServer();
   });
 
-  it('measures a constant 20px phone gutter between neighbouring cards (P2-6)', () => {
-    const css = lookCss();
-    const stackRule = css.slice(css.indexOf('.dashboard-home-widget-stack {'));
-    const stackBlock = stackRule.slice(0, stackRule.indexOf('}') + 1);
-    const viewBlock = ruleBeforeMedia(css, '.dashboard-home-view-grid', '@media (min-width: 640px)');
-    const style = document.createElement('style');
-    style.textContent = `${stackBlock}\n${viewBlock}`;
-    document.head.appendChild(style);
-    const stack = document.createElement('div');
-    stack.className = 'dashboard-home-widget-stack';
-    const view = document.createElement('div');
-    view.className = 'dashboard-home-view-grid';
-    document.body.append(stack, view);
-    const gapOf = (el: HTMLElement) => {
-      const cs = getComputedStyle(el);
-      const raw = cs.rowGap && cs.rowGap !== 'normal' ? cs.rowGap : cs.gap;
-      return parseFloat(raw);
-    };
-    expect(gapOf(stack)).toBe(20);
-    expect(gapOf(view)).toBe(20);
-    const mdBlock = css.slice(css.indexOf('@media (min-width: 640px)'));
-    const mdViewStart = mdBlock.indexOf('.dashboard-home-view-grid {');
-    const mdView = mdBlock.slice(mdViewStart, mdBlock.indexOf('}', mdViewStart) + 1);
-    expect(mdView).toMatch(/gap:\s*16px/);
-  });
-
-  it('renders phone widgets inside a shrinking grid on the look dashboard', async () => {
-    await renderDashboard();
-    await waitForSelector('[data-dashboard-view-grid="1"]');
-    const grid = document.querySelector('[data-dashboard-view-grid="1"]') as HTMLElement;
-    expect(grid.className.split(/\s+/)).toContain('min-w-0');
-    const cards = [...grid.querySelectorAll('.dashboard-home-widget')];
-    expect(cards.length).toBeGreaterThan(0);
-    for (const card of cards) {
-      expect(card.className.split(/\s+/)).toContain('min-w-0');
+  it('keeps every phone widget and its text inside the sheet at 375 and 390', async () => {
+    for (const width of [375, 390]) {
+      const report = await measureDashboardLook(width, { look: 'dashboard-repro', overflowProbe: true });
+      expect(report.cardCount, `${width} cards`).toBeGreaterThan(0);
+      expect(report.maxCardRight, `${width} card right ${report.maxCardRight} vs sheet ${report.innerRight}`).toBeLessThanOrEqual(report.innerRight + 0.5);
+      expect(report.overflowCards, `${width} overflowing cards`).toBe(0);
+      expect(report.overflowTexts, `${width} text past sheet ${JSON.stringify(report.overflowTexts)}`).toEqual([]);
+      const tracks = phoneViewTracks(report);
+      const minmax = /minmax\(\s*0(?:px)?\s*,\s*1fr\s*\)/;
+      expect(tracks.some(rule => minmax.test(rule.cols)), `${width} view tracks ${JSON.stringify(tracks)}`).toBe(true);
+      expect(tracks.every(rule => rule.cols !== '1fr'), `${width} 1fr track ${JSON.stringify(tracks)}`).toBe(true);
+      expect(report.stackTracks.some(rule => minmax.test(rule.cols)), `${width} stack tracks ${JSON.stringify(report.stackTracks)}`).toBe(true);
     }
-  });
+  }, 120_000);
+
+  it('measures the real 20px phone gap and 16px desktop/tablet gaps in view mode', async () => {
+    for (const width of [375, 390]) {
+      const report = await measureDashboardLook(width);
+      expect(report.viewGap, `${width} view gap`).toBe('20px');
+      const vGaps = report.neighbourGaps.filter(g => g.kind === 'v').map(g => g.gap);
+      expect(vGaps.length, `${width} vertical neighbours`).toBeGreaterThan(0);
+      for (const gap of vGaps) expect(gap, `${width} view neighbour ${gap}`).toBeCloseTo(20, 0);
+    }
+    for (const width of [800, 1024, 1280]) {
+      const report = await measureDashboardLook(width);
+      expect(report.viewGap, `${width} view gap`).toBe('16px');
+      const gaps = report.neighbourGaps.map(g => g.gap);
+      expect(gaps.length, `${width} neighbours`).toBeGreaterThan(0);
+      for (const gap of gaps) expect(gap, `${width} view neighbour ${gap}`).toBeCloseTo(16, 0);
+    }
+  }, 120_000);
+
+  it('keeps Customize neighbour gaps at the phone 20px gutter and the desktop 16px gutter', async () => {
+    for (const width of [375, 390]) {
+      const report = await measureDashboardLook(width, { edit: true });
+      expect(report.stackGap, `${width} stack gap`).toBe('20px');
+      expect(report.minNeighbour, `${width} min neighbour`).toBeGreaterThanOrEqual(20);
+      const vGaps = report.neighbourGaps.filter(g => g.kind === 'v').map(g => g.gap);
+      expect(vGaps.length, `${width} stack neighbours`).toBeGreaterThan(0);
+      for (const gap of vGaps) expect(gap, `${width} stack neighbour ${gap}`).toBeCloseTo(20, 0);
+    }
+    for (const width of [800, 1024, 1280]) {
+      const report = await measureDashboardLook(width, { edit: true });
+      expect(report.minNeighbour, `${width} customize min neighbour`).toBeGreaterThanOrEqual(16);
+    }
+  }, 120_000);
+});
+
+describe('dashboard phone layout', () => {
 
   it('shows tappable remove and reorder controls on the phone customize stack', async () => {
     await renderDashboard();
