@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { act, type ReactElement } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -83,6 +83,14 @@ async function render(ui: ReactElement) {
   return { container, root };
 }
 
+async function renderRoute(path: string, routePath: string, element: ReactElement) {
+  const router = createMemoryRouter(
+    [{ path: routePath, element }],
+    { initialEntries: [path] },
+  );
+  return render(<RouterProvider router={router} />);
+}
+
 describe('canViewTemplates', () => {
   it('allows admins and view/edit, and blocks none', () => {
     expect(canViewTemplates({ role: 'admin', template_access: 'none' })).toBe(true);
@@ -142,12 +150,10 @@ describe('template guards render as a none member', () => {
   });
 
   it('TemplateEditorPage renders No access', async () => {
-    const { container, root } = await render(
-      <MemoryRouter initialEntries={['/templates/abc']}>
-        <Routes>
-          <Route path="/templates/:id" element={<TemplateEditorPage />} />
-        </Routes>
-      </MemoryRouter>,
+    const { container, root } = await renderRoute(
+      '/templates/abc',
+      '/templates/:id',
+      <TemplateEditorPage />,
     );
     expect(container.querySelector('[data-template-access="denied"]')).toBeTruthy();
     expect(container.textContent).toContain(TEMPLATE_ACCESS_DENIED_TITLE);
@@ -158,12 +164,10 @@ describe('template guards render as a none member', () => {
   it('TemplateEditorPage is read-only for a view member', async () => {
     auth.profile.template_access = 'view';
     auth.profile.role = 'member';
-    const { container, root } = await render(
-      <MemoryRouter initialEntries={['/templates/abc']}>
-        <Routes>
-          <Route path="/templates/:id" element={<TemplateEditorPage />} />
-        </Routes>
-      </MemoryRouter>,
+    const { container, root } = await renderRoute(
+      '/templates/abc',
+      '/templates/:id',
+      <TemplateEditorPage />,
     );
     expect(container.textContent).toContain('No edit access');
     expect(container.textContent).not.toContain('Saved');
@@ -175,12 +179,10 @@ describe('template guards render as a none member', () => {
   it('JhaTemplateEditorPage is read-only for a view member', async () => {
     auth.profile.template_access = 'view';
     auth.profile.role = 'member';
-    const { container, root } = await render(
-      <MemoryRouter initialEntries={['/jha-templates/abc']}>
-        <Routes>
-          <Route path="/jha-templates/:id" element={<JhaTemplateEditorPage />} />
-        </Routes>
-      </MemoryRouter>,
+    const { container, root } = await renderRoute(
+      '/jha-templates/abc',
+      '/jha-templates/:id',
+      <JhaTemplateEditorPage />,
     );
     expect(container.textContent).toContain('No edit access');
     expect(container.textContent).not.toContain('Saved');
@@ -191,12 +193,10 @@ describe('template guards render as a none member', () => {
   });
 
   it('JhaTemplateEditorPage renders No access', async () => {
-    const { container, root } = await render(
-      <MemoryRouter initialEntries={['/jha-templates/abc']}>
-        <Routes>
-          <Route path="/jha-templates/:id" element={<JhaTemplateEditorPage />} />
-        </Routes>
-      </MemoryRouter>,
+    const { container, root } = await renderRoute(
+      '/jha-templates/abc',
+      '/jha-templates/:id',
+      <JhaTemplateEditorPage />,
     );
     expect(container.querySelector('[data-template-access="denied"]')).toBeTruthy();
     expect(container.textContent).toContain(TEMPLATE_ACCESS_DENIED_TITLE);
