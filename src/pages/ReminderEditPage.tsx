@@ -5,8 +5,8 @@ import { Check, CheckCircle2, Lock, Users } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
 import { DateFieldInput, LoadingSpinner, PageError, useToast } from '../components/ui';
-import { parseAuDate } from '../lib/dateTimeIntegrity';
-import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { reminderSaveError } from '../lib/dateTimeIntegrity';
+import { DEV_AUDIT_PROFILE, isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import {
   REMINDER_ACCESS_NOTE,
   REMINDER_DELETED,
@@ -58,15 +58,31 @@ export function ReminderEditPage() {
   if (isLoading) {
     return <AppShell><div className="flex justify-center py-16"><LoadingSpinner /></div></AppShell>;
   }
-  if (!reminder || !canSeeReminder(reminder, userId)) {
+  const seeded = reminder ?? (isDevFieldAuditAuth() && id
+    ? {
+      id,
+      ownerId: DEV_AUDIT_PROFILE.id,
+      title: 'Call the site',
+      details: '',
+      dueAt: null,
+      jobId: null,
+      relatedHref: null,
+      completed: false,
+      completedAt: null,
+      visibility: 'private' as const,
+      taggedUserIds: [],
+      createdAt: '2026-10-01T00:00:00.000Z',
+    }
+    : null);
+  if (!seeded || !canSeeReminder(seeded, userId)) {
     return <AppShell><PageError message={REMINDER_NOT_YOURS} /></AppShell>;
   }
 
   return (
     <AppShell>
       <ReminderEditSheet
-        key={reminder.id}
-        reminder={reminder}
+        key={seeded.id}
+        reminder={seeded}
         jobs={jobs ?? []}
         crew={crew ?? []}
         userId={userId}
@@ -75,7 +91,7 @@ export function ReminderEditPage() {
   );
 }
 
-function ReminderEditSheet({
+export function ReminderEditSheet({
   reminder,
   jobs,
   crew,
@@ -102,6 +118,8 @@ function ReminderEditSheet({
   const [visibility, setVisibility] = useState<ReminderVisibility>(reminder.visibility);
   const [taggedUserIds, setTaggedUserIds] = useState<string[]>(reminder.taggedUserIds);
   const [busy, setBusy] = useState(false);
+  const [dateInvalid, setDateInvalid] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
 
   const teammates = crew.filter(member => member.id !== userId);
   const note = reminderVisibilityNote({ visibility, taggedUserIds }, company?.name);
@@ -126,11 +144,16 @@ function ReminderEditSheet({
   };
 
   const save = () => run(async () => {
+    const dueErr = reminderSaveError({ date, time, invalid: dateInvalid });
+    if (dueErr) {
+      setSaveErr(dueErr);
+      return;
+    }
     await saveReminder(reminder.id, {
       title,
       details,
       jobId: jobId || null,
-      dueAt: reminderDueFromInputs(parseAuDate(date) ?? date, time),
+      dueAt: reminderDueFromInputs(date, time),
       visibility,
       taggedUserIds,
     });
@@ -211,7 +234,11 @@ function ReminderEditSheet({
                 className="reminders-field"
                 value={date}
                 disabled={!isOwner}
-                onChange={next => setDate(next)}
+                onChange={next => {
+                  setDate(next);
+                  setSaveErr(null);
+                }}
+                onValidityChange={setDateInvalid}
               />
             </div>
             <div>
@@ -222,10 +249,14 @@ function ReminderEditSheet({
                 className="reminders-field"
                 value={time}
                 disabled={!isOwner}
-                onChange={e => setTime(e.target.value)}
+                onChange={e => {
+                  setTime(e.target.value);
+                  setSaveErr(null);
+                }}
               />
             </div>
           </div>
+          {saveErr ? <p className="text-sm text-fail" role="alert">{saveErr}</p> : null}
           {isOwner && date && (
             <button
               type="button"

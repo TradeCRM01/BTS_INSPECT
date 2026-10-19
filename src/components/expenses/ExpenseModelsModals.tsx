@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { Plus, Trash2, X, Users, Bookmark, Copy, Check } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { DateFieldInput } from '../ui/DateFieldInput';
 import { ManagedSelect } from '../ui/ManagedSelect';
 import { LIST_KEYS } from '../../lib/useManagedList';
 import {
@@ -515,13 +516,13 @@ export function ApplyEmployeeCostModelModal({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <Field label="Expense date">
-              <input type="date" value={expenseDate} onChange={e => setExpenseDate(e.target.value)} className="form-input" />
+              <DateFieldInput value={expenseDate} onChange={setExpenseDate} className="form-input" />
             </Field>
             <Field label="Period start">
-              <input type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)} className="form-input" />
+              <DateFieldInput value={periodStart} onChange={setPeriodStart} className="form-input" />
             </Field>
             <Field label="Period end">
-              <input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} className="form-input" />
+              <DateFieldInput value={periodEnd} onChange={setPeriodEnd} className="form-input" />
             </Field>
             <Field label="Status">
               <select value={status} onChange={e => setStatus(e.target.value as 'recorded' | 'paid')} className="form-input cursor-pointer">
@@ -1064,7 +1065,7 @@ export function ApplyExpenseTemplateModal({
             </button>
           </div>
           <Field label="Expense date">
-            <input type="date" value={expenseDate} onChange={e => setExpenseDate(e.target.value)} className="form-input" />
+            <DateFieldInput value={expenseDate} onChange={setExpenseDate} className="form-input" />
           </Field>
           {template && (
             <ul className="text-sm space-y-1 border border-[#E5E7EB] rounded-lg p-3 bg-[#F9FAFB]">

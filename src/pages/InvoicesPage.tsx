@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
-import { AppDialog, EditorStickyFooter, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
+import { AppDialog, DateFieldInput, EditorStickyFooter, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
 import type { InvoiceWithDetails, InvoiceLineItem, InvoiceStatus, JobCost, Quote, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { LineItemEditor, emptyLineItem, toEditLine, type EditLineItem } from '../components/invoicing/LineItemEditor';
@@ -785,12 +785,10 @@ function InvoiceRecordPaymentSheet({
           </label>
           <label>
             Date received
-            <input
-              type="date"
+            <DateFieldInput
               className="form-input"
               value={draft.paid_at}
-              onChange={e => setDraft(d => ({ ...d, paid_at: e.target.value }))}
-              aria-label="Payment date"
+              onChange={paid_at => setDraft(d => ({ ...d, paid_at }))}
             />
           </label>
           <label>
@@ -1886,7 +1884,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
           </div>
 
           <Field label="Due Date">
-            <input type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))}
+            <DateFieldInput value={form.due_date} onChange={due_date => setForm(f => ({ ...f, due_date }))}
               className="form-input" />
           </Field>
 

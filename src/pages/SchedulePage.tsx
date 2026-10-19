@@ -1313,7 +1313,6 @@ export function SchedulePage() {
       <ScheduleJobSheet
         job={sheetJob}
         teamMembers={boardCrew}
-        viewedDate={format(currentDate, 'yyyy-MM-dd')}
         prefill={sheetPrefill}
         matchHints={sheetHints}
         fromBooking={sheetFromBooking}

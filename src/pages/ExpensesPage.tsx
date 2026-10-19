@@ -18,7 +18,7 @@ import {
   type ExpenseEditorPrefill,
 } from '../lib/expenseReceiptExtract';
 import { AppShell } from '../components/layout/AppShell';
-import { PageError, EmptyState, SearchBar, useToast } from '../components/ui';
+import { DateFieldInput, PageError, EmptyState, SearchBar, useToast } from '../components/ui';
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import { ManagedSelect } from '../components/ui/ManagedSelect';
 import { LIST_KEYS } from '../lib/useManagedList';
@@ -427,11 +427,8 @@ const EXPENSES_LOOK_CSS = `
   color: var(--ex-look-ink);
   min-height: 44px;
 }
-.hub-expenses-date input[type="date"] {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
+.hub-expenses-date input[data-date-field="au"] {
+  width: 8.5rem;
 }
 .hub-expenses-save {
   width: 100%;
@@ -1937,12 +1934,14 @@ function ExpenseEditorModal({
         <div className="hub-expenses-row">
           <span className="hub-expenses-row-label">Date</span>
           <label className="hub-expenses-date">
+<<<<<<< HEAD
             <span>{form.expense_date ? safeFormatDate(form.expense_date, 'd MMM yyyy') : ''}</span>
+=======
+>>>>>>> aa4ef5b (fix(schedule): hold invalid dates, overnight wrap, and all-job overlap)
             <Calendar size={16} />
-            <input
-              type="date"
+            <DateFieldInput
               value={form.expense_date}
-              onChange={e => setForm(f => ({ ...f, expense_date: e.target.value }))}
+              onChange={expense_date => setForm(f => ({ ...f, expense_date }))}
             />
           </label>
         </div>
@@ -2015,8 +2014,8 @@ function ExpenseEditorModal({
               />
             </Field>
             <Field label="Date" required>
-              <input type="date" value={form.expense_date}
-                onChange={e => setForm(f => ({ ...f, expense_date: e.target.value }))}
+              <DateFieldInput value={form.expense_date}
+                onChange={expense_date => setForm(f => ({ ...f, expense_date }))}
                 className="form-input" />
             </Field>
           </div>
@@ -2081,13 +2080,13 @@ function ExpenseEditorModal({
                   />
                 </Field>
                 <Field label="Pay period start">
-                  <input type="date" value={form.period_start}
-                    onChange={e => setForm(f => ({ ...f, period_start: e.target.value }))}
+                  <DateFieldInput value={form.period_start}
+                    onChange={period_start => setForm(f => ({ ...f, period_start }))}
                     className="form-input" />
                 </Field>
                 <Field label="Pay period end">
-                  <input type="date" value={form.period_end}
-                    onChange={e => setForm(f => ({ ...f, period_end: e.target.value }))}
+                  <DateFieldInput value={form.period_end}
+                    onChange={period_end => setForm(f => ({ ...f, period_end }))}
                     className="form-input" />
                 </Field>
               </div>

@@ -165,6 +165,8 @@ import {
   localDateIso,
   planTimesheetClockOff,
 } from '../lib/timesheetJob';
+import { clockOffSaveError, clockOnSaveError, formatClockRangeLabel } from '../lib/dateTimeIntegrity';
+import { loadPersonTimeEntries } from '../lib/timesheetOverlapQuery';
 import {
   JOB_VISIT_NOTE_COLUMNS,
   JOB_VISIT_NOTE_TABLE,
@@ -2456,6 +2458,13 @@ export function JobDetailPage() {
       if (!profile?.company_id || !id) throw new Error('Not signed in');
       const now = new Date();
       const date = localDateIso(now);
+      const siblings = await loadPersonTimeEntries({
+        employeeId: profile.id,
+        date,
+        endsNextDay: true,
+      });
+      const clockErr = clockOnSaveError({ now, existing: siblings });
+      if (clockErr) throw new Error(clockErr);
       const { data: existingTs, error: tsLoadErr } = await supabase
         .from('timesheets')
         .select('id, clock_in, clock_out, status')
@@ -2533,6 +2542,19 @@ export function JobDetailPage() {
         runningEntries: [{ id: running.id, start_time: running.start_time }],
         priorTotalMinutes: ts?.total_minutes ?? 0,
       });
+      const siblings = profile?.id
+        ? (await loadPersonTimeEntries({
+          employeeId: profile.id,
+          date: localDateIso(new Date(running.start_time)),
+          endsNextDay: true,
+        })).filter(row => row.id !== running.id)
+        : [];
+      const offErr = clockOffSaveError({
+        startIso: running.start_time,
+        endIso: plan.endIso,
+        existing: siblings,
+      });
+      if (offErr) throw new Error(offErr);
       const { error } = await supabase.from('timesheet_entries')
         .update(buildJobClockOffEntry(plan.end))
         .eq('id', running.id);
@@ -4410,7 +4432,7 @@ export function JobDetailPage() {
                 key={entry.id}
                 rowClassName="job-hours-entry-row"
                 icon={Clock}
-                title={`${format(new Date(entry.start_time), 'd MMM yyyy')} · ${format(new Date(entry.start_time), 'HH:mm')}${entry.end_time ? `–${format(new Date(entry.end_time), 'HH:mm')}` : ' · running'}`}
+                title={`${format(new Date(entry.start_time), 'd MMM yyyy')} · ${formatClockRangeLabel(entry.start_time, entry.end_time)}`}
                 meta={metaParts.join(' · ')}
                 action={
                   <TimesheetEntryDeleteControl
@@ -4508,9 +4530,9 @@ export function JobDetailPage() {
           jobs={[{ id: job.id, title: job.title, job_number: job.job_number }]}
           employeeId={profile.id}
           presetJobId={job.id}
+          presetDate={job.scheduled_date}
           blankTimesOnOpen
           lockJob
-          existingEntries={(timesheets ?? []).filter(e => myTimesheetIds.has(e.timesheet_id))}
           onClose={() => setShowTimeEntry(false)}
           onSaved={() => {
             setShowTimeEntry(false);

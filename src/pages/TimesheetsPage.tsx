@@ -35,6 +35,8 @@ import {
   timesheetListWeekStart,
   type TimesheetListFilter,
 } from '../lib/timesheetsList';
+import { clockOffSaveError, endsNextCalendarDay, formatClockHm, formatClockRangeLabel } from '../lib/dateTimeIntegrity';
+import { loadPersonTimeEntries } from '../lib/timesheetOverlapQuery';
 import { invalidateJobBillInvoicePreview } from '../lib/jobBillInvoicePreviewQuery';
 import { loadBilledTimesheetEntryIdsForJobs } from '../lib/timesheetEntryDelete';
 import { TimesheetEntryDeleteControl } from '../components/timesheets/TimesheetEntryDeleteControl';
@@ -218,6 +220,21 @@ export function TimesheetsPage() {
         runningEntries: running.map(entry => ({ id: entry.id, start_time: entry.start_time })),
         priorTotalMinutes: existing.total_minutes,
       });
+      const siblings = selectedEmployee
+        ? (await loadPersonTimeEntries({
+          employeeId: selectedEmployee,
+          date: today,
+          endsNextDay: true,
+        })).filter(row => !running.some(open => open.id === row.id))
+        : [];
+      for (const open of running) {
+        const offErr = clockOffSaveError({
+          startIso: open.start_time,
+          endIso: plan.endIso,
+          existing: siblings,
+        });
+        if (offErr) throw new Error(offErr);
+      }
       for (const update of plan.entryUpdates) {
         const { error } = await supabase.from('timesheet_entries')
           .update({ end_time: update.end_time })
@@ -359,15 +376,14 @@ export function TimesheetsPage() {
           return (
             <div key={entry.id} className="hub-timesheets-ledger-row">
               <span className="hub-timesheets-ledger-date">{ts ? format(parseISO(ts.date), 'd MMM') : '—'}</span>
-              <span className="hub-timesheets-ledger-start">{format(new Date(entry.start_time), 'HH:mm')}</span>
-              <span className="hub-timesheets-ledger-finish">{entry.end_time ? format(new Date(entry.end_time), 'HH:mm') : '—'}</span>
+              <span className="hub-timesheets-ledger-start">{formatClockHm(entry.start_time)}</span>
+              <span className="hub-timesheets-ledger-finish">{entry.end_time ? `${formatClockHm(entry.end_time)}${endsNextCalendarDay(entry.start_time, entry.end_time) ? ' (+1)' : ''}` : '—'}</span>
               <span className="hub-timesheets-ledger-activity">{entry.work_type || '—'}</span>
               <span className="hub-timesheets-ledger-job">{jobTitle}</span>
               <span className="hub-timesheets-ledger-type">{entry.billable ? 'Billable' : 'Non-billable'}</span>
               <span className="hub-timesheets-hours">{duration > 0 ? timesheetListHoursLabel(duration) : '—'}</span>
               <span className="hub-timesheets-ledger-range">
-                {format(new Date(entry.start_time), 'h:mmaaa')}
-                {entry.end_time ? ` - ${format(new Date(entry.end_time), 'h:mmaaa')}` : ' - running'}
+                {formatClockRangeLabel(entry.start_time, entry.end_time)}
               </span>
               <span className="hub-timesheets-ledger-meta">
                 {duration > 0 ? timesheetListHoursLabel(duration) : '—'}
@@ -427,8 +443,7 @@ export function TimesheetsPage() {
             <div key={entry.id} className="hub-timesheets-entry">
               <span className="hub-timesheets-tile-date">{ts ? format(parseISO(ts.date), 'dd MMM') : '—'}</span>
               <span className="hub-timesheets-muted">
-                {format(new Date(entry.start_time), 'HH:mm')}
-                {entry.end_time ? ` — ${format(new Date(entry.end_time), 'HH:mm')}` : ' — running'}
+                {formatClockRangeLabel(entry.start_time, entry.end_time)}
                 {entry.work_type ? ` · ${entry.work_type}` : ''}
                 {entry.job_id ? ` · ${jobs?.find(j => j.id === entry.job_id)?.title ?? 'Job'}` : ''}
                 {entry.billable ? ' · Billable' : ' · Non-billable'}
@@ -589,7 +604,6 @@ export function TimesheetsPage() {
           employeeId={selectedEmployee}
           presetJobId={presetJobId ?? undefined}
           blankTimesOnOpen
-          existingEntries={entries ?? []}
           onClose={() => {
             setShowEntryForm(false);
             if (presetJobId) {

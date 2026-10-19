@@ -21,7 +21,7 @@ import {
   getAuditTeamMembers,
 } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
-import { AppDialog, EditorStickyFooter, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner, TimeFieldInput } from '../components/ui';
+import { AppDialog, DateFieldInput, EditorStickyFooter, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner, TimeFieldInput } from '../components/ui';
 import type { QuoteWithDetails, QuoteLineItem, QuoteStatus, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { convertQuoteToJob } from '../lib/convertQuoteToJob';
@@ -1937,7 +1937,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
               <p className="hub-quote-convert-label">Convert</p>
               <div className="hub-quote-convert-fields">
                 <Field label="Job date">
-                  <input id="quote-convert-date" type="date" value={form.scheduled_date} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))} className="form-input" />
+                  <DateFieldInput id="quote-convert-date" value={form.scheduled_date} onChange={scheduled_date => setForm(f => ({ ...f, scheduled_date }))} className="form-input" />
                 </Field>
                 <Field label="Crew">
                   <select
@@ -2062,7 +2062,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
               <input type="number" min={0} step="0.01" value={form.tax_rate} onChange={e => setForm(f => ({ ...f, tax_rate: e.target.value }))} className="form-input" placeholder="0" />
             </Field>
             <Field label="Valid Until">
-              <input type="date" value={form.validity_date} onChange={e => setForm(f => ({ ...f, validity_date: e.target.value }))} className="form-input" />
+              <DateFieldInput value={form.validity_date} onChange={validity_date => setForm(f => ({ ...f, validity_date }))} className="form-input" />
             </Field>
           </div>
 

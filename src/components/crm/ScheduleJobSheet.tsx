@@ -8,7 +8,7 @@ import {
 } from '../../lib/timeFieldInput';
 import type { JobWithClient } from '../../types/crm';
 import { type ScheduleSheetInput } from '../../lib/scheduleBoard';
-import { scheduleSheetDateSeed, scheduleSheetSaveError } from '../../lib/dateTimeIntegrity';
+import { DATE_INVALID_MESSAGE, scheduleSheetDateSeed, scheduleSheetSaveError } from '../../lib/dateTimeIntegrity';
 import { jobsListSite, jobsListSuburbFromSite } from '../../lib/jobsListRow';
 import { assumedTradeTag, checkDateTag, fromBookingTag } from '../../lib/quickBook';
 import { FromBooking } from './FromBooking';
@@ -36,7 +36,6 @@ export function ScheduleJobSheet({
 }: {
   job: JobWithClient | null;
   teamMembers: { id: string; name: string }[];
-  viewedDate?: string;
   prefill?: Partial<ScheduleSheetInput> | null;
   matchHints?: { job?: string | null; client?: string | null; crew?: string | null } | null;
   fromBooking?: {
@@ -65,6 +64,7 @@ export function ScheduleJobSheet({
   const [startTimeHint, setStartTimeHint] = useState<TimeFieldHintKind>('none');
   const [endTimeHint, setEndTimeHint] = useState<TimeFieldHintKind>('none');
   const [saveErr, setSaveErr] = useState<string | null>(null);
+  const [dateInvalid, setDateInvalid] = useState(false);
   const startFieldRef = useRef<HTMLDivElement>(null);
   const endFieldRef = useRef<HTMLDivElement>(null);
   const site = sheetSiteLine(job);
@@ -107,6 +107,10 @@ export function ScheduleJobSheet({
         <EditorStickyFooter
           onCancel={onClose}
           onSave={() => {
+            if (dateInvalid) {
+              setSaveErr(DATE_INVALID_MESSAGE);
+              return;
+            }
             const dateErr = scheduleSheetSaveError({ date, startTime, endTime });
             if (dateErr) {
               setSaveErr(dateErr);
@@ -184,6 +188,7 @@ export function ScheduleJobSheet({
               setDateEdited(true);
               setSaveErr(null);
             }}
+            onValidityChange={setDateInvalid}
           />
         </label>
         <label className="block">

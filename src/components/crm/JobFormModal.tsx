@@ -12,7 +12,7 @@ import { X, Trash2, GitBranch } from 'lucide-react';
 import { OverlayPortal } from '../ui/OverlayPortal';
 import { DateFieldInput } from '../ui/DateFieldInput';
 import { TimeFieldInput } from '../ui/TimeFieldInput';
-import { END_BEFORE_START_MESSAGE, jobClockOrderError } from '../../lib/dateTimeIntegrity';
+import { DATE_INVALID_MESSAGE, END_BEFORE_START_MESSAGE, jobClockOrderError } from '../../lib/dateTimeIntegrity';
 import {
   applyTimeFieldsSaveBlock,
   focusTimeFieldInput,
@@ -97,6 +97,7 @@ export function JobFormModal({
   const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>(presetTeam ?? []);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  const [dateInvalid, setDateInvalid] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [addingClient, setAddingClient] = useState(false);
   const [parentJobs, setParentJobs] = useState<{ id: string; title: string; job_number: number | null }[]>([]);
@@ -264,6 +265,7 @@ export function JobFormModal({
     }
     setClientErr('');
     if (!profile?.company_id) return;
+    if (dateInvalid) { setErr(DATE_INVALID_MESSAGE); return; }
     if (!detailsOnly && !unscheduledOnly) {
       const block = timeFieldsSaveValidation({
         start: form.start_time ?? '',
@@ -525,6 +527,7 @@ export function JobFormModal({
                     setForm(f => ({ ...f, scheduled_date }));
                     setDateEdited(true);
                   }}
+                  onValidityChange={setDateInvalid}
                   className="form-input"
                 />
               </div>

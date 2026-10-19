@@ -5,18 +5,16 @@ export function DateFieldInput({
   id,
   value,
   onChange,
+  onValidityChange,
   className,
   disabled,
-  required,
-  name,
 }: {
   id?: string;
   value: string;
   onChange: (iso: string) => void;
+  onValidityChange?: (invalid: boolean) => void;
   className?: string;
   disabled?: boolean;
-  required?: boolean;
-  name?: string;
 }) {
   const [text, setText] = useState(() => formatAuDate(value));
 
@@ -24,10 +22,26 @@ export function DateFieldInput({
     setText(formatAuDate(value));
   }, [value]);
 
+  const emit = (next: string) => {
+    const trimmed = next.trim();
+    if (!trimmed) {
+      onValidityChange?.(false);
+      onChange('');
+      return;
+    }
+    const iso = parseAuDate(trimmed);
+    if (iso) {
+      onValidityChange?.(false);
+      onChange(iso);
+      return;
+    }
+    onValidityChange?.(true);
+    onChange('');
+  };
+
   return (
     <input
       id={id}
-      name={name}
       type="text"
       inputMode="numeric"
       autoComplete="off"
@@ -36,33 +50,28 @@ export function DateFieldInput({
       data-date-field="au"
       className={className}
       disabled={disabled}
-      required={required}
       value={text}
       onChange={e => {
         const next = e.target.value;
         setText(next);
-        const trimmed = next.trim();
-        if (!trimmed) {
-          onChange('');
-          return;
-        }
-        const iso = parseAuDate(trimmed);
-        if (iso) onChange(iso);
-        else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(trimmed) || /^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-          onChange('');
-        }
+        emit(next);
       }}
       onBlur={() => {
         const iso = parseAuDate(text);
         if (iso) {
+          onValidityChange?.(false);
           onChange(iso);
           setText(formatAuDate(iso));
           return;
         }
         if (!text.trim()) {
+          onValidityChange?.(false);
           onChange('');
           setText('');
+          return;
         }
+        onValidityChange?.(true);
+        onChange('');
       }}
     />
   );
