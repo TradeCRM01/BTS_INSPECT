@@ -190,7 +190,7 @@ describe('BRAND_NAME', () => {
   });
 
   it('routes only the 10 A0 lines and keeps the 79-line SHELL allow-list after S1 head, layout, vite, and signup', () => {
-    expect(SHELL_ALLOW).toHaveLength(54);
+    expect(SHELL_ALLOW).toHaveLength(53);
     expect(SHELL_ALLOW.some((row) => row.file === 'index.html')).toBe(false);
     expect(SHELL_ALLOW.some((row) => row.file === 'vite.config.ts')).toBe(false);
     expect(SHELL_ALLOW.some((row) => row.file === 'src/components/layout/ProtectedRoute.tsx')).toBe(false);

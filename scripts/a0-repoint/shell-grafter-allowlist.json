@@ -1,10 +1,5 @@
 [
   {
-    "file": "src/components/ui/InstallPrompt.tsx",
-    "line": 178,
-    "excerpt": "<p className=\"hub-install-title\">Install Grafter</p>"
-  },
-  {
     "file": "src/lib/inspectionDueReminder.ts",
     "line": 399,
     "excerpt": "<div style=\"font-size:12px;opacity:.7;letter-spacing:1px;text-transform:uppercase\">Grafter</div>"

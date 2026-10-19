@@ -12,7 +12,7 @@ describe('inspections open sheet LOOK', () => {
     const list = src('src/pages/InspectionsPage.tsx');
     const css = src('src/index.css');
     const lookStart = css.indexOf('/* Field Work inspections list only.');
-    const lookEnd = css.indexOf('/* Field Work JHA documents list only.');
+    const lookEnd = css.indexOf('/* Field Work JHA list + open fill only.');
     const lookCss = css.slice(lookStart, lookEnd);
 
     expect(fill).toContain('is-record-open');
