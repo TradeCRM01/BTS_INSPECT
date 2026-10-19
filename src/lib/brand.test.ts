@@ -138,7 +138,7 @@ function unexpectedHits(hits: Map<string, string[]>): string[] {
 }
 
 describe('BRAND_NAME', () => {
-  it('is the one runtime product name const', () => {
+  it('kills M6 BRAND_NAME: is the one runtime product name const', () => {
     expect(BRAND_NAME).toBe('Grafter');
     expect(brandLabel()).toBe('Grafter');
     expect(brandLabel('operator')).toBe('Grafter operator');
@@ -158,8 +158,8 @@ describe('BRAND_NAME', () => {
   });
 });
 
-describe('brand guard kill table', () => {
-  it('kills a new hard-coded Grafter in shell at src/lib/brand.test.ts collectHits', () => {
+describe('brand guard in-memory string', () => {
+  it('mutates an in-memory hit map, not the real AppShell file', () => {
     const hits = collectHits();
     expect(unexpectedHits(hits)).toEqual([]);
     const mutantHits = new Map(hits);

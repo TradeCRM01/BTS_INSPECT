@@ -72,8 +72,8 @@ describe('semantic --g-* tokens', () => {
   });
 });
 
-describe('tokens kill table', () => {
-  it('kills a dropped token at src/styles/tokens.test.ts TOKEN_NAMES', () => {
+describe('tokens in-memory string', () => {
+  it('mutates an in-memory tokens.css string, not the real file', () => {
     const css = src('src/styles/tokens.css');
     const { light } = parseTokenBlocks(css);
     expect(light.has('--g-bg')).toBe(true);
@@ -83,7 +83,7 @@ describe('tokens kill table', () => {
     expect(TOKEN_NAMES.every((name) => dropped.has(name))).toBe(false);
   });
 
-  it('kills a dropped dark block at src/styles/tokens.css [data-theme=dark]', () => {
+  it('mutates an in-memory dark selector, not the real tokens.css', () => {
     const css = src('src/styles/tokens.css');
     expect(css).toContain('[data-theme="dark"]');
     const mutant = css.replace('[data-theme="dark"]', '[data-theme="night"]');

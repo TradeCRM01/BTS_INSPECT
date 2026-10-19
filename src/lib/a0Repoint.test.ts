@@ -30,7 +30,7 @@ describe('a0-repoint --check', () => {
 });
 
 describe('a0-repoint kill table', () => {
-  it('kills a hand-edited re-point line at scripts/a0-repoint/repoint.mjs checkCss', () => {
+  it('checkCss on a temp copy, not a write to src/index.css', () => {
     expect(runCheck().status).toBe(0);
     expect(src('src/index.css')).toContain('--ops-navy: var(--g-ink);');
     const mutant = src('src/index.css').replace(

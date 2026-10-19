@@ -28,7 +28,9 @@ function sqlLiteral(value: unknown): string {
   return `'${String(value).replace(/'/g, "''")}'`;
 }
 
-describe('jha_documents writes on real Postgres (migration 020)', () => {
+const HAS_LOCAL_POSTGRES = Boolean(findBin('initdb') && findBin('pg_ctl') && findBin('psql'));
+
+describe.skipIf(!HAS_LOCAL_POSTGRES)('jha_documents writes on real Postgres (migration 020)', () => {
   let dataDir = '';
   let sockDir = '';
   let psql = '';

@@ -65,8 +65,8 @@ describe('themeInit resolution table', () => {
   });
 });
 
-describe('themeInit kill table', () => {
-  it('kills allowDark-ignored mutant at src/lib/themeInit.ts:31', () => {
+describe('themeInit.ts non-shipping copy', () => {
+  it('covers the non-shipping themeInit.ts copy: allowDark at src/lib/themeInit.ts:31', () => {
     const a0 = themeInitCases(A0_THEME_FLAGS);
     expect(a0.every((row) => row.resolved === 'light')).toBe(true);
     const mutant = themeInitCases({ allowDark: true, followSystem: false });
@@ -76,7 +76,7 @@ describe('themeInit kill table', () => {
     expect(src('src/lib/themeInit.ts')).toContain("if (!flags.allowDark) return 'light'");
   });
 
-  it('kills /p-not-forced mutant at src/lib/themeInit.ts:43', () => {
+  it('covers the non-shipping themeInit.ts copy: /p force at src/lib/themeInit.ts:43', () => {
     expect(src('src/lib/themeInit.ts')).toContain('if (isPortalPath(pathname)) return \'light\'');
     const flags = { allowDark: true, followSystem: true };
     expect(applyResolvedTheme('dark', true, '/p/token', flags)).toBe('light');
