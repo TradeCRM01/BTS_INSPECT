@@ -1,0 +1,86 @@
+-- Move Xero tokens off accounting_settings.settings. Only service_role can
+-- read accounting_credentials. Members see connected state through
+-- get_accounting_connection, which never returns tokens.
+
+CREATE TABLE public.accounting_credentials (
+  company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+  provider text NOT NULL,
+  access_token text NOT NULL,
+  refresh_token text NOT NULL,
+  expires_at timestamptz,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (company_id, provider)
+);
+
+ALTER TABLE public.accounting_credentials ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON TABLE public.accounting_credentials FROM PUBLIC;
+REVOKE ALL ON TABLE public.accounting_credentials FROM anon, authenticated;
+GRANT ALL ON TABLE public.accounting_credentials TO service_role;
+
+UPDATE public.accounting_settings
+SET settings = (
+  WITH cleaned AS (
+    SELECT settings
+      - 'access_token'
+      - 'refresh_token'
+      - 'expires_at'
+      - 'token' AS j
+  )
+  SELECT CASE
+    WHEN cleaned.j ? 'xero' AND jsonb_typeof(cleaned.j -> 'xero') = 'object' THEN
+      cleaned.j || jsonb_build_object(
+        'xero',
+        (cleaned.j -> 'xero')
+          - 'access_token'
+          - 'refresh_token'
+          - 'expires_at'
+          - 'token'
+      )
+    ELSE cleaned.j
+  END
+  FROM cleaned
+)
+WHERE settings IS NOT NULL;
+
+CREATE FUNCTION public.get_accounting_connection(p_company_id uuid)
+RETURNS TABLE (
+  connected boolean,
+  tenant_name text,
+  last_synced_at timestamptz
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT
+    EXISTS (
+      SELECT 1
+      FROM public.accounting_credentials AS c
+      JOIN public.accounting_settings AS s
+        ON s.company_id = c.company_id
+      WHERE c.company_id = p_company_id
+        AND c.provider = 'xero'
+        AND s.provider = 'xero'
+        AND s.connection_status = 'connected'
+        AND c.access_token <> ''
+        AND c.refresh_token <> ''
+    ) AS connected,
+    (
+      SELECT NULLIF(btrim(s.settings #>> '{xero,tenant_name}'), '')
+      FROM public.accounting_settings AS s
+      WHERE s.company_id = p_company_id
+    ) AS tenant_name,
+    (
+      SELECT s.last_synced_at
+      FROM public.accounting_settings AS s
+      WHERE s.company_id = p_company_id
+    ) AS last_synced_at
+  WHERE p_company_id IS NOT DISTINCT FROM public.my_company_id();
+$$;
+
+REVOKE ALL ON FUNCTION public.get_accounting_connection(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_accounting_connection(uuid) FROM anon;
+GRANT EXECUTE ON FUNCTION public.get_accounting_connection(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_accounting_connection(uuid) TO service_role;
