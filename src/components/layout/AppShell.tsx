@@ -288,7 +288,7 @@ export function AppShell({ children }: AppShellProps) {
           '--shell-accent': chrome.accent,
         } as CSSProperties}
       >
-        <div className="max-w-[1400px] mx-auto px-4 h-14 flex items-center justify-between gap-3 min-w-0 w-full">
+        <div className="max-w-[1400px] mx-auto px-4 h-14 flex items-center justify-between gap-3">
           <Link to="/" className="flex items-center shrink-0" onClick={handleLogoTap} aria-label="Grafter">
             <BrandLockup size="header" />
           </Link>
@@ -313,6 +313,7 @@ export function AppShell({ children }: AppShellProps) {
                         setOpenGroup(group.label);
                       }
                     }}
+                    aria-label={group.label}
                   className={`flex items-center gap-1.5 h-full px-3 text-sm font-medium tracking-tight whitespace-nowrap border-b-2 transition-colors ${
                       groupActive
                         ? 'text-white border-accent'
@@ -320,7 +321,7 @@ export function AppShell({ children }: AppShellProps) {
                     }`}
                   >
                     <Icon size={14} />
-                    <span className="whitespace-nowrap">{group.label}</span>
+                    <span className="hidden lg:inline whitespace-nowrap">{group.label}</span>
                     <ChevronDown size={11} className={`text-white/40 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                   </button>
 
@@ -337,15 +338,15 @@ export function AppShell({ children }: AppShellProps) {
             })}
           </nav>
 
-          <div className="hidden md:block w-48 lg:w-64 min-w-0">
+          <div className="hidden md:block w-9 shrink-0 lg:w-64 lg:min-w-0 lg:shrink">
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
               aria-label="Search"
-              className="flex items-center gap-2 w-full rounded-lg border border-white/15 bg-white/[0.04] px-3 py-1.5 text-[13px] tracking-tight text-white/60 transition-colors hover:border-white/25 hover:text-white"
+              className="flex items-center justify-center lg:justify-start gap-2 w-full min-w-0 overflow-hidden rounded-lg border border-white/15 bg-white/[0.04] px-1.5 lg:px-3 py-1.5 text-[13px] tracking-tight text-white/60 transition-colors hover:border-white/25 hover:text-white"
             >
               <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span className="flex-1 text-left hidden sm:inline">Search…</span>
+              <span className="hidden lg:block min-w-0 flex-1 truncate text-left">Search…</span>
             </button>
           </div>
 
@@ -362,7 +363,7 @@ export function AppShell({ children }: AppShellProps) {
                 </div>
                 <span
                   data-shell-switcher-name
-                  className="text-sm tracking-tight text-white/80 min-w-0 truncate"
+                  className="hidden lg:block text-sm tracking-tight text-white/80 min-w-0 truncate"
                   title={profile?.name ?? 'User'}
                 >
                   {profile?.name ?? 'User'}
