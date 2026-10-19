@@ -251,7 +251,7 @@ describe('HOTFIX-DATE save: year 212026 is blocked', () => {
     await act(async () => {
       setInputValue(title!, 'Year guard item');
       setInputValue(clientSelect!, 'client-1');
-      setInputValue(date!, '21/10/212026');
+      setInputValue(date!, '212026-02-11');
     });
 
     const create = [...container.querySelectorAll('button')].find(btn => btn.textContent?.includes('Create Item'));

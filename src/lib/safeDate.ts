@@ -23,16 +23,28 @@ function isRealYmd(year: number, month: number, day: number): boolean {
   );
 }
 
-export function isYearInRange(year: number): boolean {
-  return Number.isInteger(year) && year >= DATE_YEAR_MIN && year <= DATE_YEAR_MAX;
+/** Same 1900–2100 window as dateTimeIntegrity.isSupportedDateYear (#372). */
+export function isSupportedDateYear(year: number): boolean {
+  return Number.isFinite(year) && year >= DATE_YEAR_MIN && year <= DATE_YEAR_MAX;
+}
+
+export const isYearInRange = isSupportedDateYear;
+
+/** Year-only save guard for native date fields. AU text entry is #372. */
+export function dateFieldYearError(raw: string, required = false): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return required ? DATE_YEAR_RANGE_MESSAGE : null;
+  const year = Number(/^(\d+)/.exec(trimmed)?.[1]);
+  if (!isSupportedDateYear(year)) return DATE_YEAR_RANGE_MESSAGE;
+  return null;
 }
 
 export function isValidDate(value: unknown): value is Date {
-  return value instanceof Date && !Number.isNaN(value.getTime()) && isYearInRange(value.getFullYear());
+  return value instanceof Date && !Number.isNaN(value.getTime()) && isSupportedDateYear(value.getFullYear());
 }
 
 function ymdFromParts(year: number, month: number, day: number): string | null {
-  if (!isYearInRange(year) || !isRealYmd(year, month, day)) return null;
+  if (!isSupportedDateYear(year) || !isRealYmd(year, month, day)) return null;
   return `${year}-${pad2(month)}-${pad2(day)}`;
 }
 
@@ -54,7 +66,7 @@ export function parseToDate(value: unknown): Date | null {
   if (!trimmed) return null;
   const iso = parseIsoDay(trimmed);
   if (iso) {
-    if (!isYearInRange(iso.year) || !isRealYmd(iso.year, iso.month, iso.day)) return null;
+    if (!isSupportedDateYear(iso.year) || !isRealYmd(iso.year, iso.month, iso.day)) return null;
     if (/[T\s]/.test(trimmed)) {
       const fromStamp = new Date(trimmed);
       return isValidDate(fromStamp) ? fromStamp : null;
@@ -101,7 +113,7 @@ export function safeToIsoString(value: unknown): string | null {
 }
 
 function ymdResult(year: number, month: number, day: number): { ok: true; iso: string } | { ok: false; error: string } {
-  if (!Number.isInteger(year) || !isYearInRange(year)) {
+  if (!Number.isInteger(year) || !isSupportedDateYear(year)) {
     return { ok: false, error: DATE_YEAR_RANGE_MESSAGE };
   }
   const iso = ymdFromParts(year, month, day);

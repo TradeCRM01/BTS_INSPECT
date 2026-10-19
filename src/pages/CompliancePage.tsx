@@ -30,13 +30,9 @@ import type { MenuEntry } from '../components/ui';
 import { format } from 'date-fns';
 import {
   HOTFIX_BAD_DATE_ISO,
-  dateSaveIso,
-  isoToAuInput,
-  isYearInRange,
-  parseAuDateInput,
+  dateFieldYearError,
   safeFormatDate,
 } from '../lib/safeDate';
-import { AuDateInput } from '../components/ui/AuDateInput';
 import {
   Plus, X, Trash2, Pencil, MoreHorizontal,
   ShieldCheck, Pause, Play, CheckCircle2, History, Mail,
@@ -819,8 +815,8 @@ function ComplianceForm({
     standard_or_regulation: item?.standard_or_regulation ?? '',
     recurrence_interval: String(item?.recurrence_interval ?? 12),
     recurrence_unit: item?.recurrence_unit ?? 'months',
-    first_due_date: isoToAuInput(item?.first_due_date ?? format(new Date(), 'yyyy-MM-dd')),
-    last_completed_date: isoToAuInput(item?.last_completed_date ?? ''),
+    first_due_date: item?.first_due_date ?? format(new Date(), 'yyyy-MM-dd'),
+    last_completed_date: item?.last_completed_date ?? '',
     reminder_days_before: String(item?.reminder_days_before ?? 30),
     notes: item?.notes ?? '',
   });
@@ -846,32 +842,25 @@ function ComplianceForm({
     setErr(null);
     setFirstDueError(null);
     setLastCompletedError(null);
-    const firstDue = parseAuDateInput(form.first_due_date);
-    if (!firstDue.ok) {
-      setFirstDueError(firstDue.error);
-      setErr(firstDue.error);
+    const firstDueYearError = dateFieldYearError(form.first_due_date, true);
+    if (firstDueYearError) {
+      setFirstDueError(firstDueYearError);
+      setErr(firstDueYearError);
       setSaving(false);
       return;
     }
-    const firstYear = Number(firstDue.iso.slice(0, 4));
-    if (!isYearInRange(firstYear)) {
-      setFirstDueError('Enter a date with a year between 1900 and 2100');
-      setErr('Enter a date with a year between 1900 and 2100');
-      setSaving(false);
-      return;
-    }
-    const lastCompletedParsed = dateSaveIso(form.last_completed_date, false);
-    if (!lastCompletedParsed.ok) {
-      setLastCompletedError(lastCompletedParsed.error);
-      setErr(lastCompletedParsed.error);
+    const lastCompletedYearError = dateFieldYearError(form.last_completed_date, false);
+    if (lastCompletedYearError) {
+      setLastCompletedError(lastCompletedYearError);
+      setErr(lastCompletedYearError);
       setSaving(false);
       return;
     }
     try {
       const interval = parseInt(form.recurrence_interval) || 12;
       const unit = form.recurrence_unit as RecurrenceUnit;
-      const lastCompleted = lastCompletedParsed.iso;
-      const nextDue = computeNextDueDate(lastCompleted, firstDue.iso, interval, unit);
+      const lastCompleted = form.last_completed_date || null;
+      const nextDue = computeNextDueDate(lastCompleted, form.first_due_date, interval, unit);
       const status = deriveComplianceStatus(nextDue, lastCompleted, false);
 
       const payload = {
@@ -882,7 +871,7 @@ function ComplianceForm({
         standard_or_regulation: form.standard_or_regulation || null,
         recurrence_interval: interval,
         recurrence_unit: unit,
-        first_due_date: firstDue.iso,
+        first_due_date: form.first_due_date,
         last_completed_date: lastCompleted,
         next_due_date: nextDue,
         reminder_days_before: parseInt(form.reminder_days_before) || 30,
@@ -998,21 +987,33 @@ function ComplianceForm({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="First Due Date *">
-              <AuDateInput
+              <input
                 id="compliance-first-due-date"
                 required
+                type="date"
                 value={form.first_due_date}
-                onChange={v => { setFirstDueError(null); setForm(f => ({ ...f, first_due_date: v })); }}
-                error={firstDueError}
+                onChange={e => { setFirstDueError(null); setForm(f => ({ ...f, first_due_date: e.target.value })); }}
+                className="form-input"
+                aria-invalid={firstDueError ? true : undefined}
+                aria-describedby={firstDueError ? 'compliance-first-due-date-error' : undefined}
               />
+              {firstDueError ? (
+                <p id="compliance-first-due-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{firstDueError}</p>
+              ) : null}
             </Field>
             <Field label="Last Completed (optional)">
-              <AuDateInput
+              <input
                 id="compliance-last-completed-date"
+                type="date"
                 value={form.last_completed_date}
-                onChange={v => { setLastCompletedError(null); setForm(f => ({ ...f, last_completed_date: v })); }}
-                error={lastCompletedError}
+                onChange={e => { setLastCompletedError(null); setForm(f => ({ ...f, last_completed_date: e.target.value })); }}
+                className="form-input"
+                aria-invalid={lastCompletedError ? true : undefined}
+                aria-describedby={lastCompletedError ? 'compliance-last-completed-date-error' : undefined}
               />
+              {lastCompletedError ? (
+                <p id="compliance-last-completed-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{lastCompletedError}</p>
+              ) : null}
             </Field>
           </div>
           <Field label="Reminder Email — Days Before Due">

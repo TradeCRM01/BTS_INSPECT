@@ -41,12 +41,20 @@ async function openList(page) {
   await page.waitForTimeout(400);
 }
 
+async function setNativeDate(page, selector, value) {
+  await page.locator(selector).evaluate((el, next) => {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    setter?.call(el, next);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }, value);
+}
+
 async function openGuard(page) {
   await page.goto(`${BASE}/compliance?auditAuth=1&look=compliance-list`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: /New item/i }).click();
   await page.waitForSelector('#compliance-first-due-date', { timeout: 10000 });
-  await page.fill('#compliance-first-due-date', '');
-  await page.fill('#compliance-first-due-date', '21/10/212026');
+  await setNativeDate(page, '#compliance-first-due-date', '212026-02-11');
   await page.locator('input[placeholder="e.g. Annual Fire Extinguisher Service"]').fill('Year guard item');
   const client = page.locator('select').first();
   if (await client.count()) {

@@ -4,9 +4,10 @@ import {
   DATE_YEAR_RANGE_MESSAGE,
   HOTFIX_BAD_DATE_ISO,
   SAFE_DATE_FALLBACK,
+  dateFieldYearError,
   dateSaveError,
+  isSupportedDateYear,
   isValidDate,
-  isYearInRange,
   parseAuDateInput,
   parseToDate,
   safeFormatDate,
@@ -16,12 +17,12 @@ import {
 
 describe('safeDate year and validity', () => {
   it('accepts years 1900-2100 and rejects 212026', () => {
-    expect(isYearInRange(1900)).toBe(true);
-    expect(isYearInRange(2100)).toBe(true);
-    expect(isYearInRange(2026)).toBe(true);
-    expect(isYearInRange(1899)).toBe(false);
-    expect(isYearInRange(2101)).toBe(false);
-    expect(isYearInRange(212026)).toBe(false);
+    expect(isSupportedDateYear(1900)).toBe(true);
+    expect(isSupportedDateYear(2100)).toBe(true);
+    expect(isSupportedDateYear(2026)).toBe(true);
+    expect(isSupportedDateYear(1899)).toBe(false);
+    expect(isSupportedDateYear(2101)).toBe(false);
+    expect(isSupportedDateYear(212026)).toBe(false);
   });
 
   it('treats parseISO-invalid 212026-02-11 as not a date', () => {
@@ -59,11 +60,12 @@ describe('AU date entry does not silently take US order', () => {
   });
 
   it('rejects year 212026 before save', () => {
+    expect(dateFieldYearError(HOTFIX_BAD_DATE_ISO, true)).toBe(DATE_YEAR_RANGE_MESSAGE);
+    expect(dateFieldYearError('212026-10-21')).toBe(DATE_YEAR_RANGE_MESSAGE);
+    expect(dateFieldYearError('2026-10-21')).toBeNull();
+    expect(dateFieldYearError('', true)).toBe(DATE_YEAR_RANGE_MESSAGE);
+    expect(dateFieldYearError('', false)).toBeNull();
     expect(parseAuDateInput(HOTFIX_BAD_DATE_ISO)).toEqual({ ok: false, error: DATE_YEAR_RANGE_MESSAGE });
-    expect(parseAuDateInput('21/10/212026')).toEqual({ ok: false, error: DATE_YEAR_RANGE_MESSAGE });
-    expect(parseAuDateInput('212026')).toEqual({ ok: false, error: DATE_YEAR_RANGE_MESSAGE });
     expect(dateSaveError(HOTFIX_BAD_DATE_ISO, true)).toBe(DATE_YEAR_RANGE_MESSAGE);
-    expect(dateSaveError('', true)).toBe(AU_DATE_FORMAT_MESSAGE);
-    expect(dateSaveError('', false)).toBeNull();
   });
 });

@@ -11,13 +11,9 @@ import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import type { MenuEntry } from '../components/ui';
 import { format } from 'date-fns';
 import {
-  dateSaveIso,
-  isoToAuInput,
-  isYearInRange,
-  parseAuDateInput,
+  dateFieldYearError,
   safeFormatDate,
 } from '../lib/safeDate';
-import { AuDateInput } from '../components/ui/AuDateInput';
 import { Plus, FileText, X, Trash2, Pencil, Briefcase, Mail } from 'lucide-react';
 import type { ServiceContract, ServiceContractWithClient, ContractStatus } from '../types/fsm';
 import { CONTRACT_STATUS_LABELS, CONTRACT_STATUS_STYLES, BILLING_CYCLE_LABELS, SERVICE_FREQUENCY_LABELS, formatMoney } from '../types/fsm';
@@ -427,12 +423,12 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
     client_id: contract?.client_id ?? '',
     contract_number: contract?.contract_number ?? '',
     status: contract?.status ?? 'active',
-    start_date: isoToAuInput(contract?.start_date ?? format(new Date(), 'yyyy-MM-dd')),
-    end_date: isoToAuInput(contract?.end_date ?? ''),
+    start_date: contract?.start_date ?? format(new Date(), 'yyyy-MM-dd'),
+    end_date: contract?.end_date ?? '',
     billing_cycle: contract?.billing_cycle ?? 'monthly',
     contract_value: contract?.contract_value != null ? String(contract.contract_value) : '',
     service_frequency: contract?.service_frequency ?? 'monthly',
-    next_service_date: isoToAuInput(contract?.next_service_date ?? ''),
+    next_service_date: contract?.next_service_date ?? '',
     auto_generate_jobs: contract?.auto_generate_jobs ?? false,
     description: contract?.description ?? '',
     notes: contract?.notes ?? '',
@@ -456,34 +452,28 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
     setStartDateError(null);
     setEndDateError(null);
     setNextServiceError(null);
-    const startParsed = dateSaveIso(form.start_date, false);
-    if (!startParsed.ok) {
-      setStartDateError(startParsed.error);
-      setErr(startParsed.error);
+    const startYearError = dateFieldYearError(form.start_date, false);
+    if (startYearError) {
+      setStartDateError(startYearError);
+      setErr(startYearError);
       setSaving(false);
       return;
     }
-    const endParsed = dateSaveIso(form.end_date, false);
-    if (!endParsed.ok) {
-      setEndDateError(endParsed.error);
-      setErr(endParsed.error);
+    const endYearError = dateFieldYearError(form.end_date, false);
+    if (endYearError) {
+      setEndDateError(endYearError);
+      setErr(endYearError);
       setSaving(false);
       return;
     }
-    const nextParsed = parseAuDateInput(form.next_service_date);
-    if (!nextParsed.ok) {
-      setNextServiceError(nextParsed.error);
-      setErr(nextParsed.error);
+    const nextYearError = dateFieldYearError(form.next_service_date, true);
+    if (nextYearError) {
+      setNextServiceError(nextYearError);
+      setErr(nextYearError);
       setSaving(false);
       return;
     }
-    if (!isYearInRange(Number(nextParsed.iso.slice(0, 4)))) {
-      setNextServiceError('Enter a date with a year between 1900 and 2100');
-      setErr('Enter a date with a year between 1900 and 2100');
-      setSaving(false);
-      return;
-    }
-    const next = requireNextServiceDate(nextParsed.iso);
+    const next = requireNextServiceDate(form.next_service_date);
     if (!next.ok) {
       setNextServiceError(next.message);
       setErr(next.message);
@@ -497,8 +487,8 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
         client_id: form.client_id || null,
         contract_number: form.contract_number || null,
         status: form.status,
-        start_date: startParsed.iso,
-        end_date: endParsed.iso,
+        start_date: form.start_date || null,
+        end_date: form.end_date || null,
         billing_cycle: form.billing_cycle,
         contract_value: parseFloat(form.contract_value) || 0,
         service_frequency: form.service_frequency,
@@ -552,20 +542,32 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Start Date">
-              <AuDateInput
+              <input
                 id="contract-start-date"
+                type="date"
                 value={form.start_date}
-                onChange={v => { setStartDateError(null); setForm(f => ({ ...f, start_date: v })); }}
-                error={startDateError}
+                onChange={e => { setStartDateError(null); setForm(f => ({ ...f, start_date: e.target.value })); }}
+                className="form-input"
+                aria-invalid={startDateError ? true : undefined}
+                aria-describedby={startDateError ? 'contract-start-date-error' : undefined}
               />
+              {startDateError ? (
+                <p id="contract-start-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{startDateError}</p>
+              ) : null}
             </Field>
             <Field label="End Date">
-              <AuDateInput
+              <input
                 id="contract-end-date"
+                type="date"
                 value={form.end_date}
-                onChange={v => { setEndDateError(null); setForm(f => ({ ...f, end_date: v })); }}
-                error={endDateError}
+                onChange={e => { setEndDateError(null); setForm(f => ({ ...f, end_date: e.target.value })); }}
+                className="form-input"
+                aria-invalid={endDateError ? true : undefined}
+                aria-describedby={endDateError ? 'contract-end-date-error' : undefined}
               />
+              {endDateError ? (
+                <p id="contract-end-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{endDateError}</p>
+              ) : null}
             </Field>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -581,13 +583,19 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
             </Field>
           </div>
           <Field label="Next Service Date *">
-            <AuDateInput
+            <input
               id="contract-next-service-date"
               required
+              type="date"
               value={form.next_service_date}
-              onChange={v => { setNextServiceError(null); setForm(f => ({ ...f, next_service_date: v })); }}
-              error={nextServiceError}
+              onChange={e => { setNextServiceError(null); setForm(f => ({ ...f, next_service_date: e.target.value })); }}
+              className="form-input"
+              aria-invalid={nextServiceError ? true : undefined}
+              aria-describedby={nextServiceError ? 'contract-next-service-date-error' : undefined}
             />
+            {nextServiceError ? (
+              <p id="contract-next-service-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{nextServiceError}</p>
+            ) : null}
           </Field>
           <label className="flex items-center gap-2 text-sm text-[#1A1A1A]">
             <input type="checkbox" checked={form.auto_generate_jobs} onChange={e => setForm(f => ({ ...f, auto_generate_jobs: e.target.checked }))} className="rounded" />
