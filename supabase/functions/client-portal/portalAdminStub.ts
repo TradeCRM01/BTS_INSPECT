@@ -193,6 +193,8 @@ export function sameCompanySeed(): PortalSeed {
           scheduled_date: "2099-02-01",
           job_number: 12,
           address: "1 Alpha St",
+          created_by: IDS.inspectorA,
+          creator_name_snapshot: "Pat Snapshot",
           updated_at: STAMP,
         },
         {
@@ -223,6 +225,8 @@ export function sameCompanySeed(): PortalSeed {
           id: IDS.inspectionA,
           client_id: IDS.clientA,
           inspector_id: IDS.inspectorA,
+          inspector_name_snapshot: "Pat Snapshot",
+          inspector_licence_snapshot: "EC-4411",
           status: "issued",
           meta: { siteName: "Alice site", siteAddress: "1 Alpha St", clientName: "Alice Client" },
           completed_at: STAMP,

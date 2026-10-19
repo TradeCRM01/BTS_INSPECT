@@ -222,6 +222,22 @@ BEGIN
     owner_sqlstate = 'P0001' AND owner_msg LIKE '%company owner%',
     owner_sqlstate || '|' || owner_msg
   );
+
+  INSERT INTO proof_result VALUES (
+    'inspector_helper_no_public_anon_execute',
+    NOT has_function_privilege('anon', 'public.inspections_fill_inspector_snapshots()', 'EXECUTE')
+      AND NOT EXISTS (
+        SELECT 1
+        FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) a
+        WHERE n.nspname = 'public'
+          AND p.proname = 'inspections_fill_inspector_snapshots'
+          AND a.privilege_type = 'EXECUTE'
+          AND a.grantee = 0
+      ),
+    'anon/public execute revoked'
+  );
 END $$;
 
 INSERT INTO public.profiles (id, company_id, email, name, licence_number, role)
@@ -239,6 +255,43 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.inspections TO authenticated;
 INSERT INTO public.inspections (id, inspector_id, status) VALUES
   ('d0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'draft')
 ON CONFLICT (id) DO UPDATE SET inspector_id = EXCLUDED.inspector_id;
+
+INSERT INTO public.inspections (
+  id, inspector_id, inspector_name_snapshot, inspector_licence_snapshot, status
+) VALUES (
+  'd1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+  NULL,
+  'Forged Inspector',
+  'FAKE-99',
+  'draft'
+);
+DO $$
+DECLARE
+  forged_name text;
+  forged_lic text;
+  kept_name text;
+BEGIN
+  SELECT inspector_name_snapshot, inspector_licence_snapshot
+    INTO forged_name, forged_lic
+  FROM public.inspections WHERE id = 'd1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  INSERT INTO proof_result VALUES (
+    'inspector_insert_null_overwrites_forged_snapshot',
+    forged_name IS NULL AND forged_lic IS NULL,
+    coalesce(forged_name, 'null') || '|' || coalesce(forged_lic, 'null')
+  );
+
+  UPDATE public.inspections
+    SET inspector_name_snapshot = 'Forged Inspector',
+        inspector_licence_snapshot = 'FAKE-99'
+    WHERE id = 'dfaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  SELECT inspector_name_snapshot INTO kept_name
+  FROM public.inspections WHERE id = 'dfaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  INSERT INTO proof_result VALUES (
+    'inspector_update_snapshot_only_keeps_old_name',
+    kept_name = 'Sam Spark',
+    coalesce(kept_name, 'null')
+  );
+END $$;
 
 DO $$
 DECLARE
@@ -278,7 +331,15 @@ DO $$
 DECLARE
   r text;
   s_name text;
+  s_id uuid;
+  prosecdef boolean;
+  reassign_ok boolean;
 BEGIN
+  SELECT p.prosecdef INTO prosecdef
+  FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public' AND p.proname = 'inspections_fill_inspector_snapshots';
+
   UPDATE public.inspections
     SET inspector_id = '22222222-2222-2222-2222-222222222222',
         inspector_name_snapshot = 'Pat Snapshot'
@@ -295,21 +356,19 @@ BEGIN
   END;
   EXECUTE 'RESET ROLE';
   PERFORM set_config('request.jwt.claims', '', true);
-  SELECT inspector_name_snapshot INTO s_name
+  SELECT inspector_id, inspector_name_snapshot INTO s_id, s_name
   FROM public.inspections WHERE id = 'd0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  reassign_ok := r LIKE '00000%' AND s_id = '33333333-3333-3333-3333-333333333333' AND s_name = 'Sam Spark';
   INSERT INTO proof_result VALUES (
     'mutant_security_invoker_applied',
-    s_name IS DISTINCT FROM 'Sam Spark',
-    coalesce(s_name, 'null') || '|' || coalesce(r, 'null')
+    prosecdef IS NOT TRUE,
+    'prosecdef=' || coalesce(prosecdef::text, 'null')
   );
   INSERT INTO proof_result VALUES (
     'mutant_security_invoker_killed',
-    s_name IS DISTINCT FROM 'Sam Spark',
+    reassign_ok IS NOT TRUE,
     'killed by member_reassign_fills_hidden_teammate ' || coalesce(s_name, 'null')
   );
-  IF s_name = 'Sam Spark' THEN
-    RAISE EXCEPTION 'mutant security_invoker not killed — DEFINER fill still happened under INVOKER';
-  END IF;
 END $$;
 
 ALTER FUNCTION public.inspections_fill_inspector_snapshots() SECURITY DEFINER;
@@ -322,10 +381,10 @@ UPDATE public.inspections SET inspector_id = '33333333-3333-3333-3333-3333333333
   WHERE inspector_id IS NULL;
 UPDATE public.inspections SET inspector_id = '22222222-2222-2222-2222-222222222222'
   WHERE id = 'daaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-ALTER TABLE public.inspections DROP COLUMN IF EXISTS inspector_name_snapshot;
-ALTER TABLE public.inspections DROP COLUMN IF EXISTS inspector_licence_snapshot;
 DROP TRIGGER IF EXISTS trg_inspections_fill_inspector_snapshots ON public.inspections;
 DROP FUNCTION IF EXISTS public.inspections_fill_inspector_snapshots();
+ALTER TABLE public.inspections DROP COLUMN IF EXISTS inspector_name_snapshot;
+ALTER TABLE public.inspections DROP COLUMN IF EXISTS inspector_licence_snapshot;
 ALTER TABLE public.inspections ALTER COLUMN inspector_id SET NOT NULL;
 
 ALTER TABLE public.inspections

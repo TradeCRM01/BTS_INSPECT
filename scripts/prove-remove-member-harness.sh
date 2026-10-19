@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+HARNESS="${ROOT}/scripts/remove-member"
 FN="${ROOT}/supabase/functions/remove-member"
 DENO_BIN="${DENO_BIN:-}"
 if [ -z "${DENO_BIN}" ]; then
@@ -20,10 +21,10 @@ run_harness() {
     --no-lock \
     --no-config \
     --no-check \
-    --import-map "${FN}/import_map.json" \
+    --import-map "${HARNESS}/import_map.json" \
     --allow-env \
     --allow-read \
-    "${FN}/rm_harness_test.ts"
+    "${HARNESS}/rm_harness_test.ts"
 }
 
 echo "== remove-member harness (real index.ts) =="
@@ -44,13 +45,13 @@ path.with_suffix(path.suffix + ".bak").write_text(text)
 path.write_text(text.replace(find, replace, 1))
 PY
   echo "mutant ${label} APPLIED"
-  if "${DENO_BIN}" test --no-lock --no-config --no-check --import-map "${FN}/import_map.json" --allow-env --allow-read --filter "${test_name}" "${FN}/rm_harness_test.ts"; then
+  if "${DENO_BIN}" test --no-lock --no-config --no-check --import-map "${HARNESS}/import_map.json" --allow-env --allow-read --filter "${test_name}" "${HARNESS}/rm_harness_test.ts"; then
     mv "${FN}/index.ts.bak" "${FN}/index.ts"
     echo "mutant ${label} was not killed"
     exit 1
   fi
   local line
-  line="$(python3 - "${FN}/rm_harness_test.ts" "${test_name}" <<'PY'
+  line="$(python3 - "${HARNESS}/rm_harness_test.ts" "${test_name}" <<'PY'
 import pathlib, sys
 path, name = pathlib.Path(sys.argv[1]), sys.argv[2]
 for i, line in enumerate(path.read_text().splitlines(), 1):
@@ -61,7 +62,7 @@ else:
     print("?")
 PY
 )"
-  echo "mutant ${label} KILLED by supabase/functions/remove-member/rm_harness_test.ts:${line} ${test_name}"
+  echo "mutant ${label} KILLED by scripts/remove-member/rm_harness_test.ts:${line} ${test_name}"
   mv "${FN}/index.ts.bak" "${FN}/index.ts"
 }
 

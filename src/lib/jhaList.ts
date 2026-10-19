@@ -13,6 +13,13 @@ import { parseCrewSignOns, type JhaCrewMember } from '../types/jha';
 /** Default /jha floor: drafts and ready JHAs that still need work. */
 export type JhaListFilter = 'open' | 'all' | 'draft' | 'completed' | 'published';
 
+export const JHA_DOCUMENT_LIST_SELECT =
+  'id, status, report_number, meta, doc_version, amendment_reason, amended_from_id, client_id, job_id, created_at, completed_at, template_snapshot, created_by, creator_name_snapshot';
+
+export function jhaListSelectColumns(select: string = JHA_DOCUMENT_LIST_SELECT): string[] {
+  return select.split(',').map(part => part.trim()).filter(Boolean);
+}
+
 export type JhaListRow = {
   id: string;
   status: string;

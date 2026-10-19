@@ -41,7 +41,7 @@ function scenario(o: { deleteError?: unknown; throwOnDelete?: boolean; ownerIs?:
 
 const origErr = console.error;
 console.error = () => {};
-await import(new URL("./index.ts", import.meta.url).href);
+await import(new URL("../../supabase/functions/remove-member/index.ts", import.meta.url).href);
 console.error = origErr;
 
 const call = (memberId: string) =>

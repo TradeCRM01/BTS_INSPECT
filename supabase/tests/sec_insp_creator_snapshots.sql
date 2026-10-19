@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS public.jha_documents (
 
 CREATE TABLE IF NOT EXISTS public.jobs (
   id uuid PRIMARY KEY,
-  created_by uuid NOT NULL REFERENCES public.profiles(id) ON DELETE SET NULL,
+  created_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   title text
 );
 
@@ -165,6 +165,9 @@ DECLARE
   jd_id uuid; jd_name text;
   jb_id uuid; jb_name text;
   attnotnull boolean;
+  jobs_notnull boolean;
+  forged_name text;
+  kept_name text;
 BEGIN
   SELECT count(*) INTO t_n FROM public.templates;
   SELECT count(*) INTO t_s FROM public.templates WHERE creator_name_snapshot IS NOT NULL;
@@ -184,12 +187,21 @@ BEGIN
   SELECT bool_or(is_nullable = 'NO') INTO attnotnull
   FROM information_schema.columns
   WHERE table_schema = 'public'
-    AND table_name IN ('templates', 'jha_templates', 'jha_documents', 'jobs')
+    AND table_name IN ('templates', 'jha_templates', 'jha_documents')
     AND column_name = 'created_by';
   INSERT INTO proof_result VALUES (
     'creator_created_by_nullable',
     attnotnull IS NOT TRUE,
     'any_notnull=' || coalesce(attnotnull::text, 'null')
+  );
+
+  SELECT is_nullable = 'NO' INTO jobs_notnull
+  FROM information_schema.columns
+  WHERE table_schema = 'public' AND table_name = 'jobs' AND column_name = 'created_by';
+  INSERT INTO proof_result VALUES (
+    'jobs_created_by_stays_nullable',
+    jobs_notnull IS NOT TRUE,
+    'jobs_notnull=' || coalesce(jobs_notnull::text, 'null')
   );
 
   INSERT INTO public.templates (id, created_by, name) VALUES
@@ -221,6 +233,85 @@ BEGIN
     'creator_trigger_survives_set_null',
     null_name = 'Sam Spark' AND null_id IS NULL,
     coalesce(null_name, 'null') || '|' || coalesce(null_id::text, 'null')
+  );
+
+  INSERT INTO public.templates (id, created_by, creator_name_snapshot, name) VALUES
+    ('51333333-3333-3333-3333-333333333333', NULL, 'Forged Creator', 'Forged insert');
+  SELECT creator_name_snapshot INTO forged_name
+  FROM public.templates WHERE id = '51333333-3333-3333-3333-333333333333';
+  INSERT INTO proof_result VALUES (
+    'creator_insert_null_overwrites_forged_snapshot',
+    forged_name IS NULL,
+    coalesce(forged_name, 'null')
+  );
+
+  INSERT INTO public.jha_templates (id, created_by, creator_name_snapshot, name) VALUES
+    ('52333333-3333-3333-3333-333333333333', NULL, 'Forged Creator', 'Forged JHA tmpl');
+  SELECT creator_name_snapshot INTO forged_name
+  FROM public.jha_templates WHERE id = '52333333-3333-3333-3333-333333333333';
+  INSERT INTO proof_result VALUES (
+    'jha_template_insert_null_overwrites_forged_snapshot',
+    forged_name IS NULL,
+    coalesce(forged_name, 'null')
+  );
+
+  INSERT INTO public.jha_documents (id, created_by, creator_name_snapshot, name) VALUES
+    ('53333333-3333-3333-3333-333333333333', NULL, 'Forged Creator', 'Forged JHA doc');
+  SELECT creator_name_snapshot INTO forged_name
+  FROM public.jha_documents WHERE id = '53333333-3333-3333-3333-333333333333';
+  INSERT INTO proof_result VALUES (
+    'jha_document_insert_null_overwrites_forged_snapshot',
+    forged_name IS NULL,
+    coalesce(forged_name, 'null')
+  );
+
+  UPDATE public.templates
+    SET creator_name_snapshot = 'Forged Creator'
+    WHERE id = '51222222-2222-2222-2222-222222222222';
+  SELECT creator_name_snapshot INTO kept_name
+  FROM public.templates WHERE id = '51222222-2222-2222-2222-222222222222';
+  INSERT INTO proof_result VALUES (
+    'creator_update_snapshot_only_keeps_old_name',
+    kept_name = 'Sam Spark',
+    coalesce(kept_name, 'null')
+  );
+
+  UPDATE public.jha_templates
+    SET creator_name_snapshot = 'Forged Creator'
+    WHERE id = '52111111-1111-1111-1111-111111111111';
+  SELECT creator_name_snapshot INTO kept_name
+  FROM public.jha_templates WHERE id = '52111111-1111-1111-1111-111111111111';
+  INSERT INTO proof_result VALUES (
+    'jha_template_update_snapshot_only_keeps_old_name',
+    kept_name = 'Pat Snapshot',
+    coalesce(kept_name, 'null')
+  );
+
+  UPDATE public.jha_documents
+    SET creator_name_snapshot = 'Forged Creator'
+    WHERE id = '53111111-1111-1111-1111-111111111111';
+  SELECT creator_name_snapshot INTO kept_name
+  FROM public.jha_documents WHERE id = '53111111-1111-1111-1111-111111111111';
+  INSERT INTO proof_result VALUES (
+    'jha_document_update_snapshot_only_keeps_old_name',
+    kept_name = 'Pat Snapshot',
+    coalesce(kept_name, 'null')
+  );
+
+  INSERT INTO proof_result VALUES (
+    'creator_helper_no_public_anon_execute',
+    NOT has_function_privilege('anon', 'public.fill_creator_name_snapshot()', 'EXECUTE')
+      AND NOT EXISTS (
+        SELECT 1
+        FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) a
+        WHERE n.nspname = 'public'
+          AND p.proname = 'fill_creator_name_snapshot'
+          AND a.privilege_type = 'EXECUTE'
+          AND a.grantee = 0
+      ),
+    'anon/public execute revoked'
   );
 
   BEGIN
@@ -261,28 +352,110 @@ BEGIN
   );
 END $$;
 
--- Mutants: NOT NULL kept on each creator table (no SET-NULL-safe delete)
 INSERT INTO public.profiles (id, company_id, email, name, licence_number, role)
 SELECT '22222222-2222-2222-2222-222222222222', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'pat@example.test', 'Pat Snapshot', 'EC-4411', 'member'
 WHERE NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = '22222222-2222-2222-2222-222222222222');
 
+UPDATE public.templates SET created_by = '22222222-2222-2222-2222-222222222222' WHERE id = '51111111-1111-1111-1111-111111111111';
+UPDATE public.jha_templates SET created_by = '22222222-2222-2222-2222-222222222222' WHERE id = '52111111-1111-1111-1111-111111111111';
+UPDATE public.jha_documents SET created_by = '22222222-2222-2222-2222-222222222222' WHERE id = '53111111-1111-1111-1111-111111111111';
+UPDATE public.jobs SET created_by = '22222222-2222-2222-2222-222222222222' WHERE id = '54111111-1111-1111-1111-111111111111';
+
+DO $$
+DECLARE
+  r text;
+  s_name text;
+  s_id uuid;
+  rc bigint;
+  cur text;
+BEGIN
+  BEGIN
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', '22222222-2222-2222-2222-222222222222', 'role', 'authenticated')::text, true);
+    EXECUTE 'SET LOCAL ROLE authenticated';
+    SELECT current_user INTO cur;
+    UPDATE public.templates
+      SET created_by = '33333333-3333-3333-3333-333333333333'
+      WHERE id = '51111111-1111-1111-1111-111111111111';
+    GET DIAGNOSTICS rc = ROW_COUNT;
+    r := '00000|' || rc || '|' || coalesce(cur, '?');
+  EXCEPTION WHEN OTHERS THEN
+    r := SQLSTATE || '|' || SQLERRM;
+  END;
+  EXECUTE 'RESET ROLE';
+  PERFORM set_config('request.jwt.claims', '', true);
+  SELECT created_by, creator_name_snapshot INTO s_id, s_name
+  FROM public.templates WHERE id = '51111111-1111-1111-1111-111111111111';
+  INSERT INTO proof_result VALUES (
+    'creator_member_reassign_fills_hidden_teammate',
+    r LIKE '00000|1|%' AND s_id = '33333333-3333-3333-3333-333333333333' AND s_name = 'Sam Spark',
+    coalesce(r, 'null') || '|' || coalesce(s_id::text, 'null') || '|' || coalesce(s_name, 'null')
+  );
+END $$;
+
+ALTER FUNCTION public.fill_creator_name_snapshot() SECURITY INVOKER;
+
+DO $$
+DECLARE
+  r text;
+  s_name text;
+  s_id uuid;
+  prosecdef boolean;
+  reassign_ok boolean;
+BEGIN
+  SELECT p.prosecdef INTO prosecdef
+  FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public' AND p.proname = 'fill_creator_name_snapshot';
+
+  UPDATE public.templates
+    SET created_by = '22222222-2222-2222-2222-222222222222',
+        creator_name_snapshot = 'Pat Snapshot'
+    WHERE id = '51111111-1111-1111-1111-111111111111';
+  BEGIN
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', '22222222-2222-2222-2222-222222222222', 'role', 'authenticated')::text, true);
+    EXECUTE 'SET LOCAL ROLE authenticated';
+    UPDATE public.templates
+      SET created_by = '33333333-3333-3333-3333-333333333333'
+      WHERE id = '51111111-1111-1111-1111-111111111111';
+    r := '00000';
+  EXCEPTION WHEN OTHERS THEN
+    r := SQLSTATE || '|' || SQLERRM;
+  END;
+  EXECUTE 'RESET ROLE';
+  PERFORM set_config('request.jwt.claims', '', true);
+  SELECT created_by, creator_name_snapshot INTO s_id, s_name
+  FROM public.templates WHERE id = '51111111-1111-1111-1111-111111111111';
+  reassign_ok := r LIKE '00000%' AND s_id = '33333333-3333-3333-3333-333333333333' AND s_name = 'Sam Spark';
+  INSERT INTO proof_result VALUES (
+    'mutant_creator_security_invoker_applied',
+    prosecdef IS NOT TRUE,
+    'prosecdef=' || coalesce(prosecdef::text, 'null')
+  );
+  INSERT INTO proof_result VALUES (
+    'mutant_creator_security_invoker_killed',
+    reassign_ok IS NOT TRUE,
+    'killed by creator_member_reassign_fills_hidden_teammate ' || coalesce(s_name, 'null')
+  );
+END $$;
+
+ALTER FUNCTION public.fill_creator_name_snapshot() SECURITY DEFINER;
+
 UPDATE public.templates SET created_by = '22222222-2222-2222-2222-222222222222' WHERE created_by IS NULL;
 UPDATE public.jha_templates SET created_by = '22222222-2222-2222-2222-222222222222' WHERE created_by IS NULL;
 UPDATE public.jha_documents SET created_by = '22222222-2222-2222-2222-222222222222' WHERE created_by IS NULL;
-UPDATE public.jobs SET created_by = '22222222-2222-2222-2222-222222222222' WHERE created_by IS NULL;
 
 DO $$
 DECLARE
   rec record;
   del_sqlstate text;
   del_msg text;
+  member_delete_ok boolean;
 BEGIN
   FOR rec IN
     SELECT * FROM (VALUES
       ('templates', '51111111-1111-1111-1111-111111111111'),
       ('jha_templates', '52111111-1111-1111-1111-111111111111'),
-      ('jha_documents', '53111111-1111-1111-1111-111111111111'),
-      ('jobs', '54111111-1111-1111-1111-111111111111')
+      ('jha_documents', '53111111-1111-1111-1111-111111111111')
     ) AS t(tbl, row_id)
   LOOP
     EXECUTE format('ALTER TABLE public.%I ALTER COLUMN created_by SET NOT NULL', rec.tbl);
@@ -296,6 +469,7 @@ BEGIN
       del_msg := SQLERRM;
     END;
 
+    member_delete_ok := del_sqlstate = '00000';
     INSERT INTO proof_result VALUES (
       'mutant_not_null_kept_' || rec.tbl || '_applied',
       del_sqlstate = '23502',
@@ -303,12 +477,9 @@ BEGIN
     );
     INSERT INTO proof_result VALUES (
       'mutant_not_null_kept_' || rec.tbl || '_killed',
-      del_sqlstate <> '00000',
+      member_delete_ok IS NOT TRUE,
       'killed by member_who_created_template_jha_and_doc_can_be_deleted ' || del_sqlstate
     );
-    IF del_sqlstate = '00000' THEN
-      RAISE EXCEPTION 'mutant not_null_kept_% not killed — member delete succeeded', rec.tbl;
-    END IF;
 
     INSERT INTO public.profiles (id, company_id, email, name, licence_number, role)
     SELECT '22222222-2222-2222-2222-222222222222', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'pat@example.test', 'Pat Snapshot', 'EC-4411', 'member'

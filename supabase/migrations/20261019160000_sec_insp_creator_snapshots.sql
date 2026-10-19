@@ -36,12 +36,27 @@ AS $$
 DECLARE
   v_name text;
 BEGIN
+  IF TG_OP = 'INSERT' THEN
+    NEW.creator_name_snapshot := NULL;
+    IF NEW.created_by IS NOT NULL THEN
+      SELECT p.name INTO v_name
+      FROM public.profiles p
+      WHERE p.id = NEW.created_by;
+      NEW.creator_name_snapshot := v_name;
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF NEW.created_by IS NOT DISTINCT FROM OLD.created_by THEN
+    NEW.creator_name_snapshot := OLD.creator_name_snapshot;
+    RETURN NEW;
+  END IF;
+
   IF NEW.created_by IS NULL THEN
+    NEW.creator_name_snapshot := OLD.creator_name_snapshot;
     RETURN NEW;
   END IF;
-  IF TG_OP = 'UPDATE' AND NEW.created_by IS NOT DISTINCT FROM OLD.created_by THEN
-    RETURN NEW;
-  END IF;
+
   SELECT p.name INTO v_name
   FROM public.profiles p
   WHERE p.id = NEW.created_by;
@@ -54,19 +69,19 @@ REVOKE ALL ON FUNCTION public.fill_creator_name_snapshot() FROM PUBLIC, anon;
 
 DROP TRIGGER IF EXISTS trg_templates_fill_creator_snapshot ON public.templates;
 CREATE TRIGGER trg_templates_fill_creator_snapshot
-  BEFORE INSERT OR UPDATE OF created_by ON public.templates
+  BEFORE INSERT OR UPDATE OF created_by, creator_name_snapshot ON public.templates
   FOR EACH ROW
   EXECUTE FUNCTION public.fill_creator_name_snapshot();
 
 DROP TRIGGER IF EXISTS trg_jha_templates_fill_creator_snapshot ON public.jha_templates;
 CREATE TRIGGER trg_jha_templates_fill_creator_snapshot
-  BEFORE INSERT OR UPDATE OF created_by ON public.jha_templates
+  BEFORE INSERT OR UPDATE OF created_by, creator_name_snapshot ON public.jha_templates
   FOR EACH ROW
   EXECUTE FUNCTION public.fill_creator_name_snapshot();
 
 DROP TRIGGER IF EXISTS trg_jha_documents_fill_creator_snapshot ON public.jha_documents;
 CREATE TRIGGER trg_jha_documents_fill_creator_snapshot
-  BEFORE INSERT OR UPDATE OF created_by ON public.jha_documents
+  BEFORE INSERT OR UPDATE OF created_by, creator_name_snapshot ON public.jha_documents
   FOR EACH ROW
   EXECUTE FUNCTION public.fill_creator_name_snapshot();
 
@@ -81,6 +96,4 @@ ALTER TABLE public.templates
 ALTER TABLE public.jha_templates
   ALTER COLUMN created_by DROP NOT NULL;
 ALTER TABLE public.jha_documents
-  ALTER COLUMN created_by DROP NOT NULL;
-ALTER TABLE public.jobs
   ALTER COLUMN created_by DROP NOT NULL;

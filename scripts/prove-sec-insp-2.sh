@@ -276,6 +276,32 @@ run_one() {
   fi
   echo "creator snapshot values IDENTICAL after re-apply PG${PGV}"
 
+  echo "== NULL-present one-transaction rollback (inspector) =="
+  "${PSQL[@]}" -d postgres -c "DROP DATABASE IF EXISTS insp2_nullrb"
+  "${PSQL[@]}" -d postgres -c "CREATE DATABASE insp2_nullrb"
+  "${PSQL[@]}" -d insp2_nullrb -v sec_insp2_fixture_only=1 -f "${SQL}"
+  "${PSQL[@]}" -d insp2_nullrb -f "${MIG}"
+  "${PSQL[@]}" -d insp2_nullrb -c "UPDATE inspections SET inspector_id = NULL"
+  if "${PSQL[@]}" -d insp2_nullrb -f "${RB}"; then
+    echo "inspector NULL-present rollback unexpectedly succeeded"
+    return 1
+  fi
+  "${PSQL[@]}" -d insp2_nullrb -c "SELECT inspector_name_snapshot FROM inspections LIMIT 1" >/dev/null
+  echo "inspector NULL-present rollback aborted and kept snapshot columns"
+
+  echo "== NULL-present one-transaction rollback (creator) =="
+  "${PSQL[@]}" -d postgres -c "DROP DATABASE IF EXISTS insp2_cnullrb"
+  "${PSQL[@]}" -d postgres -c "CREATE DATABASE insp2_cnullrb"
+  "${PSQL[@]}" -d insp2_cnullrb -v sec_insp2_creator_fixture_only=1 -f "${CREATOR_SQL}"
+  "${PSQL[@]}" -d insp2_cnullrb -f "${CREATOR_MIG}"
+  "${PSQL[@]}" -d insp2_cnullrb -c "UPDATE templates SET created_by = NULL"
+  if "${PSQL[@]}" -d insp2_cnullrb -f "${CREATOR_RB}"; then
+    echo "creator NULL-present rollback unexpectedly succeeded"
+    return 1
+  fi
+  "${PSQL[@]}" -d insp2_cnullrb -c "SELECT creator_name_snapshot FROM templates LIMIT 1" >/dev/null
+  echo "creator NULL-present rollback aborted and kept snapshot columns"
+
   echo "All prove-sec-insp-2 PG${PGV} steps passed"
 }
 

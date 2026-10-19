@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { documentCreatorLine } from './inspectorSnapshot';
 import {
   decorateJhaForList,
   decorateJhaList,
   filterJhaListFloor,
   formatJhaListDate,
   groupJhaListFloor,
+  JHA_DOCUMENT_LIST_SELECT,
   jhaDocumentHref,
   jhaListCrewProgress,
   jhaListEmptyMessage,
@@ -12,6 +14,7 @@ import {
   jhaListGroupTitle,
   jhaListJobNumberLabel,
   jhaListSearchHaystack,
+  jhaListSelectColumns,
   jhaMatchesListFilter,
   jhaMatchesSearch,
   normalizeJhaSearch,
@@ -34,6 +37,21 @@ function row(over: Partial<JhaListRow> & { id: string }): JhaListRow {
 
 const unsigned = { id: 'w1', name: 'Sam Spark', role: 'Electrician', date: '2026-08-20' };
 const signed = { ...unsigned, signature: 'data:image/png;base64,xx' };
+
+describe('JHA list select', () => {
+  it('keeps creator_name_snapshot on the JHA list select so a deleted member still names the row', () => {
+    const cols = jhaListSelectColumns(JHA_DOCUMENT_LIST_SELECT);
+    expect(cols).toContain('creator_name_snapshot');
+    const fetched = {
+      created_by: null as string | null,
+      creator_name_snapshot: 'Pat Snapshot',
+    };
+    const picked = Object.fromEntries(
+      Object.entries(fetched).filter(([key]) => cols.includes(key)),
+    ) as { creator_name_snapshot?: string | null };
+    expect(documentCreatorLine(picked.creator_name_snapshot)).toBe('Created by Pat Snapshot');
+  });
+});
 
 describe('jhaDocumentHref', () => {
   it('opens the existing JHA fill route, not a new safety product', () => {

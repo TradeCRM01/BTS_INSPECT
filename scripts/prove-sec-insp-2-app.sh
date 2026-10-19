@@ -89,5 +89,13 @@ apply_and_kill \
   "src/lib/inspectorSnapshot.test.ts" \
   "does not leak a raw database message"
 
+apply_and_kill \
+  "jha_list_drops_snapshot_column" \
+  "src/lib/jhaList.ts" \
+  "created_by, creator_name_snapshot" \
+  "created_by" \
+  "src/lib/jhaList.test.ts" \
+  "keeps creator_name_snapshot on the JHA list select so a deleted member still names the row"
+
 echo "All prove-sec-insp-2-app mutants passed"
 bash "${ROOT}/scripts/prove-remove-member-harness.sh"

@@ -18,6 +18,7 @@ import {
   filterJhaListFloor,
   formatJhaListDate,
   groupJhaListFloor,
+  JHA_DOCUMENT_LIST_SELECT,
   jhaDocumentHref,
   jhaListEmptyMessage,
   jhaListEmptyTitle,
@@ -205,7 +206,7 @@ export function JhaDocumentsPage() {
       if (audit) return audit;
       const query = supabase
         .from('jha_documents')
-        .select('id, status, report_number, meta, doc_version, amendment_reason, amended_from_id, client_id, job_id, created_at, completed_at, template_snapshot, created_by, creator_name_snapshot')
+        .select(JHA_DOCUMENT_LIST_SELECT)
         .order('created_at', { ascending: false });
       const { data, error } = await query;
       if (error) throw error;
