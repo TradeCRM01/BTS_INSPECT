@@ -286,7 +286,6 @@ PY
   snap_sql | "${PSQL[@]}" -d insp3_rb -At -o "${RB_OUT}/pg${PGV}-after-rollback.txt"
   "${PSQL[@]}" -d postgres -c "DROP DATABASE IF EXISTS insp3_base"
   "${PSQL[@]}" -d postgres -c "CREATE DATABASE insp3_base"
-  # Chain up to but not including 170000
   local STOP_TMP
   STOP_TMP="$(mktemp -d /tmp/insp3-stop.XXXXXX)"
   ln -s "${ROOT}/supabase/migrations/"*.sql "${STOP_TMP}/" 2>/dev/null || true

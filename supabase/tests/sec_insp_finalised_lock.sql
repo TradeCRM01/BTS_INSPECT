@@ -1,4 +1,3 @@
--- SEC-INSP-3 proofs on the REAL migration chain. Do not create tables here.
 \ir sec_insp_finalised_lock_seed.sql
 
 CREATE TEMP TABLE proof_result (

@@ -1,4 +1,3 @@
--- Seed for SEC-INSP-3. Assumes the real migration chain is already applied.
 DELETE FROM public.inspections WHERE id IN (
   'e1000000-0000-0000-0000-000000000001',
   'e1000000-0000-0000-0000-000000000002',

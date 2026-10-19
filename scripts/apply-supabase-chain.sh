@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Apply stub + every repo migration onto a running local Postgres.
-# Usage: apply-supabase-chain.sh <psql-args...>
-# Example: apply-supabase-chain.sh -h /tmp/pg -p 55447 -U postgres -d insp3
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 STUB="${ROOT}/scripts/supabase-local-stub.sql"
