@@ -86,6 +86,8 @@ vi.mock('../lib/supabase', () => {
         if (table === 'inspections' && updatePayload && eqId) {
           if (updatePayload.archived != null) {
             harness.archives.push({ id: eqId, archived: Boolean(updatePayload.archived) });
+            const row = harness.rows.find(item => item.id === eqId);
+            if (row) row.archived = Boolean(updatePayload.archived);
           }
           if (updatePayload.status === 'issued') harness.issues.push(eqId);
         }
@@ -248,6 +250,103 @@ describe('inspections list delete, archive, filter, and date', () => {
       archived.click();
     });
     expect(document.querySelector('[aria-label="Filter inspections"]')?.closest('details')?.open).not.toBe(true);
+  });
+
+  it('A1/A2: Archived shows archived rows, Restore writes archived false and returns the row to the active list', async () => {
+    harness.rows = [
+      {
+        id: 'insp-open',
+        status: 'draft',
+        meta: { siteName: 'Phone site' },
+        started_at: '2026-10-18T16:00:00.000Z',
+        completed_at: null,
+        template_snapshot: { name: 'CoS 069 prove template' },
+        inspector_id: harness.userId,
+        archived: false,
+        parent_inspection_id: null,
+        crm_job_id: null,
+        responses: {},
+        due_on: null,
+      },
+      {
+        id: 'insp-archived',
+        status: 'completed',
+        meta: { siteName: 'Shed roof' },
+        started_at: '2026-10-17T16:00:00.000Z',
+        completed_at: '2026-10-17T18:00:00.000Z',
+        template_snapshot: { name: 'CoS 069 prove template' },
+        inspector_id: harness.userId,
+        archived: true,
+        parent_inspection_id: null,
+        crm_job_id: null,
+        responses: {},
+        due_on: null,
+      },
+    ];
+
+    await renderPage();
+    await waitForText('Start inspection');
+    await openFilters();
+    const all = Array.from(document.body.querySelectorAll('button')).find(btn => btn.textContent === 'All inspections');
+    if (!all) throw new Error('missing All inspections');
+    await act(async () => {
+      all.click();
+    });
+    await waitForText('Phone site');
+    expect(document.body.textContent).toContain('Phone site');
+    expect(document.body.textContent).not.toContain('Shed roof');
+
+    await openFilters();
+    const archived = Array.from(document.body.querySelectorAll('button')).find(btn => btn.textContent === 'Archived');
+    if (!archived) throw new Error('missing Archived filter');
+    await act(async () => {
+      archived.click();
+    });
+    await waitForText('Shed roof');
+    expect(document.body.textContent).toContain('Shed roof');
+    expect(document.body.textContent).not.toContain('Phone site');
+    expect(document.body.textContent).not.toContain('Unarchive');
+
+    const more = Array.from(document.querySelectorAll('summary[aria-label="More"]'));
+    if (!more[0]) throw new Error('missing archived row menu');
+    await act(async () => {
+      (more[0] as HTMLElement).click();
+    });
+    const restoreBtn = Array.from(document.body.querySelectorAll('button')).find(btn => btn.textContent === 'Restore');
+    if (!restoreBtn) throw new Error('missing Restore');
+    await act(async () => {
+      restoreBtn.click();
+    });
+    await waitForText('Restore this inspection?');
+    const confirmRestore = Array.from(document.body.querySelectorAll('button')).find(btn => (
+      btn.textContent === 'Restore' && btn.className.includes('btn-')
+    ));
+    if (!confirmRestore) throw new Error('missing restore confirm');
+    await act(async () => {
+      confirmRestore.click();
+      await Promise.resolve();
+    });
+    expect(harness.archives).toEqual([{ id: 'insp-archived', archived: false }]);
+    expect(harness.rows.find(row => row.id === 'insp-archived')?.archived).toBe(false);
+
+    await openFilters();
+    const allAgain = Array.from(document.body.querySelectorAll('button')).find(btn => btn.textContent === 'All inspections');
+    if (!allAgain) throw new Error('missing All inspections after restore');
+    await act(async () => {
+      allAgain.click();
+    });
+    await waitForText('Shed roof');
+    expect(document.body.textContent).toContain('Phone site');
+    expect(document.body.textContent).toContain('Shed roof');
+
+    await openFilters();
+    const archivedAgain = Array.from(document.body.querySelectorAll('button')).find(btn => btn.textContent === 'Archived');
+    if (!archivedAgain) throw new Error('missing Archived filter after restore');
+    await act(async () => {
+      archivedAgain.click();
+    });
+    await waitForText('No archived inspections');
+    expect(document.body.textContent).not.toContain('Shed roof');
   });
 
   it('closes the filter popup on Escape and labels it', async () => {

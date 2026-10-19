@@ -9,6 +9,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { AuthProvider } from '../contexts/AuthContext';
+import { ProtectedRoute } from '../components/layout/ProtectedRoute';
+import { NotFoundPage } from './NotFoundPage';
 import App from '../App';
 
 const harness = vi.hoisted(() => ({
@@ -180,9 +182,37 @@ describe('unknown URL 404 and known deep routes', () => {
   });
 
   it('keeps a signed-out inspection deep link on the login redirect', async () => {
-    await renderAt('/inspections/00000000-0000-4000-8000-0000000000cc');
+    expect(src('src/App.tsx')).toContain('path="/inspections/:id"');
+    expect(src('src/App.tsx')).toContain('<Protected><InspectionFillPage />');
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const router = createMemoryRouter([
+      { path: '/login', element: <div>Sign in to Grafter</div> },
+      {
+        path: '/inspections/:id',
+        element: (
+          <ProtectedRoute>
+            <div>inspection fill stub</div>
+          </ProtectedRoute>
+        ),
+      },
+      { path: '*', element: <NotFoundPage /> },
+    ], { initialEntries: ['/inspections/00000000-0000-4000-8000-0000000000cc'] });
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={client}>
+          <AuthProvider>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </QueryClientProvider>,
+      );
+    });
     await waitForText('Sign in to Grafter');
     expect(document.body.textContent).not.toContain('Page not found');
+    expect(document.body.textContent).not.toContain('inspection fill stub');
     expect(document.body.textContent).not.toContain('Quote it. Send it. Get paid.');
   });
 

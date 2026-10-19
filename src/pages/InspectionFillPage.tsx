@@ -26,7 +26,7 @@ import { getAuditClient, getAuditInspection, getAuditJobs } from '../lib/devFiel
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 import { UnsavedChangesDialog } from '../components/unsaved/UnsavedChangesDialog';
 import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard';
-import type { UnsavedChangesStatus } from '../lib/unsavedChangesGuard';
+import { keepaliveRestWrite, type UnsavedChangesStatus } from '../lib/unsavedChangesGuard';
 
 type SaveStatus = UnsavedChangesStatus;
 
@@ -186,10 +186,27 @@ export function InspectionFillPage() {
   const snapshotRaw = inspection?.template_snapshot as unknown as { schema?: TemplateSchema } | null;
   const schema = snapshotRaw?.schema ?? null;
   const templateName = (inspection?.template_snapshot as unknown as { name?: string } | null)?.name ?? '';
+  const allowLeaveRef = useRef(false);
 
-  const saveInspection = useCallback(async (payload: PendingSave) => {
+  const saveInspection = useCallback(async (payload: PendingSave, opts?: { keepalive?: boolean }) => {
     if (!id) return;
     if (isDevFieldAuditAuth()) {
+      setSaveStatus('saved');
+      pendingSaveRef.current = null;
+      return;
+    }
+    const body = {
+      responses: payload.responses as unknown as Record<string, unknown>,
+      meta: payload.meta as unknown as Record<string, unknown>,
+      crm_job_id: payload.crm_job_id,
+      client_id: payload.client_id,
+    };
+    if (opts?.keepalive && keepaliveRestWrite({
+      table: 'inspections',
+      query: `id=eq.${id}`,
+      method: 'PATCH',
+      body,
+    })) {
       setSaveStatus('saved');
       pendingSaveRef.current = null;
       return;
@@ -198,12 +215,7 @@ export function InspectionFillPage() {
     try {
       const { error } = await supabase
         .from('inspections')
-        .update({
-          responses: payload.responses as unknown as Record<string, unknown>,
-          meta: payload.meta as unknown as Record<string, unknown>,
-          crm_job_id: payload.crm_job_id,
-          client_id: payload.client_id,
-        })
+        .update(body)
         .eq('id', id);
       if (error) throw error;
       setSaveStatus('saved');
@@ -234,11 +246,11 @@ export function InspectionFillPage() {
     });
   }
 
-  const flushPending = useCallback(() => {
+  const flushPending = useCallback((opts?: { keepalive?: boolean }) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = undefined;
     const pending = pendingSaveRef.current;
-    if (pending) void saveInspection(pending);
+    if (pending) void saveInspection(pending, opts);
   }, [saveInspection]);
 
   async function flushAndNavigate(path: string) {
@@ -252,6 +264,7 @@ export function InspectionFillPage() {
         ? (job.client_id ?? null)
         : ((inspection as { client_id?: string | null } | null)?.client_id ?? null),
     });
+    allowLeaveRef.current = true;
     navigate(path);
   }
 
@@ -269,6 +282,7 @@ export function InspectionFillPage() {
     status: saveStatus,
     hasPending: pendingSaveRef.current != null || saveTimerRef.current != null,
     flush: flushPending,
+    allowLeaveRef,
   });
 
   const livingJob = selectedJobForLiving

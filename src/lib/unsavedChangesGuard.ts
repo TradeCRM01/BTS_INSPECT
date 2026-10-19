@@ -1,5 +1,7 @@
 export type UnsavedChangesStatus = 'saved' | 'saving' | 'unsaved' | 'error' | 'offline';
 
+export type UnsavedFlushOpts = { keepalive?: boolean };
+
 export function unsavedChangesHint(status: UnsavedChangesStatus): string {
   if (status === 'saved') return 'Saved';
   if (status === 'saving') return 'Saving…';
@@ -15,6 +17,13 @@ export function unsavedChangesNeedsWarn(
   return hasPending || status === 'unsaved' || status === 'saving' || status === 'error';
 }
 
+export function unsavedChangesShouldFlush(
+  status: UnsavedChangesStatus,
+  hasPending = false,
+): boolean {
+  return hasPending || status === 'unsaved' || status === 'error';
+}
+
 export function unsavedChangesLeaveCopy(): {
   title: string;
   message: string;
@@ -22,28 +31,54 @@ export function unsavedChangesLeaveCopy(): {
 } {
   return {
     title: 'Leave without saving?',
-    message: 'You have unsaved changes. If you leave now, those edits will be lost.',
+    message: 'You have unsaved changes. Stay to keep editing, or leave.',
     confirmLabel: 'Leave',
   };
 }
 
+export function keepaliveRestWrite(args: {
+  table: string;
+  query?: string;
+  method: 'POST' | 'PATCH';
+  body: unknown;
+}): boolean {
+  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+  if (!url || !key) return false;
+  const path = args.query ? `${args.table}?${args.query}` : args.table;
+  void fetch(`${url}/rest/v1/${path}`, {
+    method: args.method,
+    keepalive: true,
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify(args.body),
+  });
+  return true;
+}
+
 export function bindUnsavedChangesFlush(args: {
-  flush: () => void;
+  flush: (opts?: UnsavedFlushOpts) => void;
   shouldWarn: () => boolean;
+  shouldFlush?: () => boolean;
   root?: Document | HTMLElement;
 }): () => void {
   const root = args.root ?? document;
+  const shouldFlush = () => (args.shouldFlush ?? args.shouldWarn)();
   const onFocusOut = () => {
-    args.flush();
+    if (shouldFlush()) args.flush();
   };
   const onVisibility = () => {
-    if (document.visibilityState === 'hidden') args.flush();
+    if (document.visibilityState === 'hidden' && shouldFlush()) args.flush();
   };
   const onPageHide = () => {
-    args.flush();
+    if (shouldFlush()) args.flush({ keepalive: true });
   };
   const onBeforeUnload = (event: BeforeUnloadEvent) => {
-    args.flush();
+    if (shouldFlush()) args.flush({ keepalive: true });
     if (!args.shouldWarn()) return;
     event.preventDefault();
     event.returnValue = '';

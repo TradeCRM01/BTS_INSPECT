@@ -127,6 +127,7 @@ export function JhaFillPage() {
   const [showMoreIdentity, setShowMoreIdentity] = useState(false);
   const [showMoreDoc, setShowMoreDoc] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const allowLeaveRef = useRef(false);
   const crewRef = useRef(crew);
   const metaRef = useRef(meta);
   crewRef.current = crew;
@@ -569,6 +570,7 @@ export function JhaFillPage() {
         savedId = data.id;
         setDocIdState(data.id);
         if (opts?.navigateOnCreate !== false) {
+          allowLeaveRef.current = true;
           navigate(`/jha/new?docId=${data.id}`, { replace: true });
         }
       }
@@ -587,7 +589,12 @@ export function JhaFillPage() {
 
   const unsaved = useUnsavedChangesGuard({
     status: saveState,
-    flush: () => { void doSave('draft', { navigateOnCreate: false }).catch(() => {}); },
+    flush: () => {
+      if (saveState !== 'unsaved') return;
+      const keepCompleted = existingDoc?.status === 'completed' || existingDoc?.status === 'published';
+      void doSave(keepCompleted ? 'completed' : 'draft', { navigateOnCreate: false }).catch(() => {});
+    },
+    allowLeaveRef,
   });
 
   async function handlePublish() {

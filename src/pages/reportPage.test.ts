@@ -59,6 +59,29 @@ const base = {
 };
 
 describe('report PDF storage key', () => {
+  it('C6: generating a PDF does not mark the inspection Issued', () => {
+    const send = src('src/lib/sendReport.ts');
+    const persist = send.slice(
+      send.indexOf('export async function persistGeneratedReportPdf'),
+      send.indexOf('export function reportSmsBody'),
+    );
+    expect(persist).toContain('return { ok: true, storagePath }');
+    expect(persist).not.toContain('markIssued');
+    expect(persist).not.toContain("status: 'issued'");
+    expect(persist).not.toContain('issueInspectionRecord');
+
+    const page = src('src/pages/ReportPage.tsx');
+    const generate = page.slice(
+      page.indexOf('const saved = await persistGeneratedReportPdf'),
+      page.indexOf('function handleDownloadOriginal'),
+    );
+    expect(generate).toContain('persistGeneratedReportPdf');
+    expect(generate).not.toContain('issueInspectionRecord');
+    expect(generate).not.toContain('markIssued');
+    expect(generate).not.toContain("status: 'issued'");
+    expect(generate).not.toContain('.update({ status:');
+  });
+
   it('uploads through persistGeneratedReportPdf and never surfaces raw storage text', () => {
     const page = src('src/pages/ReportPage.tsx');
     expect(page).toContain('persistGeneratedReportPdf');

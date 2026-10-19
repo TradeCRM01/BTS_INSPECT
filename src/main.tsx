@@ -7,6 +7,8 @@ import { AuthProvider } from './contexts/AuthContext';
 import { InstallPrompt } from './components/ui/InstallPrompt';
 import { SWUpdatePrompt } from './components/ui/SWUpdatePrompt';
 import App from './App';
+import { AppCrashScreen } from './components/layout/AppCrashScreen';
+import { AppRouteError } from './components/layout/AppRouteError';
 import { isDevFieldAuditAuth } from './lib/devFieldAuditAuth';
 import {
   applyDeployedBuildCache,
@@ -102,20 +104,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   static getDerivedStateFromError(error: Error) { return { error }; }
   render() {
     if (this.state.error) {
-      return (
-        <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center p-4">
-          <div className="bg-white border border-red-200 rounded-lg p-6 max-w-md w-full shadow-sm">
-            <h1 className="text-lg font-semibold text-red-700 mb-2">Something went wrong</h1>
-            <p className="text-sm text-[#4A5568] mb-4">{(this.state.error as Error).message}</p>
-            <button
-              onClick={() => { this.setState({ error: null }); window.location.href = '/login?clear=1'; }}
-              className="bg-[#0A2540] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e]"
-            >
-              Clear cache & open login
-            </button>
-          </div>
-        </div>
-      );
+      return <AppCrashScreen message={(this.state.error as Error).message} />;
     }
     return this.props.children;
   }
@@ -146,6 +135,7 @@ const queryClient = new QueryClient({
 const appRouter = createBrowserRouter([
   {
     path: '*',
+    errorElement: <AppRouteError />,
     element: (
       <QueryClientProvider client={queryClient}>
         <AuthProvider>

@@ -145,6 +145,8 @@ export function TemplateEditorPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schema, templateName, renderer, saveState, templateId]);
 
+  const allowLeaveRef = useRef(false);
+
   const deleteMutation = useMutation({
     mutationFn: async () => {
       if (!templateId) return;
@@ -154,6 +156,7 @@ export function TemplateEditorPage() {
     onSuccess: () => {
       setDeleteError(null);
       qc.invalidateQueries({ queryKey: ['templates'] });
+      allowLeaveRef.current = true;
       navigate('/templates');
     },
     onError: () => {
@@ -205,6 +208,7 @@ export function TemplateEditorPage() {
           .single();
         if (error) throw error;
         setTemplateId(data.id);
+        allowLeaveRef.current = true;
         navigate(`/templates/${data.id}`, { replace: true });
       }
       await qc.invalidateQueries({ queryKey: ['templates'] });
@@ -224,9 +228,11 @@ export function TemplateEditorPage() {
   const unsaved = useUnsavedChangesGuard({
     status: saveState,
     flush: () => {
+      if (saveState !== 'unsaved') return;
       if (!templateId || getAuditTemplate(templateId)) return;
       saveMutation.mutate();
     },
+    allowLeaveRef,
   });
 
   function validateSchema(s: TemplateSchema, name: string): string[] {

@@ -125,6 +125,7 @@ export function JhaTemplateEditorPage() {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const schemaDirtyRef = useRef(false);
+  const allowLeaveRef = useRef(false);
 
   const canEdit = canEditTemplates(profile);
 
@@ -335,6 +336,7 @@ export function JhaTemplateEditorPage() {
         if (error) throw error;
         if (!data?.id) throw new Error('Save succeeded but no template id was returned');
         setTemplateId(data.id);
+        allowLeaveRef.current = true;
         navigate(`/jha-templates/${data.id}`, { replace: true });
       }
       setTemplateVersion(nextVersion);
@@ -350,7 +352,12 @@ export function JhaTemplateEditorPage() {
 
   const unsaved = useUnsavedChangesGuard({
     status: saveState,
-    flush: () => { void doSave(); },
+    flush: () => {
+      if (saveState !== 'unsaved') return;
+      if (!templateId) return;
+      void doSave();
+    },
+    allowLeaveRef,
   });
 
   async function handleDelete() {

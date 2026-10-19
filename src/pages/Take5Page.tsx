@@ -85,6 +85,7 @@ function Take5FillPage() {
     crewSignOns: '',
   });
   const metaRef = useRef(meta);
+  const allowLeaveRef = useRef(false);
   metaRef.current = meta;
   const [statusKey, setStatusKey] = useState('draft');
   const [saving, setSaving] = useState(false);
@@ -300,6 +301,7 @@ function Take5FillPage() {
         if (inErr) throw inErr;
         if (data) {
           setRowId(data.id);
+          allowLeaveRef.current = true;
           navigate(`/jha/take5?jhaId=${jhaId}&id=${data.id}`, { replace: true });
         }
       }
@@ -382,7 +384,11 @@ function Take5FillPage() {
 
   const unsaved = useUnsavedChangesGuard({
     status: saveHint,
-    flush: () => { void save('draft'); },
+    flush: () => {
+      if (saveHint !== 'unsaved') return;
+      void save(statusKey === 'completed' ? 'completed' : 'draft');
+    },
+    allowLeaveRef,
   });
 
   if (take5Id && take5Loading && !hydrated) {
