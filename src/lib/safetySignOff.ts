@@ -1,6 +1,5 @@
 import { format } from 'date-fns';
 
-/** Visible sign-off line on screen. Name stays on the line when it is known. */
 export function safetySignOffLine(args: {
   name?: string | null;
   when?: string | null;
@@ -13,7 +12,6 @@ export function safetySignOffLine(args: {
   return 'Signed';
 }
 
-/** Crew-sign confirm copy. The date is required after a successful confirm. */
 export function crewSignConfirmCopy(signedAt: string | null | undefined): string {
   const when = (signedAt ?? '').trim();
   if (!when) return 'Signed. Thank you.';

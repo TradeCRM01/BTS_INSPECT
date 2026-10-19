@@ -120,7 +120,6 @@ export function recommendJhaFillAction(ctx: JhaFillActionContext): RecommendedJh
   return { key: 'publish', label: 'Publish JHA', detail: 'Lock it in and generate the PDF for the job file.' };
 }
 
-/** Unsaved edits keep Save draft in the header. Sign off is the next saved step. */
 export function jhaHeaderPrimary(
   next: RecommendedJhaAction,
   unsaved: boolean,

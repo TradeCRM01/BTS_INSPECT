@@ -17,7 +17,6 @@ export const TAKE5_LIST_FILTERS: Array<{ value: Take5ListFilter; label: string }
   { value: 'all', label: 'All Take 5s' },
 ];
 
-/** Visible Open / Done tabs on the list. All stays in Find. */
 export const TAKE5_LIST_TABS: Array<{ value: Exclude<Take5ListFilter, 'all'>; label: string }> = [
   { value: 'open', label: 'Open' },
   { value: 'done', label: 'Done' },

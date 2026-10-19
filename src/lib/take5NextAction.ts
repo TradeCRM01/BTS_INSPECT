@@ -87,12 +87,10 @@ export function recommendTake5FillAction(ctx: Take5FillActionContext): Recommend
   return { key: 'complete', label: 'Complete Take 5', detail: 'Lock it in and generate the PDF for the job file.' };
 }
 
-/** Save draft and Mark done stay on a draft after the first save. */
 export function take5DraftControlsVisible(status: string): boolean {
   return status !== 'completed';
 }
 
-/** Persist the pad on draft save. Completing used to be the only write. */
 export function take5SignatureForSave(args: {
   canvasDataUrl: string | null;
   existingSignature: string | null;
