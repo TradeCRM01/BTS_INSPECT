@@ -23,29 +23,6 @@ const cases = [
     to: 'if (false && Object.keys(nextErrors).length) return;',
     test: 'src/pages/companySettingsValidation.test.tsx',
   },
-  {
-    name: 'drop writeErrorMessage on team cost-model write',
-    file: 'src/pages/TeamSettingsPage.tsx',
-    from: `.update(profileExpenseCostModelUpdatePayload(modelId))
-        .eq('id', memberId)
-        .select('expense_cost_model_id')
-        .maybeSingle();
-      const writeError = writeErrorMessage(error, !!data);
-      if (writeError) throw new Error(writeError);`,
-    to: `.update(profileExpenseCostModelUpdatePayload(modelId))
-        .eq('id', memberId)
-        .select('expense_cost_model_id')
-        .maybeSingle();
-      if (error) throw error;`,
-    test: 'src/pages/teamSelectPersist.test.tsx',
-  },
-  {
-    name: 'remove TemplatesAccessGate memberCanViewTemplates',
-    file: 'src/lib/TemplatesAccessGate.tsx',
-    from: 'if (!memberCanViewTemplates(profile)) {',
-    to: 'if (false && !memberCanViewTemplates(profile)) {',
-    test: 'src/pages/templatesAccess.test.tsx',
-  },
 ];
 
 const results = [];

@@ -10,7 +10,6 @@ import {
   FIELD_PERCENT,
   FIELD_PORT,
   FIELD_RATE,
-  FIELD_WRITE_FAILED,
   clientFormFieldErrors,
   companyDetailsFieldErrors,
   isAbn,
@@ -20,12 +19,10 @@ import {
   isEmail,
   isJobNumber,
   isPort,
-  memberCanViewTemplates,
   parseNonNegativeNumber,
   parsePercent,
   paymentMethodFieldErrors,
   smtpFieldErrors,
-  writeErrorMessage,
 } from './fieldValidation';
 
 describe('fieldValidation predicates', () => {
@@ -164,17 +161,5 @@ describe('field error maps', () => {
       smtp_port: FIELD_PORT,
     });
     expect(smtpFieldErrors({ from_email: 'ops@co.com.au', smtp_port: '587' })).toEqual({});
-  });
-
-  it('surfaces a supabase error or a silent no-op write', () => {
-    expect(writeErrorMessage({ message: 'permission denied' }, false)).toBe('permission denied');
-    expect(writeErrorMessage(null, false)).toBe(FIELD_WRITE_FAILED);
-    expect(writeErrorMessage(null, true)).toBeNull();
-  });
-
-  it('blocks Templates for a member with no access', () => {
-    expect(memberCanViewTemplates({ role: 'member', template_access: 'none' })).toBe(false);
-    expect(memberCanViewTemplates({ role: 'member', template_access: 'view' })).toBe(true);
-    expect(memberCanViewTemplates({ role: 'admin', template_access: 'none' })).toBe(true);
   });
 });

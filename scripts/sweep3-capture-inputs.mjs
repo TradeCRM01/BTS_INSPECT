@@ -151,33 +151,10 @@ async function captureCompany(page, tag) {
   await shot(page, `company-edit-${tag}`);
 }
 
-async function captureTeam(page, tag) {
-  await page.goto(`${BASE}/settings/team?id=look-team-alex&auditAuth=1&look=p331-team-select`, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('select[aria-label="Cost model"]', { timeout: 15000 });
-  await page.waitForTimeout(400);
-  await shot(page, `team-view-${tag}`);
-
-  await page.locator('select[aria-label="Cost model"]').selectOption({ index: 0 });
-  await page.waitForTimeout(400);
-  await page.locator('select[aria-label="Template access"]').selectOption('none');
-  await page.waitForTimeout(500);
-  await shot(page, `team-edit-${tag}`);
-
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('select[aria-label="Cost model"]', { timeout: 15000 });
-  await page.waitForTimeout(400);
-  const afterReload = await page.evaluate(() => ({
-    cost: document.querySelector('select[aria-label="Cost model"]')?.value || '',
-    templates: document.querySelector('select[aria-label="Template access"]')?.value || '',
-  }));
-  await shot(page, `team-reload-${tag}`, { afterReload });
-}
-
 for (const { width, height } of WIDTHS) {
   const tag = String(width);
   await withPage(width, height, (page) => captureClient(page, tag));
   await withPage(width, height, (page) => captureCompany(page, tag));
-  await withPage(width, height, (page) => captureTeam(page, tag));
 }
 
 writeFileSync(`${OUT}/measured.json`, JSON.stringify(table, null, 2));

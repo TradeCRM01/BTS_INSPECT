@@ -8,7 +8,6 @@ export const FIELD_PERCENT = 'Enter a number from 0 to 100';
 export const FIELD_RATE = 'Enter a valid amount';
 export const FIELD_PORT = 'Port must be 1 to 65535';
 export const FIELD_JOB_NUMBER = 'Enter a job number';
-export const FIELD_WRITE_FAILED = 'Could not save. Try again.';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ABN_WEIGHTS = [10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19] as const;
@@ -94,15 +93,6 @@ export function optionalBlank(value: string, check: (filled: string) => boolean)
   return !value.trim() || check(value);
 }
 
-export function writeErrorMessage(
-  error: { message?: string } | null | undefined,
-  wrote: boolean,
-): string | null {
-  if (error?.message) return error.message;
-  if (!wrote) return FIELD_WRITE_FAILED;
-  return null;
-}
-
 export function clientFormFieldErrors(form: {
   name: string;
   phone: string;
@@ -157,13 +147,4 @@ export function smtpFieldErrors(form: {
   if (!optionalBlank(form.from_email, isEmail)) errors.from_email = FIELD_EMAIL;
   if (!isPort(form.smtp_port)) errors.smtp_port = FIELD_PORT;
   return errors;
-}
-
-export function memberCanViewTemplates(profile: {
-  role?: string | null;
-  template_access?: string | null;
-} | null | undefined): boolean {
-  if (!profile) return false;
-  if (profile.role === 'admin') return true;
-  return profile.template_access === 'edit' || profile.template_access === 'view';
 }
