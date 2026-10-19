@@ -26,7 +26,7 @@ import {
 } from '../lib/complianceList';
 import { AppShell } from '../components/layout/AppShell';
 import { DateFieldInput, LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, Modal } from '../components/ui';
-import { DATE_INVALID_MESSAGE } from '../lib/dateTimeIntegrity';
+import { DATE_INVALID_MESSAGE, DATE_REQUIRED_MESSAGE } from '../lib/dateTimeIntegrity';
 import type { MenuEntry } from '../components/ui';
 import { format } from 'date-fns';
 import {
@@ -834,6 +834,7 @@ export function ComplianceForm({
   const [lastCompletedInvalid, setLastCompletedInvalid] = useState(false);
   const [firstDueError, setFirstDueError] = useState<string | null>(null);
   const [lastCompletedError, setLastCompletedError] = useState<string | null>(null);
+  const [firstDueRequiredErr, setFirstDueRequiredErr] = useState<string | null>(null);
 
   useEffect(() => {
     supabase
@@ -853,6 +854,7 @@ export function ComplianceForm({
     setLastCompletedError(null);
     const firstDueYearError = dateFieldYearError(firstDueRaw, true);
     if (firstDueYearError) {
+      if (!firstDueRaw.trim()) setFirstDueRequiredErr(DATE_REQUIRED_MESSAGE);
       setFirstDueError(firstDueYearError);
       setErr(firstDueYearError);
       setSaving(false);
@@ -871,6 +873,12 @@ export function ComplianceForm({
     }
     const firstDue = parseFieldDate(firstDueRaw) ?? form.first_due_date;
     const lastCompleted = parseFieldDate(lastCompletedRaw) || lastCompletedRaw || null;
+    if (!firstDue) {
+      setFirstDueRequiredErr(DATE_REQUIRED_MESSAGE);
+      setErr(DATE_REQUIRED_MESSAGE);
+      return;
+    }
+    setFirstDueRequiredErr(null);
     setSaving(true);
     setErr(null);
     try {
@@ -1008,6 +1016,7 @@ export function ComplianceForm({
                 value={form.first_due_date}
                 onChange={first_due_date => {
                   setFirstDueError(null);
+                  setFirstDueRequiredErr(null);
                   setForm(f => ({ ...f, first_due_date }));
                 }}
                 onValidityChange={setFirstDueInvalid}
@@ -1015,6 +1024,8 @@ export function ComplianceForm({
               />
               {firstDueError ? (
                 <p id="compliance-first-due-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{firstDueError}</p>
+              ) : firstDueRequiredErr ? (
+                <p className="text-sm text-[#B42318] mt-1" role="alert">{firstDueRequiredErr}</p>
               ) : firstDueInvalid ? (
                 <p className="text-sm text-[#B42318] mt-1" role="alert">{DATE_INVALID_MESSAGE}</p>
               ) : null}

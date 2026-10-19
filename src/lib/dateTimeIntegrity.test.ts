@@ -6,6 +6,7 @@ import {
   DATE_REQUIRED_MESSAGE,
   DATE_YEAR_MAX,
   DATE_YEAR_MIN,
+  dateFieldYearError,
   ENDS_NEXT_DAY_HINT,
   ENDS_NEXT_DAY_UNCHECK_MESSAGE,
   END_BEFORE_START_MESSAGE,
@@ -19,9 +20,11 @@ import {
   dateRangeOrderError,
   formatAuDate,
   isSupportedDateYear,
+  formatClockFinishLabel,
   formatClockRangeLabel,
   isoDateKey,
   jobClockOrderError,
+  overlapQueryDates,
   parseAuDate,
   reminderSaveError,
   scheduleSheetDateError,
@@ -187,6 +190,21 @@ describe('time entry overlap', () => {
       endIso: '2026-10-19T07:45:00',
     })).toBe(END_BEFORE_START_MESSAGE);
   });
+
+  it('treats a sub-minute clock-off as zero-length', () => {
+    expect(clockOffSaveError({
+      startIso: '2026-10-21T07:45:10+10:00',
+      endIso: '2026-10-21T07:45:40+10:00',
+    })).toBe(END_BEFORE_START_MESSAGE);
+  });
+
+  it('blocks clock-off that overlaps another closed entry', () => {
+    expect(clockOffSaveError({
+      startIso: '2026-10-21T08:00:00',
+      endIso: '2026-10-21T10:00:00',
+      existing: [{ start_time: '2026-10-21T09:00:00', end_time: '2026-10-21T11:00:00' }],
+    })).toBe(TIME_ENTRY_OVERLAP_MESSAGE);
+  });
 });
 
 describe('AU date format and parse', () => {
@@ -213,6 +231,9 @@ describe('AU date format and parse', () => {
     expect(isoDateKey('2026-02-31')).toBeNull();
     expect(parseAuDate('29/02/2026')).toBeNull();
     expect(parseAuDate('29/02/2028')).toBe('2028-02-29');
+    expect(parseAuDate('05/11/2026')).toBe('2026-11-05');
+    expect(parseAuDate('5/11/2026')).toBe('2026-11-05');
+    expect(parseAuDate('11/05/2026')).toBe('2026-05-11');
   });
 
   it('rejects trailing junk and years outside 1900-2100', () => {
@@ -220,6 +241,15 @@ describe('AU date format and parse', () => {
     expect(isoDateKey('2026-10-21garbage')).toBeNull();
     expect(parseAuDate('21/10/1026')).toBeNull();
     expect(parseAuDate('21/10/9999')).toBeNull();
+    expect(parseAuDate('2101-01-01')).toBeNull();
+    expect(dateFieldYearError('2101-01-01')).toBe(DATE_INVALID_MESSAGE);
+    expect(dateFieldYearError('1900-01-01')).toBeNull();
+    expect(dateFieldYearError('31/02/2026')).toBe(DATE_INVALID_MESSAGE);
+    expect(dateFieldYearError('')).toBeNull();
+    expect(dateFieldYearError('', true)).toBe(DATE_INVALID_MESSAGE);
+    expect(parseAuDate('1899-12-31')).toBeNull();
+    expect(parseAuDate('1900-01-01')).toBe('1900-01-01');
+    expect(parseAuDate('2100-12-31')).toBe('2100-12-31');
   });
 });
 
@@ -254,9 +284,13 @@ describe('date range order', () => {
 describe('overnight write helpers', () => {
   it('adds one local calendar day', () => {
     expect(addLocalDate('2026-10-19', 1)).toBe('2026-10-20');
+    expect(addLocalDate('2026-10-21', -1)).toBe('2026-10-20');
+    expect(overlapQueryDates('2026-10-21')).toEqual({ fromDate: '2026-10-20', toDate: '2026-10-21' });
+    expect(overlapQueryDates('2026-10-21', true)).toEqual({ fromDate: '2026-10-20', toDate: '2026-10-22' });
   });
 
   it('labels a wrap with (+1)', () => {
     expect(formatClockRangeLabel('2026-10-19T23:00:00', '2026-10-20T01:00:00')).toBe('23:00–01:00 (+1)');
+    expect(formatClockFinishLabel('2026-10-19T23:00:00', '2026-10-20T01:00:00')).toBe('01:00 (+1)');
   });
 });

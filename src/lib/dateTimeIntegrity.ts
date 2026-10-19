@@ -1,6 +1,15 @@
-export const AU_DATE_PLACEHOLDER = 'dd/mm/yyyy';
+import { DATE_INVALID_MESSAGE, isSupportedDateYear } from './safeDate';
+
+export {
+  AU_DATE_PLACEHOLDER,
+  DATE_INVALID_MESSAGE,
+  DATE_YEAR_MAX,
+  DATE_YEAR_MIN,
+  dateFieldYearError,
+  isSupportedDateYear,
+  isYearInRange,
+} from './safeDate';
 export const DATE_REQUIRED_MESSAGE = 'Set a date before saving.';
-export const DATE_INVALID_MESSAGE = 'Enter the date as dd/mm/yyyy';
 export const TIME_NEEDS_DATE_MESSAGE = 'Add a date for this time.';
 export const END_BEFORE_START_MESSAGE = 'End time must be after start.';
 export const REVERSED_TIME_ENTRY_MESSAGE = 'End time must be after start. This would bill overnight hours.';
@@ -10,8 +19,6 @@ export const TIME_ENTRY_OVERNIGHT_CAP_MESSAGE = 'Overnight entries cannot exceed
 export const TIME_ENTRY_OVERLAP_MESSAGE = 'This overlaps another time entry for this person.';
 export const TIME_ENTRY_ZERO_LENGTH_MESSAGE = 'End time must be after start.';
 export const DATE_RANGE_ORDER_MESSAGE = 'End date must be on or after the start date.';
-export const DATE_YEAR_MIN = 1900;
-export const DATE_YEAR_MAX = 2100;
 
 const ISO_YMD = /^(\d{4})-(\d{2})-(\d{2})$/;
 const AU_SLASH = /^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/;
@@ -23,12 +30,8 @@ function pad2(n: number): string {
   return String(n).padStart(2, '0');
 }
 
-export function isSupportedDateYear(year: number): boolean {
-  return Number.isFinite(year) && year >= DATE_YEAR_MIN && year <= DATE_YEAR_MAX;
-}
-
-function expandYear(year: number): number | null {
-  if (year < 100) return 2000 + year;
+function expandYear(year: number, allowTwoDigitYear: boolean): number | null {
+  if (year < 100) return allowTwoDigitYear ? 2000 + year : null;
   if (!isSupportedDateYear(year)) return null;
   return year;
 }
@@ -59,7 +62,7 @@ export function isoDateKey(value: string | null | undefined): string | null {
   return `${iso[1]}-${iso[2]}-${iso[3]}`;
 }
 
-function parseAuText(value: string): string | null {
+function parseAuText(value: string, allowTwoDigitYear: boolean): string | null {
   const eight = EIGHT_DIGITS.exec(value);
   if (eight) {
     return ymd(Number(eight[3]), Number(eight[2]), Number(eight[1]));
@@ -67,12 +70,15 @@ function parseAuText(value: string): string | null {
   const normalized = value.replace(/[.\-\s]+/g, '/').replace(/\/+/g, '/');
   const au = AU_SLASH.exec(normalized);
   if (!au) return null;
-  const year = expandYear(Number(au[3]));
+  const year = expandYear(Number(au[3]), allowTwoDigitYear);
   if (year == null) return null;
   return ymd(year, Number(au[2]), Number(au[1]));
 }
 
-export function parseAuDate(raw: string | null | undefined): string | null {
+export function parseAuDate(
+  raw: string | null | undefined,
+  opts?: { requireFourDigitYear?: boolean },
+): string | null {
   const value = (raw ?? '').trim();
   if (!value) return null;
   const isoExact = ISO_YMD.exec(value);
@@ -80,7 +86,7 @@ export function parseAuDate(raw: string | null | undefined): string | null {
     return ymd(Number(isoExact[1]), Number(isoExact[2]), Number(isoExact[3]));
   }
   if (ISO_YMD.test(value.slice(0, 10)) && value.length > 10) return null;
-  return parseAuText(value);
+  return parseAuText(value, !opts?.requireFourDigitYear);
 }
 
 export function formatAuDate(iso: string | null | undefined): string {
@@ -280,6 +286,8 @@ export function clockOffSaveError(args: {
   const endMs = instantMs(args.endIso);
   if (startMs == null || endMs == null) return null;
   if (endMs <= startMs) return TIME_ENTRY_ZERO_LENGTH_MESSAGE;
+  if (endMs - startMs < 60_000) return TIME_ENTRY_ZERO_LENGTH_MESSAGE;
+  if (localHm(args.startIso) === localHm(args.endIso)) return TIME_ENTRY_ZERO_LENGTH_MESSAGE;
   for (const row of args.existing ?? []) {
     const otherStart = instantMs(row.start_time);
     const otherEnd = row.end_time ? instantMs(row.end_time) : null;
@@ -292,7 +300,7 @@ export function clockOffSaveError(args: {
 export function overlapQueryDates(date: string, endsNextDay?: boolean): { fromDate: string; toDate: string } {
   const day = isoDateKey(date) ?? date;
   return {
-    fromDate: day,
+    fromDate: addLocalDate(day, -1) || day,
     toDate: endsNextDay ? addLocalDate(day, 1) : day,
   };
 }
@@ -321,6 +329,11 @@ export function formatClockHm(iso: string): string {
 
 export function endsNextCalendarDay(startIso: string, endIso: string): boolean {
   return localDayKey(endIso) > localDayKey(startIso);
+}
+
+export function formatClockFinishLabel(startIso: string, endIso: string | null | undefined): string {
+  if (!endIso) return '—';
+  return `${localHm(endIso)}${endsNextCalendarDay(startIso, endIso) ? ' (+1)' : ''}`;
 }
 
 export function formatClockRangeLabel(startIso: string, endIso: string | null | undefined): string {

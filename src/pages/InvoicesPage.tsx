@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { DATE_INVALID_MESSAGE } from '../lib/dateTimeIntegrity';
 import { AppShell } from '../components/layout/AppShell';
 import { AppDialog, DateFieldInput, EditorStickyFooter, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
 import type { InvoiceWithDetails, InvoiceLineItem, InvoiceStatus, JobCost, Quote, StockItem, PriceBookItem } from '../types/fsm';
@@ -716,7 +717,7 @@ function InvoiceNextControl({
   );
 }
 
-function InvoiceRecordPaymentSheet({
+export function InvoiceRecordPaymentSheet({
   total,
   amountPaid,
   busy,
@@ -730,6 +731,7 @@ function InvoiceRecordPaymentSheet({
   onConfirm: (payment: InvoiceRecordPaymentInput) => void | Promise<void>;
 }) {
   const [draft, setDraft] = useState(() => defaultRecordPaymentDraft(total, amountPaid));
+  const [paidAtInvalid, setPaidAtInvalid] = useState(false);
   const amountNum = parseRecordPaymentAmount(draft.amount);
   const overpayMsg = amountNum
     ? recordPaymentOverpayMessage(amountNum, total, amountPaid)
@@ -753,6 +755,7 @@ function InvoiceRecordPaymentSheet({
           className="hub-invoice-payment-form"
           onSubmit={(e) => {
             e.preventDefault();
+            if (paidAtInvalid) return;
             const amount = parseRecordPaymentAmount(draft.amount);
             if (!amount) return;
             void onConfirm({
@@ -786,9 +789,11 @@ function InvoiceRecordPaymentSheet({
           <label>
             Date received
             <DateFieldInput
+              id="invoice-payment-date"
               className="form-input"
               value={draft.paid_at}
               onChange={paid_at => setDraft(d => ({ ...d, paid_at }))}
+              onValidityChange={setPaidAtInvalid}
             />
           </label>
           <label>
@@ -830,6 +835,7 @@ function InvoiceRecordPaymentSheet({
             className="btn-primary hub-invoice-payment-confirm"
             disabled={busy || !amountNum || !!overpayMsg}
             onClick={() => {
+              if (paidAtInvalid) return;
               const amount = parseRecordPaymentAmount(draft.amount);
               if (!amount) return;
               void onConfirm({
@@ -862,7 +868,7 @@ interface EditorState {
   exclusions: string[];
 }
 
-function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady, onClose, onSaved, onRequestSend }: {
+export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady, onClose, onSaved, onRequestSend }: {
   invoice: InvoiceWithDetails | null;
   presetClientId?: string | null;
   defaultTaxRate: number;
@@ -892,6 +898,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   const moreRef = useRef<HTMLDetailsElement>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
   const [err, setErr] = useState('');
+  const [dueDateInvalid, setDueDateInvalid] = useState(false);
   const [xeroMiss, setXeroMiss] = useState('');
   const [savedId, setSavedId] = useState<string | null>(invoice?.id ?? null);
   const [clientEmailDraft, setClientEmailDraft] = useState(invoice?.client_email ?? '');
@@ -1199,6 +1206,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
     markPaid?: boolean;
   }): Promise<string | null> => {
     if (!profile?.company_id) return null;
+    if (dueDateInvalid) { setErr(DATE_INVALID_MESSAGE); return null; }
     if (!form.client_id) { setErr('Please select a client'); return null; }
     const cleanLines: InvoiceLineItem[] = form.line_items
       .filter(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0)
@@ -1884,8 +1892,8 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
           </div>
 
           <Field label="Due Date">
-            <DateFieldInput value={form.due_date} onChange={due_date => setForm(f => ({ ...f, due_date }))}
-              className="form-input" />
+            <DateFieldInput id="invoice-due-date" value={form.due_date} onChange={due_date => setForm(f => ({ ...f, due_date }))}
+              onValidityChange={setDueDateInvalid} className="form-input" />
           </Field>
 
           <Field label="Notes">

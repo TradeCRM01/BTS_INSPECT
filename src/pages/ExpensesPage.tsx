@@ -11,6 +11,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { DATE_INVALID_MESSAGE, DATE_REQUIRED_MESSAGE, isoDateKey } from '../lib/dateTimeIntegrity';
 import {
   auditExpenseReceiptSeed,
   mapExpenseReceiptExtract,
@@ -1623,7 +1624,7 @@ interface FormState {
   notes: string;
 }
 
-function ExpenseEditorModal({
+export function ExpenseEditorModal({
   expense, prefill, receiptPreviewUrl, receiptFile, formLookSeed, defaultTaxRate, layout = 'overlay', onClose, onSaved, onDeleted,
 }: {
   expense: ExpenseWithDetails | null;
@@ -1644,6 +1645,9 @@ function ExpenseEditorModal({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [err, setErr] = useState('');
+  const [expenseDateInvalid, setExpenseDateInvalid] = useState(false);
+  const [periodStartInvalid, setPeriodStartInvalid] = useState(false);
+  const [periodEndInvalid, setPeriodEndInvalid] = useState(false);
   const [employees, setEmployees] = useState<{ id: string; name: string }[]>([]);
   const [jobs, setJobs] = useState<{ id: string; title: string }[]>([]);
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
@@ -1800,6 +1804,14 @@ function ExpenseEditorModal({
       setErr('For employee costs, pick an employee or cost type');
       return;
     }
+    if (expenseDateInvalid || periodStartInvalid || periodEndInvalid) {
+      setErr(DATE_INVALID_MESSAGE);
+      return;
+    }
+    if (!isoDateKey(form.expense_date)) {
+      setErr(DATE_REQUIRED_MESSAGE);
+      return;
+    }
     setSaving(true); setErr('');
     const expenseId = expense?.id ?? crypto.randomUUID();
     const receiptToUpload = attachFile ?? receiptFile ?? null;
@@ -1936,8 +1948,10 @@ function ExpenseEditorModal({
           <label className="hub-expenses-date">
             <Calendar size={16} />
             <DateFieldInput
+              id="expense-date"
               value={form.expense_date}
               onChange={expense_date => setForm(f => ({ ...f, expense_date }))}
+              onValidityChange={setExpenseDateInvalid}
             />
           </label>
         </div>
@@ -2010,8 +2024,9 @@ function ExpenseEditorModal({
               />
             </Field>
             <Field label="Date" required>
-              <DateFieldInput value={form.expense_date}
+              <DateFieldInput id="expense-date" value={form.expense_date}
                 onChange={expense_date => setForm(f => ({ ...f, expense_date }))}
+                onValidityChange={setExpenseDateInvalid}
                 className="form-input" />
             </Field>
           </div>
@@ -2076,13 +2091,15 @@ function ExpenseEditorModal({
                   />
                 </Field>
                 <Field label="Pay period start">
-                  <DateFieldInput value={form.period_start}
+                  <DateFieldInput id="expense-period-start" value={form.period_start}
                     onChange={period_start => setForm(f => ({ ...f, period_start }))}
+                    onValidityChange={setPeriodStartInvalid}
                     className="form-input" />
                 </Field>
                 <Field label="Pay period end">
-                  <DateFieldInput value={form.period_end}
+                  <DateFieldInput id="expense-period-end" value={form.period_end}
                     onChange={period_end => setForm(f => ({ ...f, period_end }))}
+                    onValidityChange={setPeriodEndInvalid}
                     className="form-input" />
                 </Field>
               </div>

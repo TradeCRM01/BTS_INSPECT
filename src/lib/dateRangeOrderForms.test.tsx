@@ -7,7 +7,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContractForm } from '../pages/ContractsPage';
-import { DATE_RANGE_ORDER_MESSAGE } from './dateTimeIntegrity';
+import { ComplianceForm } from '../pages/CompliancePage';
+import { DATE_INVALID_MESSAGE, DATE_RANGE_ORDER_MESSAGE, DATE_REQUIRED_MESSAGE } from './dateTimeIntegrity';
 import { ToastProvider } from '../components/ui/Toast';
 
 const insertContract = vi.fn();
@@ -121,5 +122,126 @@ describe('ContractForm date range', () => {
     expect(insertContract).not.toHaveBeenCalled();
     expect(onSaved).not.toHaveBeenCalled();
     expect(document.querySelector('[role="alert"]')?.textContent).toBe(DATE_RANGE_ORDER_MESSAGE);
+  });
+
+  it('blocks a blank title and client with inline errors', async () => {
+    const onSaved = vi.fn();
+    await act(async () => {
+      root.render(providers(
+        <ContractForm contract={null} creating={false} onClose={() => {}} onSaved={onSaved} />,
+      ));
+    });
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+    });
+    expect(insertContract).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain('Title is required.');
+    expect(document.body.textContent).toContain('Client is required.');
+  });
+
+  it('blocks an invalid contract start date', async () => {
+    const onSaved = vi.fn();
+    await act(async () => {
+      root.render(providers(
+        <ContractForm contract={null} creating={false} onClose={() => {}} onSaved={onSaved} />,
+      ));
+    });
+    await act(async () => { await Promise.resolve(); });
+    const title = document.querySelector<HTMLInputElement>('input[placeholder="e.g. Annual Maintenance Agreement"]');
+    const client = document.querySelector<HTMLSelectElement>('select');
+    await act(async () => {
+      if (title) setInput(title, 'Annual service');
+      if (client) {
+        client.value = 'cl-1';
+        client.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    const dates = document.querySelectorAll<HTMLInputElement>('[data-date-field="au"]');
+    const nextService = document.querySelector<HTMLInputElement>('input[type="date"]');
+    await act(async () => {
+      setInput(dates[0], '31/02/2026');
+      if (nextService) setInput(nextService, '2026-11-01');
+    });
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+    });
+    expect(insertContract).not.toHaveBeenCalled();
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(DATE_INVALID_MESSAGE);
+  });
+});
+
+describe('ComplianceForm dates', () => {
+  const insertCompliance = vi.fn();
+
+  async function fillComplianceBasics() {
+    insertContract.mockReset();
+    await act(async () => { await Promise.resolve(); });
+    const title = document.querySelector<HTMLInputElement>('input[placeholder="e.g. Annual Fire Extinguisher Service"]');
+    const client = document.querySelector<HTMLSelectElement>('select');
+    await act(async () => {
+      if (title) setInput(title, 'Extinguishers');
+      if (client) {
+        client.value = 'cl-1';
+        client.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+  }
+
+  it('blocks a blank first due date', async () => {
+    insertCompliance.mockReset();
+    await act(async () => {
+      root.render(providers(
+        <ComplianceForm item={null} onClose={() => {}} onSaved={() => {}} />,
+      ));
+    });
+    await fillComplianceBasics();
+    const first = document.querySelector<HTMLInputElement>('#compliance-first-due-date');
+    await act(async () => {
+      if (first) setInput(first, '');
+    });
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+    });
+    expect(document.body.textContent).toContain(DATE_REQUIRED_MESSAGE);
+  });
+
+  it('blocks an invalid first due date', async () => {
+    await act(async () => {
+      root.render(providers(
+        <ComplianceForm item={null} onClose={() => {}} onSaved={() => {}} />,
+      ));
+    });
+    await fillComplianceBasics();
+    const first = document.querySelector<HTMLInputElement>('#compliance-first-due-date');
+    expect(first?.getAttribute('data-date-field')).toBe('au');
+    await act(async () => {
+      if (first) setInput(first, '31/02/2026');
+    });
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+    });
+    expect(document.body.textContent).toContain(DATE_INVALID_MESSAGE);
+    expect(insertContract).not.toHaveBeenCalled();
+  });
+
+  it('blocks an invalid last completed date', async () => {
+    await act(async () => {
+      root.render(providers(
+        <ComplianceForm item={null} onClose={() => {}} onSaved={() => {}} />,
+      ));
+    });
+    await fillComplianceBasics();
+    const last = document.querySelector<HTMLInputElement>('#compliance-last-completed-date');
+    expect(last?.getAttribute('data-date-field')).toBe('au');
+    await act(async () => {
+      if (last) setInput(last, '31/02/2026');
+    });
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+    });
+    expect(document.body.textContent).toContain(DATE_INVALID_MESSAGE);
+    expect(insertContract).not.toHaveBeenCalled();
   });
 });

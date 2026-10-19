@@ -1,3 +1,0 @@
-r2 mutate.py: 23 mutants, 23 killed, 0 survivors.
-M5e (ISO not accepted) was the only first-pass survivor; parseAuDate no longer falls through to isoDateKey for exact ISO, and a re-run killed it.
-Every in-form guard mutant was killed (M1b, M1c, M1d, M2c, M2d, M3b, M3c, M4d, M4e, M4f, M5f, M5g).

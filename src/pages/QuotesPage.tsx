@@ -78,6 +78,7 @@ import { asStringList } from '../lib/asStringList';
 import { checkPriceSendBlock, quoteListMoney } from '../lib/checkPriceGate';
 import { listQueryBusy } from '../lib/listQueryReady';
 import { padQuoteNumber } from '../lib/quoteJobFields';
+import { DATE_INVALID_MESSAGE } from '../lib/dateTimeIntegrity';
 import {
   commercialPdfCompanyFrom,
   companyDocumentLogoUrl,
@@ -994,7 +995,7 @@ interface EditorState {
   end_time: string;
 }
 
-function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert, onFocusedConvert, onClose, onSaved, onRequestSend }: {
+export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert, onFocusedConvert, onClose, onSaved, onRequestSend }: {
   quote: QuoteListItem | null;
   presetClientId?: string | null;
   defaultTaxRate: number;
@@ -1033,6 +1034,8 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
   const [showPreview, setShowPreview] = useState(searchParams.get('print') === '1');
   const [showEdit, setShowEdit] = useState(!quote);
   const [err, setErr] = useState('');
+  const [validityInvalid, setValidityInvalid] = useState(false);
+  const [convertDateInvalid, setConvertDateInvalid] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(quote?.id ?? null);
   const [invoiceId, setInvoiceId] = useState<string | null>(quote?.invoice_id ?? null);
   const moreRef = useRef<HTMLDetailsElement>(null);
@@ -1327,6 +1330,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
 
   const persist = async (status: QuoteStatus, opts?: { close?: boolean; message?: string }) => {
     if (!profile?.company_id) return null;
+    if (validityInvalid || convertDateInvalid) { setErr(DATE_INVALID_MESSAGE); return null; }
     if (!form.client_id) { setErr('Please select a client'); return null; }
     const { cleanLines, payload } = buildPayload(status);
     if (cleanLines.length === 0) { setErr('Add at least one line item'); return null; }
@@ -1402,6 +1406,10 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
   };
 
   const handleConvert = async () => {
+    if (convertDateInvalid) {
+      setErr(DATE_INVALID_MESSAGE);
+      return;
+    }
     if (!takeQuoteConvertLock(convertingLock)) return;
     if (convertStartTimeHint !== 'none') {
       setErr('');
@@ -1937,7 +1945,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
               <p className="hub-quote-convert-label">Convert</p>
               <div className="hub-quote-convert-fields">
                 <Field label="Job date">
-                  <DateFieldInput id="quote-convert-date" value={form.scheduled_date} onChange={scheduled_date => setForm(f => ({ ...f, scheduled_date }))} className="form-input" />
+                  <DateFieldInput id="quote-convert-date" value={form.scheduled_date} onChange={scheduled_date => setForm(f => ({ ...f, scheduled_date }))} onValidityChange={setConvertDateInvalid} className="form-input" />
                 </Field>
                 <Field label="Crew">
                   <select
@@ -2062,7 +2070,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
               <input type="number" min={0} step="0.01" value={form.tax_rate} onChange={e => setForm(f => ({ ...f, tax_rate: e.target.value }))} className="form-input" placeholder="0" />
             </Field>
             <Field label="Valid Until">
-              <DateFieldInput value={form.validity_date} onChange={validity_date => setForm(f => ({ ...f, validity_date }))} className="form-input" />
+              <DateFieldInput id="quote-valid-until" value={form.validity_date} onChange={validity_date => setForm(f => ({ ...f, validity_date }))} onValidityChange={setValidityInvalid} className="form-input" />
             </Field>
           </div>
 

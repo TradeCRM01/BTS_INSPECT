@@ -6,6 +6,7 @@ import { Plus, Trash2, X, Users, Bookmark, Copy, Check } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { DateFieldInput } from '../ui/DateFieldInput';
+import { DATE_INVALID_MESSAGE, DATE_REQUIRED_MESSAGE, isoDateKey } from '../../lib/dateTimeIntegrity';
 import { ManagedSelect } from '../ui/ManagedSelect';
 import { LIST_KEYS } from '../../lib/useManagedList';
 import {
@@ -343,6 +344,9 @@ export function ApplyEmployeeCostModelModal({
   const [err, setErr] = useState('');
   const [saving, setSaving] = useState(false);
   const [managing, setManaging] = useState(false);
+  const [expenseDateInvalid, setExpenseDateInvalid] = useState(false);
+  const [periodStartInvalid, setPeriodStartInvalid] = useState(false);
+  const [periodEndInvalid, setPeriodEndInvalid] = useState(false);
 
   const model = models.find(m => m.id === modelId) ?? null;
 
@@ -392,6 +396,14 @@ export function ApplyEmployeeCostModelModal({
     }
     if (model.lines.length === 0) {
       setErr('This model has no cost lines — edit the model first');
+      return;
+    }
+    if (expenseDateInvalid || periodStartInvalid || periodEndInvalid) {
+      setErr(DATE_INVALID_MESSAGE);
+      return;
+    }
+    if (!isoDateKey(expenseDate)) {
+      setErr(DATE_REQUIRED_MESSAGE);
       return;
     }
     setSaving(true);
@@ -516,13 +528,13 @@ export function ApplyEmployeeCostModelModal({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <Field label="Expense date">
-              <DateFieldInput value={expenseDate} onChange={setExpenseDate} className="form-input" />
+              <DateFieldInput id="model-expense-date" value={expenseDate} onChange={setExpenseDate} onValidityChange={setExpenseDateInvalid} className="form-input" />
             </Field>
             <Field label="Period start">
-              <DateFieldInput value={periodStart} onChange={setPeriodStart} className="form-input" />
+              <DateFieldInput id="model-period-start" value={periodStart} onChange={setPeriodStart} onValidityChange={setPeriodStartInvalid} className="form-input" />
             </Field>
             <Field label="Period end">
-              <DateFieldInput value={periodEnd} onChange={setPeriodEnd} className="form-input" />
+              <DateFieldInput id="model-period-end" value={periodEnd} onChange={setPeriodEnd} onValidityChange={setPeriodEndInvalid} className="form-input" />
             </Field>
             <Field label="Status">
               <select value={status} onChange={e => setStatus(e.target.value as 'recorded' | 'paid')} className="form-input cursor-pointer">
@@ -967,6 +979,7 @@ export function ApplyExpenseTemplateModal({
   const [expenseDate, setExpenseDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [err, setErr] = useState('');
   const [saving, setSaving] = useState(false);
+  const [templateDateInvalid, setTemplateDateInvalid] = useState(false);
 
   const { data: templates = [] } = useQuery<ExpenseTemplate[]>({
     queryKey: ['expense-templates'],
@@ -987,6 +1000,8 @@ export function ApplyExpenseTemplateModal({
   const apply = async () => {
     if (!profile?.company_id || !template) return;
     if (!template.lines.length) { setErr('Template has no lines'); return; }
+    if (templateDateInvalid) { setErr(DATE_INVALID_MESSAGE); return; }
+    if (!isoDateKey(expenseDate)) { setErr(DATE_REQUIRED_MESSAGE); return; }
     setSaving(true); setErr('');
     try {
       const rows = template.lines.map(line => {
@@ -1065,7 +1080,7 @@ export function ApplyExpenseTemplateModal({
             </button>
           </div>
           <Field label="Expense date">
-            <DateFieldInput value={expenseDate} onChange={setExpenseDate} className="form-input" />
+            <DateFieldInput id="template-expense-date" value={expenseDate} onChange={setExpenseDate} onValidityChange={setTemplateDateInvalid} className="form-input" />
           </Field>
           {template && (
             <ul className="text-sm space-y-1 border border-[#E5E7EB] rounded-lg p-3 bg-[#F9FAFB]">

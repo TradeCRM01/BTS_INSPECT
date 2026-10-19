@@ -35,8 +35,8 @@ import {
   timesheetListWeekStart,
   type TimesheetListFilter,
 } from '../lib/timesheetsList';
-import { clockOffSaveError, endsNextCalendarDay, formatClockHm, formatClockRangeLabel } from '../lib/dateTimeIntegrity';
-import { loadPersonTimeEntries } from '../lib/timesheetOverlapQuery';
+import { formatClockFinishLabel, formatClockHm, formatClockRangeLabel } from '../lib/dateTimeIntegrity';
+import { jobClockOffBlocked } from '../lib/timesheetOverlapQuery';
 import { invalidateJobBillInvoicePreview } from '../lib/jobBillInvoicePreviewQuery';
 import { loadBilledTimesheetEntryIdsForJobs } from '../lib/timesheetEntryDelete';
 import { TimesheetEntryDeleteControl } from '../components/timesheets/TimesheetEntryDeleteControl';
@@ -220,19 +220,15 @@ export function TimesheetsPage() {
         runningEntries: running.map(entry => ({ id: entry.id, start_time: entry.start_time })),
         priorTotalMinutes: existing.total_minutes,
       });
-      const siblings = selectedEmployee
-        ? (await loadPersonTimeEntries({
-          employeeId: selectedEmployee,
-          date: today,
-          endsNextDay: true,
-        })).filter(row => !running.some(open => open.id === row.id))
-        : [];
       for (const open of running) {
-        const offErr = clockOffSaveError({
-          startIso: open.start_time,
-          endIso: plan.endIso,
-          existing: siblings,
-        });
+        const offErr = selectedEmployee
+          ? await jobClockOffBlocked({
+            employeeId: selectedEmployee,
+            startIso: open.start_time,
+            endIso: plan.endIso,
+            excludeIds: running.map(row => row.id),
+          })
+          : null;
         if (offErr) throw new Error(offErr);
       }
       for (const update of plan.entryUpdates) {
@@ -377,7 +373,7 @@ export function TimesheetsPage() {
             <div key={entry.id} className="hub-timesheets-ledger-row">
               <span className="hub-timesheets-ledger-date">{ts ? format(parseISO(ts.date), 'd MMM') : '—'}</span>
               <span className="hub-timesheets-ledger-start">{formatClockHm(entry.start_time)}</span>
-              <span className="hub-timesheets-ledger-finish">{entry.end_time ? `${formatClockHm(entry.end_time)}${endsNextCalendarDay(entry.start_time, entry.end_time) ? ' (+1)' : ''}` : '—'}</span>
+              <span className="hub-timesheets-ledger-finish">{formatClockFinishLabel(entry.start_time, entry.end_time)}</span>
               <span className="hub-timesheets-ledger-activity">{entry.work_type || '—'}</span>
               <span className="hub-timesheets-ledger-job">{jobTitle}</span>
               <span className="hub-timesheets-ledger-type">{entry.billable ? 'Billable' : 'Non-billable'}</span>

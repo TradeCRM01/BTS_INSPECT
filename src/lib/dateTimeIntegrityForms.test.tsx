@@ -263,19 +263,36 @@ describe('DateFieldInput', () => {
     await act(async () => {
       setInput(input, '1/1/26');
     });
+    expect(onChange).not.toHaveBeenCalledWith('2026-01-01');
+    expect(onValidityChange).toHaveBeenCalledWith(true);
+    await act(async () => {
+      input.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    });
     expect(onChange).toHaveBeenCalledWith('2026-01-01');
 
     onChange.mockClear();
+    onValidityChange.mockClear();
     await act(async () => {
       setInput(input, '31/02/2026');
     });
-    expect(onChange).toHaveBeenCalledWith('');
+    expect(onChange).not.toHaveBeenCalledWith('');
     expect(onValidityChange).toHaveBeenCalledWith(true);
+    expect(input.value).toBe('31/02/2026');
+    await act(async () => {
+      input.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    });
+    expect(onChange).not.toHaveBeenCalledWith('');
+    expect(onValidityChange).toHaveBeenCalledWith(true);
+    expect(input.value).toBe('31/02/2026');
 
     onChange.mockClear();
     onValidityChange.mockClear();
     await act(async () => {
       setInput(input, '21/10/27');
+    });
+    expect(onChange).not.toHaveBeenCalledWith('2027-10-21');
+    await act(async () => {
+      input.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
     });
     expect(onChange).toHaveBeenCalledWith('2027-10-21');
     expect(onValidityChange).toHaveBeenCalledWith(false);
@@ -642,5 +659,19 @@ describe('ReminderEditSheet save', () => {
     const payload = vi.mocked(saveReminder).mock.calls[0][1] as { dueAt: string | null };
     expect(payload.dueAt).toBeTruthy();
     expect(new Date(payload.dueAt as string).getDate()).toBe(23);
+  });
+
+  it('blocks an invalid reminder date', async () => {
+    await act(async () => {
+      root.render(providers(
+        <ReminderEditSheet reminder={reminder} jobs={[]} crew={[]} userId="emp-1" />,
+      ));
+    });
+    typeDate('31/02/2026');
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('.reminder-save')?.click();
+    });
+    expect(saveReminder).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(DATE_INVALID_MESSAGE);
   });
 });

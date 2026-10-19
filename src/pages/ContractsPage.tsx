@@ -7,7 +7,7 @@ import { listPendingCount, listPendingNounCount, listQueryBusy, listSectionLoadE
 import { getAuditContracts } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
 import { DateFieldInput, EmptyState, SearchBar, ContextMenu, ConfirmDialog, SummaryCard, useToast, ViewToggle, useViewMode } from '../components/ui';
-import { DATE_INVALID_MESSAGE, dateRangeOrderError } from '../lib/dateTimeIntegrity';
+import { DATE_INVALID_MESSAGE, DATE_REQUIRED_MESSAGE, dateRangeOrderError } from '../lib/dateTimeIntegrity';
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import type { MenuEntry } from '../components/ui';
 import { format } from 'date-fns';
@@ -17,11 +17,6 @@ import {
   parseFieldDate,
   safeFormatDate,
 } from '../lib/safeDate';
-
-function namedDateRaw(id: string, fallback: string): string {
-  const el = document.getElementById(id);
-  return el instanceof HTMLInputElement ? el.value : fallback;
-}
 import { Plus, FileText, X, Trash2, Pencil, Briefcase, Mail } from 'lucide-react';
 import type { ServiceContract, ServiceContractWithClient, ContractStatus } from '../types/fsm';
 import { CONTRACT_STATUS_LABELS, CONTRACT_STATUS_STYLES, BILLING_CYCLE_LABELS, SERVICE_FREQUENCY_LABELS, formatMoney } from '../types/fsm';
@@ -45,6 +40,14 @@ const STATUS_TABS: { key: 'all' | ContractStatus; label: string }[] = [
 function formatContractDay(ymd: string, pattern: string): string {
   const day = (ymd ?? '').trim().slice(0, 10);
   return /^\d{4}-\d{2}-\d{2}$/.test(day) ? safeFormatDate(day, pattern) : SAFE_DATE_FALLBACK;
+}
+
+const CONTRACT_TITLE_REQUIRED = 'Title is required.';
+const CONTRACT_CLIENT_REQUIRED = 'Client is required.';
+
+function namedDateRaw(id: string, fallback: string): string {
+  const el = document.getElementById(id);
+  return el instanceof HTMLInputElement ? el.value : fallback;
 }
 
 export function ContractsPage() {
@@ -451,6 +454,9 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
   const [startDateError, setStartDateError] = useState<string | null>(null);
   const [endDateError, setEndDateError] = useState<string | null>(null);
   const [nextServiceError, setNextServiceError] = useState<string | null>(null);
+  const [titleErr, setTitleErr] = useState<string | null>(null);
+  const [clientErr, setClientErr] = useState<string | null>(null);
+  const [startRequiredErr, setStartRequiredErr] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.from('clients').select('*').eq('company_id', profile!.company_id).eq('archived', false).order('name')
@@ -466,6 +472,12 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
     setEndDateError(null);
     setNextServiceError(null);
     setRangeErr(null);
+    const nextTitleErr = form.title.trim() ? null : CONTRACT_TITLE_REQUIRED;
+    const nextClientErr = form.client_id ? null : CONTRACT_CLIENT_REQUIRED;
+    const nextStartRequired = !startRaw.trim() && !startInvalid ? DATE_REQUIRED_MESSAGE : null;
+    setTitleErr(nextTitleErr);
+    setClientErr(nextClientErr);
+    setStartRequiredErr(nextStartRequired);
     const startYearError = dateFieldYearError(startRaw, false);
     if (startYearError) {
       setStartDateError(startYearError);
@@ -486,6 +498,10 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
     }
     if (startInvalid || endInvalid) {
       setErr(DATE_INVALID_MESSAGE);
+      return;
+    }
+    if (nextTitleErr || nextClientErr || nextStartRequired) {
+      setErr(nextTitleErr || nextClientErr || nextStartRequired);
       return;
     }
     const startDate = parseFieldDate(startRaw) ?? form.start_date;
@@ -545,13 +561,17 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
           <button onClick={onClose} className="text-[#6B7280] hover:text-[#1A1A1A]"><X size={20} /></button>
         </div>
         <form onSubmit={handleSave} noValidate className="overlay-body">
-          <Field label="Title *"><input required value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="form-input" placeholder="e.g. Annual Maintenance Agreement" /></Field>
+          <Field label="Title *">
+            <input required value={form.title} onChange={e => { setForm(f => ({ ...f, title: e.target.value })); setTitleErr(null); }} className="form-input" placeholder="e.g. Annual Maintenance Agreement" />
+            {titleErr ? <p className="text-sm text-[#B42318] mt-1" role="alert">{titleErr}</p> : null}
+          </Field>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Client *">
-              <select required value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value }))} className="form-input cursor-pointer">
+              <select required value={form.client_id} onChange={e => { setForm(f => ({ ...f, client_id: e.target.value })); setClientErr(null); }} className="form-input cursor-pointer">
                 <option value="">Select client...</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+              {clientErr ? <p className="text-sm text-[#B42318] mt-1" role="alert">{clientErr}</p> : null}
             </Field>
             <Field label="Contract #"><input value={form.contract_number} onChange={e => setForm(f => ({ ...f, contract_number: e.target.value }))} className="form-input" placeholder="CON-001" /></Field>
           </div>
@@ -579,6 +599,8 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
               />
               {startDateError ? (
                 <p id="contract-start-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{startDateError}</p>
+              ) : startRequiredErr ? (
+                <p className="text-sm text-[#B42318] mt-1" role="alert">{startRequiredErr}</p>
               ) : startInvalid ? (
                 <p className="text-sm text-[#B42318] mt-1" role="alert">{DATE_INVALID_MESSAGE}</p>
               ) : null}

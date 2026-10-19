@@ -160,17 +160,18 @@ export function JobDispatchPanel({
           <label className="block">
             <span className="ops-field-label">Date</span>
             <DateFieldInput
+              id="job-dispatch-date"
               value={dateDraft}
-              onChange={next => {
-                setDateDraft(next);
-                if (dateInvalidRef.current) return;
-                if (next === (job.scheduled_date ?? '')) return;
-                save.mutate({ scheduled_date: next || null });
-              }}
+              onChange={setDateDraft}
               onValidityChange={invalid => {
                 dateInvalidRef.current = invalid;
                 if (invalid) setTimeErr(DATE_INVALID_MESSAGE);
                 else if (timeErr === DATE_INVALID_MESSAGE) setTimeErr(null);
+              }}
+              onBlurCommit={iso => {
+                if (dateInvalidRef.current) return;
+                if (iso === (job.scheduled_date ?? '')) return;
+                save.mutate({ scheduled_date: iso || null });
               }}
               className="form-input"
             />

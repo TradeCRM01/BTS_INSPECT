@@ -165,8 +165,8 @@ import {
   localDateIso,
   planTimesheetClockOff,
 } from '../lib/timesheetJob';
-import { clockOffSaveError, clockOnSaveError, formatClockRangeLabel } from '../lib/dateTimeIntegrity';
-import { loadPersonTimeEntries } from '../lib/timesheetOverlapQuery';
+import { formatClockRangeLabel } from '../lib/dateTimeIntegrity';
+import { jobClockOffBlocked, jobClockOnBlocked } from '../lib/timesheetOverlapQuery';
 import {
   JOB_VISIT_NOTE_COLUMNS,
   JOB_VISIT_NOTE_TABLE,
@@ -2458,12 +2458,7 @@ export function JobDetailPage() {
       if (!profile?.company_id || !id) throw new Error('Not signed in');
       const now = new Date();
       const date = localDateIso(now);
-      const siblings = await loadPersonTimeEntries({
-        employeeId: profile.id,
-        date,
-        endsNextDay: true,
-      });
-      const clockErr = clockOnSaveError({ now, existing: siblings });
+      const clockErr = await jobClockOnBlocked({ employeeId: profile.id, now });
       if (clockErr) throw new Error(clockErr);
       const { data: existingTs, error: tsLoadErr } = await supabase
         .from('timesheets')
@@ -2542,18 +2537,14 @@ export function JobDetailPage() {
         runningEntries: [{ id: running.id, start_time: running.start_time }],
         priorTotalMinutes: ts?.total_minutes ?? 0,
       });
-      const siblings = profile?.id
-        ? (await loadPersonTimeEntries({
+      const offErr = profile?.id
+        ? await jobClockOffBlocked({
           employeeId: profile.id,
-          date: localDateIso(new Date(running.start_time)),
-          endsNextDay: true,
-        })).filter(row => row.id !== running.id)
-        : [];
-      const offErr = clockOffSaveError({
-        startIso: running.start_time,
-        endIso: plan.endIso,
-        existing: siblings,
-      });
+          startIso: running.start_time,
+          endIso: plan.endIso,
+          excludeIds: [running.id],
+        })
+        : null;
       if (offErr) throw new Error(offErr);
       const { error } = await supabase.from('timesheet_entries')
         .update(buildJobClockOffEntry(plan.end))

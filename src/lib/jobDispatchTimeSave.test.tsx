@@ -8,7 +8,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { JobDispatchPanel } from '../components/jobs/JobDispatchPanel';
 import { ToastProvider } from '../components/ui/Toast';
-import { END_BEFORE_START_MESSAGE } from './dateTimeIntegrity';
+import { DATE_INVALID_MESSAGE, END_BEFORE_START_MESSAGE } from './dateTimeIntegrity';
 import type { TimeFieldHintKind } from './timeFieldInput';
 
 vi.mock('../components/ui/TimeFieldInput', () => ({
@@ -165,5 +165,66 @@ describe('JobDispatchPanel times', () => {
       document.querySelectorAll<HTMLButtonElement>('[data-testid="dispatch-commit"]')[1].click();
     });
     expect(updateJob).toHaveBeenCalledWith(expect.objectContaining({ start_time: '14:00', end_time: '16:00' }));
+  });
+
+  it('does not write scheduled_date while retyping one key at a time', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={client}>
+          <ToastProvider>
+            <MemoryRouter>
+              <JobDispatchPanel job={job} teamMembers={[]} />
+            </MemoryRouter>
+          </ToastProvider>
+        </QueryClientProvider>,
+      );
+    });
+    const input = document.querySelector<HTMLInputElement>('#job-dispatch-date')!;
+    expect(input.getAttribute('data-date-field')).toBe('au');
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
+    const text = '21/10/2026';
+    await act(async () => {
+      setter.call(input, text[0]);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    for (const c of text.slice(1)) {
+      await act(async () => {
+        setter.call(input, input.value + c);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    }
+    expect(input.value).toBe('21/10/2026');
+    expect(updateJob).not.toHaveBeenCalled();
+    await act(async () => {
+      input.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    });
+    expect(updateJob).toHaveBeenCalledWith(expect.objectContaining({ scheduled_date: '2026-10-21' }));
+    expect(updateJob.mock.calls.some(call => JSON.stringify(call[0]).includes('2020-10-01'))).toBe(false);
+  });
+
+  it('does not save an invalid Job page date', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={client}>
+          <ToastProvider>
+            <MemoryRouter>
+              <JobDispatchPanel job={job} teamMembers={[]} />
+            </MemoryRouter>
+          </ToastProvider>
+        </QueryClientProvider>,
+      );
+    });
+    const input = document.querySelector<HTMLInputElement>('#job-dispatch-date')!;
+    expect(input.getAttribute('data-date-field')).toBe('au');
+    await act(async () => {
+      setInput(input, '31/02/2026');
+    });
+    await act(async () => {
+      input.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    });
+    expect(updateJob).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(DATE_INVALID_MESSAGE);
   });
 });
