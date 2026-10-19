@@ -7,10 +7,12 @@ export const FIELD_ABN = 'Enter a valid 11-digit ABN';
 export const FIELD_PERCENT = 'Enter a number from 0 to 100';
 export const FIELD_RATE = 'Enter a valid amount';
 export const FIELD_PORT = 'Port must be 1 to 65535';
-export const FIELD_JOB_NUMBER = 'Enter a job number';
+export const FIELD_SAVE_MISS = 'Could not save. Try again.';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ABN_WEIGHTS = [10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19] as const;
+const DIGIT_GROUP_RE = /^[\d\s-]+$/;
+const PHONE_CHAR_RE = /^\+?[\d\s-]+$/;
 
 export type FieldErrors = Partial<Record<string, string>>;
 
@@ -22,31 +24,59 @@ function digitsOnly(value: string): string {
   return value.replace(/\D/g, '');
 }
 
+function hasAllowedDigitGroupChars(value: string): boolean {
+  return DIGIT_GROUP_RE.test(value.trim());
+}
+
+function hasAllowedPhoneChars(value: string): boolean {
+  const raw = value.trim();
+  if (!PHONE_CHAR_RE.test(raw)) return false;
+  if ((raw.match(/\+/g) ?? []).length > 1) return false;
+  if (raw.includes('+') && !raw.startsWith('+')) return false;
+  return true;
+}
+
 export function isEmail(value: string): boolean {
-  return EMAIL_RE.test(value.trim());
+  const text = value.trim();
+  if (text.includes('..')) return false;
+  return EMAIL_RE.test(text);
+}
+
+function isAuPhoneDigits(digits: string, plus: boolean): boolean {
+  if (plus) {
+    return /^614\d{8}$/.test(digits) || /^61[2378]\d{8}$/.test(digits);
+  }
+  return (
+    /^04\d{8}$/.test(digits)
+    || /^0[2378]\d{8}$/.test(digits)
+    || /^13\d{4}$/.test(digits)
+    || /^1300\d{6}$/.test(digits)
+    || /^1800\d{6}$/.test(digits)
+  );
 }
 
 export function isAuPhone(value: string): boolean {
   const raw = value.trim();
   if (!raw) return false;
-  const compact = raw.replace(/[^\d+]/g, '');
-  if (!compact || compact === '+') return false;
-  const digits = compact.startsWith('+')
-    ? compact.slice(1).replace(/\D/g, '')
-    : compact.replace(/\D/g, '');
-  return digits.length >= 8 && digits.length <= 15;
+  if (!hasAllowedPhoneChars(raw)) return false;
+  const digits = digitsOnly(raw);
+  if (digits.length === 6) return isAuPhoneDigits(digits, false);
+  return digits.length >= 8 && digits.length <= 15 && isAuPhoneDigits(digits, raw.startsWith('+'));
 }
 
 export function isBsb(value: string): boolean {
+  if (!hasAllowedDigitGroupChars(value)) return false;
   return digitsOnly(value).length === 6;
 }
 
 export function isAccountNumber(value: string): boolean {
+  if (!hasAllowedDigitGroupChars(value)) return false;
   const digits = digitsOnly(value);
   return digits.length >= 6 && digits.length <= 9;
 }
 
 export function isAbn(value: string): boolean {
+  if (!hasAllowedDigitGroupChars(value)) return false;
   const digits = digitsOnly(value);
   if (digits.length !== 11) return false;
   const nums = digits.split('').map(Number);
@@ -60,10 +90,6 @@ export function isPort(value: string): boolean {
   if (!/^\d+$/.test(text)) return false;
   const n = Number(text);
   return n >= 1 && n <= 65535;
-}
-
-export function isJobNumber(value: string): boolean {
-  return /^\d{1,8}$/.test(value.trim());
 }
 
 function parsePlainNumber(raw: string): NumberParse {
@@ -112,9 +138,9 @@ export function companyDetailsFieldErrors(form: {
   taxRate: string;
   materialMarkup: string;
   labourRate: string;
-}): FieldErrors {
+}, originalAbn?: string): FieldErrors {
   const errors: FieldErrors = {};
-  if (!optionalBlank(form.abn, isAbn)) errors.abn = FIELD_ABN;
+  if ((originalAbn === undefined || form.abn !== originalAbn) && !optionalBlank(form.abn, isAbn)) errors.abn = FIELD_ABN;
   if (!optionalBlank(form.phone, isAuPhone)) errors.phone = FIELD_AU_PHONE;
   if (!optionalBlank(form.email, isEmail)) errors.email = FIELD_EMAIL;
   if (!parsePercent(form.taxRate).ok) errors.taxRate = FIELD_PERCENT;
@@ -145,6 +171,41 @@ export function smtpFieldErrors(form: {
 }): FieldErrors {
   const errors: FieldErrors = {};
   if (!optionalBlank(form.from_email, isEmail)) errors.from_email = FIELD_EMAIL;
-  if (!isPort(form.smtp_port)) errors.smtp_port = FIELD_PORT;
+  if (!optionalBlank(form.smtp_port, isPort)) errors.smtp_port = FIELD_PORT;
   return errors;
+}
+
+export const COMPANY_DETAIL_FOCUS_ORDER: Array<[string, string]> = [
+  ['taxRate', 'company-tax'],
+  ['materialMarkup', 'company-markup'],
+  ['abn', 'company-abn'],
+  ['phone', 'company-phone'],
+  ['email', 'company-email'],
+  ['labourRate', 'company-labour'],
+];
+
+export function firstInvalidFieldId(
+  errors: FieldErrors,
+  order: Array<[string, string]>,
+): string | undefined {
+  for (const [key, id] of order) {
+    if (errors[key]) return id;
+  }
+  return undefined;
+}
+
+export function revealInvalidField(id: string | undefined): void {
+  if (!id) return;
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLElement)) return;
+  el.focus();
+  el.scrollIntoView({ block: 'center', inline: 'nearest' });
+}
+
+export function updateWroteRows(data: unknown): boolean {
+  if (Array.isArray(data)) return data.length > 0;
+  if (data && typeof data === 'object' && 'id' in data) {
+    return Boolean((data as { id?: unknown }).id);
+  }
+  return false;
 }

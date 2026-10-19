@@ -12,7 +12,9 @@ import type { MenuEntry } from '../components/ui';
 import type { Client, ClientWithStats } from '../types/crm';
 import { Plus, Users, X, Trash2, CreditCard as Edit3, Archive, ArchiveRestore, Briefcase, FileText, Receipt, MoreHorizontal } from 'lucide-react';
 import {
+  FIELD_SAVE_MISS,
   clientFormFieldErrors,
+  updateWroteRows,
 } from '../lib/fieldValidation';
 import {
   AU_ADDRESS_PLACEHOLDER,
@@ -625,9 +627,9 @@ export function ClientForm({ client, onClose, onSaved, openedFromJob = false, pr
     };
 
     if (client) {
-      const { error } = await supabase.from('clients').update(payload).eq('id', client.id);
+      const { data, error } = await supabase.from('clients').update(payload).eq('id', client.id).select('id');
       setSaving(false);
-      if (error) { setErr(error.message); return null; }
+      if (error || !updateWroteRows(data)) { setErr(error?.message || FIELD_SAVE_MISS); return null; }
       return client.id;
     }
 

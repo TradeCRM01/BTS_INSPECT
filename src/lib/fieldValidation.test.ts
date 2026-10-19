@@ -17,12 +17,12 @@ import {
   isAuPhone,
   isBsb,
   isEmail,
-  isJobNumber,
   isPort,
   parseNonNegativeNumber,
   parsePercent,
   paymentMethodFieldErrors,
   smtpFieldErrors,
+  updateWroteRows,
 } from './fieldValidation';
 
 describe('fieldValidation predicates', () => {
@@ -30,9 +30,16 @@ describe('fieldValidation predicates', () => {
     expect(isAuPhone('0412 345 678')).toBe(true);
     expect(isAuPhone('+61 412 345 678')).toBe(true);
     expect(isAuPhone('0832110000')).toBe(true);
+    expect(isAuPhone('13 14 50')).toBe(true);
+    expect(isAuPhone('1300 123 456')).toBe(true);
+    expect(isAuPhone('1800 123 456')).toBe(true);
     expect(isAuPhone('abc')).toBe(false);
     expect(isAuPhone('12')).toBe(false);
     expect(isAuPhone('')).toBe(false);
+    expect(isAuPhone('call me 0400000000')).toBe(false);
+    expect(isAuPhone('+1 212 555 0100')).toBe(false);
+    expect(isAuPhone('12345678')).toBe(false);
+    expect(isAuPhone('0400000000123456')).toBe(false);
     expect(prefillSmsTo('0412 345 678')).toBe('+61412345678');
     expect(prefillSmsTo('abc')).toBe('');
   });
@@ -41,6 +48,8 @@ describe('fieldValidation predicates', () => {
     expect(isEmail('jane@acme.com.au')).toBe(true);
     expect(isEmail('not-an-email')).toBe(false);
     expect(isEmail('nope')).toBe(false);
+    expect(isEmail('a@b')).toBe(false);
+    expect(isEmail('a@b..c')).toBe(false);
     expect(isEmail('')).toBe(false);
     expect(prefillReminderTo({ id: 'c', email: 'jane@acme.com.au' })).toBe('jane@acme.com.au');
     expect(prefillReminderTo({ id: 'c', email: 'not-an-email' })).toBe('');
@@ -51,6 +60,8 @@ describe('fieldValidation predicates', () => {
     expect(isBsb('064000')).toBe(true);
     expect(isBsb('abc12')).toBe(false);
     expect(isBsb('12345')).toBe(false);
+    expect(isBsb('1234567')).toBe(false);
+    expect(isBsb('abc123def456')).toBe(false);
   });
 
   it('accepts a 6-9 digit account and rejects 12ab', () => {
@@ -60,6 +71,7 @@ describe('fieldValidation predicates', () => {
     expect(isAccountNumber('12ab')).toBe(false);
     expect(isAccountNumber('12345')).toBe(false);
     expect(isAccountNumber('1234567890')).toBe(false);
+    expect(isAccountNumber('acct#12345678')).toBe(false);
   });
 
   it('accepts an ATO-checksum ABN and rejects 123', () => {
@@ -67,6 +79,7 @@ describe('fieldValidation predicates', () => {
     expect(isAbn('51824753556')).toBe(true);
     expect(isAbn('123')).toBe(false);
     expect(isAbn('12 345 678 901')).toBe(false);
+    expect(isAbn('ABN 51 824 753 556 xyz')).toBe(false);
   });
 
   it('accepts ports 1-65535 and rejects -5', () => {
@@ -88,6 +101,7 @@ describe('fieldValidation predicates', () => {
     expect(parsePercent('-5')).toEqual({ ok: false });
     expect(parsePercent('101')).toEqual({ ok: false });
     expect(parsePercent('abc')).toEqual({ ok: false });
+    expect(parsePercent('1.5abc')).toEqual({ ok: false });
   });
 
   it('parses labour 95 and rejects a comma that would become 15', () => {
@@ -96,10 +110,6 @@ describe('fieldValidation predicates', () => {
     expect(parseNonNegativeNumber('-5')).toEqual({ ok: false });
   });
 
-  it('treats a job number as digits', () => {
-    expect(isJobNumber('137')).toBe(true);
-    expect(isJobNumber('abc')).toBe(false);
-  });
 });
 
 describe('field error maps', () => {
@@ -153,6 +163,11 @@ describe('field error maps', () => {
       bsb: '064-000',
       account_number: '12345678',
     })).toEqual({});
+    expect(paymentMethodFieldErrors({
+      kind: 'bank_transfer',
+      bsb: '',
+      account_number: '',
+    })).toEqual({});
   });
 
   it('blocks a bad SMTP from-email and port', () => {
@@ -161,5 +176,34 @@ describe('field error maps', () => {
       smtp_port: FIELD_PORT,
     });
     expect(smtpFieldErrors({ from_email: 'ops@co.com.au', smtp_port: '587' })).toEqual({});
+    expect(smtpFieldErrors({ from_email: '', smtp_port: '' })).toEqual({});
+  });
+
+  it('treats an empty update result as a miss', () => {
+    expect(updateWroteRows([])).toBe(false);
+    expect(updateWroteRows(null)).toBe(false);
+    expect(updateWroteRows(undefined)).toBe(false);
+    expect(updateWroteRows([{ id: 'co1' }])).toBe(true);
+    expect(updateWroteRows({ id: 'co1' })).toBe(true);
+  });
+
+  it('does not block a stored ABN until it is edited', () => {
+    const stored = '12 345 678 901';
+    expect(companyDetailsFieldErrors({
+      abn: stored,
+      phone: '',
+      email: '',
+      taxRate: '10',
+      materialMarkup: '0',
+      labourRate: '',
+    }, stored)).toEqual({});
+    expect(companyDetailsFieldErrors({
+      abn: '123',
+      phone: '',
+      email: '',
+      taxRate: '10',
+      materialMarkup: '0',
+      labourRate: '',
+    }, stored).abn).toBe(FIELD_ABN);
   });
 });

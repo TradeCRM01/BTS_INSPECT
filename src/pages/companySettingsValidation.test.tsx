@@ -6,11 +6,13 @@ import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FIELD_ABN, FIELD_ACCOUNT, FIELD_AU_PHONE, FIELD_BSB, FIELD_EMAIL, FIELD_PERCENT, FIELD_PORT, FIELD_RATE } from '../lib/fieldValidation';
+import { FIELD_ABN, FIELD_ACCOUNT, FIELD_AU_PHONE, FIELD_BSB, FIELD_EMAIL, FIELD_PERCENT, FIELD_PORT, FIELD_RATE, FIELD_SAVE_MISS } from '../lib/fieldValidation';
 import { CompanySettingsPage } from './CompanySettingsPage';
 
 const harness = vi.hoisted(() => ({
   writes: [] as Array<{ table: string; op: string; payload: unknown }>,
+  updateData: [{ id: 'co1' }] as unknown,
+  refreshed: false,
   profile: { id: 'u1', company_id: 'co1', role: 'admin' },
   company: {
     id: 'co1',
@@ -55,7 +57,7 @@ vi.mock('../lib/supabase', () => ({
         select() { return query({ data: table === 'email_settings' ? { smtp_port: 587, from_email: '' } : [], error: null }); },
         update(payload: unknown) {
           harness.writes.push({ table, op: 'update', payload });
-          return query({ data: { id: 'co1' }, error: null });
+          return query({ data: harness.updateData, error: null });
         },
         upsert(payload: unknown) {
           harness.writes.push({ table, op: 'upsert', payload });
@@ -75,7 +77,7 @@ vi.mock('../contexts/AuthContext', () => ({
   useAuth: () => ({
     profile: harness.profile,
     company: harness.company,
-    refreshProfile: async () => {},
+    refreshProfile: async () => { harness.refreshed = true; },
   }),
 }));
 
@@ -124,7 +126,12 @@ beforeEach(() => {
     disconnect() {}
   }
   (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = FakeIO;
+  HTMLElement.prototype.scrollIntoView = vi.fn();
   harness.writes = [];
+  harness.updateData = [{ id: 'co1' }];
+  harness.refreshed = false;
+  harness.company.abn = '';
+  harness.company.email = 'jack@example.com';
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -152,7 +159,7 @@ describe('Company Settings field validation', () => {
       if (taxInput) setInput(taxInput, '-5');
       void tax;
     });
-    expect(container.textContent).toContain('Add ABN');
+    expect(container.textContent).not.toContain('Add ABN');
     const save = Array.from(container.querySelectorAll('button')).find(btn => btn.textContent?.includes('Save Changes'));
     const writesBefore = harness.writes.length;
     await act(async () => {
@@ -162,7 +169,7 @@ describe('Company Settings field validation', () => {
     expect(container.querySelector('#company-abn-error')?.textContent).toBe(FIELD_ABN);
     expect(container.querySelector('#company-phone-error')?.textContent).toBe(FIELD_AU_PHONE);
     expect(container.querySelector('#company-tax-error')?.textContent).toBe(FIELD_PERCENT);
-    expect(container.textContent).toContain('Add ABN');
+    expect(container.textContent).not.toContain('Add ABN');
   });
 
   it('does not turn 1,5 into 15 and blocks garbage BSB', async () => {
@@ -221,5 +228,182 @@ describe('Company Settings field validation', () => {
     expect(container.querySelector('#smtp-from-error')?.textContent).toBe(FIELD_EMAIL);
     expect(container.querySelector('#smtp-port-error')?.textContent).toBe(FIELD_PORT);
     expect(container.querySelector('#company-labour-error')?.textContent).toBe(FIELD_RATE);
+  });
+
+  it('focuses the first invalid field when Save Changes is blocked', async () => {
+    await renderPage();
+    const tax = container.querySelector('#company-tax') as HTMLInputElement;
+    expect(tax).toBeTruthy();
+    await act(async () => {
+      setInput(tax, '-5');
+    });
+    const save = Array.from(container.querySelectorAll('button')).find(btn => btn.textContent?.includes('Save Changes'));
+    await act(async () => {
+      save!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(document.activeElement).toBe(tax);
+    expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalled();
+    expect(container.querySelector('#company-tax-error')?.textContent).toBe(FIELD_PERCENT);
+  });
+
+  it('writes the exact company details payload on a valid save', async () => {
+    await renderPage();
+    await act(async () => {
+      setInput(container.querySelector('#company-abn') as HTMLInputElement, '  51 824 753 556  ');
+      setInput(container.querySelector('#company-phone') as HTMLInputElement, '0400 000 000');
+      setInput(container.querySelector('#company-email') as HTMLInputElement, 'ops@co.com.au');
+      setInput(container.querySelector('#company-tax') as HTMLInputElement, '55');
+      setInput(container.querySelector('#company-markup') as HTMLInputElement, '12.5');
+      setInput(container.querySelector('#company-labour') as HTMLInputElement, '95.50');
+    });
+    const save = Array.from(container.querySelectorAll('button')).find(btn => btn.textContent?.includes('Save Changes'));
+    await act(async () => {
+      save!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    const write = harness.writes.find(row => row.table === 'companies' && row.op === 'update');
+    expect(write).toBeTruthy();
+    expect(write?.payload).toMatchObject({
+      name: 'CoS Test',
+      abn: '51 824 753 556',
+      phone: '0400 000 000',
+      email: 'ops@co.com.au',
+      default_tax_rate: 55,
+      default_material_markup: 12.5,
+      default_labour_rate: 95.5,
+    });
+  });
+
+  it('writes payment methods for a valid bank row and for a blank bank row', async () => {
+    await renderPage();
+    const savePay = Array.from(container.querySelectorAll('button')).find(btn => btn.textContent?.includes('Save payment methods'));
+    await act(async () => {
+      savePay!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    const blankWrite = harness.writes.find(row => row.table === 'companies' && row.op === 'update');
+    expect(blankWrite).toBeTruthy();
+    expect((blankWrite?.payload as { payment_methods: Array<{ bsb: string; account_number: string }> }).payment_methods[0]).toMatchObject({
+      bsb: '',
+      account_number: '',
+    });
+
+    harness.writes = [];
+    await act(async () => {
+      setInput(container.querySelector('input[aria-label="BSB"]') as HTMLInputElement, '064-000');
+      setInput(container.querySelector('input[aria-label="Account number"]') as HTMLInputElement, '12345678');
+    });
+    await act(async () => {
+      savePay!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    const filled = harness.writes.find(row => row.table === 'companies' && row.op === 'update');
+    expect((filled?.payload as { payment_methods: Array<{ bsb: string; account_number: string }> }).payment_methods[0]).toMatchObject({
+      bsb: '064-000',
+      account_number: '12345678',
+    });
+  });
+
+  it('writes smtp_port 587 when the port is left blank', async () => {
+    await renderPage();
+    const port = container.querySelector('#smtp-port') as HTMLInputElement;
+    expect(port).toBeTruthy();
+    await act(async () => {
+      setInput(port, '');
+    });
+    const saveEmail = Array.from(container.querySelectorAll('button')).find(btn =>
+      btn.textContent?.includes('Save Email Settings'),
+    );
+    await act(async () => {
+      saveEmail!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    const write = harness.writes.find(row => row.table === 'email_settings');
+    expect(write).toBeTruthy();
+    expect((write?.payload as { smtp_port: number }).smtp_port).toBe(587);
+  });
+
+  it('blocks company email junk, 1.5abc tax, lettered BSB, and a 7-digit BSB', async () => {
+    await renderPage();
+    await act(async () => {
+      setInput(container.querySelector('#company-email') as HTMLInputElement, 'not-an-email');
+      setInput(container.querySelector('#company-tax') as HTMLInputElement, '1.5abc');
+    });
+    const saveCompany = Array.from(container.querySelectorAll('button')).find(btn => btn.textContent?.includes('Save Changes'));
+    const writesBefore = harness.writes.length;
+    await act(async () => {
+      saveCompany!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(harness.writes.length).toBe(writesBefore);
+    expect(container.querySelector('#company-email-error')?.textContent).toBe(FIELD_EMAIL);
+    expect(container.querySelector('#company-tax-error')?.textContent).toBe(FIELD_PERCENT);
+
+    await act(async () => {
+      setInput(container.querySelector('input[aria-label="BSB"]') as HTMLInputElement, 'abc123def456');
+      setInput(container.querySelector('input[aria-label="Account number"]') as HTMLInputElement, '12345678');
+    });
+    const savePay = Array.from(container.querySelectorAll('button')).find(btn => btn.textContent?.includes('Save payment methods'));
+    await act(async () => {
+      savePay!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(container.textContent).toContain(FIELD_BSB);
+
+    await act(async () => {
+      setInput(container.querySelector('input[aria-label="BSB"]') as HTMLInputElement, '1234567');
+    });
+    await act(async () => {
+      savePay!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(container.textContent).toContain(FIELD_BSB);
+  });
+
+  it('lets a stored bad-checksum ABN stay, and does not say Add ABN', async () => {
+    harness.company.abn = '12 345 678 901';
+    await renderPage();
+    expect(container.textContent).not.toContain('Add ABN');
+    const save = Array.from(container.querySelectorAll('button')).find(btn => btn.textContent?.includes('Save Changes'));
+    await act(async () => {
+      setInput(container.querySelector('#company-tax') as HTMLInputElement, '55');
+    });
+    await act(async () => {
+      save!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    const write = harness.writes.find(row => row.table === 'companies' && row.op === 'update');
+    expect(write).toBeTruthy();
+    expect((write?.payload as { abn: string; default_tax_rate: number }).abn).toBe('12 345 678 901');
+    expect((write?.payload as { default_tax_rate: number }).default_tax_rate).toBe(55);
+    expect(container.querySelector('#company-abn-error')).toBeNull();
+    expect(container.textContent).not.toContain('Add ABN');
+  });
+
+  it('shows an inline miss when company save writes 0 rows and does not say Saved', async () => {
+    harness.updateData = [];
+    await renderPage();
+    const save = Array.from(container.querySelectorAll('button')).find(btn => btn.textContent?.includes('Save Changes'));
+    await act(async () => {
+      save!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(harness.writes.some(row => row.table === 'companies' && row.op === 'update')).toBe(true);
+    expect(container.textContent).toContain(FIELD_SAVE_MISS);
+    expect(container.textContent).not.toContain('Saved');
+    expect(harness.refreshed).toBe(false);
+  });
+
+  it('shows an inline miss when payment save writes 0 rows and does not say Saved', async () => {
+    harness.updateData = [];
+    await renderPage();
+    const savePay = Array.from(container.querySelectorAll('button')).find(btn => btn.textContent?.includes('Save payment methods'));
+    await act(async () => {
+      savePay!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(harness.writes.some(row => row.table === 'companies' && row.op === 'update')).toBe(true);
+    expect(container.textContent).toContain(FIELD_SAVE_MISS);
+    expect(container.textContent).not.toContain('Saved');
+    expect(harness.refreshed).toBe(false);
   });
 });

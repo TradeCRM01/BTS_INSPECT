@@ -1065,13 +1065,19 @@
   .hub-clients .client-sheet-contact .job-client-phone {
     display: inline-flex;
     align-items: center;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 8px;
     min-width: 0;
     font-family: 'Source Sans 3', system-ui, sans-serif;
     color: #5B6B7C;
     font-size: 12px;
     font-weight: 500;
+  }
+
+  .hub-clients .client-sheet-contact .job-client-email .field-inline-error,
+  .hub-clients .client-sheet-contact .job-client-phone .field-inline-error {
+    flex: 1 0 100%;
+    margin-top: 0;
   }
 
   .hub-clients .client-sheet-contact .job-client-email .form-input-sm,
@@ -1148,7 +1154,6 @@
     text-decoration: none;
   }
 
-  .hub-clients .client-sheet-contact .job-client-phone,
   .hub-clients .client-sheet-contact a.job-client-phone-num {
     flex-shrink: 0;
     white-space: nowrap;

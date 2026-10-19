@@ -17,13 +17,15 @@ import {
 import type { QuoteStatus } from '../types/fsm';
 import { Plus, FileText, ShieldCheck, Receipt, ClipboardList, Mail, Phone, CreditCard as Edit3 } from 'lucide-react';
 import { getAuditClient, getAuditClientInvoices, getAuditClientQuotes, getAuditEmptyList, getAuditJobs } from '../lib/devFieldAuditDocs';
-import { FIELD_AU_PHONE, FIELD_EMAIL, optionalBlank, isAuPhone, isEmail } from '../lib/fieldValidation';
+import { FIELD_AU_PHONE, FIELD_EMAIL } from '../lib/fieldValidation';
 import {
+  decideJobClientEmailSave,
   jobClientEmailRow,
   jobClientEmailSaveToast,
   saveJobClientEmail,
 } from '../lib/saveJobClientEmail';
 import {
+  decideJobClientPhoneSave,
   jobClientPhoneRow,
   jobClientPhoneSaveToast,
   saveJobClientPhone,
@@ -292,7 +294,7 @@ export function ClientDetailPage() {
       const toast = jobClientEmailSaveToast(result.email);
       showToast(toast.message, toast.kind);
     },
-    onError: (e: Error) => showToast(e.message, 'info'),
+    onError: (e: Error) => setClientEmailError(e.message),
   });
 
   const saveClientPhone = useMutation({
@@ -310,7 +312,7 @@ export function ClientDetailPage() {
       const toast = jobClientPhoneSaveToast(result.phone);
       showToast(toast.message, toast.kind);
     },
-    onError: (e: Error) => showToast(e.message, 'info'),
+    onError: (e: Error) => setClientPhoneError(e.message),
   });
 
   const conversationMessages = useEnquiryConversation({
@@ -396,45 +398,47 @@ export function ClientDetailPage() {
                   </a>
                 )}
                 {phoneRow.kind === 'edit' && (
-                  <>
-                    <form
-                      className="job-client-phone"
-                      onSubmit={e => {
-                        e.preventDefault();
-                        if (!optionalBlank(clientPhoneDraft, isAuPhone)) {
-                          setClientPhoneError(FIELD_AU_PHONE);
-                          return;
-                        }
+                  <form
+                    className="job-client-phone"
+                    onSubmit={e => {
+                      e.preventDefault();
+                      const phoneDecision = decideJobClientPhoneSave({
+                        clientId: client.id,
+                        phone: clientPhoneDraft,
+                      });
+                      if (phoneDecision.action === 'miss') {
+                        setClientPhoneError(FIELD_AU_PHONE);
+                        return;
+                      }
+                      setClientPhoneError('');
+                      saveClientPhone.mutate();
+                    }}
+                  >
+                    <Phone size={13} />
+                    <input
+                      type="tel"
+                      value={clientPhoneDraft}
+                      onChange={e => {
+                        setClientPhoneDraft(e.target.value);
                         setClientPhoneError('');
-                        saveClientPhone.mutate();
                       }}
+                      placeholder="Phone"
+                      className={clientPhoneError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
+                      aria-label="Client phone"
+                      autoComplete="tel"
+                      inputMode="tel"
+                      aria-invalid={clientPhoneError ? true : undefined}
+                      aria-describedby={clientPhoneError ? 'client-card-phone-error' : undefined}
+                    />
+                    <button
+                      type="submit"
+                      className="job-client-phone-save"
+                      disabled={saveClientPhone.isPending}
                     >
-                      <Phone size={13} />
-                      <input
-                        type="tel"
-                        value={clientPhoneDraft}
-                        onChange={e => {
-                          setClientPhoneDraft(e.target.value);
-                          setClientPhoneError('');
-                        }}
-                        placeholder="Phone"
-                        className={clientPhoneError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
-                        aria-label="Client phone"
-                        autoComplete="tel"
-                        inputMode="tel"
-                        aria-invalid={clientPhoneError ? true : undefined}
-                        aria-describedby={clientPhoneError ? 'client-card-phone-error' : undefined}
-                      />
-                      <button
-                        type="submit"
-                        className="job-client-phone-save"
-                        disabled={saveClientPhone.isPending}
-                      >
-                        Save
-                      </button>
-                    </form>
+                      Save
+                    </button>
                     {clientPhoneError ? <p id="client-card-phone-error" className="field-inline-error text-fail">{clientPhoneError}</p> : null}
-                  </>
+                  </form>
                 )}
                 {emailRow.kind === 'edit' && (
                   <p className="client-sheet-miss">{CLIENT_SHEET_NO_EMAIL}</p>
@@ -445,45 +449,47 @@ export function ClientDetailPage() {
                   </a>
                 )}
                 {emailRow.kind === 'edit' && (
-                  <>
-                    <form
-                      className="job-client-email"
-                      onSubmit={e => {
-                        e.preventDefault();
-                        if (!optionalBlank(clientEmailDraft, isEmail)) {
-                          setClientEmailError(FIELD_EMAIL);
-                          return;
-                        }
+                  <form
+                    className="job-client-email"
+                    onSubmit={e => {
+                      e.preventDefault();
+                      const emailDecision = decideJobClientEmailSave({
+                        clientId: client.id,
+                        email: clientEmailDraft,
+                      });
+                      if (emailDecision.action === 'miss') {
+                        setClientEmailError(FIELD_EMAIL);
+                        return;
+                      }
+                      setClientEmailError('');
+                      saveClientEmail.mutate();
+                    }}
+                  >
+                    <Mail size={13} />
+                    <input
+                      type="text"
+                      inputMode="email"
+                      value={clientEmailDraft}
+                      onChange={e => {
+                        setClientEmailDraft(e.target.value);
                         setClientEmailError('');
-                        saveClientEmail.mutate();
                       }}
+                      placeholder="Email"
+                      className={clientEmailError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
+                      aria-label="Client email"
+                      autoComplete="email"
+                      aria-invalid={clientEmailError ? true : undefined}
+                      aria-describedby={clientEmailError ? 'client-card-email-error' : undefined}
+                    />
+                    <button
+                      type="submit"
+                      className="job-client-email-save"
+                      disabled={saveClientEmail.isPending}
                     >
-                      <Mail size={13} />
-                      <input
-                        type="text"
-                        inputMode="email"
-                        value={clientEmailDraft}
-                        onChange={e => {
-                          setClientEmailDraft(e.target.value);
-                          setClientEmailError('');
-                        }}
-                        placeholder="Email"
-                        className={clientEmailError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
-                        aria-label="Client email"
-                        autoComplete="email"
-                        aria-invalid={clientEmailError ? true : undefined}
-                        aria-describedby={clientEmailError ? 'client-card-email-error' : undefined}
-                      />
-                      <button
-                        type="submit"
-                        className="job-client-email-save"
-                        disabled={saveClientEmail.isPending}
-                      >
-                        Save
-                      </button>
-                    </form>
+                      Save
+                    </button>
                     {clientEmailError ? <p id="client-card-email-error" className="field-inline-error text-fail">{clientEmailError}</p> : null}
-                  </>
+                  </form>
                 )}
               </div>
               <EnquiryConversation messages={conversationMessages} timeZone={tenantTimeZone} />

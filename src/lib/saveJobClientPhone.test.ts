@@ -116,6 +116,15 @@ describe('decideJobClientPhoneSave', () => {
       phone: '   ',
     })).toEqual({ action: 'write', clientId: 'c1', phone: null });
   });
+
+  it('misses junk that used to save as abc', () => {
+    expect(decideJobClientPhoneSave({ clientId: 'c1', phone: 'abc' })).toEqual({
+      action: 'miss',
+      reason: 'invalid_phone',
+      message: 'Enter an Australian phone number',
+    });
+    expect(decideJobClientPhoneSave({ clientId: 'c1', phone: 'call me 0400000000' }).action).toBe('miss');
+  });
 });
 
 describe('clientPhoneForSms after save', () => {
