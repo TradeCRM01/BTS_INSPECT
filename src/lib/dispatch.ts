@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { safeFormatDate } from './safeDate';
 
 /** Day-board time grid (matches BoardViews). */
 export const DAY_START_HOUR = 6;
@@ -31,7 +32,7 @@ export function placePickedHint(
 ): string {
   const when = format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')
     ? 'today'
-    : format(date, 'EEE d MMM');
+    : safeFormatDate(date, 'EEE d MMM');
   return `${title} — drop it on a crew and day, or tap a person to place it ${when}`;
 }
 

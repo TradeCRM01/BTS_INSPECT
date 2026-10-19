@@ -1,4 +1,5 @@
-import { addDays, format, startOfWeek } from 'date-fns';
+import { addDays, startOfWeek } from 'date-fns';
+import { SAFE_DATE_FALLBACK, safeFormatDate, safeLocaleDateString } from './safeDate';
 import { UNASSIGNED_ROW_ID, asTeamIds } from './dispatch';
 import { formatJobRef } from './jobRef';
 import { pickJobColor } from './jobColors';
@@ -83,7 +84,8 @@ export function scheduleDayKey(value: string | null | undefined): string | null 
 }
 
 export function scheduleDateKey(date: Date): string {
-  return format(date, 'yyyy-MM-dd');
+  const key = safeFormatDate(date, 'yyyy-MM-dd');
+  return key === SAFE_DATE_FALLBACK ? '' : key;
 }
 
 export function scheduleWeekDays(anchor: Date): Date[] {
@@ -231,8 +233,8 @@ export function scheduleBookedAddTimeLabel(scheduledDate: string | null | undefi
   if (!key) return AGENDA_NO_TIME_LABEL;
   const [y, m, d] = key.split('-').map(Number);
   const day = new Date(y, m - 1, d);
-  const weekday = day.toLocaleDateString('en-AU', { weekday: 'short' });
-  const month = day.toLocaleDateString('en-AU', { month: 'short' });
+  const weekday = safeLocaleDateString(day, 'en-AU', { weekday: 'short' });
+  const month = safeLocaleDateString(day, 'en-AU', { month: 'short' });
   return `Booked ${weekday} ${d} ${month} · ${SCHEDULE_ADD_TIME_LABEL}`;
 }
 

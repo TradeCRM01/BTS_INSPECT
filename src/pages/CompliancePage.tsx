@@ -29,6 +29,11 @@ import { LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmD
 import type { MenuEntry } from '../components/ui';
 import { format } from 'date-fns';
 import {
+  HOTFIX_BAD_DATE_ISO,
+  dateFieldYearError,
+  safeFormatDate,
+} from '../lib/safeDate';
+import {
   Plus, X, Trash2, Pencil, MoreHorizontal,
   ShieldCheck, Pause, Play, CheckCircle2, History, Mail,
 } from 'lucide-react';
@@ -44,6 +49,8 @@ import type { Client } from '../types/crm';
 
 /** Signed compliance-list frame seed — list look only, not a live company. */
 const COMPLIANCE_LIST_LOOK = 'compliance-list';
+/** Local 212026 due-date fixture. Not prod data. */
+const HOTFIX_DATE_LOOK = 'hotfix-date-bad';
 
 function complianceListLookItems(): ComplianceItemWithClient[] {
   const stamp = '2026-09-03T00:00:00.000Z';
@@ -101,6 +108,33 @@ function complianceListLookItems(): ComplianceItemWithClient[] {
   ];
 }
 
+function hotfixDateBadItems(): ComplianceItemWithClient[] {
+  const stamp = '2026-10-19T00:00:00.000Z';
+  return [{
+    id: 'hotfix-date-bad',
+    company_id: 'look-hotfix-date',
+    client_id: 'look-client-tom',
+    title: 'Backflow test delete ok',
+    description: null,
+    standard_or_regulation: null,
+    recurrence_interval: 12,
+    recurrence_unit: 'months',
+    first_due_date: HOTFIX_BAD_DATE_ISO,
+    last_completed_date: null,
+    next_due_date: HOTFIX_BAD_DATE_ISO,
+    reminder_days_before: 30,
+    reminder_sent_at: null,
+    linked_job_id: null,
+    notes: null,
+    created_at: stamp,
+    updated_at: stamp,
+    status: 'upcoming',
+    client_name: 'Tom Nguyen',
+    client_email: null,
+    client_phone: null,
+  }];
+}
+
 function complianceListWhisper(args: { filter: ComplianceListFilter; count: number }): string {
   const filterLabel = COMPLIANCE_LIST_FILTERS.find(tab => tab.key === args.filter)?.label ?? 'All';
   const countLabel = args.count === 1 ? '1 item' : `${args.count} items`;
@@ -113,6 +147,7 @@ export function CompliancePage() {
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const lookComplianceList = searchParams.get('look') === COMPLIANCE_LIST_LOOK;
+  const lookHotfixDate = import.meta.env.DEV && searchParams.get('look') === HOTFIX_DATE_LOOK;
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<ComplianceListFilter>(
     lookComplianceList ? 'all' : COMPLIANCE_LIST_DEFAULT_FILTER,
@@ -151,7 +186,7 @@ export function CompliancePage() {
         client_phone: clientMap.get(c.client_id)?.phone ?? null,
       })) as ComplianceItemWithClient[];
     },
-    enabled: !!profile && !lookComplianceList,
+    enabled: !!profile && !lookComplianceList && !lookHotfixDate,
   });
 
   const deleteMutation = useMutation({
@@ -254,7 +289,11 @@ export function CompliancePage() {
     },
   });
 
-  const listRows = lookComplianceList ? complianceListLookItems() : (items ?? []);
+  const listRows = lookHotfixDate
+    ? hotfixDateBadItems()
+    : lookComplianceList
+      ? complianceListLookItems()
+      : (items ?? []);
   const decorated = useMemo(
     () => decorateComplianceList(listRows),
     [listRows],
@@ -267,9 +306,9 @@ export function CompliancePage() {
     [decorated, search, statusFilter],
   );
 
-  const loading = !lookComplianceList && isLoading;
-  const noneAtAll = !lookComplianceList && !loading && (listRows.length === 0);
-  const noneMatch = !lookComplianceList && !loading && decorated.length > 0 && floorItems.length === 0;
+  const loading = !lookComplianceList && !lookHotfixDate && isLoading;
+  const noneAtAll = !lookComplianceList && !lookHotfixDate && !loading && (listRows.length === 0);
+  const noneMatch = !lookComplianceList && !lookHotfixDate && !loading && decorated.length > 0 && floorItems.length === 0;
   const openedItem = lookComplianceList ? null : complianceListOpened(decorated, openId);
   const recordOpen = !!openedItem;
   const whisper = complianceListWhisper({ filter: statusFilter, count: floorItems.length });
@@ -361,7 +400,7 @@ export function CompliancePage() {
                 </div>
               ) : null}
 
-              {!loading && (floorItems.length > 0 || lookComplianceList) && (
+              {!loading && (floorItems.length > 0 || lookComplianceList || lookHotfixDate) && (
                 <>
                   <div className="hub-compliance-thead">
                     <span>Item</span>
@@ -784,6 +823,8 @@ function ComplianceForm({
   const [clients, setClients] = useState<Client[]>([]);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [firstDueError, setFirstDueError] = useState<string | null>(null);
+  const [lastCompletedError, setLastCompletedError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase
@@ -799,6 +840,22 @@ function ComplianceForm({
     e.preventDefault();
     setSaving(true);
     setErr(null);
+    setFirstDueError(null);
+    setLastCompletedError(null);
+    const firstDueYearError = dateFieldYearError(form.first_due_date, true);
+    if (firstDueYearError) {
+      setFirstDueError(firstDueYearError);
+      setErr(firstDueYearError);
+      setSaving(false);
+      return;
+    }
+    const lastCompletedYearError = dateFieldYearError(form.last_completed_date, false);
+    if (lastCompletedYearError) {
+      setLastCompletedError(lastCompletedYearError);
+      setErr(lastCompletedYearError);
+      setSaving(false);
+      return;
+    }
     try {
       const interval = parseInt(form.recurrence_interval) || 12;
       const unit = form.recurrence_unit as RecurrenceUnit;
@@ -931,20 +988,32 @@ function ComplianceForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="First Due Date *">
               <input
-                type="date"
+                id="compliance-first-due-date"
                 required
+                type="date"
                 value={form.first_due_date}
-                onChange={e => setForm(f => ({ ...f, first_due_date: e.target.value }))}
+                onChange={e => { setFirstDueError(null); setForm(f => ({ ...f, first_due_date: e.target.value })); }}
                 className="form-input"
+                aria-invalid={firstDueError ? true : undefined}
+                aria-describedby={firstDueError ? 'compliance-first-due-date-error' : undefined}
               />
+              {firstDueError ? (
+                <p id="compliance-first-due-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{firstDueError}</p>
+              ) : null}
             </Field>
             <Field label="Last Completed (optional)">
               <input
+                id="compliance-last-completed-date"
                 type="date"
                 value={form.last_completed_date}
-                onChange={e => setForm(f => ({ ...f, last_completed_date: e.target.value }))}
+                onChange={e => { setLastCompletedError(null); setForm(f => ({ ...f, last_completed_date: e.target.value })); }}
                 className="form-input"
+                aria-invalid={lastCompletedError ? true : undefined}
+                aria-describedby={lastCompletedError ? 'compliance-last-completed-date-error' : undefined}
               />
+              {lastCompletedError ? (
+                <p id="compliance-last-completed-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{lastCompletedError}</p>
+              ) : null}
             </Field>
           </div>
           <Field label="Reminder Email — Days Before Due">
@@ -1033,7 +1102,7 @@ function ComplianceHistoryModal({
                 </p>
                 {log.notes && <p className="text-xs text-[#6B7280] mt-0.5">{log.notes}</p>}
                 <p className="text-xs text-[#9CA3AF] mt-0.5">
-                  {format(new Date(log.created_at), 'dd MMM yyyy, HH:mm')}
+                  {safeFormatDate(log.created_at, 'dd MMM yyyy, HH:mm')}
                 </p>
               </div>
             </div>

@@ -1,4 +1,5 @@
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
+import { safeFormatDate } from './safeDate';
 import { quoteClientDetailFromClient } from './clientRecords';
 import { asStringList } from './asStringList';
 import { padQuoteNumber } from './quoteJobFields';
@@ -234,7 +235,7 @@ export function quoteSmsBody(opts: {
 export function quoteValidityLabel(validityDate: string | null | undefined): string | null {
   const day = (validityDate ?? '').trim().slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
-  return format(parseISO(day), 'd MMM yyyy');
+  return safeFormatDate(day, 'd MMM yyyy');
 }
 
 /** Quiet ink + one portal link. Not a banner or button pile. */
@@ -494,7 +495,7 @@ export function commercialPdfDataForQuote(bundle: QuoteSendBundle, now = new Dat
     dateLabel: 'Date',
     dateValue: format(now, 'd MMM yyyy'),
     secondaryLabel: 'Valid until',
-    secondaryValue: quote.validity_date ? format(parseISO(quote.validity_date), 'd MMM yyyy') : '—',
+    secondaryValue: quote.validity_date ? safeFormatDate(quote.validity_date, 'd MMM yyyy') : '—',
     clientName: bundle.client?.name ?? '—',
     clientDetail: quoteClientDetailFromClient(bundle.client, bundle.jobAddress),
     company: {

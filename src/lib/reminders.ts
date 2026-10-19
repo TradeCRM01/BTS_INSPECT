@@ -1,4 +1,5 @@
-import { addDays, differenceInCalendarDays, format, startOfDay } from 'date-fns';
+import { addDays, differenceInCalendarDays, startOfDay } from 'date-fns';
+import { safeFormatDate } from './safeDate';
 import { supabase } from './supabase';
 import { formatJobRef } from './jobRef';
 import { reminderRelatedHref } from './missedCallEnquiry';
@@ -244,10 +245,10 @@ export function reminderDueBucket(dueAt: string | null, now: Date): ReminderDueB
 }
 
 const DUE_LABEL: Record<ReminderDueBucket, (due: Date) => string> = {
-  overdue: due => `Overdue · ${format(due, 'EEE d MMM')}`,
-  today: due => `Today · ${format(due, 'h:mm aaa')}`,
-  tomorrow: due => `Tomorrow · ${format(due, 'h:mm aaa')}`,
-  later: due => `${format(due, 'EEE d MMM')} · ${format(due, 'h:mm aaa')}`,
+  overdue: due => `Overdue · ${safeFormatDate(due, 'EEE d MMM')}`,
+  today: due => `Today · ${safeFormatDate(due, 'h:mm aaa')}`,
+  tomorrow: due => `Tomorrow · ${safeFormatDate(due, 'h:mm aaa')}`,
+  later: due => `${safeFormatDate(due, 'EEE d MMM')} · ${safeFormatDate(due, 'h:mm aaa')}`,
 };
 
 export function reminderDueLabel(dueAt: string | null, now: Date): string | null {
@@ -353,7 +354,7 @@ export function reminderDueInputs(dueAt: string | null): { date: string; time: s
   if (!dueAt) return { date: '', time: '' };
   const due = new Date(dueAt);
   if (Number.isNaN(due.getTime())) return { date: '', time: '' };
-  return { date: format(due, 'yyyy-MM-dd'), time: format(due, 'HH:mm') };
+  return { date: safeFormatDate(due, 'yyyy-MM-dd'), time: safeFormatDate(due, 'HH:mm') };
 }
 
 export type ReminderJobOption = { id: string; job_number: number | null; title: string };

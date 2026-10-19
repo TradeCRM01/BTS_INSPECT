@@ -1,4 +1,5 @@
 import type { JobStatus } from '../types/crm';
+import { SAFE_DATE_FALLBACK, safeLocaleDateString } from './safeDate';
 
 export const JOB_REMINDER_COLUMNS =
   'id, company_id, client_id, title, status, scheduled_date, start_time, end_time, address, job_number, client_reminder_sent_at, client_reminder_sent_for_date';
@@ -132,14 +133,14 @@ export function tomorrowYmd(now = new Date(), timeZone = COMPANY_TIME_ZONE): str
 
 export function formatJobDate(ymd: string): string {
   const day = dateOnly(ymd);
-  if (!day) return ymd;
-  const [y, m, d] = day.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('en-AU', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  return day
+    ? safeLocaleDateString(day, 'en-AU', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      })
+    : SAFE_DATE_FALLBACK;
 }
 
 export function padJobNumber(n: number | null | undefined): string {

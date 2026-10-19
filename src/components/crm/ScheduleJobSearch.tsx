@@ -6,7 +6,7 @@ import type { JobWithClient } from '../../types/crm';
 import { formatJobRef } from '../../lib/jobRef';
 import { jobsListSite, jobsListSuburbFromSite } from '../../lib/jobsListRow';
 import { scheduleJobHref } from '../../lib/scheduleBoard';
-import { format, parseISO } from 'date-fns';
+import { safeFormatDate } from '../../lib/safeDate';
 
 function useSchedulePhone() {
   const [phone, setPhone] = useState(() => (
@@ -24,7 +24,7 @@ function useSchedulePhone() {
 
 function whenLabel(job: JobWithClient): string | null {
   if (!job.scheduled_date) return 'Unscheduled';
-  const day = format(parseISO(job.scheduled_date.slice(0, 10)), 'd MMM');
+  const day = safeFormatDate(job.scheduled_date.slice(0, 10), 'd MMM');
   if (!job.start_time) return day;
   const start = job.start_time.slice(0, 5);
   const end = job.end_time ? `–${job.end_time.slice(0, 5)}` : '';

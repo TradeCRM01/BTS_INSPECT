@@ -27,7 +27,8 @@ import {
   jobClientPhoneSaveToast,
   saveJobClientPhone,
 } from '../lib/saveJobClientPhone';
-import { format, parseISO, differenceInDays } from 'date-fns';
+import { differenceInDays } from 'date-fns';
+import { HOTFIX_BAD_DATE_ISO, parseToDate, safeFormatDate } from '../lib/safeDate';
 import { ClientForm } from './ClientsPage';
 import type { ComplianceItem } from '../types/compliance';
 import { jobOpenNext } from '../lib/jobNextAction';
@@ -213,6 +214,28 @@ export function ClientDetailPage() {
   const { data: complianceItems, isPending: compliancePending, isError: complianceError, refetch: refetchCompliance } = useQuery<ComplianceItem[]>({
     queryKey: ['client-compliance', id],
     queryFn: async () => {
+      if (lookParam === 'hotfix-date-bad') {
+        return [{
+          id: 'hotfix-date-bad',
+          company_id: profile!.company_id,
+          client_id: id!,
+          title: 'Backflow test delete ok',
+          description: null,
+          standard_or_regulation: null,
+          recurrence_interval: 12,
+          recurrence_unit: 'months' as const,
+          first_due_date: HOTFIX_BAD_DATE_ISO,
+          last_completed_date: null,
+          next_due_date: HOTFIX_BAD_DATE_ISO,
+          reminder_days_before: 30,
+          reminder_sent_at: null,
+          status: 'upcoming' as const,
+          linked_job_id: null,
+          notes: null,
+          created_at: '2026-10-19T00:00:00.000Z',
+          updated_at: '2026-10-19T00:00:00.000Z',
+        }] as ComplianceItem[];
+      }
       const empty = getAuditEmptyList();
       if (empty) return empty as ComplianceItem[];
       const { data, error } = await supabase
@@ -573,7 +596,7 @@ export function ClientDetailPage() {
                   meta={[
                     jobRef ? `Job ${jobRef}` : null,
                     formatMoney(Number(inv.total)),
-                    inv.due_date ? `Due ${format(parseISO(inv.due_date), 'd MMM yyyy')}` : null,
+                    inv.due_date ? `Due ${safeFormatDate(inv.due_date, 'd MMM yyyy')}` : null,
                   ].filter(Boolean).join(' · ')}
                   action={
                     next.key === 'none' ? null : (
@@ -634,7 +657,7 @@ export function ClientDetailPage() {
                   title={insp.template_snapshot?.name ?? 'Inspection'}
                   meta={[
                     job ? visibleSite(job.address, job.title) || null : null,
-                    format(new Date(insp.started_at), 'd MMM yyyy'),
+                    safeFormatDate(insp.started_at, 'd MMM yyyy'),
                   ].filter(Boolean).join(' · ')}
                   action={
                     <Link to={next.href} className={nextQuiet}>
@@ -659,7 +682,8 @@ export function ClientDetailPage() {
             emptyAction={<Link to="/compliance" className="ops-link">View all</Link>}
           >
             {(complianceItems ?? []).map(ci => {
-              const daysUntil = differenceInDays(parseISO(ci.next_due_date), new Date());
+              const due = parseToDate(ci.next_due_date);
+              const daysUntil = due ? differenceInDays(due, new Date()) : null;
               return (
                 <JobRelatedRow
                   key={ci.id}
@@ -667,9 +691,9 @@ export function ClientDetailPage() {
                   icon={ShieldCheck}
                   title={ci.title}
                   meta={[
-                    `Due ${format(parseISO(ci.next_due_date), 'd MMM yyyy')}`,
-                    daysUntil < 0 ? `${Math.abs(daysUntil)} days overdue` : daysUntil <= 30 ? `in ${daysUntil} days` : null,
-                    ci.reminder_sent_at ? `Reminded ${format(new Date(ci.reminder_sent_at), 'd MMM')}` : null,
+                    `Due ${safeFormatDate(ci.next_due_date, 'd MMM yyyy')}`,
+                    daysUntil == null ? null : daysUntil < 0 ? `${Math.abs(daysUntil)} days overdue` : daysUntil <= 30 ? `in ${daysUntil} days` : null,
+                    ci.reminder_sent_at ? `Reminded ${safeFormatDate(ci.reminder_sent_at, 'd MMM')}` : null,
                   ].filter(Boolean).join(' · ')}
                   action={null}
                 />

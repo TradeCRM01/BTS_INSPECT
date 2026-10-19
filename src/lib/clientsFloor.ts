@@ -1,5 +1,5 @@
-import { format, parseISO } from 'date-fns';
 import { JOB_STATUS_LABELS, type JobStatus } from '../types/crm';
+import { safeFormatDate } from './safeDate';
 import type { HubQueryScope } from './clientRecords';
 import { clientRecordHref, jobRecordHref } from './clientRecords';
 
@@ -135,9 +135,7 @@ export function clientJobFloorTitle(job: {
 export function formatClientJobDate(iso: string | null | undefined): string | null {
   const raw = iso?.trim();
   if (!raw) return null;
-  const parsed = parseISO(raw);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return format(parsed, 'd MMM yyyy');
+  return safeFormatDate(raw, 'd MMM yyyy');
 }
 
 export function formatClientJobTime(time: string | null | undefined): string | null {

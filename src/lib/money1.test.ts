@@ -105,7 +105,7 @@ describe('MONEY-1 portal invoice due date', () => {
     const portal = src('src/pages/ClientPortalPublicPage.tsx');
     expect(portal).toContain('inv.due_date');
     expect(portal).toContain("portalStatusKey(inv.status) !== 'paid'");
-    expect(portal).toContain("Due {format(parseISO(inv.due_date), 'd MMM yyyy')}");
+    expect(portal).toContain("Due {safeFormatDate(inv.due_date, 'd MMM yyyy')}");
   });
 });
 

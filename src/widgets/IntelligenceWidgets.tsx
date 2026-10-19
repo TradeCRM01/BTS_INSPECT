@@ -18,6 +18,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCompanyAiKey } from '../lib/useCompanyAiKey';
 import { listReminders, setReminderDone } from '../lib/reminders';
 import { format, formatDistanceToNow, subDays } from 'date-fns';
+import { parseToDate, safeFormatDate } from '../lib/safeDate';
 import {
   Bot, Send, User, Sparkles, TrendingUp, AlertTriangle,
   Clock, Activity, Shield, Newspaper, Zap, ArrowUpRight, ArrowDownRight,
@@ -590,7 +591,7 @@ export function AgentRemindersWidget() {
               <p className="text-[11px] text-[#1A1A1A] leading-snug">{r.title}</p>
               {r.dueAt && (
                 <p className="text-[9px] text-gray-400 mt-0.5">
-                  Due {format(new Date(r.dueAt), 'd MMM')} · {formatDistanceToNow(new Date(r.dueAt), { addSuffix: true })}
+                  Due {safeFormatDate(r.dueAt, 'd MMM')}{parseToDate(r.dueAt) ? ` · ${formatDistanceToNow(parseToDate(r.dueAt)!, { addSuffix: true })}` : ''}
                 </p>
               )}
             </div>

@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, Breadcrumbs, useToast } from '../components/ui';
-import { format, parseISO } from 'date-fns';
+import { safeFormatDate } from '../lib/safeDate';
 import {
   ArrowLeft, Truck, Phone, Mail, MapPin, Pencil, X, Trash2,
   StickyNote, FileText, Package, ShoppingCart,
@@ -206,7 +206,7 @@ export function SupplierDetailPage() {
                         </Link>
                       </td>
                       <td className="px-4 py-3 text-[#4A5568]">
-                        {po.created_at ? format(parseISO(po.created_at), 'dd MMM yyyy') : '—'}
+                        {po.created_at ? safeFormatDate(po.created_at, 'dd MMM yyyy') : '—'}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${PO_STATUS_STYLES[po.status as keyof typeof PO_STATUS_STYLES] ?? 'bg-gray-100 text-gray-700'}`}>

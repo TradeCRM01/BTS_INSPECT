@@ -1,4 +1,4 @@
-import { format, parseISO } from 'date-fns';
+import { safeFormatDate } from './safeDate';
 import {
   jobCrewScheduleOverviewTone,
   jobCrewScheduleStatus,
@@ -127,7 +127,7 @@ function count(n: number, one: string, many = `${one}s`): string {
 /** The Overview hub, one row per lane. `tone` is the `ops-status-<tone>` class the chip wears. */
 export function jobSheetOverviewRows(facts: JobSheetOverviewFacts): JobSheetOverviewRow[] {
   const when = facts.scheduledDate
-    ? [format(parseISO(facts.scheduledDate), 'EEE d MMM'), facts.startTime?.slice(0, 5)].filter(Boolean).join(' ')
+    ? [safeFormatDate(facts.scheduledDate, 'EEE d MMM'), facts.startTime?.slice(0, 5)].filter(Boolean).join(' ')
     : null;
   const crewBusy = Boolean(facts.crewBusy);
   const crewError = Boolean(facts.crewError);

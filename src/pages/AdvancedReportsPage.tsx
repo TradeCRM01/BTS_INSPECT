@@ -23,6 +23,7 @@ import {
   Download,
 } from 'lucide-react';
 import { format, parseISO, subDays, startOfMonth, endOfMonth, format as fmt } from 'date-fns';
+import { safeFormatDate } from '../lib/safeDate';
 import { invoiceBalanceOwed, invoiceCountsAsOutstandingMoney, invoiceCountsAsOverdueMoney } from '../lib/invoiceOpenBalance';
 import { formatMoney, formatDuration } from '../types/fsm';
 
@@ -728,7 +729,7 @@ export function AdvancedReportsPage() {
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-[#1A1A1A] truncate">{c.title}</p>
                           <p className="text-xs text-[#6B7280] truncate">
-                            {c.clientName} · {format(parseISO(c.expiryRef), 'd MMM yyyy')}
+                            {c.clientName} · {safeFormatDate(c.expiryRef, 'd MMM yyyy')}
                           </p>
                         </div>
                       </div>

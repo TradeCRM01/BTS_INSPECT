@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   endOfMonth, endOfQuarter, format, parseISO, startOfMonth, startOfQuarter, subDays,
 } from 'date-fns';
+import { safeFormatDate } from '../lib/safeDate';
 import {
   Plus, Wallet, X, Trash2, TrendingUp, TrendingDown, DollarSign, Users, Building2, Briefcase,
   Bookmark, Camera, FileUp, Loader2, MoreHorizontal, Calendar, Paperclip,
@@ -1424,7 +1425,7 @@ export function ExpensesPage() {
                       onClick={() => { setEditing(e); setShowForm(true); }}
                       className="hover:bg-[#F9FAFB] cursor-pointer"
                     >
-                      <td className="px-4 py-3 text-[#4A5568] whitespace-nowrap">{format(parseISO(e.expense_date), 'd MMM yyyy')}</td>
+                      <td className="px-4 py-3 text-[#4A5568] whitespace-nowrap">{safeFormatDate(e.expense_date, 'd MMM yyyy')}</td>
                       <td className="px-4 py-3 font-medium text-[#2E75B6]">#{padNum(e.expense_number)}</td>
                       <td className="px-4 py-3">
                         <span className="text-xs font-medium text-[#4A5568]">{EXPENSE_COST_CLASS_LABELS[e.cost_class]}</span>
@@ -1936,7 +1937,7 @@ function ExpenseEditorModal({
         <div className="hub-expenses-row">
           <span className="hub-expenses-row-label">Date</span>
           <label className="hub-expenses-date">
-            <span>{form.expense_date ? format(parseISO(form.expense_date), 'd MMM yyyy') : ''}</span>
+            <span>{form.expense_date ? safeFormatDate(form.expense_date, 'd MMM yyyy') : ''}</span>
             <Calendar size={16} />
             <input
               type="date"

@@ -1,5 +1,6 @@
 import { differenceInDays, format, parseISO } from 'date-fns';
 import type { ComplianceItemWithClient, ComplianceStatus, RecurrenceUnit } from '../types/compliance';
+import { parseToDate, safeFormatDate } from './safeDate';
 
 /** Default /compliance floor: due now plus still-open tracked items. */
 export type ComplianceListFilter = 'action' | 'all' | ComplianceStatus;
@@ -70,22 +71,30 @@ export function computeNextDueDate(
   unit: RecurrenceUnit,
 ): string {
   if (!lastCompleted) return firstDue;
-  const base = parseISO(lastCompleted);
+  const base = parseToDate(lastCompleted) ?? parseISO(lastCompleted);
+  if (Number.isNaN(base.getTime())) return firstDue;
   let next: Date;
   switch (unit) {
     case 'days': next = new Date(base.getTime() + interval * 86400000); break;
     case 'weeks': next = new Date(base.getTime() + interval * 7 * 86400000); break;
     case 'months': next = new Date(base.getFullYear(), base.getMonth() + interval, base.getDate()); break;
     case 'years': next = new Date(base.getFullYear() + interval, base.getMonth(), base.getDate()); break;
-    default: next = parseISO(firstDue);
+    default: {
+      const fallback = parseToDate(firstDue);
+      return fallback ? format(fallback, 'yyyy-MM-dd') : firstDue;
+    }
   }
-  return format(next, 'yyyy-MM-dd');
+  return parseToDate(next) ? format(next, 'yyyy-MM-dd') : firstDue;
 }
 
 function ymd(value: string | Date | null | undefined): string {
   if (!value) return '';
-  if (value instanceof Date) return format(value, 'yyyy-MM-dd');
-  return value.slice(0, 10);
+  if (value instanceof Date) {
+    const day = parseToDate(value);
+    return day ? format(day, 'yyyy-MM-dd') : '';
+  }
+  const day = value.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : '';
 }
 
 /**
@@ -240,7 +249,7 @@ export function complianceListEmptyMessage(args: {
 }
 
 export function complianceListDueLabel(nextDueDate: string): string {
-  return `Due ${format(parseISO(nextDueDate), 'd MMM yyyy')}`;
+  return `Due ${safeFormatDate(nextDueDate, 'd MMM yyyy')}`;
 }
 
 export function complianceListFloorLede(count: number): string {

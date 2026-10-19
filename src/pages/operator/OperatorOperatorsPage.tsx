@@ -9,6 +9,7 @@ import {
   REMOVE_LAST_DEVELOPER,
   type PlatformOperatorRow,
 } from '../../lib/platformOperator';
+import { safeLocaleDateString } from '../../lib/safeDate';
 
 export function OperatorOperatorsPage() {
   const { user } = useAuth();
@@ -127,7 +128,7 @@ export function OperatorOperatorsPage() {
                       {row.email}{you ? ' · you' : ''}
                     </p>
                     <p className="dev-meta">
-                      {row.company_name || '—'} · {new Date(row.created_at).toLocaleDateString()}
+                      {row.company_name || '—'} · {safeLocaleDateString(row.created_at)}
                     </p>
                   </div>
                   {removable ? (

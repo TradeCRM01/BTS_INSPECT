@@ -156,6 +156,7 @@ describe('compliance list empty copy and recurrence', () => {
 
   it('labels the open sheet and recedes other items without inventing counts', () => {
     expect(complianceListDueLabel('2026-08-27')).toBe('Due 27 Aug 2026');
+    expect(complianceListDueLabel('212026-02-11')).toBe('Due —');
     expect(complianceListFloorLede(1)).toBe('1 item · tap one to open');
     expect(complianceListFloorLede(2)).toBe('2 items · tap one to open');
     expect(complianceListMetaLine({ client_name: 'Northside Electrical', standard_or_regulation: 'AS/NZS 3760' }))

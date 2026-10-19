@@ -1,4 +1,4 @@
-import { format, parseISO } from 'date-fns';
+import { safeFormatDate } from './safeDate';
 
 export type PhotoClockSource = 'exif' | 'upload';
 export type PhotoPlaceSource = 'exif' | 'device';
@@ -301,7 +301,7 @@ export const BROWSER_PROVENANCE_DEPS: ProvenanceDeps = {
 };
 
 export function describePhotoClock(takenAt: string, source: PhotoClockSource): string {
-  return `${format(parseISO(takenAt), 'd MMM yyyy · HH:mm')} · ${PHOTO_CLOCK_LABEL[source]}`;
+  return `${safeFormatDate(takenAt, 'd MMM yyyy · HH:mm')} · ${PHOTO_CLOCK_LABEL[source]}`;
 }
 
 export function describePhotoPlace(place: PhotoPlace | null): { text: string; mapUrl: string } | null {

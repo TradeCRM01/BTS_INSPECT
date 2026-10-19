@@ -49,7 +49,7 @@ import {
 import type { ExpenseCostModel } from '../types/fsm';
 import { DEV_AUDIT_PROFILE } from '../lib/devFieldAuditAuth';
 import { UserPlus, Mail, Eye, CreditCard as Edit2, EyeOff, Trash2, Crown, X, Check, AlertCircle, Send, Copy, MoreHorizontal } from 'lucide-react';
-import { format } from 'date-fns';
+import { safeFormatDate } from '../lib/safeDate';
 
 /** Page-local open-person sheet. Same tokens as signed timesheets / compliance. */
 const TEAM_LOOK_CSS = `
@@ -954,8 +954,8 @@ export function TeamSettingsPage() {
   const openedLicence = openedMember ? teamSettingsLicenceLabel(openedMember.licence_number) : null;
   const openedBarLeft = openedMember
     ? openedPending
-      ? `Invited ${format(new Date(openedMember.created_at), 'd MMM yyyy')}`
-      : `Joined ${format(new Date(openedMember.created_at), 'd MMM yyyy')}`
+      ? `Invited ${safeFormatDate(openedMember.created_at, 'd MMM yyyy')}`
+      : `Joined ${safeFormatDate(openedMember.created_at, 'd MMM yyyy')}`
     : '';
   const openedPill = openedMember
     ? openedPending
@@ -1074,7 +1074,7 @@ export function TeamSettingsPage() {
                   <div className="hub-team-ledger-row">
                     <span>{openedPending ? 'Pending' : openedIsAdmin ? 'Admin' : 'Member'}</span>
                     <span className="hub-team-hours">
-                      {format(new Date(openedMember.created_at), 'd MMM yyyy')}
+                      {safeFormatDate(openedMember.created_at, 'd MMM yyyy')}
                     </span>
                   </div>
                   <div className="hub-team-ledger-row hub-team-ledger-row--field">
@@ -1134,7 +1134,7 @@ export function TeamSettingsPage() {
                     <div className="hub-team-ledger-row">
                       <span>Last sign in</span>
                       <span className="hub-team-hours">
-                        {format(new Date(openedMember.last_sign_in_at), 'd MMM yyyy')}
+                        {safeFormatDate(openedMember.last_sign_in_at, 'd MMM yyyy')}
                       </span>
                     </div>
                   )}
@@ -1443,7 +1443,7 @@ function TeamMemberTicketsLedger({
           <span className="hub-team-ledger-acts">
             {ticket.expires_on ? (
               <span className="hub-team-hours">
-                {format(new Date(`${ticket.expires_on}T00:00:00`), 'd MMM yyyy')}
+                {safeFormatDate(`${ticket.expires_on}T00:00:00`, 'd MMM yyyy')}
               </span>
             ) : null}
             {ticketHasFile(ticket) && (

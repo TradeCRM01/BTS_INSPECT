@@ -1,5 +1,5 @@
-import { format, parseISO } from 'date-fns';
 import { reportIsSent, reportSiteName, reportTemplateName } from './sendReport';
+import { safeFormatDate } from './safeDate';
 
 /** Existing report columns the /reports list already has — no new ledger. */
 export const REPORT_LIST_REPORT_COLUMNS =
@@ -114,9 +114,7 @@ export function reportListStatusLabel(status: ReportListStatus): string {
 export function formatReportListDate(iso: string | null | undefined): string | null {
   const raw = iso?.trim();
   if (!raw) return null;
-  const parsed = parseISO(raw);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return format(parsed, 'd MMM yyyy');
+  return safeFormatDate(raw, 'd MMM yyyy');
 }
 
 export function padReportJobNumber(n: number | null | undefined): string {
