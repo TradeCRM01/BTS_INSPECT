@@ -66,7 +66,8 @@ describe('dashboardWidgetView', () => {
     expect(helper).not.toMatch(/grid_x:\s*[ab]\.grid_x/);
     expect(helper).not.toMatch(/grid_y:\s*[ab]\.grid_y/);
     expect(move).toContain('swapAdjacentDashboardWidgetPhoneOrder');
-    expect(move).toContain('persistWidget(row.id, { config: row.config })');
+    expect(move).toContain('persistDashboardWidgetPhoneOrder');
+    expect(move).not.toContain('persistWidget(row.id, { config: row.config })');
     expect(move).not.toMatch(/persistWidget\([^)]*grid_x/);
     expect(move).not.toMatch(/persistWidget\([^)]*grid_y/);
     expect(move).not.toContain('grid_x: row.grid_x');

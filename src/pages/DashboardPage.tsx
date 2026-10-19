@@ -116,6 +116,52 @@ async function persistDashboardWidgetRepair(
   }
 }
 
+async function persistDashboardWidgetPhoneOrder(
+  id: string,
+  phone_order: number | undefined,
+  userId: string,
+) {
+  const { data: live, error: readError } = await supabase
+    .from('dashboard_widgets')
+    .select('config')
+    .eq('id', id)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (readError) {
+    console.error('Widget update failed', readError);
+    return readError;
+  }
+  if (!live) {
+    const err = new Error('Dashboard widget phone_order read matched 0 rows');
+    console.error('Widget update failed', err);
+    return err;
+  }
+  const base = live.config && typeof live.config === 'object' && !Array.isArray(live.config)
+    ? { ...(live.config as Record<string, unknown>) }
+    : {};
+  if (phone_order === undefined) delete base.phone_order;
+  else base.phone_order = phone_order;
+  const { data, error } = await supabase
+    .from('dashboard_widgets')
+    .update({
+      config: base as Json,
+      updated_at: new Date().toISOString(),
+    } as never)
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select('id');
+  if (error) {
+    console.error('Widget update failed', error);
+    return error;
+  }
+  if (!data?.length) {
+    const err = new Error('Dashboard widget phone_order update matched 0 rows');
+    console.error('Widget update failed', err);
+    return err;
+  }
+  return null;
+}
+
 const CANVAS_PAD = 16;
 
 /** Signed dashboard frame seed — home look only, not a live company. */
@@ -757,11 +803,15 @@ export function DashboardPage() {
     });
     if (changed.length === 0) return;
     queryClient.setQueryData<DashboardWidget[]>(['dashboard-widgets'], next);
-    if (localDashboard) return;
+    if (localDashboard || !profile?.id) return;
 
     const results = await Promise.all(changed.map(async row => {
       const prev = current.find(w => w.id === row.id)!;
-      const error = await persistWidget(row.id, { config: row.config });
+      const error = await persistDashboardWidgetPhoneOrder(
+        row.id,
+        readDashboardWidgetPhoneOrder(row.config),
+        profile.id,
+      );
       return { row, prev, error };
     }));
     if (!results.some(result => result.error)) return;
@@ -769,7 +819,11 @@ export function DashboardPage() {
     await Promise.all(
       results
         .filter(result => !result.error)
-        .map(result => persistWidget(result.prev.id, { config: result.prev.config })),
+        .map(result => persistDashboardWidgetPhoneOrder(
+          result.prev.id,
+          readDashboardWidgetPhoneOrder(result.prev.config),
+          profile.id,
+        )),
     );
     queryClient.setQueryData<DashboardWidget[]>(['dashboard-widgets'], current);
     showToast('Could not move the widget.', 'error');

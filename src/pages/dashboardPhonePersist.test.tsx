@@ -81,6 +81,10 @@ vi.mock('../lib/supabase', () => {
         return Promise.resolve({ data: existed ? [{ id: removed }] : [], error: null, count: existed ? 1 : 0 });
       }
       if (table === 'dashboard_widgets' && call.op === 'select') {
+        if (id) {
+          const row = h.rows.find(r => r.id === id);
+          return Promise.resolve({ data: row ? JSON.parse(JSON.stringify(row)) : null, error: null });
+        }
         h.loads += 1;
         h.orderKeys.push([...call.order]);
         const base = h.loads % 2 ? [...h.rows].reverse() : [...h.rows];
@@ -305,6 +309,20 @@ describe('PR377 probe: phone Customize persists to dashboard_widgets', () => {
     const w1 = writes('update').find(c => c.filters.some(f => f[1] === 'w-weather1'))!;
     expect((strip(w1.payload).config as Record<string, unknown>).city).toBe('Brisbane');
     expect(h.rows.find(r => r.id === 'w-weather1')!.config).toMatchObject({ city: 'Brisbane' });
+  });
+
+  it('a Customize save merges phone_order into config that changed after page load', async () => {
+    await mountCustomize();
+    const weather = h.rows.find(r => r.id === 'w-weather1')!;
+    weather.config = { ...(weather.config as Record<string, unknown>), city: 'Sydney' };
+    h.calls.length = 0;
+    await act(async () => { btn('w-weather1', 'Move Weather up').click(); }); await tick();
+    const w1 = writes('update').find(c => c.filters.some(f => f[1] === 'w-weather1'))!;
+    expect(w1).toBeTruthy();
+    const cfg = strip(w1.payload).config as Record<string, unknown>;
+    expect(cfg.city).toBe('Sydney');
+    expect(cfg.phone_order).toBe(2);
+    expect(w1.filters).toEqual(expect.arrayContaining([['id', 'w-weather1'], ['user_id', 'u-1']]));
   });
 
   it('partial failure writes the succeeded row back (N4c)', async () => {
