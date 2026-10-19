@@ -201,6 +201,17 @@ describe('TeamSettingsPage member settings render-and-act', () => {
     act(() => { root.unmount(); });
   });
 
+  it('labels No access as field use, not a hidden library', async () => {
+    const { container, root } = renderPage(
+      '/settings/team?look=p331-team-select&id=look-team-alex',
+    );
+    await waitFor(container, 'select[aria-label="Template access"]');
+    const noneOpt = [...container.querySelectorAll('select[aria-label="Template access"] option')]
+      .find(o => (o as HTMLOptionElement).value === 'none');
+    expect(noneOpt?.textContent).toBe('No access');
+    act(() => { root.unmount(); });
+  });
+
   it('shows Make admin for the owner and hides it for a non-owner admin', async () => {
     const owner = renderPage('/settings/team?look=p331-team-select&id=look-team-alex');
     await waitFor(owner.container, 'select[aria-label="Cost model"]');

@@ -546,7 +546,7 @@ interface Member {
 const ACCESS_OPTIONS: { value: TemplateAccess; label: string; description: string; icon: React.ElementType }[] = [
   { value: 'edit', label: 'Edit', description: 'Can create, edit and delete templates', icon: Edit2 },
   { value: 'view', label: 'View only', description: 'Can view templates, not modify them', icon: Eye },
-  { value: 'none', label: 'No access', description: 'Templates are hidden', icon: EyeOff },
+  { value: 'none', label: 'No access', description: "Can use templates on jobs, can't see or edit the template library", icon: EyeOff },
 ];
 
 interface InviteFormProps {

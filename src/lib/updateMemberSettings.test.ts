@@ -97,12 +97,28 @@ describe('089 self-escalation and template RLS', () => {
     expect(sql089).not.toMatch(/\bcurrent_user\s*=/);
     expect(sql089).not.toMatch(/DROP TRIGGER IF EXISTS trg_prevent_profile_tenant_hop/);
     expect(sql089).not.toMatch(/CREATE(?: OR REPLACE)? FUNCTION public\.prevent_profile_tenant_hop/);
-    expect(sql089).toContain('templates_select_by_template_access');
-    expect(sql089).toContain('jha_templates_select_by_template_access');
-    expect(sql089).toContain('inspection_renderers_select_by_template_access');
+    expect(sql089).toContain('templates_select_company_members');
+    expect(sql089).toContain('jha_templates_select_company_members');
+    expect(sql089).toContain('inspection_renderers_select_company_members');
+    expect(sql089).toContain('Company admins can insert renderers');
+    expect(sql089).toContain('Company admins can update renderers');
+    expect(sql089).toContain('Company admins can delete renderers');
+    expect(sql089).toContain('AND p.company_id = v_actor_company');
+    expect(sql089).toContain('REVOKE ALL ON FUNCTION public.prevent_profile_self_escalation() FROM PUBLIC, anon, authenticated');
+    expect(sql089).toContain('(SELECT public.caller_can_edit_templates())');
     const rollback = src('docs/operations/rollback-20261019020000_089_profile_self_escalation_and_template_rls.sql');
     expect(rollback).toContain('DROP TRIGGER IF EXISTS trg_prevent_profile_self_escalation');
     expect(rollback).not.toContain("set_config('app.member_admin'");
+    expect(rollback.lastIndexOf('DROP FUNCTION IF EXISTS public.caller_template_access()'))
+      .toBeGreaterThan(rollback.lastIndexOf('CREATE POLICY "Company admins can delete renderers"'));
+    expect(rollback.lastIndexOf('DROP FUNCTION IF EXISTS public.caller_can_edit_templates()'))
+      .toBeGreaterThan(rollback.indexOf('CREATE POLICY "Company members can view templates"'));
+    const team = src('src/pages/TeamSettingsPage.tsx');
+    expect(team).toContain("{ value: 'none', label: 'No access', description: \"Can use templates on jobs, can't see or edit the template library\"");
+    const app = src('src/App.tsx');
+    expect(app).toContain('<Route path="/templates" element={<Protected><TemplateAccessRoute><TemplatesPage /></TemplateAccessRoute></Protected>} />');
+    expect(app).toContain('<Route path="/templates/new" element={<Protected><TemplateAccessRoute><TemplateEditorPage /></TemplateAccessRoute></Protected>} />');
+    expect(app).toContain('<Route path="/templates/:id" element={<Protected><TemplateAccessRoute><TemplateEditorPage /></TemplateAccessRoute></Protected>} />');
   });
 });
 

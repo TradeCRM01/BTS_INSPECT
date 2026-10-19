@@ -195,7 +195,8 @@ BEGIN
   )
   INTO v_row
   FROM public.profiles p
-  WHERE p.id = member_id;
+  WHERE p.id = member_id
+    AND p.company_id = v_actor_company;
 
   RETURN v_row;
 END;
@@ -203,9 +204,10 @@ $$;
 
 REVOKE ALL ON FUNCTION public.update_member_settings(uuid, jsonb) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.update_member_settings(uuid, jsonb) TO authenticated;
+REVOKE ALL ON FUNCTION public.prevent_profile_self_escalation() FROM PUBLIC, anon, authenticated;
 
 -- Own-row template_access for the JWT caller. Owners and admins are 'edit'
--- so /templates*, the dashboard widget, and inspection fill keep working.
+-- so library writes stay available when an admin is assigned 'none'.
 
 CREATE OR REPLACE FUNCTION public.caller_template_access()
 RETURNS text
@@ -252,22 +254,25 @@ GRANT EXECUTE ON FUNCTION public.caller_template_access() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.caller_can_view_templates() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.caller_can_edit_templates() TO authenticated;
 
--- public.templates
+-- Same-company SELECT for every member (field use: start inspection/JHA, legacy fill).
+-- Library writes require template_access='edit' (admins/owner count as edit).
+-- inspection_renderers writes stay admin-only, as on prod.
+
 DROP POLICY IF EXISTS "Company members can view templates" ON public.templates;
 DROP POLICY IF EXISTS "Company members can insert templates" ON public.templates;
 DROP POLICY IF EXISTS "Company members can update templates" ON public.templates;
 DROP POLICY IF EXISTS "Company members can delete templates" ON public.templates;
 DROP POLICY IF EXISTS "templates_select_by_template_access" ON public.templates;
+DROP POLICY IF EXISTS "templates_select_company_members" ON public.templates;
 DROP POLICY IF EXISTS "templates_insert_by_template_access" ON public.templates;
 DROP POLICY IF EXISTS "templates_update_by_template_access" ON public.templates;
 DROP POLICY IF EXISTS "templates_delete_by_template_access" ON public.templates;
 
-CREATE POLICY "templates_select_by_template_access"
+CREATE POLICY "templates_select_company_members"
   ON public.templates FOR SELECT
   TO authenticated
   USING (
     company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
-    AND public.caller_can_view_templates()
   );
 
 CREATE POLICY "templates_insert_by_template_access"
@@ -275,7 +280,7 @@ CREATE POLICY "templates_insert_by_template_access"
   TO authenticated
   WITH CHECK (
     company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
-    AND public.caller_can_edit_templates()
+    AND (SELECT public.caller_can_edit_templates())
   );
 
 CREATE POLICY "templates_update_by_template_access"
@@ -283,11 +288,11 @@ CREATE POLICY "templates_update_by_template_access"
   TO authenticated
   USING (
     company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
-    AND public.caller_can_view_templates()
+    AND (SELECT public.caller_can_edit_templates())
   )
   WITH CHECK (
     company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
-    AND public.caller_can_edit_templates()
+    AND (SELECT public.caller_can_edit_templates())
   );
 
 CREATE POLICY "templates_delete_by_template_access"
@@ -295,25 +300,24 @@ CREATE POLICY "templates_delete_by_template_access"
   TO authenticated
   USING (
     company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
-    AND public.caller_can_edit_templates()
+    AND (SELECT public.caller_can_edit_templates())
   );
 
--- public.jha_templates
 DROP POLICY IF EXISTS "select_jha_templates" ON public.jha_templates;
 DROP POLICY IF EXISTS "insert_jha_templates" ON public.jha_templates;
 DROP POLICY IF EXISTS "update_jha_templates" ON public.jha_templates;
 DROP POLICY IF EXISTS "delete_jha_templates" ON public.jha_templates;
 DROP POLICY IF EXISTS "jha_templates_select_by_template_access" ON public.jha_templates;
+DROP POLICY IF EXISTS "jha_templates_select_company_members" ON public.jha_templates;
 DROP POLICY IF EXISTS "jha_templates_insert_by_template_access" ON public.jha_templates;
 DROP POLICY IF EXISTS "jha_templates_update_by_template_access" ON public.jha_templates;
 DROP POLICY IF EXISTS "jha_templates_delete_by_template_access" ON public.jha_templates;
 
-CREATE POLICY "jha_templates_select_by_template_access"
+CREATE POLICY "jha_templates_select_company_members"
   ON public.jha_templates FOR SELECT
   TO authenticated
   USING (
     company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
-    AND public.caller_can_view_templates()
   );
 
 CREATE POLICY "jha_templates_insert_by_template_access"
@@ -321,7 +325,7 @@ CREATE POLICY "jha_templates_insert_by_template_access"
   TO authenticated
   WITH CHECK (
     company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
-    AND public.caller_can_edit_templates()
+    AND (SELECT public.caller_can_edit_templates())
   );
 
 CREATE POLICY "jha_templates_update_by_template_access"
@@ -329,11 +333,11 @@ CREATE POLICY "jha_templates_update_by_template_access"
   TO authenticated
   USING (
     company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
-    AND public.caller_can_view_templates()
+    AND (SELECT public.caller_can_edit_templates())
   )
   WITH CHECK (
     company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
-    AND public.caller_can_edit_templates()
+    AND (SELECT public.caller_can_edit_templates())
   );
 
 CREATE POLICY "jha_templates_delete_by_template_access"
@@ -341,54 +345,58 @@ CREATE POLICY "jha_templates_delete_by_template_access"
   TO authenticated
   USING (
     company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
-    AND public.caller_can_edit_templates()
+    AND (SELECT public.caller_can_edit_templates())
   );
 
--- public.inspection_renderers (TemplateEditorPage read/write)
 DROP POLICY IF EXISTS "Company members can view renderers" ON public.inspection_renderers;
 DROP POLICY IF EXISTS "Company admins can insert renderers" ON public.inspection_renderers;
 DROP POLICY IF EXISTS "Company admins can update renderers" ON public.inspection_renderers;
 DROP POLICY IF EXISTS "Company admins can delete renderers" ON public.inspection_renderers;
 DROP POLICY IF EXISTS "inspection_renderers_select_by_template_access" ON public.inspection_renderers;
+DROP POLICY IF EXISTS "inspection_renderers_select_company_members" ON public.inspection_renderers;
 DROP POLICY IF EXISTS "inspection_renderers_insert_by_template_access" ON public.inspection_renderers;
 DROP POLICY IF EXISTS "inspection_renderers_update_by_template_access" ON public.inspection_renderers;
 DROP POLICY IF EXISTS "inspection_renderers_delete_by_template_access" ON public.inspection_renderers;
 
-CREATE POLICY "inspection_renderers_select_by_template_access"
+CREATE POLICY "inspection_renderers_select_company_members"
   ON public.inspection_renderers FOR SELECT
   TO authenticated
   USING (
     company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
-    AND public.caller_can_view_templates()
   );
 
-CREATE POLICY "inspection_renderers_insert_by_template_access"
+CREATE POLICY "Company admins can insert renderers"
   ON public.inspection_renderers FOR INSERT
   TO authenticated
   WITH CHECK (
-    company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
-    AND public.caller_can_edit_templates()
+    company_id IN (
+      SELECT company_id FROM public.profiles
+      WHERE id = auth.uid() AND role = 'admin'
+    )
   );
 
-CREATE POLICY "inspection_renderers_update_by_template_access"
+CREATE POLICY "Company admins can update renderers"
   ON public.inspection_renderers FOR UPDATE
   TO authenticated
   USING (
-    built_in = false
-    AND company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
-    AND public.caller_can_view_templates()
+    built_in = false AND company_id IN (
+      SELECT company_id FROM public.profiles
+      WHERE id = auth.uid() AND role = 'admin'
+    )
   )
   WITH CHECK (
-    built_in = false
-    AND company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
-    AND public.caller_can_edit_templates()
+    built_in = false AND company_id IN (
+      SELECT company_id FROM public.profiles
+      WHERE id = auth.uid() AND role = 'admin'
+    )
   );
 
-CREATE POLICY "inspection_renderers_delete_by_template_access"
+CREATE POLICY "Company admins can delete renderers"
   ON public.inspection_renderers FOR DELETE
   TO authenticated
   USING (
-    built_in = false
-    AND company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())
-    AND public.caller_can_edit_templates()
+    built_in = false AND company_id IN (
+      SELECT company_id FROM public.profiles
+      WHERE id = auth.uid() AND role = 'admin'
+    )
   );

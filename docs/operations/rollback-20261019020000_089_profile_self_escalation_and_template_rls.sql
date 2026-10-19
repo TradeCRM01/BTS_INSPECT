@@ -1,16 +1,14 @@
 -- Rollback 089_profile_self_escalation_and_template_rls.
 -- Restores update_member_settings to the 088 body (no bypass flag).
 -- Restores company-member template policies from 002 / 020 / 008.
+-- Re-runnable: DROP POLICY IF EXISTS for both 089 names and restored names.
+-- Helper functions drop LAST so policies that reference them are already gone.
 -- Does not run on production without approval. Does not touch 088 on disk.
 
 DROP TRIGGER IF EXISTS trg_prevent_profile_self_escalation ON public.profiles;
 DROP FUNCTION IF EXISTS public.prevent_profile_self_escalation();
 
 DROP TABLE IF EXISTS public.update_member_settings_gate;
-
-DROP FUNCTION IF EXISTS public.caller_can_edit_templates();
-DROP FUNCTION IF EXISTS public.caller_can_view_templates();
-DROP FUNCTION IF EXISTS public.caller_template_access();
 
 CREATE OR REPLACE FUNCTION public.update_member_settings(
   member_id uuid,
@@ -151,9 +149,14 @@ REVOKE ALL ON FUNCTION public.update_member_settings(uuid, jsonb) FROM PUBLIC, a
 GRANT EXECUTE ON FUNCTION public.update_member_settings(uuid, jsonb) TO authenticated;
 
 DROP POLICY IF EXISTS "templates_select_by_template_access" ON public.templates;
+DROP POLICY IF EXISTS "templates_select_company_members" ON public.templates;
 DROP POLICY IF EXISTS "templates_insert_by_template_access" ON public.templates;
 DROP POLICY IF EXISTS "templates_update_by_template_access" ON public.templates;
 DROP POLICY IF EXISTS "templates_delete_by_template_access" ON public.templates;
+DROP POLICY IF EXISTS "Company members can view templates" ON public.templates;
+DROP POLICY IF EXISTS "Company members can insert templates" ON public.templates;
+DROP POLICY IF EXISTS "Company members can update templates" ON public.templates;
+DROP POLICY IF EXISTS "Company members can delete templates" ON public.templates;
 CREATE POLICY "Company members can view templates"
   ON public.templates FOR SELECT TO authenticated
   USING (company_id IN (SELECT company_id FROM public.profiles WHERE id = auth.uid()));
@@ -169,9 +172,14 @@ CREATE POLICY "Company members can delete templates"
   USING (company_id IN (SELECT company_id FROM public.profiles WHERE id = auth.uid()));
 
 DROP POLICY IF EXISTS "jha_templates_select_by_template_access" ON public.jha_templates;
+DROP POLICY IF EXISTS "jha_templates_select_company_members" ON public.jha_templates;
 DROP POLICY IF EXISTS "jha_templates_insert_by_template_access" ON public.jha_templates;
 DROP POLICY IF EXISTS "jha_templates_update_by_template_access" ON public.jha_templates;
 DROP POLICY IF EXISTS "jha_templates_delete_by_template_access" ON public.jha_templates;
+DROP POLICY IF EXISTS "select_jha_templates" ON public.jha_templates;
+DROP POLICY IF EXISTS "insert_jha_templates" ON public.jha_templates;
+DROP POLICY IF EXISTS "update_jha_templates" ON public.jha_templates;
+DROP POLICY IF EXISTS "delete_jha_templates" ON public.jha_templates;
 CREATE POLICY "select_jha_templates" ON public.jha_templates FOR SELECT
   TO authenticated USING (
     company_id IN (SELECT company_id FROM public.profiles WHERE id = auth.uid())
@@ -192,9 +200,14 @@ CREATE POLICY "delete_jha_templates" ON public.jha_templates FOR DELETE
   );
 
 DROP POLICY IF EXISTS "inspection_renderers_select_by_template_access" ON public.inspection_renderers;
+DROP POLICY IF EXISTS "inspection_renderers_select_company_members" ON public.inspection_renderers;
 DROP POLICY IF EXISTS "inspection_renderers_insert_by_template_access" ON public.inspection_renderers;
 DROP POLICY IF EXISTS "inspection_renderers_update_by_template_access" ON public.inspection_renderers;
 DROP POLICY IF EXISTS "inspection_renderers_delete_by_template_access" ON public.inspection_renderers;
+DROP POLICY IF EXISTS "Company members can view renderers" ON public.inspection_renderers;
+DROP POLICY IF EXISTS "Company admins can insert renderers" ON public.inspection_renderers;
+DROP POLICY IF EXISTS "Company admins can update renderers" ON public.inspection_renderers;
+DROP POLICY IF EXISTS "Company admins can delete renderers" ON public.inspection_renderers;
 CREATE POLICY "Company members can view renderers"
   ON public.inspection_renderers FOR SELECT TO authenticated
   USING (company_id IN (SELECT company_id FROM public.profiles WHERE id = auth.uid()));
@@ -222,3 +235,7 @@ CREATE POLICY "Company admins can delete renderers"
       SELECT company_id FROM public.profiles WHERE id = auth.uid() AND role = 'admin'
     )
   );
+
+DROP FUNCTION IF EXISTS public.caller_can_edit_templates();
+DROP FUNCTION IF EXISTS public.caller_can_view_templates();
+DROP FUNCTION IF EXISTS public.caller_template_access();
