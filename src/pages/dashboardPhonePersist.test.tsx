@@ -1,9 +1,6 @@
 /**
  * @vitest-environment jsdom
- * Adopted from the PR377 precheck probe
- * (/cursor/stores/store-70579235-acee-4ad5-8740-cf36a4816b65/handoff/pr377/pr377PhonePersist.probe.test.tsx,
- * sha256 ca739b26a0cb2b4362d69fd25693d789a094f23bc4a080b42eaff90f093d3487).
- * Real DashboardPage, NOT look/audit mode, so the phone Customize controls run the production
+ * Real DashboardPage, not look/audit mode. Phone Customize controls run the production
  * write path against a mocked Supabase client. Payloads are config.phone_order (not grid_x/y)
  * so a phone reorder cannot rewrite the desktop canvas.
  */
@@ -16,12 +13,14 @@ import { ToastProvider } from '../components/ui';
 import { DASHBOARD_WIDGET_GAP, dashboardWidgetLayoutOverlaps, dashboardWidgetMinNeighborGap, repairDashboardWidgetLayout, type DashboardWidgetRect } from '../lib/dashboardWidgets';
 import { DashboardPage } from './DashboardPage';
 
-type Call = { table: string; op: string; payload?: unknown; filters: Array<[string, unknown]>; order: string[] };
+type Call = { table: string; op: string; payload?: unknown; filters: Array<[string, unknown]>; order: string[]; returning?: string };
 const h = vi.hoisted(() => ({
   calls: [] as Call[],
   failOp: null as null | 'update' | 'delete',
   failIds: new Set<string>(),
   emptyWrite: false,
+  failRead: false,
+  emptyRead: false,
   loads: 0,
   orderKeys: [] as string[][],
   rows: [] as Array<Record<string, unknown>>,
@@ -62,9 +61,10 @@ vi.mock('../lib/supabase', () => {
           || (id && h.failIds.has(id) && call.op === 'update')
         )
       ) {
-        return Promise.resolve({ data: null, error: { message: 'probe forced failure', code: 'XX000' } });
+        return Promise.resolve({ data: null, error: { message: 'forced failure', code: 'XX000' } });
       }
       if (table === 'dashboard_widgets' && (call.op === 'update' || call.op === 'delete') && h.emptyWrite) {
+        if (call.op === 'update' && !call.returning) return Promise.resolve({ data: null, error: null });
         return Promise.resolve({ data: [], error: null, count: 0 });
       }
       if (table === 'dashboard_widgets' && call.op === 'update') {
@@ -72,6 +72,7 @@ vi.mock('../lib/supabase', () => {
         if (row && call.payload && typeof call.payload === 'object') {
           Object.assign(row, JSON.parse(JSON.stringify(call.payload)));
         }
+        if (!call.returning) return Promise.resolve({ data: null, error: null });
         return Promise.resolve({ data: row ? [{ id: row.id }] : [], error: null, count: row ? 1 : 0 });
       }
       if (table === 'dashboard_widgets' && call.op === 'delete') {
@@ -83,6 +84,13 @@ vi.mock('../lib/supabase', () => {
       if (table === 'dashboard_widgets' && call.op === 'select') {
         if (id) {
           const row = h.rows.find(r => r.id === id);
+          if (h.failRead) {
+            return Promise.resolve({
+              data: row ? JSON.parse(JSON.stringify(row)) : { config: {} },
+              error: { message: 're-read failed', code: 'XX000' },
+            });
+          }
+          if (h.emptyRead) return Promise.resolve({ data: null, error: null });
           return Promise.resolve({ data: row ? JSON.parse(JSON.stringify(row)) : null, error: null });
         }
         h.loads += 1;
@@ -106,7 +114,8 @@ vi.mock('../lib/supabase', () => {
     const q: Record<string, unknown> = {};
     const chain = () => q;
     q.order = (col: string) => { call.order.push(col); return q; };
-    for (const m of ['select', 'in', 'gte', 'lte', 'lt', 'gt', 'limit', 'or', 'not', 'is', 'neq', 'range', 'ilike', 'match']) q[m] = chain;
+    q.select = (cols?: string) => { call.returning = cols ?? '*'; return q; };
+    for (const m of ['in', 'gte', 'lte', 'lt', 'gt', 'limit', 'or', 'not', 'is', 'neq', 'range', 'ilike', 'match']) q[m] = chain;
     q.eq = (col: string, v: unknown) => { call.filters.push([col, v]); return q; };
     q.update = (p: unknown) => { call.op = 'update'; call.payload = p; return q; };
     q.delete = () => { call.op = 'delete'; return q; };
@@ -136,7 +145,7 @@ const LIVE_PHONE_IDS = ['w-invoices', 'w-jobs', 'w-compliance', 'w-weather1', 'w
 let container: HTMLDivElement; let root: Root;
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-  h.calls.length = 0; h.failOp = null; h.failIds = new Set(); h.emptyWrite = false; h.onDragEnd = null; h.rows = JSON.parse(JSON.stringify(LIVE)); h.loads = 0; h.orderKeys = [];
+  h.calls.length = 0; h.failOp = null; h.failIds = new Set(); h.emptyWrite = false; h.failRead = false; h.emptyRead = false; h.onDragEnd = null; h.rows = JSON.parse(JSON.stringify(LIVE)); h.loads = 0; h.orderKeys = [];
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ results: [{ latitude: 0, longitude: 0 }], current: {} }) })));
   container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
 });
@@ -189,7 +198,7 @@ function canvasRect(id: string) {
   return { left: el.style.left, top: el.style.top, width: el.style.width, height: el.style.height };
 }
 
-describe('PR377 probe: phone Customize persists to dashboard_widgets', () => {
+describe('phone Customize persists to dashboard_widgets', () => {
   it('Down PATCHes phone_order for both neighbours and leaves desktop x/y alone (M4a/c/d)', async () => {
     await mountCustomize();
     expect(ids()).toEqual(LIVE_PHONE_IDS);
@@ -323,6 +332,52 @@ describe('PR377 probe: phone Customize persists to dashboard_widgets', () => {
     expect(cfg.city).toBe('Sydney');
     expect(cfg.phone_order).toBe(2);
     expect(w1.filters).toEqual(expect.arrayContaining([['id', 'w-weather1'], ['user_id', 'u-1']]));
+  });
+
+  it('a Customize move keeps the new order only when the write returns the matched row', async () => {
+    await mountCustomize();
+    await act(async () => { btn('w-jobs', 'Move Upcoming Jobs down').click(); }); await tick();
+    expect(ids()).toEqual(['w-invoices', 'w-compliance', 'w-jobs', 'w-weather1', 'w-weather2']);
+    expect(document.body.textContent ?? '').not.toContain('Could not move the widget.');
+    const up = writes('update');
+    expect(up.length).toBeGreaterThan(0);
+    expect(up.every(c => c.returning === 'id')).toBe(true);
+  });
+
+  it('a Customize move with a failed re-read writes nothing, restores the stack, and shows the move error', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await mountCustomize();
+    h.failRead = true;
+    h.calls.length = 0;
+    await act(async () => { btn('w-jobs', 'Move Upcoming Jobs down').click(); }); await tick(80);
+    expect(writes('update')).toEqual([]);
+    expect(ids()).toEqual(LIVE_PHONE_IDS);
+    expect(document.body.textContent).toContain('Could not move the widget.');
+    expect(spy.mock.calls.some(c => String(c[0]).includes('Widget update failed'))).toBe(true);
+  });
+
+  it('a Customize move that matches no rows logs, restores the stack, and shows the move error', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await mountCustomize();
+    h.emptyWrite = true;
+    h.calls.length = 0;
+    await act(async () => { btn('w-jobs', 'Move Upcoming Jobs down').click(); }); await tick(80);
+    expect(writes('update').length).toBeGreaterThan(0);
+    expect(ids()).toEqual(LIVE_PHONE_IDS);
+    expect(document.body.textContent).toContain('Could not move the widget.');
+    expect(spy.mock.calls.some(c => String(c[0]).includes('Widget update failed'))).toBe(true);
+  });
+
+  it('a Customize move with an empty re-read logs, restores the stack, and shows the move error', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await mountCustomize();
+    h.emptyRead = true;
+    h.calls.length = 0;
+    await act(async () => { btn('w-jobs', 'Move Upcoming Jobs down').click(); }); await tick(80);
+    expect(writes('update')).toEqual([]);
+    expect(ids()).toEqual(LIVE_PHONE_IDS);
+    expect(document.body.textContent).toContain('Could not move the widget.');
+    expect(spy.mock.calls.some(c => String(c[0]).includes('Widget update failed'))).toBe(true);
   });
 
   it('partial failure writes the succeeded row back (N4c)', async () => {
@@ -495,7 +550,7 @@ describe('PR377 probe: phone Customize persists to dashboard_widgets', () => {
   });
 });
 
-describe('PR377 clamp persist (canvas forced to 910)', () => {
+describe('dashboard canvas clamp persist', () => {
   function forceWidth(px: number) {
     Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get() { return px; } });
     vi.stubGlobal('ResizeObserver', class {
