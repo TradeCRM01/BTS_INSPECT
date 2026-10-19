@@ -66,6 +66,14 @@ apply_and_kill \
   "composeGenericReport reads inspector_name_snapshot, not the signed-in profile"
 
 apply_and_kill \
+  "electrical_pdf_ignores_snapshot" \
+  "src/reports/electrical_3000/compose.ts" \
+  "inspector: inspector.name," \
+  "inspector: profile.name," \
+  "src/lib/inspectorSnapshot.test.ts" \
+  "composeElectricalReport reads inspector_name_snapshot when inspector_id is null"
+
+apply_and_kill \
   "list_detail_ignores_snapshot" \
   "src/lib/inspectorSnapshot.ts" \
   "if (args.inspectorId) {" \
@@ -82,3 +90,4 @@ apply_and_kill \
   "does not leak a raw database message"
 
 echo "All prove-sec-insp-2-app mutants passed"
+bash "${ROOT}/scripts/prove-remove-member-harness.sh"

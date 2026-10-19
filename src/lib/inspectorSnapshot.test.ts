@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  documentCreatorLine,
   inspectionInspectorLine,
   resolveInspectorIdentity,
 } from './inspectorSnapshot';
 import { composeGenericReport } from '../reports/generic_inspection/compose';
+import { composeElectricalReport } from '../reports/electrical_3000/compose';
 import type { TemplateSchema } from '../types/template';
 import {
   publicRemoveMemberError,
@@ -55,7 +57,34 @@ describe('client portal uses the snapshot when inspector_id is null', () => {
   });
 });
 
+describe('creator snapshot line', () => {
+  it('shows Created by Pat Snapshot when the live creator is gone', () => {
+    expect(documentCreatorLine('Pat Snapshot')).toBe('Created by Pat Snapshot');
+    expect(documentCreatorLine(null)).toBeNull();
+  });
+});
+
 describe('inspection PDF uses the snapshot when inspector_id is null', () => {
+  it('composeElectricalReport reads inspector_name_snapshot when inspector_id is null', () => {
+    const data = composeElectricalReport({
+      inspection: {
+        id: 'insp-1',
+        inspector_id: null,
+        inspector_name_snapshot: 'Pat Snapshot',
+        inspector_licence_snapshot: 'EC-4411',
+        meta: { siteName: 'Yard' },
+        responses: {},
+      },
+      template: { name: 'Electrical', schema: emptySchema },
+      profile: { name: 'Someone Else', licence_number: 'XX-9' },
+      company: { name: 'Northside' },
+      photos: [],
+      reportNumber: 'R-1',
+    });
+    expect(data.meta.inspector).toBe('Pat Snapshot');
+    expect(data.meta.licenceNumber).toBe('EC-4411');
+  });
+
   it('composeGenericReport reads inspector_name_snapshot, not the signed-in profile', () => {
     const data = composeGenericReport({
       inspection: {

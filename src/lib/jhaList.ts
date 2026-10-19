@@ -32,6 +32,8 @@ export type JhaListRow = {
   job_assigned_team?: string[] | null;
   job_number?: number | null;
   job_scheduled_date?: string | null;
+  created_by?: string | null;
+  creator_name_snapshot?: string | null;
 };
 
 export type JhaListFloorItem<T extends JhaListRow = JhaListRow> = {

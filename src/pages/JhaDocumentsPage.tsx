@@ -33,9 +33,12 @@ import { livingJobSite } from '../lib/livingJha';
 import { AppShell } from '../components/layout/AppShell';
 import { EmptyState, LoadingSpinner, PageError, SearchBar, opsSiteLabel } from '../components/ui';
 import { jhaDocumentColors } from '../reports/jha/theme';
+import { documentCreatorLine } from '../lib/inspectorSnapshot';
 
 type DocRow = JhaListRow & {
   meta: Record<string, string>;
+  created_by?: string | null;
+  creator_name_snapshot?: string | null;
 };
 
 const LIST_FILTERS: { key: JhaListFilter; label: string }[] = [
@@ -74,6 +77,8 @@ function jhaListLookRows(): DocRow[] {
       ...base,
       id: 'look-jha-northside',
       status: 'completed',
+      created_by: null,
+      creator_name_snapshot: 'Pat Snapshot',
       meta: { siteName: 'Northside Electrical', siteAddress: '12 Workshop Rd, Perth WA 6000' },
     },
     {
@@ -108,7 +113,8 @@ function jhaListWhisper(args: { filter: JhaListFilter; count: number }): string 
 function jhaListRowMuted(item: JhaListFloorItem<DocRow>): string {
   const title = item.title && item.title !== 'JHA' ? item.title : 'JHA';
   const when = formatJhaListDate(item.row.completed_at || item.row.created_at);
-  return [title, when].filter(Boolean).join(' · ');
+  const creator = documentCreatorLine(item.row.creator_name_snapshot);
+  return [title, when, creator].filter(Boolean).join(' · ');
 }
 
 function auditJhaList(): DocRow[] | null {
@@ -199,7 +205,7 @@ export function JhaDocumentsPage() {
       if (audit) return audit;
       const query = supabase
         .from('jha_documents')
-        .select('id, status, report_number, meta, doc_version, amendment_reason, amended_from_id, client_id, job_id, created_at, completed_at, template_snapshot')
+        .select('id, status, report_number, meta, doc_version, amendment_reason, amended_from_id, client_id, job_id, created_at, completed_at, template_snapshot, created_by, creator_name_snapshot')
         .order('created_at', { ascending: false });
       const { data, error } = await query;
       if (error) throw error;

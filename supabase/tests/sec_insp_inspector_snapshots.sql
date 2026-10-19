@@ -224,6 +224,96 @@ BEGIN
   );
 END $$;
 
+INSERT INTO public.profiles (id, company_id, email, name, licence_number, role)
+SELECT '22222222-2222-2222-2222-222222222222', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'pat@example.test', 'Pat Snapshot', 'EC-4411', 'member'
+WHERE NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = '22222222-2222-2222-2222-222222222222');
+
+DROP POLICY IF EXISTS inspections_auth_all ON public.inspections;
+CREATE POLICY inspections_auth_all ON public.inspections
+  FOR ALL TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.inspections TO authenticated;
+
+INSERT INTO public.inspections (id, inspector_id, status) VALUES
+  ('d0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'draft')
+ON CONFLICT (id) DO UPDATE SET inspector_id = EXCLUDED.inspector_id;
+
+DO $$
+DECLARE
+  r text;
+  s_name text;
+  s_id uuid;
+  rc bigint;
+  cur text;
+BEGIN
+  BEGIN
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', '22222222-2222-2222-2222-222222222222', 'role', 'authenticated')::text, true);
+    EXECUTE 'SET LOCAL ROLE authenticated';
+    SELECT current_user INTO cur;
+    UPDATE public.inspections
+      SET inspector_id = '33333333-3333-3333-3333-333333333333'
+      WHERE id = 'd0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    GET DIAGNOSTICS rc = ROW_COUNT;
+    r := '00000|' || rc || '|' || coalesce(cur, '?');
+  EXCEPTION WHEN OTHERS THEN
+    r := SQLSTATE || '|' || SQLERRM;
+  END;
+  EXECUTE 'RESET ROLE';
+  PERFORM set_config('request.jwt.claims', '', true);
+  SELECT inspector_id, inspector_name_snapshot INTO s_id, s_name
+  FROM public.inspections WHERE id = 'd0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  INSERT INTO proof_result VALUES (
+    'member_reassign_fills_hidden_teammate',
+    r LIKE '00000|1|%' AND s_id = '33333333-3333-3333-3333-333333333333' AND s_name = 'Sam Spark',
+    coalesce(r, 'null') || '|' || coalesce(s_id::text, 'null') || '|' || coalesce(s_name, 'null')
+  );
+END $$;
+
+-- Mutant: snapshot trigger switched to SECURITY INVOKER (own-row profiles RLS hides teammate)
+ALTER FUNCTION public.inspections_fill_inspector_snapshots() SECURITY INVOKER;
+
+DO $$
+DECLARE
+  r text;
+  s_name text;
+BEGIN
+  UPDATE public.inspections
+    SET inspector_id = '22222222-2222-2222-2222-222222222222',
+        inspector_name_snapshot = 'Pat Snapshot'
+    WHERE id = 'd0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  BEGIN
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', '22222222-2222-2222-2222-222222222222', 'role', 'authenticated')::text, true);
+    EXECUTE 'SET LOCAL ROLE authenticated';
+    UPDATE public.inspections
+      SET inspector_id = '33333333-3333-3333-3333-333333333333'
+      WHERE id = 'd0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    r := '00000';
+  EXCEPTION WHEN OTHERS THEN
+    r := SQLSTATE || '|' || SQLERRM;
+  END;
+  EXECUTE 'RESET ROLE';
+  PERFORM set_config('request.jwt.claims', '', true);
+  SELECT inspector_name_snapshot INTO s_name
+  FROM public.inspections WHERE id = 'd0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  INSERT INTO proof_result VALUES (
+    'mutant_security_invoker_applied',
+    s_name IS DISTINCT FROM 'Sam Spark',
+    coalesce(s_name, 'null') || '|' || coalesce(r, 'null')
+  );
+  INSERT INTO proof_result VALUES (
+    'mutant_security_invoker_killed',
+    s_name IS DISTINCT FROM 'Sam Spark',
+    'killed by member_reassign_fills_hidden_teammate ' || coalesce(s_name, 'null')
+  );
+  IF s_name = 'Sam Spark' THEN
+    RAISE EXCEPTION 'mutant security_invoker not killed — DEFINER fill still happened under INVOKER';
+  END IF;
+END $$;
+
+ALTER FUNCTION public.inspections_fill_inspector_snapshots() SECURITY DEFINER;
+
 -- Mutant: no backfill
 INSERT INTO public.profiles (id, company_id, email, name, licence_number, role)
 SELECT '22222222-2222-2222-2222-222222222222', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'pat@example.test', 'Pat Snapshot', 'EC-4411', 'member'

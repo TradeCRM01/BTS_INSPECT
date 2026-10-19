@@ -36,3 +36,8 @@ export function inspectionInspectorLine(identity: InspectorIdentity): string {
   if (identity.licence) return `${identity.name} · ${identity.licence}`;
   return identity.name;
 }
+
+export function documentCreatorLine(snapshotName?: string | null): string | null {
+  const name = (snapshotName ?? '').trim();
+  return name ? `Created by ${name}` : null;
+}
