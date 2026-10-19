@@ -1,5 +1,3 @@
-/** Single home for year bounds, AU/year messages, save guards, and display. */
-
 import { format } from 'date-fns';
 
 export const DATE_YEAR_MIN = 1900;
@@ -43,7 +41,6 @@ function parseIsoDay(raw: string): { year: number; month: number; day: number } 
   return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
 }
 
-/** Parse a native yyyy-mm-dd or AU dd/mm/yyyy value. Date must be real before the year is accepted. */
 export function parseFieldDate(raw: string): string | null {
   const trimmed = (raw ?? '').trim();
   if (!trimmed) return null;
@@ -58,7 +55,6 @@ export function parseFieldDate(raw: string): string | null {
   return asIso(year, Number(au[2]), Number(au[1]));
 }
 
-/** Save guard for native date fields (Assets, Contracts Next Service) and AU text. */
 export function dateFieldYearError(raw: string, required = false): string | null {
   const trimmed = (raw ?? '').trim();
   if (!trimmed) return required ? DATE_REQUIRED_MESSAGE : null;
