@@ -58,7 +58,7 @@ describe('jha document write plan', () => {
 
   it('keeps a completed document completed', () => {
     expect(jhaPersistStatus('draft', 'completed')).toBe('completed');
-    expect(jhaPersistStatus('draft', 'published')).toBe('completed');
+    expect(jhaPersistStatus('draft', 'published')).toBe('published');
     expect(jhaPersistStatus('draft', 'draft')).toBe('draft');
   });
 });

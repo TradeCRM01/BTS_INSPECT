@@ -551,7 +551,7 @@ export function JhaFillPage() {
         doc_version: docVersion,
         amended_from_id: amendedFromId,
         amendment_reason: amendmentReason || null,
-        ...(persistAs === 'completed'
+        ...(persistAs === 'completed' || persistAs === 'published'
           ? { completed_at: existingDoc?.completed_at ?? new Date().toISOString() }
           : {}),
       };

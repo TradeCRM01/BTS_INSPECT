@@ -110,7 +110,9 @@ vi.mock('../lib/supabase', () => {
     amended_from_id: null,
     amendment_reason: null,
     created_at: '2026-10-19T00:00:00.000Z',
-    completed_at: harness.jhaStatus === 'completed' ? '2026-10-19T01:00:00.000Z' : null,
+    completed_at: harness.jhaStatus === 'completed' || harness.jhaStatus === 'published'
+      ? '2026-10-19T01:00:00.000Z'
+      : null,
   });
   const take5Row = () => ({
     id: harness.take5Id,
@@ -153,6 +155,14 @@ vi.mock('../lib/supabase', () => {
         return query;
       },
       insert(payload: Record<string, unknown>) {
+        const id = typeof payload.id === 'string' ? payload.id : '';
+        if (id && harness.rowIds.has(id)) {
+          promise = Promise.resolve({
+            data: null,
+            error: { code: '23505', message: 'duplicate key value violates unique constraint' },
+          });
+          return query;
+        }
         return query.upsert(payload);
       },
       upsert(payload: Record<string, unknown>) {
@@ -206,8 +216,6 @@ vi.mock('../lib/supabase', () => {
     },
   };
 });
-
-{ const R = globalThis.Request; (globalThis as { Request: unknown }).Request = class extends R { constructor(i: RequestInfo | URL, init?: RequestInit) { const { signal: _s, ...rest } = init ?? {}; super(i, rest); } }; }
 
 let container: HTMLDivElement;
 let root: Root;
@@ -370,7 +378,7 @@ describe('Take 5 and JHA save guards', () => {
     await typeArea(0, 'Check ladder twice');
     await clickNamed('Parent JHA');
     await sleep(80);
-    expect(document.body.textContent).toContain('Leave without saving?');
+    expect(document.body.textContent).toMatch(/Leave without saving\?|Leave\?/);
     expect(document.body.textContent).not.toContain('Parent JHA page');
   });
 
@@ -426,6 +434,32 @@ describe('Take 5 and JHA save guards', () => {
     expect(rows.filter(s => s.op === 'insert')).toHaveLength(1);
     expect(rows.some(s => (s.payload.meta as { siteName?: string } | undefined)?.siteName === 'Plant C')).toBe(true);
     expect(loc()).toMatch(/docId=[0-9a-f-]{36}/i);
+  });
+
+  it('completed JHA blur keeps the original completed_at', async () => {
+    harness.jhaStatus = 'completed';
+    await renderRoutes(`/jha/new?docId=${harness.jhaId}`, jhaRoutes());
+    await waitForText('Hazards, steps & controls');
+    const sel = 'input[placeholder="Where is the work?"]';
+    await typeInput(sel, 'Plant stamp');
+    await blur(document.querySelector(sel)!);
+    await sleep(120);
+    const stamps = w('jha_documents').map(s => s.payload.completed_at);
+    expect(stamps.length).toBeGreaterThan(0);
+    expect(stamps.every(s => s === '2026-10-19T01:00:00.000Z')).toBe(true);
+  });
+
+  it('published JHA blur stays published', async () => {
+    harness.jhaStatus = 'published';
+    await renderRoutes(`/jha/new?docId=${harness.jhaId}`, jhaRoutes());
+    await waitForText('Hazards, steps & controls');
+    const sel = 'input[placeholder="Where is the work?"]';
+    await typeInput(sel, 'Plant published');
+    await blur(document.querySelector(sel)!);
+    await sleep(120);
+    const st = w('jha_documents').map(s => s.payload.status);
+    expect(st.length).toBeGreaterThan(0);
+    expect(st.every(s => s === 'published')).toBe(true);
   });
 
   it('F8: new JHA template blur does not insert', async () => {

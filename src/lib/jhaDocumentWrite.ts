@@ -22,8 +22,9 @@ export type JhaDocumentPayload = {
 export function jhaPersistStatus(
   requested: 'draft' | 'completed',
   existingStatus?: string | null,
-): 'draft' | 'completed' {
-  if (existingStatus === 'completed' || existingStatus === 'published') return 'completed';
+): 'draft' | 'completed' | 'published' {
+  if (existingStatus === 'published') return 'published';
+  if (existingStatus === 'completed') return 'completed';
   return requested;
 }
 
@@ -48,17 +49,19 @@ export function planJhaDocumentWrite(args: {
   if (!args.templateId) {
     throw new Error('Missing JHA template — go back and start from a template.');
   }
+  const row = {
+    id,
+    template_id: args.templateId,
+    template_snapshot: { name: args.templateName, schema: args.schema },
+    company_id: args.companyId,
+    created_by: args.createdBy,
+    ...args.payload,
+  };
+  assertJhaDocumentInsertColumns(row);
   return {
     op: 'insert',
     id,
-    row: {
-      id,
-      template_id: args.templateId,
-      template_snapshot: { name: args.templateName, schema: args.schema },
-      company_id: args.companyId,
-      created_by: args.createdBy,
-      ...args.payload,
-    },
+    row,
   };
 }
 
