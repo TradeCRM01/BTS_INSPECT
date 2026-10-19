@@ -266,9 +266,11 @@ describe('DateFieldInput', () => {
     expect(onChange).not.toHaveBeenCalledWith('2026-01-01');
     expect(onValidityChange).toHaveBeenCalledWith(true);
     await act(async () => {
+      input.blur();
       input.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
     });
-    expect(onChange).toHaveBeenCalledWith('2026-01-01');
+    expect(onChange).toHaveBeenCalledWith('');
+    expect(input.value).toBe('1/1/26');
 
     onChange.mockClear();
     onValidityChange.mockClear();
@@ -292,10 +294,12 @@ describe('DateFieldInput', () => {
     });
     expect(onChange).not.toHaveBeenCalledWith('2027-10-21');
     await act(async () => {
+      input.blur();
       input.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
     });
-    expect(onChange).toHaveBeenCalledWith('2027-10-21');
-    expect(onValidityChange).toHaveBeenCalledWith(false);
+    expect(onChange).not.toHaveBeenCalledWith('2027-10-21');
+    expect(input.value).toBe('21/10/27');
+    expect(onValidityChange).toHaveBeenCalledWith(true);
   });
 });
 

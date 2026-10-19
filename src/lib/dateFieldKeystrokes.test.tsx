@@ -27,6 +27,7 @@ afterEach(() => {
 
 function harness(initial: string) {
   const log: string[] = [];
+  const textLog: string[] = [];
   const vlog: boolean[] = [];
   let state = initial;
   let invalid = false;
@@ -38,6 +39,9 @@ function harness(initial: string) {
       onChange: (iso: string) => {
         log.push(iso);
         setV(iso);
+      },
+      onTextChange: (raw: string) => {
+        textLog.push(raw);
       },
       onValidityChange: (b: boolean) => {
         vlog.push(b);
@@ -69,11 +73,14 @@ function harness(initial: string) {
   };
   const blur = () => {
     act(() => {
+      input().focus();
+      input().blur();
       input().dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
     });
   };
   return {
     log,
+    textLog,
     get state() { return state; },
     get invalid() { return invalid; },
     get shown() { return input().value; },
@@ -111,16 +118,16 @@ describe('DateFieldInput keystrokes against a stateful parent', () => {
     expect(h.log).toEqual(['2026-10-21']);
   });
 
-  it('does not emit a 2-digit year until blur', () => {
+  it('does not emit a 2-digit year on blur', () => {
     const h = harness('');
     h.type('1/1/26');
     expect(h.shown).toBe('1/1/26');
     expect(h.state).toBe('');
     expect(h.invalid).toBe(true);
     h.blur();
-    expect(h.shown).toBe('01/01/2026');
-    expect(h.state).toBe('2026-01-01');
-    expect(h.invalid).toBe(false);
+    expect(h.shown).toBe('1/1/26');
+    expect(h.state).toBe('');
+    expect(h.invalid).toBe(true);
   });
 
   it('one Backspace on a prefilled date leaves the remaining text', () => {
@@ -137,9 +144,28 @@ describe('DateFieldInput keystrokes against a stateful parent', () => {
     h.replace('31/02/2026');
     h.blur();
     expect(h.shown).toBe('31/02/2026');
-    expect(h.state).toBe('2026-10-19');
+    expect(h.state).toBe('');
     expect(h.invalid).toBe(true);
     expect(container.querySelector('[role="alert"]')?.textContent).toBe(DATE_INVALID_MESSAGE);
+  });
+
+  it('blur of 21/10/20 stays invalid and does not commit 2020-10-21', () => {
+    const h = harness('');
+    h.type('21/10/20');
+    h.blur();
+    expect(h.shown).toBe('21/10/20');
+    expect(h.state).toBe('');
+    expect(h.log).toEqual([]);
+    expect(h.invalid).toBe(true);
+  });
+
+  it('blur reports the raw typed text', () => {
+    const h = harness('');
+    h.type('21/10/20');
+    h.textLog.length = 0;
+    h.blur();
+    expect(h.textLog.at(-1)).toBe('21/10/20');
+    expect(h.textLog.length).toBeGreaterThan(0);
   });
 
   it('reads 05/11/2026 as 5 November, not 11 May', () => {

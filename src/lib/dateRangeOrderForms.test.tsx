@@ -83,6 +83,26 @@ function setInput(el: HTMLInputElement, value: string) {
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+function tabOut(el: HTMLInputElement) {
+  el.focus();
+  el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+  el.blur();
+  el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+}
+
+function pressEnterSave() {
+  const btn = document.querySelector<HTMLButtonElement>('button[type="submit"]');
+  if (!btn) throw new Error('missing Save');
+  btn.focus();
+  btn.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+  btn.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+  btn.form?.requestSubmit(btn);
+}
+
+function alertsWith(text: string) {
+  return [...document.querySelectorAll('[role="alert"]')].filter(el => el.textContent === text);
+}
+
 describe('ContractForm date range', () => {
   it('does not save when the end date is before the start date', async () => {
     const onSaved = vi.fn();
@@ -252,10 +272,7 @@ describe('ContractForm next service DateFieldInput', () => {
       next!.focus();
       setInput(next!, '21/10/20');
     });
-    await act(async () => {
-      next!.blur();
-      next!.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
-    });
+    await act(async () => { tabOut(next!); });
     await act(async () => {
       document.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
     });
@@ -263,6 +280,95 @@ describe('ContractForm next service DateFieldInput', () => {
     expect(onSaved).not.toHaveBeenCalled();
     expect(document.getElementById('contract-next-service-date-error')?.textContent).toBe(DATE_INVALID_MESSAGE);
     expect(document.body.textContent).toContain(DATE_INVALID_MESSAGE);
+  });
+
+  it('Tab, Save, focus, Tab, Enter Save on 21/10/20 does not write', async () => {
+    const onSaved = await mountForm();
+    const next = document.querySelector<HTMLInputElement>('#contract-next-service-date');
+    expect(next).toBeTruthy();
+    await act(async () => {
+      next!.focus();
+      setInput(next!, '21/10/20');
+    });
+    await act(async () => { tabOut(next!); });
+    expect(next!.value).toBe('21/10/20');
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+    });
+    expect(insertContract).not.toHaveBeenCalled();
+    expect(document.getElementById('contract-next-service-date-error')?.textContent).toBe(DATE_INVALID_MESSAGE);
+    await act(async () => {
+      next!.focus();
+    });
+    await act(async () => { tabOut(next!); });
+    expect(next!.value).toBe('21/10/20');
+    await act(async () => { pressEnterSave(); });
+    expect(insertContract).not.toHaveBeenCalled();
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(document.getElementById('contract-next-service-date-error')?.textContent).toBe(DATE_INVALID_MESSAGE);
+    expect(alertsWith(DATE_INVALID_MESSAGE)).toHaveLength(1);
+  });
+
+  it('shows the next-service format error when the title is blank', async () => {
+    await act(async () => {
+      root.render(providers(
+        <ContractForm contract={null} creating={false} onClose={() => {}} onSaved={() => {}} />,
+      ));
+    });
+    await act(async () => { await Promise.resolve(); });
+    const next = document.querySelector<HTMLInputElement>('#contract-next-service-date');
+    await act(async () => {
+      if (next) setInput(next, '21/10/20');
+    });
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+    });
+    expect(insertContract).not.toHaveBeenCalled();
+    expect(document.getElementById('contract-next-service-date-error')?.textContent).toBe(DATE_INVALID_MESSAGE);
+    expect(document.getElementById('contract-title-error')?.textContent).toBe('Title is required.');
+  });
+
+  it('does not write a stored next service when the typed text is a 2-digit year', async () => {
+    const onSaved = vi.fn();
+    await act(async () => {
+      root.render(providers(
+        <ContractForm
+          contract={{
+            id: 'con-1',
+            company_id: 'co-1',
+            client_id: 'cl-1',
+            title: 'Annual service',
+            description: null,
+            contract_number: 'SC-1',
+            status: 'active',
+            start_date: '2026-01-01',
+            end_date: '2026-12-31',
+            billing_cycle: 'monthly',
+            contract_value: 0,
+            service_frequency: 'monthly',
+            next_service_date: '2026-10-21',
+            last_service_date: null,
+            auto_generate_jobs: false,
+            notes: null,
+            created_at: '2026-10-19T00:00:00.000Z',
+            updated_at: '2026-10-19T00:00:00.000Z',
+          }}
+          creating={false}
+          onClose={() => {}}
+          onSaved={onSaved}
+        />,
+      ));
+    });
+    await act(async () => { await Promise.resolve(); });
+    const next = document.querySelector<HTMLInputElement>('#contract-next-service-date');
+    await act(async () => {
+      if (next) setInput(next, '21/10/20');
+    });
+    await act(async () => { if (next) tabOut(next); });
+    await act(async () => { pressEnterSave(); });
+    expect(insertContract).not.toHaveBeenCalled();
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(document.getElementById('contract-next-service-date-error')?.textContent).toBe(DATE_INVALID_MESSAGE);
   });
 
   it('does not write when next service is blank', async () => {
@@ -289,6 +395,58 @@ describe('ContractForm next service DateFieldInput', () => {
     expect(insertContract).not.toHaveBeenCalled();
     expect(onSaved).not.toHaveBeenCalled();
     expect(document.getElementById('contract-start-date-error')?.textContent).toBe(DATE_REQUIRED_MESSAGE);
+  });
+
+  it('marks an invalid start date beside the field', async () => {
+    await mountForm();
+    const start = document.querySelector<HTMLInputElement>('#contract-start-date');
+    const next = document.querySelector<HTMLInputElement>('#contract-next-service-date');
+    await act(async () => {
+      if (start) setInput(start, '21/10/20');
+      if (next) setInput(next, '21/10/2026');
+    });
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+    });
+    expect(insertContract).not.toHaveBeenCalled();
+    expect(document.getElementById('contract-start-date-error')?.textContent).toBe(DATE_INVALID_MESSAGE);
+    expect(start?.getAttribute('aria-invalid')).toBe('true');
+    expect(start?.getAttribute('aria-describedby')).toBe('contract-start-date-error');
+    expect(alertsWith(DATE_INVALID_MESSAGE)).toHaveLength(1);
+  });
+
+  it('marks an invalid end date beside the field', async () => {
+    await mountForm();
+    const end = document.querySelector<HTMLInputElement>('#contract-end-date');
+    const next = document.querySelector<HTMLInputElement>('#contract-next-service-date');
+    await act(async () => {
+      if (end) setInput(end, '31/02/2026');
+      if (next) setInput(next, '21/10/2026');
+    });
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+    });
+    expect(insertContract).not.toHaveBeenCalled();
+    expect(document.getElementById('contract-end-date-error')?.textContent).toBe(DATE_INVALID_MESSAGE);
+    expect(end?.getAttribute('aria-invalid')).toBe('true');
+    expect(end?.getAttribute('aria-describedby')).toBe('contract-end-date-error');
+    expect(alertsWith(DATE_INVALID_MESSAGE)).toHaveLength(1);
+  });
+
+  it('marks an invalid next service date beside the field', async () => {
+    await mountForm();
+    const next = document.querySelector<HTMLInputElement>('#contract-next-service-date');
+    await act(async () => {
+      if (next) setInput(next, '21/10/20');
+    });
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+    });
+    expect(insertContract).not.toHaveBeenCalled();
+    expect(document.getElementById('contract-next-service-date-error')?.textContent).toBe(DATE_INVALID_MESSAGE);
+    expect(next?.getAttribute('aria-invalid')).toBe('true');
+    expect(next?.getAttribute('aria-describedby')).toBe('contract-next-service-date-error');
+    expect(alertsWith(DATE_INVALID_MESSAGE)).toHaveLength(1);
   });
 
   it('shows the title error beside the title field', async () => {
@@ -362,6 +520,76 @@ describe('ComplianceForm dates', () => {
     });
     expect(document.body.textContent).toContain(DATE_INVALID_MESSAGE);
     expect(insertContract).not.toHaveBeenCalled();
+  });
+
+  it('marks first due and last completed invalid with one inline alert each', async () => {
+    await act(async () => {
+      root.render(providers(
+        <ComplianceForm item={null} onClose={() => {}} onSaved={() => {}} />,
+      ));
+    });
+    await fillComplianceBasics();
+    const first = document.querySelector<HTMLInputElement>('#compliance-first-due-date');
+    await act(async () => {
+      if (first) setInput(first, '21/10/20');
+    });
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+    });
+    expect(insertContract).not.toHaveBeenCalled();
+    expect(document.getElementById('compliance-first-due-date-error')?.textContent).toBe(DATE_INVALID_MESSAGE);
+    expect(first?.getAttribute('aria-invalid')).toBe('true');
+    expect(first?.getAttribute('aria-describedby')).toBe('compliance-first-due-date-error');
+    expect(alertsWith(DATE_INVALID_MESSAGE)).toHaveLength(1);
+  });
+
+  it('marks last completed invalid beside the field', async () => {
+    await act(async () => {
+      root.render(providers(
+        <ComplianceForm item={null} onClose={() => {}} onSaved={() => {}} />,
+      ));
+    });
+    await fillComplianceBasics();
+    const first = document.querySelector<HTMLInputElement>('#compliance-first-due-date');
+    const last = document.querySelector<HTMLInputElement>('#compliance-last-completed-date');
+    await act(async () => {
+      if (first) setInput(first, '21/10/2026');
+      if (last) setInput(last, '31/02/2026');
+    });
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+    });
+    expect(insertContract).not.toHaveBeenCalled();
+    expect(document.getElementById('compliance-last-completed-date-error')?.textContent).toBe(DATE_INVALID_MESSAGE);
+    expect(last?.getAttribute('aria-invalid')).toBe('true');
+    expect(last?.getAttribute('aria-describedby')).toBe('compliance-last-completed-date-error');
+    expect(alertsWith(DATE_INVALID_MESSAGE)).toHaveLength(1);
+  });
+
+  it('shows one required alert for a blank first due date', async () => {
+    await act(async () => {
+      root.render(providers(
+        <ComplianceForm item={null} onClose={() => {}} onSaved={() => {}} />,
+      ));
+    });
+    await fillComplianceBasics();
+    const first = document.querySelector<HTMLInputElement>('#compliance-first-due-date');
+    await act(async () => {
+      if (first) setInput(first, '');
+    });
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+    });
+    expect(document.getElementById('compliance-first-due-date-error')?.textContent).toBe(DATE_REQUIRED_MESSAGE);
+    expect(alertsWith(DATE_REQUIRED_MESSAGE)).toHaveLength(1);
+    expect(alertsWith(DATE_INVALID_MESSAGE)).toHaveLength(0);
+    expect(first?.getAttribute('aria-describedby')).toBe('compliance-first-due-date-error');
+    await act(async () => {
+      if (first) setInput(first, '21/10/20');
+    });
+    expect(document.getElementById('compliance-first-due-date-error')?.textContent).toBe(DATE_REQUIRED_MESSAGE);
+    expect(alertsWith(DATE_REQUIRED_MESSAGE)).toHaveLength(1);
+    expect(alertsWith(DATE_INVALID_MESSAGE)).toHaveLength(0);
   });
 
   it('blocks an invalid last completed date', async () => {
