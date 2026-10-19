@@ -59,6 +59,8 @@ export function isDevFieldAuditAuth(): boolean {
       || params.get('look') === 'sms-settings'
       || params.get('look') === 'sms-settings-invalid'
       || params.get('look') === 'hotfix-date-bad'
+      || params.get('look') === 'ai-settings'
+      || params.get('look') === 'ai-console'
       || params.get('look') === 'drive-error'
       || window.location.pathname === '/__field-audit'
     ) {

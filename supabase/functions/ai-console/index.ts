@@ -1,13 +1,24 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
-  aiSettingsAdminToolsEnabled,
+  RELATED_TYPE_REQUIRED_ERROR,
+  ANTHROPIC_UNAVAILABLE,
+  MAX_CHAT_BODY_CHARS,
+  MAX_CHAT_TURNS,
+  acceptClientUserMessages,
+  anthropicSseChunkIsError,
+  canUseOperatorAiRoutes,
   fetchCompanyDashboardSummary,
   inspectorIdsFromProfiles,
+  lookupPlatformOperator,
+  refuseToolIfUnauthorized,
+  relatedKindFromType,
   rejectIfForeignOwned,
+  toolsAllowedForCaller,
   type CompanyOwnedRowClient,
   type DashboardSummaryClient,
 } from "./aiConsoleAdmin.ts";
+import { DUE_DATE_INVALID_ERROR, isAcceptableDueDate } from "../_shared/safeDate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,17 +29,16 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-async function getAiSettings(companyId: string): Promise<{ apiKey: string; model: string; adminToolsEnabled: boolean }> {
+async function getAiSettings(companyId: string): Promise<{ apiKey: string; model: string }> {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   const { data } = await supabase
     .from("ai_settings")
-    .select("anthropic_api_key, model, admin_tools_enabled")
+    .select("anthropic_api_key, model")
     .eq("company_id", companyId)
     .maybeSingle();
   return {
     apiKey: data?.anthropic_api_key ?? Deno.env.get("ANTHROPIC_API_KEY") ?? "",
     model: data?.model ?? "claude-opus-4-7",
-    adminToolsEnabled: aiSettingsAdminToolsEnabled(data),
   };
 }
 
@@ -46,11 +56,11 @@ Key features you can explain:
 - Understanding job linking (grouping multiple inspections under a job)
 - Profile and company settings
 
-Be helpful, concise, and friendly. If a user asks you to make a change to the system, politely explain that only admins have access to that capability. Keep answers focused on how to use Grafter.`;
+Be helpful, concise, and friendly. If a user asks you to make a change to the system, politely explain that this assistant cannot change records. Keep answers focused on how to use Grafter.`;
 
 const ADMIN_SYSTEM_PROMPT = `You are an expert AI console embedded inside Grafter — a field inspection and reporting platform.
 
-You have a small set of company-scoped tools (company context, dashboard summary, jobs, reminders, compliance items, and optional web search). Only use them when the user is asking about specific data or requesting a change — NOT for general how-to questions about the app. If someone asks "how do I do X", answer from your knowledge without touching tools.
+You have a small set of company-scoped tools (company context, dashboard summary, jobs, reminders, compliance items, and optional web search). Writes stay inside this company. Only use tools when the user is asking about specific data or requesting a change — NOT for general how-to questions about the app. If someone asks "how do I do X", answer from your knowledge without touching tools.
 
 Do not invent SQL access or send email. Those tools are not available.
 
@@ -183,7 +193,12 @@ const ADMIN_TOOLS = [
 
 // ── Auth helpers ──────────────────────────────────────────────────────────────
 
-async function getUser(authHeader: string): Promise<{ userId: string; companyId: string; role: string } | null> {
+async function getUser(authHeader: string): Promise<{
+  userId: string;
+  companyId: string;
+  role: string;
+  isOperator: boolean;
+} | null> {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const token = authHeader.replace("Bearer ", "");
@@ -195,7 +210,8 @@ async function getUser(authHeader: string): Promise<{ userId: string; companyId:
       .eq("id", user.id)
       .maybeSingle();
     if (!profile) return null;
-    return { userId: user.id, companyId: profile.company_id, role: profile.role };
+    const isOperator = await lookupPlatformOperator(supabase, user.id);
+    return { userId: user.id, companyId: profile.company_id, role: profile.role, isOperator };
   } catch {
     return null;
   }
@@ -203,12 +219,16 @@ async function getUser(authHeader: string): Promise<{ userId: string; companyId:
 
 // ── Tool execution ────────────────────────────────────────────────────────────
 
-async function executeTool(
+export async function executeTool(
   toolName: string,
   toolInput: Record<string, string>,
   companyId: string,
   userId: string,
+  isOperator: boolean,
 ): Promise<string> {
+  const denied = refuseToolIfUnauthorized(toolName, isOperator);
+  if (denied) return denied;
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   try {
@@ -233,7 +253,7 @@ async function executeTool(
     if (toolName === "get_company_context") {
       const [companyRes, profilesRes, templatesRes] = await Promise.all([
         supabase.from("companies").select("*").eq("id", companyId).maybeSingle(),
-        supabase.from("profiles").select("id, name, email, role").eq("company_id", companyId),
+        supabase.from("profiles").select("id, name, role").eq("company_id", companyId),
         supabase.from("templates").select("id, name, archived").eq("company_id", companyId),
       ]);
       const inspectorIds = inspectorIdsFromProfiles(profilesRes.data);
@@ -291,17 +311,22 @@ async function executeTool(
       if (!title) return "Error: title is required for a reminder.";
       const relatedType = String(toolInput.related_type ?? "").trim();
       const relatedId = String(toolInput.related_id ?? "").trim();
-      if (relatedId && (relatedType === "client" || relatedType === "job")) {
+      if (relatedId) {
+        const kind = relatedKindFromType(relatedType);
+        if (!kind) return RELATED_TYPE_REQUIRED_ERROR;
         const foreign = await rejectIfForeignOwned(
           supabase as unknown as CompanyOwnedRowClient,
-          relatedType,
+          kind,
           relatedId,
           companyId,
         );
         if (foreign) return foreign;
       }
       const insert: Record<string, unknown> = { company_id: companyId, user_id: userId, title };
-      if (toolInput.due_date) insert.due_date = toolInput.due_date;
+      if (toolInput.due_date) {
+        if (!isAcceptableDueDate(String(toolInput.due_date))) return DUE_DATE_INVALID_ERROR;
+        insert.due_date = toolInput.due_date;
+      }
       if (toolInput.related_type) insert.related_type = toolInput.related_type;
       if (toolInput.related_id) insert.related_id = toolInput.related_id;
       const { data, error } = await supabase.from("agent_reminders").insert(insert).select("id").single();
@@ -318,6 +343,7 @@ async function executeTool(
       const title = String(toolInput.title ?? "").trim();
       const firstDue = String(toolInput.first_due_date ?? "").trim();
       if (!clientId || !title || !firstDue) return "Error: client_id, title, and first_due_date are required.";
+      if (!isAcceptableDueDate(firstDue)) return DUE_DATE_INVALID_ERROR;
       const foreign = await rejectIfForeignOwned(
         supabase as unknown as CompanyOwnedRowClient,
         "client",
@@ -375,16 +401,20 @@ async function executeTool(
 async function streamChat(
   messages: Array<{ role: string; content: string | unknown[] }>,
   isAdmin: boolean,
+  isOperator: boolean,
   companyId: string,
   userId: string,
   onChunk: (bytes: Uint8Array) => void,
-  aiSettings: { apiKey: string; model: string; adminToolsEnabled: boolean },
+  aiSettings: { apiKey: string; model: string },
 ): Promise<string> {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
 
-  const systemPrompt = isAdmin ? ADMIN_SYSTEM_PROMPT : HELP_SYSTEM_PROMPT;
-  const tools = (isAdmin && aiSettings.adminToolsEnabled) ? ADMIN_TOOLS : undefined;
+  const systemPrompt = isOperator ? ADMIN_SYSTEM_PROMPT : HELP_SYSTEM_PROMPT;
+  const allowed = toolsAllowedForCaller(isOperator, isAdmin);
+  const tools = allowed.length
+    ? ADMIN_TOOLS.filter((tool) => allowed.includes(tool.name))
+    : undefined;
 
   let fullText = "";
   let currentMessages = [...messages];
@@ -414,8 +444,8 @@ async function streamChat(
     });
 
     if (!anthropicRes.ok) {
-      const errText = await anthropicRes.text();
-      throw new Error(errText);
+      await anthropicRes.text().catch(() => "");
+      throw new Error(ANTHROPIC_UNAVAILABLE);
     }
 
     // Parse the full streamed response to detect tool calls
@@ -431,10 +461,14 @@ async function streamChat(
       const { done, value } = await reader.read();
       if (done) break;
 
-      // Stream SSE bytes through to the client
+      const text = decoder.decode(value, { stream: true });
+      if (anthropicSseChunkIsError(text)) {
+        console.error("anthropic stream error", text);
+        throw new Error(ANTHROPIC_UNAVAILABLE);
+      }
       onChunk(value);
 
-      buffer += decoder.decode(value, { stream: true });
+      buffer += text;
       const lines = buffer.split("\n");
       buffer = lines.pop() ?? "";
 
@@ -495,7 +529,7 @@ async function streamChat(
       })}\n\n`));
       fullText += toolMsg;
 
-      const result = await executeTool(tu.name, parsedInput, companyId, userId);
+      const result = await executeTool(tu.name, parsedInput, companyId, userId, isOperator);
 
       toolResults.push({
         type: "tool_result",
@@ -563,6 +597,19 @@ Deno.serve(async (req: Request) => {
     const url = new URL(req.url);
     const path = url.pathname.replace(/^\/ai-console\/?/, "");
     const isAdmin = userCtx.role === "admin";
+    const isOperator = userCtx.isOperator;
+
+    if (
+      (req.method === "POST" && (!path || path === "chat"))
+      || (req.method === "GET" && path === "actions")
+    ) {
+      if (!canUseOperatorAiRoutes(isOperator)) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     // Load AI settings from DB (falls back to env var for backwards compat)
     const aiSettings = await getAiSettings(userCtx.companyId);
@@ -638,14 +685,40 @@ Deno.serve(async (req: Request) => {
 
     // ── POST /chat ────────────────────────────────────────────────────────────
     if (req.method === "POST" && (!path || path === "chat")) {
-      const body = await req.json();
-      const { messages, sessionId } = body as {
-        messages: Array<{ role: string; content: string }>;
-        sessionId?: string;
-      };
-
-      if (!Array.isArray(messages) || messages.length === 0) {
+      const raw = await req.text();
+      if (raw.length > MAX_CHAT_BODY_CHARS) {
+        return new Response(JSON.stringify({ error: "Request too large" }), {
+          status: 413,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
         return new Response(JSON.stringify({ error: "messages required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return new Response(JSON.stringify({ error: "messages required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const body = parsed as { messages?: unknown; sessionId?: string };
+      const messages = acceptClientUserMessages(body.messages);
+      const sessionId = body.sessionId;
+
+      if (messages.length === 0) {
+        return new Response(JSON.stringify({ error: "messages required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (messages.length > MAX_CHAT_TURNS) {
+        return new Response(JSON.stringify({ error: "Too many turns" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -660,16 +733,16 @@ Deno.serve(async (req: Request) => {
             fullText = await streamChat(
               messages,
               isAdmin,
+              isOperator,
               userCtx.companyId,
               userCtx.userId,
               (chunk) => controller.enqueue(chunk),
               aiSettings,
             );
-          } catch (err) {
-            const errMsg = err instanceof Error ? err.message : "Unknown error";
+          } catch {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({
               type: "content_block_delta",
-              delta: { type: "text_delta", text: `\n\nError: ${errMsg}` },
+              delta: { type: "text_delta", text: `\n\nError: ${ANTHROPIC_UNAVAILABLE}` },
             })}\n\n`));
           } finally {
             controller.close();
@@ -722,9 +795,9 @@ Deno.serve(async (req: Request) => {
       status: 404,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err) {
+  } catch {
     return new Response(
-      JSON.stringify({ error: err instanceof Error ? err.message : "Internal error" }),
+      JSON.stringify({ error: "Internal error" }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

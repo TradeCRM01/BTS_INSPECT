@@ -386,7 +386,7 @@ export function AppShell({ children }: AppShellProps) {
                       className="shell-menu-item">
                       <ListChecks size={15} className="text-white/45" /> Managed Lists
                     </Link>
-                    {companyAiKey && (
+                    {isPlatformOperator && companyAiKey && (
                       <Link to="/assistant" onClick={() => setAvatarOpen(false)}
                         className="shell-menu-item">
                         <Sparkles size={15} className="text-white/45" /> AI Assistant
@@ -408,11 +408,13 @@ export function AppShell({ children }: AppShellProps) {
                           className="shell-menu-item">
                           <Building2 size={15} className="text-white/45" /> Accounting
                         </Link>
-                        <Link to="/settings/ai" onClick={() => setAvatarOpen(false)}
-                          className="shell-menu-item">
-                          <BrainCircuit size={15} className="text-white/45" /> AI Settings
-                        </Link>
-                        {companyAiKey && (
+                        {isPlatformOperator && (
+                          <Link to="/settings/ai" onClick={() => setAvatarOpen(false)}
+                            className="shell-menu-item">
+                            <BrainCircuit size={15} className="text-white/45" /> AI Settings
+                          </Link>
+                        )}
+                        {isPlatformOperator && companyAiKey && (
                           <Link to="/ai-console" onClick={() => setAvatarOpen(false)}
                             className="shell-menu-item">
                             <Sparkles size={15} className="text-white/45" /> AI Console
@@ -501,7 +503,7 @@ export function AppShell({ children }: AppShellProps) {
             <Link to="/settings/lists" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
               <ListChecks size={16} /> Managed Lists
             </Link>
-            {companyAiKey && (
+            {isPlatformOperator && companyAiKey && (
               <Link to="/assistant" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
                 <Sparkles size={16} /> AI Assistant
               </Link>
@@ -517,10 +519,12 @@ export function AppShell({ children }: AppShellProps) {
                 <Link to="/settings/accounting" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
                   <Building2 size={16} /> Accounting
                 </Link>
-                <Link to="/settings/ai" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
-                  <BrainCircuit size={16} /> AI Settings
-                </Link>
-                {companyAiKey && (
+                {isPlatformOperator && (
+                  <Link to="/settings/ai" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
+                    <BrainCircuit size={16} /> AI Settings
+                  </Link>
+                )}
+                {isPlatformOperator && companyAiKey && (
                   <Link to="/ai-console" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/80 font-medium">
                     <Sparkles size={16} /> AI Console
                   </Link>

@@ -2,12 +2,16 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  RELATED_TYPE_REQUIRED_ERROR,
   aiSettingsAdminToolsEnabled,
   CROSS_COMPANY_CLIENT_ERROR,
+  CROSS_COMPANY_COMPLIANCE_ERROR,
+  CROSS_COMPANY_INVOICE_ERROR,
   CROSS_COMPANY_JOB_ERROR,
   DASHBOARD_COMPANY_ID_TABLES,
   DASHBOARD_SUMMARY_TABLES,
   fetchCompanyDashboardSummary,
+  relatedKindFromType,
   rejectIfForeignOwned,
   type CompanyOwnedRowClient,
   type DashboardQuery,
@@ -228,7 +232,7 @@ describe('fetchCompanyDashboardSummary', () => {
 });
 
 describe('rejectIfForeignOwned', () => {
-  it('rejects a company-B client or job id for company A', async () => {
+  it('rejects a company-B id for every reminder type', async () => {
     const client = makeOwnedStub({
       clients: [
         { id: 'client-a', company_id: 'company-a' },
@@ -238,14 +242,48 @@ describe('rejectIfForeignOwned', () => {
         { id: 'job-a', company_id: 'company-a' },
         { id: 'job-b', company_id: 'company-b' },
       ],
+      invoices: [
+        { id: 'inv-a', company_id: 'company-a' },
+        { id: 'inv-b', company_id: 'company-b' },
+      ],
+      compliance_items: [
+        { id: 'comp-a', company_id: 'company-a' },
+        { id: 'comp-b', company_id: 'company-b' },
+      ],
     });
 
     expect(await rejectIfForeignOwned(client, 'client', 'client-b', 'company-a'))
       .toBe(CROSS_COMPANY_CLIENT_ERROR);
     expect(await rejectIfForeignOwned(client, 'job', 'job-b', 'company-a'))
       .toBe(CROSS_COMPANY_JOB_ERROR);
+    expect(await rejectIfForeignOwned(client, 'invoice', 'inv-b', 'company-a'))
+      .toBe(CROSS_COMPANY_INVOICE_ERROR);
+    expect(await rejectIfForeignOwned(client, 'compliance', 'comp-b', 'company-a'))
+      .toBe(CROSS_COMPANY_COMPLIANCE_ERROR);
     expect(await rejectIfForeignOwned(client, 'client', 'client-a', 'company-a')).toBe(null);
     expect(await rejectIfForeignOwned(client, 'job', 'job-a', 'company-a')).toBe(null);
+    expect(await rejectIfForeignOwned(client, 'invoice', 'inv-a', 'company-a')).toBe(null);
+    expect(await rejectIfForeignOwned(client, 'compliance', 'comp-a', 'company-a')).toBe(null);
+  });
+
+  it('mutant: drop the company scope and this test fails', async () => {
+    const client = makeOwnedStub({
+      invoices: [{ id: 'inv-b', company_id: 'company-b' }],
+      compliance_items: [{ id: 'comp-b', company_id: 'company-b' }],
+    });
+    expect(await rejectIfForeignOwned(client, 'invoice', 'inv-b', 'company-a'))
+      .toBe(CROSS_COMPANY_INVOICE_ERROR);
+    expect(await rejectIfForeignOwned(client, 'compliance', 'comp-b', 'company-a'))
+      .toBe(CROSS_COMPANY_COMPLIANCE_ERROR);
+    const edge = src('supabase/functions/ai-console/index.ts');
+    const helper = src('supabase/functions/ai-console/aiConsoleAdmin.ts');
+    expect(helper).toContain('.eq("company_id", companyId)');
+    expect(helper).toContain('RELATED_KIND_TABLE[kind]');
+    expect(edge).toContain('relatedKindFromType(relatedType)');
+    expect(edge).not.toMatch(/relatedType === "client" \|\| relatedType === "job"/);
+    expect(relatedKindFromType('invoice')).toBe('invoice');
+    expect(relatedKindFromType('')).toBe(null);
+    expect(RELATED_TYPE_REQUIRED_ERROR).toContain('related_type');
   });
 });
 
@@ -266,7 +304,11 @@ describe('SEC-2 ai-console surface', () => {
     expect(edge).not.toContain('admin_query');
     expect(edge).not.toContain('admin_execute');
     expect(edge).not.toContain('api.resend.com');
-    expect(edge).toContain('aiSettingsAdminToolsEnabled(data)');
+    expect(edge).toContain('toolsAllowedForCaller(isOperator, isAdmin)');
+    expect(edge).toContain('refuseToolIfUnauthorized(toolName, isOperator)');
+    expect(edge).toContain('lookupPlatformOperator');
+    expect(edge).toContain('acceptClientUserMessages');
+    expect(edge).toContain('canUseOperatorAiRoutes(isOperator)');
     expect(edge).toContain('fetchCompanyDashboardSummary');
     expect(edge).toContain('Do not invent SQL access or send email');
     expect(edge).not.toContain('database tools');

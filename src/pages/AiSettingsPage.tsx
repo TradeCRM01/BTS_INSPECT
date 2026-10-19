@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
 import { useAuth } from '../contexts/AuthContext';
 import { StorageAnalytics } from '../components/admin/StorageAnalytics';
 import {
-  Key, Check, AlertCircle, Eye, EyeOff, Cpu, Wrench,
+  Key, Check, AlertCircle, Eye, EyeOff, Cpu,
   CheckCircle2, XCircle, Loader2, Save,
 } from 'lucide-react';
 import { postAiSettings, fetchAiSettings } from '../lib/aiSettingsClient';
@@ -18,14 +17,11 @@ const MODELS = [
 type TestState = 'idle' | 'testing' | 'ok' | 'fail';
 
 export function AiSettingsPage() {
-  const { profile } = useAuth();
-  const isAdmin = profile?.role === 'admin';
+  const { isPlatformOperator } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [keySet, setKeySet] = useState(false);
-  const [maskedKey, setMaskedKey] = useState('');
   const [model, setModel] = useState('claude-opus-4-7');
-  const [adminToolsEnabled, setAdminToolsEnabled] = useState(true);
 
   // Key input state
   const [editingKey, setEditingKey] = useState(false);
@@ -40,17 +36,26 @@ export function AiSettingsPage() {
   const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isPlatformOperator) return;
     fetchAiSettings().then(data => {
       setKeySet(data.keySet ?? false);
-      setMaskedKey(data.maskedKey ?? '');
       setModel(data.model ?? 'claude-opus-4-7');
-      setAdminToolsEnabled(data.adminToolsEnabled ?? true);
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, [isAdmin]);
+  }, [isPlatformOperator]);
 
-  if (!isAdmin) return <Navigate to="/" replace />;
+  if (!isPlatformOperator) {
+    return (
+      <AppShell>
+        <div className="page-shell-narrow" data-ai-settings="coming-soon">
+          <h1 className="text-xl font-semibold text-[#1A1A1A] mb-1">Coming soon</h1>
+          <p className="text-sm text-[#4A5568]">
+            AI settings are not available on this workspace.
+          </p>
+        </div>
+      </AppShell>
+    );
+  }
 
   async function handleTestKey() {
     const key = newKey.trim();
@@ -79,7 +84,6 @@ export function AiSettingsPage() {
     const res = await postAiSettings({ anthropic_api_key: key });
     if (res.ok) {
       setKeySet(true);
-      setMaskedKey(`sk-ant-${'•'.repeat(20)}${key.slice(-4)}`);
       setEditingKey(false);
       setNewKey('');
       setTestState('idle');
@@ -94,7 +98,7 @@ export function AiSettingsPage() {
   async function handleSaveSettings() {
     setSaving(true);
     setSaveError('');
-    const res = await postAiSettings({ model, admin_tools_enabled: adminToolsEnabled });
+    const res = await postAiSettings({ model });
     if (res.ok) {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -106,10 +110,10 @@ export function AiSettingsPage() {
 
   return (
     <AppShell>
-      <div className="page-shell-narrow">
+      <div className="page-shell-narrow" data-ai-settings="1">
         <h1 className="text-xl font-semibold text-[#1A1A1A] mb-1">AI Settings</h1>
         <p className="text-sm text-[#4A5568] mb-6">
-          Configure the AI engine used by the AI Console and Help Assistant.
+          The assistant can look up this company and can create jobs, reminders, and compliance items.
         </p>
 
         {loading ? (
@@ -126,7 +130,7 @@ export function AiSettingsPage() {
                 <h2 className="text-sm font-semibold text-[#1A1A1A]">Anthropic API Key</h2>
               </div>
               <p className="text-xs text-[#4A5568] mb-4">
-                Required for both the AI Console and AI Help Assistant.
+                Required for the assistant.
                 Get your key at{' '}
                 <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer"
                   className="text-[#2E75B6] hover:underline">
@@ -140,7 +144,7 @@ export function AiSettingsPage() {
                     {keySet ? (
                       <>
                         <CheckCircle2 size={15} className="text-green-600 shrink-0" />
-                        <span className="text-sm font-mono text-[#1A1A1A]">{maskedKey}</span>
+                        <span className="text-sm text-[#1A1A1A]">API key is set</span>
                       </>
                     ) : (
                       <>
@@ -225,7 +229,7 @@ export function AiSettingsPage() {
                 <h2 className="text-sm font-semibold text-[#1A1A1A]">Model</h2>
               </div>
               <p className="text-xs text-[#4A5568] mb-4">
-                Choose the Claude model used for both the AI Console and AI Help Assistant.
+                Choose the Claude model used by the assistant.
               </p>
               <div className="space-y-2">
                 {MODELS.map(m => (
@@ -252,33 +256,6 @@ export function AiSettingsPage() {
                   </label>
                 ))}
               </div>
-            </div>
-
-            {/* Admin Tools */}
-            <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm p-6">
-              <div className="flex items-center gap-2 mb-1">
-                <Wrench size={16} className="text-[#2E75B6]" />
-                <h2 className="text-sm font-semibold text-[#1A1A1A]">Admin Console Tools</h2>
-              </div>
-              <p className="text-xs text-[#4A5568] mb-4">
-                Allow the AI Console to query and modify the database directly. Disable this
-                to restrict the console to read-only responses.
-              </p>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <div
-                  onClick={() => setAdminToolsEnabled(v => !v)}
-                  className={`relative w-9 h-5 rounded-full transition-colors ${
-                    adminToolsEnabled ? 'bg-[#2E75B6]' : 'bg-[#D1D5DB]'
-                  }`}
-                >
-                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                    adminToolsEnabled ? 'translate-x-4' : 'translate-x-0.5'
-                  }`} />
-                </div>
-                <span className="text-sm text-[#1A1A1A]">
-                  {adminToolsEnabled ? 'Enabled — AI can query and modify data' : 'Disabled — AI Console is read-only'}
-                </span>
-              </label>
             </div>
 
             {/* Save settings */}
