@@ -30,10 +30,7 @@ afterEach(() => {
 
 describe('router errorElement', () => {
   it('E1: a throwing route renders the app crash screen from grafterRootRoute', async () => {
-    const route = grafterRootRoute(<Boom />);
-    const router = createMemoryRouter([
-      { ...route, path: '/' },
-    ], { initialEntries: ['/'] });
+    const router = createMemoryRouter([grafterRootRoute(<Boom />)], { initialEntries: ['/boom'] });
 
     await act(async () => {
       root.render(<RouterProvider router={router} />);

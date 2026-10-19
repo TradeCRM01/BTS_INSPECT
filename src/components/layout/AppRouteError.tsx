@@ -4,9 +4,8 @@ import { AppCrashScreen } from './AppCrashScreen';
 
 export function grafterRootRoute(element: ReactNode) {
   return {
-    path: '*',
     errorElement: <AppRouteError />,
-    element,
+    children: [{ path: '*', element }],
   };
 }
 

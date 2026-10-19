@@ -129,18 +129,6 @@ export function TemplateEditorPage() {
     }
   }, [existingTemplate]);
 
-  // Autosave: debounce 2s after any change, only for already-persisted templates
-  useEffect(() => {
-    if (saveState !== 'unsaved' || !templateId) return;
-    if (getAuditTemplate(templateId)) return;
-    clearTimeout(autoSaveRef.current);
-    autoSaveRef.current = setTimeout(() => {
-      saveMutation.mutate();
-    }, 2000);
-    return () => clearTimeout(autoSaveRef.current);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema, templateName, renderer, saveState, templateId]);
-
   const allowLeaveRef = useRef(false);
 
   const deleteMutation = useMutation({
@@ -210,6 +198,18 @@ export function TemplateEditorPage() {
       setValidationErrors(prev => prev.length > 0 ? prev : [msg]);
     },
   });
+
+  const persistTemplate = saveMutation.mutate;
+
+  useEffect(() => {
+    if (saveState !== 'unsaved' || !templateId) return;
+    if (getAuditTemplate(templateId)) return;
+    clearTimeout(autoSaveRef.current);
+    autoSaveRef.current = setTimeout(() => {
+      persistTemplate();
+    }, 2000);
+    return () => clearTimeout(autoSaveRef.current);
+  }, [schema, templateName, renderer, saveState, templateId, persistTemplate]);
 
   const unsaved = useUnsavedChangesGuard({
     status: saveState,
@@ -515,7 +515,6 @@ export function TemplateEditorPage() {
             ))}
           </select>
 
-          {/* Save indicator */}
           <div className="hidden md:flex items-center gap-1.5 text-xs text-[#4A5568] shrink-0">
             {isLoading && <><LoadingSpinner size="sm" /> Loading...</>}
             {!isLoading && (
