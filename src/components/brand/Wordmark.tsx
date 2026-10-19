@@ -21,7 +21,7 @@ export function Wordmark(props: {
 }) {
   const size = props.size ?? 'header';
   const tone = props.tone ?? (size === 'header' ? 'onDark' : 'ink');
-  const cls = ['font-semibold', WORDMARK_SIZE[size], WORDMARK_TONE[tone], props.className]
+  const cls = ['font-semibold', 'uppercase', 'tracking-[0.16em]', WORDMARK_SIZE[size], WORDMARK_TONE[tone], props.className]
     .filter(Boolean)
     .join(' ');
   return (
@@ -29,7 +29,8 @@ export function Wordmark(props: {
       className={cls}
       data-grafter-wordmark={size}
       data-grafter-tone={tone}
-      style={{ fontFamily: 'var(--g-font-sans)', fontWeight: 600, letterSpacing: '-0.02em' }}
+      aria-label={BRAND_NAME}
+      style={{ fontFamily: 'var(--g-font-sans)', fontWeight: 600 }}
     >
       {BRAND_NAME}
     </span>

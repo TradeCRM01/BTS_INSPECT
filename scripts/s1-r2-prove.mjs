@@ -16,7 +16,7 @@ mkdirSync(OUT, { recursive: true });
 
 const PAGES = [
   { page: 'header', path: `/jobs?auditAuth=1&look=jobs-list&auditName=${encodeURIComponent(LONG_NAME)}`, wait: '.shell-header', states: ['view'] },
-  { page: 'jobs', path: `/jobs?auditAuth=1&look=jobs-list&auditName=${encodeURIComponent(LONG_NAME)}`, wait: '.hub-jobs-list-doc, .shell-header', states: ['view', 'edit'] },
+  { page: 'jobs', path: `/jobs?auditAuth=1&look=jobs-list&auditName=${encodeURIComponent(LONG_NAME)}`, wait: '.hub-jobs-list-doc .hub-jobs-row', states: ['view', 'edit'] },
   { page: 'signin', path: '/login', wait: '[data-grafter-lockup], .hub-auth-nav', states: ['view'] },
   { page: 'quotes', path: `/quotes?auditAuth=1&look=letterhead&auditName=${encodeURIComponent(LONG_NAME)}`, wait: '.hub-quote-sheet, .shell-header, .hub-quote-letterhead', states: ['view', 'edit'] },
 ];

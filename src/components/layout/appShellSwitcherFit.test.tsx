@@ -78,10 +78,14 @@ describe('AppShell desktop switcher fits the header row', () => {
     expect(name?.className).not.toMatch(/max-w-\[6rem\]/);
     expect(name?.className).not.toMatch(/\btruncate\b/);
     expect(name?.className).not.toMatch(/min-w-0/);
-    expect(name?.className).toMatch(/hidden lg:block/);
+    expect(name?.className).toMatch(/hidden lg:line-clamp-2/);
     expect(name?.className).toMatch(/max-w-\[7\.5rem\]/);
-    expect(name?.className).toMatch(/\bwhitespace-normal\b/);
-    expect(name?.className).toMatch(/\bleading-none\b/);
+    expect(name?.className).toMatch(/lg:line-clamp-2/);
+    expect(name?.className).toMatch(/\bleading-4\b/);
+    expect(name?.className).toMatch(/\bbreak-words\b/);
+    expect(name?.className).not.toMatch(/\bwhitespace-normal\b/);
+    expect(name?.className).not.toMatch(/\bleading-none\b/);
+    expect(name?.className).not.toMatch(/\blg:block\b/);
     expect(name?.className).toMatch(/\btext-left\b/);
     const btn = name?.closest('button');
     expect(btn?.getAttribute('title')).toBe(LONG_NAME);

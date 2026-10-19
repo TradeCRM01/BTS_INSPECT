@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BRAND_NAME } from './src/lib/brand';
+import { applyBrandHtml, brandManifestFields } from './src/lib/brand';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 
@@ -30,7 +30,7 @@ export default defineConfig({
     {
       name: 'brand-html',
       transformIndexHtml(html) {
-        return html.replaceAll('%BRAND_NAME%', BRAND_NAME);
+        return applyBrandHtml(html);
       },
     },
     VitePWA({
@@ -49,8 +49,7 @@ export default defineConfig({
         'fonts/OFL.txt',
       ],
       manifest: {
-        name: BRAND_NAME,
-        short_name: BRAND_NAME,
+        ...brandManifestFields(),
         description: 'Field inspection and reporting platform',
         theme_color: '#0A0A0B',
         background_color: '#F5F5F7',

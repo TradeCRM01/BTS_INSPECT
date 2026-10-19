@@ -1,6 +1,9 @@
 import { MITRE_PATH, MITRE_VIEWBOX } from './grafterMark';
 
-export function BrandMark(props: { size?: number; className?: string; title?: string }) {
+export const BRAND_MARK_SIZES = [16, 24, 32, 48] as const;
+export type BrandMarkSize = (typeof BRAND_MARK_SIZES)[number];
+
+export function BrandMark(props: { size?: BrandMarkSize; className?: string; title?: string }) {
   const size = props.size ?? 24;
   const a11y = props.title
     ? { role: 'img' as const, 'aria-label': props.title }

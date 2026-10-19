@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { BRAND_NAME } from './brand';
 import {
   GRAFTER_PUBLIC_ORIGIN,
   PUBLIC_SEO,
@@ -71,7 +72,7 @@ function createFakeDocument(initialTitle = 'Grafter'): {
 
 describe('public SEO copy', () => {
   it('names Grafter in AU trade-job-software wording', () => {
-    expect(PUBLIC_SEO.landing.title).toContain('Grafter');
+    expect(PUBLIC_SEO.landing.title).toContain(BRAND_NAME);
     expect(PUBLIC_SEO.landing.title).not.toMatch(/electrical/i);
     expect(PUBLIC_SEO.landing.description).not.toMatch(/electrical/i);
     expect(PUBLIC_SEO.landing.title).toMatch(/trade job software/i);
@@ -79,7 +80,7 @@ describe('public SEO copy', () => {
     expect(PUBLIC_SEO.landing.title).not.toMatch(/SafetyCulture|Simpro/i);
     expect(PUBLIC_SEO.landing.description).not.toMatch(/SafetyCulture|Simpro/i);
     expect(PUBLIC_SEO.landing.robots).toBe('index,follow');
-    expect(PUBLIC_SEO.login.title).toContain('Sign in to Grafter');
+    expect(PUBLIC_SEO.login.title).toContain(`Sign in to ${BRAND_NAME}`);
     expect(PUBLIC_SEO.login.description).not.toMatch(/electrical or trade/);
     expect(PUBLIC_SEO.login.description).toMatch(/Australian trade crew/);
     expect(PUBLIC_SEO.signup.description).not.toMatch(/electrical or trade/);
@@ -121,7 +122,7 @@ describe('applyPublicDocumentHead', () => {
     expect(doc.querySelector('meta[property="og:url"]')?.getAttribute('content')).toBe(
       `${GRAFTER_PUBLIC_ORIGIN}/`,
     );
-    expect(doc.querySelector('meta[property="og:site_name"]')?.getAttribute('content')).toBe('Grafter');
+    expect(doc.querySelector('meta[property="og:site_name"]')?.getAttribute('content')).toBe(BRAND_NAME);
     expect(doc.querySelector('meta[property="og:locale"]')?.getAttribute('content')).toBe('en_AU');
     expect(doc.querySelector('meta[property="og:type"]')?.getAttribute('content')).toBe('website');
     expect(doc.querySelector('meta[name="twitter:card"]')?.getAttribute('content')).toBe('summary');
@@ -183,7 +184,7 @@ describe('public document head wiring', () => {
     const html = src('index.html');
     expect(html).toContain(`<html lang="en-AU">`);
     expect(html).toContain('<title>%BRAND_NAME% — Trade job software for Australian crews</title>');
-    expect(PUBLIC_SEO.landing.title).toBe('Grafter — Trade job software for Australian crews');
+    expect(PUBLIC_SEO.landing.title).toBe(`${BRAND_NAME} — Trade job software for Australian crews`);
     expect(html).toContain(`content="${PUBLIC_SEO.landing.description}"`);
     expect(html).toContain('property="og:title"');
     expect(html).toContain('property="og:description"');
@@ -217,6 +218,6 @@ describe('public document head wiring', () => {
     expect(src('index.html')).not.toMatch(/SafetyCulture|Simpro/i);
     expect(page).toContain('<h2 className="hub-marketing-subhead">');
     expect(src('src/components/auth/AuthShell.tsx')).toContain('<h1 className="hub-auth-title">');
-    expect(src('src/pages/LoginPage.tsx')).toContain('Sign in to Grafter');
+    expect(src('src/pages/LoginPage.tsx')).toContain('Sign in to Grafter'); // P12 copies LoginPage visible copy onto BRAND_NAME
   });
 });

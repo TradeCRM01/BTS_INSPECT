@@ -59,12 +59,22 @@ describe('Mitre mark geometry', () => {
     expect(lockup).toContain('data-grafter-lockup="auth"');
     expect(lockup).toContain('data-grafter-lockup="marketing"');
     expect(wordmark).toContain('{BRAND_NAME}');
-    expect(wordmark).toContain("letterSpacing: '-0.02em'");
+    expect(wordmark).toContain('uppercase');
+    expect(wordmark).toContain('tracking-[0.16em]');
+    expect(wordmark).toContain('aria-label={BRAND_NAME}');
+    expect(wordmark).not.toContain("letterSpacing: '-0.02em'");
     expect(wordmark).toContain('fontWeight: 600');
     expect(wordmark).not.toContain("'Grafter'");
     expect(src('src/components/auth/AuthShell.tsx')).toContain("size=\"marketing\"");
     expect(shell).toContain("size=\"header\"");
     expect(shell).toContain('aria-label={BRAND_NAME}');
+    expect(lockup).toContain('size={16}');
+    expect(lockup).toContain('size={32}');
+    expect(lockup).toContain('size={48}');
+    expect(lockup).not.toContain('size={18}');
+    expect(lockup).not.toContain('size={28}');
+    expect(lockup).not.toContain('size={40}');
+    expect(src('src/components/brand/BrandMark.tsx')).toContain('size ?? 24');
   });
 
   it('PWA icons are the Mitre PNGs plus a maskable tile', () => {
@@ -81,8 +91,8 @@ describe('Mitre mark geometry', () => {
     expect(favicon).toContain('prefers-color-scheme');
 
     const manifest = src('vite.config.ts');
-    expect(manifest).toContain('name: BRAND_NAME');
-    expect(manifest).toContain('short_name: BRAND_NAME');
+    expect(manifest).toContain('...brandManifestFields()');
+    expect(src('src/lib/brand.ts')).toContain('short_name: name');
     expect(manifest).toContain('icon-192.png');
     expect(manifest).toContain('icon-maskable-512.png');
     expect(manifest).toContain("purpose: 'maskable'");

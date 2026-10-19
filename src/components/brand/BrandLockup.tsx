@@ -13,7 +13,7 @@ export function BrandLockup({ size = 'header', tagline }: BrandLockupProps) {
         className="flex items-center gap-2 min-w-0 text-navy"
         data-grafter-lockup="marketing"
       >
-        <BrandMark size={28} className="shrink-0" />
+        <BrandMark size={32} className="shrink-0" />
         <Wordmark size="marketing" tone="ink" />
       </span>
     );
@@ -25,7 +25,7 @@ export function BrandLockup({ size = 'header', tagline }: BrandLockupProps) {
         className="flex items-center gap-2 min-w-0 text-white"
         data-grafter-lockup="header"
       >
-        <BrandMark size={18} className="shrink-0" />
+        <BrandMark size={16} className="shrink-0" />
         <Wordmark size="header" tone="onDark" />
       </span>
     );
@@ -37,7 +37,7 @@ export function BrandLockup({ size = 'header', tagline }: BrandLockupProps) {
         className="flex items-center gap-3"
         data-grafter-lockup="auth"
       >
-        <BrandMark size={40} className="shrink-0 text-navy" />
+        <BrandMark size={48} className="shrink-0 text-navy" />
         <Wordmark size="auth" tone="ink" />
       </div>
       {tagline ? (
