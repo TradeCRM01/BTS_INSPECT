@@ -12438,8 +12438,9 @@
   }
 
   .dashboard-home.ops-page {
-    max-width: none;
+    max-width: 100%;
     width: 100%;
+    min-width: 0;
     min-height: calc(100dvh - 3.5rem);
     margin: 0;
     background: #F5F0E6;
@@ -12507,6 +12508,8 @@
   .dashboard-home-sheet {
     position: relative;
     min-height: 620px;
+    min-width: 0;
+    max-width: 100%;
     margin: 0 auto;
     background: #FFFDF8;
     border: 1px solid #E2D9CC;
@@ -12543,6 +12546,7 @@
     background: #FFFDF8;
     box-shadow: inset 0 1px 0 #fff;
     overflow: visible;
+    min-width: 0;
   }
 
   .dashboard-home-hero {
@@ -12803,6 +12807,7 @@
     padding: 16px 0 0;
     border-top: 1px solid #E2D9CC;
     max-width: none;
+    min-width: 0;
   }
 
   .dashboard-home-canvas {
@@ -12820,9 +12825,10 @@
 
   .dashboard-home-view-grid {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 16px;
     width: 100%;
+    min-width: 0;
   }
 
   @media (min-width: 640px) {
@@ -12856,6 +12862,7 @@
   .dashboard-home-view-grid .dashboard-home-widget-ink {
     padding: 0;
     min-height: 168px;
+    min-width: 0;
   }
 
   .dashboard-home-widget-card .text-\[10px\],
@@ -12878,8 +12885,47 @@
 
   .dashboard-home-widget-stack {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .dashboard-home-view-grid .dashboard-home-widget,
+  .dashboard-home-widget-stack .dashboard-home-widget {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .dashboard-home-phone-edit-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 8px;
+  }
+
+  .dashboard-home-phone-edit-bar button {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    background: #FFFDF8;
+    color: #0A2540;
+    cursor: pointer;
+  }
+
+  .dashboard-home-phone-edit-bar button[aria-label="Remove widget"] {
+    margin-left: auto;
+    color: #B54708;
+  }
+
+  .dashboard-home-phone-edit-bar button:disabled {
+    opacity: 0.4;
+    cursor: default;
   }
 
   .dashboard-home-widget {

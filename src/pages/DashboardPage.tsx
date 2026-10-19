@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
@@ -29,6 +29,7 @@ import {
 } from '@dnd-kit/core';
 import {
   Plus, X, GripVertical, Trash2, Sparkles, Briefcase, MoreHorizontal,
+  ChevronUp, ChevronDown,
 } from 'lucide-react';
 import { sortDashboardWidgetsForView } from '../lib/dashboardWidgetView';
 import { WIDGET_CATEGORIES, getWidgetDef } from '../widgets/registry';
@@ -55,6 +56,8 @@ import {
   repairDashboardWidgetLayout,
   defaultDashboardWidgetInserts,
   resolveDashboardWidgets,
+  sortDashboardWidgetsForPhone,
+  swapAdjacentDashboardWidgetPositions,
 } from '../lib/dashboardWidgets';
 import type { ScheduleCrewMember } from '../lib/scheduleBoard';
 import {
@@ -629,15 +632,31 @@ export function DashboardPage() {
     }
   };
 
+  const localDashboard = lookDashboard || !!getAuditDashboardWidgets();
+
   const removeWidget = async (id: string) => {
-    const { error } = await supabase.from('dashboard_widgets').delete().eq('id', id);
-    if (!error) {
-      queryClient.setQueryData<DashboardWidget[]>(['dashboard-widgets'],
-        (widgets ?? []).filter(w => w.id !== id));
+    if (!localDashboard) {
+      const { error } = await supabase.from('dashboard_widgets').delete().eq('id', id);
+      if (error) return;
+    }
+    queryClient.setQueryData<DashboardWidget[]>(['dashboard-widgets'], prev =>
+      (prev ?? []).filter(w => w.id !== id));
+  };
+
+  const movePhoneWidget = (id: string, direction: -1 | 1) => {
+    const current = queryClient.getQueryData<DashboardWidget[]>(['dashboard-widgets']) ?? [];
+    const next = swapAdjacentDashboardWidgetPositions(current, id, direction);
+    queryClient.setQueryData<DashboardWidget[]>(['dashboard-widgets'], next);
+    if (localDashboard) return;
+    for (const row of next) {
+      const prev = current.find(w => w.id === row.id);
+      if (!prev || (prev.grid_x === row.grid_x && prev.grid_y === row.grid_y)) continue;
+      void persistWidget(row.id, { grid_x: row.grid_x, grid_y: row.grid_y });
     }
   };
 
   const persistWidget = useCallback(async (id: string, patch: Partial<DashboardWidget>) => {
+    if (lookDashboard || !!getAuditDashboardWidgets()) return;
     const update: Record<string, unknown> = { ...patch, updated_at: new Date().toISOString() };
     delete update.id;
     delete update.widget_type;
@@ -646,7 +665,7 @@ export function DashboardPage() {
       .update(update as never)
       .eq('id', id);
     if (error) console.error('Widget update failed', error);
-  }, []);
+  }, [lookDashboard]);
 
   const updateWidgetConfig = useCallback(async (id: string, config: Record<string, unknown>) => {
     const { error } = await supabase
@@ -918,19 +937,19 @@ export function DashboardPage() {
               <div className="dashboard-home-widgets" data-dashboard-widgets="1" ref={widgetsBoxRef}>
                 {editMode ? (
                   <>
-                    <div className="md:hidden dashboard-home-widget-stack">
-                      {(widgets ?? []).map(w => (
-                        <div key={w.id} className="dashboard-home-widget">
-                          <div className="dashboard-home-widget-ink">
-                            <WidgetRenderer
-                              type={w.widget_type}
-                              config={(w.config as Record<string, unknown>) ?? {}}
-                              onConfigChange={(c) => updateWidgetConfig(w.id, c)}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <DashboardPhoneEditStack
+                      widgets={widgets ?? []}
+                      onMove={movePhoneWidget}
+                      onRemove={removeWidget}
+                    >
+                      {w => (
+                        <WidgetRenderer
+                          type={w.widget_type}
+                          config={(w.config as Record<string, unknown>) ?? {}}
+                          onConfigChange={(c) => updateWidgetConfig(w.id, c)}
+                        />
+                      )}
+                    </DashboardPhoneEditStack>
 
                     <div className="hidden md:block">
                       <DndContext
@@ -959,9 +978,9 @@ export function DashboardPage() {
                     </div>
                   </>
                 ) : (
-                  <div className="dashboard-home-view-grid" data-dashboard-view-grid="1">
+                  <div className="dashboard-home-view-grid min-w-0" data-dashboard-view-grid="1">
                     {viewWidgets.map(w => (
-                      <div key={w.id} className="dashboard-home-widget dashboard-home-widget-card">
+                      <div key={w.id} className="dashboard-home-widget dashboard-home-widget-card min-w-0">
                         <div className="dashboard-home-widget-ink">
                           <WidgetRenderer
                             type={w.widget_type}
@@ -1021,6 +1040,68 @@ function placeDashboardMore(more: HTMLDetailsElement) {
     more.classList.add('is-shift');
     menu.style.setProperty('--dashboard-home-more-shift', `${Math.round(shift)}px`);
   }
+}
+
+export function DashboardPhoneEditStack<T extends {
+  id: string;
+  widget_type: string;
+  grid_x: number;
+  grid_y: number;
+  grid_w: number;
+  grid_h: number;
+}>({
+  widgets,
+  onMove,
+  onRemove,
+  children,
+}: {
+  widgets: T[];
+  onMove: (id: string, direction: -1 | 1) => void;
+  onRemove: (id: string) => void;
+  children: (widget: T) => ReactNode;
+}) {
+  const ordered = sortDashboardWidgetsForPhone(widgets);
+  return (
+    <div className="md:hidden dashboard-home-widget-stack" data-dashboard-phone-stack="1">
+      {ordered.map((w, index) => (
+        <div
+          key={w.id}
+          className="dashboard-home-widget min-w-0"
+          data-dashboard-widget-id={w.id}
+        >
+          <div className="dashboard-home-phone-edit-bar">
+            <button
+              type="button"
+              aria-label="Move widget up"
+              disabled={index === 0}
+              onClick={() => onMove(w.id, -1)}
+            >
+              <ChevronUp size={18} />
+            </button>
+            <button
+              type="button"
+              aria-label="Move widget down"
+              disabled={index === ordered.length - 1}
+              onClick={() => onMove(w.id, 1)}
+            >
+              <ChevronDown size={18} />
+            </button>
+            <button
+              type="button"
+              aria-label="Remove widget"
+              title="Remove widget"
+              onClick={() => onRemove(w.id)}
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+          <div className="dashboard-home-widget-ink">
+            {children(w)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function DashboardHomeMore({

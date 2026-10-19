@@ -13,6 +13,8 @@ import {
   placeAddedDashboardWidget,
   repairDashboardWidgetLayout,
   resolveDashboardWidgets,
+  sortDashboardWidgetsForPhone,
+  swapAdjacentDashboardWidgetPositions,
   type DashboardWidgetInsert,
   type DashboardWidgetRect,
   type DashboardWidgetSeedIo,
@@ -345,6 +347,21 @@ describe('dashboard widget grid placement', () => {
     expect(widgets.some(w => w.widget_type === 'bitcoin' || w.widget_type === 'crypto' || w.widget_type === 'stock_market')).toBe(false);
     expect(widgets).toEqual(seed);
     expect(rawLayoutOverlaps(widgets)).toBe(false);
+  });
+
+  it('orders phone customize by canvas position and swaps neighbours', () => {
+    const rows: DashboardWidgetRect[] = [
+      { id: 'b', widget_type: 'weather', grid_x: 20, grid_y: 200, grid_w: 260, grid_h: 180 },
+      { id: 'a', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 180 },
+      { id: 'c', widget_type: 'clock', grid_x: 20, grid_y: 400, grid_w: 260, grid_h: 180 },
+    ];
+    expect(sortDashboardWidgetsForPhone(rows).map(row => row.id)).toEqual(['a', 'b', 'c']);
+    const down = swapAdjacentDashboardWidgetPositions(rows, 'a', 1);
+    expect(sortDashboardWidgetsForPhone(down).map(row => row.id)).toEqual(['b', 'a', 'c']);
+    expect(down.find(row => row.id === 'a')).toMatchObject({ grid_x: 20, grid_y: 200 });
+    expect(down.find(row => row.id === 'b')).toMatchObject({ grid_x: 20, grid_y: 20 });
+    const top = swapAdjacentDashboardWidgetPositions(rows, 'a', -1);
+    expect(sortDashboardWidgetsForPhone(top).map(row => row.id)).toEqual(['a', 'b', 'c']);
   });
 
   it('filters the picker with the same helper the page uses', () => {
