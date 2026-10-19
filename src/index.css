@@ -22519,9 +22519,6 @@
     min-width: 0;
   }
 }
-.overlay-panel-xl {
-  width: 100%;
-}
-.overlay-panel-xl input {
+.overlay-panel-xl input[type="search"] {
   width: 100%;
 }

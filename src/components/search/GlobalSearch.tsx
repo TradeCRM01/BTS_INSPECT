@@ -258,6 +258,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
           <Search className="h-5 w-5 shrink-0 text-[#4A5568]" />
           <input
             ref={inputRef}
+            type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onInputKeyDown}

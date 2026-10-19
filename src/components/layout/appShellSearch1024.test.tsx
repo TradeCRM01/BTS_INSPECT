@@ -134,8 +134,8 @@ describe('AppShell icon-only search at 1024', () => {
     });
     const panel = input.closest('.overlay-panel-xl');
     expect(panel).toBeTruthy();
+    expect((input as HTMLInputElement).type).toBe('search');
     expect(getComputedStyle(input).width).toBe('100%');
-    expect(getComputedStyle(panel as HTMLElement).width).toBe('100%');
   });
 
   it('closes on Escape and click outside, and keeps the typed text on reopen', async () => {
