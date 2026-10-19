@@ -12,6 +12,8 @@ const MEMBER = '22222222-2222-2222-2222-222222222222';
 const TEAMMATE = '33333333-3333-3333-3333-333333333333';
 const ADMIN2 = '66666666-6666-6666-6666-666666666666';
 const OTHER = '55555555-5555-5555-5555-555555555555';
+const OTHER_MEMBER = '77777777-7777-7777-7777-777777777777';
+const COMPANY_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const TEMPLATE = '0eeeeeee-0000-0000-0000-000000000001';
 const NULL_INSP = 'e1000000-0000-0000-0000-0000000000aa';
 const OTHER_INSP = 'e1000000-0000-0000-0000-0000000000bb';
@@ -111,6 +113,26 @@ CREATE POLICY "Users can view company inspections"
   );
 `;
 
+const MUTANT_B2_UPDATE_USING_TRUE = `
+DROP POLICY IF EXISTS "Users can update company inspections" ON inspections;
+CREATE POLICY "Users can update company inspections"
+  ON inspections FOR UPDATE
+  TO authenticated
+  USING (true)
+  WITH CHECK (
+    public.profile_company_id_for_caller(inspections.inspector_id) =
+    (SELECT company_id FROM profiles WHERE id = auth.uid())
+  );
+`;
+
+const MUTANT_B3_DELETE_ADMIN_ONLY = `
+DROP POLICY IF EXISTS "Admins can delete company inspections" ON inspections;
+CREATE POLICY "Admins can delete company inspections"
+  ON inspections FOR DELETE
+  TO authenticated
+  USING ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
+`;
+
 function insertSql(id: string, inspector: string, returning: boolean): string {
   const body = `INSERT INTO public.inspections (id, template_id, template_snapshot, inspector_id, status, responses, meta)
     VALUES ('${id}'::uuid, '${TEMPLATE}'::uuid, '{}'::jsonb, '${inspector}'::uuid, 'draft', '{}'::jsonb, '{}'::jsonb)`;
@@ -161,6 +183,61 @@ function registerSuite(version: string) {
 
       function dml(uid: string, sql: string): string {
         return runSql(`SELECT public._sec_insp_ret_n('${uid}'::uuid, $sec$${sql}$sec$);`);
+      }
+
+      function companyAContent(): string {
+        return runSql(`
+          SELECT count(*)::text || '|' || coalesce(string_agg(
+            id::text || ':' || coalesce(inspector_id::text, 'null') || ':' || coalesce(title, ''),
+            ',' ORDER BY id), '')
+          FROM public.inspections i
+          WHERE NOT EXISTS (
+            SELECT 1 FROM public.profiles p
+            WHERE p.id = i.inspector_id
+              AND p.company_id = '${COMPANY_B}'
+          )
+        `);
+      }
+
+      function stripCompanyBInspections() {
+        runSql(`
+          DELETE FROM public.inspections
+          WHERE inspector_id IN (
+            SELECT id FROM public.profiles WHERE company_id = '${COMPANY_B}'
+          )
+        `);
+      }
+
+      function snapshotInspections() {
+        runSql(`
+          DROP TABLE IF EXISTS public._insp_backup;
+          CREATE TABLE public._insp_backup AS TABLE public.inspections;
+        `);
+      }
+
+      function restoreInspections() {
+        runSql(`
+          DELETE FROM public.inspections;
+          INSERT INTO public.inspections SELECT * FROM public._insp_backup;
+        `);
+      }
+
+      function assertWhereLessUntouched(uid: string, sql: string) {
+        const before = companyAContent();
+        expect(Number(before.split('|')[0])).toBeGreaterThan(0);
+        const n = dml(uid, sql);
+        expect(n, n).toBe('00000|0');
+        expect(companyAContent()).toBe(before);
+      }
+
+      function expectWhereLessDies(uid: string, sql: string) {
+        const before = companyAContent();
+        const n = dml(uid, sql);
+        const after = companyAContent();
+        expect(
+          n === '00000|0' && after === before,
+          `mutant survived n=${n} before=${before} after=${after}`,
+        ).toBe(false);
       }
 
       function applyChain(skipHotfix: boolean) {
@@ -280,7 +357,7 @@ unix_socket_directories = '${sockDir}'
           expect(dml(ADMIN2, `DELETE FROM public.inspections WHERE id = '${DEL_INSP}'`)).toBe('00000|1');
         });
 
-        it('cross-tenant inspector_id makes profile_company_id_for_caller NULL (no oracle)', () => {
+        it('#389 helper profile_company_id_for_caller returns NULL for a cross-tenant profile', () => {
           const asMember = scalar(
             MEMBER,
             `SELECT coalesce(public.profile_company_id_for_caller('${OTHER}'::uuid)::text, 'null')`,
@@ -291,6 +368,9 @@ unix_socket_directories = '${sockDir}'
             `SELECT coalesce(public.profile_company_id_for_caller('${MEMBER}'::uuid)::text, 'null')`,
           );
           expect(asOther).toBe('00000|null');
+        });
+
+        it('cross-tenant SELECT of a foreign-company inspection is empty (no oracle)', () => {
           expect(scalar(MEMBER, `SELECT count(*)::text FROM public.inspections WHERE id = '${OTHER_INSP}'`)).toBe('00000|0');
         });
 
@@ -327,6 +407,22 @@ unix_socket_directories = '${sockDir}'
           expect(updCheck).toContain('profile_company_id_for_caller(inspector_id)');
         });
 
+        it('WHERE-less DELETE as foreign admin and member leaves company A count and content unchanged', () => {
+          stripCompanyBInspections();
+          assertWhereLessUntouched(OTHER, 'DELETE FROM public.inspections');
+          assertWhereLessUntouched(OTHER_MEMBER, 'DELETE FROM public.inspections');
+        });
+
+        it('WHERE-less UPDATE inspector_id = auth.uid() as foreign admin and member leaves company A unchanged', () => {
+          assertWhereLessUntouched(OTHER, 'UPDATE public.inspections SET inspector_id = auth.uid()');
+          assertWhereLessUntouched(OTHER_MEMBER, 'UPDATE public.inspections SET inspector_id = auth.uid()');
+        });
+
+        it("WHERE-less UPDATE SET title = 'x' as foreign admin and member leaves company A unchanged", () => {
+          assertWhereLessUntouched(OTHER, "UPDATE public.inspections SET title = 'x'");
+          assertWhereLessUntouched(OTHER_MEMBER, "UPDATE public.inspections SET title = 'x'");
+        });
+
         it('mutant: by-id STABLE lookup restored in SELECT kills owner RETURNING', () => {
           runSql(MUTANT_SELECT);
           const usesHelper = runSql(`
@@ -341,6 +437,30 @@ unix_socket_directories = '${sockDir}'
           runFile(join(process.cwd(), 'supabase/migrations', HOTFIX));
           const restored = scalar(OWNER, insertSql('e2000000-0000-0000-0000-0000000000ee', OWNER, true));
           expect(restored).toBe('00000|e2000000-0000-0000-0000-0000000000ee');
+        });
+
+        it('mutant b2: UPDATE USING true kills WHERE-less inspector_id and title updates', () => {
+          stripCompanyBInspections();
+          snapshotInspections();
+          runSql(MUTANT_B2_UPDATE_USING_TRUE);
+          expectWhereLessDies(OTHER, 'UPDATE public.inspections SET inspector_id = auth.uid()');
+          restoreInspections();
+          expectWhereLessDies(OTHER_MEMBER, 'UPDATE public.inspections SET inspector_id = auth.uid()');
+          restoreInspections();
+          expectWhereLessDies(OTHER, "UPDATE public.inspections SET title = 'x'");
+          restoreInspections();
+          expectWhereLessDies(OTHER_MEMBER, "UPDATE public.inspections SET title = 'x'");
+          restoreInspections();
+          runFile(join(process.cwd(), 'supabase/migrations', HOTFIX));
+        });
+
+        it('mutant b3: DELETE USING admin-only kills WHERE-less DELETE by a foreign admin', () => {
+          stripCompanyBInspections();
+          snapshotInspections();
+          runSql(MUTANT_B3_DELETE_ADMIN_ONLY);
+          expectWhereLessDies(OTHER, 'DELETE FROM public.inspections');
+          restoreInspections();
+          runFile(join(process.cwd(), 'supabase/migrations', HOTFIX));
         });
 
         it('rollback restores pre-hotfix policies and owner RETURNING is 42501 again', () => {
