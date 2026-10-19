@@ -72,6 +72,7 @@ describe('year guard at save', () => {
 
   it('rejects calendar-invalid dates with the AU message and parses real days', () => {
     expect(dateFieldYearError('31/02/2026')).toBe(DATE_INVALID_MESSAGE);
+    expect(dateFieldYearError('21/10/202')).toBe(DATE_INVALID_MESSAGE);
     expect(parseFieldDate('05/11/2026')).toBe('2026-11-05');
     expect(parseFieldDate('2026-11-05')).toBe('2026-11-05');
   });

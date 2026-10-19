@@ -35,6 +35,7 @@ function harness(initial: string) {
     const [v, setV] = useState(initial);
     state = v;
     return createElement(DateFieldInput, {
+      id: 'date-field-harness',
       value: v,
       onChange: (iso: string) => {
         log.push(iso);
@@ -118,6 +119,16 @@ describe('DateFieldInput keystrokes against a stateful parent', () => {
     expect(h.log).toEqual(['2026-10-21']);
   });
 
+  it('marks the input aria-invalid while a partial date is typed', () => {
+    const h = harness('');
+    h.type('21/10/20');
+    const input = container.querySelector('input');
+    expect(h.invalid).toBe(true);
+    expect(input?.getAttribute('aria-invalid')).toBe('true');
+    expect(input?.getAttribute('aria-describedby')).toBe('date-field-harness-field-error');
+    expect(container.querySelectorAll('[role="alert"]').length).toBe(1);
+  });
+
   it('does not emit a 2-digit year on blur', () => {
     const h = harness('');
     h.type('1/1/26');
@@ -164,7 +175,7 @@ describe('DateFieldInput keystrokes against a stateful parent', () => {
     h.type('21/10/20');
     h.textLog.length = 0;
     h.blur();
-    expect(h.textLog.at(-1)).toBe('21/10/20');
+    expect(h.textLog[h.textLog.length - 1]).toBe('21/10/20');
     expect(h.textLog.length).toBeGreaterThan(0);
   });
 

@@ -434,6 +434,35 @@ describe('expense / invoice payment date wiring', () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
+  it('blocks QuoteEditorModal Valid until when a line item is present', async () => {
+    const onSaved = vi.fn();
+    await act(async () => {
+      root.render(providers(
+        <QuoteEditorModal
+          key="new-quote-g4"
+          quote={null}
+          presetClientId="cl-1"
+          defaultTaxRate={10}
+          onClose={() => {}}
+          onSaved={onSaved}
+          onRequestSend={() => {}}
+        />,
+      ));
+    });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    const desc = document.querySelector<HTMLInputElement>('input[placeholder="Description"]');
+    const qty = document.querySelector<HTMLInputElement>('input[placeholder="0"]');
+    const price = document.querySelector<HTMLInputElement>('input[placeholder="0.00"]');
+    if (desc) await act(async () => { setInput(desc, 'Labour'); });
+    if (qty && !qty.value) await act(async () => { setInput(qty, '1'); });
+    if (price && !price.value) await act(async () => { setInput(price, '100'); });
+    await setNamedDate('quote-valid-until', '31/02/2026');
+    await act(async () => { clickSave(); });
+    expect(writes.filter(w => (w as { table?: string }).table === 'quotes')).toEqual([]);
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(DATE_INVALID_MESSAGE);
+  });
+
   it('blocks QuoteEditorModal Valid until and Convert dates', async () => {
     const onSaved = vi.fn();
     await act(async () => {

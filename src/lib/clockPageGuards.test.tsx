@@ -320,8 +320,7 @@ describe('Timesheets clock guards', () => {
       root.render(providers(<TimesheetsPage />, '/timesheets?id=ts-1'));
     });
     await flush();
-    if (!document.body.textContent?.includes('(+1)')) {
-      throw new Error(`no (+1) in: ${(document.body.textContent ?? '').slice(0, 500)}`);
-    }
+    const finishes = [...document.querySelectorAll('.hub-timesheets-ledger-finish')];
+    expect(finishes.some(el => (el.textContent ?? '').includes('(+1)'))).toBe(true);
   });
 });
