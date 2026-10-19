@@ -16,6 +16,7 @@ import { AuthConfirmPage } from './pages/AuthConfirmPage';
 import { RootPage } from './pages/RootPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { TermsPage } from './pages/TermsPage';
+import { NotFoundPage } from './pages/NotFoundPage';
 
 // Protected pages — code-split so only the visited page is parsed
 const TemplatesPage = lazy(() => import('./pages/TemplatesPage').then(m => ({ default: m.TemplatesPage })));
@@ -194,8 +195,7 @@ export default function App() {
         />
       ) : null}
 
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
     </ToastProvider>
   );
