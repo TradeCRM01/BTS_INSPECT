@@ -29,13 +29,14 @@ vi.mock('../ui/DevConsole', () => ({
   DevConsole: () => null,
 }));
 
-function getByRole(role: 'button', options: { name: RegExp }): HTMLElement {
+function getByRole(role: 'button', options: { name: string | RegExp }): HTMLElement {
   const matches = [...document.querySelectorAll(role)].filter((el) => {
     const labelled = el.getAttribute('aria-labelledby');
     const fromId = labelled
       ? labelled.split(/\s+/).map((id) => document.getElementById(id)?.textContent ?? '').join(' ')
       : '';
     const name = (el.getAttribute('aria-label') || fromId || el.textContent || '').replace(/\s+/g, ' ').trim();
+    if (typeof options.name === 'string') return name === options.name || name.includes(options.name);
     return options.name.test(name);
   });
   if (matches.length === 0) {
@@ -52,7 +53,7 @@ let root: Root;
 
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-  Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 1024 });
+  Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 800 });
   Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: 800 });
   container = document.createElement('div');
   document.body.appendChild(container);
@@ -67,7 +68,7 @@ afterEach(() => {
 });
 
 describe('AppShell desktop Search button', () => {
-  it('has an accessible name at a desktop width (mutant: drop aria-label when the label is clipped)', async () => {
+  it('has an accessible name at 800 (mutant: drop aria-label when Search is icon-only)', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     await act(async () => {
       root.render(
@@ -80,8 +81,8 @@ describe('AppShell desktop Search button', () => {
         </QueryClientProvider>,
       );
     });
-    expect(window.innerWidth).toBe(1024);
-    const search = getByRole('button', { name: /search/i });
-    expect(search.getAttribute('aria-label')).toMatch(/search/i);
+    expect(window.innerWidth).toBe(800);
+    const search = getByRole('button', { name: 'Search' });
+    expect(search.getAttribute('aria-label')).toBe('Search');
   });
 });

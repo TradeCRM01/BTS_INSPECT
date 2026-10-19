@@ -8,20 +8,25 @@
  *   npm run measure:tu05
  *
  * Optional: LOOK_BASE_URL (default http://127.0.0.1:5173),
- * LOOK_CHROME (default /usr/bin/google-chrome).
- * Auth: /?auditAuth=1&look=dashboard. Injects the long company name
+ * LOOK_CHROME (default /usr/bin/google-chrome),
+ * TU05_WIDTHS (comma list), TU05_SKIP_CLICK=1.
+ * Auth: /?auditAuth=1&look=dashboard. Injects
  * 'Brisbane Commercial Plumbing & Gas Services Pty Ltd'.
- * Exit 1 unless .shell-header max rect.right ≤ innerWidth, leaf
- * interactive intersections are 0, Field Work is one line, the
- * switcher name is one truncated line with that title, and
- * getByRole('button', { name: /search/i }) is visible.
  */
 import { chromium } from 'playwright';
 
 const BASE = process.env.LOOK_BASE_URL || 'http://127.0.0.1:5173';
 const HEIGHT = 800;
-const WIDTHS = [1024, 1100, 1180];
+// Coach standing shell-guard list: 375/390/768/800/900/1000/1024/1280
+// plus button.scrollWidth <= clientWidth. 1100/1180 stay as extras.
+const DEFAULT_WIDTHS = [375, 390, 768, 800, 900, 1000, 1024, 1100, 1180, 1280];
+const WIDTHS = (process.env.TU05_WIDTHS || '')
+  .split(',')
+  .map((s) => Number(s.trim()))
+  .filter((n) => Number.isFinite(n) && n > 0);
+const widths = WIDTHS.length ? WIDTHS : DEFAULT_WIDTHS;
 const LONG_NAME = 'Brisbane Commercial Plumbing & Gas Services Pty Ltd';
+const SKIP_CLICK = process.env.TU05_SKIP_CLICK === '1';
 
 function measureHeader() {
   const header = document.querySelector('.shell-header');
@@ -62,6 +67,13 @@ function measureHeader() {
     }
   }
 
+  let pageMaxRight = 0;
+  for (const el of document.querySelectorAll('*')) {
+    if (!isVisible(el)) continue;
+    const r = el.getBoundingClientRect();
+    if (r.right > pageMaxRight) pageMaxRight = r.right;
+  }
+
   const leaves = Array.from(header.querySelectorAll('a, button, input, [role="button"], [role="link"]')).filter(isVisible);
   const leafOverlaps = [];
   for (let i = 0; i < leaves.length; i++) {
@@ -80,31 +92,74 @@ function measureHeader() {
     }
   }
 
-  const fieldBtn = Array.from(header.querySelectorAll('nav button')).find((el) => /Field Work/.test(el.innerText || '') && isVisible(el));
+  const overflowingButtons = [];
+  for (const el of Array.from(header.querySelectorAll('button')).filter(isVisible)) {
+    if (el.scrollWidth > el.clientWidth + 1) {
+      overflowingButtons.push({
+        name: nameOf(el),
+        scrollWidth: el.scrollWidth,
+        clientWidth: el.clientWidth,
+      });
+    }
+  }
+
+  const fieldBtn = Array.from(header.querySelectorAll('nav button')).find((el) => {
+    const label = el.getAttribute('aria-label') || '';
+    const text = el.innerText || '';
+    return /Field Work/.test(label) || /Field Work/.test(text);
+  }) || null;
+  const fieldVisible = !!(fieldBtn && isVisible(fieldBtn));
   const fieldSpan = fieldBtn?.querySelector('span') || null;
-  const fieldHeight = fieldSpan ? fieldSpan.getBoundingClientRect().height : null;
+  const fieldSpanVisible = !!(fieldSpan && isVisible(fieldSpan));
+  const fieldHeight = fieldSpanVisible ? fieldSpan.getBoundingClientRect().height : (fieldVisible ? fieldBtn.getBoundingClientRect().height : null);
   const fieldNowrap = fieldSpan ? getComputedStyle(fieldSpan).whiteSpace === 'nowrap' : false;
   const nameEl = header.querySelector('[data-shell-switcher-name]');
-  const nameHeight = nameEl && isVisible(nameEl) ? nameEl.getBoundingClientRect().height : null;
+  const nameVisible = !!(nameEl && isVisible(nameEl));
+  const nameHeight = nameVisible ? nameEl.getBoundingClientRect().height : null;
   const nameTitle = nameEl?.getAttribute('title') || nameEl?.closest('button')?.getAttribute('title') || '';
-  const nameNowrap = nameEl && isVisible(nameEl) ? getComputedStyle(nameEl).whiteSpace === 'nowrap' : false;
+  const nameNowrap = nameVisible ? getComputedStyle(nameEl).whiteSpace === 'nowrap' : false;
 
   return {
     innerWidth: inner,
+    documentScrollWidth: document.documentElement.scrollWidth,
     headerMaxRight: Math.round(headerMaxRight * 10) / 10,
     headerMaxRightEl,
     headerFits: headerMaxRight <= inner + 0.5,
+    pageMaxRight: Math.round(pageMaxRight * 10) / 10,
+    pageFits: pageMaxRight <= inner + 0.5,
+    docFits: document.documentElement.scrollWidth <= inner + 1,
     leafOverlapCount: leafOverlaps.length,
     leafOverlaps,
+    overflowingButtons,
+    buttonsFit: overflowingButtons.length === 0,
+    fieldVisible,
     fieldWorkHeight: fieldHeight,
-    fieldWorkOneLine: fieldHeight != null && fieldHeight <= 22,
+    fieldWorkOneLine: fieldHeight == null ? null : fieldHeight <= (fieldSpanVisible ? 22 : 56),
     fieldNowrap,
+    nameVisible,
     nameHeight,
     nameOneLine: nameHeight != null && nameHeight <= 22,
     nameNowrap,
     nameTitle,
     nameText: nameEl ? (nameEl.textContent || '').trim() : '',
   };
+}
+
+function rowPass(row) {
+  const width = row.width;
+  const md = width >= 768;
+  const lg = width >= 1024;
+  if (row.error) return false;
+  if (!row.headerFits || !row.docFits || row.leafOverlapCount !== 0 || !row.buttonsFit) return false;
+  if (md) {
+    if (!row.searchNamed) return false;
+    if (row.fieldWorkOneLine !== true) return false;
+    if (row.nameTitle !== LONG_NAME || row.nameText !== LONG_NAME) return false;
+    if (lg && !row.fieldNowrap) return false;
+    if (lg && (!row.nameOneLine || !row.nameNowrap)) return false;
+  }
+  if ((width === 768 || width === 800) && !SKIP_CLICK && !row.searchClickOk) return false;
+  return true;
 }
 
 async function measureWidth(browser, width) {
@@ -115,9 +170,10 @@ async function measureWidth(browser, width) {
     timezoneId: 'Australia/Brisbane',
   });
   const page = await ctx.newPage();
-  await page.goto(`${BASE}/?auditAuth=1&look=dashboard`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.waitForSelector('.shell-header [data-shell-switcher-name]', { timeout: 20000 });
-  await page.evaluate(() => document.fonts.ready);
+  const url = BASE.includes('?') ? BASE : `${BASE}/?auditAuth=1&look=dashboard`;
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForSelector('.shell-header [data-shell-switcher-name]', { state: 'attached', timeout: 20000 });
+  await page.evaluate(() => document.fonts?.ready).catch(() => {});
   await page.waitForTimeout(300);
   await page.evaluate((n) => {
     const el = document.querySelector('[data-shell-switcher-name]');
@@ -132,23 +188,31 @@ async function measureWidth(browser, width) {
   }, LONG_NAME);
   await page.waitForTimeout(50);
   const data = await page.evaluate(measureHeader);
-  const search = page.getByRole('button', { name: /search/i });
-  data.searchNamed = (await search.count()) >= 1 && await search.first().isVisible();
-  await ctx.close();
   data.width = width;
+  const md = width >= 768;
+  if (md) {
+    const search = page.getByRole('button', { name: 'Search' });
+    data.searchNamed = (await search.count()) >= 1 && await search.first().isVisible();
+    if (!SKIP_CLICK && (width === 768 || width === 800) && data.searchNamed) {
+      try {
+        await search.first().click({ timeout: 4000 });
+        const box = page.locator('.overlay-backdrop input, .overlay-panel-xl input, input[placeholder*="Search"]');
+        await box.first().waitFor({ state: 'visible', timeout: 4000 });
+        data.searchClickOk = true;
+      } catch (err) {
+        data.searchClickOk = false;
+        data.searchClickErr = String(err.message || err).split('\n')[0];
+      }
+    } else {
+      data.searchClickOk = true;
+    }
+  } else {
+    data.searchNamed = true;
+    data.searchClickOk = true;
+  }
+  await ctx.close();
   data.headerFits = Boolean(data.headerFits);
-  data.pass = Boolean(
-    !data.error
-    && data.headerFits
-    && data.leafOverlapCount === 0
-    && data.fieldWorkOneLine
-    && data.fieldNowrap
-    && data.nameOneLine
-    && data.nameNowrap
-    && data.nameTitle === LONG_NAME
-    && data.nameText === LONG_NAME
-    && data.searchNamed
-  );
+  data.pass = rowPass(data);
   return data;
 }
 
@@ -160,16 +224,16 @@ async function main() {
   const rows = [];
   let failed = 0;
   try {
-    for (const width of WIDTHS) {
+    for (const width of widths) {
       const row = await measureWidth(browser, width);
       rows.push(row);
       const mark = row.pass ? 'PASS' : 'FAIL';
       if (!row.pass) failed += 1;
       process.stdout.write(
-        `${mark} @${width} headerR=${row.headerMaxRight}/${row.innerWidth} overlaps=${row.leafOverlapCount} fieldH=${row.fieldWorkHeight} fieldNowrap=${row.fieldNowrap} nameH=${row.nameHeight} nameNowrap=${row.nameNowrap} title=${row.nameTitle ? 'yes' : 'no'} search=${row.searchNamed ? 'named' : 'MISSING'}\n`,
+        `${mark} @${width} headerR=${row.headerMaxRight}/${row.innerWidth} pageR=${row.pageMaxRight} overlaps=${row.leafOverlapCount} btnOverflow=${row.overflowingButtons?.length || 0} fieldH=${row.fieldWorkHeight} nameH=${row.nameHeight} nameVis=${row.nameVisible} search=${row.searchNamed ? 'named' : 'MISSING'} click=${row.searchClickOk ? 'ok' : row.searchClickErr || 'fail'}\n`,
       );
       if (!row.pass) {
-        process.stdout.write(`  why headerFits=${row.headerFits} el=${row.headerMaxRightEl} overlaps=${JSON.stringify(row.leafOverlaps)} fieldOne=${row.fieldWorkOneLine} fieldNowrap=${row.fieldNowrap} nameOne=${row.nameOneLine} nameNowrap=${row.nameNowrap} searchNamed=${row.searchNamed}\n`);
+        process.stdout.write(`  why headerFits=${row.headerFits} el=${row.headerMaxRightEl} overlaps=${JSON.stringify(row.leafOverlaps)} buttons=${JSON.stringify(row.overflowingButtons)} fieldOne=${row.fieldWorkOneLine} nameOne=${row.nameOneLine} searchNamed=${row.searchNamed} click=${row.searchClickOk}\n`);
       }
     }
   } finally {

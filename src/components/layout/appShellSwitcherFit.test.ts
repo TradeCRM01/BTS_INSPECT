@@ -18,7 +18,8 @@ describe('AppShell desktop switcher fits the header row', () => {
     expect(desktop).toContain('min-w-0');
     expect(desktop).toContain('whitespace-nowrap');
     expect(desktop).toContain('flex items-center gap-1 min-w-0');
-    expect(desktop).not.toContain('flex items-center gap-1 shrink-0');
+    expect(desktop).toContain('hidden lg:inline');
+    expect(desktop).toContain('w-9 shrink-0 lg:w-64');
 
     const nameStart = desktop.indexOf('data-shell-switcher-name');
     expect(nameStart).toBeGreaterThan(-1);
