@@ -32,12 +32,12 @@ describe('public Grafter landing', () => {
     expect(page.indexOf('<ScheduleFrame />')).toBeGreaterThan(page.indexOf('Drop the job on a name.'));
     expect(page.indexOf('<ScheduleFrame />')).toBeLessThan(page.indexOf('Arriving. Clock in. Hours on the sheet.'));
 
-    const hero = page.slice(page.indexOf('hub-marketing-hero'), page.indexOf('Send a GST quote.'));
-    expect(hero).toContain('Quote, schedule, invoice.');
-    expect(hero).not.toMatch(/\bJHA\b/);
-    expect(hero).not.toMatch(/Take 5/);
-    expect(hero).not.toMatch(/\bSWMS\b/);
-    expect(hero).not.toMatch(/inspection/i);
+    const heroCopy = page.slice(page.indexOf('hub-marketing-hero'), page.indexOf('<JobFrame'));
+    expect(heroCopy).toContain('Quote, schedule, invoice.');
+    expect(heroCopy).not.toMatch(/\bJHA\b/);
+    expect(heroCopy).not.toMatch(/Take 5/);
+    expect(heroCopy).not.toMatch(/\bSWMS\b/);
+    expect(heroCopy).not.toMatch(/inspection/i);
 
     const titles = [
       'Send a GST quote.',
@@ -57,8 +57,8 @@ describe('public Grafter landing', () => {
       page.indexOf('Arriving. Clock in. Hours on the sheet.'),
     );
 
-    expect(page).toContain('not booking the job');
-    expect(page).toContain('that is a second tap');
+    expect(page).toContain("Accepting doesn't book the job");
+    expect(page).toContain('You book it with one more tap');
     expect(page).not.toMatch(/Accept books the job/i);
     expect(page).not.toMatch(/Accept schedules the job/i);
 
@@ -69,7 +69,10 @@ describe('public Grafter landing', () => {
     expect(page).not.toContain('$79');
     expect(page).not.toContain('$149');
     expect(page).not.toContain('$249');
+    expect(page).toContain('aria-hidden="true">mo');
+    expect(page).toContain('className="sr-only">per month');
     expect(page).toContain('3 months free');
+    expect(page).toContain('Then you pay for seats. Every plan is the same Grafter.');
     expect(page).toContain('Crew');
     expect(page).toContain('Company');
     expect(page).toContain('Plant');
@@ -80,10 +83,30 @@ describe('public Grafter landing', () => {
     expect(page).toContain('Create a workspace');
     expect(page).toContain('PublicLegalLinks');
     expect(page).toContain('Australian trade job software');
-    expect(page).toContain('Is this only for electricians?');
+    expect(page).toContain('Which trades is it for?');
     expect(page).toContain(
-      'No. Grafter is for trade crews — plumbing, mechanical, carpentry, electrical, the lot.',
+      'Any trade crew: plumbing, gas, drainage, carpentry, mechanical, electrical, maintenance.',
     );
+    expect(page).not.toMatch(/<details[^>]*\sopen\b/);
+    expect(page).toContain('Custom templates, JHA and Take 5, with your SWMS attached, all filed on the job.');
+    expect(page).toContain("ref: '#0036'");
+    expect(page).toContain('Blocked sewer, CCTV inspection');
+    expect(page).toContain('12 Grange Rd, Stafford');
+    expect(page).toContain('{LANDING_SEED_JOB.company} · Today · {LANDING_SEED_JOB.time}');
+    expect(page).toContain('time={LANDING_SEED_JOB.time}');
+    expect(page).not.toContain('Workshop Rd');
+    expect(page).not.toContain('Workshop fit-out');
+    expect(page).not.toContain('Mon 19 Oct');
+    expect(page).not.toContain('#0036.01');
+    expect(page).not.toContain('0042');
+    expect(page).toContain("ref: '#0040'");
+    expect(page).toContain('Toilet cistern replacement');
+    expect(page).toContain('07:30–09:30');
+    expect(page).toContain('Dean Moretti');
+    expect(page).toContain('Tom Nguyen');
+    expect(page).not.toContain('Field Audit');
+    expect(page).not.toContain('Perth');
+    expect(page).not.toContain('\u2014');
     expect(page).not.toContain('electrical and trade');
     expect(page).not.toContain('Northside Electrical');
     expect(page).not.toContain('Switchboard upgrade');
@@ -118,6 +141,33 @@ describe('public Grafter landing', () => {
     expect(look).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex|Fraunces|Geist/);
     expect(look).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow|lacquer|gloss|glow/);
     expect(look).not.toMatch(/#16A34A|#15803D|#1B7F3A/);
+  });
+});
+
+describe('public landing seed frames', () => {
+  it('keeps the job-frame meta time and the #0036 board block on one constant', () => {
+    const page = src('src/pages/MarketingPage.tsx');
+    expect(page).toMatch(/time: '07:00–10:30'/);
+    const jobMeta = '{LANDING_SEED_JOB.company} · Today · {LANDING_SEED_JOB.time}';
+    expect(page).toContain(jobMeta);
+    expect(page.indexOf(jobMeta)).toBeLessThan(page.indexOf('function ScheduleFrame'));
+    expect(page.indexOf('time={LANDING_SEED_JOB.time}')).toBeGreaterThan(page.indexOf('function ScheduleFrame'));
+    expect(page).toContain('time={LANDING_SEED_TOM.time}');
+    expect(page).toContain('{jobRef} · {title}');
+    expect(page).toContain('block sm:inline');
+    expect(page).toContain('whitespace-normal sm:whitespace-nowrap');
+    expect(page).toContain('!overflow-visible');
+    expect(page).not.toContain('truncate');
+    expect(page.indexOf("ref: '#0040'")).toBeGreaterThan(0);
+    expect(page).toContain('hub-marketing-board-row mt-2');
+    expect(page).toContain('ops-crew-mark bg-navy');
+    expect(page).toContain('ops-crew-mark bg-warning');
+    expect(page).toContain('!bg-zebra !border-l-warning');
+    expect(page).toContain('!text-[11px]');
+    expect(page).not.toContain('hub-marketing-block-part');
+    expect(page).toContain('mt-6 md:mt-8');
+    expect(page).toContain('Invoice the same job.');
+    expect(page).toContain('Paperwork stays with the work.');
   });
 });
 
