@@ -341,9 +341,10 @@ export function AppShell({ children }: AppShellProps) {
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
+              aria-label="Search"
               className="flex items-center gap-2 w-full rounded-lg border border-white/15 bg-white/[0.04] px-3 py-1.5 text-[13px] tracking-tight text-white/60 transition-colors hover:border-white/25 hover:text-white"
             >
-              <Search className="h-4 w-4 shrink-0" />
+              <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span className="flex-1 text-left hidden sm:inline">Search…</span>
             </button>
           </div>
