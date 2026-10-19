@@ -1,10 +1,63 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { act, createElement } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
+import { getAllByRole } from '@testing-library/dom';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../contexts/AuthContext', () => ({
+  useAuth: () => ({
+    profile: { company_id: 'co-1', id: 'user-1', name: 'QA', role: 'admin' },
+    company: { id: 'co-1', name: 'QA Co', default_tax_rate: 10, default_material_markup: 20 },
+    session: { access_token: 'tok' },
+  }),
+}));
+
+vi.mock('../lib/supabase', () => ({
+  supabase: {
+    from() {
+      const result = { data: [], error: null };
+      const query: Record<string, unknown> = {};
+      const self = () => query;
+      for (const key of ['select', 'eq', 'neq', 'is', 'or', 'order', 'limit', 'maybeSingle', 'single', 'in']) {
+        query[key] = self;
+      }
+      query.then = (onFulfilled: (value: unknown) => unknown) => Promise.resolve(result).then(onFulfilled);
+      return query;
+    },
+    rpc() { return Promise.resolve({ data: [], error: null }); },
+    storage: { from() { return { upload: () => Promise.resolve({ error: null }) }; } },
+  },
+}));
+
+import { QuoteEditorModal } from './QuotesPage';
+import { ToastProvider } from '../components/ui/Toast';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
+
+const QUOTE_THEAD_SR_ONLY = '.hub-quote-lines thead {\n      position: absolute;\n      width: 1px;\n      height: 1px;\n      margin: -1px;\n      padding: 0;\n      overflow: hidden;\n      clip: rect(0 0 0 0);\n      clip-path: inset(50%);\n      white-space: nowrap;\n      border: 0;';
+
+let container: HTMLDivElement;
+let root: Root;
+
+beforeEach(() => {
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  container = document.createElement('div');
+  document.body.appendChild(container);
+  root = createRoot(container);
+});
+
+afterEach(() => {
+  act(() => root.unmount());
+  container.remove();
+});
 
 describe('quote editor Looplet document look', () => {
   it('paints the editor as a cream paper sheet with one 44px primary', () => {
@@ -36,7 +89,7 @@ describe('quote editor Looplet document look', () => {
     expect(editor).not.toMatch(/Grafter|Relovi|Littleloop/);
 
     expect(editor).toContain('data-quote-lines="1"');
-    expect(css).toContain('.hub-quote-lines thead {\n      display: none;');
+    expect(css).toContain(QUOTE_THEAD_SR_ONLY);
     expect(css).toContain('.hub-quote-lines td:nth-child(2)::before { content: \'Qty\'; }');
     expect(css).toContain('.hub-quote-lines td:nth-child(3)::before { content: \'Unit\'; }');
     expect(css).toContain('.hub-quote-lines td:nth-child(4)::before { content: \'Total\'; }');
@@ -50,10 +103,63 @@ describe('quote editor Looplet document look', () => {
     expect(css).not.toMatch(/\.hub-quote-editor \.btn-primary[\s\S]{0,120}#111|#000\b/);
   });
 
-  it('hides .hub-quote-lines thead at phone so the quote dialog has no clipped header', () => {
+  it('hides .hub-quote-lines thead at phone so the quote dialog has no clipped header', async () => {
     const css = src('src/index.css');
-    expect(css).toContain('.hub-quote-lines thead {\n      display: none;');
-    expect(css).not.toMatch(/\.hub-quote-lines thead \{[^}]*clip:\s*rect/);
+    expect(css).toContain(QUOTE_THEAD_SR_ONLY);
+    expect(css).not.toContain('.hub-quote-lines thead {\n      display: none;');
+
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 375 });
+    const style = document.createElement('style');
+    style.textContent = `@media (max-width: 639px) { ${QUOTE_THEAD_SR_ONLY} } }`;
+    document.head.appendChild(style);
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    await act(async () => {
+      root.render(
+        createElement(MemoryRouter, null,
+          createElement(QueryClientProvider, { client },
+            createElement(ToastProvider, null,
+              createElement(QuoteEditorModal, {
+                quote: {
+                  id: 'q-sent',
+                  company_id: 'co-1',
+                  quote_number: 11,
+                  client_id: 'cl-1',
+                  job_id: null,
+                  status: 'sent',
+                  description: 'Switchboard',
+                  scope_of_works: '',
+                  line_items: [{ description: 'Labour', quantity: 1.5, unit_price: 87.35 }],
+                  subtotal: 131.03,
+                  tax_rate: 10,
+                  tax_amount: 13.1,
+                  total: 144.13,
+                  validity_date: null,
+                  notes: null,
+                  inclusions: [],
+                  exclusions: [],
+                  scheduled_date: '2026-10-20',
+                  assigned_team: ['user-1'],
+                  created_by: 'user-1',
+                  created_at: '2026-10-01T00:00:00.000Z',
+                  updated_at: '2026-10-01T00:00:00.000Z',
+                  invoice_id: null,
+                },
+                defaultTaxRate: 10,
+                onClose: () => {},
+                onSaved: () => {},
+                onRequestSend: () => {},
+              } as never),
+            ),
+          ),
+        ),
+      );
+    });
+    await act(async () => { await Promise.resolve(); });
+
+    const headers = getAllByRole(document.body, 'columnheader').map(el => (el.textContent || '').trim());
+    expect(headers).toEqual(['Description', 'Qty', 'Unit', 'Total']);
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
   });
 
   it('keeps Send and Accept writes on the existing persist path', () => {
