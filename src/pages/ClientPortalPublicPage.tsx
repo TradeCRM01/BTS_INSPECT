@@ -255,7 +255,7 @@ function portalInvoiceShowsHowToPay(status: string): boolean {
 
 function PortalFrame({ children }: { children: React.ReactNode }) {
   return (
-    <div id="client-portal">
+    <div id="client-portal" data-theme="light">
       <div className="portal-doc">{children}</div>
     </div>
   );

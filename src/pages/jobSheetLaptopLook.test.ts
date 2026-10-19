@@ -80,11 +80,11 @@ describe('job sheet laptop LOOK — quote paper, one overflow, compact header', 
     expect(page.indexOf('</article>')).toBeGreaterThan(page.indexOf('id="job-schedule"'));
     expect(page).toMatch(/title="Invoices"[\s\S]*?<\/JobRelatedSection>\s*<\/div>\s*<\/div>\s*<div id="job-schedule" \{\.\.\.pane\('job-schedule'\)\}>/);
     expect(css).not.toMatch(/\.hub-jobs-document[\s\S]{0,80}\.ops-tray \.btn-primary[\s\S]{0,160}#2E75B6/);
-    expect(css).toContain('--job-look-page: #F5F0E6');
-    expect(css).toContain('--job-look-sheet: #FFFDF8');
-    expect(css).toContain('--job-look-ink: #0A2540');
-    expect(css).toContain('--job-look-muted: #5B6B7C');
-    expect(css).toContain('--job-look-line: #E2D9CC');
+    expect(css).toContain('--job-look-page: var(--g-bg)');
+    expect(css).toContain('--job-look-sheet: var(--g-surface)');
+    expect(css).toContain('--job-look-ink: var(--g-ink)');
+    expect(css).toContain('--job-look-muted: var(--g-ink-muted)');
+    expect(css).toContain('--job-look-line: var(--g-line)');
     expect(css).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(css).toContain('inset 0 1px 0 #fff');
     const hero = css.slice(css.indexOf('  .hub-jobs-hero {'), css.indexOf('  .hub-jobs-tools {'));

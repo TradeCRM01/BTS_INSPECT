@@ -24,11 +24,11 @@ describe('quote list Looplet document look', () => {
     expect(list).not.toMatch(/Grafter|Relovi|Littleloop/);
 
     expect(css).toContain('.hub-quotes.ops-page');
-    expect(css).toContain('--quote-page: #F5F0E6');
-    expect(css).toContain('--quote-sheet: #FFFDF8');
-    expect(css).toContain('--quote-ink: #0A2540');
-    expect(css).toContain('--quote-muted: #5B6B7C');
-    expect(css).toContain('--quote-line: #E2D9CC');
+    expect(css).toContain('--quote-page: var(--g-bg)');
+    expect(css).toContain('--quote-sheet: var(--g-surface)');
+    expect(css).toContain('--quote-ink: var(--g-ink)');
+    expect(css).toContain('--quote-muted: var(--g-ink-muted)');
+    expect(css).toContain('--quote-line: var(--g-line)');
     expect(css).toContain('#2E75B6');
     expect(css).toContain("font-family: Rajdhani, sans-serif");
     expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");

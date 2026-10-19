@@ -4,6 +4,62 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <script>
+      (function () {
+        var KEY = 'grafter-theme';
+        var allowDark = false;
+        var followSystem = false;
+        var root = document.documentElement;
+        var mq = null;
+        try { mq = window.matchMedia('(prefers-color-scheme: dark)'); } catch (e) {}
+
+        function stored() {
+          try {
+            var v = window.localStorage.getItem(KEY);
+            return v === 'light' || v === 'dark' || v === 'system' ? v : null;
+          } catch (e) { return null; }
+        }
+        function forcedLight() {
+          return /^\/p(\/|$)/.test(window.location.pathname);
+        }
+        function resolve(choice) {
+          if (!allowDark) return 'light';
+          if (choice === 'light' || choice === 'dark') return choice;
+          if (!followSystem) return 'light';
+          return mq && mq.matches ? 'dark' : 'light';
+        }
+        function apply(choice) {
+          var theme = forcedLight() ? 'light' : resolve(choice);
+          root.setAttribute('data-theme', theme);
+          root.style.colorScheme = theme;
+          return theme;
+        }
+
+        var choice = stored() || 'system';
+        apply(choice);
+
+        function onSystemChange() {
+          if (choice === 'system') apply('system');
+        }
+        if (mq) {
+          if (mq.addEventListener) mq.addEventListener('change', onSystemChange);
+          else if (mq.addListener) mq.addListener(onSystemChange);
+        }
+
+        window.grafterTheme = {
+          key: KEY,
+          get: function () { return choice; },
+          resolved: function () { return root.getAttribute('data-theme'); },
+          set: function (next) {
+            if (next !== 'light' && next !== 'dark' && next !== 'system') return;
+            choice = next;
+            try { window.localStorage.setItem(KEY, next); } catch (e) {}
+            return apply(next);
+          },
+          reapply: function () { return apply(choice); }
+        };
+      })();
+    </script>
     <meta name="theme-color" content="#0A2540" />
     <title>Grafter — Trade job software for Australian crews</title>
     <meta name="description" content="Quote, schedule, invoice, get paid. Australian trade job software for crews — templates, JHA, Take 5, and SWMS stay on the job." />

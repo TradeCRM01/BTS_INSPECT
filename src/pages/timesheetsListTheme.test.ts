@@ -45,11 +45,11 @@ describe('Timesheets list cream paper look', () => {
     expect(css).toContain('.hub-timesheets.is-day-open');
     const timesheetsCss = css.slice(css.indexOf('/* Timesheets list only'));
     expect(timesheetsCss).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow/);
-    expect(css).toContain('--ts-look-page: #F5F0E6');
-    expect(css).toContain('--ts-look-sheet: #FFFDF8');
-    expect(css).toContain('--ts-look-ink: #0A2540');
-    expect(css).toContain('--ts-look-muted: #5B6B7C');
-    expect(css).toContain('--ts-look-line: #E2D9CC');
+    expect(css).toContain('--ts-look-page: var(--g-bg)');
+    expect(css).toContain('--ts-look-sheet: var(--g-surface)');
+    expect(css).toContain('--ts-look-ink: var(--g-ink)');
+    expect(css).toContain('--ts-look-muted: var(--g-ink-muted)');
+    expect(css).toContain('--ts-look-line: var(--g-line)');
     expect(css).toContain('#2E75B6');
     expect(css).toContain('font-size: 56px !important');
     expect(css).toContain("font-family: Rajdhani, sans-serif");

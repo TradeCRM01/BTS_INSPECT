@@ -70,11 +70,11 @@ describe('Take 5 Field Work nav + JHA list row look', () => {
     expect(sheet).toContain('border-top: 1px solid var(--jha-look-line)');
     expect(sheet).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow|lacquer|gloss|glow/);
 
-    expect(css).toContain('--jha-look-page: #F5F0E6');
-    expect(css).toContain('--jha-look-sheet: #FFFDF8');
-    expect(css).toContain('--jha-look-ink: #0A2540');
-    expect(css).toContain('--jha-look-muted: #5B6B7C');
-    expect(css).toContain('--jha-look-line: #E2D9CC');
+    expect(css).toContain('--jha-look-page: var(--g-bg)');
+    expect(css).toContain('--jha-look-sheet: var(--g-surface)');
+    expect(css).toContain('--jha-look-ink: var(--g-ink)');
+    expect(css).toContain('--jha-look-muted: var(--g-ink-muted)');
+    expect(css).toContain('--jha-look-line: var(--g-line)');
     expect(css).toContain("font-family: Rajdhani, sans-serif");
     expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
   });

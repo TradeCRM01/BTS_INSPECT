@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { TemplateAccessRoute } from './components/layout/TemplateAccessRoute';
 import { OperatorOnlyPage, OperatorRoute } from './components/layout/OperatorRoute';
@@ -97,9 +97,18 @@ function Protected({ children }: { children: React.ReactNode }) {
   );
 }
 
+function ThemeReapplyOnRoute() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.grafterTheme?.reapply();
+  }, [pathname]);
+  return null;
+}
+
 export default function App() {
   return (
     <ToastProvider>
+    <ThemeReapplyOnRoute />
     <JobInvoiceCreateHoldOverlay />
     <Routes>
       {/* Public routes */}

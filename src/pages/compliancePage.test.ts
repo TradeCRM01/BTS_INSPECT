@@ -110,11 +110,11 @@ describe('compliance due-or-open cream paper look', () => {
     expect(lookCss).toContain('.hub-compliance-hero');
     expect(lookCss).toContain('.hub-compliance-label');
     expect(lookCss).toContain('.hub-compliance.is-record-open');
-    expect(lookCss).toContain('--compliance-look-page: #F5F0E6');
-    expect(lookCss).toContain('--compliance-look-sheet: #FFFDF8');
-    expect(lookCss).toContain('--compliance-look-ink: #0A2540');
-    expect(lookCss).toContain('--compliance-look-muted: #5B6B7C');
-    expect(lookCss).toContain('--compliance-look-line: #E2D9CC');
+    expect(lookCss).toContain('--compliance-look-page: var(--g-bg)');
+    expect(lookCss).toContain('--compliance-look-sheet: var(--g-surface)');
+    expect(lookCss).toContain('--compliance-look-ink: var(--g-ink)');
+    expect(lookCss).toContain('--compliance-look-muted: var(--g-ink-muted)');
+    expect(lookCss).toContain('--compliance-look-line: var(--g-line)');
     expect(lookCss).toContain('#2E75B6');
     expect(lookCss).toContain('box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(lookCss).toContain('box-shadow: inset 0 1px 0 #fff');

@@ -1,0 +1,209 @@
+/*
+ * Grafter semantic tokens. Drop-in for A0 as src/styles/tokens.css.
+ *
+ * A0 rule: every Light value below equals what main renders today, so A0 ships with
+ * zero visual change (pixel diff, BUILD-PLAN-A0.md section 6).
+ * Light cites: TradeCRM01/BTS_INSPECT main, src/index.css unless another file is named.
+ * Dark and new-identity cites: "d4 Lnn" = directions/4-dark-light/tokens.css line nn
+ * (read 19 Oct 2026, sha256 29c9cb9b...637d). Values are exactly those measured in
+ * 4-dark-light/README.md and contrast.json (54 pairs, 0 fails). d4 merges 1-mission-dark
+ * (Dark) and 2-monochrome-light with the INK active state (Light). One family: Geist only.
+ *
+ * Token NAMES match d4, so the shell PR swaps values only, never names.
+ * The --g- prefix is unused on main (rg '--g-' finds 0 hits in src/).
+ *
+ * Load: first line of src/index.css, above the @tailwind directives:
+ *   @import './styles/tokens.css';
+ *
+ * Dark is NOT reachable in A0: theme-init.js resolves "light" until allowDark is
+ * switched on at S3 (Settings > Appearance) and followSystem at Z1.
+ */
+
+/* 1. Theme-invariant (shape and type). Same in Light and Dark. */
+:root {
+  --g-radius-sm: 8px;              /* --ops-radius L19; 8px x24; Tailwind lg L26 */
+  --g-radius-md: 12px;             /* --*-r-ctl x13, e.g. --client-r-ctl L310; 12px x176; Tailwind 2xl L28 */
+  --g-radius-lg: 16px;             /* --*-r-sheet x13, e.g. --client-r-sheet L311; 16px x71 */
+  --g-radius-pill: 999px;          /* 999px x36 */
+  --g-font-sans: 'Inter', system-ui, sans-serif; /* body L29; tailwind.config.js fontFamily sans L7 */
+  --g-font-ui: 'Source Sans 3', system-ui, sans-serif; /* paper-kit UI face, x314, e.g. L373 */
+  --g-font-title: Rajdhani, sans-serif; /* paper-kit titles, x146 */
+  --g-font-mono: 'JetBrains Mono', 'Courier New', monospace; /* .font-mono L37; tailwind.config.js mono L9 */
+  --g-fs-caption: 11px;            /* font-size 11px x55 */
+  --g-fs-small: 12px;              /* 12px x136 (+30 !important) */
+  --g-fs-meta: 13px;               /* 13px x59 */
+  --g-fs-body: 14px;               /* 14px x264 */
+  --g-fs-input: 16px;              /* 16px x57 (+3); inputs 16px !important L41 */
+  --g-fs-title: 20px;              /* 20px x20 (+2); .ops-page-title text-xl L289 */
+  --g-fs-h3: 28px;                 /* 28px x7 (+2) */
+  --g-fs-h2: 32px;                 /* 32px !important x8 (+3) */
+  --g-fs-h1: 40px;                 /* 40px !important x24 */
+  --g-fs-display: 56px;            /* 56px !important x22 (+2) */
+}
+
+/* 2. Light. A0 = live values, exact. :root makes Light the default; [data-theme="light"]
+ *    lets a subtree (client portal, document previews) force Light inside a Dark page. */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --g-bg: #F5F0E6;                 /* --ops-cream L9; --*-page x20, e.g. --client-page L304; Tailwind cream L14 */
+  --g-surface: #FFFDF8;            /* --*-sheet x19, e.g. --client-sheet L305; background #FFFDF8 x92 */
+  --g-surface-2: #F5F0E6;          /* hover fill on a sheet, e.g. .hub-clients-list-more-menu button:hover L1432 */
+  --g-ink: #0A2540;                /* --ops-navy L7; --*-ink x25, e.g. --client-ink L306; Tailwind navy L12 */
+  --g-ink-muted: #5B6B7C;          /* --*-muted x25, e.g. --client-muted L307; color #5B6B7C x225 */
+  --g-ink-subtle: #9CA3AF;         /* TSX text-[#9CA3AF], e.g. src/pages/SuppliersPage.tsx L184 (fails AA; kept exact in A0) */
+  --g-line: #E2D9CC;               /* --*-line x19, e.g. --client-line L308; border 1px solid #E2D9CC x58 */
+  --g-input-line: #D5DCE3;         /* input and chip border, e.g. L1091; border 1px solid #D5DCE3 x20 */
+  --g-accent: #2E75B6;             /* --ops-accent L8; --*-action, e.g. --client-action L309; focus border L646; Tailwind accent L13 */
+  --g-accent-ink: #FFFFFF;         /* color #fff on accent, e.g. L365 */
+  --g-focus: #2E75B6;              /* :focus border-color #2E75B6 x31, e.g. .hub-clients-chrome .form-input:focus L646 */
+  --g-inverse: #2E75B6;            /* primary fill, .hub-clients .btn-primary background L364 */
+  --g-inverse-ink: #FFFFFF;        /* .hub-clients .btn-primary color #fff L365 */
+  --g-inverse-hover: color-mix(in srgb, #2E75B6 86%, #0A2540); /* .hub-clients .btn-primary:hover L379 (computes to #296AA5; x24) */
+  --g-danger: #DC2626;             /* .btn-danger @apply bg-red-600 L60 (Tailwind 3.4 default red-600) */
+  --g-danger-ink: #FFFFFF;         /* .btn-danger text-white L60 */
+  --g-ok: #1B7F3A;                 /* --ops-pass L10; Tailwind pass L15 */
+  --g-ok-bg: color-mix(in srgb, #1B7F3A 12%, #fff); /* .hub-invoices-pill.is-paid L3659 (computes to #E4F0E7) */
+  --g-warn: #B54708;               /* --ops-warning L12; --invoice-warn L13; Tailwind warning L17 */
+  --g-warn-bg: color-mix(in srgb, #B54708 12%, #fff); /* e.g. L5886; .is-part_paid L3669 via --invoice-warn (computes to #F6E9E1) */
+  --g-bad: #B42318;                /* --ops-fail L11; Tailwind fail L16 */
+  --g-bad-bg: color-mix(in srgb, #B42318 12%, #fff); /* .hub-invoices-pill.is-overdue L3664 (computes to #F6E5E3) */
+  --g-sent: #2E75B6;               /* .hub-invoices-pill.is-sent L3653 */
+  --g-sent-bg: color-mix(in srgb, #2E75B6 12%, #fff); /* .hub-invoices-pill.is-sent L3654 (computes to #E6EEF6) */
+  --g-draft: #5B6B7C;              /* .hub-invoices-pill.is-draft L3647 via --invoice-muted */
+  --g-draft-bg: #F5F0E6;           /* .hub-invoices-pill.is-draft L3648 via --invoice-page */
+  --g-scrim: rgb(0 0 0 / 0.5);     /* .overlay-backdrop bg-black/50 L2201 */
+  --g-nav-bg: #0A2540;             /* .shell-header --shell-navy L16667 (company report_theme overrides inline, AppShell.tsx) */
+  --g-nav-ink: #FFFFFF;            /* .shell-header @apply text-white L16669 */
+  --g-sh-1: inset 0 1px 0 #fff, 0 10px 28px rgba(10, 37, 64, 0.08); /* .hub-clients-sheet L692-696 */
+  --g-sh-2: 0 25px 50px -12px rgb(0 0 0 / 0.25); /* .overlay-panel* L2212, L2237, L2258 (Tailwind shadow-2xl) */
+  --g-crew-1: #3B6D9A;             /* src/lib/jobColors.ts EMPLOYEE_COLORS L22 */
+  --g-crew-2: #2E75B6;             /* EMPLOYEE_COLORS L23 */
+  --g-crew-3: #C17F3A;             /* EMPLOYEE_COLORS L24 */
+  --g-crew-4: #8B5E5E;             /* EMPLOYEE_COLORS L25 */
+  --g-crew-5: #5B6B8C;             /* EMPLOYEE_COLORS L26 */
+  --g-crew-6: #3D8A8A;             /* EMPLOYEE_COLORS L27 */
+  --g-chart-1: #2E75B6;            /* src/widgets/IntelligenceWidgets.tsx L454 text-[#2E75B6] */
+  --g-chart-2: #16A34A;            /* IntelligenceWidgets.tsx L455 text-green-600 (Tailwind 3.4 default) */
+  --g-chart-3: #EF4444;            /* IntelligenceWidgets.tsx L456 text-red-500 (Tailwind 3.4 default) */
+  --g-chart-4: #D97706;            /* IntelligenceWidgets.tsx L457 text-amber-600 (Tailwind 3.4 default) */
+}
+
+/* 3. Dark (d4 dark block L134-201). Tokens marked UNVERIFIED are left out on purpose,
+ *    so they inherit the Light value until Coach signs a dark value. */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --g-bg: #0A0A0B;                 /* d4 L136 */
+  --g-surface: #121214;            /* d4 L137 */
+  --g-surface-2: #1C1C1F;          /* d4 L138 */
+  --g-ink: #FAFAFA;                /* d4 L139 */
+  --g-ink-muted: #ADADB5;          /* d4 L141; contrast.json 7.63:1 on surface-2, 8.39:1 on surface, 8.88:1 on bg */
+  --g-ink-subtle: #ADADB5;         /* d4 L141 (no subtle step in d4; folds into ink-muted) */
+  --g-line: #27272A;               /* d4 L142 */
+  --g-input-line: #7A7A83;         /* d4 L144 */
+  --g-accent: #8FABFF;             /* d4 L145 */
+  --g-accent-ink: #0A0A0B;         /* d4 L146 */
+  --g-focus: #8FABFF;              /* d4 L219 --focus: var(--g-accent) = L145; contrast.json --g-accent on --g-surface ui 8.41:1 */
+  --g-inverse: #FAFAFA;            /* d4 L148 (white primary on black, inverse-ink L149: 18.96:1) */
+  --g-inverse-ink: #0A0A0B;        /* d4 L149 */
+  --g-inverse-hover: #E4E4E7;      /* d4 L150 */
+  --g-danger: #F48A83;             /* d4 L165; contrast.json 7.85:1 on surface */
+  --g-danger-ink: #0A0A0B;         /* d4 L166; contrast.json 8.3:1 on danger */
+  --g-ok: #7DD3A0;                 /* d4 L171 */
+  --g-ok-bg: #0F2A1A;              /* d4 L172 */
+  --g-warn: #FDBA8C;               /* d4 L174 */
+  --g-warn-bg: #2E1607;            /* d4 L175 */
+  --g-bad: #FCA5A0;                /* d4 L177 */
+  --g-bad-bg: #2D0F0D;             /* d4 L178 */
+  --g-sent: #A9C1FF;               /* d4 L180 */
+  --g-sent-bg: #132042;            /* d4 L181 */
+  --g-draft: #D4D4D8;              /* d4 L186 */
+  --g-draft-bg: #232326;           /* d4 L187 */
+  --g-scrim: rgba(0,0,0,.6);       /* d4 L159 */
+  --g-nav-bg: rgba(10,10,11,.92);  /* d4 L153 */
+  --g-nav-ink: #FAFAFA;            /* d4 L221 (var(--g-ink), L139) */
+  --g-sh-1: 0 1px 2px rgba(0,0,0,.4); /* d4 L199 */
+  --g-sh-2: 0 12px 32px -8px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06); /* d4 L200 */
+  --g-crew-1: #8FB3D6;             /* d4 L194 (harbour) */
+  /* --g-crew-2: UNVERIFIED. plum not in d4 or 1-mission-dark; light plum #93708F is 4.41:1 on #121214. */
+  --g-crew-3: #D49A84;             /* d4 L195 (clay) */
+  --g-crew-4: #C9A85C;             /* d4 L196 (ochre) */
+  --g-crew-5: #A3ACB9;             /* d4 L198 (slate) */
+  --g-crew-6: #ABA6D9;             /* d4 L197 (dusk) */
+  --g-chart-1: #FAFAFA;            /* d4 L192 */
+  --g-chart-2: #52525B;            /* d4 L193 */
+  /* --g-chart-3: UNVERIFIED. d4 defines chart-1 and chart-2 only. */
+  /* --g-chart-4: UNVERIFIED. d4 defines chart-1 and chart-2 only. */
+}
+
+/* 4. NEW-IDENTITY LIGHT. Applied at the SHELL PR, not in A0.
+ *    At the shell PR: replace block 2 values and block 1 values with these, add the
+ *    self-hosted Geist @font-face (SIL OFL 1.1, d4 L2; Geist only, no Geist Mono), and remove Inter, Source Sans 3,
+ *    Rajdhani and JetBrains Mono from the Google Fonts link (index.html L27).
+ *    The primary action is --g-inverse (ink), not yellow (--hivis is not used).
+ * ---------------------------------------------------------------------------
+:root {
+   --g-radius-sm: 8px;              ( d4 --r-sm L21 )
+   --g-radius-md: 10px;             ( d4 --r-control L5 )
+   --g-radius-lg: 14px;             ( d4 --r-card L60 (sheets use --r-sheet 20px L61) )
+   --g-radius-pill: 999px;          ( d4 --r-pill L6 )
+   --g-font-sans: 'Geist', system-ui, sans-serif; ( d4 --font-ui L53 )
+   --g-font-ui: 'Geist', system-ui, sans-serif; ( d4 --font-ui L53 )
+   --g-font-title: 'Geist', system-ui, sans-serif; ( d4 --font-display L52, weight 600 L59 )
+   --g-font-mono: 'Geist', system-ui, sans-serif; ( d4 --font-mono L54: Geist only, no Geist Mono (one family, tabular figures) )
+   --g-fs-caption: 11px;            ( d4 --fs-11 L22 )
+   --g-fs-small: 12px;              ( d4 --fs-12 L23 )
+   --g-fs-meta: 13px;               ( d4 --fs-13 L24 )
+   --g-fs-body: 14px;               ( d4 --fs-14 L25 )
+   --g-fs-input: 16px;              ( d4 --fs-16 L27 )
+   --g-fs-title: 20px;              ( d4 --fs-20 L29 )
+   --g-fs-h3: 28px;                 ( d4 --fs-28 L31 )
+   --g-fs-h2: 34px;                 ( d4 --fs-34 L32 (32 snaps to 34) )
+   --g-fs-h1: 40px;                 ( d4 --fs-40 L33 )
+   --g-fs-display: 56px;            ( d4 --fs-56 L36 )
+}
+:root,
+[data-theme="light"] {
+   --g-bg: #F5F5F7;                 ( d4 L68 )
+   --g-surface: #FFFFFF;            ( d4 L69 )
+   --g-surface-2: #EBEBEE;          ( d4 L70 (well, distinct from page #F5F5F7) )
+   --g-ink: #0A0A0B;                ( d4 L71 )
+   --g-ink-muted: #4A4A52;          ( d4 L73; contrast.json 7.38:1 on surface-2 )
+   --g-ink-subtle: #4A4A52;         ( d4 L73 (folds into ink-muted) )
+   --g-line: #E4E4E7;               ( d4 L74 )
+   --g-input-line: #808A93;         ( d4 L76 )
+   --g-accent: #183FB8;             ( d4 L77 (README: darkened from #1A44C2 so links on surface-2 reach 7.23:1) )
+   --g-accent-ink: #FFFFFF;         ( d4 L78 )
+   --g-focus: #183FB8;              ( d4 L219 = L77; contrast.json 8.6:1 on surface )
+   --g-inverse: #0A0A0B;            ( d4 L80 (black primary, INK active state) )
+   --g-inverse-ink: #FFFFFF;        ( d4 L81 )
+   --g-inverse-hover: #27272A;      ( d4 L82 )
+   --g-danger: #9F1C14;             ( d4 L97; contrast.json 7.92:1 on surface )
+   --g-danger-ink: #FFFFFF;         ( d4 L98; contrast.json 7.92:1 on danger )
+   --g-ok: #0E5A2C;                 ( d4 L103 )
+   --g-ok-bg: #E3F2E8;              ( d4 L104 )
+   --g-warn: #7A2E03;               ( d4 L106 )
+   --g-warn-bg: #FCEBDF;            ( d4 L107 )
+   --g-bad: #8A170F;                ( d4 L109 )
+   --g-bad-bg: #FBE9E7;             ( d4 L110 )
+   --g-sent: #1E3A8A;               ( d4 L112 )
+   --g-sent-bg: #E6EDFB;            ( d4 L113 )
+   --g-draft: #3F3F46;              ( d4 L118 )
+   --g-draft-bg: #EDEDEF;           ( d4 L119 )
+   --g-scrim: rgba(10,10,11,.42);   ( d4 L91 )
+   --g-nav-bg: rgba(255,255,255,.92); ( d4 L85 )
+   --g-nav-ink: #0A0A0B;            ( d4 L221 (var(--g-ink), L71) )
+   --g-sh-1: 0 1px 2px rgba(10,10,11,.06); ( d4 L131 )
+   --g-sh-2: 0 12px 32px -8px rgba(10,10,11,.18), 0 2px 6px rgba(10,10,11,.06); ( d4 L132 )
+   --g-crew-1: #5D86AE;             ( d4 L126 (harbour) )
+   --g-crew-2: #93708F;             ( spec/tokens.css L236 (plum, D15; d4 has 5 crew, no plum) )
+   --g-crew-3: #B0705A;             ( d4 L127 (clay) )
+   --g-crew-4: #977832;             ( d4 L128 (ochre) )
+   --g-crew-5: #717B8A;             ( d4 L130 (slate) )
+   --g-crew-6: #7F79B0;             ( d4 L129 (dusk) )
+   --g-chart-1: #0A0A0B;            ( d4 L124 )
+   --g-chart-2: #A1A1AA;            ( d4 L125 )
+   --g-chart-3: UNVERIFIED;         ( d4 defines chart-1 and chart-2 only )
+   --g-chart-4: UNVERIFIED;         ( d4 defines chart-1 and chart-2 only )
+}
+ * ------------------------------------------------------------------------- */

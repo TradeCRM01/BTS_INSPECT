@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { DevConsole } from '../ui/DevConsole';
 import { BrandLockup } from '../brand/BrandLockup';
+import { BRAND_NAME } from '../../lib/brand';
 import { resolveAppShellColors } from './appShellTheme';
 import { PHONE_TABS, activePhoneTab, type PhoneTabId } from './appShellPhoneNav';
 import {
@@ -294,7 +295,7 @@ export function AppShell({ children }: AppShellProps) {
         } as CSSProperties}
       >
         <div className="max-w-[1400px] mx-auto px-4 h-14 flex items-center justify-between gap-3">
-          <Link to="/" className="flex items-center shrink-0" onClick={handleLogoTap} aria-label="Grafter">
+          <Link to="/" className="flex items-center shrink-0" onClick={handleLogoTap} aria-label={BRAND_NAME}>
             <BrandLockup size="header" />
           </Link>
 

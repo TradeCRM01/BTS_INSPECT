@@ -29,11 +29,11 @@ describe('public legal paper look', () => {
     expect(lookCss).toContain('.hub-legal {');
     expect(lookCss).toContain('.hub-legal-article');
     expect(lookCss).toContain('.hub-legal-title');
-    expect(lookCss).toContain('--legal-page: #F5F0E6');
-    expect(lookCss).toContain('--legal-sheet: #FFFDF8');
-    expect(lookCss).toContain('--legal-ink: #0A2540');
-    expect(lookCss).toContain('--legal-muted: #5B6B7C');
-    expect(lookCss).toContain('--legal-line: #E2D9CC');
+    expect(lookCss).toContain('--legal-page: var(--g-bg)');
+    expect(lookCss).toContain('--legal-sheet: var(--g-surface)');
+    expect(lookCss).toContain('--legal-ink: var(--g-ink)');
+    expect(lookCss).toContain('--legal-muted: var(--g-ink-muted)');
+    expect(lookCss).toContain('--legal-line: var(--g-line)');
     expect(lookCss).toContain('#2E75B6');
     expect(lookCss).toContain('border-radius: 16px');
     expect(lookCss).toContain('inset 0 1px 0 #fff');

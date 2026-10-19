@@ -28,11 +28,11 @@ describe('JHA list cream paper look', () => {
     expect(list).not.toMatch(/Grafter|Relovi|Littleloop/);
 
     expect(css).toContain('.hub-jha.ops-page');
-    expect(css).toContain('--jha-look-page: #F5F0E6');
-    expect(css).toContain('--jha-look-sheet: #FFFDF8');
-    expect(css).toContain('--jha-look-ink: #0A2540');
-    expect(css).toContain('--jha-look-muted: #5B6B7C');
-    expect(css).toContain('--jha-look-line: #E2D9CC');
+    expect(css).toContain('--jha-look-page: var(--g-bg)');
+    expect(css).toContain('--jha-look-sheet: var(--g-surface)');
+    expect(css).toContain('--jha-look-ink: var(--g-ink)');
+    expect(css).toContain('--jha-look-muted: var(--g-ink-muted)');
+    expect(css).toContain('--jha-look-line: var(--g-line)');
     expect(css).toContain('#2E75B6');
     expect(css).toContain("font-family: Rajdhani, sans-serif");
     expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");

@@ -1,11 +1,10 @@
-import { BtsMark } from './BtsMark';
+import { BrandMark } from './BrandMark';
+import { Wordmark } from './Wordmark';
 
 interface BrandLockupProps {
   size?: 'header' | 'auth' | 'marketing';
   tagline?: string;
 }
-
-const wordmarkClass = 'font-semibold tracking-tighter';
 
 export function BrandLockup({ size = 'header', tagline }: BrandLockupProps) {
   if (size === 'marketing') {
@@ -15,9 +14,9 @@ export function BrandLockup({ size = 'header', tagline }: BrandLockupProps) {
         data-grafter-lockup="marketing"
       >
         <span className="inline-flex items-center justify-center size-[28px] rounded-md shrink-0">
-          <BtsMark size={28} surface="icon" />
+          <BrandMark size={28} surface="icon" />
         </span>
-        <span className={`${wordmarkClass} text-navy text-[15px]`}>Grafter</span>
+        <Wordmark size="marketing" />
       </span>
     );
   }
@@ -29,9 +28,9 @@ export function BrandLockup({ size = 'header', tagline }: BrandLockupProps) {
         data-grafter-lockup="header"
       >
         <span className="inline-flex items-center justify-center size-[26px] rounded-md bg-cream shrink-0">
-          <BtsMark size={18} framed={false} />
+          <BrandMark size={18} framed={false} />
         </span>
-        <span className={`${wordmarkClass} text-white text-[13px] sm:text-sm truncate`}>Grafter</span>
+        <Wordmark size="header" />
       </span>
     );
   }
@@ -42,8 +41,8 @@ export function BrandLockup({ size = 'header', tagline }: BrandLockupProps) {
         className="flex items-center gap-3 rounded-xl px-4 py-3 bg-cream"
         data-grafter-lockup="auth"
       >
-        <BtsMark size={40} framed={false} />
-        <span className={`${wordmarkClass} text-navy text-2xl`}>Grafter</span>
+        <BrandMark size={40} framed={false} />
+        <Wordmark size="auth" />
       </div>
       {tagline ? (
         <p className="text-sm text-[#5B6B7C] mt-0 tracking-tight">{tagline}</p>

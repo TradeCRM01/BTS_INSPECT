@@ -144,7 +144,7 @@ describe('inspection-report document report_theme colours', () => {
     expect(css).toContain('.insp-doc-theme');
     expect(css).toContain('.insp-doc-theme .ops-doc-head');
     expect(css).toContain('--insp-navy: #0A2540');
-    expect(css).toContain('--insp-accent: #2E75B6');
+    expect(css).toContain('--insp-accent: var(--g-accent)');
     expect(css).not.toMatch(/\.insp-doc-theme \.btn-primary/);
 
     const generic = src('src/reports/generic_inspection/Renderer.tsx');

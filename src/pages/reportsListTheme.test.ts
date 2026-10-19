@@ -29,11 +29,11 @@ describe('reports list cream paper look', () => {
     expect(list).not.toMatch(/Grafter|Relovi|Littleloop/);
 
     expect(css).toContain('.hub-reports.ops-page');
-    expect(css).toContain('--report-page: #F5F0E6');
-    expect(css).toContain('--report-sheet: #FFFDF8');
-    expect(css).toContain('--report-ink: #0A2540');
-    expect(css).toContain('--report-muted: #5B6B7C');
-    expect(css).toContain('--report-line: #E2D9CC');
+    expect(css).toContain('--report-page: var(--g-bg)');
+    expect(css).toContain('--report-sheet: var(--g-surface)');
+    expect(css).toContain('--report-ink: var(--g-ink)');
+    expect(css).toContain('--report-muted: var(--g-ink-muted)');
+    expect(css).toContain('--report-line: var(--g-line)');
     expect(css).toContain('#2E75B6');
     expect(css).toContain("font-family: Rajdhani, sans-serif");
     expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
@@ -146,11 +146,11 @@ describe('reports open sheet LOOK', () => {
     expect(lookCss).toContain('.hub-reports-hero');
     expect(lookCss).toContain('.hub-reports-label');
     expect(lookCss).toContain('.hub-reports.is-report-open');
-    expect(lookCss).toContain('--report-page: #F5F0E6');
-    expect(lookCss).toContain('--report-sheet: #FFFDF8');
-    expect(lookCss).toContain('--report-ink: #0A2540');
-    expect(lookCss).toContain('--report-muted: #5B6B7C');
-    expect(lookCss).toContain('--report-line: #E2D9CC');
+    expect(lookCss).toContain('--report-page: var(--g-bg)');
+    expect(lookCss).toContain('--report-sheet: var(--g-surface)');
+    expect(lookCss).toContain('--report-ink: var(--g-ink)');
+    expect(lookCss).toContain('--report-muted: var(--g-ink-muted)');
+    expect(lookCss).toContain('--report-line: var(--g-line)');
     expect(lookCss).toContain('#2E75B6');
     expect(lookCss).toContain('box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(lookCss).toContain('box-shadow: inset 0 1px 0 #fff');

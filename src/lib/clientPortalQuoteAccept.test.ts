@@ -259,14 +259,14 @@ describe('LOOK — portal Accept is a signed quote sheet, not a leftover CRM but
     const quoteCopy = edge.slice(quoteHtmlStart, edge.indexOf('async function resolveQuotePortalUrl'));
 
     expect(css).toContain('#client-portal');
-    expect(css).toContain('--portal-page: #F5F0E6');
-    expect(css).toContain('--portal-sheet: #FFFDF8');
-    expect(css).toContain('--portal-ink: #0A2540');
-    expect(css).toContain('--portal-muted: #5B6B7C');
-    expect(css).toContain('--portal-line: #E2D9CC');
-    expect(css).toContain('--portal-action: #2E75B6');
-    expect(css).toContain('--portal-r-ctl: 12px');
-    expect(css).toContain('--portal-r-sheet: 16px');
+    expect(css).toContain('--portal-page: var(--g-bg)');
+    expect(css).toContain('--portal-sheet: var(--g-surface)');
+    expect(css).toContain('--portal-ink: var(--g-ink)');
+    expect(css).toContain('--portal-muted: var(--g-ink-muted)');
+    expect(css).toContain('--portal-line: var(--g-line)');
+    expect(css).toContain('--portal-action: var(--g-accent)');
+    expect(css).toContain('--portal-r-ctl: var(--g-radius-md)');
+    expect(css).toContain('--portal-r-sheet: var(--g-radius-lg)');
     expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
     expect(css).toContain('font-family: Rajdhani, sans-serif');
     expect(css).toContain('min-height: 44px');
