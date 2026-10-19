@@ -13,6 +13,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '../components/ui';
+import { DASHBOARD_WIDGET_GAP, dashboardWidgetMinNeighborGap } from '../lib/dashboardWidgets';
 import { DashboardPage } from './DashboardPage';
 
 type Call = { table: string; op: string; payload?: unknown; filters: Array<[string, unknown]> };
@@ -287,6 +288,44 @@ describe('PR377 probe: phone Customize persists to dashboard_widgets', () => {
     expect(JSON.stringify(h.rows.map(r => r.config))).toBe(cfg0);
   });
 
+  it('logs a repair write error and still shows the cards', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    h.rows = [
+      { id: 'keep', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270, config: {} },
+      { id: 'hit', widget_type: 'weather', grid_x: 20, grid_y: 20, grid_w: 260, grid_h: 270, config: {} },
+    ];
+    h.failOp = 'update';
+    await mountPage();
+    expect(spy.mock.calls.some(c => String(c[0]).includes('Dashboard widget repair write failed'))).toBe(true);
+    expect(document.body.textContent).not.toContain('Could not load dashboard');
+    expect(document.querySelector('[data-dashboard-view-grid="1"] .dashboard-home-widget')).toBeTruthy();
+  });
+
+  it('reloads at 390 in grid_y then id order (P1-B)', async () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+    h.rows = [
+      { id: 'D', widget_type: 'weather', grid_x: 20, grid_y: 920, grid_w: 260, grid_h: 270, config: {} },
+      { id: 'B', widget_type: 'weather', grid_x: 20, grid_y: 320, grid_w: 260, grid_h: 270, config: {} },
+      { id: 'C', widget_type: 'weather', grid_x: 20, grid_y: 620, grid_w: 260, grid_h: 270, config: {} },
+      { id: 'A', widget_type: 'weather', grid_x: 20, grid_y: 20, grid_w: 260, grid_h: 270, config: {} },
+    ];
+    await mountPage();
+    expect(viewIds()).toEqual(['A', 'B', 'C', 'D']);
+    await act(async () => { (document.querySelector('.dashboard-home-more > summary') as HTMLElement).click(); });
+    const customize = [...document.querySelectorAll('[role="menuitem"]')].find(e => e.textContent === 'Customize') as HTMLElement;
+    await act(async () => { customize.click(); });
+    await waitFor(() => !!document.querySelector('[data-dashboard-phone-stack="1"]'), 'stack');
+    await act(async () => { btn('C', 'Move Weather up').click(); }); await tick();
+    await act(async () => { btn('A', 'Remove Weather').click(); }); await tick();
+    expect(ids()).toEqual(['C', 'B', 'D']);
+    act(() => root.unmount());
+    root = createRoot(container);
+    h.rows = [h.rows.find(r => r.id === 'D')!, h.rows.find(r => r.id === 'C')!, h.rows.find(r => r.id === 'B')!];
+    h.calls.length = 0;
+    await mountPage();
+    expect(viewIds()).toEqual(['C', 'B', 'D']);
+  });
+
   it('C up, remove A, reload, then B down still reorders (P1-B)', async () => {
     h.rows = ['A', 'B', 'C', 'D'].map((id, i) => ({
       id, widget_type: 'weather', grid_x: 20, grid_y: 20 + i * 300, grid_w: 260, grid_h: 270, config: {},
@@ -337,6 +376,62 @@ describe('PR377 clamp persist (canvas forced to 910)', () => {
     await doneEditing();
     expect(h.calls.filter(c => c.table === 'dashboard_widgets')).toEqual([]);
     expect(h.rows.find(r => r.id === 'w-invoices')).toMatchObject({ grid_x: 800, grid_y: 380, grid_w: 260 });
+  });
+
+  it('drawn canvas cards keep at least a 16px gutter (P2-6)', async () => {
+    forceWidth(910);
+    h.rows = [
+      { id: 'w-jobs', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270, config: {} },
+      { id: 'w-weather1', widget_type: 'weather', grid_x: 540, grid_y: 20, grid_w: 260, grid_h: 270, config: {} },
+      { id: 'w-weather2', widget_type: 'weather', grid_x: 20, grid_y: 380, grid_w: 260, grid_h: 270, config: {} },
+      { id: 'w-weather3', widget_type: 'weather', grid_x: 410, grid_y: 380, grid_w: 260, grid_h: 270, config: {} },
+      { id: 'w-invoices', widget_type: 'outstanding_invoices', grid_x: 800, grid_y: 380, grid_w: 260, grid_h: 180, config: {} },
+      { id: 'w-compliance', widget_type: 'compliance_deadlines', grid_x: 20, grid_y: 740, grid_w: 390, grid_h: 270, config: {} },
+      { id: 'w-pending', widget_type: 'pending_reports', grid_x: 540, grid_y: 740, grid_w: 390, grid_h: 180, config: {} },
+      { id: 'w-clock', widget_type: 'clock', grid_x: 20, grid_y: 1030, grid_w: 260, grid_h: 180, config: {} },
+      { id: 'w-calendar', widget_type: 'calendar', grid_x: 410, grid_y: 1030, grid_w: 390, grid_h: 270, config: {} },
+      { id: 'w-calculator', widget_type: 'calculator', grid_x: 20, grid_y: 1320, grid_w: 260, grid_h: 320, config: {} },
+      { id: 'w-quick', widget_type: 'quick_actions', grid_x: 410, grid_y: 1320, grid_w: 260, grid_h: 270, config: {} },
+      { id: 'w-kpi', widget_type: 'kpi_scorecard', grid_x: 800, grid_y: 1030, grid_w: 390, grid_h: 270, config: {} },
+    ];
+    for (const width of [686, 910, 1166]) {
+      forceWidth(width);
+      act(() => root.unmount());
+      root = createRoot(container);
+      h.calls.length = 0;
+      await mountCustomize();
+      const cards = [...document.querySelectorAll('.dashboard-home-canvas > [data-dashboard-widget-id]')].map(el => {
+        const node = el as HTMLElement;
+        return {
+          id: node.getAttribute('data-dashboard-widget-id') ?? '',
+          grid_x: parseFloat(node.style.left),
+          grid_y: parseFloat(node.style.top),
+          grid_w: parseFloat(node.style.width),
+          grid_h: parseFloat(node.style.height),
+        };
+      });
+      expect(cards.length).toBe(12);
+      expect(dashboardWidgetMinNeighborGap(cards), `${width}px canvas`).toBeGreaterThanOrEqual(DASHBOARD_WIDGET_GAP);
+    }
+  });
+
+  it('drag cannot pass the canvas right edge (P2-6)', async () => {
+    forceWidth(910);
+    await mountCustomize();
+    const el = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="w-jobs"]') as HTMLElement;
+    const drawnX = parseFloat(el.style.left);
+    const drawnW = parseFloat(el.style.width);
+    h.calls.length = 0;
+    await act(async () => {
+      h.onDragEnd?.({ active: { id: 'w-jobs' }, delta: { x: 4000, y: 0 } });
+    });
+    await tick(40);
+    const patch = writes('update').find(c => c.filters.some(f => f[1] === 'w-jobs'));
+    expect(patch).toBeTruthy();
+    const payload = strip(patch!.payload) as { grid_x: number; grid_y: number; grid_w: number };
+    expect(payload.grid_x + payload.grid_w).toBe(910);
+    expect(payload.grid_x).toBe(910 - drawnW);
+    expect(payload.grid_x).not.toBe(drawnX);
   });
 
   it('drag on clamped Invoices at 910 starts from the drawn left (P1-A)', async () => {

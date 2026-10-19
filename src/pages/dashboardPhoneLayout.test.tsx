@@ -175,29 +175,30 @@ describe('dashboard phone layout', () => {
     expect(stackInk).not.toMatch(/height:\s*100%/);
   });
 
-  it('measures 20px gaps from stacked card rects', () => {
+  it('measures a constant 20px phone gutter between neighbouring cards (P2-6)', () => {
+    const css = lookCss();
+    const stackRule = css.slice(css.indexOf('.dashboard-home-widget-stack {'));
+    const stackBlock = stackRule.slice(0, stackRule.indexOf('}') + 1);
+    const viewBlock = ruleBeforeMedia(css, '.dashboard-home-view-grid', '@media (min-width: 640px)');
     const style = document.createElement('style');
-    style.textContent = lookCss();
+    style.textContent = `${stackBlock}\n${viewBlock}`;
     document.head.appendChild(style);
     const stack = document.createElement('div');
     stack.className = 'dashboard-home-widget-stack';
-    document.body.appendChild(stack);
-    const a = document.createElement('div');
-    const b = document.createElement('div');
-    a.className = 'dashboard-home-widget';
-    b.className = 'dashboard-home-widget';
-    a.style.height = '40px';
-    b.style.height = '40px';
-    stack.append(a, b);
-    const gap = getComputedStyle(stack).rowGap || getComputedStyle(stack).gap;
-    if (gap && gap !== 'normal') {
-      expect(parseFloat(gap)).toBe(20);
-    }
-    const stacked = [{ top: 0, bottom: 40 }, { top: 60, bottom: 100 }];
-    const measured = stacked.slice(0, -1).map((row, i) => stacked[i + 1].top - row.bottom);
-    expect(measured).toEqual([20]);
-    const view = ruleBeforeMedia(lookCss(), '.dashboard-home-view-grid', '@media (min-width: 640px)');
-    expect(view).toMatch(/gap:\s*20px/);
+    const view = document.createElement('div');
+    view.className = 'dashboard-home-view-grid';
+    document.body.append(stack, view);
+    const gapOf = (el: HTMLElement) => {
+      const cs = getComputedStyle(el);
+      const raw = cs.rowGap && cs.rowGap !== 'normal' ? cs.rowGap : cs.gap;
+      return parseFloat(raw);
+    };
+    expect(gapOf(stack)).toBe(20);
+    expect(gapOf(view)).toBe(20);
+    const mdBlock = css.slice(css.indexOf('@media (min-width: 640px)'));
+    const mdViewStart = mdBlock.indexOf('.dashboard-home-view-grid {');
+    const mdView = mdBlock.slice(mdViewStart, mdBlock.indexOf('}', mdViewStart) + 1);
+    expect(mdView).toMatch(/gap:\s*16px/);
   });
 
   it('renders phone widgets inside a shrinking grid on the look dashboard', async () => {

@@ -518,9 +518,11 @@ export function DashboardPage() {
       });
       const repaired = repairDashboardWidgetLayout(rows);
       if (repaired.changed) {
-        void persistDashboardWidgetRepair(rows, repaired).catch((err) => {
+        try {
+          await persistDashboardWidgetRepair(rows, repaired);
+        } catch (err) {
           console.error('Dashboard widget repair write failed', err);
-        });
+        }
       }
       return repaired.widgets;
     },

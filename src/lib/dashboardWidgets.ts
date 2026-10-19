@@ -20,7 +20,10 @@ export type DefaultDashboardWidgetType = (typeof DEFAULT_DASHBOARD_WIDGET_TYPES)
 
 export const DASHBOARD_WIDGET_ORIGIN = 20;
 export const DASHBOARD_WIDGET_CANVAS_W = 1100;
-export const DASHBOARD_WIDGET_GAP = 20;
+/** Desktop/tablet canvas gutter. Matches `.dashboard-home-view-grid` at md+. Phone stack stays 20px in CSS. */
+export const DASHBOARD_WIDGET_GAP = 16;
+/** Phone view and Customize stack. Constant vertical gap. */
+export const DASHBOARD_PHONE_WIDGET_GAP = 20;
 /** Same floor as desktop resize. Shrink-in-place never goes below this. */
 export const DASHBOARD_WIDGET_MIN_W = 180;
 export const DASHBOARD_WIDGET_MIN_H = 120;
@@ -103,6 +106,50 @@ export function dashboardWidgetLayoutOverlaps(widgets: readonly DashboardWidgetR
   return false;
 }
 
+export function dashboardWidgetLayoutConflicts(
+  widgets: readonly DashboardWidgetRect[],
+  gap = DASHBOARD_WIDGET_GAP,
+): boolean {
+  for (let i = 0; i < widgets.length; i += 1) {
+    for (let j = i + 1; j < widgets.length; j += 1) {
+      if (dashboardWidgetRectsConflict(widgets[i], widgets[j], gap)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Gap between two cards that share a row or column. `0` is touching.
+ * `null` when they are diagonal (not neighbours).
+ */
+export function dashboardWidgetPairGap(
+  a: Pick<DashboardWidgetRect, 'grid_x' | 'grid_y' | 'grid_w' | 'grid_h'>,
+  b: Pick<DashboardWidgetRect, 'grid_x' | 'grid_y' | 'grid_w' | 'grid_h'>,
+): number | null {
+  const xGap = Math.max(a.grid_x - (b.grid_x + b.grid_w), b.grid_x - (a.grid_x + a.grid_w));
+  const yGap = Math.max(a.grid_y - (b.grid_y + b.grid_h), b.grid_y - (a.grid_y + a.grid_h));
+  const xOverlap = xGap < 0;
+  const yOverlap = yGap < 0;
+  if (xOverlap && yOverlap) return 0;
+  if (yOverlap) return xGap;
+  if (xOverlap) return yGap;
+  return null;
+}
+
+export function dashboardWidgetMinNeighborGap(
+  widgets: readonly Pick<DashboardWidgetRect, 'grid_x' | 'grid_y' | 'grid_w' | 'grid_h'>[],
+): number | null {
+  let min = Infinity;
+  for (let i = 0; i < widgets.length; i += 1) {
+    for (let j = i + 1; j < widgets.length; j += 1) {
+      const gap = dashboardWidgetPairGap(widgets[i], widgets[j]);
+      if (gap === null) continue;
+      if (gap < min) min = gap;
+    }
+  }
+  return min === Infinity ? null : min;
+}
+
 export function dashboardWidgetFitsCanvas(
   row: Pick<DashboardWidgetRect, 'grid_x' | 'grid_w'>,
   canvasW: number,
@@ -179,7 +226,7 @@ export function clampDashboardWidgetsToCanvas<T extends DashboardWidgetRect>(
   const width = Math.max(1, Math.floor(canvasW));
   const fitted = widgets.map(row => clampDashboardWidgetToCanvas(row, width));
   const overflow = fitted.some(row => !dashboardWidgetFitsCanvas(row, width));
-  if (!overflow && !dashboardWidgetLayoutOverlaps(fitted)) return fitted;
+  if (!overflow && !dashboardWidgetLayoutConflicts(fitted)) return fitted;
   return repairDashboardWidgetLayout(fitted, width).widgets;
 }
 
@@ -292,7 +339,7 @@ export function placeAddedDashboardWidget(
 }
 
 function widgetOriginallyCollides<T extends DashboardWidgetRect>(widget: T, others: readonly T[]): boolean {
-  return others.some(row => row !== widget && dashboardWidgetRectsOverlap(widget, row));
+  return others.some(row => row !== widget && dashboardWidgetRectsConflict(widget, row));
 }
 
 export function repairDashboardWidgetLayout<T extends DashboardWidgetRect>(
@@ -319,7 +366,7 @@ export function repairDashboardWidgetLayout<T extends DashboardWidgetRect>(
   let moved = false;
   for (const widget of colliders) {
     const obstacles = placed;
-    if (!obstacles.some(row => dashboardWidgetRectsOverlap(widget, row))) {
+    if (!obstacles.some(row => dashboardWidgetRectsConflict(widget, row))) {
       placed.push(widget);
       nextByWidget.set(widget, widget);
       continue;

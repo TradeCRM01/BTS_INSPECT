@@ -3,6 +3,7 @@ import { getWidgetDef } from '../widgets/registry';
 import {
   DASHBOARD_WIDGET_CELL_H,
   DASHBOARD_WIDGET_CELL_W,
+  DASHBOARD_WIDGET_GAP,
   DEFAULT_DASHBOARD_WIDGET_TYPES,
   DASHBOARD_WIDGET_MIN_W,
   applyDashboardWidgetDrag,
@@ -11,6 +12,7 @@ import {
   clampDashboardWidgetsToCanvas,
   dashboardWidgetFitsCanvas,
   dashboardWidgetLayoutOverlaps,
+  dashboardWidgetMinNeighborGap,
   dashboardWidgetPixelSize,
   dashboardWidgetRectsOverlap,
   decideDashboardWidgetSeed,
@@ -496,6 +498,48 @@ describe('dashboard widget grid placement', () => {
     expect(live.find(row => row.id === 'w-weather1')).toMatchObject({ grid_x: 540, grid_w: 260 });
   });
 
+  it('keeps at least a 16px gutter between neighbouring cards after clamp (P2-6)', () => {
+    const seed: DashboardWidgetRect[] = [
+      { id: 'look-widget-upcoming-jobs', widget_type: 'upcoming_jobs', grid_x: 0, grid_y: 0, grid_w: 360, grid_h: 200 },
+      { id: 'look-widget-outstanding-invoices', widget_type: 'outstanding_invoices', grid_x: 376, grid_y: 0, grid_w: 280, grid_h: 200 },
+      { id: 'look-widget-compliance', widget_type: 'compliance_deadlines', grid_x: 672, grid_y: 0, grid_w: 320, grid_h: 200 },
+    ];
+    for (const type of [
+      'weather', 'clock', 'calendar', 'calculator', 'quick_actions', 'pending_reports', 'agent_reminders', 'kpi_scorecard',
+    ]) {
+      const placed = placeAddedDashboardWidget(seed, type);
+      if (!placed) continue;
+      seed.push({ id: `seed-${type}`, widget_type: type, ...placed });
+    }
+    const repro: DashboardWidgetRect[] = [
+      { id: 'w-jobs', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270 },
+      { id: 'w-weather1', widget_type: 'weather', grid_x: 540, grid_y: 20, grid_w: 260, grid_h: 270 },
+      { id: 'w-weather2', widget_type: 'weather', grid_x: 20, grid_y: 380, grid_w: 260, grid_h: 270 },
+      { id: 'w-weather3', widget_type: 'weather', grid_x: 410, grid_y: 380, grid_w: 260, grid_h: 270 },
+      { id: 'w-invoices', widget_type: 'outstanding_invoices', grid_x: 800, grid_y: 380, grid_w: 260, grid_h: 180 },
+      { id: 'w-compliance', widget_type: 'compliance_deadlines', grid_x: 20, grid_y: 740, grid_w: 390, grid_h: 270 },
+      { id: 'w-pending', widget_type: 'pending_reports', grid_x: 540, grid_y: 740, grid_w: 390, grid_h: 180 },
+      { id: 'w-clock', widget_type: 'clock', grid_x: 20, grid_y: 1030, grid_w: 260, grid_h: 180 },
+      { id: 'w-calendar', widget_type: 'calendar', grid_x: 410, grid_y: 1030, grid_w: 390, grid_h: 270 },
+      { id: 'w-calculator', widget_type: 'calculator', grid_x: 20, grid_y: 1320, grid_w: 260, grid_h: 320 },
+      { id: 'w-quick', widget_type: 'quick_actions', grid_x: 410, grid_y: 1320, grid_w: 260, grid_h: 270 },
+      { id: 'w-kpi', widget_type: 'kpi_scorecard', grid_x: 800, grid_y: 1030, grid_w: 390, grid_h: 270 },
+    ];
+    expect(DASHBOARD_WIDGET_GAP).toBe(16);
+    for (const canvasW of [686, 910, 1166]) {
+      for (const layout of [seed, repro]) {
+        const stored = layout.map(row => ({ ...row }));
+        const next = clampDashboardWidgetsToCanvas(layout, canvasW);
+        expect(next.every(row => dashboardWidgetFitsCanvas(row, canvasW))).toBe(true);
+        expect(dashboardWidgetLayoutOverlaps(next)).toBe(false);
+        const min = dashboardWidgetMinNeighborGap(next);
+        expect(min, `${canvasW}px canvas`).not.toBeNull();
+        expect(min, `${canvasW}px canvas`).toBeGreaterThanOrEqual(DASHBOARD_WIDGET_GAP);
+        expect(layout).toEqual(stored);
+      }
+    }
+  });
+
   it('re-places a clamped card into the nearest free slot, not the bottom', () => {
     const rows: DashboardWidgetRect[] = [
       { id: 'w-jobs', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270 },
@@ -514,8 +558,9 @@ describe('dashboard widget grid placement', () => {
     const next = clampDashboardWidgetsToCanvas(rows, 910);
     const invoices = next.find(row => row.id === 'w-invoices')!;
     expect(invoices.grid_x + invoices.grid_w).toBeLessThanOrEqual(910);
-    expect(invoices.grid_y).toBe(940);
+    expect(invoices).toMatchObject({ grid_x: 650, grid_y: 936, grid_w: 260 });
     expect(invoices.grid_y).toBeLessThan(1640);
+    expect(dashboardWidgetMinNeighborGap(next)).toBeGreaterThanOrEqual(DASHBOARD_WIDGET_GAP);
     expect(dashboardWidgetLayoutOverlaps(next)).toBe(false);
     expect(rows.find(row => row.id === 'w-invoices')).toMatchObject({ grid_x: 800, grid_y: 380 });
   });
@@ -538,6 +583,18 @@ describe('dashboard widget grid placement', () => {
     expect(next.grid_x).not.toBe(700);
   });
 
+  it('desktop drag cannot pass the canvas right edge', () => {
+    const next = applyDashboardWidgetDrag(
+      { grid_x: 20, grid_y: 20, grid_w: 260 },
+      { x: 4000, y: 50 },
+      910,
+    );
+    expect(next.grid_x).toBe(650);
+    expect(next.grid_y).toBe(70);
+    expect(next.grid_w).toBe(260);
+    expect(next.grid_x + next.grid_w).toBe(910);
+  });
+
   it('resize max follows the canvas from the drawn x', () => {
     const sized = applyDashboardWidgetResize(
       { grid_x: 650, grid_w: 260, grid_h: 180 },
@@ -547,6 +604,17 @@ describe('dashboard widget grid placement', () => {
     expect(sized.grid_x).toBe(650);
     expect(sized.grid_w).toBe(260);
     expect(sized.grid_x + sized.grid_w).toBe(910);
+  });
+
+  it('resize cannot grow past the canvas right edge', () => {
+    const sized = applyDashboardWidgetResize(
+      { grid_x: 20, grid_w: 260, grid_h: 180 },
+      { x: 4000, y: 0 },
+      686,
+    );
+    expect(sized.grid_x).toBe(20);
+    expect(sized.grid_w).toBe(666);
+    expect(sized.grid_x + sized.grid_w).toBe(686);
   });
 
   it('filters the picker with the same helper the page uses', () => {

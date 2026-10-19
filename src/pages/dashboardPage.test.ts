@@ -100,7 +100,9 @@ describe('dashboard widgets stay on the paper', () => {
     expect(page).toContain('pickerDashboardWidgets');
     expect(page).toContain('measureDashboardCanvasWidth');
     expect(page).toContain('addingWidget');
-    expect(page).toContain('.catch(');
+    expect(page).toContain('await persistDashboardWidgetRepair(rows, repaired)');
+    expect(page).toContain("console.error('Dashboard widget repair write failed'");
+    expect(page).toContain('if (error) throw error');
     expect(helper).not.toMatch(/['"]bitcoin['"]/);
     expect(helper).not.toMatch(/electric|electrical/i);
 
