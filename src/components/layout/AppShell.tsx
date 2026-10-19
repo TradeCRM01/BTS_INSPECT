@@ -372,7 +372,7 @@ export function AppShell({ children }: AppShellProps) {
                 </div>
                 <span
                   data-shell-switcher-name
-                  className="hidden lg:block text-sm tracking-tight text-white/80 max-w-[6rem] truncate"
+                  className="hidden lg:block w-[7.5rem] max-w-[7.5rem] shrink-0 text-sm tracking-tight text-white/80 whitespace-normal leading-none text-left"
                   title={switcherName}
                 >
                   {switcherName}

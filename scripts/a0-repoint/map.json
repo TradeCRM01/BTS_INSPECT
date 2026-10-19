@@ -1045,12 +1045,12 @@
   ],
   "fonts": [
     {
-      "from": "font-family: 'Inter', system-ui, sans-serif",
+      "from": "font-family: 'Geist', 'Geist Fallback', system-ui, sans-serif",
       "to": "font-family: var(--g-font-sans)",
       "token": "--g-font-sans"
     },
     {
-      "from": "font-family: 'JetBrains Mono', 'Courier New', monospace",
+      "from": "font-family: 'Geist', 'Geist Fallback', system-ui, sans-serif",
       "to": "font-family: var(--g-font-mono)",
       "token": "--g-font-mono"
     }

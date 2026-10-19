@@ -182,7 +182,8 @@ describe('public document head wiring', () => {
   it('puts landing SEO in index.html for the first paint and crawlers', () => {
     const html = src('index.html');
     expect(html).toContain(`<html lang="en-AU">`);
-    expect(html).toContain(`<title>${PUBLIC_SEO.landing.title}</title>`);
+    expect(html).toContain('<title>%BRAND_NAME% — Trade job software for Australian crews</title>');
+    expect(PUBLIC_SEO.landing.title).toBe('Grafter — Trade job software for Australian crews');
     expect(html).toContain(`content="${PUBLIC_SEO.landing.description}"`);
     expect(html).toContain('property="og:title"');
     expect(html).toContain('property="og:description"');

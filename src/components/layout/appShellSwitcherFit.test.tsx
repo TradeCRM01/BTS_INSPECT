@@ -70,14 +70,19 @@ afterEach(() => {
 });
 
 describe('AppShell desktop switcher fits the header row', () => {
-  it('renders the company name with a 6rem cap, truncate, and matching title (A4)', async () => {
+  it('renders the full company name wrapped, without truncate, and matching title', async () => {
     await renderShell();
     const name = container.querySelector('[data-shell-switcher-name]');
     expect(name).not.toBeNull();
     expect(name?.textContent).toBe(LONG_NAME);
-    expect(name?.className).toMatch(/max-w-\[6rem\]/);
-    expect(name?.className).toMatch(/\btruncate\b/);
+    expect(name?.className).not.toMatch(/max-w-\[6rem\]/);
+    expect(name?.className).not.toMatch(/\btruncate\b/);
     expect(name?.className).not.toMatch(/min-w-0/);
+    expect(name?.className).toMatch(/hidden lg:block/);
+    expect(name?.className).toMatch(/max-w-\[7\.5rem\]/);
+    expect(name?.className).toMatch(/\bwhitespace-normal\b/);
+    expect(name?.className).toMatch(/\bleading-none\b/);
+    expect(name?.className).toMatch(/\btext-left\b/);
     const btn = name?.closest('button');
     expect(btn?.getAttribute('title')).toBe(LONG_NAME);
     expect(btn?.getAttribute('aria-label')).toBe(LONG_NAME);

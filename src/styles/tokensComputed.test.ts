@@ -43,8 +43,14 @@ describe('computed --g-* tokens and re-points', () => {
     expect(style.getPropertyValue('--g-accent').trim()).toBe('#2E75B6');
   });
 
-  it('kills M4b dropped dark block: computed [data-theme=dark] --g-bg is #0A0A0B', () => {
+  it('keeps Light pixels when data-theme=dark and allowDark is false', () => {
     const style = computedRoot(' data-theme="dark"');
+    expect(style.getPropertyValue('--g-bg').trim()).toBe('#F5F0E6');
+    expect(style.getPropertyValue('--g-ink').trim()).toBe('#0A2540');
+  });
+
+  it('applies Dark tokens only when allowDark is true', () => {
+    const style = computedRoot(' data-allow-dark="true" data-theme="dark"');
     expect(style.getPropertyValue('--g-bg').trim()).toBe('#0A0A0B');
     expect(style.getPropertyValue('--g-ink').trim()).toBe('#FAFAFA');
   });
