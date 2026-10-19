@@ -17,6 +17,11 @@ export const TAKE5_LIST_FILTERS: Array<{ value: Take5ListFilter; label: string }
   { value: 'all', label: 'All Take 5s' },
 ];
 
+export const TAKE5_LIST_TABS: Array<{ value: Exclude<Take5ListFilter, 'all'>; label: string }> = [
+  { value: 'open', label: 'Open' },
+  { value: 'done', label: 'Done' },
+];
+
 export type Take5ListItem = {
   id: string;
   status: string;

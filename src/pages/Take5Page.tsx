@@ -14,9 +14,18 @@ import { Take5ListPage } from './Take5ListPage';
 import { applyLivingJobToTake5, livingCrewLabel, livingJobSite } from '../lib/livingJha';
 import {
   recommendTake5FillAction,
+  take5DraftControlsVisible,
   take5FillContext,
+  take5IdentityOpen,
+  take5PdfPreviewHint,
+  take5PdfPreviewTitle,
+  take5SignatureForSave,
   take5StatusLabel,
 } from '../lib/take5NextAction';
+import { trimSafetySite } from '../lib/safetySite';
+import { jhaPersistStatus } from '../lib/jhaDocumentWrite';
+import { take5SaveRow } from '../lib/take5DocumentWrite';
+import { safetySignOffLine } from '../lib/safetySignOff';
 import { getAuditJhaDoc, getAuditJob, getAuditTake5, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { UnsavedChangesDialog } from '../components/unsaved/UnsavedChangesDialog';
 import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard';
@@ -96,7 +105,9 @@ function Take5FillPage() {
   const [saveHint, setSaveHint] = useState<UnsavedChangesStatus>('saved');
   const [hydrated, setHydrated] = useState(!take5Id);
   const [showMoreIdentity, setShowMoreIdentity] = useState(false);
+  const [identityActive, setIdentityActive] = useState(false);
   const [activeTab, setActiveTab] = useState<'form' | 'preview'>('form');
+  const [savedSignature, setSavedSignature] = useState<string | null>(null);
 
   const { data: existing, isLoading: take5Loading, isError: take5Error, refetch: refetchTake5 } = useQuery({
     queryKey: ['jha-take5', take5Id],
@@ -175,6 +186,7 @@ function Take5FillPage() {
     setGoNoGo(existing.go_no_go === 'stop' ? 'stop' : 'go');
     setSignedName(existing.signed_name || profile?.name || '');
     setHasStroke(false);
+    setSavedSignature(existing.signature || null);
     setStatusKey(existing.status || 'draft');
     setHydrated(true);
     setMeta({
@@ -248,7 +260,8 @@ function Take5FillPage() {
   );
   const jhaMeta = (jha?.meta ?? {}) as Record<string, string>;
   const siteLabel = opsSiteLabel(living.siteName, meta.location, jhaMeta.siteName, job?.address, job?.title, jhaMeta.taskName);
-  const signed = hasStroke || !!existing?.signature;
+  const persistedSignature = savedSignature || existing?.signature || null;
+  const signed = hasStroke || !!persistedSignature;
   const next = recommendTake5FillAction(take5FillContext({
     status: statusKey,
     saved: !!rowId,
@@ -266,11 +279,13 @@ function Take5FillPage() {
     setSaveHint('saving');
     setError('');
     try {
-      const signature = status === 'completed'
-        ? (sigRef.current && !sigRef.current.isEmpty()
-          ? sigRef.current.toDataURL('image/png')
-          : existing?.signature ?? null)
-        : existing?.signature ?? null;
+      const canvasDataUrl = sigRef.current && !sigRef.current.isEmpty()
+        ? sigRef.current.toDataURL('image/png')
+        : null;
+      const signature = take5SignatureForSave({
+        canvasDataUrl,
+        existingSignature: persistedSignature,
+      });
 
       if (status === 'completed' && !signature) {
         throw new Error('Sign the Take 5 before completing');
@@ -279,12 +294,17 @@ function Take5FillPage() {
         throw new Error('Complete Stop & think, Identify hazards, and Control actions');
       }
 
+      const persistAs = jhaPersistStatus(status, statusKey);
+      const location = trimSafetySite(jobBound ? (living.siteName || meta.location) : meta.location);
+      const id = nextClientDraftId(rowIdRef.current);
       const payload = {
         company_id: profile.company_id,
         jha_document_id: jhaId,
         created_by: profile.id,
-        status,
-        meta: jobBound ? { ...meta, location: living.siteName || meta.location, crewSignOns: living.meta.crewSignOns } : meta,
+        status: persistAs,
+        meta: jobBound
+          ? { ...meta, location, crewSignOns: living.meta.crewSignOns }
+          : { ...meta, location },
         stop_think: stopThink,
         identify_hazards: identify,
         assess_risk: assess,
@@ -292,13 +312,13 @@ function Take5FillPage() {
         go_no_go: goNoGo,
         signed_name: signedName,
         signature,
-        signed_at: status === 'completed'
+        signed_at: persistAs === 'completed'
           ? (existing?.signed_at ?? new Date().toISOString())
           : null,
         updated_at: new Date().toISOString(),
       };
+      const row = take5SaveRow(id, payload);
 
-      const id = nextClientDraftId(rowIdRef.current);
       rowIdRef.current = id;
       if (insertInFlightRef.current) {
         await insertInFlightRef.current;
@@ -306,7 +326,7 @@ function Take5FillPage() {
       const pending = (async () => {
         const { data, error: upErr } = await supabase
           .from('jha_take5')
-          .upsert({ id, ...payload }, { onConflict: 'id' })
+          .upsert(row, { onConflict: 'id' })
           .select()
           .maybeSingle();
         if (upErr) throw upErr;
@@ -328,7 +348,9 @@ function Take5FillPage() {
       queryClient.invalidateQueries({ queryKey: ['jha-take5-all'] });
       queryClient.invalidateQueries({ queryKey: ['jha-take5', take5Id || rowId] });
       if (job?.id) queryClient.invalidateQueries({ queryKey: ['job-take5s', job.id] });
-      setStatusKey(status);
+      setStatusKey(persistAs);
+      setSavedSignature(signature);
+      if (location !== meta.location) setMeta(m => ({ ...m, location }));
       setSaveHint('saved');
       return true;
     } catch (err) {
@@ -366,9 +388,12 @@ function Take5FillPage() {
       controlActions: controls,
       goNoGo,
       signedName,
-      signature: sigRef.current && !sigRef.current.isEmpty()
-        ? sigRef.current.toDataURL('image/png')
-        : existing?.signature ?? null,
+      signature: take5SignatureForSave({
+        canvasDataUrl: sigRef.current && !sigRef.current.isEmpty()
+          ? sigRef.current.toDataURL('image/png')
+          : null,
+        existingSignature: persistedSignature,
+      }),
       signedAt: format(new Date(), 'd MMM yyyy HH:mm'),
     });
     const url = URL.createObjectURL(blob);
@@ -536,6 +561,27 @@ function Take5FillPage() {
                   ? <><LoadingSpinner size="sm" /> Saving…</>
                   : <><FileText size={16} /> {next.label}</>}
               </button>
+              {take5DraftControlsVisible(statusKey) && (
+                <button
+                  type="button"
+                  onClick={() => { void save('draft'); }}
+                  disabled={saving}
+                  className="hub-take5-sub"
+                >
+                  Save draft
+                </button>
+              )}
+              {take5DraftControlsVisible(statusKey) && (
+                <button
+                  type="button"
+                  data-take5-complete
+                  onClick={() => { void handlePublishPdf(); }}
+                  disabled={saving}
+                  className="hub-take5-primary"
+                >
+                  Mark done
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setShowMoreIdentity(v => !v)}
@@ -571,7 +617,17 @@ function Take5FillPage() {
 
             <section
               id="take5-identity"
-              className={`hub-take5-identity${showMoreIdentity || next.key === 'site' ? ' is-open' : ''}`}
+              className={`hub-take5-identity${take5IdentityOpen({
+                showMore: showMoreIdentity,
+                nextKey: next.key,
+                identityActive,
+              }) ? ' is-open' : ''}`}
+              onFocusCapture={() => setIdentityActive(true)}
+              onBlurCapture={event => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                  setIdentityActive(false);
+                }
+              }}
             >
               <div className="hub-take5-ledger-row hub-take5-field">
                 <label className="hub-take5-muted">Location / face</label>
@@ -585,6 +641,10 @@ function Take5FillPage() {
                     type="text"
                     value={meta.location}
                     onChange={e => { setMeta(m => ({ ...m, location: e.target.value })); setSaveHint('unsaved'); }}
+                    onBlur={e => {
+                      const location = trimSafetySite(e.target.value);
+                      if (location !== e.target.value) setMeta(m => ({ ...m, location }));
+                    }}
                     placeholder="Where is this check? (board, roof, plant room…)"
                     className="hub-take5-input"
                   />
@@ -682,33 +742,54 @@ function Take5FillPage() {
                   <div className="hub-take5-fill-head">
                     <h2 className="hub-take5-fill-title">Sign</h2>
                   </div>
-                  <Field label="Name" value={signedName} onChange={setSignedName} />
-                  {existing?.signature && !hasStroke && (
+                  <Field label="Name" value={signedName} onChange={v => { setSignedName(v); setSaveHint('unsaved'); }} />
+                  {persistedSignature && (
+                    <p className="hub-take5-muted" data-take5-signoff>
+                      {safetySignOffLine({
+                        name: signedName,
+                        when: existing?.signed_at
+                          ? format(new Date(existing.signed_at), 'd MMM yyyy')
+                          : null,
+                      })}
+                    </p>
+                  )}
+                  {persistedSignature && !hasStroke && (
                     <div className="hub-take5-ledger-row hub-take5-field">
                       <p className="hub-take5-muted">Saved signature</p>
-                      <img src={existing.signature} alt="Saved signature" className="hub-take5-sign-img" />
+                      <img src={persistedSignature} alt="Saved signature" className="hub-take5-sign-img" />
                     </div>
                   )}
                   <div className="hub-take5-ledger-row hub-take5-field">
                     <label className="hub-take5-muted">
-                      {existing?.signature && !hasStroke ? 'Re-sign' : 'Signature'}
+                      {persistedSignature && !hasStroke ? 'Re-sign' : 'Signature'}
                     </label>
                     <div className="hub-take5-sign">
                       <SignatureCanvas
                         ref={sigRef}
                         canvasProps={{ className: 'w-full h-36' }}
                         backgroundColor="#fff"
-                        onEnd={() => setHasStroke(true)}
+                        onEnd={() => { setHasStroke(true); setSaveHint('unsaved'); }}
                       />
                     </div>
                     <button
                       type="button"
                       className="hub-take5-sub"
-                      onClick={() => { sigRef.current?.clear(); setHasStroke(false); }}
+                      onClick={() => { sigRef.current?.clear(); setHasStroke(false); setSaveHint('unsaved'); }}
                     >
                       Clear signature
                     </button>
                   </div>
+                  {take5DraftControlsVisible(statusKey) && (
+                    <button
+                      type="button"
+                      data-take5-complete
+                      onClick={() => { void handlePublishPdf(); }}
+                      disabled={saving}
+                      className="hub-take5-primary"
+                    >
+                      Mark done
+                    </button>
+                  )}
                 </section>
               </div>
             )}
@@ -716,13 +797,13 @@ function Take5FillPage() {
             {activeTab === 'preview' && (
               <div id="take5-pdf" className="hub-take5-fill">
                 <div className="hub-take5-ledger-row">
-                  <span className="hub-take5-fill-title">Take 5 PDF ready</span>
+                  <span className="hub-take5-fill-title">{take5PdfPreviewTitle(!!pdfUrl)}</span>
                   {pdfUrl ? (
                     <a href={pdfUrl} download={`Take5-${jha?.report_number || 'draft'}.pdf`} className="hub-take5-sub">
                       <Download size={14} /> Download
                     </a>
                   ) : (
-                    <span className="hub-take5-muted">Complete the Take 5 to generate the PDF.</span>
+                    <span className="hub-take5-muted">{take5PdfPreviewHint(false)}</span>
                   )}
                 </div>
               </div>
