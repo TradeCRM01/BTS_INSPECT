@@ -13,7 +13,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '../components/ui';
-import { DASHBOARD_WIDGET_GAP, dashboardWidgetLayoutOverlaps, dashboardWidgetMinNeighborGap } from '../lib/dashboardWidgets';
+import { DASHBOARD_WIDGET_GAP, dashboardWidgetLayoutOverlaps, dashboardWidgetMinNeighborGap, repairDashboardWidgetLayout, type DashboardWidgetRect } from '../lib/dashboardWidgets';
 import { DashboardPage } from './DashboardPage';
 
 type Call = { table: string; op: string; payload?: unknown; filters: Array<[string, unknown]>; order: string[] };
@@ -21,6 +21,7 @@ const h = vi.hoisted(() => ({
   calls: [] as Call[],
   failOp: null as null | 'update' | 'delete',
   failIds: new Set<string>(),
+  emptyWrite: false,
   loads: 0,
   orderKeys: [] as string[][],
   rows: [] as Array<Record<string, unknown>>,
@@ -63,15 +64,21 @@ vi.mock('../lib/supabase', () => {
       ) {
         return Promise.resolve({ data: null, error: { message: 'probe forced failure', code: 'XX000' } });
       }
+      if (table === 'dashboard_widgets' && (call.op === 'update' || call.op === 'delete') && h.emptyWrite) {
+        return Promise.resolve({ data: [], error: null, count: 0 });
+      }
       if (table === 'dashboard_widgets' && call.op === 'update') {
         const row = h.rows.find(r => r.id === id);
         if (row && call.payload && typeof call.payload === 'object') {
           Object.assign(row, JSON.parse(JSON.stringify(call.payload)));
         }
+        return Promise.resolve({ data: row ? [{ id: row.id }] : [], error: null, count: row ? 1 : 0 });
       }
       if (table === 'dashboard_widgets' && call.op === 'delete') {
-        const id = call.filters.find(f => f[0] === 'id')?.[1];
-        h.rows = h.rows.filter(r => r.id !== id);
+        const removed = call.filters.find(f => f[0] === 'id')?.[1];
+        const existed = h.rows.some(r => r.id === removed);
+        h.rows = h.rows.filter(r => r.id !== removed);
+        return Promise.resolve({ data: existed ? [{ id: removed }] : [], error: null, count: existed ? 1 : 0 });
       }
       if (table === 'dashboard_widgets' && call.op === 'select') {
         h.loads += 1;
@@ -125,7 +132,7 @@ const LIVE_PHONE_IDS = ['w-invoices', 'w-jobs', 'w-compliance', 'w-weather1', 'w
 let container: HTMLDivElement; let root: Root;
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-  h.calls.length = 0; h.failOp = null; h.failIds = new Set(); h.onDragEnd = null; h.rows = JSON.parse(JSON.stringify(LIVE)); h.loads = 0; h.orderKeys = [];
+  h.calls.length = 0; h.failOp = null; h.failIds = new Set(); h.emptyWrite = false; h.onDragEnd = null; h.rows = JSON.parse(JSON.stringify(LIVE)); h.loads = 0; h.orderKeys = [];
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ results: [{ latitude: 0, longitude: 0 }], current: {} }) })));
   container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
 });
@@ -322,7 +329,7 @@ describe('PR377 probe: phone Customize persists to dashboard_widgets', () => {
     await mountPage();
     expect(spy.mock.calls.some(c => String(c[0]).includes('Dashboard widget repair write failed'))).toBe(true);
     expect(document.body.textContent).not.toContain('Could not load dashboard');
-    expect(document.body.textContent).toMatch(/could not repair the widget layout/i);
+    expect(document.body.textContent ?? '').not.toMatch(/could not repair the widget layout/i);
     expect(document.querySelector('[data-dashboard-view-grid="1"] .dashboard-home-widget')).toBeTruthy();
   });
 
@@ -349,7 +356,7 @@ describe('PR377 probe: phone Customize persists to dashboard_widgets', () => {
     h.failOp = 'delete';
     await mountPage();
     expect(spy.mock.calls.some(c => String(c[0]).includes('Dashboard widget repair write failed'))).toBe(true);
-    expect(document.body.textContent).toMatch(/could not repair the widget layout/i);
+    expect(document.body.textContent ?? '').not.toMatch(/could not repair the widget layout/i);
     expect(writes('delete')).toHaveLength(1);
     expect(writes('update')).toHaveLength(0);
     expect(h.rows.some(r => r.id === 'r-stock')).toBe(true);
@@ -359,7 +366,10 @@ describe('PR377 probe: phone Customize persists to dashboard_widgets', () => {
   it('repair PATCH keeps grid_x when it moves a row (RP7)', async () => {
     h.rows = REP();
     await mountPage();
-    expect(writes('delete').map(c => c.filters)).toEqual([[['id', 'r-stock']], [['id', 'r-btc']]]);
+    expect(writes('delete').map(c => c.filters)).toEqual([
+      [['id', 'r-stock'], ['user_id', 'u-1']],
+      [['id', 'r-btc'], ['user_id', 'u-1']],
+    ]);
     const ups = writes('update');
     expect(ups.length).toBeGreaterThan(0);
     const moved = ups.filter(u => Object.prototype.hasOwnProperty.call(u.payload as object, 'grid_x'));
@@ -368,20 +378,81 @@ describe('PR377 probe: phone Customize persists to dashboard_widgets', () => {
       const rest = strip(u.payload);
       expect(rest).toHaveProperty('grid_x');
       expect(rest).toHaveProperty('grid_y');
+      expect(rest).not.toHaveProperty('grid_w');
+      expect(rest).not.toHaveProperty('grid_h');
+      expect(u.filters).toEqual(expect.arrayContaining([['id', expect.any(String)], ['user_id', 'u-1']]));
     }
     const stored = h.rows.filter(r => !['r-stock', 'r-btc'].includes(String(r.id))).map(rect);
     expect(dashboardWidgetLayoutOverlaps(stored)).toBe(false);
     expect(dashboardWidgetMinNeighborGap(stored)).toBeGreaterThanOrEqual(DASHBOARD_WIDGET_GAP);
   });
 
-  it('a load-path repair move keeps the phone order on the next reload', async () => {
-    h.rows = [W('aaaa', 'weather', 20, 20, 1060, 270), W('cccc', 'weather', 20, 20), W('bbbb', 'weather', 20, 306)];
+  it('a non-overlapping row gets no repair write', async () => {
+    h.rows = [
+      W('keep-city', 'weather', 20, 20, 260, 270, { city: 'Brisbane', units: 'c' }),
+      W('hit', 'weather', 20, 20, 260, 270),
+      W('solo', 'clock', 800, 800, 260, 180, { extra: 1 }),
+    ];
+    const snapshot = JSON.parse(JSON.stringify(h.rows)) as DashboardWidgetRect[];
+    const expected = repairDashboardWidgetLayout(snapshot);
     await mountPage();
-    const first = viewIds();
-    expect(first).toEqual(['aaaa', 'cccc', 'bbbb']);
+    const idsWritten = writes('update').map(c => String(c.filters.find(f => f[0] === 'id')?.[1]));
+    expect(idsWritten).not.toContain('solo');
+    expect(idsWritten).not.toContain('hit');
+    expect(idsWritten.length).toBeGreaterThan(0);
+    for (const prev of snapshot) {
+      const next = expected.widgets.find(row => row.id === prev.id);
+      if (!next || (next.grid_x === prev.grid_x && next.grid_y === prev.grid_y)) {
+        expect(idsWritten).not.toContain(prev.id);
+      } else {
+        expect(idsWritten).toContain(prev.id);
+        const payload = strip(writes('update').find(c => c.filters.some(f => f[1] === prev.id))!.payload);
+        expect(payload).toEqual({ grid_x: next.grid_x, grid_y: next.grid_y });
+      }
+    }
+  });
+
+  it('repair PATCH has no grid_w/h and does not replace config keys', async () => {
+    h.rows = [
+      W('keep-city', 'weather', 20, 20, 260, 270, { city: 'Brisbane', units: 'c' }),
+      W('hit', 'weather', 20, 20, 260, 270),
+    ];
+    await mountPage();
+    const ups = writes('update');
+    expect(ups.length).toBeGreaterThan(0);
+    for (const u of ups) {
+      const rest = strip(u.payload);
+      expect(rest).not.toHaveProperty('grid_w');
+      expect(rest).not.toHaveProperty('grid_h');
+      expect(rest).not.toHaveProperty('config');
+    }
+    expect(h.rows.find(r => r.id === 'keep-city')!.config).toEqual({ city: 'Brisbane', units: 'c' });
+  });
+
+  it('a second load after repair writes nothing', async () => {
+    h.rows = [
+      W('keep-city', 'weather', 20, 20, 260, 270, { city: 'Brisbane' }),
+      W('hit', 'weather', 20, 20, 260, 270),
+    ];
+    await mountPage();
     expect(writes('update').length).toBeGreaterThan(0);
     await remount();
-    expect(viewIds()).toEqual(first);
+    expect(writes('update')).toEqual([]);
+    expect(writes('delete')).toEqual([]);
+  });
+
+  it('a 0-row repair PATCH shows no toast and does not retry', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    h.rows = [
+      W('keep-city', 'weather', 20, 20, 260, 270, { city: 'Brisbane' }),
+      W('hit', 'weather', 20, 20, 260, 270),
+    ];
+    h.emptyWrite = true;
+    await mountPage();
+    expect(spy.mock.calls.some(c => String(c[0]).includes('Dashboard widget repair write failed'))).toBe(true);
+    expect(document.body.textContent ?? '').not.toMatch(/could not repair the widget layout/i);
+    expect(writes('update')).toHaveLength(1);
+    expect(document.querySelector('[data-dashboard-view-grid="1"] .dashboard-home-widget')).toBeTruthy();
   });
 
   it('C up, remove A, reload, then B down still reorders (P1-B)', async () => {

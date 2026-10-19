@@ -1,15 +1,19 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import http from 'node:http';
+import net from 'node:net';
 import { homedir } from 'node:os';
 import { existsSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { chromium } from 'playwright-core';
 
 export type DashboardLookReport = {
   innerWidth: number;
+  scrollWidth: number;
   innerRight: number;
   cardCount: number;
   maxCardRight: number;
+  maxRightAll: number;
+  maxRightExHeader: number;
   overflowCards: number;
   overflowTexts: Array<{ text: string; right: number }>;
   viewGap: string | null;
@@ -20,28 +24,49 @@ export type DashboardLookReport = {
   stackTracks: Array<{ cols: string; gap: string; media: string }>;
 };
 
-type Chromium = {
-  launch: (opts: Record<string, unknown>) => Promise<{
-    newContext: (opts: Record<string, unknown>) => Promise<{
-      newPage: () => Promise<PlaywrightPage>;
-      close: () => Promise<void>;
-    }>;
-    close: () => Promise<void>;
-  }>;
-};
-
-type PlaywrightPage = {
-  goto: (url: string, opts?: Record<string, unknown>) => Promise<unknown>;
-  waitForSelector: (sel: string, opts?: Record<string, unknown>) => Promise<unknown>;
-  waitForTimeout: (ms: number) => Promise<void>;
-  click: (sel: string) => Promise<void>;
-  locator: (sel: string) => { filter: (opts: { hasText: string }) => { click: () => Promise<void> } };
-  evaluate: <T>(fn: () => T) => Promise<T>;
-};
-
 let server: ChildProcess | null = null;
 let origin = '';
-let browser: Awaited<ReturnType<Chromium['launch']>> | null = null;
+let lookPort = 0;
+let lookPid = 0;
+let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
+
+export function dashboardLookOrigin(): string {
+  return origin;
+}
+
+export function dashboardLookPort(): number {
+  return lookPort;
+}
+
+export function dashboardLookPid(): number {
+  return lookPid;
+}
+
+function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const sock = net.createServer();
+    sock.listen(0, '127.0.0.1', () => {
+      const addr = sock.address();
+      const port = typeof addr === 'object' && addr ? addr.port : 0;
+      sock.close(err => (err ? reject(err) : resolve(port)));
+    });
+    sock.on('error', reject);
+  });
+}
+
+export function dashboardLookPortHasListener(port: number): Promise<boolean> {
+  return new Promise(resolveWait => {
+    const req = http.get(`http://127.0.0.1:${port}/`, res => {
+      res.resume();
+      resolveWait(true);
+    });
+    req.on('error', () => resolveWait(false));
+    req.setTimeout(400, () => {
+      req.destroy();
+      resolveWait(false);
+    });
+  });
+}
 
 function waitForHttp(url: string, timeout = 40000): Promise<void> {
   const started = Date.now();
@@ -80,50 +105,31 @@ function chromePath(): string {
   throw new Error('no chrome for dashboard rendered layout tests');
 }
 
-async function loadChromium(): Promise<Chromium> {
-  const candidates = [
-    resolve(process.cwd(), 'node_modules/playwright-core/index.js'),
-    resolve(process.cwd(), 'node_modules/playwright/index.js'),
-    '/tmp/pw-core/node_modules/playwright-core/index.js',
-    '/tmp/pw-core/node_modules/playwright/index.js',
-  ];
-  let last = '';
-  for (const file of candidates) {
-    if (!existsSync(file)) continue;
-    try {
-      const mod = await import(pathToFileURL(file).href) as { chromium: Chromium };
-      if (mod.chromium) return mod.chromium;
-    } catch (err) {
-      last = err instanceof Error ? err.message : String(err);
-    }
-  }
-  throw new Error(`playwright-core not found${last ? `: ${last}` : ''}`);
-}
-
 export async function ensureDashboardLookServer(): Promise<string> {
   if (origin) return origin;
-  const port = Number(process.env.DASHBOARD_LOOK_PORT || 4579);
+  const port = Number(process.env.DASHBOARD_LOOK_PORT) || await freePort();
+  lookPort = port;
   origin = `http://127.0.0.1:${port}`;
+  const viteBin = resolve(process.cwd(), 'node_modules/vite/bin/vite.js');
   server = spawn(
-    'npx',
-    ['vite', '--host', '127.0.0.1', '--port', String(port), '--strictPort'],
+    process.execPath,
+    [viteBin, '--host', '127.0.0.1', '--port', String(port), '--strictPort'],
     {
       cwd: process.cwd(),
       env: process.env,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['ignore', 'ignore', 'pipe'],
+      detached: true,
     },
   );
+  lookPid = server.pid ?? 0;
   const err: string[] = [];
   server.stderr?.on('data', chunk => { err.push(String(chunk)); });
   try {
     await waitForHttp(origin);
   } catch (e) {
-    server.kill('SIGTERM');
-    server = null;
-    origin = '';
+    await closeDashboardLookServer();
     throw new Error(`${e instanceof Error ? e.message : e}\n${err.join('')}`);
   }
-  const chromium = await loadChromium();
   browser = await chromium.launch({
     headless: true,
     executablePath: chromePath(),
@@ -132,12 +138,60 @@ export async function ensureDashboardLookServer(): Promise<string> {
   return origin;
 }
 
+function killLookGroup(pid: number, signal: NodeJS.Signals) {
+  try {
+    process.kill(-pid, signal);
+  } catch {
+    try { process.kill(pid, signal); } catch { /* already gone */ }
+  }
+}
+
+function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function closeDashboardLookServer(): Promise<void> {
   await browser?.close();
   browser = null;
-  if (server?.pid) server.kill('SIGTERM');
+  const child = server;
+  const pid = lookPid || child?.pid || 0;
+  const port = lookPort;
   server = null;
   origin = '';
+  lookPort = 0;
+  lookPid = 0;
+  const exited = child
+    ? new Promise<void>(resolve => {
+        child.once('exit', () => resolve());
+      })
+    : Promise.resolve();
+  if (pid) killLookGroup(pid, 'SIGTERM');
+  const termWait = Date.now();
+  while (Date.now() - termWait < 4000) {
+    const listening = port ? await dashboardLookPortHasListener(port) : false;
+    if (!listening && (!pid || !pidAlive(pid))) {
+      await Promise.race([exited, new Promise(r => setTimeout(r, 200))]);
+      return;
+    }
+    await new Promise(r => setTimeout(r, 50));
+  }
+  if (pid) killLookGroup(pid, 'SIGKILL');
+  child?.kill('SIGKILL');
+  const killWait = Date.now();
+  while (Date.now() - killWait < 1500) {
+    const listening = port ? await dashboardLookPortHasListener(port) : false;
+    if (!listening && (!pid || !pidAlive(pid))) {
+      await Promise.race([exited, new Promise(r => setTimeout(r, 200))]);
+      return;
+    }
+    await new Promise(r => setTimeout(r, 50));
+  }
+  throw new Error(`vite still listening on ${port} pid ${pid} after close`);
 }
 
 function measureInPage(): DashboardLookReport {
@@ -248,11 +302,19 @@ function measureInPage(): DashboardLookReport {
     const cs = getComputedStyle(el);
     return (cs.rowGap && cs.rowGap !== 'normal' ? cs.rowGap : cs.gap) || null;
   };
+  const visEls = [...document.querySelectorAll('body *')].filter(vis);
+  const rightsAll = visEls.map(el => el.getBoundingClientRect().right);
+  const rightsExHeader = visEls
+    .filter(el => !el.closest('.shell-header'))
+    .map(el => el.getBoundingClientRect().right);
   return {
     innerWidth: window.innerWidth,
+    scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
     innerRight,
     cardCount: cards.length,
     maxCardRight: cardRights.length ? Math.max(...cardRights) : 0,
+    maxRightAll: rightsAll.length ? Math.max(...rightsAll) : 0,
+    maxRightExHeader: rightsExHeader.length ? Math.max(...rightsExHeader) : 0,
     overflowCards: cardRights.filter(right => right > innerRight + 0.5).length,
     overflowTexts,
     viewGap: gapOf(grid),

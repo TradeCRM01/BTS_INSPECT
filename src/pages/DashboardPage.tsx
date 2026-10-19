@@ -35,7 +35,6 @@ import {
   readDashboardWidgetPhoneOrder,
   sortDashboardWidgetsForView,
   swapAdjacentDashboardWidgetPhoneOrder,
-  withDashboardWidgetPhoneOrder,
 } from '../lib/dashboardWidgetView';
 import { WIDGET_CATEGORIES, getWidgetDef } from '../widgets/registry';
 import { WidgetRenderer } from '../widgets/WidgetComponents';
@@ -85,27 +84,35 @@ interface DashboardWidget {
 async function persistDashboardWidgetRepair(
   before: DashboardWidget[],
   repaired: { widgets: DashboardWidget[]; droppedIds: string[] },
+  userId: string,
 ) {
   const afterById = new Map(repaired.widgets.map(row => [row.id, row]));
   for (const id of repaired.droppedIds) {
-    const { error } = await supabase.from('dashboard_widgets').delete().eq('id', id);
+    const { data, error } = await supabase
+      .from('dashboard_widgets')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select('id');
     if (error) throw error;
+    if (!data?.length) throw new Error('Dashboard widget repair delete matched 0 rows');
   }
   for (const prev of before) {
     const next = afterById.get(prev.id);
     if (!next) continue;
-    const orderChanged = readDashboardWidgetPhoneOrder(next.config) !== readDashboardWidgetPhoneOrder(prev.config);
-    if (next.grid_x === prev.grid_x && next.grid_y === prev.grid_y && !orderChanged) continue;
-    const { error } = await supabase
+    if (next.grid_x === prev.grid_x && next.grid_y === prev.grid_y) continue;
+    const { data, error } = await supabase
       .from('dashboard_widgets')
       .update({
         grid_x: next.grid_x,
         grid_y: next.grid_y,
         updated_at: new Date().toISOString(),
-        ...(orderChanged ? { config: next.config } : {}),
       } as never)
-      .eq('id', prev.id);
+      .eq('id', prev.id)
+      .eq('user_id', userId)
+      .select('id');
     if (error) throw error;
+    if (!data?.length) throw new Error('Dashboard widget repair update matched 0 rows');
   }
 }
 
@@ -521,17 +528,10 @@ export function DashboardPage() {
       });
       const repaired = repairDashboardWidgetLayout(rows);
       if (repaired.changed) {
-        const keptBefore = rows.filter(row => !repaired.droppedIds.includes(row.id));
-        const rank = new Map(sortDashboardWidgetsForView(keptBefore).map((row, index) => [row.id, index]));
-        repaired.widgets = repaired.widgets.map(row => {
-          const order = rank.get(row.id);
-          return order === undefined ? row : withDashboardWidgetPhoneOrder(row, order);
-        });
         try {
-          await persistDashboardWidgetRepair(rows, repaired);
+          await persistDashboardWidgetRepair(rows, repaired, profile.id);
         } catch (err) {
           console.error('Dashboard widget repair write failed', err);
-          showToast('Could not repair the widget layout.', 'error');
         }
       }
       return repaired.widgets;

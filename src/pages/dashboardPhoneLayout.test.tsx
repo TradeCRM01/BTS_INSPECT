@@ -13,6 +13,10 @@ import { swapAdjacentDashboardWidgetPhoneOrder } from '../lib/dashboardWidgetVie
 import { DashboardPage, DashboardPhoneEditStack } from './DashboardPage';
 import {
   closeDashboardLookServer,
+  dashboardLookPid,
+  dashboardLookPort,
+  dashboardLookPortHasListener,
+  ensureDashboardLookServer,
   measureDashboardLook,
 } from './dashboardPhoneRenderedHarness';
 
@@ -204,6 +208,42 @@ describe('dashboard phone rendered layout', () => {
       expect(report.minNeighbour, `${width} customize min neighbour`).toBeGreaterThanOrEqual(16);
     }
   }, 120_000);
+
+  it('keeps document and cards inside the viewport at 375, 390, 1024, and 1280 in view and edit', async () => {
+    for (const width of [375, 390, 1024, 1280]) {
+      for (const edit of [false, true]) {
+        const mode = edit ? 'edit' : 'view';
+        const report = await measureDashboardLook(width, { edit });
+        expect(report.cardCount, `${width} ${mode} cards`).toBeGreaterThan(0);
+        expect(report.scrollWidth, `${width} ${mode} scrollWidth ${report.scrollWidth}`).toBeLessThanOrEqual(report.innerWidth);
+        expect(
+          report.maxRightExHeader,
+          `${width} ${mode} maxRightExHeader ${report.maxRightExHeader} vs ${report.innerWidth} (all ${report.maxRightAll})`,
+        ).toBeLessThanOrEqual(report.innerWidth);
+        expect(report.maxCardRight, `${width} ${mode} card right ${report.maxCardRight} vs sheet ${report.innerRight}`).toBeLessThanOrEqual(report.innerRight + 0.5);
+        expect(report.overflowCards, `${width} ${mode} overflowing cards`).toBe(0);
+        const pastViewport = report.overflowTexts.filter(t => t.right > report.innerWidth + 0.5);
+        expect(pastViewport, `${width} ${mode} text past viewport ${JSON.stringify(pastViewport)}`).toEqual([]);
+      }
+    }
+  }, 180_000);
+
+  it('kills the vite process group so the look port is free after close', async () => {
+    await ensureDashboardLookServer();
+    const port = dashboardLookPort();
+    const pid = dashboardLookPid();
+    expect(port).toBeGreaterThan(0);
+    expect(pid).toBeGreaterThan(0);
+    await closeDashboardLookServer();
+    expect(await dashboardLookPortHasListener(port)).toBe(false);
+    let alive = true;
+    try {
+      process.kill(pid, 0);
+    } catch {
+      alive = false;
+    }
+    expect(alive, `vite pid ${pid} still running after close`).toBe(false);
+  }, 30_000);
 });
 
 describe('dashboard phone layout', () => {
