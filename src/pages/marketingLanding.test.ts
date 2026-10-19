@@ -1,6 +1,16 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { createElement } from 'react';
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { MemoryRouter } from 'react-router-dom';
+import { afterEach, describe, expect, it } from 'vitest';
+import { MarketingPage } from './MarketingPage';
+
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -62,20 +72,36 @@ describe('public Grafter landing', () => {
     expect(page).not.toMatch(/Accept books the job/i);
     expect(page).not.toMatch(/Accept schedules the job/i);
 
-    expect(page).toContain('data-price-slot');
-    expect(page).toContain('$59');
-    expect(page).toContain('$119');
-    expect(page).toContain('$199');
+    expect(page).toContain('data-price-slot="crew"');
+    expect(page).toContain('hub-marketing-subhead !text-navy');
+    expect(page).not.toContain('$59');
+    expect(page).not.toContain('$119');
+    expect(page).not.toContain('$199');
     expect(page).not.toContain('$79');
     expect(page).not.toContain('$149');
     expect(page).not.toContain('$249');
-    expect(page).toContain('aria-hidden="true">mo');
-    expect(page).toContain('className="sr-only">per month');
-    expect(page).toContain('3 months free');
-    expect(page).toContain('Then you pay for seats. Every plan is the same Grafter.');
+    expect(page).not.toContain('aria-hidden="true">mo');
+    expect(page).not.toContain('className="sr-only">per month');
+    expect(page).not.toContain('3 months free');
+    expect(page).not.toContain('3-month');
+    expect(page).not.toContain('seat pack');
+    expect(page).toContain('2 months free. Then one simple weekly price.');
+    expect(page).toContain('One plan. Every feature. AUD, GST included.');
+    expect(page).toContain('Up to 10 seats');
+    expect(page).toContain('>2 months free<');
+    expect(page).toContain('Then one simple weekly price for up to 10 seats. GST included.');
+    expect(page).toContain('Crews over 10 seats: talk to us.');
+    expect(page).not.toContain('Crews over 10</p>');
+    expect(page).not.toContain('Talk to us.');
+    expect(page).toContain('One plan up to 10 seats, and bigger crews talk to us.');
+    expect(page).toContain('Prices are AUD, GST included.');
+    expect(page).toContain('2 months free. Instant signup. Your jobs, your templates, your letterhead.');
+    expect(page).toContain('Jobs, custom templates, JHA, Take 5 and SWMS, all included.');
+    expect(page).not.toContain('Same Grafter either way');
+    expect(page).toContain('max-w-md');
     expect(page).toContain('Crew');
-    expect(page).toContain('Company');
-    expect(page).toContain('Plant');
+    expect(page).not.toContain('Company');
+    expect(page).not.toContain('Plant');
     expect(page).toContain('GST included');
     expect(page).not.toContain('$\u2014');
     expect(page).not.toContain('TBA');
@@ -144,6 +170,59 @@ describe('public Grafter landing', () => {
   });
 });
 
+describe('public landing dollar-free pricing cards', () => {
+  let root: Root | null = null;
+  let host: HTMLDivElement | null = null;
+
+  afterEach(() => {
+    act(() => {
+      root?.unmount();
+    });
+    host?.remove();
+    root = null;
+    host = null;
+  });
+
+  it('renders one card with no dollar figures and no signup on talk to us', async () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    await act(async () => {
+      root!.render(createElement(MemoryRouter, null, createElement(MarketingPage)));
+    });
+
+    const text = host.innerText || host.textContent || '';
+    expect(text).toContain('One plan. Every feature. AUD, GST included.');
+    expect(text).toContain('Up to 10 seats');
+    expect(text).toContain('2 months free');
+    expect(text).toContain('Then one simple weekly price for up to 10 seats. GST included.');
+    expect(text).toContain('Crews over 10 seats: talk to us.');
+    expect(text).toContain('Create a workspace');
+    expect(text).not.toContain('$');
+    expect(text).not.toContain('3 months');
+    expect(text).not.toContain('Company');
+    expect(text).not.toContain('Plant');
+    expect(text).not.toContain('per month');
+
+    const pricing = host.querySelector('#pricing');
+    expect(pricing).toBeTruthy();
+    expect(pricing!.querySelectorAll('article').length).toBe(1);
+    const workspaceLinks = [...pricing!.querySelectorAll('a')].filter((a) =>
+      (a.textContent || '').includes('Create a workspace'),
+    );
+    expect(workspaceLinks.length).toBe(1);
+    expect(workspaceLinks[0]?.getAttribute('href')).toBe('/signup');
+
+    const talkMatches = [...pricing!.querySelectorAll('*')].filter((el) =>
+      /talk to us/i.test((el.textContent || '').trim()) && (el.textContent || '').trim().length < 80,
+    );
+    expect(talkMatches.length).toBeGreaterThan(0);
+    for (const el of talkMatches) {
+      expect(el.closest('a')?.getAttribute('href') ?? null).not.toBe('/signup');
+    }
+  });
+});
+
 describe('public landing seed frames', () => {
   it('keeps the job-frame meta time and the #0036 board block on one constant', () => {
     const page = src('src/pages/MarketingPage.tsx');
@@ -154,8 +233,10 @@ describe('public landing seed frames', () => {
     expect(page.indexOf('time={LANDING_SEED_JOB.time}')).toBeGreaterThan(page.indexOf('function ScheduleFrame'));
     expect(page).toContain('time={LANDING_SEED_TOM.time}');
     expect(page).toContain('{jobRef} · {title}');
+    expect(page).toContain('block min-w-0 whitespace-normal break-words sm:inline sm:whitespace-nowrap');
     expect(page).toContain('block sm:inline');
     expect(page).toContain('whitespace-normal sm:whitespace-nowrap');
+    expect(page).not.toContain('whitespace-nowrap sm:whitespace-nowrap');
     expect(page).toContain('!overflow-visible');
     expect(page).not.toContain('truncate');
     expect(page.indexOf("ref: '#0040'")).toBeGreaterThan(0);
