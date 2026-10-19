@@ -288,12 +288,12 @@ export function AppShell({ children }: AppShellProps) {
           '--shell-accent': chrome.accent,
         } as CSSProperties}
       >
-        <div className="max-w-[1400px] mx-auto px-4 h-14 flex items-center justify-between gap-3 min-w-0">
+        <div className="max-w-[1400px] mx-auto px-4 h-14 flex items-center justify-between gap-3">
           <Link to="/" className="flex items-center shrink-0" onClick={handleLogoTap} aria-label="Grafter">
             <BrandLockup size="header" />
           </Link>
 
-          <nav className="hidden md:flex items-center gap-0.5 flex-1 justify-center h-14 min-w-0">
+          <nav className="hidden md:flex items-center gap-0.5 flex-1 justify-center h-14">
             {NAV_GROUPS.map((group) => {
               const groupActive = isGroupActive(group, location.pathname);
               const isOpen = openGroup === group.label;
@@ -337,14 +337,14 @@ export function AppShell({ children }: AppShellProps) {
             })}
           </nav>
 
-          <div className="hidden md:block w-10 xl:w-48 2xl:w-64 shrink-0">
+          <div className="hidden md:block w-48 lg:w-64 shrink-0">
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
               className="flex items-center gap-2 w-full rounded-lg border border-white/15 bg-white/[0.04] px-3 py-1.5 text-[13px] tracking-tight text-white/60 transition-colors hover:border-white/25 hover:text-white"
             >
               <Search className="h-4 w-4 shrink-0" />
-              <span className="flex-1 text-left hidden xl:inline">Search…</span>
+              <span className="flex-1 text-left hidden sm:inline">Search…</span>
             </button>
           </div>
 
