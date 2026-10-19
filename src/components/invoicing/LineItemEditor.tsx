@@ -452,12 +452,13 @@ export function LineItemEditor({
                       {li.description}
                     </p>
                   ) : (
-                    <input
+                    <textarea
                       value={li.description}
                       onChange={e => updateLine(idx, { description: e.target.value })}
-                      className="form-input-sm min-w-0"
+                      className="form-input-sm min-w-0 w-full h-auto min-h-[36px] resize-y whitespace-pre-wrap break-words overflow-visible"
                       placeholder="Description"
                       aria-label="Description"
+                      rows={1}
                     />
                   )}
                 </div>

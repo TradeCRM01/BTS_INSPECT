@@ -114,7 +114,7 @@ import { formatCommercialPdfLineAmount } from '../reports/commercial/CommercialD
 import { expenseIncGstBlurStep, expenseAmountTypingFromEx, expenseIncGstInputStep } from './ExpensesPage';
 import { JobFormModal, commitJobBudget } from '../components/crm/JobFormModal';
 import { PriceBookPdfImportModal } from '../components/pricebooks/PriceBookPdfImportModal';
-import { ApplyEmployeeCostModelModal, ManageCostModelsModal, commitModelLine, commitModelLines } from '../components/expenses/ExpenseModelsModals';
+import { ApplyEmployeeCostModelModal, ApplyExpenseTemplateModal, ManageCostModelsModal, commitModelLine, commitModelLines } from '../components/expenses/ExpenseModelsModals';
 import { JobCostingPanel, commitJobBillCharge } from '../components/jobs/JobCostingPanel';
 import userEvent from '@testing-library/user-event';
 
@@ -139,10 +139,12 @@ function pageRoot() {
   return document.body;
 }
 
-function setNativeValue(el: HTMLInputElement | HTMLSelectElement, value: string) {
+function setNativeValue(el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, value: string) {
   const proto = el instanceof HTMLSelectElement
     ? HTMLSelectElement.prototype
-    : HTMLInputElement.prototype;
+    : el instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : HTMLInputElement.prototype;
   const desc = Object.getOwnPropertyDescriptor(proto, 'value');
   desc?.set?.call(el, value);
   el.dispatchEvent(new Event('input', { bubbles: true }));
@@ -168,7 +170,7 @@ async function waitFor(selector: string) {
   return pageRoot().querySelector(selector);
 }
 
-async function typeKeys(el: HTMLInputElement, text: string) {
+async function typeKeys(el: HTMLInputElement | HTMLTextAreaElement, text: string) {
   await act(async () => {
     el.focus();
     setNativeValue(el, '');
@@ -479,6 +481,10 @@ describe('Expense inc GST keystrokes', () => {
     await typeKeys(inc, '1,5');
     expect(inc.value).toBe('1,5');
     expect(inc.value).not.toBe('15');
+    const ex = pageRoot().querySelector('[aria-label="Amount (ex GST)"]') as HTMLInputElement;
+    expect(ex.value === '' || ex.value === '$0.00').toBe(true);
+    expect(ex.value).not.toContain('15');
+    expect(ex.value).not.toMatch(/\$13\./);
     expect(pageRoot().textContent).toContain(MONEY_COMMA_HINT);
     const save = Array.from(pageRoot().querySelectorAll('button')).find(b => b.textContent === 'Save') as HTMLButtonElement;
     await act(async () => { save.click(); });
@@ -654,6 +660,117 @@ describe('Budget, price book, stock, PO, PDF import', () => {
     expect(harness.updates.filter(row => row.table === 'purchase_orders')).toEqual([]);
     expect(harness.inserts.filter(row => row.table === 'purchase_orders')).toEqual([]);
     expect(harness.updates.some(row => row.payload.line_items && (row.payload.line_items as { unit_cost: number }[])[0]?.unit_cost === 1)).toBe(false);
+  });
+
+  it('PO unit cost -5 disables Save and does not write a negative', async () => {
+    await renderNode(
+      <POEditorModal
+        po={{
+          id: 'po-1',
+          company_id: 'co-1',
+          po_number: 1,
+          supplier_id: 'sup-1',
+          job_id: null,
+          status: 'draft',
+          line_items: [{ description: 'Conduit', quantity: 1, unit_cost: 10, received_quantity: 0 }],
+          subtotal: 10,
+          tax_rate: 10,
+          tax_amount: 1,
+          total: 11,
+          expected_delivery_date: null,
+          notes: null,
+          created_by: 'user-1',
+          created_at: '2026-10-01T00:00:00.000Z',
+          updated_at: '2026-10-01T00:00:00.000Z',
+        } as never}
+        onClose={() => {}}
+        onSaved={() => {}}
+        onRequestSend={() => {}}
+      />,
+    );
+    const cost = container.querySelector('[aria-label="Unit cost"]') as HTMLInputElement;
+    await typeKeys(cost, '-5');
+    expect(cost.value).toBe('-5');
+    expect(container.textContent).toContain(DECIMAL_NEGATIVE);
+    const save = Array.from(container.querySelectorAll('button')).find(b => /Save Changes|Create PO/i.test(b.textContent || '')) as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+    await act(async () => { save.click(); });
+    await flush();
+    expect(harness.updates.filter(row => row.table === 'purchase_orders')).toEqual([]);
+    expect(harness.inserts.filter(row => row.table === 'purchase_orders')).toEqual([]);
+  });
+
+  it('PO lines 0.1 + 0.2 save a rounded 0.3 subtotal', async () => {
+    await renderNode(
+      <POEditorModal
+        po={{
+          id: 'po-1',
+          company_id: 'co-1',
+          po_number: 1,
+          supplier_id: 'sup-1',
+          job_id: null,
+          status: 'draft',
+          line_items: [
+            { description: 'A', quantity: 1, unit_cost: 0.1, received_quantity: 0 },
+            { description: 'B', quantity: 1, unit_cost: 0.2, received_quantity: 0 },
+          ],
+          subtotal: 0.3,
+          tax_rate: 10,
+          tax_amount: 0.03,
+          total: 0.33,
+          expected_delivery_date: null,
+          notes: null,
+          created_by: 'user-1',
+          created_at: '2026-10-01T00:00:00.000Z',
+          updated_at: '2026-10-01T00:00:00.000Z',
+        } as never}
+        onClose={() => {}}
+        onSaved={() => {}}
+        onRequestSend={() => {}}
+      />,
+    );
+    expect(pageRoot().querySelector('[aria-label="Subtotal"]')?.textContent).toBe('$0.30');
+    const save = Array.from(container.querySelectorAll('button')).find(b => /Save Changes|Create PO/i.test(b.textContent || '')) as HTMLButtonElement;
+    expect(save.disabled).toBe(false);
+    await act(async () => { save.click(); });
+    await flush();
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+    const updates = harness.updates.filter(row => row.table === 'purchase_orders');
+    expect(updates.length).toBeGreaterThan(0);
+    expect(updates[0]?.payload.subtotal).toBe(0.3);
+    expect(updates[0]?.payload.subtotal).not.toBe(0.30000000000000004);
+  });
+
+  it('PO quantity 1,5 shows subtotal $15.00, not $10.00', async () => {
+    await renderNode(
+      <POEditorModal
+        po={{
+          id: 'po-1',
+          company_id: 'co-1',
+          po_number: 1,
+          supplier_id: 'sup-1',
+          job_id: null,
+          status: 'draft',
+          line_items: [{ description: 'Conduit', quantity: 1, unit_cost: 10, received_quantity: 0 }],
+          subtotal: 10,
+          tax_rate: 10,
+          tax_amount: 1,
+          total: 11,
+          expected_delivery_date: null,
+          notes: null,
+          created_by: 'user-1',
+          created_at: '2026-10-01T00:00:00.000Z',
+          updated_at: '2026-10-01T00:00:00.000Z',
+        } as never}
+        onClose={() => {}}
+        onSaved={() => {}}
+        onRequestSend={() => {}}
+      />,
+    );
+    const qty = container.querySelector('[aria-label="Quantity"]') as HTMLInputElement;
+    await typeKeys(qty, '1,5');
+    expect(pageRoot().querySelector('[aria-label="Subtotal"]')?.textContent).toBe('$15.00');
+    expect(pageRoot().querySelector('[aria-label="Subtotal"]')?.textContent).not.toBe('$10.00');
   });
 
   it('PDF import sell 1,5 shows the hint and does not insert', async () => {
@@ -1619,24 +1736,56 @@ describe('Wage override and multiplier write the committed value', () => {
     await renderNode(
       <ApplyEmployeeCostModelModal onClose={() => {}} onApplied={() => {}} />,
     );
+    const estimate = await waitFor('[aria-label="Wage package estimate"]');
+    expect(estimate?.textContent).toBe('$6,840.00');
     const wage = await waitFor('[aria-label="Wage override"]') as HTMLInputElement;
     await typeKeys(wage, '1,5');
-    const apply = Array.from(pageRoot().querySelectorAll('button')).find(b => /^Apply$/i.test(b.textContent || '')) as HTMLButtonElement;
-    await act(async () => { apply?.click(); });
+    expect(pageRoot().querySelector('[aria-label="Wage package estimate"]')?.textContent).toBe('$6,840.00');
+    expect(pageRoot().querySelector('[aria-label="Wage package estimate"]')?.textContent).not.toBe('$2,280.00');
+    const apply = Array.from(pageRoot().querySelectorAll('button')).find(b => /Post employee costs/i.test(b.textContent || '')) as HTMLButtonElement;
+    expect(apply).toBeTruthy();
+    await act(async () => { apply.click(); });
     await flush();
     expect(harness.inserts.filter(row => row.table === 'expenses')).toEqual([]);
     expect(pageRoot().textContent).toContain(MONEY_COMMA_HINT);
   });
 
-  it('types 1,5 on the package multiplier and keeps 1.5, not 1', async () => {
+  it('types 1,5 on the package multiplier and keeps the 1.5 estimate, not 1 or 15', async () => {
     await renderNode(
       <ApplyEmployeeCostModelModal onClose={() => {}} onApplied={() => {}} />,
     );
+    const estimate = await waitFor('[aria-label="Wage package estimate"]');
+    expect(estimate?.textContent).toBe('$6,840.00');
     const mult = await waitFor('[aria-label="Package multiplier"]') as HTMLInputElement;
     await typeKeys(mult, '1,5');
     expect(mult.value).toBe('1,5');
-    expect(Number(mult.value.replace(',', '.'))).toBe(1.5);
-    expect(Number.parseFloat(mult.value)).toBe(1);
+    expect(pageRoot().querySelector('[aria-label="Wage package estimate"]')?.textContent).toBe('$10,260.00');
+    expect(pageRoot().querySelector('[aria-label="Wage package preview total"]')?.textContent).toBe('$10,260.00');
+    expect(pageRoot().querySelector('[aria-label="Wage package preview total"]')?.textContent).not.toBe('$6,840.00');
+    expect(pageRoot().querySelector('[aria-label="Wage package preview total"]')?.textContent).not.toBe('$102,600.00');
+  });
+});
+
+describe('Expense template amount uses committed money', () => {
+  it('types 1,5 on the template amount and Save does not write 1 or 15', async () => {
+    await renderNode(
+      <ApplyExpenseTemplateModal onClose={() => {}} onApplied={() => {}} />,
+    );
+    const manage = Array.from(pageRoot().querySelectorAll('button')).find(b => /Manage/i.test(b.textContent || '')) as HTMLButtonElement;
+    await act(async () => { manage.click(); });
+    await flush();
+    const create = Array.from(pageRoot().querySelectorAll('button')).find(b => /New template/i.test(b.textContent || '')) as HTMLButtonElement;
+    await act(async () => { create.click(); });
+    await flush();
+    const name = pageRoot().querySelector('input[placeholder="Monthly overheads"]') as HTMLInputElement;
+    await act(async () => { setNativeValue(name, 'Rent pack'); });
+    const amount = pageRoot().querySelector('[aria-label="Template amount"]') as HTMLInputElement;
+    await typeKeys(amount, '1,5');
+    const save = Array.from(pageRoot().querySelectorAll('button')).find(b => /^Save$/i.test(b.textContent || '')) as HTMLButtonElement;
+    await act(async () => { save.click(); });
+    await flush();
+    expect(harness.inserts.filter(row => row.table === 'expense_templates')).toEqual([]);
+    expect(pageRoot().textContent).toContain(MONEY_COMMA_HINT);
   });
 });
 
@@ -1644,10 +1793,64 @@ describe('Expense inc GST blur refuses 1,5', () => {
   it('does not fold 1,5 to 1 on blur', () => {
     const empty = expenseAmountTypingFromEx('', '10');
     const typed = expenseIncGstInputStep(empty, '1,5');
+    expect(typed.incDraft).toBe('1,5');
+    expect(typed.exAmount).toBe('');
+    expect(typed.exAmount).not.toBe('15');
+    expect(typed.exAmount).not.toBe('1');
     const blurred = expenseIncGstBlurStep(typed);
     expect(blurred.incDraft).toBe('1,5');
     expect(blurred.incDraft).not.toBe('1');
+    expect(blurred.exAmount).toBe('');
     expect(blurred.exAmount).not.toBe('1');
+  });
+});
+
+describe('LineItemEditor line total pins 1.5 × 87.35 at $131.03', () => {
+  it('shows $131.03 for 1.5 × 87.35, not $131.02', async () => {
+    await renderNode(
+      <LineEditorHarness
+        initial={[{ ...emptyLineItem(), description: 'Labour', quantity: '1.5', unit_price: '87.35' }]}
+      />,
+    );
+    expect(pageRoot().querySelector('[aria-label="Line total"]')?.textContent).toBe('$131.03');
+    expect(pageRoot().querySelector('[aria-label="Line total"]')?.textContent).not.toBe('$131.02');
+  });
+});
+
+describe('Draft filters refuse letters on stock and price book money fields', () => {
+  it('rejects letters in New Item qty on hand', async () => {
+    await renderNode(
+      <StockItemForm item={null} onClose={() => {}} onSaved={() => {}} />,
+    );
+    const qty = pageRoot().querySelector('[aria-label="Qty On Hand"]') as HTMLInputElement;
+    await typeKeys(qty, '12a');
+    expect(qty.value).toBe('12');
+    expect(qty.value).not.toBe('12a');
+  });
+
+  it('rejects letters in stock unit cost', async () => {
+    await renderNode(
+      <StockItemForm item={null} onClose={() => {}} onSaved={() => {}} />,
+    );
+    const cost = pageRoot().querySelector('[aria-label="Unit Cost (AUD)"]') as HTMLInputElement;
+    await typeKeys(cost, '4a');
+    expect(cost.value).toBe('4');
+    expect(cost.value).not.toBe('4a');
+  });
+
+  it('rejects letters in price book unit price', async () => {
+    await renderNode(
+      <PriceBookItemForm
+        priceBookId="pb-1"
+        item={null}
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    );
+    const price = pageRoot().querySelector('[aria-label="Unit Price"]') as HTMLInputElement;
+    await typeKeys(price, '8a');
+    expect(price.value).toBe('8');
+    expect(price.value).not.toBe('8a');
   });
 });
 

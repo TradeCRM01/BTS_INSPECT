@@ -42,7 +42,13 @@ function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
-const QUOTE_THEAD_SR_ONLY = '.hub-quote-lines thead {\n      position: absolute;\n      width: 1px;\n      height: 1px;\n      margin: -1px;\n      padding: 0;\n      overflow: hidden;\n      clip: rect(0 0 0 0);\n      clip-path: inset(50%);\n      white-space: nowrap;\n      border: 0;';
+function quoteLinesTheadRule(css: string): string {
+  const start = css.indexOf('.hub-quote-lines thead {');
+  expect(start).toBeGreaterThan(-1);
+  const end = css.indexOf('}', start);
+  expect(end).toBeGreaterThan(start);
+  return css.slice(start, end + 1);
+}
 
 let container: HTMLDivElement;
 let root: Root;
@@ -89,7 +95,7 @@ describe('quote editor Looplet document look', () => {
     expect(editor).not.toMatch(/Grafter|Relovi|Littleloop/);
 
     expect(editor).toContain('data-quote-lines="1"');
-    expect(css).toContain(QUOTE_THEAD_SR_ONLY);
+    expect(quoteLinesTheadRule(css)).not.toMatch(/display\s*:\s*none/);
     expect(css).toContain('.hub-quote-lines td:nth-child(2)::before { content: \'Qty\'; }');
     expect(css).toContain('.hub-quote-lines td:nth-child(3)::before { content: \'Unit\'; }');
     expect(css).toContain('.hub-quote-lines td:nth-child(4)::before { content: \'Total\'; }');
@@ -105,12 +111,12 @@ describe('quote editor Looplet document look', () => {
 
   it('hides .hub-quote-lines thead at phone so the quote dialog has no clipped header', async () => {
     const css = src('src/index.css');
-    expect(css).toContain(QUOTE_THEAD_SR_ONLY);
-    expect(css).not.toContain('.hub-quote-lines thead {\n      display: none;');
+    const theadRule = quoteLinesTheadRule(css);
+    expect(theadRule).not.toMatch(/display\s*:\s*none/);
 
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 375 });
     const style = document.createElement('style');
-    style.textContent = `@media (max-width: 639px) { ${QUOTE_THEAD_SR_ONLY} } }`;
+    style.textContent = theadRule;
     document.head.appendChild(style);
 
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -156,6 +162,12 @@ describe('quote editor Looplet document look', () => {
       );
     });
     await act(async () => { await Promise.resolve(); });
+
+    const thead = document.querySelector('.hub-quote-lines thead') as HTMLTableSectionElement;
+    expect(thead).toBeTruthy();
+    const computed = getComputedStyle(thead);
+    expect(computed.display).not.toBe('none');
+    expect(computed.position).toBe('absolute');
 
     const headers = getAllByRole(document.body, 'columnheader').map(el => (el.textContent || '').trim());
     expect(headers).toEqual(['Description', 'Qty', 'Unit', 'Total']);

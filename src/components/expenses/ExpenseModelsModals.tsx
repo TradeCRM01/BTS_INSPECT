@@ -699,7 +699,7 @@ export function ApplyEmployeeCostModelModal({
             <span className="text-sm text-white/80">
               {selectedEmployees.length} employee{selectedEmployees.length === 1 ? '' : 's'} · posting to P&amp;L
             </span>
-            <span className="text-lg font-bold tabular-nums">{formatMoney(previewTotal)}</span>
+            <span className="text-lg font-bold tabular-nums" aria-label="Wage package preview total">{formatMoney(previewTotal)}</span>
           </div>
 
           {err && <p className="text-sm text-red-600">{err}</p>}
@@ -1351,6 +1351,7 @@ function ManageExpenseTemplatesModal({
                     }}
                     className="form-input-sm"
                     placeholder="Amount"
+                    aria-label="Template amount"
                   />
                   <button type="button" onClick={() => setLines(ls => ls.filter((_, i) => i !== idx))} className="text-[#9CA3AF] hover:text-red-600 justify-self-end"><Trash2 size={14} /></button>
                 </div>

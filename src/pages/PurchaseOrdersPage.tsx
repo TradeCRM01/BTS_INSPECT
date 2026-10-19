@@ -21,8 +21,10 @@ import {
 } from 'lucide-react';
 import { safeFormatDate } from '../lib/safeDate';
 import { format, parseISO } from 'date-fns';
-import { commitDocumentLine, commitNumberField, moneyDraftAllowed, moneyFieldMessage, numberDraftAllowed } from '../lib/parseDecimal';
+import { commitDocumentLine, commitNumberField, DECIMAL_NEGATIVE, moneyDraftAllowed, moneyFieldMessage, numberDraftAllowed } from '../lib/parseDecimal';
 import { lineExGstAmount, moneyRound } from '../lib/gst';
+
+export { format as formatPoDate, parseISO as parsePoDate };
 
 /** List chrome only. Same week-board / #145 quiet elevation. Not a new kit. */
 const PO_LIST_LOOK_CSS = `
@@ -356,6 +358,9 @@ function toPOLineEdit(li: POLineItem): POLineEdit {
 export function commitPOLine(li: POLineEdit) {
   const committed = commitDocumentLine({ quantity: li.quantity, unit_price: li.unit_cost });
   if (!committed.ok) return committed;
+  if (committed.quantity < 0 || committed.unit_price < 0) {
+    return { ok: false as const, message: DECIMAL_NEGATIVE };
+  }
   return {
     ok: true as const,
     line: {
@@ -405,7 +410,10 @@ export function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
     });
   }, [profile?.company_id]);
 
-  const subtotal = useMemo(() => lines.reduce((s, l) => s + lineExGstAmount({ quantity: l.quantity, unit_price: l.unit_cost }), 0), [lines]);
+  const subtotal = useMemo(
+    () => moneyRound(lines.reduce((s, l) => s + lineExGstAmount({ quantity: l.quantity, unit_price: l.unit_cost }), 0)),
+    [lines],
+  );
   const poTaxRate = commitNumberField(form.tax_rate, 'zero');
   const poTaxRateValue = poTaxRate.ok ? Number(poTaxRate.value) || 0 : 0;
   const taxAmount = useMemo(() => moneyRound(subtotal * poTaxRateValue / 100), [subtotal, poTaxRateValue]);
@@ -612,7 +620,7 @@ export function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
             </div>
             <div className="bg-[#F9FAFB] rounded-lg border border-[#E5E7EB] p-3 space-y-1.5 self-start">
               <div className="flex justify-between text-sm text-[#4A5568]">
-                <span>Subtotal</span><span>{formatMoney(subtotal)}</span>
+                <span>Subtotal</span><span aria-label="Subtotal">{formatMoney(subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm text-[#4A5568]">
                 <span>Tax ({poTaxRateValue}%)</span><span>{formatMoney(taxAmount)}</span>

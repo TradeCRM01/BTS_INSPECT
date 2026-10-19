@@ -2138,6 +2138,7 @@ export function ExpenseEditorModal({
                 <input
                   value={form.amount === '' ? '' : formatMoney(amountNum)}
                   readOnly
+                  aria-label="Amount (ex GST)"
                   className="form-input bg-white text-[#4A5568]"
                 />
               </Field>
