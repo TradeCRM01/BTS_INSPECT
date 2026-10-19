@@ -1,0 +1,1460 @@
+{
+  "frames": [
+    {
+      "file": "docs/look/s2/s2-jobs-view-light-before-375.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "before",
+      "width": 375
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-light-before-390.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "before",
+      "width": 390
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-light-before-768.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "before",
+      "width": 768
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-light-before-800.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "before",
+      "width": 800
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-light-before-900.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "before",
+      "width": 900
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-light-before-1000.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "before",
+      "width": 1000
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-light-before-1024.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "before",
+      "width": 1024
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-light-before-1280.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "before",
+      "width": 1280
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-dark-before-375.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "dark",
+      "side": "before",
+      "width": 375
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-dark-before-390.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "dark",
+      "side": "before",
+      "width": 390
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-dark-before-1024.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "dark",
+      "side": "before",
+      "width": 1024
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-dark-before-1280.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "dark",
+      "side": "before",
+      "width": 1280
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-light-after-375.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "after",
+      "width": 375
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-light-after-390.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "after",
+      "width": 390
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-light-after-768.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "after",
+      "width": 768
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-light-after-800.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "after",
+      "width": 800
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-light-after-900.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "after",
+      "width": 900
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-light-after-1000.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "after",
+      "width": 1000
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-light-after-1024.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "after",
+      "width": 1024
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-light-after-1280.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "after",
+      "width": 1280
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-dark-after-375.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "dark",
+      "side": "after",
+      "width": 375
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-dark-after-390.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "dark",
+      "side": "after",
+      "width": 390
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-dark-after-1024.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "dark",
+      "side": "after",
+      "width": 1024
+    },
+    {
+      "file": "docs/look/s2/s2-jobs-view-dark-after-1280.png",
+      "page": "jobs",
+      "state": "view",
+      "theme": "dark",
+      "side": "after",
+      "width": 1280
+    }
+  ],
+  "measured": [
+    {
+      "page": "jobs",
+      "state": "view",
+      "width": 375,
+      "innerWidth": 375,
+      "scrollWidth": 375,
+      "maxRight": 458.64,
+      "headerRight": 375,
+      "headerChildMax": 375,
+      "overflowOk": false,
+      "headerInView": true,
+      "headerContains": true,
+      "headerButtonsOk": true,
+      "clipsOk": false,
+      "clips": [
+        "text off screen: Cancelled"
+      ],
+      "shorts": [],
+      "fulls": [],
+      "navTapOk": true,
+      "navBtns": [],
+      "tabTapOk": true,
+      "tabs": [
+        {
+          "label": "Today",
+          "w": 93.75,
+          "h": 63,
+          "tap": true
+        },
+        {
+          "label": "Schedule",
+          "w": 93.75,
+          "h": 63,
+          "tap": true
+        },
+        {
+          "label": "Jobs",
+          "w": 93.75,
+          "h": 63,
+          "tap": true
+        },
+        {
+          "label": "More",
+          "w": 93.75,
+          "h": 63,
+          "tap": true
+        }
+      ],
+      "companyTitle": "Northside Plumbing & Gas Maintenance Services Pty Ltd",
+      "gapNameChevron": null,
+      "mitre": {
+        "markH": 24,
+        "markAttr": "24",
+        "wordFs": 13,
+        "capProxy": 8.97,
+        "ratioCapProxy": 0.374,
+        "ratioFont": 0.542,
+        "wordH": 19.5
+      },
+      "tokens": {
+        "bg": "#F5F5F7",
+        "ink": "#0A0A0B",
+        "navBg": "rgba(255,255,255,.92)",
+        "navInk": "#0A0A0B",
+        "allowDark": "false",
+        "theme": "light"
+      },
+      "headerBg": "rgba(255, 255, 255, 0.92)"
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "width": 390,
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "maxRight": 458.64,
+      "headerRight": 390,
+      "headerChildMax": 390,
+      "overflowOk": false,
+      "headerInView": true,
+      "headerContains": true,
+      "headerButtonsOk": true,
+      "clipsOk": false,
+      "clips": [
+        "text off screen: Cancelled"
+      ],
+      "shorts": [],
+      "fulls": [],
+      "navTapOk": true,
+      "navBtns": [],
+      "tabTapOk": true,
+      "tabs": [
+        {
+          "label": "Today",
+          "w": 97.5,
+          "h": 63,
+          "tap": true
+        },
+        {
+          "label": "Schedule",
+          "w": 97.5,
+          "h": 63,
+          "tap": true
+        },
+        {
+          "label": "Jobs",
+          "w": 97.5,
+          "h": 63,
+          "tap": true
+        },
+        {
+          "label": "More",
+          "w": 97.5,
+          "h": 63,
+          "tap": true
+        }
+      ],
+      "companyTitle": "Northside Plumbing & Gas Maintenance Services Pty Ltd",
+      "gapNameChevron": null,
+      "mitre": {
+        "markH": 24,
+        "markAttr": "24",
+        "wordFs": 13,
+        "capProxy": 8.97,
+        "ratioCapProxy": 0.374,
+        "ratioFont": 0.542,
+        "wordH": 19.5
+      },
+      "tokens": {
+        "bg": "#F5F5F7",
+        "ink": "#0A0A0B",
+        "navBg": "rgba(255,255,255,.92)",
+        "navInk": "#0A0A0B",
+        "allowDark": "false",
+        "theme": "light"
+      },
+      "headerBg": "rgba(255, 255, 255, 0.92)"
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "width": 768,
+      "innerWidth": 768,
+      "scrollWidth": 768,
+      "maxRight": 768,
+      "headerRight": 768,
+      "headerChildMax": 768,
+      "overflowOk": true,
+      "headerInView": true,
+      "headerContains": true,
+      "headerButtonsOk": true,
+      "clipsOk": false,
+      "clips": [
+        "ellipsis: Site labour",
+        "ellipsis: Warehouse lights",
+        "ellipsis: Switchboard upgrade",
+        "ellipsis: Hot water swap",
+        "ellipsis: Deck repair",
+        "ellipsis: Rooftop unit service",
+        "ellipsis: 290 data prove A — delete ok",
+        "ellipsis: 291 prove switchboard and after-hours commissionin"
+      ],
+      "shorts": [
+        "Today",
+        "Jobs",
+        "Field",
+        "Money",
+        "Stock"
+      ],
+      "fulls": [],
+      "navTapOk": true,
+      "navBtns": [
+        {
+          "label": "Today",
+          "w": 45.77,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Jobs",
+          "w": 44,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Field",
+          "w": 44,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Money",
+          "w": 49.98,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Stock",
+          "w": 45.88,
+          "h": 56,
+          "tap": true
+        }
+      ],
+      "tabTapOk": true,
+      "tabs": [],
+      "companyTitle": "Northside Plumbing & Gas Maintenance Services Pty Ltd",
+      "gapNameChevron": 8,
+      "mitre": {
+        "markH": 24,
+        "markAttr": "24",
+        "wordFs": 14,
+        "capProxy": 9.66,
+        "ratioCapProxy": 0.403,
+        "ratioFont": 0.583,
+        "wordH": 20
+      },
+      "tokens": {
+        "bg": "#F5F5F7",
+        "ink": "#0A0A0B",
+        "navBg": "rgba(255,255,255,.92)",
+        "navInk": "#0A0A0B",
+        "allowDark": "false",
+        "theme": "light"
+      },
+      "headerBg": "rgba(255, 255, 255, 0.92)"
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "width": 800,
+      "innerWidth": 800,
+      "scrollWidth": 800,
+      "maxRight": 800,
+      "headerRight": 800,
+      "headerChildMax": 800,
+      "overflowOk": true,
+      "headerInView": true,
+      "headerContains": true,
+      "headerButtonsOk": true,
+      "clipsOk": false,
+      "clips": [
+        "ellipsis: Warehouse lights",
+        "ellipsis: Switchboard upgrade",
+        "ellipsis: Hot water swap",
+        "ellipsis: Rooftop unit service",
+        "ellipsis: 290 data prove A — delete ok",
+        "ellipsis: 291 prove switchboard and after-hours commissionin"
+      ],
+      "shorts": [
+        "Today",
+        "Jobs",
+        "Field",
+        "Money",
+        "Stock"
+      ],
+      "fulls": [],
+      "navTapOk": true,
+      "navBtns": [
+        {
+          "label": "Today",
+          "w": 45.77,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Jobs",
+          "w": 44,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Field",
+          "w": 44,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Money",
+          "w": 49.98,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Stock",
+          "w": 45.88,
+          "h": 56,
+          "tap": true
+        }
+      ],
+      "tabTapOk": true,
+      "tabs": [],
+      "companyTitle": "Northside Plumbing & Gas Maintenance Services Pty Ltd",
+      "gapNameChevron": 8,
+      "mitre": {
+        "markH": 24,
+        "markAttr": "24",
+        "wordFs": 14,
+        "capProxy": 9.66,
+        "ratioCapProxy": 0.403,
+        "ratioFont": 0.583,
+        "wordH": 20
+      },
+      "tokens": {
+        "bg": "#F5F5F7",
+        "ink": "#0A0A0B",
+        "navBg": "rgba(255,255,255,.92)",
+        "navInk": "#0A0A0B",
+        "allowDark": "false",
+        "theme": "light"
+      },
+      "headerBg": "rgba(255, 255, 255, 0.92)"
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "width": 900,
+      "innerWidth": 900,
+      "scrollWidth": 900,
+      "maxRight": 900,
+      "headerRight": 900,
+      "headerChildMax": 900,
+      "overflowOk": true,
+      "headerInView": true,
+      "headerContains": true,
+      "headerButtonsOk": true,
+      "clipsOk": false,
+      "clips": [
+        "ellipsis: 290 data prove A — delete ok",
+        "ellipsis: 291 prove switchboard and after-hours commissionin"
+      ],
+      "shorts": [
+        "Today",
+        "Jobs",
+        "Field",
+        "Money",
+        "Stock"
+      ],
+      "fulls": [],
+      "navTapOk": true,
+      "navBtns": [
+        {
+          "label": "Today",
+          "w": 45.77,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Jobs",
+          "w": 44,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Field",
+          "w": 44,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Money",
+          "w": 49.98,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Stock",
+          "w": 45.88,
+          "h": 56,
+          "tap": true
+        }
+      ],
+      "tabTapOk": true,
+      "tabs": [],
+      "companyTitle": "Northside Plumbing & Gas Maintenance Services Pty Ltd",
+      "gapNameChevron": 8,
+      "mitre": {
+        "markH": 24,
+        "markAttr": "24",
+        "wordFs": 14,
+        "capProxy": 9.66,
+        "ratioCapProxy": 0.403,
+        "ratioFont": 0.583,
+        "wordH": 20
+      },
+      "tokens": {
+        "bg": "#F5F5F7",
+        "ink": "#0A0A0B",
+        "navBg": "rgba(255,255,255,.92)",
+        "navInk": "#0A0A0B",
+        "allowDark": "false",
+        "theme": "light"
+      },
+      "headerBg": "rgba(255, 255, 255, 0.92)"
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "width": 1000,
+      "innerWidth": 1000,
+      "scrollWidth": 1000,
+      "maxRight": 1000,
+      "headerRight": 1000,
+      "headerChildMax": 1000,
+      "overflowOk": true,
+      "headerInView": true,
+      "headerContains": true,
+      "headerButtonsOk": true,
+      "clipsOk": false,
+      "clips": [
+        "ellipsis: 291 prove switchboard and after-hours commissionin"
+      ],
+      "shorts": [
+        "Today",
+        "Jobs",
+        "Field",
+        "Money",
+        "Stock"
+      ],
+      "fulls": [],
+      "navTapOk": true,
+      "navBtns": [
+        {
+          "label": "Today",
+          "w": 45.77,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Jobs",
+          "w": 44,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Field",
+          "w": 44,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Money",
+          "w": 49.98,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Stock",
+          "w": 45.88,
+          "h": 56,
+          "tap": true
+        }
+      ],
+      "tabTapOk": true,
+      "tabs": [],
+      "companyTitle": "Northside Plumbing & Gas Maintenance Services Pty Ltd",
+      "gapNameChevron": 8,
+      "mitre": {
+        "markH": 24,
+        "markAttr": "24",
+        "wordFs": 14,
+        "capProxy": 9.66,
+        "ratioCapProxy": 0.403,
+        "ratioFont": 0.583,
+        "wordH": 20
+      },
+      "tokens": {
+        "bg": "#F5F5F7",
+        "ink": "#0A0A0B",
+        "navBg": "rgba(255,255,255,.92)",
+        "navInk": "#0A0A0B",
+        "allowDark": "false",
+        "theme": "light"
+      },
+      "headerBg": "rgba(255, 255, 255, 0.92)"
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "width": 1024,
+      "innerWidth": 1024,
+      "scrollWidth": 1024,
+      "maxRight": 1024,
+      "headerRight": 1024,
+      "headerChildMax": 1024,
+      "overflowOk": true,
+      "headerInView": true,
+      "headerContains": true,
+      "headerButtonsOk": true,
+      "clipsOk": false,
+      "clips": [
+        "ellipsis: 291 prove switchboard and after-hours commissionin"
+      ],
+      "shorts": [],
+      "fulls": [
+        "Dashboard",
+        "CRM",
+        "Field Work",
+        "Financials",
+        "Inventory"
+      ],
+      "navTapOk": true,
+      "navBtns": [
+        {
+          "label": "Today",
+          "w": 131,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Jobs",
+          "w": 92.52,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Field",
+          "w": 129.56,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Money",
+          "w": 125.77,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Stock",
+          "w": 121.23,
+          "h": 56,
+          "tap": true
+        }
+      ],
+      "tabTapOk": true,
+      "tabs": [],
+      "companyTitle": "Northside Plumbing & Gas Maintenance Services Pty Ltd",
+      "gapNameChevron": 8,
+      "mitre": {
+        "markH": 24,
+        "markAttr": "24",
+        "wordFs": 14,
+        "capProxy": 9.66,
+        "ratioCapProxy": 0.403,
+        "ratioFont": 0.583,
+        "wordH": 20
+      },
+      "tokens": {
+        "bg": "#F5F5F7",
+        "ink": "#0A0A0B",
+        "navBg": "rgba(255,255,255,.92)",
+        "navInk": "#0A0A0B",
+        "allowDark": "false",
+        "theme": "light"
+      },
+      "headerBg": "rgba(255, 255, 255, 0.92)"
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "width": 1280,
+      "innerWidth": 1280,
+      "scrollWidth": 1280,
+      "maxRight": 1280,
+      "headerRight": 1280,
+      "headerChildMax": 1280,
+      "overflowOk": true,
+      "headerInView": true,
+      "headerContains": true,
+      "headerButtonsOk": true,
+      "clipsOk": false,
+      "clips": [
+        "ellipsis: 291 prove switchboard and after-hours commissionin"
+      ],
+      "shorts": [],
+      "fulls": [
+        "Dashboard",
+        "CRM",
+        "Field Work",
+        "Financials",
+        "Inventory"
+      ],
+      "navTapOk": true,
+      "navBtns": [
+        {
+          "label": "Today",
+          "w": 131,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Jobs",
+          "w": 92.52,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Field",
+          "w": 129.56,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Money",
+          "w": 125.77,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Stock",
+          "w": 121.23,
+          "h": 56,
+          "tap": true
+        }
+      ],
+      "tabTapOk": true,
+      "tabs": [],
+      "companyTitle": "Northside Plumbing & Gas Maintenance Services Pty Ltd",
+      "gapNameChevron": 8,
+      "mitre": {
+        "markH": 24,
+        "markAttr": "24",
+        "wordFs": 14,
+        "capProxy": 9.66,
+        "ratioCapProxy": 0.403,
+        "ratioFont": 0.583,
+        "wordH": 20
+      },
+      "tokens": {
+        "bg": "#F5F5F7",
+        "ink": "#0A0A0B",
+        "navBg": "rgba(255,255,255,.92)",
+        "navInk": "#0A0A0B",
+        "allowDark": "false",
+        "theme": "light"
+      },
+      "headerBg": "rgba(255, 255, 255, 0.92)"
+    },
+    {
+      "page": "job",
+      "state": "edit",
+      "width": 375,
+      "innerWidth": 375,
+      "scrollWidth": 375,
+      "maxRight": 375,
+      "headerRight": 375,
+      "headerChildMax": 375,
+      "overflowOk": true,
+      "headerInView": true,
+      "headerContains": true,
+      "headerButtonsOk": true,
+      "clipsOk": true,
+      "clips": [],
+      "shorts": [],
+      "fulls": [],
+      "navTapOk": true,
+      "navBtns": [],
+      "tabTapOk": true,
+      "tabs": [
+        {
+          "label": "Today",
+          "w": 93.75,
+          "h": 63,
+          "tap": true
+        },
+        {
+          "label": "Schedule",
+          "w": 93.75,
+          "h": 63,
+          "tap": true
+        },
+        {
+          "label": "Jobs",
+          "w": 93.75,
+          "h": 63,
+          "tap": true
+        },
+        {
+          "label": "More",
+          "w": 93.75,
+          "h": 63,
+          "tap": true
+        }
+      ],
+      "companyTitle": "Northside Plumbing & Gas Maintenance Services Pty Ltd",
+      "gapNameChevron": null,
+      "mitre": {
+        "markH": 24,
+        "markAttr": "24",
+        "wordFs": 13,
+        "capProxy": 8.97,
+        "ratioCapProxy": 0.374,
+        "ratioFont": 0.542,
+        "wordH": 19.5
+      },
+      "tokens": {
+        "bg": "#F5F5F7",
+        "ink": "#0A0A0B",
+        "navBg": "rgba(255,255,255,.92)",
+        "navInk": "#0A0A0B",
+        "allowDark": "false",
+        "theme": "light"
+      },
+      "headerBg": "rgba(255, 255, 255, 0.92)"
+    },
+    {
+      "page": "job",
+      "state": "edit",
+      "width": 390,
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "maxRight": 390,
+      "headerRight": 390,
+      "headerChildMax": 390,
+      "overflowOk": true,
+      "headerInView": true,
+      "headerContains": true,
+      "headerButtonsOk": true,
+      "clipsOk": true,
+      "clips": [],
+      "shorts": [],
+      "fulls": [],
+      "navTapOk": true,
+      "navBtns": [],
+      "tabTapOk": true,
+      "tabs": [
+        {
+          "label": "Today",
+          "w": 97.5,
+          "h": 63,
+          "tap": true
+        },
+        {
+          "label": "Schedule",
+          "w": 97.5,
+          "h": 63,
+          "tap": true
+        },
+        {
+          "label": "Jobs",
+          "w": 97.5,
+          "h": 63,
+          "tap": true
+        },
+        {
+          "label": "More",
+          "w": 97.5,
+          "h": 63,
+          "tap": true
+        }
+      ],
+      "companyTitle": "Northside Plumbing & Gas Maintenance Services Pty Ltd",
+      "gapNameChevron": null,
+      "mitre": {
+        "markH": 24,
+        "markAttr": "24",
+        "wordFs": 13,
+        "capProxy": 8.97,
+        "ratioCapProxy": 0.374,
+        "ratioFont": 0.542,
+        "wordH": 19.5
+      },
+      "tokens": {
+        "bg": "#F5F5F7",
+        "ink": "#0A0A0B",
+        "navBg": "rgba(255,255,255,.92)",
+        "navInk": "#0A0A0B",
+        "allowDark": "false",
+        "theme": "light"
+      },
+      "headerBg": "rgba(255, 255, 255, 0.92)"
+    },
+    {
+      "page": "job",
+      "state": "edit",
+      "width": 768,
+      "innerWidth": 768,
+      "scrollWidth": 768,
+      "maxRight": 768,
+      "headerRight": 768,
+      "headerChildMax": 768,
+      "overflowOk": true,
+      "headerInView": true,
+      "headerContains": true,
+      "headerButtonsOk": true,
+      "clipsOk": true,
+      "clips": [],
+      "shorts": [
+        "Today",
+        "Jobs",
+        "Field",
+        "Money",
+        "Stock"
+      ],
+      "fulls": [],
+      "navTapOk": true,
+      "navBtns": [
+        {
+          "label": "Today",
+          "w": 45.77,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Jobs",
+          "w": 44,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Field",
+          "w": 44,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Money",
+          "w": 49.98,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Stock",
+          "w": 45.88,
+          "h": 56,
+          "tap": true
+        }
+      ],
+      "tabTapOk": true,
+      "tabs": [],
+      "companyTitle": "Northside Plumbing & Gas Maintenance Services Pty Ltd",
+      "gapNameChevron": 8,
+      "mitre": {
+        "markH": 24,
+        "markAttr": "24",
+        "wordFs": 14,
+        "capProxy": 9.66,
+        "ratioCapProxy": 0.403,
+        "ratioFont": 0.583,
+        "wordH": 20
+      },
+      "tokens": {
+        "bg": "#F5F5F7",
+        "ink": "#0A0A0B",
+        "navBg": "rgba(255,255,255,.92)",
+        "navInk": "#0A0A0B",
+        "allowDark": "false",
+        "theme": "light"
+      },
+      "headerBg": "rgba(255, 255, 255, 0.92)"
+    },
+    {
+      "page": "job",
+      "state": "edit",
+      "width": 800,
+      "innerWidth": 800,
+      "scrollWidth": 800,
+      "maxRight": 800,
+      "headerRight": 800,
+      "headerChildMax": 800,
+      "overflowOk": true,
+      "headerInView": true,
+      "headerContains": true,
+      "headerButtonsOk": true,
+      "clipsOk": true,
+      "clips": [],
+      "shorts": [
+        "Today",
+        "Jobs",
+        "Field",
+        "Money",
+        "Stock"
+      ],
+      "fulls": [],
+      "navTapOk": true,
+      "navBtns": [
+        {
+          "label": "Today",
+          "w": 45.77,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Jobs",
+          "w": 44,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Field",
+          "w": 44,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Money",
+          "w": 49.98,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Stock",
+          "w": 45.88,
+          "h": 56,
+          "tap": true
+        }
+      ],
+      "tabTapOk": true,
+      "tabs": [],
+      "companyTitle": "Northside Plumbing & Gas Maintenance Services Pty Ltd",
+      "gapNameChevron": 8,
+      "mitre": {
+        "markH": 24,
+        "markAttr": "24",
+        "wordFs": 14,
+        "capProxy": 9.66,
+        "ratioCapProxy": 0.403,
+        "ratioFont": 0.583,
+        "wordH": 20
+      },
+      "tokens": {
+        "bg": "#F5F5F7",
+        "ink": "#0A0A0B",
+        "navBg": "rgba(255,255,255,.92)",
+        "navInk": "#0A0A0B",
+        "allowDark": "false",
+        "theme": "light"
+      },
+      "headerBg": "rgba(255, 255, 255, 0.92)"
+    },
+    {
+      "page": "job",
+      "state": "edit",
+      "width": 900,
+      "innerWidth": 900,
+      "scrollWidth": 900,
+      "maxRight": 900,
+      "headerRight": 900,
+      "headerChildMax": 900,
+      "overflowOk": true,
+      "headerInView": true,
+      "headerContains": true,
+      "headerButtonsOk": true,
+      "clipsOk": true,
+      "clips": [],
+      "shorts": [
+        "Today",
+        "Jobs",
+        "Field",
+        "Money",
+        "Stock"
+      ],
+      "fulls": [],
+      "navTapOk": true,
+      "navBtns": [
+        {
+          "label": "Today",
+          "w": 45.77,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Jobs",
+          "w": 44,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Field",
+          "w": 44,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Money",
+          "w": 49.98,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Stock",
+          "w": 45.88,
+          "h": 56,
+          "tap": true
+        }
+      ],
+      "tabTapOk": true,
+      "tabs": [],
+      "companyTitle": "Northside Plumbing & Gas Maintenance Services Pty Ltd",
+      "gapNameChevron": 8,
+      "mitre": {
+        "markH": 24,
+        "markAttr": "24",
+        "wordFs": 14,
+        "capProxy": 9.66,
+        "ratioCapProxy": 0.403,
+        "ratioFont": 0.583,
+        "wordH": 20
+      },
+      "tokens": {
+        "bg": "#F5F5F7",
+        "ink": "#0A0A0B",
+        "navBg": "rgba(255,255,255,.92)",
+        "navInk": "#0A0A0B",
+        "allowDark": "false",
+        "theme": "light"
+      },
+      "headerBg": "rgba(255, 255, 255, 0.92)"
+    },
+    {
+      "page": "job",
+      "state": "edit",
+      "width": 1000,
+      "innerWidth": 1000,
+      "scrollWidth": 1000,
+      "maxRight": 1000,
+      "headerRight": 1000,
+      "headerChildMax": 1000,
+      "overflowOk": true,
+      "headerInView": true,
+      "headerContains": true,
+      "headerButtonsOk": true,
+      "clipsOk": true,
+      "clips": [],
+      "shorts": [
+        "Today",
+        "Jobs",
+        "Field",
+        "Money",
+        "Stock"
+      ],
+      "fulls": [],
+      "navTapOk": true,
+      "navBtns": [
+        {
+          "label": "Today",
+          "w": 45.77,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Jobs",
+          "w": 44,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Field",
+          "w": 44,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Money",
+          "w": 49.98,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Stock",
+          "w": 45.88,
+          "h": 56,
+          "tap": true
+        }
+      ],
+      "tabTapOk": true,
+      "tabs": [],
+      "companyTitle": "Northside Plumbing & Gas Maintenance Services Pty Ltd",
+      "gapNameChevron": 8,
+      "mitre": {
+        "markH": 24,
+        "markAttr": "24",
+        "wordFs": 14,
+        "capProxy": 9.66,
+        "ratioCapProxy": 0.403,
+        "ratioFont": 0.583,
+        "wordH": 20
+      },
+      "tokens": {
+        "bg": "#F5F5F7",
+        "ink": "#0A0A0B",
+        "navBg": "rgba(255,255,255,.92)",
+        "navInk": "#0A0A0B",
+        "allowDark": "false",
+        "theme": "light"
+      },
+      "headerBg": "rgba(255, 255, 255, 0.92)"
+    },
+    {
+      "page": "job",
+      "state": "edit",
+      "width": 1024,
+      "innerWidth": 1024,
+      "scrollWidth": 1024,
+      "maxRight": 1024,
+      "headerRight": 1024,
+      "headerChildMax": 1024,
+      "overflowOk": true,
+      "headerInView": true,
+      "headerContains": true,
+      "headerButtonsOk": true,
+      "clipsOk": true,
+      "clips": [],
+      "shorts": [],
+      "fulls": [
+        "Dashboard",
+        "CRM",
+        "Field Work",
+        "Financials",
+        "Inventory"
+      ],
+      "navTapOk": true,
+      "navBtns": [
+        {
+          "label": "Today",
+          "w": 131,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Jobs",
+          "w": 92.52,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Field",
+          "w": 129.56,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Money",
+          "w": 125.77,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Stock",
+          "w": 121.23,
+          "h": 56,
+          "tap": true
+        }
+      ],
+      "tabTapOk": true,
+      "tabs": [],
+      "companyTitle": "Northside Plumbing & Gas Maintenance Services Pty Ltd",
+      "gapNameChevron": 8,
+      "mitre": {
+        "markH": 24,
+        "markAttr": "24",
+        "wordFs": 14,
+        "capProxy": 9.66,
+        "ratioCapProxy": 0.403,
+        "ratioFont": 0.583,
+        "wordH": 20
+      },
+      "tokens": {
+        "bg": "#F5F5F7",
+        "ink": "#0A0A0B",
+        "navBg": "rgba(255,255,255,.92)",
+        "navInk": "#0A0A0B",
+        "allowDark": "false",
+        "theme": "light"
+      },
+      "headerBg": "rgba(255, 255, 255, 0.92)"
+    },
+    {
+      "page": "job",
+      "state": "edit",
+      "width": 1280,
+      "innerWidth": 1280,
+      "scrollWidth": 1280,
+      "maxRight": 1280,
+      "headerRight": 1280,
+      "headerChildMax": 1280,
+      "overflowOk": true,
+      "headerInView": true,
+      "headerContains": true,
+      "headerButtonsOk": true,
+      "clipsOk": true,
+      "clips": [],
+      "shorts": [],
+      "fulls": [
+        "Dashboard",
+        "CRM",
+        "Field Work",
+        "Financials",
+        "Inventory"
+      ],
+      "navTapOk": true,
+      "navBtns": [
+        {
+          "label": "Today",
+          "w": 131,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Jobs",
+          "w": 92.52,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Field",
+          "w": 129.56,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Money",
+          "w": 125.77,
+          "h": 56,
+          "tap": true
+        },
+        {
+          "label": "Stock",
+          "w": 121.23,
+          "h": 56,
+          "tap": true
+        }
+      ],
+      "tabTapOk": true,
+      "tabs": [],
+      "companyTitle": "Northside Plumbing & Gas Maintenance Services Pty Ltd",
+      "gapNameChevron": 8,
+      "mitre": {
+        "markH": 24,
+        "markAttr": "24",
+        "wordFs": 14,
+        "capProxy": 9.66,
+        "ratioCapProxy": 0.403,
+        "ratioFont": 0.583,
+        "wordH": 20
+      },
+      "tokens": {
+        "bg": "#F5F5F7",
+        "ink": "#0A0A0B",
+        "navBg": "rgba(255,255,255,.92)",
+        "navInk": "#0A0A0B",
+        "allowDark": "false",
+        "theme": "light"
+      },
+      "headerBg": "rgba(255, 255, 255, 0.92)"
+    }
+  ],
+  "allowDark": {
+    "equalForced": true,
+    "equalAllowed": false,
+    "lightVars": {
+      "bg": "#F5F5F7",
+      "allow": "false"
+    },
+    "forcedVars": {
+      "bg": "#F5F5F7",
+      "theme": "dark",
+      "allow": "false"
+    },
+    "allowedVars": {
+      "bg": "#0A0A0B"
+    },
+    "bytes": 185590
+  }
+}
