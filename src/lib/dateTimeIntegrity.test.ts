@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   AU_DATE_PLACEHOLDER,
   DATE_INVALID_MESSAGE,
+  DATE_RANGE_ORDER_MESSAGE,
   DATE_REQUIRED_MESSAGE,
+  DATE_YEAR_MAX,
+  DATE_YEAR_MIN,
   ENDS_NEXT_DAY_HINT,
   ENDS_NEXT_DAY_UNCHECK_MESSAGE,
   END_BEFORE_START_MESSAGE,
@@ -13,7 +16,9 @@ import {
   addLocalDate,
   clockOffSaveError,
   clockOnSaveError,
+  dateRangeOrderError,
   formatAuDate,
+  isSupportedDateYear,
   formatClockRangeLabel,
   isoDateKey,
   jobClockOrderError,
@@ -224,6 +229,25 @@ describe('reminder save', () => {
     expect(reminderSaveError({ date: '', time: '07:30', invalid: true })).toBe(DATE_INVALID_MESSAGE);
     expect(reminderSaveError({ date: '2026-10-23', time: '07:30' })).toBeNull();
     expect(reminderSaveError({ date: '', time: '' })).toBeNull();
+  });
+});
+
+describe('date range order', () => {
+  it('blocks an end day before the start day', () => {
+    expect(dateRangeOrderError('2026-10-21', '2026-10-20')).toBe(DATE_RANGE_ORDER_MESSAGE);
+    expect(dateRangeOrderError('2026-10-21', '2026-10-21')).toBeNull();
+    expect(dateRangeOrderError('2026-10-21', '2026-10-22')).toBeNull();
+    expect(dateRangeOrderError('2026-10-21', '')).toBeNull();
+  });
+
+  it('keeps years inside 1900-2100 for safe formatting', () => {
+    expect(DATE_YEAR_MIN).toBe(1900);
+    expect(DATE_YEAR_MAX).toBe(2100);
+    expect(isSupportedDateYear(1899)).toBe(false);
+    expect(isSupportedDateYear(1900)).toBe(true);
+    expect(isSupportedDateYear(2100)).toBe(true);
+    expect(isSupportedDateYear(2101)).toBe(false);
+    expect(formatAuDate('2026-10-21')).toBe('21/10/2026');
   });
 });
 

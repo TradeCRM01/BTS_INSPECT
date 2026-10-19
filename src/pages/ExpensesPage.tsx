@@ -1934,10 +1934,6 @@ function ExpenseEditorModal({
         <div className="hub-expenses-row">
           <span className="hub-expenses-row-label">Date</span>
           <label className="hub-expenses-date">
-<<<<<<< HEAD
-            <span>{form.expense_date ? safeFormatDate(form.expense_date, 'd MMM yyyy') : ''}</span>
-=======
->>>>>>> aa4ef5b (fix(schedule): hold invalid dates, overnight wrap, and all-job overlap)
             <Calendar size={16} />
             <DateFieldInput
               value={form.expense_date}

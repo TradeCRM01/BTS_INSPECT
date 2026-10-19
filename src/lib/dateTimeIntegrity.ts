@@ -9,31 +9,32 @@ export const ENDS_NEXT_DAY_UNCHECK_MESSAGE = 'End is later the same day, so unti
 export const TIME_ENTRY_OVERNIGHT_CAP_MESSAGE = 'Overnight entries cannot exceed 16 hours.';
 export const TIME_ENTRY_OVERLAP_MESSAGE = 'This overlaps another time entry for this person.';
 export const TIME_ENTRY_ZERO_LENGTH_MESSAGE = 'End time must be after start.';
+export const DATE_RANGE_ORDER_MESSAGE = 'End date must be on or after the start date.';
+export const DATE_YEAR_MIN = 1900;
+export const DATE_YEAR_MAX = 2100;
 
 const ISO_YMD = /^(\d{4})-(\d{2})-(\d{2})$/;
 const AU_SLASH = /^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/;
 const EIGHT_DIGITS = /^(\d{2})(\d{2})(\d{4})$/;
 const CLOCK = /^(\d{1,2}):(\d{2})/;
-const YEAR_MIN = 1900;
-const YEAR_MAX = 2100;
 const OVERNIGHT_CAP_MINUTES = 16 * 60;
 
 function pad2(n: number): string {
   return String(n).padStart(2, '0');
 }
 
-function inYearRange(year: number): boolean {
-  return year >= YEAR_MIN && year <= YEAR_MAX;
+export function isSupportedDateYear(year: number): boolean {
+  return Number.isFinite(year) && year >= DATE_YEAR_MIN && year <= DATE_YEAR_MAX;
 }
 
 function expandYear(year: number): number | null {
   if (year < 100) return 2000 + year;
-  if (!inYearRange(year)) return null;
+  if (!isSupportedDateYear(year)) return null;
   return year;
 }
 
 function isRealYmd(year: number, month: number, day: number): boolean {
-  if (!inYearRange(year)) return false;
+  if (!isSupportedDateYear(year)) return false;
   if (month < 1 || month > 12 || day < 1 || day > 31) return false;
   const dt = new Date(Date.UTC(year, month - 1, day));
   return dt.getUTCFullYear() === year && dt.getUTCMonth() === month - 1 && dt.getUTCDate() === day;
@@ -104,6 +105,17 @@ export function dateInputError(args: {
 }): string | null {
   if (args.invalid) return DATE_INVALID_MESSAGE;
   if (args.required && !isoDateKey(args.iso)) return DATE_REQUIRED_MESSAGE;
+  return null;
+}
+
+export function dateRangeOrderError(
+  start: string | null | undefined,
+  end: string | null | undefined,
+): string | null {
+  const startDay = isoDateKey(start);
+  const endDay = isoDateKey(end);
+  if (!startDay || !endDay) return null;
+  if (endDay < startDay) return DATE_RANGE_ORDER_MESSAGE;
   return null;
 }
 

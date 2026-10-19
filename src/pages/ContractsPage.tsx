@@ -6,15 +6,22 @@ import { useAuth } from '../contexts/AuthContext';
 import { listPendingCount, listPendingNounCount, listQueryBusy, listSectionLoadError, listShowEmpty } from '../lib/listQueryReady';
 import { getAuditContracts } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
-import { EmptyState, SearchBar, ContextMenu, ConfirmDialog, SummaryCard, useToast, ViewToggle, useViewMode } from '../components/ui';
+import { DateFieldInput, EmptyState, SearchBar, ContextMenu, ConfirmDialog, SummaryCard, useToast, ViewToggle, useViewMode } from '../components/ui';
+import { DATE_INVALID_MESSAGE, dateRangeOrderError } from '../lib/dateTimeIntegrity';
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import type { MenuEntry } from '../components/ui';
 import { format } from 'date-fns';
 import {
   SAFE_DATE_FALLBACK,
   dateFieldYearError,
+  parseFieldDate,
   safeFormatDate,
 } from '../lib/safeDate';
+
+function namedDateRaw(id: string, fallback: string): string {
+  const el = document.getElementById(id);
+  return el instanceof HTMLInputElement ? el.value : fallback;
+}
 import { Plus, FileText, X, Trash2, Pencil, Briefcase, Mail } from 'lucide-react';
 import type { ServiceContract, ServiceContractWithClient, ContractStatus } from '../types/fsm';
 import { CONTRACT_STATUS_LABELS, CONTRACT_STATUS_STYLES, BILLING_CYCLE_LABELS, SERVICE_FREQUENCY_LABELS, formatMoney } from '../types/fsm';
@@ -411,7 +418,7 @@ function ContractRow({ contract, creating, onEdit, onCreateJob, onRemind, onDele
   );
 }
 
-function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRemind }: {
+export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRemind }: {
   contract: ServiceContract | null;
   creating: boolean;
   onClose: () => void;
@@ -438,6 +445,9 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
   const [clients, setClients] = useState<Client[]>([]);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [startInvalid, setStartInvalid] = useState(false);
+  const [endInvalid, setEndInvalid] = useState(false);
+  const [rangeErr, setRangeErr] = useState<string | null>(null);
   const [startDateError, setStartDateError] = useState<string | null>(null);
   const [endDateError, setEndDateError] = useState<string | null>(null);
   const [nextServiceError, setNextServiceError] = useState<string | null>(null);
@@ -449,33 +459,45 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    setSaving(true);
-    setErr(null);
+    const startRaw = namedDateRaw('contract-start-date', form.start_date);
+    const endRaw = namedDateRaw('contract-end-date', form.end_date);
+    const nextRaw = namedDateRaw('contract-next-service-date', form.next_service_date);
     setStartDateError(null);
     setEndDateError(null);
     setNextServiceError(null);
-    const startYearError = dateFieldYearError(form.start_date, false);
+    setRangeErr(null);
+    const startYearError = dateFieldYearError(startRaw, false);
     if (startYearError) {
       setStartDateError(startYearError);
       setErr(startYearError);
-      setSaving(false);
       return;
     }
-    const endYearError = dateFieldYearError(form.end_date, false);
+    const endYearError = dateFieldYearError(endRaw, false);
     if (endYearError) {
       setEndDateError(endYearError);
       setErr(endYearError);
-      setSaving(false);
       return;
     }
-    const nextYearError = dateFieldYearError(form.next_service_date, true);
+    const nextYearError = dateFieldYearError(nextRaw, true);
     if (nextYearError) {
       setNextServiceError(nextYearError);
       setErr(nextYearError);
-      setSaving(false);
       return;
     }
-    const next = requireNextServiceDate(form.next_service_date);
+    if (startInvalid || endInvalid) {
+      setErr(DATE_INVALID_MESSAGE);
+      return;
+    }
+    const startDate = parseFieldDate(startRaw) ?? form.start_date;
+    const endDate = parseFieldDate(endRaw) ?? form.end_date;
+    const order = dateRangeOrderError(startDate, endDate);
+    if (order) {
+      setRangeErr(order);
+      return;
+    }
+    setSaving(true);
+    setErr(null);
+    const next = requireNextServiceDate(nextRaw);
     if (!next.ok) {
       setNextServiceError(next.message);
       setErr(next.message);
@@ -489,8 +511,8 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
         client_id: form.client_id || null,
         contract_number: form.contract_number || null,
         status: form.status,
-        start_date: form.start_date || null,
-        end_date: form.end_date || null,
+        start_date: startDate || null,
+        end_date: endDate || null,
         billing_cycle: form.billing_cycle,
         contract_value: parseFloat(form.contract_value) || 0,
         service_frequency: form.service_frequency,
@@ -522,7 +544,7 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
           <h2 className="text-lg font-semibold text-[#1A1A1A]">{contract ? 'Edit Contract' : 'New Service Contract'}</h2>
           <button onClick={onClose} className="text-[#6B7280] hover:text-[#1A1A1A]"><X size={20} /></button>
         </div>
-        <form onSubmit={handleSave} className="overlay-body">
+        <form onSubmit={handleSave} noValidate className="overlay-body">
           <Field label="Title *"><input required value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="form-input" placeholder="e.g. Annual Maintenance Agreement" /></Field>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Client *">
@@ -544,32 +566,41 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Start Date">
-              <input
+              <DateFieldInput
                 id="contract-start-date"
-                type="date"
                 value={form.start_date}
-                onChange={e => { setStartDateError(null); setForm(f => ({ ...f, start_date: e.target.value })); }}
+                onChange={start_date => {
+                  setStartDateError(null);
+                  setForm(f => ({ ...f, start_date }));
+                  setRangeErr(null);
+                }}
+                onValidityChange={setStartInvalid}
                 className="form-input"
-                aria-invalid={startDateError ? true : undefined}
-                aria-describedby={startDateError ? 'contract-start-date-error' : undefined}
               />
               {startDateError ? (
                 <p id="contract-start-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{startDateError}</p>
+              ) : startInvalid ? (
+                <p className="text-sm text-[#B42318] mt-1" role="alert">{DATE_INVALID_MESSAGE}</p>
               ) : null}
             </Field>
             <Field label="End Date">
-              <input
+              <DateFieldInput
                 id="contract-end-date"
-                type="date"
                 value={form.end_date}
-                onChange={e => { setEndDateError(null); setForm(f => ({ ...f, end_date: e.target.value })); }}
+                onChange={end_date => {
+                  setEndDateError(null);
+                  setForm(f => ({ ...f, end_date }));
+                  setRangeErr(null);
+                }}
+                onValidityChange={setEndInvalid}
                 className="form-input"
-                aria-invalid={endDateError ? true : undefined}
-                aria-describedby={endDateError ? 'contract-end-date-error' : undefined}
               />
               {endDateError ? (
                 <p id="contract-end-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{endDateError}</p>
+              ) : endInvalid ? (
+                <p className="text-sm text-[#B42318] mt-1" role="alert">{DATE_INVALID_MESSAGE}</p>
               ) : null}
+              {rangeErr ? <p className="text-sm text-[#B42318] mt-1" role="alert">{rangeErr}</p> : null}
             </Field>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
