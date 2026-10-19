@@ -854,7 +854,12 @@ export function ComplianceForm({
     setLastCompletedError(null);
     const firstDueYearError = dateFieldYearError(firstDueRaw, true);
     if (firstDueYearError) {
-      if (!firstDueRaw.trim()) setFirstDueRequiredErr(DATE_REQUIRED_MESSAGE);
+      if (!firstDueRaw.trim()) {
+        setFirstDueRequiredErr(DATE_REQUIRED_MESSAGE);
+        setErr(DATE_REQUIRED_MESSAGE);
+        setSaving(false);
+        return;
+      }
       setFirstDueError(firstDueYearError);
       setErr(firstDueYearError);
       setSaving(false);
@@ -867,15 +872,19 @@ export function ComplianceForm({
       setSaving(false);
       return;
     }
-    if (firstDueInvalid || lastCompletedInvalid) {
-      setErr(DATE_INVALID_MESSAGE);
-      return;
-    }
-    const firstDue = parseFieldDate(firstDueRaw) ?? form.first_due_date;
-    const lastCompleted = parseFieldDate(lastCompletedRaw) || lastCompletedRaw || null;
+    const firstDue = parseFieldDate(firstDueRaw);
+    const lastCompleted = lastCompletedRaw.trim() ? parseFieldDate(lastCompletedRaw) : null;
     if (!firstDue) {
+      if (firstDueRaw.trim() || firstDueInvalid) {
+        setErr(DATE_INVALID_MESSAGE);
+        return;
+      }
       setFirstDueRequiredErr(DATE_REQUIRED_MESSAGE);
       setErr(DATE_REQUIRED_MESSAGE);
+      return;
+    }
+    if (lastCompletedRaw.trim() && !lastCompleted) {
+      setErr(DATE_INVALID_MESSAGE);
       return;
     }
     setFirstDueRequiredErr(null);

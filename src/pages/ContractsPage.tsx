@@ -484,28 +484,32 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
       setErr(startYearError);
       return;
     }
+    if (startRaw.trim() && !parseFieldDate(startRaw) && startInvalid) {
+      setErr(DATE_INVALID_MESSAGE);
+      return;
+    }
     const endYearError = dateFieldYearError(endRaw, false);
     if (endYearError) {
       setEndDateError(endYearError);
       setErr(endYearError);
       return;
     }
-    const nextYearError = dateFieldYearError(nextRaw, true);
+    const nextYearError = nextRaw.trim() ? dateFieldYearError(nextRaw, true) : null;
     if (nextYearError) {
       setNextServiceError(nextYearError);
       setErr(nextYearError);
-      return;
-    }
-    if (startInvalid || endInvalid) {
-      setErr(DATE_INVALID_MESSAGE);
       return;
     }
     if (nextTitleErr || nextClientErr || nextStartRequired) {
       setErr(nextTitleErr || nextClientErr || nextStartRequired);
       return;
     }
-    const startDate = parseFieldDate(startRaw) ?? form.start_date;
-    const endDate = parseFieldDate(endRaw) ?? form.end_date;
+    const startDate = parseFieldDate(startRaw) ?? (startInvalid ? '' : form.start_date);
+    const endDate = endRaw.trim() ? (parseFieldDate(endRaw) ?? (endInvalid ? '' : form.end_date)) : '';
+    if (endRaw.trim() && !parseFieldDate(endRaw) && endInvalid) {
+      setErr(DATE_INVALID_MESSAGE);
+      return;
+    }
     const order = dateRangeOrderError(startDate, endDate);
     if (order) {
       setRangeErr(order);
