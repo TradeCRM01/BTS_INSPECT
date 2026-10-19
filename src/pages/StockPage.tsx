@@ -14,7 +14,14 @@ import type { StockItem, StockItemWithSupplier, Supplier } from '../types/fsm';
 import { getStockLevel, STOCK_LEVEL_STYLES, STOCK_LEVEL_LABELS, formatMoney } from '../types/fsm';
 import { DriveCard } from './StockLocationPage';
 import { locationLabel, encodeLocationKey } from '../lib/stockLocations';
-import { commitMoneyField, moneyDraftAllowed, moneyFieldMessage } from '../lib/parseDecimal';
+import {
+  commitMoneyField,
+  commitNumberField,
+  moneyDraftAllowed,
+  moneyFieldMessage,
+  numberDraftAllowed,
+  numberFieldMessage,
+} from '../lib/parseDecimal';
 import {
   Plus, Package, X, Trash2, Pencil, Archive, ArchiveRestore,
   ChevronDown, Tag, Boxes, Filter, HardDrive,
@@ -469,6 +476,10 @@ const StockCard = memo(function StockCard({
 
 // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Stock Item Form Modal ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 
+export function commitStockQtyOnHand(raw: string) {
+  return commitNumberField(raw, 'zero');
+}
+
 export function StockItemForm({ item, onClose, onSaved }: {
   item: StockItem | null;
   onClose: () => void;
@@ -503,13 +514,15 @@ export function StockItemForm({ item, onClose, onSaved }: {
     if (!profile?.company_id) return;
     const cost = commitMoneyField(form.unit_cost, 'zero');
     if (!cost.ok) { setErr(cost.message); return; }
+    const qty = commitStockQtyOnHand(form.quantity_on_hand);
+    if (!qty.ok) { setErr(qty.message); return; }
     setSaving(true);
     setErr('');
 
     const payload = {
       name: form.name.trim(), sku: form.sku.trim() || null, description: form.description.trim() || null,
       category: form.category.trim() || null, unit_of_measure: form.unit_of_measure.trim() || 'each',
-      quantity_on_hand: Number(form.quantity_on_hand) || 0, reorder_level: Number(form.reorder_level) || 0,
+      quantity_on_hand: Number(qty.value) || 0, reorder_level: Number(form.reorder_level) || 0,
       reorder_quantity: Number(form.reorder_quantity) || 0, storage_location: form.storage_location.trim() || null,
       unit_cost: cost.value, supplier_id: form.supplier_id || null,
     };
@@ -557,7 +570,23 @@ export function StockItemForm({ item, onClose, onSaved }: {
             </Field>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Input label="Qty On Hand" k="quantity_on_hand" ph="0" type="number" form={form} setForm={setForm} />
+            <Field label="Qty On Hand">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={form.quantity_on_hand}
+                aria-label="Qty On Hand"
+                onChange={e => {
+                  if (!numberDraftAllowed(e.target.value)) return;
+                  setForm(f => ({ ...f, quantity_on_hand: e.target.value }));
+                }}
+                className="form-input"
+                placeholder="0"
+              />
+              {numberFieldMessage(form.quantity_on_hand) ? (
+                <p className="text-xs text-[#B42318] mt-1">{numberFieldMessage(form.quantity_on_hand)}</p>
+              ) : null}
+            </Field>
             <Input label="Reorder Level" k="reorder_level" ph="0" type="number" form={form} setForm={setForm} />
             <Input label="Reorder Qty" k="reorder_quantity" ph="0" type="number" form={form} setForm={setForm} />
           </div>

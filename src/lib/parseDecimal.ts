@@ -21,21 +21,32 @@ export type DecimalParseResult =
   | { status: 'invalid'; message: string };
 
 export type MoneyEmptyPolicy = 'zero' | 'null' | 'reject';
+export type DecimalParseOpts = { allowNegative?: boolean };
 
 export const DECIMAL_INVALID = 'Enter a valid number';
 export const DECIMAL_NEGATIVE = 'Cannot be negative';
 export const DECIMAL_EMPTY = 'Enter an amount';
 export const MONEY_COMMA_HINT = 'Use 1.50 or 1,500 — a comma here is not a decimal';
 
-function prepareText(raw: string): DecimalParseResult | { status: 'text'; text: string } {
+function prepareText(
+  raw: string,
+  opts: DecimalParseOpts = {},
+): DecimalParseResult | { status: 'text'; text: string; sign: 1 | -1 } {
   const trimmed = raw.trim();
   if (trimmed === '') return { status: 'empty' };
   let text = trimmed.replace(/^AUD\s*/i, '').replace(/^\$/, '').trim();
   if (text === '') return { status: 'empty' };
   if (/\s/.test(text)) return { status: 'invalid', message: DECIMAL_INVALID };
-  if (text.startsWith('-')) return { status: 'invalid', message: DECIMAL_NEGATIVE };
+  let sign: 1 | -1 = 1;
+  if (text.startsWith('-')) {
+    if (!opts.allowNegative) return { status: 'invalid', message: DECIMAL_NEGATIVE };
+    sign = -1;
+    text = text.slice(1);
+    if (text === '') return { status: 'incomplete', raw, partial: null };
+    if (text.startsWith('-')) return { status: 'invalid', message: DECIMAL_NEGATIVE };
+  }
   if (!/^[0-9.,]+$/.test(text)) return { status: 'invalid', message: DECIMAL_INVALID };
-  return { status: 'text', text };
+  return { status: 'text', text, sign };
 }
 
 function finiteNumber(text: string): number | null {
@@ -43,28 +54,39 @@ function finiteNumber(text: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function partialFromHead(head: string, kind: DecimalKind): number | null {
+function signed(value: number, sign: 1 | -1): number {
+  return sign === -1 ? -value : value;
+}
+
+function partialFromHead(head: string, kind: DecimalKind, opts: DecimalParseOpts = {}): number | null {
   if (!head) return null;
-  const parsed = parseDecimalInput(head, kind);
+  const parsed = parseDecimalInput(head, kind, opts);
   return parsed.status === 'valid' ? parsed.value : null;
 }
 
-export function parseDecimalInput(raw: string, kind: DecimalKind = 'money'): DecimalParseResult {
-  const prepared = prepareText(raw);
+export function parseDecimalInput(
+  raw: string,
+  kind: DecimalKind = 'money',
+  opts: DecimalParseOpts = {},
+): DecimalParseResult {
+  const prepared = prepareText(raw, opts);
   if (prepared.status !== 'text') return prepared;
   const text = prepared.text;
+  const sign = prepared.sign;
 
   if (/[.,]$/.test(text)) {
     const head = text.slice(0, -1);
-    return { status: 'incomplete', raw: text, partial: partialFromHead(head, kind) };
+    return { status: 'incomplete', raw, partial: partialFromHead(head, kind, opts) };
   }
 
   const commaCount = (text.match(/,/g) ?? []).length;
   const dotCount = (text.match(/\./g) ?? []).length;
 
+  const ok = (n: number | null): DecimalParseResult =>
+    n == null ? { status: 'invalid', message: DECIMAL_INVALID } : { status: 'valid', value: signed(n, sign) };
+
   if (/^\d{1,3}(\.\d{3})+,\d{1,2}$/.test(text)) {
-    const n = finiteNumber(text.replace(/\./g, '').replace(',', '.'));
-    return n == null ? { status: 'invalid', message: DECIMAL_INVALID } : { status: 'valid', value: n };
+    return ok(finiteNumber(text.replace(/\./g, '').replace(',', '.')));
   }
 
   if (dotCount > 1) return { status: 'invalid', message: DECIMAL_INVALID };
@@ -72,39 +94,30 @@ export function parseDecimalInput(raw: string, kind: DecimalKind = 'money'): Dec
   if (dotCount === 1) {
     const [left, frac] = text.split('.');
     if (!frac || !/^\d+$/.test(frac)) return { status: 'invalid', message: DECIMAL_INVALID };
-    if (left === '') {
-      const n = finiteNumber(`0.${frac}`);
-      return n == null ? { status: 'invalid', message: DECIMAL_INVALID } : { status: 'valid', value: n };
-    }
+    if (left === '') return ok(finiteNumber(`0.${frac}`));
     if (commaCount > 0 && !/^\d{1,3}(,\d{3})+$/.test(left) && !/^\d+$/.test(left)) {
       return { status: 'invalid', message: DECIMAL_INVALID };
     }
     if (commaCount === 0 && !/^\d+$/.test(left)) {
       return { status: 'invalid', message: DECIMAL_INVALID };
     }
-    const n = finiteNumber(`${left.replace(/,/g, '')}.${frac}`);
-    return n == null ? { status: 'invalid', message: DECIMAL_INVALID } : { status: 'valid', value: n };
+    return ok(finiteNumber(`${left.replace(/,/g, '')}.${frac}`));
   }
 
   if (commaCount >= 1) {
     if (/^\d{1,3}(,\d{3})+$/.test(text)) {
-      const n = finiteNumber(text.replace(/,/g, ''));
-      return n == null ? { status: 'invalid', message: DECIMAL_INVALID } : { status: 'valid', value: n };
+      return ok(finiteNumber(text.replace(/,/g, '')));
     }
     if (/^\d+,\d{1,2}$/.test(text)) {
-      if (kind === 'number') {
-        const n = finiteNumber(text.replace(',', '.'));
-        return n == null ? { status: 'invalid', message: DECIMAL_INVALID } : { status: 'valid', value: n };
-      }
+      if (kind === 'number') return ok(finiteNumber(text.replace(',', '.')));
       const partial = finiteNumber(text.slice(0, text.indexOf(',')));
-      return { status: 'incomplete', raw: text, partial };
+      return { status: 'incomplete', raw: text, partial: partial == null ? null : signed(partial, sign) };
     }
     return { status: 'invalid', message: DECIMAL_INVALID };
   }
 
   if (/^\d+(\.\d+)?$/.test(text)) {
-    const n = finiteNumber(text);
-    return n == null ? { status: 'invalid', message: DECIMAL_INVALID } : { status: 'valid', value: n };
+    return ok(finiteNumber(text));
   }
 
   return { status: 'invalid', message: DECIMAL_INVALID };
@@ -114,16 +127,16 @@ export function parseMoneyInput(raw: string): DecimalParseResult {
   return parseDecimalInput(raw, 'money');
 }
 
-export function parseNumberInput(raw: string): DecimalParseResult {
-  return parseDecimalInput(raw, 'number');
+export function parseNumberInput(raw: string, opts: DecimalParseOpts = {}): DecimalParseResult {
+  return parseDecimalInput(raw, 'number', opts);
 }
 
 export function moneyDraftAllowed(raw: string): boolean {
   return raw === '' || parseMoneyInput(raw).status !== 'invalid';
 }
 
-export function numberDraftAllowed(raw: string): boolean {
-  return raw === '' || parseNumberInput(raw).status !== 'invalid';
+export function numberDraftAllowed(raw: string, opts: DecimalParseOpts = {}): boolean {
+  return raw === '' || parseNumberInput(raw, opts).status !== 'invalid';
 }
 
 export function committedMoney(raw: string): number | null {
@@ -148,9 +161,9 @@ export function moneyFieldMessage(raw: string, emptyMessage: string | null = nul
   return null;
 }
 
-export function numberFieldMessage(raw: string): string | null {
-  const parsed = parseNumberInput(raw);
-  if (parsed.status === 'incomplete') return parsed.partial == null ? DECIMAL_INVALID : null;
+export function numberFieldMessage(raw: string, opts: DecimalParseOpts = {}): string | null {
+  const parsed = parseNumberInput(raw, opts);
+  if (parsed.status === 'incomplete') return DECIMAL_INVALID;
   if (parsed.status === 'invalid') return parsed.message;
   return null;
 }
@@ -173,8 +186,9 @@ export function commitMoneyField(
 export function commitNumberField(
   raw: string,
   empty: MoneyEmptyPolicy = 'zero',
+  opts: DecimalParseOpts = {},
 ): { ok: true; value: number | null } | { ok: false; message: string } {
-  const parsed = parseNumberInput(raw);
+  const parsed = parseNumberInput(raw, opts);
   if (parsed.status === 'valid') return { ok: true, value: parsed.value };
   if (parsed.status === 'empty') {
     if (empty === 'zero') return { ok: true, value: 0 };

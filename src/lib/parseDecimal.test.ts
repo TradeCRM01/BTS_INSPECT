@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DECIMAL_NEGATIVE,
   MONEY_COMMA_HINT,
   committedMoney,
   committedNumber,
@@ -83,6 +84,13 @@ describe('parseNumberInput disambiguates 1,250 from 1,5', () => {
     expect(parseNumberInput('.5')).toEqual({ status: 'valid', value: 0.5 });
     expect(parseMoneyInput('1 5').status).toBe('invalid');
     expect(parseNumberInput('1 5').status).toBe('invalid');
+  });
+
+  it('keeps a leading minus only when allowNegative is set', () => {
+    expect(parseNumberInput('-1,5')).toEqual({ status: 'invalid', message: DECIMAL_NEGATIVE });
+    expect(parseNumberInput('-1,5', { allowNegative: true })).toEqual({ status: 'valid', value: -1.5 });
+    expect(parseNumberInput('-1,250', { allowNegative: true })).toEqual({ status: 'valid', value: -1250 });
+    expect(parseNumberInput('-1,', { allowNegative: true }).status).toBe('incomplete');
   });
 });
 

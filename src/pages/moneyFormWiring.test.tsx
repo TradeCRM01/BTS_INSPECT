@@ -8,7 +8,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MONEY_COMMA_HINT } from '../lib/parseDecimal';
+import { DECIMAL_INVALID, MONEY_COMMA_HINT } from '../lib/parseDecimal';
 import { commitCommercialLines } from '../lib/commitCommercialLines';
 import { persistDocumentMoney } from '../lib/documentPersist';
 import { calcSubtotal, emptyLineItem, LineItemEditor } from '../components/invoicing/LineItemEditor';
@@ -88,7 +88,8 @@ vi.mock('../lib/supabase', () => ({
 import { useState } from 'react';
 import { ExpenseEditorModal } from './ExpensesPage';
 import { PriceBookItemForm, commitPriceBookPrices } from './PriceBooksPage';
-import { StockItemForm } from './StockPage';
+import { StockItemForm, commitStockQtyOnHand } from './StockPage';
+import { StockAdjustmentForm, commitStockAdjustment } from './StockDetailPage';
 import { POEditorModal, commitPOLine } from './PurchaseOrdersPage';
 import { InvoiceRecordPaymentSheet } from './InvoicesPage';
 import { JobFormModal, commitJobBudget } from '../components/crm/JobFormModal';
@@ -240,6 +241,14 @@ describe('commit helpers reject 1,5 on every money form', () => {
       time_unit: 'hourly',
       tax_rate: '',
     })).toEqual({ ok: false, message: MONEY_COMMA_HINT });
+    expect(commitStockQtyOnHand('1,5')).toEqual({ ok: true, value: 1.5 });
+    expect(commitStockQtyOnHand('1,250')).toEqual({ ok: true, value: 1250 });
+    expect(commitStockQtyOnHand('1,')).toEqual({ ok: false, message: DECIMAL_INVALID });
+    expect(commitStockAdjustment('1,5')).toEqual({ ok: true, value: 1.5 });
+    expect(commitStockAdjustment('1,250')).toEqual({ ok: true, value: 1250 });
+    expect(commitStockAdjustment('1,')).toEqual({ ok: false, message: DECIMAL_INVALID });
+    expect(commitStockAdjustment('-1,5')).toEqual({ ok: true, value: -1.5 });
+    expect(commitStockAdjustment('0')).toEqual({ ok: false, message: DECIMAL_INVALID });
   });
 });
 
@@ -257,6 +266,8 @@ describe('LineItemEditor unit price, qty, line total', () => {
     expect(price.value).toBe('1,5');
     expect(pageRoot().textContent).toContain(MONEY_COMMA_HINT);
     expect(pageRoot().textContent).not.toContain('$15.00');
+    expect(pageRoot().textContent).not.toContain('$1.00');
+    expect(pageRoot().querySelector('[aria-label="Line total"]')?.textContent).toBe('—');
     expect(calcSubtotal(lines)).toBe(0);
   });
 
@@ -292,6 +303,9 @@ describe('Quotes and invoices persist wiring', () => {
     expect(invoices).toContain('persistDocumentMoney(invoice?.status');
     expect(quotes).not.toMatch(/unit_price:\s*parseFloat/);
     expect(invoices).not.toMatch(/unit_price:\s*parseFloat/);
+    expect(quotes).toContain('commitDocumentLine(li)');
+    expect(quotes).not.toMatch(/parseFloat\(li\.quantity\)/);
+    expect(quotes).not.toMatch(/parseFloat\(li\.unit_price\)/);
     const saved = commitCommercialLines([{
       ...emptyLineItem(),
       description: 'Labour',
@@ -503,6 +517,171 @@ describe('Record payment reason and overpay label', () => {
   });
 });
 
+describe('Stock New Item qty and Manual Adjustment qty', () => {
+  it('wires both qty fields through commitNumberField, not parseFloat or Number', () => {
+    const stock = src('src/pages/StockPage.tsx');
+    const detail = src('src/pages/StockDetailPage.tsx');
+    expect(stock).toContain('commitStockQtyOnHand(form.quantity_on_hand)');
+    expect(stock).toContain('commitNumberField(raw, \'zero\')');
+    expect(stock).not.toMatch(/quantity_on_hand:\s*(Number|parseFloat)\(form\.quantity_on_hand/);
+    expect(detail).toContain('commitStockAdjustment(adjQty)');
+    expect(detail).toContain('commitNumberField(raw, \'reject\', { allowNegative: true })');
+    expect(detail).not.toMatch(/Number\(adjQty\)/);
+    expect(detail).not.toMatch(/parseFloat\(adjQty\)/);
+    expect(detail).not.toContain('type="number"');
+    const books = src('src/pages/PriceBooksPage.tsx');
+    expect(books).toContain('if (!moneyDraftAllowed(e.target.value)) return;');
+    const models = src('src/components/expenses/ExpenseModelsModals.tsx');
+    expect(models).toContain('function acceptDecimalDraft(raw: string): boolean {\n  return moneyDraftAllowed(raw);\n}');
+    const contracts = src('src/pages/ContractsPage.tsx');
+    expect(contracts).toContain('return parseMoneyCommitted(raw);');
+    expect(contracts).not.toMatch(/contract_value:\s*(Number|parseFloat)/);
+  });
+
+  it('New Item qty types 1,5 and saves 1.5, not 15', async () => {
+    await renderNode(
+      <StockItemForm item={null} onClose={() => {}} onSaved={() => {}} />,
+    );
+    const name = container.querySelector('input[placeholder="e.g. 20mm PVC Conduit"]') as HTMLInputElement;
+    const qty = container.querySelector('[aria-label="Qty On Hand"]') as HTMLInputElement;
+    await act(async () => { setNativeValue(name, 'Conduit'); });
+    await typeKeys(qty, '1,5');
+    expect(qty.value).toBe('1,5');
+    expect(qty.value).not.toBe('15');
+    const add = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Add Item') as HTMLButtonElement;
+    await act(async () => { add.click(); });
+    await flush();
+    const rows = harness.inserts.filter(row => row.table === 'stock_items');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.payload.quantity_on_hand).toBe(1.5);
+    expect(rows[0]?.payload.quantity_on_hand).not.toBe(15);
+    expect(rows[0]?.payload.quantity_on_hand).not.toBe(1);
+  });
+
+  it('New Item qty types 1,250 and saves 1250, not parseFloat 1', async () => {
+    await renderNode(
+      <StockItemForm item={null} onClose={() => {}} onSaved={() => {}} />,
+    );
+    const name = container.querySelector('input[placeholder="e.g. 20mm PVC Conduit"]') as HTMLInputElement;
+    const qty = container.querySelector('[aria-label="Qty On Hand"]') as HTMLInputElement;
+    await act(async () => { setNativeValue(name, 'Conduit'); });
+    await typeKeys(qty, '1,250');
+    expect(qty.value).toBe('1,250');
+    const add = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Add Item') as HTMLButtonElement;
+    await act(async () => { add.click(); });
+    await flush();
+    const rows = harness.inserts.filter(row => row.table === 'stock_items');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.payload.quantity_on_hand).toBe(1250);
+    expect(rows[0]?.payload.quantity_on_hand).not.toBe(1);
+  });
+
+  it('New Item qty incomplete 1, shows the hint and blocks Save', async () => {
+    await renderNode(
+      <StockItemForm item={null} onClose={() => {}} onSaved={() => {}} />,
+    );
+    const name = container.querySelector('input[placeholder="e.g. 20mm PVC Conduit"]') as HTMLInputElement;
+    const qty = container.querySelector('[aria-label="Qty On Hand"]') as HTMLInputElement;
+    await act(async () => { setNativeValue(name, 'Conduit'); });
+    await typeKeys(qty, '1,');
+    expect(qty.value).toBe('1,');
+    expect(container.textContent).toContain(DECIMAL_INVALID);
+    const add = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Add Item') as HTMLButtonElement;
+    await act(async () => { add.click(); });
+    await flush();
+    expect(harness.inserts.filter(row => row.table === 'stock_items')).toEqual([]);
+  });
+
+  it('Manual Adjustment qty types 1,5 and submits 1.5, not 15', async () => {
+    const seen: { quantity: number; reason: string }[] = [];
+    function Harness() {
+      const [qty, setQty] = useState('');
+      const [reason, setReason] = useState('');
+      return (
+        <StockAdjustmentForm
+          qty={qty}
+          reason={reason}
+          onQtyChange={setQty}
+          onReasonChange={setReason}
+          onSubmit={() => {
+            const committed = commitStockAdjustment(qty);
+            if (!committed.ok) return;
+            seen.push({ quantity: committed.value, reason });
+          }}
+        />
+      );
+    }
+    await renderNode(<Harness />);
+    const qty = pageRoot().querySelector('[aria-label="Adjustment quantity"]') as HTMLInputElement;
+    await typeKeys(qty, '1,5');
+    expect(qty.value).toBe('1,5');
+    expect(qty.value).not.toBe('15');
+    const adjust = Array.from(pageRoot().querySelectorAll('button')).find(b => b.textContent?.includes('Adjust')) as HTMLButtonElement;
+    expect(adjust.disabled).toBe(false);
+    await act(async () => { adjust.click(); });
+    await flush();
+    expect(seen).toEqual([{ quantity: 1.5, reason: '' }]);
+  });
+
+  it('Manual Adjustment qty types 1,250 and submits 1250, not parseFloat 1', async () => {
+    const seen: number[] = [];
+    function Harness() {
+      const [qty, setQty] = useState('');
+      return (
+        <StockAdjustmentForm
+          qty={qty}
+          reason=""
+          onQtyChange={setQty}
+          onReasonChange={() => {}}
+          onSubmit={() => {
+            const committed = commitStockAdjustment(qty);
+            if (!committed.ok) return;
+            seen.push(committed.value);
+          }}
+        />
+      );
+    }
+    await renderNode(<Harness />);
+    const qty = pageRoot().querySelector('[aria-label="Adjustment quantity"]') as HTMLInputElement;
+    await typeKeys(qty, '1,250');
+    expect(qty.value).toBe('1,250');
+    const adjust = Array.from(pageRoot().querySelectorAll('button')).find(b => b.textContent?.includes('Adjust')) as HTMLButtonElement;
+    await act(async () => { adjust.click(); });
+    await flush();
+    expect(seen).toEqual([1250]);
+  });
+
+  it('Manual Adjustment incomplete 1, shows the hint and blocks Save', async () => {
+    const seen: number[] = [];
+    function Harness() {
+      const [qty, setQty] = useState('');
+      return (
+        <StockAdjustmentForm
+          qty={qty}
+          reason=""
+          onQtyChange={setQty}
+          onReasonChange={() => {}}
+          onSubmit={() => {
+            const committed = commitStockAdjustment(qty);
+            if (!committed.ok) return;
+            seen.push(committed.value);
+          }}
+        />
+      );
+    }
+    await renderNode(<Harness />);
+    const qty = pageRoot().querySelector('[aria-label="Adjustment quantity"]') as HTMLInputElement;
+    await typeKeys(qty, '1,');
+    expect(qty.value).toBe('1,');
+    expect(pageRoot().textContent).toContain(DECIMAL_INVALID);
+    const adjust = Array.from(pageRoot().querySelectorAll('button')).find(b => b.textContent?.includes('Adjust')) as HTMLButtonElement;
+    expect(adjust.disabled).toBe(true);
+    await act(async () => { adjust.click(); });
+    await flush();
+    expect(seen).toEqual([]);
+  });
+});
+
 describe('Cost-model wage override', () => {
   it('types 1,5 on the wage override and shows the hint', async () => {
     await renderNode(
@@ -514,6 +693,17 @@ describe('Cost-model wage override', () => {
     expect(wage.value).toBe('1,5');
     expect(pageRoot().textContent).toContain(MONEY_COMMA_HINT);
     expect(pageRoot().textContent).toMatch(/\$\/hr/);
+  });
+
+  it('types 1,5 on the package multiplier and keeps 1,5', async () => {
+    await renderNode(
+      <ApplyEmployeeCostModelModal onClose={() => {}} onApplied={() => {}} />,
+    );
+    const mult = await waitFor('[aria-label="Package multiplier"]') as HTMLInputElement;
+    expect(mult).toBeTruthy();
+    await typeKeys(mult, '1,5');
+    expect(mult.value).toBe('1,5');
+    expect(mult.value).not.toBe('15');
   });
 
   it('types 1,250 on the wage override and uses 1250, not parseFloat 1', async () => {

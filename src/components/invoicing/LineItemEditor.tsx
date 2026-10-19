@@ -517,7 +517,7 @@ export function LineItemEditor({
               </div>
               <div className="hub-line-editor-total text-sm text-right font-medium text-[#1A1A1A]">
                 <span className="hub-line-editor-lab">Line total</span>
-                <span>{lineTotal == null ? '—' : formatMoney(lineTotal)}</span>
+                <span aria-label="Line total">{lineTotal == null ? '—' : formatMoney(lineTotal)}</span>
               </div>
               <button
                 type="button"
