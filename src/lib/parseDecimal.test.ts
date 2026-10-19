@@ -6,6 +6,7 @@ import {
   committedMoney,
   committedNumber,
   moneyDraftAllowed,
+  moneyFieldMessage,
   numberDraftAllowed,
   parseDecimalInput,
   parseMoneyCommitted,
@@ -72,7 +73,11 @@ describe('parseMoneyInput', () => {
     expect(parseMoneyInput('-5').status).toBe('invalid');
     expect(parseMoneyInput('-5', { allowNegative: true })).toEqual({ status: 'valid', value: -5 });
     expect(moneyDraftAllowed('-', { allowNegative: true })).toBe(true);
-    expect(moneyDraftAllowed('-5')).toBe(false);
+    expect(moneyDraftAllowed('-5')).toBe(true);
+    expect(moneyFieldMessage('-5')).toBe(DECIMAL_NEGATIVE);
+    expect(moneyFieldMessage('5.')).toBeNull();
+    expect(moneyFieldMessage('1,250.')).toBeNull();
+    expect(moneyFieldMessage('1,5')).toBe(MONEY_COMMA_HINT);
     expect(numberDraftAllowed('abc')).toBe(false);
     expect(numberDraftAllowed('1,5')).toBe(true);
     expect(parseRecordPaymentAmount('-5')).toBeNull();

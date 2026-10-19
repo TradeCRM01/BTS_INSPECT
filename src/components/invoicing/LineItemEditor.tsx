@@ -14,6 +14,7 @@ import { checkPriceAfterUnitPrice } from '../../lib/checkPriceGate';
 import { calcLineDocumentTotals, lineExGstAmount } from '../../lib/gst';
 import {
   commitDocumentLine,
+  commitNumberField,
   committedMoneyOrZero,
   moneyDraftAllowed,
   moneyFieldMessage,
@@ -127,7 +128,10 @@ export function LineItemEditor({
   const updateLine = (idx: number, patch: Partial<EditLineItem>) =>
     onChange(lines.map((li, i) => (i === idx ? { ...li, ...patch } : li)));
 
-  const removeLine = (idx: number) => onChange(lines.filter((_, i) => i !== idx));
+  const removeLine = (idx: number) => {
+    if (readOnly) return;
+    onChange(lines.filter((_, i) => i !== idx));
+  };
   const addLine = () => onChange([...lines, emptyLineItem(defaultMarkup)]);
 
   const closePicker = () => {
@@ -143,7 +147,8 @@ export function LineItemEditor({
     const model = costModels.find(m => m.id === modelId);
     if (!model) return;
     const hourly = modelHourlyCost(model);
-    const markup = parseFloat(lines[idx].markup_percent ?? '') || defaultMarkup || 0;
+    const markupCommitted = commitNumberField(lines[idx].markup_percent ?? '', 'zero');
+    const markup = markupCommitted.ok ? Number(markupCommitted.value) || 0 : defaultMarkup || 0;
     const sell = hourly > 0 ? Number((hourly * (1 + markup / 100)).toFixed(2)) : 0;
     const unitPrice = sell > 0 ? sell.toFixed(2) : lines[idx].unit_price;
     updateLine(idx, {
@@ -209,7 +214,8 @@ export function LineItemEditor({
 
   const handleMarkupChange = (idx: number, markupStr: string) => {
     const cost = committedMoneyOrZero(lines[idx].unit_cost ?? '0');
-    const markup = parseFloat(markupStr) || 0;
+    const markupCommitted = commitNumberField(markupStr, 'zero');
+    const markup = markupCommitted.ok ? Number(markupCommitted.value) || 0 : 0;
     const sellPrice = cost * (1 + markup / 100);
     const unitPrice = sellPrice.toFixed(2);
     updateLine(idx, {
@@ -223,7 +229,8 @@ export function LineItemEditor({
 
   const handleCostChange = (idx: number, costStr: string) => {
     const cost = committedMoneyOrZero(costStr);
-    const markup = parseFloat(lines[idx].markup_percent ?? '0') || 0;
+    const markupCommitted = commitNumberField(lines[idx].markup_percent ?? '0', 'zero');
+    const markup = markupCommitted.ok ? Number(markupCommitted.value) || 0 : 0;
     const sellPrice = cost * (1 + markup / 100);
     const unitPrice = sellPrice.toFixed(2);
     updateLine(idx, {
@@ -261,7 +268,9 @@ export function LineItemEditor({
       <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
         <label className="text-xs font-medium text-[#4A5568]">Line Items</label>
         {readOnly ? (
-          <span className="text-xs text-[#6B7280]">Issued document — lines are locked</span>
+          <span className="text-xs text-[#6B7280] max-w-full">
+            Issued document — lines are locked. Need to correct this? Void and re-issue or raise a credit note — coming.
+          </span>
         ) : (
         <div className="flex gap-2 flex-wrap">
           <button
@@ -408,6 +417,7 @@ export function LineItemEditor({
                 <select
                   value={li.cost_model_id ?? ''}
                   onChange={e => applyCostModel(idx, e.target.value)}
+                  disabled={readOnly}
                   className="form-input-sm w-full cursor-pointer"
                   title={costModels.length === 0 ? 'Create cost models under Expenses' : 'Labour cost code ($/hr)'}
                 >
@@ -435,18 +445,19 @@ export function LineItemEditor({
                 <div className="hub-line-editor-desc-row col-span-1 sm:col-span-2 lg:col-span-1">
                   {fromStock && <Package size={10} className="text-[#2E75B6] shrink-0" aria-label="From stock" />}
                   {fromBook && <BookOpen size={10} className="text-[#2E75B6] shrink-0" aria-label="From price book" />}
-                  <input
-                    value={li.description}
-                    onChange={e => {
-                      if (readOnly) return;
-                      updateLine(idx, { description: e.target.value });
-                    }}
-                    readOnly={readOnly}
-                    disabled={readOnly}
-                    className="form-input-sm min-w-0"
-                    placeholder="Description"
-                    aria-label="Description"
-                  />
+                  {readOnly ? (
+                    <p className="form-input-sm min-w-0 h-auto whitespace-pre-wrap break-words overflow-visible" aria-label="Description">
+                      {li.description}
+                    </p>
+                  ) : (
+                    <input
+                      value={li.description}
+                      onChange={e => updateLine(idx, { description: e.target.value })}
+                      className="form-input-sm min-w-0"
+                      placeholder="Description"
+                      aria-label="Description"
+                    />
+                  )}
                 </div>
                 {li.check_price ? (
                   <span className="hub-quote-check-price">{QUICK_QUOTE_CHECK_PRICE}</span>
@@ -506,7 +517,7 @@ export function LineItemEditor({
                   onChange={e => {
                     if (readOnly) return;
                     const raw = e.target.value;
-                    if (raw !== '' && !/^-?\d*\.?\d*$/.test(raw)) return;
+                    if (raw !== '' && !numberDraftAllowed(raw)) return;
                     handleMarkupChange(idx, raw);
                   }}
                   readOnly={readOnly}

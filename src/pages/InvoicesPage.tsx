@@ -23,10 +23,10 @@ import type { CommercialPdfData } from '../reports/commercial/CommercialDocument
 import { asStringList } from '../lib/asStringList';
 import { checkPriceSendBlock } from '../lib/checkPriceGate';
 import { listQueryBusy } from '../lib/listQueryReady';
-import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel, lineExGstAmount } from '../lib/gst';
-import { commitDocumentLine } from '../lib/parseDecimal';
+import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel, lineExGstAmount, moneyRound } from '../lib/gst';
+import { commitDocumentLine, committedTaxRate } from '../lib/parseDecimal';
 import { commercialLinesForPreview, commitCommercialLines } from '../lib/commitCommercialLines';
-import { issuedDocumentLocksLines, persistDocumentMoney, persistIssuedLines } from '../lib/documentPersist';
+import { issuedDocumentLocksLines, persistDocumentMoney, persistIssuedClientId, persistIssuedLines } from '../lib/documentPersist';
 import { lineNeedsLabourRate } from '../lib/hoursToJobBill';
 import {
   effectiveInvoiceStatus,
@@ -362,6 +362,13 @@ export function InvoicesPage() {
     setPresetClientId(null);
     setShowForm(true);
   }, [lookLetterhead, invoices, showForm]);
+
+  useEffect(() => {
+    if (!sweep7IssuedLook || !invoices?.length || showForm) return;
+    setEditingInvoice(invoices[0]);
+    setPresetClientId(null);
+    setShowForm(true);
+  }, [sweep7IssuedLook, invoices, showForm]);
 
   function openInvoice(inv: InvoiceWithDetails | null) {
     setEditingInvoice(inv);
@@ -1092,10 +1099,10 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
     },
     onError: (e: Error) => showToast(e.message, 'info'),
   });
-  const fallbackTaxRate = parseFloat(form.tax_rate) || 0;
+  const liveTaxRate = committedTaxRate(form.tax_rate);
   const liveGst = useMemo(
-    () => calcLineDocumentTotals(form.line_items, fallbackTaxRate),
-    [form.line_items, fallbackTaxRate],
+    () => calcLineDocumentTotals(form.line_items, liveTaxRate),
+    [form.line_items, liveTaxRate],
   );
   const issuedStatus = invoice?.status ?? form.status;
   const linesLocked = issuedDocumentLocksLines(issuedStatus);
@@ -1103,10 +1110,12 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
     subtotal: liveGst.subtotal,
     tax_amount: liveGst.taxAmount,
     total: liveGst.total,
+    tax_rate: liveTaxRate,
   }, invoice);
   const subtotal = moneyShown.subtotal;
   const taxAmount = moneyShown.tax_amount;
   const grandTotal = moneyShown.total;
+  const fallbackTaxRate = moneyShown.tax_rate;
   const gstHeading = gstDocumentLabel(form.line_items, fallbackTaxRate);
   const next = recommendInvoiceAction(invoiceActionContext({
     status: form.status,
@@ -1162,7 +1171,7 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
       exclusions: form.exclusions,
       lines: linesFromQuoteItems(cleanLines, 'invoice', previewPriceBookCodes),
       subtotal,
-      taxRate: parseFloat(form.tax_rate) || 0,
+      taxRate: fallbackTaxRate,
       taxAmount,
       total: grandTotal,
       notes: form.notes.trim() || null,
@@ -1226,20 +1235,22 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
     if (cleanLines.length === 0) { setErr('Add at least one line item'); return null; }
     setSaving(true); setErr(''); setXeroMiss('');
     const storedStatus = persistableInvoiceStatus(status);
-    const money = persistDocumentMoney(invoice?.status ?? form.status, {
+    const persistStatus = invoice?.status ?? form.status;
+    const money = persistDocumentMoney(persistStatus, {
       subtotal: liveGst.subtotal,
       tax_amount: liveGst.taxAmount,
       total: liveGst.total,
+      tax_rate: liveTaxRate,
     }, invoice);
-    const persistLines = persistIssuedLines(invoice?.status ?? form.status, cleanLines, invoice?.line_items ?? null);
+    const persistLines = persistIssuedLines(persistStatus, cleanLines, invoice?.line_items ?? null);
     const payload = {
-      client_id: form.client_id || null,
+      client_id: persistIssuedClientId(persistStatus, form.client_id, invoice?.client_id),
       job_id: form.job_id || null,
       quote_id: form.quote_id || null,
       status: storedStatus,
       line_items: persistLines,
       subtotal: money.subtotal,
-      tax_rate: parseFloat(form.tax_rate) || 0,
+      tax_rate: money.tax_rate,
       tax_amount: money.tax_amount,
       total: money.total,
       payment_terms: form.payment_terms.trim() || null,
@@ -1334,6 +1345,10 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
     const row = commitDocumentLine(li);
     return row.ok && row.quantity > 0;
   });
+  const liveLineSum = docLines.reduce((sum, li) => {
+    const row = commitDocumentLine(li);
+    return row.ok ? sum + lineExGstAmount({ quantity: row.quantity, unit_price: row.unit_price }) : sum;
+  }, 0);
   const showInvoiceActions = next.key === 'send' || next.key === 'mark_paid';
   const effectiveStatus = effectiveInvoiceStatus({ status: form.status, due_date: form.due_date });
   const paidReadPath = effectiveStatus === 'paid';
@@ -1751,6 +1766,11 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
               <span className="hub-invoice-display-total" data-invoice-total-inc-gst>{editorMoney}</span>
             </div>
           ) : null}
+          {linesLocked && moneyRound(liveLineSum) !== moneyRound(subtotal) ? (
+            <p className="text-xs text-[#6B7280] mt-2">
+              Line amounts sum to {formatMoney(liveLineSum)}. This document kept {formatMoney(subtotal)} at issue.
+            </p>
+          ) : null}
           {recordedPaid > 0 ? (
             <div className="hub-invoice-paid-summary">
               <div><span>Paid to date</span><span>{formatMoney(recordedPaid)}</span></div>
@@ -1824,7 +1844,16 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
         <div className="hub-invoice-edit">
         <div className="overlay-body hub-invoice-editor-body">
           <Field label="Client" required>
-            <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value, job_id: '', quote_id: '' }))} className="form-input cursor-pointer">
+            <select
+              value={form.client_id}
+              aria-label="Client"
+              disabled={linesLocked}
+              onChange={e => {
+                if (linesLocked) return;
+                setForm(f => ({ ...f, client_id: e.target.value, job_id: '', quote_id: '' }));
+              }}
+              className="form-input cursor-pointer"
+            >
               <option value="">Select a client...</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -1895,8 +1924,19 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="GST rate (%)">
-              <input type="number" min={0} step="0.01" value={form.tax_rate} onChange={e => setForm(f => ({ ...f, tax_rate: e.target.value }))}
-                className="form-input" placeholder="0" />
+              <input
+                type="text"
+                inputMode="decimal"
+                aria-label="GST rate (%)"
+                disabled={linesLocked}
+                value={form.tax_rate}
+                onChange={e => {
+                  if (linesLocked) return;
+                  setForm(f => ({ ...f, tax_rate: e.target.value }));
+                }}
+                className="form-input"
+                placeholder="0"
+              />
             </Field>
             <Field label="Payment Terms">
               <input value={form.payment_terms} onChange={e => setForm(f => ({ ...f, payment_terms: e.target.value }))}

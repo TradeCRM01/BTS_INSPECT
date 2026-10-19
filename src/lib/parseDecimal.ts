@@ -131,12 +131,20 @@ export function parseNumberInput(raw: string, opts: DecimalParseOpts = {}): Deci
   return parseDecimalInput(raw, 'number', opts);
 }
 
+function draftKeepsNegative(parsed: DecimalParseResult): boolean {
+  return parsed.status === 'invalid' && parsed.message === DECIMAL_NEGATIVE;
+}
+
 export function moneyDraftAllowed(raw: string, opts: DecimalParseOpts = {}): boolean {
-  return raw === '' || parseMoneyInput(raw, opts).status !== 'invalid';
+  if (raw === '') return true;
+  const parsed = parseMoneyInput(raw, opts);
+  return parsed.status !== 'invalid' || draftKeepsNegative(parsed);
 }
 
 export function numberDraftAllowed(raw: string, opts: DecimalParseOpts = {}): boolean {
-  return raw === '' || parseNumberInput(raw, opts).status !== 'invalid';
+  if (raw === '') return true;
+  const parsed = parseNumberInput(raw, opts);
+  return parsed.status !== 'invalid' || draftKeepsNegative(parsed);
 }
 
 export function committedMoney(raw: string, opts: DecimalParseOpts = {}): number | null {
@@ -144,9 +152,14 @@ export function committedMoney(raw: string, opts: DecimalParseOpts = {}): number
   return parsed.status === 'valid' ? parsed.value : null;
 }
 
-export function committedNumber(raw: string): number | null {
-  const parsed = parseNumberInput(raw);
+export function committedNumber(raw: string, opts: DecimalParseOpts = {}): number | null {
+  const parsed = parseNumberInput(raw, opts);
   return parsed.status === 'valid' ? parsed.value : null;
+}
+
+export function committedTaxRate(raw: string): number {
+  const committed = commitNumberField(raw, 'zero');
+  return committed.ok ? Number(committed.value) || 0 : 0;
 }
 
 export function committedMoneyOrZero(raw: string): number {
@@ -160,7 +173,10 @@ export function moneyFieldMessage(
 ): string | null {
   const parsed = parseMoneyInput(raw, opts);
   if (parsed.status === 'empty') return emptyMessage;
-  if (parsed.status === 'incomplete') return MONEY_COMMA_HINT;
+  if (parsed.status === 'incomplete') {
+    if (parsed.raw.trim().endsWith('.')) return null;
+    return MONEY_COMMA_HINT;
+  }
   if (parsed.status === 'invalid') return parsed.message;
   return null;
 }

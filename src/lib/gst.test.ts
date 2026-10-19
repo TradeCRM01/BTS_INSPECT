@@ -107,4 +107,12 @@ describe('moneyRound', () => {
     expect(moneyRound(1.239)).toBe(1.24);
     expect(moneyRound(0)).toBe(0);
   });
+
+  it('rounds negatives with the same half-up and normalises -0', () => {
+    expect(moneyRound(-131.025)).toBe(-131.03);
+    expect(moneyRound(131.025)).toBe(131.03);
+    expect(moneyRound(-0.005)).toBe(-0.01);
+    expect(Object.is(moneyRound(-0), -0)).toBe(false);
+    expect(moneyRound(-0)).toBe(0);
+  });
 });

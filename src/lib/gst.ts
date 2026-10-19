@@ -9,10 +9,12 @@ export type DocumentTotals = {
   total: number;
 };
 
-/** Half-up on integer cents. 1e-8 lifts binary 131.02499… so 1.5 × 87.35 is 131.03. */
+/** Half-up on integer cents. Sign-aware so −131.025 is −131.03. −0 becomes 0. */
 export function moneyRound(n: number): number {
   const x = Number(n) || 0;
-  return Math.round(x * 100 + 1e-8) / 100;
+  if (x === 0) return 0;
+  const rounded = Math.sign(x) * Math.round(Math.abs(x) * 100 + 1e-8) / 100;
+  return rounded === 0 ? 0 : rounded;
 }
 
 export function calcDocumentTotals(subtotal: number, taxRate: number): DocumentTotals {

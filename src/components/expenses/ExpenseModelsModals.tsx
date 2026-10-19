@@ -894,7 +894,10 @@ export function ManageCostModelsModal({
                 {form.lines.map((line, idx) => {
                   const lineHourly = line.amount_mode === 'percent_of_wages'
                     ? null
-                    : lineToHourly(parseFloat(line.amount) || 0, parseTimeUnit(line.time_unit));
+                    : lineToHourly((() => {
+                      const amount = commitMoneyField(line.amount, 'zero');
+                      return amount.ok ? Number(amount.value) || 0 : 0;
+                    })(), parseTimeUnit(line.time_unit));
                   return (
                   <div key={idx} className="border border-[#E5E7EB] rounded-lg p-3 bg-[#F9FAFB] space-y-3">
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">

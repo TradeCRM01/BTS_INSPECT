@@ -46,6 +46,8 @@ describe('quote/invoice totals half-up on integer cents', () => {
     expect(formatMoney(totals.total)).toBe('$342.67');
     expect(commercialPdfLineAmount(SWEEP_PROD_LINES[0])).toBe(131.03);
     expect(commercialPdfLineAmount(SWEEP_PROD_LINES[0])).not.toBe(1.5 * 87.35);
+    expect(formatMoney(commercialPdfLineAmount(SWEEP_PROD_LINES[0]))).toBe('$131.03');
+    expect(formatMoney(1.5 * 87.35)).toBe('$131.02');
   });
 
   it('rounds GST half-up where toFixed half-downs 26.75 at 10%', () => {

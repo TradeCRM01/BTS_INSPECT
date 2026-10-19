@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { safeFormatDate } from '../lib/safeDate';
 import { format, parseISO } from 'date-fns';
-import { commitDocumentLine, moneyDraftAllowed, moneyFieldMessage, numberDraftAllowed } from '../lib/parseDecimal';
+import { commitDocumentLine, commitNumberField, moneyDraftAllowed, moneyFieldMessage, numberDraftAllowed } from '../lib/parseDecimal';
 import { lineExGstAmount, moneyRound } from '../lib/gst';
 
 /** List chrome only. Same week-board / #145 quiet elevation. Not a new kit. */
@@ -406,8 +406,11 @@ export function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
   }, [profile?.company_id]);
 
   const subtotal = useMemo(() => lines.reduce((s, l) => s + lineExGstAmount({ quantity: l.quantity, unit_price: l.unit_cost }), 0), [lines]);
-  const taxAmount = useMemo(() => moneyRound(subtotal * (parseFloat(form.tax_rate) || 0) / 100), [subtotal, form.tax_rate]);
+  const poTaxRate = commitNumberField(form.tax_rate, 'zero');
+  const poTaxRateValue = poTaxRate.ok ? Number(poTaxRate.value) || 0 : 0;
+  const taxAmount = useMemo(() => moneyRound(subtotal * poTaxRateValue / 100), [subtotal, poTaxRateValue]);
   const grandTotal = moneyRound(subtotal + taxAmount);
+  const poLineBlocked = lines.some(l => l.description.trim() && !commitPOLine(l).ok);
 
   const updateLine = (idx: number, patch: Partial<POLineEdit>) =>
     setLines(prev => prev.map((l, i) => i === idx ? { ...l, ...patch } : l));
@@ -438,7 +441,7 @@ export function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
       job_id: form.job_id || null,
       status: nextStatus,
       line_items: validLines as any,
-      subtotal, tax_rate: parseFloat(form.tax_rate) || 0, tax_amount: taxAmount, total: grandTotal,
+      subtotal, tax_rate: poTaxRateValue, tax_amount: taxAmount, total: grandTotal,
       expected_delivery_date: form.expected_delivery_date || null,
       notes: form.notes.trim() || null,
     };
@@ -612,7 +615,7 @@ export function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
                 <span>Subtotal</span><span>{formatMoney(subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm text-[#4A5568]">
-                <span>Tax ({parseFloat(form.tax_rate) || 0}%)</span><span>{formatMoney(taxAmount)}</span>
+                <span>Tax ({poTaxRateValue}%)</span><span>{formatMoney(taxAmount)}</span>
               </div>
               <div className="flex justify-between text-sm font-semibold text-[#0A2540] pt-1.5 border-t border-[#E5E7EB]">
                 <span>Grand Total</span><span>{formatMoney(grandTotal)}</span>
@@ -634,7 +637,7 @@ export function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-[#4A5568] border border-[#E5E7EB] rounded-md hover:bg-gray-50">
             Cancel
           </button>
-          <button onClick={handleSave} disabled={saving}
+          <button onClick={handleSave} disabled={saving || poLineBlocked}
             className="px-4 py-2 text-sm font-medium text-white bg-[#0A2540] rounded-md hover:bg-[#0d2f4e] disabled:opacity-50">
             {saving ? 'Saving...' : po ? 'Save Changes' : 'Create PO'}
           </button>

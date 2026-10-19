@@ -298,8 +298,9 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
   const recalcPrice = (costStr: string, markupStr: string) => {
     const cost = commitMoneyField(costStr, 'zero');
     if (!cost.ok) return '';
-    const markup = parseFloat(markupStr) || 0;
-    return Number(cost.value) > 0 ? sellFromCost(Number(cost.value) || 0, markup).toFixed(2) : '';
+    const markup = commitNumberField(markupStr, 'zero');
+    if (!markup.ok) return '';
+    return Number(cost.value) > 0 ? sellFromCost(Number(cost.value) || 0, Number(markup.value) || 0).toFixed(2) : '';
   };
 
   const applyCostModel = (modelId: string) => {
@@ -406,7 +407,9 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     if (!charged.ok) return setFormErr(charged.message);
     const qty = Number(charged.quantity) || 0;
     const unitCost = Number(charged.unit_cost) || 0;
-    const markup = parseFloat(form.markup_percent) || 0;
+    const markupRow = commitNumberField(form.markup_percent, 'zero');
+    if (!markupRow.ok) return setFormErr(markupRow.message);
+    const markup = Number(markupRow.value) || 0;
     const unitPrice = Number(charged.unit_price) || sellFromCost(unitCost, markup);
     if (qty <= 0) return setFormErr('Enter a quantity');
     if (unitCost < 0 || unitPrice < 0) return setFormErr('Enter valid cost / charge amounts');
@@ -884,7 +887,7 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
               <input type="text" inputMode="decimal" value={form.markup_percent}
                 onChange={e => {
                   const raw = e.target.value;
-                  if (raw !== '' && !/^-?\d*\.?\d*$/.test(raw)) return;
+                  if (raw !== '' && !numberDraftAllowed(raw)) return;
                   setForm(f => ({
                     ...f,
                     markup_percent: raw,

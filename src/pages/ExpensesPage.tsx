@@ -24,7 +24,7 @@ import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import { ManagedSelect } from '../components/ui/ManagedSelect';
 import { LIST_KEYS } from '../lib/useManagedList';
 import { useCompanyAiKey } from '../lib/useCompanyAiKey';
-import { commitMoneyField, moneyFieldMessage, parseMoneyInput } from '../lib/parseDecimal';
+import { commitMoneyField, commitNumberField, moneyFieldMessage, parseMoneyInput } from '../lib/parseDecimal';
 import {
   assertExpenseReceiptFile,
   expenseReceiptNoteLine,
@@ -753,8 +753,8 @@ export function expenseAmountTypingFromEx(exAmount: string, taxRate: string, sav
 }
 
 function incDraftFromExAndGstDraft(ex: number, gstDraft: string): string {
-  const gst = parseFloat(gstDraft);
-  const gstNum = Number.isFinite(gst) ? gst : 0;
+  const gst = commitNumberField(gstDraft, 'zero');
+  const gstNum = gst.ok ? Number(gst.value) || 0 : 0;
   return String(round2(ex + gstNum));
 }
 
@@ -769,8 +769,9 @@ export function expenseIncGstInputStep(state: ExpenseAmountTypingState, raw: str
     return { ...state, incDraft: sanitized, amountSource: 'inc' };
   }
   const inc = committed.value as number;
-  const rate = parseFloat(state.taxRate) || 0;
-  const { amount, tax_amount } = expenseMoneyFromInc(inc, rate);
+  const rate = commitNumberField(state.taxRate, 'zero');
+  const rateValue = rate.ok ? Number(rate.value) || 0 : 0;
+  const { amount, tax_amount } = expenseMoneyFromInc(inc, rateValue);
   return {
     ...state,
     incDraft: sanitized,
@@ -782,10 +783,12 @@ export function expenseIncGstInputStep(state: ExpenseAmountTypingState, raw: str
 
 export function expenseIncGstBlurStep(state: ExpenseAmountTypingState): ExpenseAmountTypingState {
   if (state.incDraft === '') return state;
-  const incDraft = formatExpenseDecimalBlur(state.incDraft);
-  const inc = parseFloat(incDraft);
-  const rate = parseFloat(state.taxRate) || 0;
-  const { amount, tax_amount } = expenseMoneyFromInc(inc, rate);
+  const committed = commitMoneyField(state.incDraft, 'reject');
+  if (!committed.ok) return state;
+  const incDraft = formatExpenseDecimalBlur(String(committed.value));
+  const rateRow = commitNumberField(state.taxRate, 'zero');
+  const rate = rateRow.ok ? Number(rateRow.value) || 0 : 0;
+  const { amount, tax_amount } = expenseMoneyFromInc(Number(committed.value) || 0, rate);
   return {
     ...state,
     incDraft,

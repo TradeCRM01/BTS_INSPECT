@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { persistDocumentMoney, persistIssuedLines } from './documentPersist';
 
-const live = { subtotal: 311.52, tax_amount: 31.15, total: 342.67 };
-const stored = { subtotal: 311.51, tax_amount: 31.15, total: 342.66 };
+const live = { subtotal: 311.52, tax_amount: 31.15, total: 342.67, tax_rate: 0 };
+const stored = { subtotal: 311.51, tax_amount: 31.15, total: 342.66, tax_rate: 10 };
 
 describe('persistDocumentMoney locks issued totals', () => {
   it('keeps stored totals on sent, paid, part_paid, accepted and overdue', () => {
@@ -11,6 +11,7 @@ describe('persistDocumentMoney locks issued totals', () => {
         subtotal: 311.51,
         tax_amount: 31.15,
         total: 342.66,
+        tax_rate: 10,
       });
     }
   });
@@ -24,7 +25,14 @@ describe('persistDocumentMoney locks issued totals', () => {
     const shown = persistDocumentMoney('sent', live, stored);
     expect(shown.total).toBe(342.66);
     expect(shown.total).not.toBe(342.67);
+    expect(shown.tax_rate).toBe(10);
+    expect(shown.tax_rate).not.toBe(0);
     expect(persistIssuedLines('sent', [{ unit_price: 200 }], [{ unit_price: 100 }])).toEqual([{ unit_price: 100 }]);
     expect(persistIssuedLines('draft', [{ unit_price: 200 }], [{ unit_price: 100 }])).toEqual([{ unit_price: 200 }]);
+  });
+
+  it('keeps stored tax_rate 10 when the live GST field is 0 on a sent invoice', () => {
+    expect(persistDocumentMoney('sent', { ...live, tax_rate: 0 }, stored).tax_rate).toBe(10);
+    expect(persistDocumentMoney('draft', { ...live, tax_rate: 0 }, stored).tax_rate).toBe(0);
   });
 });
