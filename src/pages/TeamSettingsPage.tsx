@@ -18,6 +18,7 @@ import {
   assertCanRemoveTeamMember,
   canChangeMemberRole,
   canRemoveTeamMember,
+  isCompanyOwner,
 } from '../lib/teamAdminLock';
 import {
   MEMBER_TICKET_BUCKET,
@@ -721,7 +722,7 @@ export function TeamSettingsPage() {
   const lookTeamList = searchParams.get('look') === TEAM_LIST_LOOK;
   const lookPersonTickets = searchParams.get('look') === PERSON_TICKETS_LOOK;
   const lookParam = searchParams.get('look');
-  const lookP331Team = lookParam === 'p331-team-select' || lookParam === 'p331-team-empty' || lookParam === 'p331-team-fail';
+  const lookP331Team = lookParam === 'p331-team-select' || lookParam === 'p331-team-empty' || lookParam === 'p331-team-fail' || lookParam === 'p331-team-persist';
   const lookTeamSeed = lookTeamList || lookPersonTickets || lookP331Team;
   const lookFail = lookParam === 'p331-team-fail';
   const [search, setSearch] = useState('');
@@ -881,7 +882,13 @@ export function TeamSettingsPage() {
   const updateRoleMutation = useMutation({
     mutationFn: async ({ memberId, role }: { memberId: string; role: 'admin' | 'member' }) => {
       const member = listRows.find(row => row.id === memberId) ?? { id: memberId, role: undefined };
-      assertCanChangeMemberRole({ member, members: listRows, ownerId, nextRole: role });
+      assertCanChangeMemberRole({
+        member,
+        members: listRows,
+        ownerId,
+        nextRole: role,
+        actorId: profile?.id,
+      });
       return updateMemberSettings(supabase, memberId, { role });
     },
     onSuccess: () => {
@@ -998,12 +1005,14 @@ export function TeamSettingsPage() {
   const openedAccessLabel = openedMember
     ? ACCESS_OPTIONS.find(o => o.value === shownTemplateAccess)?.label ?? shownTemplateAccess
     : '';
+  const canChangeRoles = isCompanyOwner(profile?.id ?? '', ownerId);
   const openedRoleLock = openedMember
     ? canChangeMemberRole({
       member: openedMember,
       members: listRows,
       ownerId,
       nextRole: openedIsAdmin ? 'member' : 'admin',
+      actorId: profile?.id,
     })
     : { ok: true as const };
   const openedRemoveLock = openedMember
@@ -1051,7 +1060,7 @@ export function TeamSettingsPage() {
                       Invite member
                     </button>
                   ) : null}
-                  {isAdmin && !openedPending && !openedIsMe && (
+                  {isAdmin && !openedPending && !openedIsMe && canChangeRoles && (
                     <button
                       type="button"
                       onClick={() => {
@@ -1289,6 +1298,8 @@ export function TeamSettingsPage() {
                     isMe={member.id === profile?.id}
                     isAdmin={!!isAdmin}
                     ownerId={ownerId}
+                    actorId={profile?.id}
+                    canChangeRoles={canChangeRoles}
                     members={listRows}
                     opened={openedMember?.id === member.id && !personOpen}
                     resending={resendingId === member.id}
@@ -1732,6 +1743,8 @@ function TeamListRow({
   isMe,
   isAdmin,
   ownerId,
+  actorId,
+  canChangeRoles,
   members,
   opened,
   resending,
@@ -1748,6 +1761,8 @@ function TeamListRow({
   isMe: boolean;
   isAdmin: boolean;
   ownerId: string | null;
+  actorId?: string | null;
+  canChangeRoles: boolean;
   members: Member[];
   opened: boolean;
   resending: boolean;
@@ -1769,6 +1784,7 @@ function TeamListRow({
     members,
     ownerId,
     nextRole: isMemberAdmin ? 'member' : 'admin',
+    actorId,
   });
   const removeLock = canRemoveTeamMember({ member, members, ownerId });
 
@@ -1809,7 +1825,7 @@ function TeamListRow({
                   Templates · {opt.label}
                 </button>
               ))}
-              {isAdmin && !isMe && !isPending && (
+              {isAdmin && !isMe && !isPending && canChangeRoles && (
                 <button
                   type="button"
                   role="menuitem"

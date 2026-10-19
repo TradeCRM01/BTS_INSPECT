@@ -1,25 +1,83 @@
 /** @vitest-environment jsdom */
-import { act } from 'react';
-
-;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+import { act, type ReactElement } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import {
   TEMPLATE_ACCESS_DENIED_TITLE,
   canViewTemplates,
 } from './templateAccess';
 
-vi.mock('../components/layout/AppShell', () => ({
-  AppShell: ({ children }: { children: unknown }) => children,
+;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+const auth = vi.hoisted(() => ({
+  profile: {
+    id: 'u-member',
+    role: 'member',
+    template_access: 'none',
+    company_id: 'c1',
+    name: 'M',
+  } as Record<string, unknown>,
 }));
 
-import { TemplateAccessDeniedBody } from '../components/layout/TemplateAccessDenied';
+vi.mock('../contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: { id: 'u-member' },
+    profile: auth.profile,
+    company: { id: 'c1', name: 'Co', created_by: 'u-owner', access_status: 'active' },
+    loading: false,
+    isPlatformOperator: false,
+    refreshProfile: async () => {},
+    signOut: async () => {},
+    session: { access_token: 'x' },
+  }),
+  AuthProvider: ({ children }: { children: unknown }) => children,
+}));
 
-function src(rel: string): string {
-  return readFileSync(resolve(process.cwd(), rel), 'utf8');
+vi.mock('./supabase', () => {
+  let chain: unknown;
+  chain = new Proxy(function chainFn() { return chain; }, {
+    get: (_target, key) => (key === 'then'
+      ? (resolve: (v: unknown) => void) => resolve({ data: [], error: null, count: 0 })
+      : chain),
+    apply: () => chain,
+  });
+  return {
+    supabase: {
+      from: () => chain,
+      rpc: async () => ({ data: [], error: null }),
+      storage: { from: () => chain },
+      auth: {
+        getSession: async () => ({ data: { session: null } }),
+        onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+      },
+      channel: () => chain,
+      removeChannel: () => {},
+    },
+  };
+});
+
+vi.mock('./useCompanyAiKey', () => ({ useCompanyAiKey: () => ({ hasKey: false }) }));
+
+import { TemplateAccessRoute } from '../components/layout/TemplateAccessRoute';
+import { TemplatesPage } from '../pages/TemplatesPage';
+import { TemplateEditorPage } from '../pages/TemplateEditorPage';
+import { JhaTemplateEditorPage } from '../pages/JhaTemplateEditorPage';
+
+async function render(ui: ReactElement) {
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  await act(async () => {
+    root.render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
+  });
+  for (let i = 0; i < 40; i += 1) {
+    if (container.querySelector('[data-template-access="denied"]')) break;
+    await act(async () => { await Promise.resolve(); });
+  }
+  return { container, root };
 }
 
 describe('canViewTemplates', () => {
@@ -32,72 +90,60 @@ describe('canViewTemplates', () => {
   });
 });
 
-describe('Templates no-access render', () => {
-  it('renders as a member with No access and hides the templates list', () => {
-    const container = document.createElement('div');
-    document.body.appendChild(container);
-    const root = createRoot(container);
-    const member = { role: 'member', template_access: 'none' as const };
-
-    function MemberTemplatesView() {
-      if (!canViewTemplates(member)) return <TemplateAccessDeniedBody />;
-      return <div data-templates-list>Templates list</div>;
-    }
-
-    act(() => {
-      root.render(
-        <MemoryRouter>
-          <MemberTemplatesView />
-        </MemoryRouter>,
-      );
-    });
-
+describe('template guards render as a none member', () => {
+  it('TemplateAccessRoute denies and hides children', async () => {
+    const { container, root } = await render(
+      <MemoryRouter>
+        <TemplateAccessRoute>
+          <div data-templates-passed>passed</div>
+        </TemplateAccessRoute>
+      </MemoryRouter>,
+    );
     expect(container.querySelector('[data-template-access="denied"]')).toBeTruthy();
     expect(container.textContent).toContain(TEMPLATE_ACCESS_DENIED_TITLE);
-    expect(container.querySelector('[data-templates-list]')).toBeNull();
+    expect(container.querySelector('[data-templates-passed]')).toBeNull();
     act(() => { root.unmount(); });
     container.remove();
   });
 
-  it('mutation kill: removing the Templates guard shows the list for a none member', () => {
-    const member = { role: 'member', template_access: 'none' as const };
-    function Guarded() {
-      if (!canViewTemplates(member)) return <div data-template-access="denied">No access</div>;
-      return <div data-templates-list>Templates list</div>;
-    }
-    function Killed() {
-      return <div data-templates-list>Templates list</div>;
-    }
-
-    const guarded = document.createElement('div');
-    const killed = document.createElement('div');
-    const gRoot = createRoot(guarded);
-    const kRoot = createRoot(killed);
-    act(() => {
-      gRoot.render(<Guarded />);
-      kRoot.render(<Killed />);
-    });
-    expect(guarded.querySelector('[data-template-access="denied"]')).toBeTruthy();
-    expect(killed.querySelector('[data-templates-list]')).toBeTruthy();
-    expect(killed.querySelector('[data-template-access="denied"]')).toBeNull();
-    act(() => {
-      gRoot.unmount();
-      kRoot.unmount();
-    });
-
-    const app = src('src/App.tsx');
-    expect(app).toContain('TemplateAccessRoute');
-    expect(app).toMatch(/path="\/templates"[\s\S]*TemplateAccessRoute/);
-    const templatesPage = src('src/pages/TemplatesPage.tsx');
-    expect(templatesPage).toContain('canViewTemplates');
-    const killedPage = templatesPage.replace(/if \(!canView\) \{[\s\S]*?\n {2}\}/, '');
-    expect(killedPage).not.toContain('if (!canView)');
+  it('TemplatesPage renders No access', async () => {
+    const { container, root } = await render(
+      <MemoryRouter>
+        <TemplatesPage />
+      </MemoryRouter>,
+    );
+    expect(container.querySelector('[data-template-access="denied"]')).toBeTruthy();
+    expect(container.textContent).toContain(TEMPLATE_ACCESS_DENIED_TITLE);
+    expect(container.textContent).not.toContain('Build and manage your inspection and JHA templates');
+    act(() => { root.unmount(); });
+    container.remove();
   });
 
-  it('route and nav both consult canViewTemplates', () => {
-    expect(src('src/components/layout/TemplateAccessRoute.tsx')).toContain('canViewTemplates');
-    expect(src('src/components/layout/AppShell.tsx')).toContain('navItemAllowedForProfile');
-    expect(src('src/pages/TemplateEditorPage.tsx')).toContain('canViewTemplates');
-    expect(src('src/pages/JhaTemplateEditorPage.tsx')).toContain('canViewTemplates');
+  it('TemplateEditorPage renders No access', async () => {
+    const { container, root } = await render(
+      <MemoryRouter initialEntries={['/templates/abc']}>
+        <Routes>
+          <Route path="/templates/:id" element={<TemplateEditorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(container.querySelector('[data-template-access="denied"]')).toBeTruthy();
+    expect(container.textContent).toContain(TEMPLATE_ACCESS_DENIED_TITLE);
+    act(() => { root.unmount(); });
+    container.remove();
+  });
+
+  it('JhaTemplateEditorPage renders No access', async () => {
+    const { container, root } = await render(
+      <MemoryRouter initialEntries={['/jha-templates/abc']}>
+        <Routes>
+          <Route path="/jha-templates/:id" element={<JhaTemplateEditorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(container.querySelector('[data-template-access="denied"]')).toBeTruthy();
+    expect(container.textContent).toContain(TEMPLATE_ACCESS_DENIED_TITLE);
+    act(() => { root.unmount(); });
+    container.remove();
   });
 });

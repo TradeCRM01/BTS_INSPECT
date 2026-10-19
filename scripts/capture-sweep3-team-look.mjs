@@ -17,6 +17,25 @@ const views = [
 const browser = await chromium.launch({ headless: true });
 const rows = [];
 
+async function metricsOf(page) {
+  return page.evaluate(() => {
+    const innerWidth = window.innerWidth;
+    const scrollWidth = document.documentElement.scrollWidth;
+    let maxRight = 0;
+    for (const el of document.querySelectorAll('*')) {
+      const right = el.getBoundingClientRect().right;
+      if (right > maxRight) maxRight = right;
+    }
+    return {
+      innerWidth,
+      scrollWidth,
+      maxRight,
+      scrollClipped: scrollWidth > innerWidth,
+      rectClipped: maxRight > innerWidth + 0.5,
+    };
+  });
+}
+
 async function shot(viewport, name, href, wait) {
   const context = await browser.newContext({
     viewport,
@@ -30,11 +49,7 @@ async function shot(viewport, name, href, wait) {
   await wait(page);
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(400);
-  const metrics = await page.evaluate(() => ({
-    innerWidth: window.innerWidth,
-    scrollWidth: document.documentElement.scrollWidth,
-    clipped: document.documentElement.scrollWidth > window.innerWidth,
-  }));
+  const metrics = await metricsOf(page);
   const path = `${OUT}/sweep3-team-${TAG}-${name}-${viewport.width}.png`;
   await page.screenshot({ path, type: 'png', fullPage: true });
   rows.push({ tag: TAG, name, width: viewport.width, path, ...metrics });
@@ -67,7 +82,7 @@ for (const viewport of views) {
   );
 }
 
-if (TAG === 'after') {
+if (TAG !== 'before') {
   for (const viewport of views) {
     await shot(
       viewport,
@@ -85,6 +100,50 @@ if (TAG === 'after') {
       waitDenied,
     );
   }
+
+  const persistViewport = { width: 1280, height: 800 };
+  const persistContext = await browser.newContext({
+    viewport: persistViewport,
+    deviceScaleFactor: 1,
+    locale: 'en-AU',
+  });
+  const persistPage = await persistContext.newPage();
+  await persistPage.route('**/rest/v1/rpc/update_member_settings', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 'look-team-alex',
+        expense_cost_model_id: 'audit-p331-loaded-hourly',
+        template_access: 'view',
+        role: 'member',
+      }),
+    });
+  });
+  await persistPage.goto(
+    `${BASE}/settings/team?auditAuth=1&look=p331-team-persist&id=look-team-alex`,
+    { waitUntil: 'domcontentloaded' },
+  );
+  await waitMember(persistPage);
+  const costSelect = persistPage.locator('select[aria-label="Cost model"]');
+  await costSelect.waitFor({ timeout: 20000 });
+  const beforeValue = await costSelect.inputValue();
+  await costSelect.selectOption('audit-p331-loaded-hourly');
+  await persistPage.waitForTimeout(600);
+  const afterValue = await costSelect.inputValue();
+  const persistMetrics = await metricsOf(persistPage);
+  const persistPath = `${OUT}/sweep3-team-${TAG}-save-session-1280.png`;
+  await persistPage.screenshot({ path: persistPath, type: 'png', fullPage: true });
+  rows.push({
+    tag: TAG,
+    name: 'save-session',
+    width: 1280,
+    path: persistPath,
+    beforeValue,
+    afterValue,
+    ...persistMetrics,
+  });
+  await persistContext.close();
 }
 
 await browser.close();

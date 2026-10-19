@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  TEAM_ACTOR_NOT_OWNER,
   TEAM_LAST_ADMIN_LOCKED,
   TEAM_OWNER_LOCKED,
   assertCanChangeMemberRole,
@@ -132,6 +133,37 @@ describe('owner is engraved — other admins cannot touch the founder', () => {
   });
 });
 
+describe('only the owner may change roles', () => {
+  it('refuses a non-owner admin actor and lets the owner through', () => {
+    const twoAdmins = [founder, extraAdmin, member];
+    expect(canChangeMemberRole({
+      member,
+      members: twoAdmins,
+      ownerId: founder.id,
+      nextRole: 'admin',
+      actorId: extraAdmin.id,
+    })).toEqual({
+      ok: false,
+      error: TEAM_ACTOR_NOT_OWNER,
+      reason: 'actor',
+    });
+    expect(canChangeMemberRole({
+      member,
+      members: twoAdmins,
+      ownerId: founder.id,
+      nextRole: 'admin',
+      actorId: founder.id,
+    })).toEqual({ ok: true });
+    expect(() => assertCanChangeMemberRole({
+      member,
+      members: twoAdmins,
+      ownerId: founder.id,
+      nextRole: 'admin',
+      actorId: extraAdmin.id,
+    })).toThrow(TEAM_ACTOR_NOT_OWNER);
+  });
+});
+
 describe('UI disable and write/RLS reject without the button', () => {
   it('disables role and remove on the existing team settings, not a hidden-only lock', () => {
     const page = src('src/pages/TeamSettingsPage.tsx');
@@ -145,6 +177,9 @@ describe('UI disable and write/RLS reject without the button', () => {
     expect(page).toContain('removeLock');
     expect(page).toContain('disabled={updateRoleMutation.isPending || !openedRoleLock.ok}');
     expect(page).toContain('disabled={removeMutation.isPending || !openedRemoveLock.ok}');
+    expect(page).toContain('canChangeRoles');
+    expect(page).toContain('isAdmin && !openedPending && !openedIsMe && canChangeRoles');
+    expect(page).toContain('isAdmin && !isMe && !isPending && canChangeRoles');
     expect(page).toContain('disabled={roleBusy || !roleLock.ok}');
     expect(page).toContain('disabled={removeBusy || !removeLock.ok}');
     expect(page).toContain('title={openedRoleLock.ok ? undefined : openedRoleLock.error}');

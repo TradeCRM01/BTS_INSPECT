@@ -8,7 +8,22 @@ import { MEMBER_SETTINGS_NO_ROW } from '../lib/updateMemberSettings';
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }));
+const { rpc, auth } = vi.hoisted(() => ({
+  rpc: vi.fn(),
+  auth: {
+    profile: {
+      id: '00000000-0000-0000-0000-000000000002',
+      role: 'admin',
+      company_id: '00000000-0000-0000-0000-000000000001',
+      name: 'Field Audit',
+    },
+    company: {
+      id: '00000000-0000-0000-0000-000000000001',
+      name: 'Field Audit Co',
+      created_by: '00000000-0000-0000-0000-000000000002',
+    },
+  },
+}));
 
 vi.mock('../lib/supabase', () => ({
   supabase: {
@@ -27,17 +42,8 @@ vi.mock('../lib/supabase', () => ({
 
 vi.mock('../contexts/AuthContext', () => ({
   useAuth: () => ({
-    profile: {
-      id: '00000000-0000-0000-0000-000000000002',
-      role: 'admin',
-      company_id: '00000000-0000-0000-0000-000000000001',
-      name: 'Field Audit',
-    },
-    company: {
-      id: '00000000-0000-0000-0000-000000000001',
-      name: 'Field Audit Co',
-      created_by: '00000000-0000-0000-0000-000000000002',
-    },
+    profile: auth.profile,
+    company: auth.company,
     session: { access_token: 'dev' },
   }),
 }));
@@ -99,6 +105,17 @@ function renderPage(url: string): { container: HTMLDivElement; root: Root } {
 describe('TeamSettingsPage member settings render-and-act', () => {
   beforeEach(() => {
     rpc.mockReset();
+    auth.profile = {
+      id: '00000000-0000-0000-0000-000000000002',
+      role: 'admin',
+      company_id: '00000000-0000-0000-0000-000000000001',
+      name: 'Field Audit',
+    };
+    auth.company = {
+      id: '00000000-0000-0000-0000-000000000001',
+      name: 'Field Audit Co',
+      created_by: '00000000-0000-0000-0000-000000000002',
+    };
   });
 
   afterEach(() => {
@@ -182,5 +199,25 @@ describe('TeamSettingsPage member settings render-and-act', () => {
     expect((container.querySelector('select[aria-label="Template access"]') as HTMLSelectElement).value)
       .toBe('view');
     act(() => { root.unmount(); });
+  });
+
+  it('shows Make admin for the owner and hides it for a non-owner admin', async () => {
+    const owner = renderPage('/settings/team?look=p331-team-select&id=look-team-alex');
+    await waitFor(owner.container, 'select[aria-label="Cost model"]');
+    expect([...owner.container.querySelectorAll('button')].some(b => (b.textContent || '').includes('Make admin'))).toBe(true);
+    act(() => { owner.root.unmount(); });
+    owner.container.remove();
+
+    auth.profile = {
+      ...auth.profile,
+      id: '00000000-0000-0000-0000-000000000099',
+      name: 'Other Admin',
+    };
+    const nonOwner = renderPage('/settings/team?look=p331-team-select&id=look-team-alex');
+    await waitFor(nonOwner.container, 'select[aria-label="Cost model"]');
+    expect([...nonOwner.container.querySelectorAll('button')].some(b => (b.textContent || '').includes('Make admin'))).toBe(false);
+    expect(nonOwner.container.textContent).not.toContain('Make admin');
+    act(() => { nonOwner.root.unmount(); });
+    nonOwner.container.remove();
   });
 });

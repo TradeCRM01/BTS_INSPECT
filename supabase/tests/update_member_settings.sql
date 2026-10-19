@@ -3,8 +3,9 @@
 --
 --   psql "$PROOF_URL" -v ON_ERROR_STOP=1 -f supabase/tests/update_member_settings.sql
 --
--- Creates a stub auth.uid(), companies, profiles, expense_cost_models, then
--- loads the RPC from the migration and checks (a)-(d).
+-- Creates a stub auth.uid() that reads request.jwt.claims (Supabase), companies,
+-- profiles, expense_cost_models, then loads the RPC from the migration.
+-- Refusal cases run as SET ROLE authenticated and assert exact SQLERRM.
 
 BEGIN;
 
@@ -19,15 +20,23 @@ BEGIN
 END
 $roles$;
 
+GRANT USAGE ON SCHEMA public TO authenticated, anon;
+
 CREATE SCHEMA IF NOT EXISTS auth;
+GRANT USAGE ON SCHEMA auth TO authenticated, anon;
 
 CREATE OR REPLACE FUNCTION auth.uid()
 RETURNS uuid
 LANGUAGE sql
 STABLE
 AS $$
-  SELECT nullif(current_setting('test.uid', true), '')::uuid
+  SELECT NULLIF(
+    COALESCE(NULLIF(current_setting('request.jwt.claims', true), ''), '{}')::jsonb ->> 'sub',
+    ''
+  )::uuid
 $$;
+
+GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated, anon;
 
 CREATE TABLE IF NOT EXISTS public.companies (
   id uuid PRIMARY KEY,
@@ -101,22 +110,42 @@ CREATE TEMP TABLE proof_result (
   detail text NOT NULL
 );
 
--- (a) Company A cannot read or update company B, even with B's member id.
-SELECT set_config('test.uid', '11111111-1111-1111-1111-111111111111', false);
+CREATE OR REPLACE FUNCTION public.proof_as_authenticated(p_uid uuid)
+RETURNS void
+LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM set_config(
+    'request.jwt.claims',
+    json_build_object('sub', p_uid::text, 'role', 'authenticated')::text,
+    false
+  );
+END;
+$$;
 
-INSERT INTO proof_result VALUES (
-  'a_read_cross_tenant',
-  NOT EXISTS (
-    SELECT 1 FROM public.get_company_members('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb')
-  ),
-  'Company A get_company_members(B) returned no rows'
-);
+-- (a) Company A cannot read or update company B, even with B's member id.
+DO $$
+DECLARE
+  n int;
+BEGIN
+  PERFORM public.proof_as_authenticated('11111111-1111-1111-1111-111111111111');
+  SET LOCAL ROLE authenticated;
+  SELECT count(*) INTO n FROM public.get_company_members('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb');
+  RESET ROLE;
+  INSERT INTO proof_result VALUES (
+    'a_read_cross_tenant',
+    n = 0,
+    'Company A get_company_members(B) returned ' || n::text || ' rows'
+  );
+END $$;
 
 DO $$
 DECLARE
   v_failed boolean := false;
   v_msg text;
+  v_left text;
 BEGIN
+  PERFORM public.proof_as_authenticated('11111111-1111-1111-1111-111111111111');
+  SET LOCAL ROLE authenticated;
   BEGIN
     PERFORM public.update_member_settings(
       '55555555-5555-5555-5555-555555555555',
@@ -126,21 +155,50 @@ BEGIN
     v_failed := true;
     v_msg := SQLERRM;
   END;
+  RESET ROLE;
+  SELECT template_access INTO v_left FROM public.profiles WHERE id = '55555555-5555-5555-5555-555555555555';
   INSERT INTO proof_result VALUES (
     'a_update_cross_tenant',
-    v_failed AND (SELECT template_access FROM public.profiles WHERE id = '55555555-5555-5555-5555-555555555555') = 'view',
+    v_failed AND v_msg = 'Not allowed' AND v_left = 'view',
     coalesce(v_msg, 'cross-tenant update did not raise')
   );
 END $$;
 
--- (b) A non-admin gets an error.
-SELECT set_config('test.uid', '44444444-4444-4444-4444-444444444444', false);
+-- P0 S8: owner of A assigning company B's cost model to an A member.
+DO $$
+DECLARE
+  v_failed boolean := false;
+  v_msg text;
+  v_left uuid;
+BEGIN
+  PERFORM public.proof_as_authenticated('11111111-1111-1111-1111-111111111111');
+  SET LOCAL ROLE authenticated;
+  BEGIN
+    PERFORM public.update_member_settings(
+      '44444444-4444-4444-4444-444444444444',
+      jsonb_build_object('expense_cost_model_id', '77777777-7777-7777-7777-777777777777')
+    );
+  EXCEPTION WHEN OTHERS THEN
+    v_failed := true;
+    v_msg := SQLERRM;
+  END;
+  RESET ROLE;
+  SELECT expense_cost_model_id INTO v_left FROM public.profiles WHERE id = '44444444-4444-4444-4444-444444444444';
+  INSERT INTO proof_result VALUES (
+    'a_cost_model_cross_company',
+    v_failed AND v_msg = 'Cost model not found' AND v_left IS NULL,
+    coalesce(v_msg, 'cross-company cost model did not raise')
+  );
+END $$;
 
+-- (b) A non-admin gets an error.
 DO $$
 DECLARE
   v_failed boolean := false;
   v_msg text;
 BEGIN
+  PERFORM public.proof_as_authenticated('44444444-4444-4444-4444-444444444444');
+  SET LOCAL ROLE authenticated;
   BEGIN
     PERFORM public.update_member_settings(
       '33333333-3333-3333-3333-333333333333',
@@ -150,21 +208,23 @@ BEGIN
     v_failed := true;
     v_msg := SQLERRM;
   END;
+  RESET ROLE;
   INSERT INTO proof_result VALUES (
     'b_non_admin',
-    v_failed,
+    v_failed AND v_msg = 'Not allowed',
     coalesce(v_msg, 'non-admin update did not raise')
   );
 END $$;
 
 -- (c) An admin cannot change their own role or anyone's company_id.
-SELECT set_config('test.uid', '33333333-3333-3333-3333-333333333333', false);
-
 DO $$
 DECLARE
   v_failed boolean := false;
   v_msg text;
+  v_left text;
 BEGIN
+  PERFORM public.proof_as_authenticated('33333333-3333-3333-3333-333333333333');
+  SET LOCAL ROLE authenticated;
   BEGIN
     PERFORM public.update_member_settings(
       '33333333-3333-3333-3333-333333333333',
@@ -174,9 +234,11 @@ BEGIN
     v_failed := true;
     v_msg := SQLERRM;
   END;
+  RESET ROLE;
+  SELECT role INTO v_left FROM public.profiles WHERE id = '33333333-3333-3333-3333-333333333333';
   INSERT INTO proof_result VALUES (
     'c_admin_own_role',
-    v_failed AND (SELECT role FROM public.profiles WHERE id = '33333333-3333-3333-3333-333333333333') = 'admin',
+    v_failed AND v_msg = 'You cannot change your own role' AND v_left = 'admin',
     coalesce(v_msg, 'admin self role change did not raise')
   );
 END $$;
@@ -185,7 +247,10 @@ DO $$
 DECLARE
   v_failed boolean := false;
   v_msg text;
+  v_left uuid;
 BEGIN
+  PERFORM public.proof_as_authenticated('33333333-3333-3333-3333-333333333333');
+  SET LOCAL ROLE authenticated;
   BEGIN
     PERFORM public.update_member_settings(
       '44444444-4444-4444-4444-444444444444',
@@ -195,10 +260,12 @@ BEGIN
     v_failed := true;
     v_msg := SQLERRM;
   END;
+  RESET ROLE;
+  SELECT company_id INTO v_left FROM public.profiles WHERE id = '44444444-4444-4444-4444-444444444444';
   INSERT INTO proof_result VALUES (
     'c_company_id_rejected',
-    v_failed AND (SELECT company_id FROM public.profiles WHERE id = '44444444-4444-4444-4444-444444444444')
-      = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    v_failed AND v_msg = 'Field company_id is not allowed'
+      AND v_left = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
     coalesce(v_msg, 'company_id patch did not raise')
   );
 END $$;
@@ -208,7 +275,10 @@ DO $$
 DECLARE
   v_failed boolean := false;
   v_msg text;
+  v_left text;
 BEGIN
+  PERFORM public.proof_as_authenticated('33333333-3333-3333-3333-333333333333');
+  SET LOCAL ROLE authenticated;
   BEGIN
     PERFORM public.update_member_settings(
       '44444444-4444-4444-4444-444444444444',
@@ -218,20 +288,93 @@ BEGIN
     v_failed := true;
     v_msg := SQLERRM;
   END;
+  RESET ROLE;
+  SELECT role INTO v_left FROM public.profiles WHERE id = '44444444-4444-4444-4444-444444444444';
   INSERT INTO proof_result VALUES (
     'c_admin_cannot_change_role',
-    v_failed AND (SELECT role FROM public.profiles WHERE id = '44444444-4444-4444-4444-444444444444') = 'member',
+    v_failed AND v_msg = 'Only the company owner can change roles' AND v_left = 'member',
     coalesce(v_msg, 'non-owner role change did not raise')
   );
 END $$;
 
--- (d) Owner and admin saves persist (re-select after the update).
-SELECT set_config('test.uid', '11111111-1111-1111-1111-111111111111', false);
+-- P2 S10: role 'owner' is not a valid value.
+DO $$
+DECLARE
+  v_failed boolean := false;
+  v_msg text;
+  v_left text;
+BEGIN
+  PERFORM public.proof_as_authenticated('11111111-1111-1111-1111-111111111111');
+  SET LOCAL ROLE authenticated;
+  BEGIN
+    PERFORM public.update_member_settings(
+      '44444444-4444-4444-4444-444444444444',
+      jsonb_build_object('role', 'owner')
+    );
+  EXCEPTION WHEN OTHERS THEN
+    v_failed := true;
+    v_msg := SQLERRM;
+  END;
+  RESET ROLE;
+  SELECT role INTO v_left FROM public.profiles WHERE id = '44444444-4444-4444-4444-444444444444';
+  INSERT INTO proof_result VALUES (
+    'c_role_owner_invalid',
+    v_failed AND v_msg = 'Invalid role' AND v_left = 'member',
+    coalesce(v_msg, 'role=owner did not raise')
+  );
+END $$;
 
+-- P1 S1: 0-row RAISE. BEFORE UPDATE skips the row after the checks, so ROW_COUNT is 0.
+CREATE OR REPLACE FUNCTION public.proof_skip_profile_update()
+RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  RETURN NULL;
+END;
+$$;
+
+CREATE TRIGGER proof_skip_member_update
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW
+  WHEN (OLD.id = '44444444-4444-4444-4444-444444444444'::uuid)
+  EXECUTE PROCEDURE public.proof_skip_profile_update();
+
+DO $$
+DECLARE
+  v_failed boolean := false;
+  v_msg text;
+  v_left text;
+BEGIN
+  PERFORM public.proof_as_authenticated('11111111-1111-1111-1111-111111111111');
+  SET LOCAL ROLE authenticated;
+  BEGIN
+    PERFORM public.update_member_settings(
+      '44444444-4444-4444-4444-444444444444',
+      jsonb_build_object('template_access', 'none')
+    );
+  EXCEPTION WHEN OTHERS THEN
+    v_failed := true;
+    v_msg := SQLERRM;
+  END;
+  RESET ROLE;
+  SELECT template_access INTO v_left FROM public.profiles WHERE id = '44444444-4444-4444-4444-444444444444';
+  INSERT INTO proof_result VALUES (
+    'r_zero_row_raise',
+    v_failed AND v_msg = 'No member settings were updated' AND v_left = 'view',
+    coalesce(v_msg, '0-row update did not raise')
+  );
+END $$;
+
+DROP TRIGGER proof_skip_member_update ON public.profiles;
+DROP FUNCTION public.proof_skip_profile_update();
+
+-- (d) Owner and admin saves persist (re-select after the update).
 DO $$
 DECLARE
   v_row jsonb;
 BEGIN
+  PERFORM public.proof_as_authenticated('11111111-1111-1111-1111-111111111111');
+  SET LOCAL ROLE authenticated;
   v_row := public.update_member_settings(
     '44444444-4444-4444-4444-444444444444',
     jsonb_build_object(
@@ -239,6 +382,7 @@ BEGIN
       'template_access', 'none'
     )
   );
+  RESET ROLE;
   INSERT INTO proof_result VALUES (
     'd_owner_save',
     v_row->>'expense_cost_model_id' = '66666666-6666-6666-6666-666666666666'
@@ -250,16 +394,17 @@ BEGIN
   );
 END $$;
 
-SELECT set_config('test.uid', '33333333-3333-3333-3333-333333333333', false);
-
 DO $$
 DECLARE
   v_row jsonb;
 BEGIN
+  PERFORM public.proof_as_authenticated('33333333-3333-3333-3333-333333333333');
+  SET LOCAL ROLE authenticated;
   v_row := public.update_member_settings(
     '44444444-4444-4444-4444-444444444444',
     jsonb_build_object('template_access', 'edit')
   );
+  RESET ROLE;
   INSERT INTO proof_result VALUES (
     'd_admin_save',
     v_row->>'template_access' = 'edit'
@@ -269,13 +414,14 @@ BEGIN
 END $$;
 
 -- Owner can change another member's role, not their own.
-SELECT set_config('test.uid', '11111111-1111-1111-1111-111111111111', false);
-
 DO $$
 DECLARE
   v_row jsonb;
   v_failed boolean := false;
+  v_msg text;
 BEGIN
+  PERFORM public.proof_as_authenticated('11111111-1111-1111-1111-111111111111');
+  SET LOCAL ROLE authenticated;
   v_row := public.update_member_settings(
     '44444444-4444-4444-4444-444444444444',
     jsonb_build_object('role', 'admin')
@@ -287,12 +433,14 @@ BEGIN
     );
   EXCEPTION WHEN OTHERS THEN
     v_failed := true;
+    v_msg := SQLERRM;
   END;
+  RESET ROLE;
   INSERT INTO proof_result VALUES (
     'd_owner_role_other_not_self',
-    v_row->>'role' = 'admin' AND v_failed
+    v_row->>'role' = 'admin' AND v_failed AND v_msg = 'You cannot change your own role'
       AND (SELECT role FROM public.profiles WHERE id = '11111111-1111-1111-1111-111111111111') = 'admin',
-    v_row::text
+    coalesce(v_msg, v_row::text)
   );
 END $$;
 
@@ -322,6 +470,6 @@ DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM proof_result WHERE NOT ok) THEN
     RAISE EXCEPTION 'update_member_settings proofs failed: %',
-      (SELECT string_agg(check_id, ', ') FROM proof_result WHERE NOT ok);
+      (SELECT string_agg(check_id || '=' || detail, ', ') FROM proof_result WHERE NOT ok);
   END IF;
 END $$;
