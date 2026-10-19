@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo, useEffect, type ReactNode } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect, useLayoutEffect, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
@@ -53,6 +53,8 @@ import {
   todaysDashboardJobs,
 } from '../lib/dashboardHome';
 import {
+  DASHBOARD_WIDGET_CANVAS_W,
+  clampDashboardWidgetsToCanvas,
   isRetiredDashboardWidgetType,
   measureDashboardCanvasWidth,
   pickerDashboardWidgets,
@@ -108,6 +110,8 @@ const CANVAS_PAD = 16;
 
 /** Signed dashboard frame seed — home look only, not a live company. */
 const DASHBOARD_LOOK = 'dashboard';
+/** Playwright: /?look=dashboard-seed — 11-widget layout with Compliance on the right edge */
+const DASHBOARD_LOOK_SEED = 'dashboard-seed';
 /** Playwright: /?auditAuth=1&look=dashboard-jack — seven-widget money-first view grid */
 const DASHBOARD_LOOK_JACK_LAYOUT = 'dashboard-jack';
 /** Playwright: /?auditAuth=1&look=crew-s8d-dashboard-needs — Today row Needs crew */
@@ -206,6 +210,31 @@ function dashboardLookWidgets(): DashboardWidget[] {
       },
     },
   ];
+}
+
+function dashboardSeedLookWidgets(): DashboardWidget[] {
+  const rows: DashboardWidget[] = dashboardLookWidgets().map(row => ({ ...row }));
+  const extra = [
+    'weather',
+    'clock',
+    'calendar',
+    'calculator',
+    'quick_actions',
+    'pending_reports',
+    'agent_reminders',
+    'kpi_scorecard',
+  ] as const;
+  for (const type of extra) {
+    const placed = placeAddedDashboardWidget(rows, type);
+    if (!placed) continue;
+    rows.push({
+      id: `seed-${type}`,
+      widget_type: type,
+      ...placed,
+      config: {} as Json,
+    });
+  }
+  return rows;
 }
 
 function dashboardJackLookWidgets(): DashboardWidget[] {
@@ -373,7 +402,11 @@ export function DashboardPage() {
   const lookParam = searchParams.get('look');
   const lookCrewS8dDashboard = lookParam === CREW_S8D_DASHBOARD_NEEDS;
   const lookDashboardJack = lookParam === DASHBOARD_LOOK_JACK_LAYOUT;
-  const lookDashboard = lookParam === DASHBOARD_LOOK || lookCrewS8dDashboard || lookDashboardJack;
+  const lookDashboardSeed = lookParam === DASHBOARD_LOOK_SEED;
+  const lookDashboard = lookParam === DASHBOARD_LOOK
+    || lookCrewS8dDashboard
+    || lookDashboardJack
+    || lookDashboardSeed;
   const [editMode, setEditMode] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [addingWidget, setAddingWidget] = useState(false);
@@ -381,6 +414,7 @@ export function DashboardPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const widgetsBoxRef = useRef<HTMLDivElement>(null);
+  const [canvasW, setCanvasW] = useState(DASHBOARD_WIDGET_CANVAS_W);
   const now = new Date();
   const todayKey = dashboardTodayKey(now);
   const tomorrowKey = dashboardTodayKey(addDays(now, 1));
@@ -393,6 +427,7 @@ export function DashboardPage() {
   const { data: widgets, isLoading: widgetsLoading, error } = useQuery<DashboardWidget[]>({
     queryKey: ['dashboard-widgets'],
     queryFn: async () => {
+      if (lookDashboardSeed) return repairDashboardWidgetLayout(dashboardSeedLookWidgets()).widgets;
       if (lookDashboardJack) return repairDashboardWidgetLayout(dashboardJackLookWidgets()).widgets;
       if (lookDashboard) return repairDashboardWidgetLayout(dashboardLookWidgets()).widgets;
       const mock = getAuditDashboardWidgets();
@@ -465,6 +500,19 @@ export function DashboardPage() {
     },
     enabled: !!profile,
   });
+
+  useLayoutEffect(() => {
+    const node = widgetsBoxRef.current;
+    const report = () => {
+      const next = measureDashboardCanvasWidth(canvasRef.current, widgetsBoxRef.current);
+      setCanvasW(prev => (prev === next ? prev : next));
+    };
+    report();
+    if (!node || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(report);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [editMode, widgetsLoading, widgets?.length]);
 
   const { data: teamMembers } = useQuery<ScheduleCrewMember[]>({
     queryKey: ['dashboard-today-crew', lookDashboard],
@@ -757,17 +805,22 @@ export function DashboardPage() {
   }, [widgets, persistWidget, onResizeMove]);
 
   // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Canvas height: grows to fit all widgets Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+  const displayWidgets = useMemo(
+    () => clampDashboardWidgetsToCanvas(widgets ?? [], canvasW),
+    [widgets, canvasW],
+  );
+
   const canvasHeight = useMemo(() => {
-    const ws = widgets ?? [];
+    const ws = displayWidgets;
     const floor = editMode ? 320 : 0;
     if (!ws.length) return floor;
     const maxBottom = Math.max(...ws.map(w => w.grid_y + w.grid_h));
     return Math.max(floor, maxBottom + CANVAS_PAD);
-  }, [widgets, editMode]);
+  }, [displayWidgets, editMode]);
 
   const viewWidgets = useMemo(
-    () => sortDashboardWidgetsForView(widgets ?? []),
-    [widgets],
+    () => sortDashboardWidgetsForView(displayWidgets),
+    [displayWidgets],
   );
 
   if (pageQueryBlocked(error) || pageQueryBlocked(jobsError)) {
@@ -984,7 +1037,7 @@ export function DashboardPage() {
                           className={`dashboard-home-canvas relative overflow-x-auto is-editing`}
                           style={{ height: canvasHeight, minWidth: '100%' }}
                         >
-                          {(widgets ?? []).map(w => (
+                          {displayWidgets.map(w => (
                             <FreeWidget
                               key={w.id}
                               widget={w}

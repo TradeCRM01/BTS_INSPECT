@@ -46,6 +46,7 @@ describe('dashboard widgets LOOK — ink on the signed paper', () => {
     expect(page).not.toMatch(/\bute\b/i);
 
     expect(auth).toContain("params.get('look') === 'dashboard'");
+    expect(auth).toContain("params.get('look') === 'dashboard-seed'");
 
     expect(css).toContain('.dashboard-home-widgets');
     expect(css).toContain('.dashboard-home-widget-ink');

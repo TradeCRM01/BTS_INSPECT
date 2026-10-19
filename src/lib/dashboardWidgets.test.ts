@@ -4,6 +4,8 @@ import {
   DASHBOARD_WIDGET_CELL_H,
   DASHBOARD_WIDGET_CELL_W,
   DEFAULT_DASHBOARD_WIDGET_TYPES,
+  clampDashboardWidgetToCanvas,
+  clampDashboardWidgetsToCanvas,
   dashboardWidgetFitsCanvas,
   dashboardWidgetLayoutOverlaps,
   dashboardWidgetPixelSize,
@@ -413,6 +415,62 @@ describe('dashboard widget grid placement', () => {
     expect(rawLayoutOverlaps(next)).toBe(false);
     expect(repairDashboardWidgetLayout(next).changed).toBe(false);
     expect(next.find(row => row.id === 'weather')).toEqual(weather);
+  });
+
+  it('clamps right-edge Compliance into a 910 canvas without rewriting stored rows or overlapping', () => {
+    const rows: DashboardWidgetRect[] = [
+      { id: 'jobs', widget_type: 'upcoming_jobs', grid_x: 0, grid_y: 0, grid_w: 360, grid_h: 200 },
+      { id: 'invoices', widget_type: 'outstanding_invoices', grid_x: 376, grid_y: 0, grid_w: 280, grid_h: 200 },
+      { id: 'compliance', widget_type: 'compliance_deadlines', grid_x: 672, grid_y: 0, grid_w: 320, grid_h: 200 },
+    ];
+    const stored = rows.map(row => ({ ...row }));
+    const next = clampDashboardWidgetsToCanvas(rows, 910);
+    expect(next.find(row => row.id === 'compliance')).toMatchObject({ grid_x: 672, grid_w: 238 });
+    expect(next.every(row => row.grid_x + row.grid_w <= 910)).toBe(true);
+    expect(dashboardWidgetLayoutOverlaps(next)).toBe(false);
+    expect(rows).toEqual(stored);
+  });
+
+  it('relocates right-edge Compliance on a 686 canvas instead of shrinking to a sliver', () => {
+    const rows: DashboardWidgetRect[] = [
+      { id: 'jobs', widget_type: 'upcoming_jobs', grid_x: 0, grid_y: 0, grid_w: 360, grid_h: 200 },
+      { id: 'invoices', widget_type: 'outstanding_invoices', grid_x: 376, grid_y: 0, grid_w: 280, grid_h: 200 },
+      { id: 'compliance', widget_type: 'compliance_deadlines', grid_x: 672, grid_y: 0, grid_w: 320, grid_h: 200 },
+    ];
+    const stored = rows.map(row => ({ ...row }));
+    const next = clampDashboardWidgetsToCanvas(rows, 686);
+    const compliance = next.find(row => row.id === 'compliance')!;
+    expect(compliance.grid_w).toBeGreaterThanOrEqual(200);
+    expect(next.every(row => dashboardWidgetFitsCanvas(row, 686))).toBe(true);
+    expect(dashboardWidgetLayoutOverlaps(next)).toBe(false);
+    expect(rows).toEqual(stored);
+  });
+
+  it('clamps live Invoices at x=800 into 910 and 686 canvases without overlap', () => {
+    const live: DashboardWidgetRect[] = [
+      { id: 'w-jobs', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270 },
+      { id: 'w-weather1', widget_type: 'weather', grid_x: 540, grid_y: 20, grid_w: 260, grid_h: 270 },
+      { id: 'w-weather2', widget_type: 'weather', grid_x: 20, grid_y: 380, grid_w: 260, grid_h: 270 },
+      { id: 'w-invoices', widget_type: 'outstanding_invoices', grid_x: 800, grid_y: 380, grid_w: 260, grid_h: 180 },
+      { id: 'w-compliance', widget_type: 'compliance_deadlines', grid_x: 20, grid_y: 740, grid_w: 390, grid_h: 270 },
+    ];
+    for (const canvasW of [910, 686]) {
+      const next = clampDashboardWidgetsToCanvas(live, canvasW);
+      expect(next.every(row => dashboardWidgetFitsCanvas(row, canvasW))).toBe(true);
+      expect(dashboardWidgetLayoutOverlaps(next)).toBe(false);
+      expect(live.find(row => row.id === 'w-invoices')).toMatchObject({ grid_x: 800, grid_w: 260 });
+    }
+  });
+
+  it('fails the 1024 clip when the clamp is a no-op (mutant)', () => {
+    const rows: DashboardWidgetRect[] = [
+      { id: 'compliance', widget_type: 'compliance_deadlines', grid_x: 672, grid_y: 0, grid_w: 320, grid_h: 200 },
+    ];
+    const identity = (widgets: DashboardWidgetRect[]) => widgets.map(row => ({ ...row }));
+    const skipped = identity(rows);
+    expect(skipped.every(row => row.grid_x + row.grid_w <= 910)).toBe(false);
+    expect(clampDashboardWidgetToCanvas(rows[0], 910).grid_x + clampDashboardWidgetToCanvas(rows[0], 910).grid_w)
+      .toBeLessThanOrEqual(910);
   });
 
   it('filters the picker with the same helper the page uses', () => {

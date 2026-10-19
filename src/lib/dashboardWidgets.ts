@@ -108,6 +108,44 @@ export function dashboardWidgetFitsCanvas(
   return row.grid_x + row.grid_w <= canvasW;
 }
 
+/**
+ * Render-time fit. Does not rewrite stored rows.
+ * Shrink in place when the leftover strip is at least one cell; otherwise
+ * keep the widget's width and slide it so x+w fits. Callers repair overlap.
+ */
+export function clampDashboardWidgetToCanvas<T extends DashboardWidgetRect>(row: T, canvasW: number): T {
+  const origin = DASHBOARD_WIDGET_ORIGIN;
+  let w = Math.max(1, row.grid_w);
+  let x = row.grid_x;
+  if (w > canvasW) return { ...row, grid_x: origin, grid_w: canvasW };
+  if (x + w <= canvasW) return row;
+  const remaining = canvasW - x;
+  if (x < canvasW && remaining >= DASHBOARD_WIDGET_CELL_W) {
+    w = remaining;
+  } else {
+    x = Math.max(origin, canvasW - w);
+    if (x + w > canvasW) w = Math.max(1, canvasW - x);
+  }
+  if (x === row.grid_x && w === row.grid_w) return row;
+  return { ...row, grid_x: x, grid_w: w };
+}
+
+/**
+ * Clamp each widget so x+w fits the current canvas. Repair overlaps without
+ * shrinking widgets that already fit. Callers must not persist the result
+ * unless the user saves.
+ */
+export function clampDashboardWidgetsToCanvas<T extends DashboardWidgetRect>(
+  widgets: readonly T[],
+  canvasW: number,
+): T[] {
+  const width = Math.max(1, Math.floor(canvasW));
+  const fitted = widgets.map(row => clampDashboardWidgetToCanvas(row, width));
+  const overflow = fitted.some(row => !dashboardWidgetFitsCanvas(row, width));
+  if (!overflow && !dashboardWidgetLayoutOverlaps(fitted)) return fitted;
+  return repairDashboardWidgetLayout(fitted, width).widgets;
+}
+
 export function measureDashboardCanvasWidth(
   ...els: Array<{ clientWidth: number } | null | undefined>
 ): number {
