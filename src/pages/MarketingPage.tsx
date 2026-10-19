@@ -46,7 +46,7 @@ export function MarketingPage() {
             Quote, schedule, invoice.
           </p>
           <p className="hub-marketing-lede">
-            3 months free. Then pick a seat pack.
+            2 months free. Then one simple weekly price.
           </p>
           <div className="hub-marketing-cta">
             <Link to="/signup" className="hub-marketing-btn hub-marketing-btn-lg">Create a workspace</Link>
@@ -112,42 +112,21 @@ export function MarketingPage() {
           <p className="hub-marketing-kicker">Pricing</p>
           <h2 className="hub-marketing-subhead">What it costs.</h2>
           <p>
-            3 months free. Then you pay for seats. Every plan is the same Grafter. AUD, GST included.
+            2 months free. Then one simple weekly price. AUD, GST included.
           </p>
-          <div className="hub-marketing-grid">
+          <div className="hub-marketing-grid min-[800px]:!grid-cols-2">
             <article>
-              <p className="hub-marketing-kicker">Crew</p>
-              <p>1–5 seats</p>
-              <p className="hub-marketing-subhead" data-price-slot="crew">$59</p>
-              <p>
-                <span aria-hidden="true">mo</span>
-                <span className="sr-only">per month</span>
-              </p>
-              <p>GST included</p>
+              <p className="hub-marketing-kicker">Up to 10 seats</p>
+              <p>2 months free. Then one simple weekly price. GST included.</p>
+              <Link to="/signup" className="hub-marketing-btn mt-4">Create a workspace</Link>
             </article>
             <article>
-              <p className="hub-marketing-kicker">Company</p>
-              <p>6–15 seats</p>
-              <p className="hub-marketing-subhead" data-price-slot="company">$119</p>
-              <p>
-                <span aria-hidden="true">mo</span>
-                <span className="sr-only">per month</span>
-              </p>
-              <p>GST included</p>
-            </article>
-            <article>
-              <p className="hub-marketing-kicker">Plant</p>
-              <p>16–40 seats</p>
-              <p className="hub-marketing-subhead" data-price-slot="plant">$199</p>
-              <p>
-                <span aria-hidden="true">mo</span>
-                <span className="sr-only">per month</span>
-              </p>
-              <p>GST included</p>
+              <p className="hub-marketing-kicker">Crews over 10</p>
+              <p>Talk to us.</p>
             </article>
           </div>
           <p>
-            Every plan: jobs, custom templates, JHA, Take 5, SWMS. Seats are the only difference.
+            Same Grafter either way. Jobs, custom templates, JHA, Take 5, SWMS.
           </p>
         </section>
 
@@ -175,13 +154,13 @@ export function MarketingPage() {
             <details>
               <summary>How is GST handled?</summary>
               <p>
-                Prices are AUD, GST included. 3 months free, then the seat pack.
+                Prices are AUD, GST included.
               </p>
             </details>
             <details>
               <summary>What’s the difference between the plans?</summary>
               <p>
-                Seats. Crew, Company, and Plant are the same product.
+                One plan up to 10 seats, and bigger crews talk to us.
               </p>
             </details>
           </div>
@@ -192,7 +171,7 @@ export function MarketingPage() {
             Create a workspace.
           </h2>
           <p className="hub-marketing-lede">
-            3 months free. Instant signup. Your jobs, your templates, your letterhead.
+            2 months free. Instant signup. Your jobs, your templates, your letterhead.
           </p>
           <div className="hub-marketing-cta">
             <Link to="/signup" className="hub-marketing-btn hub-marketing-btn-lg">Create a workspace</Link>
@@ -251,7 +230,7 @@ function BoardChipLabel({
     <span
       className={`hub-marketing-block hub-marketing-block-long !block sm:!flex !h-auto sm:!h-6 !overflow-visible !text-[11px] leading-tight !px-1 sm:!px-2 !left-1 !right-1 !w-auto sm:!left-[4%] sm:!right-auto sm:!w-[88%] ${className}`.trim()}
     >
-      <span className="w-full min-w-0 whitespace-normal sm:whitespace-nowrap tracking-tighter sm:tracking-normal">
+      <span className="w-full min-w-0 whitespace-normal sm:whitespace-nowrap tracking-normal">
         <span className="whitespace-nowrap sm:whitespace-nowrap">{jobRef} · {title}</span>
         <span className="block sm:inline">
           <span className="hidden sm:inline"> · </span>
