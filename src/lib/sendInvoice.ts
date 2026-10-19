@@ -1,4 +1,5 @@
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
+import { safeFormatDate } from './safeDate';
 import { quoteClientDetailFromClient } from './clientRecords';
 import { asStringList } from './asStringList';
 import { linesFromQuoteItems, type CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
@@ -208,7 +209,7 @@ export type InvoiceSendCopyKind = 'first' | 'chase' | 'receipt';
 export function invoiceDueLabel(dueDate: string | null | undefined): string | null {
   const day = (dueDate ?? '').trim().slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
-  return format(parseISO(day), 'd MMM yyyy');
+  return safeFormatDate(day, 'd MMM yyyy');
 }
 
 /** Draft first-send stays signed invoice Send. Overdue / sent-again is chase. Paid is receipt. */
@@ -1354,7 +1355,7 @@ export function commercialPdfDataForInvoice(bundle: InvoiceSendBundle, now = new
     dateLabel: 'Date',
     dateValue: format(now, 'd MMM yyyy'),
     secondaryLabel: 'Due',
-    secondaryValue: invoice.due_date ? format(parseISO(invoice.due_date), 'd MMM yyyy') : '—',
+    secondaryValue: invoice.due_date ? safeFormatDate(invoice.due_date, 'd MMM yyyy') : '—',
     clientName: bundle.client?.name ?? '—',
     clientDetail: quoteClientDetailFromClient(bundle.client, bundle.jobAddress),
     company: {

@@ -134,7 +134,8 @@ import {
   transcriptFromSpeechEvent,
   type QuickSpeechRecognition,
 } from '../lib/quickQuote';
-import { format, parseISO, addDays } from 'date-fns';
+import { format, addDays } from 'date-fns';
+import { safeFormatDate } from '../lib/safeDate';
 
 type StatusFilter = 'all' | typeof QUOTE_CHASE_FILTER | QuoteStatus;
 
@@ -1271,7 +1272,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
       dateLabel: 'Date',
       dateValue: format(new Date(), 'd MMM yyyy'),
       secondaryLabel: 'Valid until',
-      secondaryValue: form.validity_date ? format(parseISO(form.validity_date), 'd MMM yyyy') : '—',
+      secondaryValue: form.validity_date ? safeFormatDate(form.validity_date, 'd MMM yyyy') : '—',
       clientName: selectedClient?.name ?? '—',
       clientDetail: quoteClientDetailFromClient(
         selectedClient
@@ -1750,7 +1751,7 @@ function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert,
               <h2 className="hub-quote-editor-title">{editorTitle}</h2>
               <p className="hub-quote-banner-meta">
                 {QUOTE_STATUS_LABELS[form.status]}
-                {form.validity_date ? ` · Valid ${format(parseISO(form.validity_date), 'd MMM yyyy')}` : ''}
+                {form.validity_date ? ` · Valid ${safeFormatDate(form.validity_date, 'd MMM yyyy')}` : ''}
               </p>
             </div>
           </header>

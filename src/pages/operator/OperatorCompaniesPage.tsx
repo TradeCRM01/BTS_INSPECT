@@ -16,6 +16,7 @@ import {
   type CompanyBillingStatus,
   type OperatorCompanyRow,
 } from '../../lib/platformOperator';
+import { safeLocaleDateString } from '../../lib/safeDate';
 
 const ACCESS_FILTERS: { id: 'all' | CompanyAccessStatus; label: string }[] = [
   { id: 'all', label: 'All access' },
@@ -141,7 +142,7 @@ export function OperatorCompaniesPage() {
                   <td className="px-4 py-3">{grafterPlan(row.plan).name}</td>
                   <td className="px-4 py-3">{row.people_count}</td>
                   <td className="px-4 py-3 text-[#4A5568]">
-                    {row.created_at ? new Date(row.created_at).toLocaleDateString() : '—'}
+                    {row.created_at ? safeLocaleDateString(row.created_at) : '—'}
                   </td>
                 </tr>
               ))}

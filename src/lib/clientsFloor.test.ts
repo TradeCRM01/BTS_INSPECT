@@ -124,6 +124,7 @@ describe('open the client, see jobs, open a job', () => {
     expect(clientJobStatusLabel('in_progress')).toBe('In Progress');
     expect(clientJobStatusLabel('scheduled')).toBe('Scheduled');
     expect(formatClientJobDate('2026-08-12')).toBe('12 Aug 2026');
+    expect(formatClientJobDate('212026-02-11')).toBe('—');
     expect(formatClientJobTime('07:30:00')).toBe('07:30');
     expect(clientJobFloorMeta({
       address: '88 Workshop Rd, Perth WA 6000',

@@ -7,7 +7,7 @@ import { getAuditClients, getAuditEmptyList } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
-import { format, parseISO } from 'date-fns';
+import { safeFormatDate } from '../lib/safeDate';
 import { ExternalLink, Copy, Check, Ban, Plus, RefreshCw, Link2, Clock, FileText, Receipt, Wrench } from 'lucide-react';
 import type { Client } from '../types/crm';
 import { formatMoney } from '../types/fsm';
@@ -191,10 +191,10 @@ export function CustomerPortalPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-[#4A5568] text-xs">
-                      {t.last_accessed_at ? format(parseISO(t.last_accessed_at), 'dd MMM yyyy, HH:mm') : 'Never'}
+                      {t.last_accessed_at ? safeFormatDate(t.last_accessed_at, 'dd MMM yyyy, HH:mm') : 'Never'}
                     </td>
                     <td className="px-4 py-3 text-[#4A5568] text-xs">
-                      {t.expires_at ? format(parseISO(t.expires_at), 'dd MMM yyyy') : '—'}
+                      {t.expires_at ? safeFormatDate(t.expires_at, 'dd MMM yyyy') : '—'}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">

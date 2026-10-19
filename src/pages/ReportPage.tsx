@@ -12,7 +12,7 @@ import { FileText, ChevronLeft, CreditCard as Edit2, PenLine, MoreHorizontal } f
 import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
 import { persistGeneratedReportPdf, reportIsSent, reportPdfFilename, reportSiteName } from '../lib/sendReport';
 import { applyLivingJobToInspection } from '../lib/livingJha';
-import { format } from 'date-fns';
+import { safeFormatDate } from '../lib/safeDate';
 import { PdfViewer } from '../components/pdf/PdfViewer';
 import { AnnotationToolbar } from '../components/pdf/AnnotationToolbar';
 import { flattenAnnotations } from '../lib/flattenAnnotations';
@@ -706,7 +706,7 @@ export function ReportPage() {
                   <p className="text-sm text-[#4A5568] mt-1">Click "Generate PDF" to create the report.</p>
                   {existingReport && (
                     <p className="text-xs text-[#4A5568] mt-2">
-                      Last generated: {format(new Date(existingReport.generated_at), 'd MMM yyyy HH:mm')}
+                      Last generated: {safeFormatDate(existingReport.generated_at, 'd MMM yyyy HH:mm')}
                     </p>
                   )}
                 </div>

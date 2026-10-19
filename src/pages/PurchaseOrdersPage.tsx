@@ -19,7 +19,7 @@ import {
   Plus, Search, FileText, X, Trash2, PackagePlus, PackageCheck,
   Package, ArrowRight,
 } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { safeFormatDate } from '../lib/safeDate';
 
 /** List chrome only. Same week-board / #145 quiet elevation. Not a new kit. */
 const PO_LIST_LOOK_CSS = `
@@ -227,7 +227,7 @@ export function PurchaseOrdersPage() {
                   {po.job_title && <p className="text-xs text-[#4A5568] mb-2 truncate">Job: {po.job_title}</p>}
                   <p className="text-lg font-bold text-[#1A1A1A] mb-2">{formatMoney(po.total)}</p>
                   <div className="flex items-center justify-between text-xs text-[#4A5568]">
-                    <span>Expected: {po.expected_delivery_date ? format(parseISO(po.expected_delivery_date), 'd MMM yyyy') : '—'}</span>
+                    <span>Expected: {po.expected_delivery_date ? safeFormatDate(po.expected_delivery_date, 'd MMM yyyy') : '—'}</span>
                     {po.status === 'draft' && (
                       <button onClick={(e) => { e.stopPropagation(); setSendingPoId(po.id); }}
                         className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-[#2E75B6] bg-[#EFF6FF] rounded-md hover:bg-[#DBEAFE] transition-colors">
@@ -314,9 +314,9 @@ function PORow({ po, onOpen, onSend, onReceive }: {
       </td>
       <td className="px-4 py-3 text-right font-medium text-[#1A1A1A]">{formatMoney(po.total)}</td>
       <td className="px-4 py-3 text-[#4A5568]">
-        {po.expected_delivery_date ? format(parseISO(po.expected_delivery_date), 'd MMM yyyy') : <span className="text-[#9CA3AF]">—</span>}
+        {po.expected_delivery_date ? safeFormatDate(po.expected_delivery_date, 'd MMM yyyy') : <span className="text-[#9CA3AF]">—</span>}
       </td>
-      <td className="px-4 py-3 text-[#6B7280]">{format(parseISO(po.created_at), 'd MMM yyyy')}</td>
+      <td className="px-4 py-3 text-[#6B7280]">{safeFormatDate(po.created_at, 'd MMM yyyy')}</td>
       <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
         {po.status === 'draft' && (
           <button onClick={() => onSend(po.id)}

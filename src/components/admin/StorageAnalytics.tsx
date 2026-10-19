@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { HardDrive, TrendingDown, Database, Zap, AlertCircle } from 'lucide-react';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { safeLocaleDateString } from '../../lib/safeDate';
 
 interface StorageData {
   company_name: string;
@@ -197,7 +198,7 @@ export function StorageAnalytics() {
 
       {/* Last updated */}
       <div className="text-xs text-[#4A5568]">
-        Last photo: {data.most_recent_photo ? new Date(data.most_recent_photo).toLocaleDateString() : 'Never'}
+        Last photo: {data.most_recent_photo ? safeLocaleDateString(data.most_recent_photo) : 'Never'}
       </div>
     </div>
   );

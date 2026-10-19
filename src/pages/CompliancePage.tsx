@@ -29,6 +29,15 @@ import { LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmD
 import type { MenuEntry } from '../components/ui';
 import { format } from 'date-fns';
 import {
+  HOTFIX_BAD_DATE_ISO,
+  dateSaveIso,
+  isoToAuInput,
+  isYearInRange,
+  parseAuDateInput,
+  safeFormatDate,
+} from '../lib/safeDate';
+import { AuDateInput } from '../components/ui/AuDateInput';
+import {
   Plus, X, Trash2, Pencil, MoreHorizontal,
   ShieldCheck, Pause, Play, CheckCircle2, History, Mail,
 } from 'lucide-react';
@@ -44,6 +53,8 @@ import type { Client } from '../types/crm';
 
 /** Signed compliance-list frame seed — list look only, not a live company. */
 const COMPLIANCE_LIST_LOOK = 'compliance-list';
+/** Local 212026 due-date fixture. Not prod data. */
+const HOTFIX_DATE_LOOK = 'hotfix-date-bad';
 
 function complianceListLookItems(): ComplianceItemWithClient[] {
   const stamp = '2026-09-03T00:00:00.000Z';
@@ -101,6 +112,33 @@ function complianceListLookItems(): ComplianceItemWithClient[] {
   ];
 }
 
+function hotfixDateBadItems(): ComplianceItemWithClient[] {
+  const stamp = '2026-10-19T00:00:00.000Z';
+  return [{
+    id: 'hotfix-date-bad',
+    company_id: 'look-hotfix-date',
+    client_id: 'look-client-tom',
+    title: 'Backflow test delete ok',
+    description: null,
+    standard_or_regulation: null,
+    recurrence_interval: 12,
+    recurrence_unit: 'months',
+    first_due_date: HOTFIX_BAD_DATE_ISO,
+    last_completed_date: null,
+    next_due_date: HOTFIX_BAD_DATE_ISO,
+    reminder_days_before: 30,
+    reminder_sent_at: null,
+    linked_job_id: null,
+    notes: null,
+    created_at: stamp,
+    updated_at: stamp,
+    status: 'upcoming',
+    client_name: 'Tom Nguyen',
+    client_email: null,
+    client_phone: null,
+  }];
+}
+
 function complianceListWhisper(args: { filter: ComplianceListFilter; count: number }): string {
   const filterLabel = COMPLIANCE_LIST_FILTERS.find(tab => tab.key === args.filter)?.label ?? 'All';
   const countLabel = args.count === 1 ? '1 item' : `${args.count} items`;
@@ -113,6 +151,7 @@ export function CompliancePage() {
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const lookComplianceList = searchParams.get('look') === COMPLIANCE_LIST_LOOK;
+  const lookHotfixDate = searchParams.get('look') === HOTFIX_DATE_LOOK;
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<ComplianceListFilter>(
     lookComplianceList ? 'all' : COMPLIANCE_LIST_DEFAULT_FILTER,
@@ -151,7 +190,7 @@ export function CompliancePage() {
         client_phone: clientMap.get(c.client_id)?.phone ?? null,
       })) as ComplianceItemWithClient[];
     },
-    enabled: !!profile && !lookComplianceList,
+    enabled: !!profile && !lookComplianceList && !lookHotfixDate,
   });
 
   const deleteMutation = useMutation({
@@ -254,7 +293,11 @@ export function CompliancePage() {
     },
   });
 
-  const listRows = lookComplianceList ? complianceListLookItems() : (items ?? []);
+  const listRows = lookHotfixDate
+    ? hotfixDateBadItems()
+    : lookComplianceList
+      ? complianceListLookItems()
+      : (items ?? []);
   const decorated = useMemo(
     () => decorateComplianceList(listRows),
     [listRows],
@@ -267,9 +310,9 @@ export function CompliancePage() {
     [decorated, search, statusFilter],
   );
 
-  const loading = !lookComplianceList && isLoading;
-  const noneAtAll = !lookComplianceList && !loading && (listRows.length === 0);
-  const noneMatch = !lookComplianceList && !loading && decorated.length > 0 && floorItems.length === 0;
+  const loading = !lookComplianceList && !lookHotfixDate && isLoading;
+  const noneAtAll = !lookComplianceList && !lookHotfixDate && !loading && (listRows.length === 0);
+  const noneMatch = !lookComplianceList && !lookHotfixDate && !loading && decorated.length > 0 && floorItems.length === 0;
   const openedItem = lookComplianceList ? null : complianceListOpened(decorated, openId);
   const recordOpen = !!openedItem;
   const whisper = complianceListWhisper({ filter: statusFilter, count: floorItems.length });
@@ -361,7 +404,7 @@ export function CompliancePage() {
                 </div>
               ) : null}
 
-              {!loading && (floorItems.length > 0 || lookComplianceList) && (
+              {!loading && (floorItems.length > 0 || lookComplianceList || lookHotfixDate) && (
                 <>
                   <div className="hub-compliance-thead">
                     <span>Item</span>
@@ -776,14 +819,16 @@ function ComplianceForm({
     standard_or_regulation: item?.standard_or_regulation ?? '',
     recurrence_interval: String(item?.recurrence_interval ?? 12),
     recurrence_unit: item?.recurrence_unit ?? 'months',
-    first_due_date: item?.first_due_date ?? format(new Date(), 'yyyy-MM-dd'),
-    last_completed_date: item?.last_completed_date ?? '',
+    first_due_date: isoToAuInput(item?.first_due_date ?? format(new Date(), 'yyyy-MM-dd')),
+    last_completed_date: isoToAuInput(item?.last_completed_date ?? ''),
     reminder_days_before: String(item?.reminder_days_before ?? 30),
     notes: item?.notes ?? '',
   });
   const [clients, setClients] = useState<Client[]>([]);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [firstDueError, setFirstDueError] = useState<string | null>(null);
+  const [lastCompletedError, setLastCompletedError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase
@@ -799,11 +844,34 @@ function ComplianceForm({
     e.preventDefault();
     setSaving(true);
     setErr(null);
+    setFirstDueError(null);
+    setLastCompletedError(null);
+    const firstDue = parseAuDateInput(form.first_due_date);
+    if (!firstDue.ok) {
+      setFirstDueError(firstDue.error);
+      setErr(firstDue.error);
+      setSaving(false);
+      return;
+    }
+    const firstYear = Number(firstDue.iso.slice(0, 4));
+    if (!isYearInRange(firstYear)) {
+      setFirstDueError('Enter a date with a year between 1900 and 2100');
+      setErr('Enter a date with a year between 1900 and 2100');
+      setSaving(false);
+      return;
+    }
+    const lastCompletedParsed = dateSaveIso(form.last_completed_date, false);
+    if (!lastCompletedParsed.ok) {
+      setLastCompletedError(lastCompletedParsed.error);
+      setErr(lastCompletedParsed.error);
+      setSaving(false);
+      return;
+    }
     try {
       const interval = parseInt(form.recurrence_interval) || 12;
       const unit = form.recurrence_unit as RecurrenceUnit;
-      const lastCompleted = form.last_completed_date || null;
-      const nextDue = computeNextDueDate(lastCompleted, form.first_due_date, interval, unit);
+      const lastCompleted = lastCompletedParsed.iso;
+      const nextDue = computeNextDueDate(lastCompleted, firstDue.iso, interval, unit);
       const status = deriveComplianceStatus(nextDue, lastCompleted, false);
 
       const payload = {
@@ -814,7 +882,7 @@ function ComplianceForm({
         standard_or_regulation: form.standard_or_regulation || null,
         recurrence_interval: interval,
         recurrence_unit: unit,
-        first_due_date: form.first_due_date,
+        first_due_date: firstDue.iso,
         last_completed_date: lastCompleted,
         next_due_date: nextDue,
         reminder_days_before: parseInt(form.reminder_days_before) || 30,
@@ -930,20 +998,20 @@ function ComplianceForm({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="First Due Date *">
-              <input
-                type="date"
+              <AuDateInput
+                id="compliance-first-due-date"
                 required
                 value={form.first_due_date}
-                onChange={e => setForm(f => ({ ...f, first_due_date: e.target.value }))}
-                className="form-input"
+                onChange={v => { setFirstDueError(null); setForm(f => ({ ...f, first_due_date: v })); }}
+                error={firstDueError}
               />
             </Field>
             <Field label="Last Completed (optional)">
-              <input
-                type="date"
+              <AuDateInput
+                id="compliance-last-completed-date"
                 value={form.last_completed_date}
-                onChange={e => setForm(f => ({ ...f, last_completed_date: e.target.value }))}
-                className="form-input"
+                onChange={v => { setLastCompletedError(null); setForm(f => ({ ...f, last_completed_date: v })); }}
+                error={lastCompletedError}
               />
             </Field>
           </div>
@@ -1033,7 +1101,7 @@ function ComplianceHistoryModal({
                 </p>
                 {log.notes && <p className="text-xs text-[#6B7280] mt-0.5">{log.notes}</p>}
                 <p className="text-xs text-[#9CA3AF] mt-0.5">
-                  {format(new Date(log.created_at), 'dd MMM yyyy, HH:mm')}
+                  {safeFormatDate(log.created_at, 'dd MMM yyyy, HH:mm')}
                 </p>
               </div>
             </div>

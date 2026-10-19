@@ -6,7 +6,7 @@ import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
-import { format, parseISO } from 'date-fns';
+import { safeFormatDate } from '../lib/safeDate';
 import {
   ScanLine, Camera, Search, Package, Plus, Minus, Check, X,
   AlertCircle, History, Trash2, ArrowRight,
@@ -349,7 +349,7 @@ export function BarcodeScannerPage() {
                         <p className="text-sm font-medium text-[#1A1A1A] truncate">
                           {log.stock_items?.name ?? log.barcode}
                         </p>
-                        <p className="text-xs text-[#6B7280]">{format(parseISO(log.created_at), 'dd MMM, HH:mm')}</p>
+                        <p className="text-xs text-[#6B7280]">{safeFormatDate(log.created_at, 'dd MMM, HH:mm')}</p>
                       </div>
                       {log.matched ? (
                         <Check size={14} className="text-green-600 shrink-0" />

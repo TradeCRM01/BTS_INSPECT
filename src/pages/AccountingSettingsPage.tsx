@@ -8,7 +8,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { Switch } from '../components/ui/Switch';
-import { format, parseISO } from 'date-fns';
+import { safeFormatDate } from '../lib/safeDate';
 import { MoreHorizontal } from 'lucide-react';
 import {
   ACCOUNTING_SETTINGS_PATH,
@@ -199,7 +199,7 @@ export function AccountingSettingsPage() {
   if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load accounting settings" /></AppShell>;
 
   const lastSynced = settings?.last_synced_at
-    ? format(parseISO(settings.last_synced_at), 'dd MMM yyyy, HH:mm')
+    ? safeFormatDate(settings.last_synced_at, 'dd MMM yyyy, HH:mm')
     : null;
 
   const missText = actionMsg?.kind === 'miss'

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
+import { safeFormatDate } from '../lib/safeDate';
 import {
   CloudSun, ArrowRight,
   CheckCircle, FileText, LayoutTemplate, Calendar as CalIcon,
@@ -340,7 +341,7 @@ export function RecentInspectionsWidget() {
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-[#1A1A1A] truncate">{meta?.siteName ?? 'Untitled'}</p>
                     <p className="text-[10px] text-gray-400 truncate">
-                      {(snapshot?.name as string) ?? ''} · {format(new Date(insp.started_at), 'd MMM')}
+                      {(snapshot?.name as string) ?? ''} · {safeFormatDate(insp.started_at, 'd MMM')}
                     </p>
                   </div>
                   <ArrowRight size={12} className="text-gray-300 shrink-0" />
@@ -497,7 +498,7 @@ export function PendingReportsWidget() {
                   <FileText size={14} className="text-amber-400 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-[#1A1A1A] truncate">{meta?.siteName ?? 'Untitled'}</p>
-                    <p className="text-[10px] text-gray-400">{format(new Date(insp.started_at), 'd MMM yyyy')}</p>
+                    <p className="text-[10px] text-gray-400">{safeFormatDate(insp.started_at, 'd MMM yyyy')}</p>
                   </div>
                 </button>
               );
@@ -541,7 +542,7 @@ export function ActivityFeedWidget() {
                   {isComplete ? 'Completed' : 'Started'}: {meta?.siteName ?? 'Untitled'}
                 </p>
                 <p className="text-[10px] text-gray-400">
-                  {format(new Date(insp.completed_at ?? insp.started_at), 'd MMM, HH:mm')}
+                  {safeFormatDate(insp.completed_at ?? insp.started_at, 'd MMM, HH:mm')}
                 </p>
               </div>
             </div>
@@ -656,10 +657,10 @@ export function UpcomingJobsWidget({ config }: WidgetProps) {
               className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
               <div className="text-center shrink-0 w-9">
                 <div className="text-[10px] text-gray-400 uppercase">
-                  {job.scheduled_date ? format(new Date(job.scheduled_date), 'MMM') : '?'}
+                  {job.scheduled_date ? safeFormatDate(job.scheduled_date, 'MMM') : '?'}
                 </div>
                 <div className="text-sm font-bold text-[#1A1A1A] leading-none">
-                  {job.scheduled_date ? format(new Date(job.scheduled_date), 'd') : '-'}
+                  {job.scheduled_date ? safeFormatDate(job.scheduled_date, 'd') : '-'}
                 </div>
               </div>
               <div className="min-w-0 flex-1">
@@ -903,7 +904,7 @@ export function OutstandingInvoicesWidget({ config }: WidgetProps) {
                 <div key={i.id} className="flex items-center justify-between text-[10px]">
                   <span className="text-gray-500">
                     INV #{String(i.invoice_number).padStart(4, '0')}
-                    {i.due_date && ` · due ${format(new Date(i.due_date), 'd MMM')}`}
+                    {i.due_date && ` · due ${safeFormatDate(i.due_date, 'd MMM')}`}
                   </span>
                   <span className="font-medium text-[#1A1A1A]">{formatMoney(invoiceBalanceOwed(i) || Number(i.total ?? 0))}</span>
                 </div>

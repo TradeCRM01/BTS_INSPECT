@@ -1,4 +1,5 @@
-import { addDays, differenceInCalendarDays, format } from 'date-fns';
+import { addDays, differenceInCalendarDays } from 'date-fns';
+import { safeFormatDate } from './safeDate';
 import { formatMoney } from '../types/fsm';
 import { dashboardJobPlace } from './dashboardHome';
 import { formatJobRef } from './jobRef';
@@ -228,7 +229,7 @@ export function invoiceChasePatch(invoice: { status: string }, now: Date): { upd
 
 function quoteValidTo(validityDate: string | null | undefined): string {
   const key = scheduleDayKey(validityDate);
-  return key ? `Valid to ${format(localDay(key), 'd MMM')}` : '';
+  return key ? `Valid to ${safeFormatDate(localDay(key), 'd MMM')}` : '';
 }
 
 /** Job start as a local instant on its scheduled day, or null when the job has no clock. */
@@ -243,7 +244,7 @@ export function nudgeJobStart(job: Pick<NudgeJob, 'scheduled_date' | 'start_time
 
 export function nudgeClockLabel(job: Pick<NudgeJob, 'scheduled_date' | 'start_time'>): string {
   const start = nudgeJobStart(job);
-  return start ? format(start, 'h:mm aaa') : 'All day';
+  return start ? safeFormatDate(start, 'h:mm aaa') : 'All day';
 }
 
 export function nudgeJobDetail(job: NudgeJob): string {

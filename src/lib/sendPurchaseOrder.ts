@@ -1,4 +1,5 @@
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
+import { safeFormatDate } from './safeDate';
 import { quoteClientDetailFromClient } from './clientRecords';
 import { type CommercialLine, type CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { companyDocumentLogoUrl, companyReportTheme } from './companyLogo';
@@ -163,7 +164,7 @@ export function purchaseOrderSmsBody(opts: {
 export function purchaseOrderExpectedLabel(expectedDate: string | null | undefined): string | null {
   const day = (expectedDate ?? '').trim().slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
-  return format(parseISO(day), 'd MMM yyyy');
+  return safeFormatDate(day, 'd MMM yyyy');
 }
 
 export function purchaseOrderSendHtml(opts: {
@@ -430,7 +431,7 @@ export function commercialPdfDataForPurchaseOrder(
     dateValue: format(now, 'd MMM yyyy'),
     secondaryLabel: 'Expected',
     secondaryValue: po.expected_delivery_date
-      ? format(parseISO(po.expected_delivery_date), 'd MMM yyyy')
+      ? safeFormatDate(po.expected_delivery_date, 'd MMM yyyy')
       : '—',
     clientName: bundle.supplier?.name ?? '—',
     clientDetail: quoteClientDetailFromClient(bundle.supplier, bundle.jobAddress),

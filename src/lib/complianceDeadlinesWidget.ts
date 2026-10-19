@@ -1,3 +1,5 @@
+import { safeLocaleDateString } from './safeDate';
+
 /** Live `compliance_items` columns (migration 038). No type / expiry_date / assigned_to. */
 export const COMPLIANCE_DEADLINES_SELECT = 'id, title, next_due_date, status' as const;
 
@@ -32,8 +34,7 @@ export function addComplianceDueDays(ymd: string, days: number): string {
 }
 
 export function complianceDueDayLabel(ymd: string): string {
-  const [y, m, d] = ymd.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+  return safeLocaleDateString(ymd, 'en-AU', { day: 'numeric', month: 'short' });
 }
 
 export function complianceUpcomingHint(due: string, today: string): string {

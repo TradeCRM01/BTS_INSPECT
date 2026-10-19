@@ -8,7 +8,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner as _LoadingSpinner, PageError } from '../components/ui';
 import { SkeletonList } from '../components/ui/Skeletons';
 import { Plus, LayoutTemplate, Zap, ChevronRight, Archive, ArchiveRestore, Copy, ShieldCheck } from 'lucide-react';
-import { format } from 'date-fns';
+import { safeFormatDate } from '../lib/safeDate';
 
 type Tab = 'inspections' | 'jha';
 
@@ -212,7 +212,7 @@ export function TemplatesPage() {
                       <p className="text-sm font-medium text-[#1A1A1A] truncate">{tmpl.name}</p>
                       <p className="text-xs text-[#4A5568]">
                         {tmpl.report_renderer === 'electrical_3000' ? 'AS/NZS 3000:2018' : 'Generic Inspection'} ·{' '}
-                        Updated {format(new Date(tmpl.updated_at), 'd MMM yyyy')}
+                        Updated {safeFormatDate(tmpl.updated_at, 'd MMM yyyy')}
                       </p>
                     </div>
                   </div>
@@ -284,7 +284,7 @@ export function TemplatesPage() {
                         <p className="text-sm font-medium text-[#1A1A1A] truncate">{tmpl.name}</p>
                         <p className="text-xs text-[#4A5568]">
                           {schema.riskLevels?.length ?? 0} risk levels · {schema.ppeOptions?.length ?? 0} PPE items · {schema.signOffRoles?.length ?? 0} sign-off roles ·{' '}
-                          Updated {format(new Date(tmpl.updated_at), 'd MMM yyyy')}
+                          Updated {safeFormatDate(tmpl.updated_at, 'd MMM yyyy')}
                         </p>
                       </div>
                     </div>

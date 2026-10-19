@@ -12,7 +12,7 @@ import { getAuditEmptyList, getAuditStockItem } from '../lib/devFieldAuditDocs';
 import {
   getStockLevel, STOCK_LEVEL_STYLES, STOCK_LEVEL_LABELS, formatMoney,
 } from '../types/fsm';
-import { format, parseISO } from 'date-fns';
+import { safeFormatDate } from '../lib/safeDate';
 import {
   Package, Tag, MapPin, Pencil, AlertTriangle, ArrowUpCircle,
   ArrowDownCircle, RotateCcw, SlidersHorizontal, TrendingUp, ArrowRightLeft,
@@ -266,7 +266,7 @@ export function StockDetailPage() {
                       return (
                         <tr key={m.id} className="border-b border-[#F3F4F6] last:border-0">
                           <td className="px-5 py-3 text-[#4A5568] whitespace-nowrap">
-                            {format(parseISO(m.created_at), 'd MMM yyyy')}
+                            {safeFormatDate(m.created_at, 'd MMM yyyy')}
                           </td>
                           <td className="px-3 py-3">
                             <span className="inline-flex items-center gap-1.5 text-[#1A1A1A]">

@@ -105,7 +105,8 @@ import {
 import { invoiceChase, invoiceChaseChipLabel, invoiceChasePatch } from '../lib/nudges';
 import { INVOICE_STATUS_LABELS, formatMoney } from '../types/fsm';
 import { Plus, Receipt, Download, X, MoreHorizontal, Mail, Phone, User } from 'lucide-react';
-import { format, parseISO, addDays } from 'date-fns';
+import { format, addDays } from 'date-fns';
+import { safeFormatDate } from '../lib/safeDate';
 
 const padInv = (n: number | null) => String(n ?? 0).padStart(4, '0');
 
@@ -1136,7 +1137,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       dateLabel: 'Date',
       dateValue: format(new Date(), 'd MMM yyyy'),
       secondaryLabel: 'Due',
-      secondaryValue: form.due_date ? format(parseISO(form.due_date), 'd MMM yyyy') : '—',
+      secondaryValue: form.due_date ? safeFormatDate(form.due_date, 'd MMM yyyy') : '—',
       clientName: selectedClient?.name ?? '—',
       clientDetail: quoteClientDetailFromClient(selectedClient, selectedJob?.address),
       company: commercialPdfCompanyFrom(company),
@@ -1555,7 +1556,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
               <h2 className="hub-invoice-editor-title">{editorTitle}</h2>
               <p className="hub-invoice-banner-meta">
                 {invoiceListStatusLabel({ status: form.status, total: grandTotal, amount_paid: recordedPaid, due_date: form.due_date })}
-                {form.due_date ? ` · Due ${format(parseISO(form.due_date), 'd MMM yyyy')}` : ''}
+                {form.due_date ? ` · Due ${safeFormatDate(form.due_date, 'd MMM yyyy')}` : ''}
               </p>
               {sheetStatusChip ? (
                 <span className={`hub-invoices-pill ${sheetStatusChip.pillClass} hub-invoice-sheet-chip`}>
@@ -1747,7 +1748,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
               <ul>
                 {paymentRows.map(row => (
                   <li key={row.id}>
-                    <span>{format(parseISO(row.paid_at), 'dd/MM/yyyy')}</span>
+                    <span>{safeFormatDate(row.paid_at, 'dd/MM/yyyy')}</span>
                     <span>{INVOICE_PAYMENT_METHOD_LABELS[row.method]}</span>
                     <span>{row.reference || '—'}</span>
                     <span className="hub-invoice-num">{formatMoney(row.amount)}</span>

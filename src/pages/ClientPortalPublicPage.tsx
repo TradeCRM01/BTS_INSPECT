@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { format, parseISO } from 'date-fns';
+import { safeFormatDate } from '../lib/safeDate';
 import { Download, FileText, Receipt, Wrench, Building2, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
@@ -428,7 +428,7 @@ export function ClientPortalPublicPage() {
                 <p className="portal-muted">{portalQuoteStatusLabel(q.status)}</p>
                 {auditPortal && q.scheduled_date && q.assigned_team?.length ? (
                   <p className="portal-muted">
-                    {format(parseISO(q.scheduled_date), 'dd MMM yyyy')} · {q.assigned_team.length} crew
+                    {safeFormatDate(q.scheduled_date, 'dd MMM yyyy')} · {q.assigned_team.length} crew
                   </p>
                 ) : null}
               </div>
@@ -461,7 +461,7 @@ export function ClientPortalPublicPage() {
                   <p className="portal-row-ref">{invoiceRef}</p>
                   <p className="portal-muted">{portalInvoiceStatusLabel(inv.status)}</p>
                   {inv.due_date && portalStatusKey(inv.status) !== 'paid' ? (
-                    <p className="portal-muted">Due {format(parseISO(inv.due_date), 'd MMM yyyy')}</p>
+                    <p className="portal-muted">Due {safeFormatDate(inv.due_date, 'd MMM yyyy')}</p>
                   ) : null}
                   {Number(inv.amount_paid ?? 0) > 0 && portalStatusKey(inv.status) !== 'paid' ? (
                     <p className="portal-muted">
@@ -506,7 +506,7 @@ export function ClientPortalPublicPage() {
             <p className="portal-muted">
               {j.status}
               {j.job_number != null ? ` · #${String(j.job_number).padStart(4, '0')}` : ''}
-              {j.scheduled_date ? ` · ${format(parseISO(j.scheduled_date), 'dd MMM yyyy')}` : ''}
+              {j.scheduled_date ? ` · ${safeFormatDate(j.scheduled_date, 'dd MMM yyyy')}` : ''}
               {auditPortal && j.assigned_team?.length ? ` · ${j.assigned_team.length} crew` : ''}
             </p>
           </div>
@@ -520,7 +520,7 @@ export function ClientPortalPublicPage() {
               <p className="portal-row-ref">{r.siteName ?? r.templateName ?? 'Report'}</p>
               <p className="portal-muted">
                 {r.reportNumber ?? '—'}
-                {r.issuedAt ? ` · ${format(parseISO(r.issuedAt), 'dd MMM yyyy')}` : ''}
+                {r.issuedAt ? ` · ${safeFormatDate(r.issuedAt, 'dd MMM yyyy')}` : ''}
                 {r.docVersion > 1 ? ` · v${r.docVersion}` : ''}
               </p>
             </div>

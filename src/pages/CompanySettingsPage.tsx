@@ -15,6 +15,7 @@ import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
 import { ArrowRight, Check, Upload, Plus, Trash2, Mail, Eye, EyeOff, AlertCircle, CheckCircle2, Users, Palette, Download } from 'lucide-react';
+import { safeLocaleDateString } from '../lib/safeDate';
 import { companyExportClientFromSupabase, downloadCompanyExport } from '../lib/companyExport';
 import {
   COMPANY_LOGO_ACCEPT,
@@ -2000,7 +2001,7 @@ export function CompanySettingsPage() {
                     <span className="capitalize">{user.role || 'member'}</span>
                     {' · '}
                     {user.email_confirmed_at ? 'Active' : 'Pending'}
-                    {user.created_at ? ` · ${new Date(user.created_at).toLocaleDateString()}` : ''}
+                    {user.created_at ? ` · ${safeLocaleDateString(user.created_at)}` : ''}
                   </div>
                 </div>
               ))

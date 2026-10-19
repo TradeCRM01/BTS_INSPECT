@@ -148,7 +148,8 @@ describe('see existing reports — title, status, meta', () => {
       clientName: 'Northside Electrical',
       jobNumber: 42,
     })).toBe('BTS-260827-4412 · 27 Aug 2026 · Electrical inspection · Northside Electrical · #0042');
-    expect(formatReportListDate('not-a-date')).toBeNull();
+    expect(formatReportListDate('not-a-date')).toBe('—');
+    expect(formatReportListDate('212026-02-11')).toBe('—');
     expect(formatReportListDate(null)).toBeNull();
     expect(padReportJobNumber(42)).toBe('0042');
     expect(reportListTemplateName({ name: 'Electrical inspection' }))

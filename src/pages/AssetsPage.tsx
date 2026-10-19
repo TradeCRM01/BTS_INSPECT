@@ -11,7 +11,8 @@ import { OverlayPortal } from '../components/ui/OverlayPortal';
 import { LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, SummaryCard, useToast, ViewToggle, useViewMode } from '../components/ui';
 import { SkeletonCardGrid, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import type { MenuEntry } from '../components/ui';
-import { format, parseISO, isPast } from 'date-fns';
+import { parseISO, isPast } from 'date-fns';
+import { dateSaveIso, safeFormatDate } from '../lib/safeDate';
 import {
   Plus, Search, HardDrive, X, Trash2, Pencil, MoreVertical, MapPin,
   Tag, Wrench, Calendar, ShieldCheck, AlertTriangle,
@@ -181,7 +182,7 @@ export function AssetsPage() {
                         <td className="px-4 py-3 text-[#4A5568]">{asset.asset_tag ?? <span className="text-[#9CA3AF]">—</span>}</td>
                         <td className="px-4 py-3 text-[#4A5568]">{asset.serial_number ?? <span className="text-[#9CA3AF]">—</span>}</td>
                         <td className="px-4 py-3 text-[#4A5568]">{asset.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
-                        <td className="px-4 py-3 text-[#4A5568]">{asset.warranty_expiry ? format(parseISO(asset.warranty_expiry), 'd MMM yyyy') : '—'}{warrantyExpired && <AlertTriangle size={11} className="text-[#D97706] ml-1 inline" />}</td>
+                        <td className="px-4 py-3 text-[#4A5568]">{asset.warranty_expiry ? safeFormatDate(asset.warranty_expiry, 'd MMM yyyy') : '—'}{warrantyExpired && <AlertTriangle size={11} className="text-[#D97706] ml-1 inline" />}</td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${ASSET_STATUS_STYLES[asset.status]}`}>{ASSET_STATUS_LABELS[asset.status]}</span>
                         </td>
@@ -266,7 +267,7 @@ const AssetCard = memo(function AssetCard({ asset, onEdit, onDelete }: {
         {asset.warranty_expiry && (
           <div className={`flex items-center gap-1.5 text-xs ${warrantyExpired ? 'text-[#D97706]' : 'text-[#4A5568]'}`}>
             <ShieldCheck size={13} className={warrantyExpired ? 'text-[#D97706]' : 'text-[#9CA3AF]'} />
-            Warranty: {format(parseISO(asset.warranty_expiry), 'dd MMM yyyy')}
+            Warranty: {safeFormatDate(asset.warranty_expiry, 'dd MMM yyyy')}
             {warrantyExpired && <AlertTriangle size={11} className="text-[#D97706]" />}
           </div>
         )}
@@ -311,6 +312,18 @@ function AssetForm({ asset, onClose, onSaved }: { asset: Asset | null; onClose: 
     e.preventDefault();
     setSaving(true);
     setErr(null);
+    const installParsed = dateSaveIso(form.install_date, false);
+    if (!installParsed.ok) {
+      setErr(installParsed.error);
+      setSaving(false);
+      return;
+    }
+    const warrantyParsed = dateSaveIso(form.warranty_expiry, false);
+    if (!warrantyParsed.ok) {
+      setErr(warrantyParsed.error);
+      setSaving(false);
+      return;
+    }
     try {
       const payload = {
         company_id: profile!.company_id,
@@ -322,8 +335,8 @@ function AssetForm({ asset, onClose, onSaved }: { asset: Asset | null; onClose: 
         category: form.category || null,
         client_id: form.client_id || null,
         location_description: form.location_description || null,
-        install_date: form.install_date || null,
-        warranty_expiry: form.warranty_expiry || null,
+        install_date: installParsed.iso,
+        warranty_expiry: warrantyParsed.iso,
         status: form.status,
         notes: form.notes || null,
         updated_at: new Date().toISOString(),
@@ -393,11 +406,11 @@ function AssetForm({ asset, onClose, onSaved }: { asset: Asset | null; onClose: 
           </Field>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Install Date">
-              <input type="date" value={form.install_date} onChange={e => setForm(f => ({ ...f, install_date: e.target.value }))}
+              <input type="date" min="1900-01-01" max="2100-12-31" value={form.install_date} onChange={e => setForm(f => ({ ...f, install_date: e.target.value }))}
                 className="form-input" />
             </Field>
             <Field label="Warranty Expiry">
-              <input type="date" value={form.warranty_expiry} onChange={e => setForm(f => ({ ...f, warranty_expiry: e.target.value }))}
+              <input type="date" min="1900-01-01" max="2100-12-31" value={form.warranty_expiry} onChange={e => setForm(f => ({ ...f, warranty_expiry: e.target.value }))}
                 className="form-input" />
             </Field>
           </div>
