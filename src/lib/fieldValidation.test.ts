@@ -43,6 +43,8 @@ describe('fieldValidation predicates', () => {
     expect(isAuPhone('12345678')).toBe(false);
     expect(isAuPhone('0400000000123456')).toBe(false);
     expect(isAuPhone('+131450')).toBe(false);
+    expect(isAuPhone('0412 345')).toBe(false);
+    expect(isAuPhone('+61 412 345 678 9012')).toBe(false);
     expect(isAuPhone('(07 3123 4567')).toBe(false);
     expect(isAuPhone('07) 3123 4567')).toBe(false);
     expect(prefillSmsTo('0412 345 678')).toBe('+61412345678');
@@ -107,6 +109,20 @@ describe('fieldValidation predicates', () => {
     expect(isPort('0')).toBe(false);
     expect(isPort('65536')).toBe(false);
     expect(isPort('abc')).toBe(false);
+  });
+
+  it('rejects a 7-digit phone and a 16-digit phone', () => {
+    expect(isAuPhone('0412 345')).toBe(false);
+    expect(isAuPhone('13 145 00')).toBe(false);
+    expect(isAuPhone('+61 412 345 678 9012')).toBe(false);
+    expect(isAuPhone('0400000000123456')).toBe(false);
+  });
+
+  it('rejects 1,5 and 1,000 on percent and amount', () => {
+    expect(parsePercent('1,5')).toEqual({ ok: false });
+    expect(parsePercent('1,000')).toEqual({ ok: false });
+    expect(parseNonNegativeNumber('1,5')).toEqual({ ok: false });
+    expect(parseNonNegativeNumber('1,000')).toEqual({ ok: false });
   });
 
   it('rejects 1,5 and -5 on percent, keeps 10 and 1.5', () => {

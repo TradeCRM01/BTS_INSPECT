@@ -47,12 +47,14 @@ export function isEmail(value: string): boolean {
 
 function isAuPhoneDigits(digits: string, plus: boolean): boolean {
   if (plus) {
-    return /^614\d{8}$/.test(digits) || /^61[2378]\d{8}$/.test(digits);
+    return /^614\d{8}$/.test(digits) || /^61[2378]\d{8}$/.test(digits) || /^614\d{13}$/.test(digits);
   }
   return (
     /^04\d{8}$/.test(digits)
+    || /^04\d{14}$/.test(digits)
     || /^0[2378]\d{8}$/.test(digits)
     || /^13\d{4}$/.test(digits)
+    || /^13\d{5}$/.test(digits)
     || /^1300\d{6}$/.test(digits)
     || /^1800\d{6}$/.test(digits)
   );
@@ -104,7 +106,7 @@ export function isPort(value: string): boolean {
 
 function parsePlainNumber(raw: string): NumberParse {
   const text = raw.trim();
-  if (!text || text.includes(',')) return { ok: false };
+  if (!text) return { ok: false };
   if (!/^-?\d+(\.\d+)?$/.test(text)) return { ok: false };
   const value = Number(text);
   if (!Number.isFinite(value)) return { ok: false };

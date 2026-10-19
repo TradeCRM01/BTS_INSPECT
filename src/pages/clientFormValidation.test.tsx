@@ -12,6 +12,7 @@ const harness = vi.hoisted(() => ({
   writes: [] as Array<{ table: string; op: string; payload: unknown }>,
   selectCols: [] as unknown[],
   updateResult: { data: [{ id: 'c-edit' }] as unknown, error: null as unknown },
+  insertResult: { data: { id: 'c-new' } as unknown, error: null as unknown },
   savedIds: [] as string[],
 }));
 
@@ -24,7 +25,7 @@ vi.mock('../lib/supabase', () => ({
           return {
             select() {
               return {
-                single: async () => ({ data: { id: 'c-new' }, error: null }),
+                single: async () => harness.insertResult,
               };
             },
           };
@@ -83,6 +84,7 @@ beforeEach(() => {
   harness.writes = [];
   harness.selectCols = [];
   harness.updateResult = { data: [{ id: 'c-edit' }], error: null };
+  harness.insertResult = { data: { id: 'c-new' }, error: null };
   harness.savedIds = [];
   container = document.createElement('div');
   document.body.appendChild(container);
@@ -312,6 +314,44 @@ describe('ClientForm field validation', () => {
     }]);
     expect(harness.savedIds).toEqual(['c-edit']);
     expect(container.querySelector('#client-form-phone-error')).toBeNull();
+  });
+
+  it('shows the miss copy on a permission-denied client insert and does not leak the raw error', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    harness.insertResult = { data: null, error: { message: 'permission denied' } };
+    await renderForm();
+    const name = container.querySelector('#client-form-name') as HTMLInputElement;
+    const phone = container.querySelector('#client-form-phone') as HTMLInputElement;
+    const email = container.querySelector('#client-form-email') as HTMLInputElement;
+    await act(async () => {
+      setInput(name, 'Acme Plumbing');
+      setInput(phone, '0400 000 000');
+      setInput(email, 'jane@acme.com.au');
+    });
+    const save = Array.from(container.querySelectorAll('button')).find(btn => btn.textContent?.includes('Add Client'));
+    await act(async () => {
+      save!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(harness.writes).toEqual([{
+      table: 'clients',
+      op: 'insert',
+      payload: {
+        name: 'Acme Plumbing',
+        contact_person: null,
+        phone: '0400 000 000',
+        email: 'jane@acme.com.au',
+        address: null,
+        notes: null,
+        company_id: 'co1',
+      },
+    }]);
+    expect(container.textContent).toContain("Couldn't save. Check your connection and try again.");
+    expect(container.textContent).not.toContain('permission denied');
+    expect(harness.savedIds).toEqual([]);
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
   });
 
   it('blocks a changed invalid client phone', async () => {

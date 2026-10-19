@@ -106,6 +106,9 @@ async function renderDialog() {
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   HTMLElement.prototype.scrollIntoView = vi.fn();
+  harness.bundle.quote.line_items = [{ description: 'Labour', quantity: 1, unit_price: 120 }];
+  harness.bundle.client.email = null;
+  harness.bundle.client.phone = null;
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -152,5 +155,26 @@ describe('Quote send client email and SMS To', () => {
     expect(phoneError?.textContent).toBe(FIELD_AU_PHONE);
     expect(phoneError?.closest('form.job-client-phone')).toBe(phone!.closest('form'));
     expect(phone!.getAttribute('aria-invalid')).toBe('true');
+    expect(phone!.getAttribute('aria-describedby')).toBe('quote-send-client-phone-error');
+  });
+
+  it('shows the miss-chrome phone error under the input with aria-invalid', async () => {
+    harness.bundle.quote.line_items = [];
+    await renderDialog();
+    const phone = document.querySelector('input[aria-label="Client phone"]') as HTMLInputElement | null;
+    expect(phone).toBeTruthy();
+    expect(document.querySelector('.hub-invoice-send-title')).toBeTruthy();
+    expect(document.querySelector('.hub-invoice-kicker')).toBeNull();
+    await act(async () => {
+      setInput(phone!, 'abc');
+    });
+    await act(async () => {
+      document.querySelector('.job-client-phone-save')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    const phoneError = document.querySelector('#quote-send-client-phone-error');
+    expect(phoneError?.textContent).toBe(FIELD_AU_PHONE);
+    expect(phoneError?.closest('form.job-client-phone')).toBe(phone!.closest('form'));
+    expect(phone!.getAttribute('aria-invalid')).toBe('true');
+    expect(phone!.getAttribute('aria-describedby')).toBe('quote-send-client-phone-error');
   });
 });

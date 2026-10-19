@@ -7,11 +7,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '../components/ui/Toast';
-import { FIELD_AU_PHONE, FIELD_EMAIL } from '../lib/fieldValidation';
+import { FIELD_AU_PHONE, FIELD_EMAIL, FIELD_SAVE_MISS } from '../lib/fieldValidation';
 import { JobDetailPage } from './JobDetailPage';
 
 const harness = vi.hoisted(() => {
   const writes: Array<{ table: string; payload: unknown }> = [];
+  const savePhoneCalls: unknown[] = [];
+  const saveEmailCalls: unknown[] = [];
+  const toasts: string[] = [];
+  const updateResult = { data: [{ id: 'cl-junk' }] as unknown, error: null as unknown };
   const job = {
     id: 'job-junk',
     company_id: 'co-1',
@@ -70,7 +74,7 @@ const harness = vi.hoisted(() => {
           eq() { return row; },
           select() { return row; },
           then(onFulfilled: (value: unknown) => unknown, onRejected?: (reason: unknown) => unknown) {
-            return Promise.resolve({ data: [{ id: 'cl-junk' }], error: null }).then(onFulfilled, onRejected);
+            return Promise.resolve(harness.updateResult).then(onFulfilled, onRejected);
           },
         };
         return row;
@@ -78,7 +82,29 @@ const harness = vi.hoisted(() => {
     };
     return api;
   }
-  return { writes, chain, job, client };
+  return { writes, savePhoneCalls, saveEmailCalls, toasts, updateResult, chain, job, client };
+});
+
+vi.mock('../lib/saveJobClientPhone', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/saveJobClientPhone')>();
+  return {
+    ...actual,
+    saveJobClientPhone: async (input: Parameters<typeof actual.saveJobClientPhone>[0]) => {
+      harness.savePhoneCalls.push(input);
+      return actual.saveJobClientPhone(input);
+    },
+  };
+});
+
+vi.mock('../lib/saveJobClientEmail', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/saveJobClientEmail')>();
+  return {
+    ...actual,
+    saveJobClientEmail: async (input: Parameters<typeof actual.saveJobClientEmail>[0]) => {
+      harness.saveEmailCalls.push(input);
+      return actual.saveJobClientEmail(input);
+    },
+  };
 });
 
 vi.mock('../lib/supabase', () => ({
@@ -120,6 +146,14 @@ vi.mock('../components/ui/OverlayPortal', () => ({
   OverlayPortal: ({ children }: { children: ReactNode }) => children,
 }));
 
+vi.mock('../components/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../components/ui')>();
+  return {
+    ...actual,
+    useToast: () => ({ showToast: (message: string) => { harness.toasts.push(message); } }),
+  };
+});
+
 let container: HTMLDivElement;
 let root: Root;
 
@@ -139,7 +173,10 @@ async function flush() {
 
 async function renderPage() {
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    defaultOptions: {
+      queries: { retry: false, staleTime: Infinity },
+      mutations: { retry: 1, retryDelay: 0 },
+    },
   });
   client.setQueryData(['job', harness.job.id], harness.job);
   client.setQueryData(['job-client', harness.client.id], harness.client);
@@ -166,6 +203,10 @@ beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   HTMLElement.prototype.scrollIntoView = vi.fn();
   harness.writes.length = 0;
+  harness.savePhoneCalls.length = 0;
+  harness.saveEmailCalls.length = 0;
+  harness.toasts.length = 0;
+  harness.updateResult = { data: [{ id: 'cl-junk' }], error: null };
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -188,6 +229,7 @@ describe('Job detail client phone and email', () => {
       container.querySelector('.job-client-phone-save')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     expect(harness.writes).toEqual([]);
+    expect(harness.savePhoneCalls).toEqual([]);
     const phoneError = container.querySelector('#job-client-phone-error');
     expect(phoneError?.textContent).toBe(FIELD_AU_PHONE);
     expect(phone!.getAttribute('aria-invalid')).toBe('true');
@@ -212,9 +254,82 @@ describe('Job detail client phone and email', () => {
       container.querySelector('.job-client-email-save')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     expect(harness.writes).toEqual([]);
+    expect(harness.saveEmailCalls).toEqual([]);
     const emailError = container.querySelector('#job-client-email-error');
     expect(emailError?.textContent).toBe(FIELD_EMAIL);
     expect(email!.getAttribute('aria-invalid')).toBe('true');
     expect(email!.getAttribute('aria-describedby')).toBe('job-client-email-error');
+    expect(emailError?.closest('form.job-client-email')).toBeTruthy();
+  });
+
+  it('shows the job email inline error and describedby for junk email', async () => {
+    await renderPage();
+    const email = container.querySelector('input[aria-label="Client email"]') as HTMLInputElement | null;
+    expect(email).toBeTruthy();
+    await act(async () => {
+      setInput(email!, 'not-an-email');
+    });
+    await act(async () => {
+      container.querySelector('.job-client-email-save')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(harness.writes).toEqual([]);
+    expect(harness.saveEmailCalls).toEqual([]);
+    const emailError = container.querySelector('#job-client-email-error');
+    expect(emailError?.tagName).toBe('P');
+    expect(emailError?.textContent).toBe(FIELD_EMAIL);
+    expect(email!.getAttribute('aria-invalid')).toBe('true');
+    expect(email!.getAttribute('aria-describedby')).toBe('job-client-email-error');
+    expect(emailError?.closest('form.job-client-email')).toBe(email!.closest('form'));
+  });
+
+  it('shows the job phone miss copy inline on a server error and does not toast it', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    harness.updateResult = { data: null, error: { message: 'permission denied' } };
+    await renderPage();
+    const phone = container.querySelector('input[aria-label="Client phone"]') as HTMLInputElement | null;
+    expect(phone).toBeTruthy();
+    await act(async () => {
+      setInput(phone!, '0400 000 000');
+    });
+    await act(async () => {
+      container.querySelector('.job-client-phone-save')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 50));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(harness.writes).toHaveLength(1);
+    expect(harness.writes).toEqual([{ table: 'clients', payload: { phone: '0400 000 000' } }]);
+    const phoneError = container.querySelector('#job-client-phone-error');
+    expect(phoneError?.textContent).toBe(FIELD_SAVE_MISS);
+    expect(container.textContent).not.toContain('permission denied');
+    expect(harness.toasts).not.toContain(FIELD_SAVE_MISS);
+    expect(harness.toasts).not.toContain('permission denied');
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('does not retry a permission-denied job email save and keeps the miss copy inline', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    harness.updateResult = { data: null, error: { message: 'permission denied' } };
+    await renderPage();
+    const email = container.querySelector('input[aria-label="Client email"]') as HTMLInputElement | null;
+    expect(email).toBeTruthy();
+    await act(async () => {
+      setInput(email!, 'jane@acme.com.au');
+    });
+    await act(async () => {
+      container.querySelector('.job-client-email-save')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 50));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(harness.writes).toHaveLength(1);
+    expect(harness.writes).toEqual([{ table: 'clients', payload: { email: 'jane@acme.com.au' } }]);
+    const emailError = container.querySelector('#job-client-email-error');
+    expect(emailError?.textContent).toBe(FIELD_SAVE_MISS);
+    expect(container.textContent).not.toContain('permission denied');
+    expect(harness.toasts).not.toContain(FIELD_SAVE_MISS);
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
   });
 });

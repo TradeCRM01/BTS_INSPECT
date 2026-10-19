@@ -11,7 +11,7 @@ const { chromium } = require('playwright-core') as {
     launch: (opts: { headless: boolean; executablePath?: string }) => Promise<{
       newPage: (opts?: { viewport?: { width: number; height: number } }) => Promise<{
         goto: (url: string) => Promise<unknown>;
-        evaluate: (fn: (host: string) => unknown, host: string) => Promise<unknown>;
+        evaluate: <T>(fn: (host: string) => T, host: string) => Promise<T>;
         close: () => Promise<void>;
       }>;
       close: () => Promise<void>;
@@ -44,7 +44,17 @@ function fixtureHtml(hostClass: string): string {
 </html>`;
 }
 
-function measure(host: string) {
+type LayoutMeasure = {
+  inputWidth: number;
+  inputBottom: number;
+  errorTop: number;
+  errorRight: number;
+  formRight: number;
+  innerWidth: number;
+  clipped: boolean;
+};
+
+function measure(host: string): LayoutMeasure | null {
   const form = document.querySelector(`.${host} form.job-client-phone`) as HTMLElement | null;
   const input = form?.querySelector('input') as HTMLElement | null;
   const error = form?.querySelector('.field-inline-error') as HTMLElement | null;

@@ -360,6 +360,40 @@ describe('Company Settings field validation', () => {
     expect((write?.payload as { smtp_port: number }).smtp_port).toBe(587);
   });
 
+  it('upserts smtp_port as the number 587 with the rest of the email settings', async () => {
+    await renderPage();
+    const port = container.querySelector('#smtp-port') as HTMLInputElement;
+    const fromName = container.querySelector('input[placeholder="Grafter"]') as HTMLInputElement;
+    const fromEmail = container.querySelector('#smtp-from') as HTMLInputElement;
+    const host = container.querySelector('input[placeholder="smtp.resend.com"]') as HTMLInputElement;
+    expect(port).toBeTruthy();
+    await act(async () => {
+      setInput(fromName, 'Co');
+      setInput(fromEmail, 'quotes@co.com.au');
+      setInput(host, 'smtp.resend.com');
+      setInput(port, '587');
+    });
+    const saveEmail = Array.from(container.querySelectorAll('button')).find(btn =>
+      btn.textContent?.includes('Save Email Settings'),
+    );
+    await act(async () => {
+      saveEmail!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    const write = harness.writes.find(row => row.table === 'email_settings' && row.op === 'upsert');
+    expect(write?.payload).toEqual({
+      smtp_host: 'smtp.resend.com',
+      smtp_port: 587,
+      smtp_secure: false,
+      smtp_user: '',
+      smtp_pass: '',
+      from_name: 'Co',
+      from_email: 'quotes@co.com.au',
+      company_id: 'co1',
+    });
+    expect(typeof (write?.payload as { smtp_port: unknown }).smtp_port).toBe('number');
+  });
+
   it('blocks company email junk, 1.5abc tax, lettered BSB, and a 7-digit BSB', async () => {
     await renderPage();
     await act(async () => {

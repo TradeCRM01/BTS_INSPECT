@@ -13,6 +13,8 @@ import { ClientDetailPage } from './ClientDetailPage';
 
 const harness = vi.hoisted(() => ({
   writes: [] as Array<{ table: string; payload: unknown }>,
+  savePhoneCalls: [] as unknown[],
+  saveEmailCalls: [] as unknown[],
   selectCols: [] as unknown[],
   toasts: [] as string[],
   updateResult: { data: [{ id: 'c-card' }] as unknown, error: null as unknown },
@@ -61,6 +63,28 @@ function thenable(result: { data: unknown; error: unknown }) {
   return row;
 }
 
+vi.mock('../lib/saveJobClientPhone', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/saveJobClientPhone')>();
+  return {
+    ...actual,
+    saveJobClientPhone: async (input: Parameters<typeof actual.saveJobClientPhone>[0]) => {
+      harness.savePhoneCalls.push(input);
+      return actual.saveJobClientPhone(input);
+    },
+  };
+});
+
+vi.mock('../lib/saveJobClientEmail', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/saveJobClientEmail')>();
+  return {
+    ...actual,
+    saveJobClientEmail: async (input: Parameters<typeof actual.saveJobClientEmail>[0]) => {
+      harness.saveEmailCalls.push(input);
+      return actual.saveJobClientEmail(input);
+    },
+  };
+});
+
 vi.mock('../lib/supabase', () => ({
   supabase: {
     from(table: string) {
@@ -108,9 +132,9 @@ function setInput(el: HTMLInputElement, value: string) {
   el.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-async function renderPage(mutationRetry = 0) {
+async function renderPage() {
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: mutationRetry } },
+    defaultOptions: { queries: { retry: false }, mutations: { retry: 1, retryDelay: 0 } },
   });
   await act(async () => {
     root.render(
@@ -131,6 +155,8 @@ async function renderPage(mutationRetry = 0) {
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   harness.writes = [];
+  harness.savePhoneCalls = [];
+  harness.saveEmailCalls = [];
   harness.selectCols = [];
   harness.toasts = [];
   harness.updateResult = { data: [{ id: 'c-card' }], error: null };
@@ -160,6 +186,8 @@ describe('Client detail card phone and email', () => {
       container.querySelector('.job-client-email-save')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     expect(harness.writes).toEqual([]);
+    expect(harness.savePhoneCalls).toEqual([]);
+    expect(harness.saveEmailCalls).toEqual([]);
     const phoneError = container.querySelector('#client-card-phone-error');
     const emailError = container.querySelector('#client-card-email-error');
     expect(phoneError?.textContent).toBe(FIELD_AU_PHONE);
@@ -220,8 +248,36 @@ describe('Client detail card phone and email', () => {
     expect(harness.selectCols).toEqual(['id']);
   });
 
+  it('blocks junk card phone without calling update', async () => {
+    await renderPage();
+    const phone = container.querySelector('input[aria-label="Client phone"]') as HTMLInputElement;
+    await act(async () => {
+      setInput(phone, 'abc123def456');
+    });
+    await act(async () => {
+      container.querySelector('.job-client-phone-save')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(harness.writes).toEqual([]);
+    expect(harness.savePhoneCalls).toEqual([]);
+    expect(container.querySelector('#client-card-phone-error')?.textContent).toBe(FIELD_AU_PHONE);
+  });
+
+  it('blocks junk card email without calling update', async () => {
+    await renderPage();
+    const email = container.querySelector('input[aria-label="Client email"]') as HTMLInputElement;
+    await act(async () => {
+      setInput(email, 'a@b');
+    });
+    await act(async () => {
+      container.querySelector('.job-client-email-save')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(harness.writes).toEqual([]);
+    expect(harness.saveEmailCalls).toEqual([]);
+    expect(container.querySelector('#client-card-email-error')?.textContent).toBe(FIELD_EMAIL);
+  });
+
   it('writes a valid card phone after selecting id and does not retry a 0-row save', async () => {
-    await renderPage(1);
+    await renderPage();
     const phone = container.querySelector('input[aria-label="Client phone"]') as HTMLInputElement;
     await act(async () => {
       setInput(phone, '0400 000 000');
@@ -268,6 +324,29 @@ describe('Client detail card phone and email', () => {
     expect(container.querySelector('#client-card-phone-error')?.textContent).toBe("Couldn't save. Check your connection and try again.");
     expect(container.textContent).not.toContain('permission denied');
     expect(harness.toasts).not.toContain(JOB_CLIENT_PHONE_SAVED);
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('does not retry a permission-denied card email save and keeps the miss copy inline', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    harness.updateResult = { data: null, error: { message: 'permission denied' } };
+    await renderPage();
+    const email = container.querySelector('input[aria-label="Client email"]') as HTMLInputElement;
+    await act(async () => {
+      setInput(email, 'jane@acme.com.au');
+    });
+    await act(async () => {
+      container.querySelector('.job-client-email-save')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 50));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(harness.writes).toHaveLength(1);
+    expect(harness.writes).toEqual([{ table: 'clients', payload: { email: 'jane@acme.com.au' } }]);
+    expect(container.querySelector('#client-card-email-error')?.textContent).toBe("Couldn't save. Check your connection and try again.");
+    expect(container.textContent).not.toContain('permission denied');
+    expect(harness.toasts).not.toContain(JOB_CLIENT_EMAIL_SAVED);
     expect(spy).toHaveBeenCalled();
     spy.mockRestore();
   });
