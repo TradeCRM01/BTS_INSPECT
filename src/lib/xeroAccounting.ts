@@ -8,7 +8,7 @@ export const XERO_SCOPES = 'offline_access accounting.transactions accounting.co
 export const ACCOUNTING_SETTINGS_PATH = '/settings/accounting';
 export const XERO_FUNCTION_NAME = 'xero-accounting';
 
-/** Columns the browser may read. `settings` holds token ciphertext — never select it here. */
+/** Columns the browser may read. Never select settings or accounting_credentials. */
 export const ACCOUNTING_SETTINGS_PUBLIC_COLUMNS =
   'id, company_id, provider, tenant_id, connection_status, last_synced_at, auto_sync, sync_invoices, sync_payments, sync_suppliers, created_at, updated_at';
 
@@ -602,6 +602,54 @@ export function parseXeroTokenResponse(json: unknown): {
   };
 }
 
+export const ACCOUNTING_SETTINGS_TOKEN_KEYS = [
+  'access_token',
+  'refresh_token',
+  'expires_at',
+  'token',
+] as const;
+
+export const GET_ACCOUNTING_CONNECTION_RPC = 'get_accounting_connection';
+
+export type AccountingConnectionStatus = {
+  connected: boolean;
+  tenant_name: string | null;
+  last_synced_at: string | null;
+};
+
+export function stripAccountingSettingsTokenKeys(settings: unknown): JsonRecord {
+  const next = asRecord(settings);
+  for (const key of ACCOUNTING_SETTINGS_TOKEN_KEYS) delete next[key];
+  if (next.xero && typeof next.xero === 'object' && !Array.isArray(next.xero)) {
+    const xero = asRecord(next.xero);
+    for (const key of ACCOUNTING_SETTINGS_TOKEN_KEYS) delete xero[key];
+    next.xero = xero;
+  }
+  return next;
+}
+
+export function accountingSettingsWrite<T extends Record<string, unknown>>(payload: T): T {
+  if (!Object.prototype.hasOwnProperty.call(payload, 'settings')) return payload;
+  return {
+    ...payload,
+    settings: stripAccountingSettingsTokenKeys((payload as { settings?: unknown }).settings),
+  };
+}
+
+export function parseAccountingConnection(data: unknown): AccountingConnectionStatus | null {
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
+  const o = row as Record<string, unknown>;
+  if (!('connected' in o)) return null;
+  const tenant = typeof o.tenant_name === 'string' ? o.tenant_name.trim() : '';
+  const synced = typeof o.last_synced_at === 'string' ? o.last_synced_at.trim() : '';
+  return {
+    connected: o.connected === true,
+    tenant_name: tenant || null,
+    last_synced_at: synced || null,
+  };
+}
+
 export function settingsHaveXeroCipher(settings: unknown): boolean {
   const token = asRecord(asRecord(asRecord(settings).xero).token);
   return Boolean(String(token.iv ?? '').trim() && String(token.cipher ?? '').trim());
@@ -621,22 +669,20 @@ export function invoicesStillToPush<T extends { id: string }>(invoices: T[], set
   return invoices.filter((inv) => !map[inv.id]);
 }
 
-export function mergeXeroTokenSettings(
+export function mergeXeroPublicSettings(
   existing: unknown,
-  token: { iv: string; cipher: string; expiresAt?: string; tenantName?: string },
+  input: { tenantName?: string },
 ): JsonRecord {
-  const prev = asRecord(existing);
+  const prev = stripAccountingSettingsTokenKeys(existing);
   const prevXero = asRecord(prev.xero);
-  return {
+  return stripAccountingSettingsTokenKeys({
     ...prev,
     xero: {
       ...prevXero,
-      token: { iv: token.iv, cipher: token.cipher },
-      expires_at: token.expiresAt ?? null,
-      tenant_name: token.tenantName ?? prevXero.tenant_name ?? null,
+      tenant_name: input.tenantName ?? prevXero.tenant_name ?? null,
       paid_invoices: asRecord(prevXero.paid_invoices),
     },
-  };
+  });
 }
 
 export function recordPaidInvoiceSync(
@@ -644,9 +690,9 @@ export function recordPaidInvoiceSync(
   invoiceId: string,
   xeroInvoiceId: string,
 ): JsonRecord {
-  const prev = asRecord(existing);
+  const prev = stripAccountingSettingsTokenKeys(existing);
   const prevXero = asRecord(prev.xero);
-  return {
+  return stripAccountingSettingsTokenKeys({
     ...prev,
     xero: {
       ...prevXero,
@@ -655,14 +701,12 @@ export function recordPaidInvoiceSync(
         [invoiceId]: xeroInvoiceId,
       },
     },
-  };
+  });
 }
 
 export function connectSuccessPatch(input: {
   tenantId: string;
   settings: unknown;
-  tokenCipher: { iv: string; cipher: string };
-  expiresAt?: string;
   tenantName?: string;
 }):
   | {
@@ -673,19 +717,14 @@ export function connectSuccessPatch(input: {
     }
   | { miss: 'token_failed' } {
   const tenantId = input.tenantId.trim();
-  if (!tenantId || !input.tokenCipher.iv.trim() || !input.tokenCipher.cipher.trim()) {
+  if (!tenantId) {
     return { miss: 'token_failed' };
   }
   return {
     provider: 'xero',
     tenant_id: tenantId,
     connection_status: 'connected',
-    settings: mergeXeroTokenSettings(input.settings, {
-      iv: input.tokenCipher.iv,
-      cipher: input.tokenCipher.cipher,
-      expiresAt: input.expiresAt,
-      tenantName: input.tenantName,
-    }),
+    settings: mergeXeroPublicSettings(input.settings, { tenantName: input.tenantName }),
   };
 }
 
@@ -694,7 +733,7 @@ export function disconnectAccountingPatch(existingSettings: unknown): {
   tenant_id: null;
   settings: JsonRecord;
 } {
-  const next = asRecord(existingSettings);
+  const next = stripAccountingSettingsTokenKeys(existingSettings);
   delete next.xero;
   return {
     connection_status: 'disconnected',
