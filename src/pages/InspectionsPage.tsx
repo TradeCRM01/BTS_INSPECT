@@ -11,7 +11,11 @@ import {
 } from '../lib/devFieldAuditDocs';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
-import { EmptyState, LoadingSpinner, PageError, SearchBar, opsSiteLabel, useToast } from '../components/ui';
+import { ConfirmDialog, EmptyState, LoadingSpinner, PageError, SearchBar, opsSiteLabel, useToast } from '../components/ui';
+import { inspectionArchiveFailCopy } from '../lib/inspectionArchiveCopy';
+import { resolveInspectionPrintFieldsFromRow } from '../lib/inspectionPrintSnapshot';
+import { inspectionListConfirmCopy, type InspectionListConfirmKind } from '../lib/inspectionListConfirm';
+import { issueInspectionRecord, shouldMarkInspectionIssued } from '../lib/sendReport';
 import {
   Plus, ClipboardList, X,
   MoreHorizontal,
@@ -30,7 +34,7 @@ import { withInspectionDueNext } from '../lib/inspectionDueReminder';
 import {
   decorateInspectionList,
   filterInspectionListFloor,
-  formatInspectionListDate,
+  formatInspectionListStamp,
   inspectionListEmptyMessage,
   inspectionListEmptyTitle,
   inspectionListOpenHref,
@@ -42,6 +46,10 @@ import {
 import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
 import { inspectionDisplayStatus } from '../lib/sendReport';
 import { applyLivingJobToInspection } from '../lib/livingJha';
+import {
+  inspectionInspectorLine,
+  resolveInspectorIdentity,
+} from '../lib/inspectorSnapshot';
 
 interface Inspection {
   id: string;
@@ -50,8 +58,15 @@ interface Inspection {
   started_at: string;
   completed_at: string | null;
   template_snapshot: { name?: string; report_renderer?: string; schema?: TemplateSchema } | null;
-  inspector_id: string;
+  inspector_id: string | null;
   inspector_name?: string;
+  inspector_licence?: string | null;
+  inspector_name_snapshot?: string | null;
+  inspector_licence_snapshot?: string | null;
+  client_name_snapshot?: string | null;
+  job_title_snapshot?: string | null;
+  site_name_snapshot?: string | null;
+  site_address_snapshot?: string | null;
   archived: boolean;
   parent_inspection_id: string | null;
   crm_job_id: string | null;
@@ -74,7 +89,15 @@ const LIST_FILTERS: { key: InspectionListFilter; label: string }[] = [
   { key: 'draft', label: 'Draft' },
   { key: 'completed', label: 'Ready' },
   { key: 'issued', label: 'Issued' },
+  { key: 'archived', label: 'Archived' },
 ];
+
+type ListConfirm = {
+  kind: InspectionListConfirmKind;
+  id: string;
+  status: string;
+  site: string;
+};
 
 /** Signed inspections-list frame seed — list look only, not a live company. */
 const INSPECTIONS_LIST_LOOK = 'inspections-list';
@@ -84,6 +107,7 @@ function inspectionsListLookRows(): Inspection[] {
   const base = {
     inspector_id: 'look-insp-dave',
     inspector_name: 'Dave',
+    inspector_licence: null as string | null,
     archived: false,
     parent_inspection_id: null as string | null,
     crm_job_id: null as string | null,
@@ -116,7 +140,33 @@ function inspectionsListLookRows(): Inspection[] {
       status: 'completed',
       meta: { siteName: 'Midland Workshops', siteAddress: '44 Helena St, Midland WA 6056' },
     },
+    mapInspectionInspector({
+      ...base,
+      id: 'look-insp-pat',
+      inspector_id: null,
+      inspector_name: undefined,
+      inspector_name_snapshot: 'Pat Snapshot',
+      inspector_licence_snapshot: 'EC-4411',
+      status: 'completed',
+      meta: { siteName: 'Snapshot Yard', siteAddress: '9 Harbour Rd, Fremantle WA 6160' },
+    }),
   ];
+}
+
+function mapInspectionInspector(row: Inspection, liveName?: string | null): Inspection {
+  const identity = resolveInspectorIdentity({
+    inspectorId: row.inspector_id,
+    live: { name: liveName, licence: null },
+    snapshot: {
+      name: row.inspector_name_snapshot,
+      licence: row.inspector_licence_snapshot,
+    },
+  });
+  return {
+    ...row,
+    inspector_name: identity.name,
+    inspector_licence: identity.licence,
+  };
 }
 
 function inspectionListStatusText(item: InspectionListFloorItem<Inspection>, displayStatus: string): string {
@@ -165,7 +215,8 @@ export function InspectionsPage() {
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<InspectionListFilter>(lookInspectionsList ? 'all' : 'action');
-  const [showArchived, setShowArchived] = useState(false);
+  const showArchived = statusFilter === 'archived';
+  const [listConfirm, setListConfirm] = useState<ListConfirm | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState('');
@@ -182,12 +233,12 @@ export function InspectionsPage() {
 
       const { data, error } = await supabase
         .from('inspections')
-        .select('id, status, meta, started_at, completed_at, template_snapshot, inspector_id, archived, parent_inspection_id, crm_job_id, responses, due_on')
+        .select('id, status, meta, started_at, completed_at, template_snapshot, inspector_id, inspector_name_snapshot, inspector_licence_snapshot, client_name_snapshot, job_title_snapshot, site_name_snapshot, site_address_snapshot, archived, parent_inspection_id, crm_job_id, responses, due_on')
         .order('started_at', { ascending: false });
       if (error) throw error;
 
       const list = (data ?? []) as Inspection[];
-      const inspectorIds = [...new Set(list.map(i => i.inspector_id))];
+      const inspectorIds = [...new Set(list.map(i => i.inspector_id).filter(Boolean))] as string[];
       const jobIds = [...new Set(list.map(i => i.crm_job_id).filter(Boolean))] as string[];
       const inspectionIds = list.map(i => i.id);
       const [profilesRes, jobsRes, reportsRes] = await Promise.all([
@@ -212,12 +263,15 @@ export function InspectionsPage() {
       const clientNameMap = new Map((clientsRes.data ?? []).map(c => [c.id, c.name]));
       const reportMap = new Map((reportsRes.data ?? []).map(r => [r.inspection_id, r]));
 
-      return list.map(i => ({
+      return list.map(i => {
+        const named = mapInspectionInspector(i, nameMap[i.inspector_id ?? '']);
+        return {
         ...i,
         meta: (i.meta ?? {}) as Record<string, string>,
         template_snapshot: (i.template_snapshot ?? null) as Inspection['template_snapshot'],
         responses: (i.responses ?? {}) as Record<string, unknown>,
-        inspector_name: nameMap[i.inspector_id] ?? 'Unknown',
+        inspector_name: named.inspector_name,
+        inspector_licence: named.inspector_licence,
         archived: i.archived ?? false,
         report_id: reportMap.get(i.id)?.id ?? null,
         report_sent_at: reportMap.get(i.id)?.sent_at ?? null,
@@ -232,7 +286,8 @@ export function InspectionsPage() {
         job_client_name: i.crm_job_id
           ? clientNameMap.get(jobMap.get(i.crm_job_id)?.client_id ?? '') ?? null
           : null,
-      })) as Inspection[];
+      };
+      }) as Inspection[];
     },
     enabled: !!profile && !lookInspectionsList,
   });
@@ -242,7 +297,13 @@ export function InspectionsPage() {
       const { error } = await supabase.from('inspections').update({ archived }).eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['inspections'] }),
+    onSuccess: () => {
+      setDeleteError(null);
+      queryClient.invalidateQueries({ queryKey: ['inspections'] });
+    },
+    onError: (err: { message?: string; code?: string }) => {
+      setDeleteError(inspectionArchiveFailCopy(err));
+    },
   });
 
   const deleteMutation = useMutation({
@@ -260,14 +321,52 @@ export function InspectionsPage() {
   });
 
   const handleArchiveToggle = useCallback(
-    (id: string, archived: boolean) => archiveMutation.mutate({ id, archived }),
-    [archiveMutation],
+    (id: string, archived: boolean) => {
+      const row = (lookInspectionsList ? inspectionsListLookRows() : inspections)?.find(item => item.id === id);
+      setListConfirm({
+        kind: archived ? 'archive' : 'restore',
+        id,
+        status: row?.status ?? 'draft',
+        site: row?.meta?.siteName ?? row?.job_title ?? '',
+      });
+    },
+    [inspections, lookInspectionsList],
   );
 
   const handleDelete = useCallback(
-    (id: string) => deleteMutation.mutate(id),
-    [deleteMutation],
+    (id: string) => {
+      const row = (lookInspectionsList ? inspectionsListLookRows() : inspections)?.find(item => item.id === id);
+      setListConfirm({
+        kind: 'delete',
+        id,
+        status: row?.status ?? 'draft',
+        site: row?.meta?.siteName ?? row?.job_title ?? '',
+      });
+    },
+    [inspections, lookInspectionsList],
   );
+
+  const issueMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const result = await issueInspectionRecord(id, status, async inspectionId => {
+        const { error } = await supabase
+          .from('inspections')
+          .update({ status: 'issued' })
+          .eq('id', inspectionId)
+          .not('status', 'in', '(issued,sent)');
+        return { error };
+      });
+      if (!result.ok) throw new Error(result.error);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['inspections'] }),
+  });
+
+  const handleIssue = useCallback(
+    (id: string, status: string) => issueMutation.mutate({ id, status }),
+    [issueMutation],
+  );
+
+  const confirmCopy = listConfirm ? inspectionListConfirmCopy(listConfirm) : null;
 
   const { data: driveFolders } = useQuery({
     queryKey: ['drive-folders'],
@@ -295,11 +394,6 @@ export function InspectionsPage() {
   }, [sendToDriveFor, queryClient]);
 
   const listRows = lookInspectionsList ? inspectionsListLookRows() : (inspections ?? []);
-
-  const archivedCount = useMemo(
-    () => listRows.filter(i => i.archived).length,
-    [listRows]
-  );
 
   const visible = useMemo(
     () => listRows.filter(insp => showArchived ? insp.archived : !insp.archived),
@@ -400,10 +494,6 @@ export function InspectionsPage() {
                   onStatusFilter={setStatusFilter}
                   search={search}
                   onSearch={setSearch}
-                  showArchived={showArchived}
-                  archivedCount={archivedCount}
-                  canArchive={isAdmin && archivedCount > 0}
-                  onShowArchived={setShowArchived}
                   selectedCount={selectedIds.size}
                   exporting={exporting}
                   exportProgress={exportProgress}
@@ -468,6 +558,7 @@ export function InspectionsPage() {
                     onOpen={href => navigate(href)}
                     onArchive={handleArchiveToggle}
                     onDelete={handleDelete}
+                    onIssue={handleIssue}
                     onAddInspection={() => navigate(`/inspections/new?jobId=${item.row.id}`)}
                     onSendToDrive={() => setSendToDriveFor(item.row.id)}
                     onSendReport={setSendingReportId}
@@ -511,6 +602,21 @@ export function InspectionsPage() {
             </div>
           </div>
         </div>
+      )}
+      {confirmCopy && listConfirm && (
+        <ConfirmDialog
+          open
+          title={confirmCopy.title}
+          message={confirmCopy.message}
+          confirmLabel={confirmCopy.confirmLabel}
+          variant={listConfirm.kind === 'delete' ? 'danger' : 'default'}
+          onConfirm={() => {
+            if (listConfirm.kind === 'delete') deleteMutation.mutate(listConfirm.id);
+            else archiveMutation.mutate({ id: listConfirm.id, archived: listConfirm.kind === 'archive' });
+            setListConfirm(null);
+          }}
+          onCancel={() => setListConfirm(null)}
+        />
       )}
       {sendingReportId && company?.id && (
         <ReportSendDialog
@@ -572,10 +678,6 @@ function InspectionsListFind({
   onStatusFilter,
   search,
   onSearch,
-  showArchived,
-  archivedCount,
-  canArchive,
-  onShowArchived,
   selectedCount,
   exporting,
   exportProgress,
@@ -585,10 +687,6 @@ function InspectionsListFind({
   onStatusFilter: (key: InspectionListFilter) => void;
   search: string;
   onSearch: (value: string) => void;
-  showArchived: boolean;
-  archivedCount: number;
-  canArchive: boolean;
-  onShowArchived: (archived: boolean) => void;
   selectedCount: number;
   exporting: boolean;
   exportProgress: string;
@@ -610,19 +708,24 @@ function InspectionsListFind({
       if (!moreRef.current?.open) return;
       if (!moreRef.current.contains(event.target as Node)) closeMore();
     };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeMore();
+    };
     more?.addEventListener('toggle', placeMoreMenu);
     window.addEventListener('resize', placeMoreMenu);
     document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('keydown', onKey);
     return () => {
       more?.removeEventListener('toggle', placeMoreMenu);
       window.removeEventListener('resize', placeMoreMenu);
       document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('keydown', onKey);
     };
   }, []);
 
   return (
     <details ref={moreRef} className="hub-inspections-list-more hub-inspections-list-find">
-      <summary aria-label="Find">
+      <summary aria-label="Filter inspections">
         <MoreHorizontal size={18} />
       </summary>
       <div className="hub-inspections-list-more-menu" role="menu">
@@ -633,7 +736,7 @@ function InspectionsListFind({
                 key={tab.key}
                 type="button"
                 role="menuitem"
-                onClick={() => onStatusFilter(tab.key)}
+                onClick={() => { onStatusFilter(tab.key); closeMore(); }}
                 className={`hub-chrome-filter ${statusFilter === tab.key ? 'hub-chrome-filter-on' : ''}`}
               >
                 {tab.label}
@@ -642,15 +745,6 @@ function InspectionsListFind({
           </div>
           <SearchBar value={search} onChange={onSearch} placeholder="Search job, site, template, #0042…" />
         </div>
-        {canArchive && (
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => { onShowArchived(!showArchived); closeMore(); }}
-          >
-            {showArchived ? 'Viewing archived' : `Archived (${archivedCount})`}
-          </button>
-        )}
         {selectedCount > 0 && (
           <button
             type="button"
@@ -717,6 +811,7 @@ function InspectionRow({
   onOpen,
   onArchive,
   onDelete,
+  onIssue,
   onAddInspection,
   onSendToDrive,
   onSendReport,
@@ -729,6 +824,7 @@ function InspectionRow({
   onOpen: (href: string) => void;
   onArchive: (id: string, archived: boolean) => void;
   onDelete: (id: string) => void;
+  onIssue: (id: string, status: string) => void;
   onAddInspection: () => void;
   onSendToDrive: () => void;
   onSendReport: (reportId: string) => void;
@@ -747,6 +843,12 @@ function InspectionRow({
         }
       : null,
   );
+  const printed = resolveInspectionPrintFieldsFromRow(doc, {
+    clientName: doc.job_client_name,
+    jobTitle: doc.job_title,
+    siteName: living.siteName,
+    siteAddress: living.siteAddress || doc.job_address,
+  });
   const recommended = recommendInspectionListAction(inspectionListContext({
     ...doc,
     hasReport: !!doc.report_id,
@@ -768,11 +870,15 @@ function InspectionRow({
   const href = inspectionListOpenHref(doc.id);
   const displayStatus = inspectionDisplayStatus(doc.status, doc.report_sent_at);
   const site = doc.crm_job_id
-    ? opsSiteLabel(living.siteName, living.siteAddress)
-    : opsSiteLabel(doc.meta?.siteName, doc.meta?.siteAddress, doc.job_address, doc.job_title);
+    ? opsSiteLabel(living.siteName, living.siteAddress, printed.siteName)
+    : opsSiteLabel(printed.siteName, printed.siteAddress, printed.clientName, doc.job_address, doc.job_title);
   const title = doc.template_snapshot?.name || 'Inspection';
-  const when = formatInspectionListDate(doc.completed_at || doc.started_at);
-  const muted = [title, when].filter(Boolean).join(' · ');
+  const when = formatInspectionListStamp(doc.completed_at || doc.started_at);
+  const inspector = inspectionInspectorLine({
+    name: doc.inspector_name || 'Unknown',
+    licence: doc.inspector_licence ?? null,
+  });
+  const muted = [printed.clientName, title, when].filter(Boolean).join(' · ');
 
   return (
     <div
@@ -786,6 +892,7 @@ function InspectionRow({
       <span className="min-w-0">
         <span className="hub-inspections-site truncate">{site}</span>
         {muted ? <span className="hub-inspections-muted truncate">{muted}</span> : null}
+        {inspector ? <span className="hub-inspections-muted min-w-0 break-words" data-inspector-line="1">{inspector}</span> : null}
       </span>
       <span className="hub-inspections-status">{inspectionListStatusText(item, displayStatus)}</span>
       <span className="hub-inspections-row-next" onClick={e => e.stopPropagation()}>
@@ -796,13 +903,23 @@ function InspectionRow({
                 type="button"
                 role="menuitem"
                 onClick={() => {
-                  if (next.label === 'Send' && doc.report_id) onSendReport(doc.report_id);
+                  if (recommended.key === 'issue') onIssue(doc.id, doc.status);
+                  else if (next.label === 'Send' && doc.report_id) onSendReport(doc.report_id);
                   else onOpen(next.href);
                   closeMore();
                 }}
               >
                 {next.label}
               </button>
+              {recommended.key !== 'issue' && shouldMarkInspectionIssued(doc.status) && doc.report_id && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { onIssue(doc.id, doc.status); closeMore(); }}
+                >
+                  Issue
+                </button>
+              )}
               <button
                 type="button"
                 role="menuitem"
@@ -836,7 +953,7 @@ function InspectionRow({
                     role="menuitem"
                     onClick={() => { onArchive(doc.id, !doc.archived); closeMore(); }}
                   >
-                    {doc.archived ? 'Unarchive' : 'Archive'}
+                    {doc.archived ? 'Restore' : 'Archive'}
                   </button>
                   <button
                     type="button"

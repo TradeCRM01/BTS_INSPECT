@@ -124,11 +124,11 @@ describe('public Grafter landing', () => {
     const look = css.slice(lookStart, lookEnd);
     expect(look).toContain("font-family: Rajdhani, sans-serif");
     expect(look).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
-    expect(look).toContain('--mkt-page: #F5F0E6');
-    expect(look).toContain('--mkt-sheet: #FFFDF8');
-    expect(look).toContain('--mkt-ink: #0A2540');
-    expect(look).toContain('--mkt-muted: #5B6B7C');
-    expect(look).toContain('--mkt-line: #E2D9CC');
+    expect(look).toContain('--mkt-page: var(--g-bg)');
+    expect(look).toContain('--mkt-sheet: var(--g-surface)');
+    expect(look).toContain('--mkt-ink: var(--g-ink)');
+    expect(look).toContain('--mkt-muted: var(--g-ink-muted)');
+    expect(look).toContain('--mkt-line: var(--g-line)');
     expect(look).toContain('background: #2E75B6');
     expect(look).toContain('height: 44px');
     expect(look).toContain('border-radius: 16px');

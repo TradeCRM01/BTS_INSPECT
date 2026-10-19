@@ -73,6 +73,14 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      update_member_settings: {
+        Args: { member_id: string; patch: Json };
+        Returns: Json;
+      };
+      ensure_builtin_renderers: {
+        Args: Record<string, never>;
+        Returns: undefined;
+      };
       is_platform_operator: { Args: Record<string, never>; Returns: boolean };
       ingest_twilio_inbound_sms: { Args: Record<string, unknown>; Returns: Json };
       ingest_twilio_voice_status: { Args: Record<string, unknown>; Returns: Json };

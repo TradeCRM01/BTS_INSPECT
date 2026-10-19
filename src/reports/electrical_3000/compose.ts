@@ -14,6 +14,8 @@ import {
 } from '../shared/inspectionCompose';
 import type { PdfThemeTokens } from '../shared/styles';
 import { companyDocumentLogoUrl } from '../../lib/companyLogo';
+import { resolveInspectorIdentity } from '../../lib/inspectorSnapshot';
+import { resolveInspectionPrintFields } from '../../lib/inspectionPrintSnapshot';
 import { inspectionReportTheme } from '../generic_inspection/theme';
 
 interface ComposeInput {
@@ -24,6 +26,13 @@ interface ComposeInput {
     completed_at?: string | null;
     doc_version?: number | null;
     amendment_reason?: string | null;
+    inspector_id?: string | null;
+    inspector_name_snapshot?: string | null;
+    inspector_licence_snapshot?: string | null;
+    client_name_snapshot?: string | null;
+    job_title_snapshot?: string | null;
+    site_name_snapshot?: string | null;
+    site_address_snapshot?: string | null;
   };
   template: { name: string; schema: TemplateSchema };
   profile: { name: string; licence_number?: string | null };
@@ -45,9 +54,27 @@ export function composeElectricalReport(input: ComposeInput): ElectricalReportDa
   const { inspection, template, profile, company, photos, reportNumber } = input;
   const { responses, meta } = inspection;
 
+  const inspector = resolveInspectorIdentity({
+    inspectorId: inspection.inspector_id,
+    live: { name: profile.name, licence: profile.licence_number },
+    snapshot: {
+      name: inspection.inspector_name_snapshot,
+      licence: inspection.inspector_licence_snapshot,
+    },
+  });
+  const printed = resolveInspectionPrintFields({
+    meta,
+    snapshots: {
+      clientName: inspection.client_name_snapshot,
+      jobTitle: inspection.job_title_snapshot,
+      siteName: inspection.site_name_snapshot,
+      siteAddress: inspection.site_address_snapshot,
+    },
+    finalised: true,
+  });
   const sections = composeInspectionSections(template.schema, responses, photos);
   const overallVerdict = computeOverallVerdict(sections);
-  const signatures = collectSignatures(sections, profile.name);
+  const signatures = collectSignatures(sections, inspector.name);
   const photoAppendix = collectPhotoAppendix(sections);
   const customFields = composeCustomFields(template.schema, meta);
   const defects = collectDefects(sections);
@@ -65,12 +92,12 @@ export function composeElectricalReport(input: ComposeInput): ElectricalReportDa
     meta: {
       reportNumber,
       issueDate: format(new Date(), 'd MMMM yyyy'),
-      site: meta.siteName ?? '',
-      siteAddress: meta.siteAddress ?? '',
-      client: meta.clientName ?? '',
+      site: printed.siteName,
+      siteAddress: printed.siteAddress,
+      client: printed.clientName,
       jobNumber: meta.jobNumber,
-      inspector: profile.name,
-      licenceNumber: profile.licence_number ?? '',
+      inspector: inspector.name,
+      licenceNumber: inspector.licence ?? '',
       dateOfTest: inspection.completed_at
         ? format(new Date(inspection.completed_at), 'd MMMM yyyy')
         : format(new Date(), 'd MMMM yyyy'),

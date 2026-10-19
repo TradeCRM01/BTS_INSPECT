@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { FIELD_AU_PHONE, FIELD_SAVE_MISS, fieldSaveMiss, isAuPhone, updateWroteRows } from './fieldValidation';
 import { clientPhoneForSms } from './sendInvoice';
 
 /** Named miss when there is no existing client to write. Does not invent a client. */
@@ -37,6 +38,7 @@ export function jobClientPhoneRow(input: {
 
 export type JobClientPhoneSaveDecision =
   | { action: 'miss'; reason: 'no_client'; message: typeof JOB_CLIENT_PHONE_NO_CLIENT }
+  | { action: 'miss'; reason: 'invalid_phone'; message: typeof FIELD_AU_PHONE }
   | { action: 'write'; clientId: string; phone: string | null };
 
 export function decideJobClientPhoneSave(input: {
@@ -46,10 +48,14 @@ export function decideJobClientPhoneSave(input: {
   if (!input.clientId) {
     return { action: 'miss', reason: 'no_client', message: JOB_CLIENT_PHONE_NO_CLIENT };
   }
+  const phone = jobClientPhoneToStore(input.phone);
+  if (phone && !isAuPhone(phone)) {
+    return { action: 'miss', reason: 'invalid_phone', message: FIELD_AU_PHONE };
+  }
   return {
     action: 'write',
     clientId: input.clientId,
-    phone: jobClientPhoneToStore(input.phone),
+    phone,
   };
 }
 
@@ -76,10 +82,12 @@ export async function saveJobClientPhone(input: {
 }): Promise<SaveJobClientPhoneResult> {
   const decision = decideJobClientPhoneSave(input);
   if (decision.action === 'miss') throw new Error(decision.message);
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('clients')
     .update({ phone: decision.phone })
-    .eq('id', decision.clientId);
-  if (error) throw error;
+    .eq('id', decision.clientId)
+    .select('id');
+  if (error) throw new Error(fieldSaveMiss(error));
+  if (!updateWroteRows(data)) throw new Error(FIELD_SAVE_MISS);
   return { clientId: decision.clientId, phone: decision.phone };
 }

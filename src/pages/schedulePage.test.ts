@@ -235,11 +235,11 @@ describe('schedule board cream paper look', () => {
     expect(page).not.toMatch(/Grafter|Relovi|Littleloop/);
 
     expect(css).toContain('.hub-board-cal.ops-page');
-    expect(css).toContain('--schedule-page: #F5F0E6');
-    expect(css).toContain('--schedule-sheet: #FFFDF8');
-    expect(css).toContain('--schedule-ink: #0A2540');
-    expect(css).toContain('--schedule-muted: #5B6B7C');
-    expect(css).toContain('--schedule-line: #E2D9CC');
+    expect(css).toContain('--schedule-page: var(--g-bg)');
+    expect(css).toContain('--schedule-sheet: var(--g-surface)');
+    expect(css).toContain('--schedule-ink: var(--g-ink)');
+    expect(css).toContain('--schedule-muted: var(--g-ink-muted)');
+    expect(css).toContain('--schedule-line: var(--g-line)');
     expect(css).toContain('#2E75B6');
     expect(css).toContain("font-family: Rajdhani, sans-serif");
     expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");

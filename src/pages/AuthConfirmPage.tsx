@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { BrandLockup } from '../components/brand/BrandLockup';
+import { BRAND_NAME } from '../lib/brand';
 import { PublicLegalLinks } from '../components/legal/PublicLegalLinks';
 import { usePublicDocumentHead } from '../lib/publicSeo';
 
@@ -73,7 +74,7 @@ export function AuthConfirmPage() {
   return (
     <div className="hub-auth">
       <header className="hub-auth-nav">
-        <Link to="/" aria-label="Grafter">
+        <Link to="/" aria-label={BRAND_NAME}>
           <BrandLockup size="marketing" />
         </Link>
       </header>

@@ -46,11 +46,11 @@ describe('Take 5 open sheet LOOK', () => {
     expect(lookCss).toContain('.hub-take5-hero');
     expect(lookCss).toContain('.hub-take5-label');
     expect(lookCss).toContain('.hub-take5.is-record-open');
-    expect(lookCss).toContain('--take5-look-page: #F5F0E6');
-    expect(lookCss).toContain('--take5-look-sheet: #FFFDF8');
-    expect(lookCss).toContain('--take5-look-ink: #0A2540');
-    expect(lookCss).toContain('--take5-look-muted: #5B6B7C');
-    expect(lookCss).toContain('--take5-look-line: #E2D9CC');
+    expect(lookCss).toContain('--take5-look-page: var(--g-bg)');
+    expect(lookCss).toContain('--take5-look-sheet: var(--g-surface)');
+    expect(lookCss).toContain('--take5-look-ink: var(--g-ink)');
+    expect(lookCss).toContain('--take5-look-muted: var(--g-ink-muted)');
+    expect(lookCss).toContain('--take5-look-line: var(--g-line)');
     expect(lookCss).toContain('#2E75B6');
     expect(lookCss).toContain('box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(lookCss).toContain('box-shadow: inset 0 1px 0 #fff');

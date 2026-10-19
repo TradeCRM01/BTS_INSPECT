@@ -10,8 +10,11 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { FileText, ChevronLeft, CreditCard as Edit2, PenLine, MoreHorizontal } from 'lucide-react';
 import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
-import { persistGeneratedReportPdf, reportIsSent, reportPdfFilename, reportSiteName } from '../lib/sendReport';
+import { InspectionIssueControl } from '../components/inspection/InspectionIssueControl';
+import { issueInspectionRecord, persistGeneratedReportPdf, reportIsSent, reportPdfFilename, reportSiteName } from '../lib/sendReport';
 import { applyLivingJobToInspection } from '../lib/livingJha';
+import { isFinalisedInspection } from '../lib/isFinalisedInspection';
+import { resolveInspectionPrintFields, inspectionPrintSnapshotsFromRow } from '../lib/inspectionPrintSnapshot';
 import { safeFormatDate } from '../lib/safeDate';
 import { PdfViewer } from '../components/pdf/PdfViewer';
 import { AnnotationToolbar } from '../components/pdf/AnnotationToolbar';
@@ -58,6 +61,7 @@ export function ReportPage() {
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [sendingReport, setSendingReport] = useState(false);
+  const [issuing, setIssuing] = useState(false);
   const [sendNotice, setSendNotice] = useState('');
   const originalPdfBytesRef = useRef<Uint8Array | null>(null);
   const moreRef = useRef<HTMLDetailsElement>(null);
@@ -227,6 +231,29 @@ export function ReportPage() {
   }
 
   function livingReportMeta(raw: Record<string, string> | null | undefined): Record<string, string> {
+    const finalised = isFinalisedInspection(
+      inspection?.status,
+      (inspection as { archived?: boolean | null } | null)?.archived,
+    );
+    if (finalised) {
+      const printed = resolveInspectionPrintFields({
+        meta: raw,
+        snapshots: inspectionPrintSnapshotsFromRow(inspection as {
+          client_name_snapshot?: string | null;
+          job_title_snapshot?: string | null;
+          site_name_snapshot?: string | null;
+          site_address_snapshot?: string | null;
+        } | null),
+        finalised: true,
+      });
+      return {
+        ...(raw ?? {}),
+        siteName: printed.siteName,
+        siteAddress: printed.siteAddress,
+        clientName: printed.clientName,
+        jobDescription: printed.jobTitle || (raw?.jobDescription ?? ''),
+      };
+    }
     return applyLivingJobToInspection(
       raw,
       livingReportJob(),
@@ -258,6 +285,13 @@ export function ReportPage() {
           completed_at: inspection.completed_at,
           doc_version: (inspection as { doc_version?: number | null }).doc_version ?? 1,
           amendment_reason: (inspection as { amendment_reason?: string | null }).amendment_reason ?? null,
+          inspector_id: (inspection as { inspector_id?: string | null }).inspector_id ?? null,
+          inspector_name_snapshot: (inspection as { inspector_name_snapshot?: string | null }).inspector_name_snapshot ?? null,
+          inspector_licence_snapshot: (inspection as { inspector_licence_snapshot?: string | null }).inspector_licence_snapshot ?? null,
+          client_name_snapshot: (inspection as { client_name_snapshot?: string | null }).client_name_snapshot ?? null,
+          job_title_snapshot: (inspection as { job_title_snapshot?: string | null }).job_title_snapshot ?? null,
+          site_name_snapshot: (inspection as { site_name_snapshot?: string | null }).site_name_snapshot ?? null,
+          site_address_snapshot: (inspection as { site_address_snapshot?: string | null }).site_address_snapshot ?? null,
         },
         template: snapshot,
         profile,
@@ -297,14 +331,6 @@ export function ReportPage() {
         },
         updateReportPath: async (reportId, path) => {
           const { error } = await supabase.from('reports').update({ pdf_storage_path: path }).eq('id', reportId);
-          return { error };
-        },
-        markIssued: async inspectionId => {
-          const { error } = await supabase
-            .from('inspections')
-            .update({ status: 'issued' })
-            .eq('id', inspectionId)
-            .not('status', 'in', '(issued,sent)');
           return { error };
         },
         remove: path => supabase.storage.from('reports').remove([path]),
@@ -360,6 +386,26 @@ export function ReportPage() {
     } finally {
       setDownloading(false);
     }
+  }
+
+  async function handleIssue() {
+    if (!inspection) return;
+    setIssuing(true);
+    setError('');
+    const result = await issueInspectionRecord(inspection.id, inspection.status, async inspectionId => {
+      const { error } = await supabase
+        .from('inspections')
+        .update({ status: 'issued' })
+        .eq('id', inspectionId)
+        .not('status', 'in', '(issued,sent)');
+      return { error };
+    });
+    if (!result.ok) setError(result.error);
+    else {
+      queryClient.invalidateQueries({ queryKey: ['inspection', id] });
+      queryClient.invalidateQueries({ queryKey: ['inspections'] });
+    }
+    setIssuing(false);
   }
 
   function handleEmail() {
@@ -585,6 +631,12 @@ export function ReportPage() {
           </div>
           <div className="hub-invoices">
             <div className="hub-invoice-editor-act">
+              <InspectionIssueControl
+                status={inspection.status}
+                hasReport={!!existingReport}
+                busy={issuing}
+                onIssue={() => { void handleIssue(); }}
+              />
               {existingReport ? (
                 <button type="button" onClick={handleEmail} className="btn-primary">
                   Send

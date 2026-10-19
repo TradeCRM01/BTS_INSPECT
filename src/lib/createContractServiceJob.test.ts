@@ -90,6 +90,9 @@ describe('requireNextServiceDate', () => {
     expect(requireNextServiceDate('  ')).toEqual({ ok: false, message: 'Next service date is required.' });
     expect(requireNextServiceDate('2026-08-23')).toEqual({ ok: true, nextServiceDate: '2026-08-23' });
     expect(requireNextServiceDate(' 2026-08-23T00:00:00.000Z ')).toEqual({ ok: true, nextServiceDate: '2026-08-23' });
+    expect(requireNextServiceDate('2101-01-01').ok).toBe(false);
+    expect(requireNextServiceDate('1899-12-31').ok).toBe(false);
+    expect(requireNextServiceDate('21/10/20')).toEqual({ ok: false, message: 'Enter the date as dd/mm/yyyy' });
   });
 });
 

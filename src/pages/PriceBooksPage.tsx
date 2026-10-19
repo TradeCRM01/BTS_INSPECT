@@ -20,6 +20,7 @@ import { getAuditPriceBookItems, getAuditPriceBooks } from '../lib/devFieldAudit
 import { priceBookItemGstRate } from '../lib/priceBookImport';
 import { priceBookWritePayload } from '../lib/priceBookWrite';
 import { gstLabel } from '../lib/gst';
+import { commitMoneyField, committedNumber, moneyDraftAllowed, moneyFieldMessage } from '../lib/parseDecimal';
 import { LIST_LOADING_LABEL, listQueryBusy } from '../lib/listQueryReady';
 import { useCompanyAiKey } from '../lib/useCompanyAiKey';
 import {
@@ -464,14 +465,25 @@ function PriceBookForm({ book, onClose, onSaved }: { book: PriceBook | null; onC
   );
 }
 
-function PriceBookItemForm({ item, priceBookId, onClose, onDelete, onSaved }: { item: PriceBookItem | null; priceBookId: string; onClose: () => void; onDelete?: () => void; onSaved: () => void }) {
+export function commitPriceBookPrices(unitRaw: string, costRaw: string) {
+  const unit = commitMoneyField(unitRaw, 'zero');
+  if (!unit.ok) return unit;
+  if (!costRaw.trim()) {
+    return { ok: true as const, unit_price: Number(unit.value) || 0, cost_price: null };
+  }
+  const cost = commitMoneyField(costRaw, 'null');
+  if (!cost.ok) return cost;
+  return { ok: true as const, unit_price: Number(unit.value) || 0, cost_price: cost.value };
+}
+
+export function PriceBookItemForm({ item, priceBookId, onClose, onDelete, onSaved }: { item: PriceBookItem | null; priceBookId: string; onClose: () => void; onDelete?: () => void; onSaved: () => void }) {
   const { profile } = useAuth();
   const [form, setForm] = useState({
     code: item?.code ?? '',
     description: item?.description ?? '',
     category: item?.category ?? '',
     unit: item?.unit ?? 'each',
-    unit_price: String(item?.unit_price ?? 0),
+    unit_price: item ? String(item.unit_price) : '',
     cost_price: item?.cost_price != null ? String(item.cost_price) : '',
     gst_rate: String(item?.gst_rate ?? 10),
     is_active: item?.is_active ?? true,
@@ -481,6 +493,8 @@ function PriceBookItemForm({ item, priceBookId, onClose, onDelete, onSaved }: { 
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    const price = commitPriceBookPrices(form.unit_price, form.cost_price);
+    if (!price.ok) { setErr(price.message); return; }
     setSaving(true);
     setErr(null);
     try {
@@ -491,9 +505,9 @@ function PriceBookItemForm({ item, priceBookId, onClose, onDelete, onSaved }: { 
         description: form.description,
         category: form.category || null,
         unit: form.unit,
-        unit_price: parseFloat(form.unit_price) || 0,
-        cost_price: form.cost_price.trim() !== '' ? (parseFloat(form.cost_price) || 0) : null,
-        gst_rate: parseFloat(form.gst_rate) || 0,
+        unit_price: price.unit_price,
+        cost_price: price.cost_price,
+        gst_rate: committedNumber(form.gst_rate) ?? 0,
         is_active: form.is_active,
       };
       if (import.meta.env.DEV && item?.id === 'look-pb-labour') {
@@ -527,8 +541,14 @@ function PriceBookItemForm({ item, priceBookId, onClose, onDelete, onSaved }: { 
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Field label="Unit"><input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} className="form-input" placeholder="each" /></Field>
-            <Field label="Unit Price"><input type="number" min={0} step="0.01" value={form.unit_price} onChange={e => setForm(f => ({ ...f, unit_price: e.target.value }))} className="form-input" placeholder="0.00" /></Field>
-            <Field label="Cost Price"><input type="number" min={0} step="0.01" value={form.cost_price} onChange={e => setForm(f => ({ ...f, cost_price: e.target.value }))} className="form-input" placeholder="0.00" /></Field>
+            <Field label="Unit Price">
+              <input type="text" inputMode="decimal" value={form.unit_price} aria-label="Unit Price" onChange={e => { if (!moneyDraftAllowed(e.target.value)) return; setForm(f => ({ ...f, unit_price: e.target.value })); }} onFocus={e => e.currentTarget.select()} className="form-input" placeholder="0.00" />
+              {moneyFieldMessage(form.unit_price) ? <p className="text-xs text-[#B42318] mt-1">{moneyFieldMessage(form.unit_price)}</p> : null}
+            </Field>
+            <Field label="Cost Price">
+              <input type="text" inputMode="decimal" value={form.cost_price} aria-label="Cost Price" onChange={e => { if (!moneyDraftAllowed(e.target.value)) return; setForm(f => ({ ...f, cost_price: e.target.value })); }} onFocus={e => e.currentTarget.select()} className="form-input" placeholder="0.00" />
+              {moneyFieldMessage(form.cost_price) ? <p className="text-xs text-[#B42318] mt-1">{moneyFieldMessage(form.cost_price)}</p> : null}
+            </Field>
             <Field label="GST %"><input type="number" min={0} max={100} step="0.01" value={form.gst_rate} onChange={e => setForm(f => ({ ...f, gst_rate: e.target.value }))} className="form-input" placeholder="10" /></Field>
           </div>
           <label

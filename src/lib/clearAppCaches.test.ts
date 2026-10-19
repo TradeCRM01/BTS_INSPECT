@@ -165,7 +165,7 @@ describe('automatic recovery callers add auto=1', () => {
     expect(boundary).toContain("from '../../lib/clearAppCaches'");
     expect(login).toContain('href="/login?clear=1"');
     expect(login).not.toContain('auto=1');
-    expect(main).toContain("window.location.href = '/login?clear=1'");
+    expect(src('src/components/layout/AppCrashScreen.tsx')).toContain("window.location.href = '/login?clear=1'");
     expect(main).not.toMatch(/Relovi|Littleloop/);
   });
 });

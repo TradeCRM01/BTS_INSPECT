@@ -88,7 +88,7 @@ describe('invoice-sheet client email — wiring', () => {
     expect(editorStart).toBeGreaterThan(-1);
     const editor = page.slice(editorStart);
     const handleSaveStart = editor.indexOf('const saveClientEmail');
-    const handleSaveEnd = editor.indexOf('const rawSubtotal');
+    const handleSaveEnd = editor.indexOf('const gst = useMemo');
     expect(handleSaveStart).toBeGreaterThan(-1);
     expect(handleSaveEnd).toBeGreaterThan(handleSaveStart);
     const handle = editor.slice(handleSaveStart, handleSaveEnd);

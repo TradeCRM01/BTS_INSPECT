@@ -1,8 +1,9 @@
 import type { InvoiceStatus } from '../types/fsm';
-import { formatMoney } from '../types/fsm';
+import { formatMoney, INVOICE_STATUS_LABELS } from '../types/fsm';
 import { todayIsoDate } from './invoiceStatus';
 import { isDevFieldAuditAuth } from './devFieldAuditAuth';
 import { supabase } from './supabase';
+import { DECIMAL_EMPTY, MONEY_COMMA_HINT, parseMoneyInput } from './parseDecimal';
 
 export type InvoicePaymentMethod = 'cash' | 'card' | 'bank' | 'other';
 
@@ -83,7 +84,7 @@ export function getAuditInvoicePayments(invoiceId: string): InvoicePaymentRow[] 
 
 export function roundInvoiceMoney(value: number): number {
   if (!Number.isFinite(value)) return 0;
-  return Math.round(value * 100) / 100;
+  return Math.round(value * 100 + 1e-8) / 100;
 }
 
 export function honestInvoiceTotal(total: number | string | null | undefined): number {
@@ -179,11 +180,30 @@ export function recordPaymentOverpayMessage(
 }
 
 export function parseRecordPaymentAmount(raw: string): number | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  const n = Number(trimmed);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return roundInvoiceMoney(n);
+  const parsed = parseMoneyInput(raw);
+  if (parsed.status !== 'valid' || parsed.value <= 0) return null;
+  return roundInvoiceMoney(parsed.value);
+}
+
+export function recordPaymentAmountReason(raw: string): string | null {
+  const parsed = parseMoneyInput(raw);
+  if (parsed.status === 'empty') return DECIMAL_EMPTY;
+  if (parsed.status === 'incomplete') return MONEY_COMMA_HINT;
+  if (parsed.status === 'invalid') return parsed.message;
+  if (parsed.status === 'valid' && parsed.value <= 0) return DECIMAL_EMPTY;
+  return null;
+}
+
+/** Overpay is blocked. Never show Paid while Confirm is disabled. */
+export function recordPaymentStatusAfterLabel(
+  amountRaw: string,
+  total: number | string | null | undefined,
+  amountPaid: number | string | null | undefined,
+): string {
+  const amountNum = parseRecordPaymentAmount(amountRaw);
+  if (amountNum == null) return '—';
+  if (recordPaymentOverpayMessage(amountNum, total, amountPaid)) return 'Not recorded';
+  return INVOICE_STATUS_LABELS[previewInvoicePayment(total, amountPaid, amountNum).statusAfter];
 }
 
 export function invoicePaidBalanceLabel(

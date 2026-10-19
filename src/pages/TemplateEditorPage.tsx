@@ -8,8 +8,15 @@ import { TemplateSchemaValidator } from '../types/template';
 import { showIfQuestionIds } from '../lib/conditionEval';
 import { INSPECTION_TEMPLATE_PACKS, clonePackSections, packMetaDefaults } from '../lib/inspectionTemplatePacks';
 import { AppShell } from '../components/layout/AppShell';
+import { TemplateAccessDenied } from '../components/layout/TemplateAccessDenied';
+import { canEditTemplates, canViewTemplates, TEMPLATE_DELETE_FAILED, throwIfNoRows } from '../lib/templateAccess';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
+import { UnsavedChangesDialog } from '../components/unsaved/UnsavedChangesDialog';
+import { getAuditTemplate } from '../lib/devFieldAuditDocs';
+import { templateQuestionDeleteCopy } from '../lib/templateEditorGuard';
+import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard';
 import { SectionPanel } from '../components/template-editor/SectionPanel';
 import { QuestionEditor } from '../components/template-editor/QuestionEditor';
 import { MobilePreview } from '../components/template-editor/MobilePreview';
@@ -17,7 +24,7 @@ import { PdfPreviewModal } from '../components/template-editor/PdfPreviewModal';
 import { QuestionTypePicker } from '../components/template-editor/QuestionTypePicker';
 import { ShowIfEditor } from '../components/template-editor/ShowIfEditor';
 import {
-  ChevronLeft, Save, CheckCircle, AlertCircle, Plus, Layers, Trash2, Settings2, X, Library, FileText
+  ChevronLeft, Save, CheckCircle, AlertCircle, Plus, Layers, Trash2, Settings2, X, Library, FileText, ShieldCheck
 } from 'lucide-react';
 import { nanoid } from '../lib/nanoid';
 import {
@@ -33,6 +40,7 @@ export function TemplateEditorPage() {
   const isNew = !id || id === 'new';
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const canEdit = canEditTemplates(profile);
   const qc = useQueryClient();
 
   const [templateName, setTemplateName] = useState('Untitled Template');
@@ -46,10 +54,12 @@ export function TemplateEditorPage() {
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [showQTypePicker, setShowQTypePicker] = useState(false);
   const [showMetaSettings, setShowMetaSettings] = useState(true);
   const [templateId, setTemplateId] = useState<string | null>(isNew ? null : id);
   const [renderers, setRenderers] = useState<Array<{ key: string; label: string }>>([]);
+  const [deleteQuestionId, setDeleteQuestionId] = useState<string | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const autoSaveRef = useRef<ReturnType<typeof setTimeout>>();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -57,6 +67,8 @@ export function TemplateEditorPage() {
   const { data: existingTemplate, isLoading, isError, refetch } = useQuery({
     queryKey: ['template', id],
     queryFn: async () => {
+      const mock = id ? getAuditTemplate(id) : null;
+      if (mock) return mock as never;
       const { data, error } = await supabase
         .from('templates')
         .select('*')
@@ -91,11 +103,11 @@ export function TemplateEditorPage() {
 
   async function initializeBuiltInRenderers() {
     if (!profile?.company_id) return;
-    await supabase.from('inspection_renderers').insert([
-      { company_id: profile.company_id, key: 'generic_inspection', label: 'Generic Inspection', built_in: true },
-      { company_id: profile.company_id, key: 'electrical_3000', label: 'AS/NZS 3000:2018', built_in: true },
-    ]);
-    // Reload
+    const { error } = await supabase.rpc('ensure_builtin_renderers');
+    if (error) {
+      console.error(error);
+      return;
+    }
     const { data } = await supabase
       .from('inspection_renderers')
       .select('key, label')
@@ -121,26 +133,24 @@ export function TemplateEditorPage() {
     }
   }, [existingTemplate]);
 
-  // Autosave: debounce 2s after any change, only for already-persisted templates
-  useEffect(() => {
-    if (saveState !== 'unsaved' || !templateId) return;
-    clearTimeout(autoSaveRef.current);
-    autoSaveRef.current = setTimeout(() => {
-      saveMutation.mutate();
-    }, 2000);
-    return () => clearTimeout(autoSaveRef.current);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema, templateName, renderer, saveState, templateId]);
+  const allowLeaveRef = useRef(false);
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
       if (!templateId) return;
-      const { error } = await supabase.from('templates').delete().eq('id', templateId);
-      if (error) throw error;
+      const result = await supabase.from('templates').delete().eq('id', templateId).select('id');
+      throwIfNoRows(result);
     },
     onSuccess: () => {
+      setDeleteError(null);
       qc.invalidateQueries({ queryKey: ['templates'] });
+      allowLeaveRef.current = true;
       navigate('/templates');
+    },
+    onError: () => {
+      setValidationErrors([]);
+      setDeleteError(TEMPLATE_DELETE_FAILED);
+      setSaveState('error');
     },
   });
 
@@ -161,7 +171,7 @@ export function TemplateEditorPage() {
       setValidationErrors([]);
 
       if (templateId) {
-        const { error } = await supabase
+        const result = await supabase
           .from('templates')
           .update({
             name: templateName,
@@ -169,8 +179,9 @@ export function TemplateEditorPage() {
             schema: schema as unknown as Record<string, unknown>,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', templateId);
-        if (error) throw error;
+          .eq('id', templateId)
+          .select('id');
+        throwIfNoRows(result);
       } else {
         const { data, error } = await supabase
           .from('templates')
@@ -185,17 +196,43 @@ export function TemplateEditorPage() {
           .single();
         if (error) throw error;
         setTemplateId(data.id);
+        allowLeaveRef.current = true;
         navigate(`/templates/${data.id}`, { replace: true });
       }
       await qc.invalidateQueries({ queryKey: ['templates'] });
     },
     onMutate: () => setSaveState('saving'),
-    onSuccess: () => setSaveState('saved'),
+    onSuccess: () => {
+      setDeleteError(null);
+      setSaveState('saved');
+    },
     onError: (err: unknown) => {
       setSaveState('error');
       const msg = err instanceof Error ? err.message : String(err);
       setValidationErrors(prev => prev.length > 0 ? prev : [msg]);
     },
+  });
+
+  const persistTemplate = saveMutation.mutate;
+  const flushTemplate = useCallback(() => {
+    if (!templateId || getAuditTemplate(templateId)) return;
+    persistTemplate();
+  }, [templateId, persistTemplate]);
+
+  useEffect(() => {
+    if (!canEdit || saveState !== 'unsaved' || !templateId) return;
+    if (getAuditTemplate(templateId)) return;
+    clearTimeout(autoSaveRef.current);
+    autoSaveRef.current = setTimeout(() => {
+      persistTemplate();
+    }, 2000);
+    return () => clearTimeout(autoSaveRef.current);
+  }, [schema, templateName, renderer, saveState, templateId, persistTemplate]);
+
+  const unsaved = useUnsavedChangesGuard({
+    status: saveState,
+    flush: flushTemplate,
+    allowLeaveRef,
   });
 
   function validateSchema(s: TemplateSchema, name: string): string[] {
@@ -444,6 +481,22 @@ export function TemplateEditorPage() {
     s.questions.map(q => ({ ...q, sectionTitle: s.title }))
   );
 
+  if (!canViewTemplates(profile)) {
+    return <TemplateAccessDenied />;
+  }
+
+  if (!canEdit) {
+    return (
+      <AppShell>
+        <div className="max-w-[1200px] mx-auto px-4 py-16 text-center">
+          <ShieldCheck size={40} className="mx-auto text-[#E5E7EB] mb-3" />
+          <p className="text-[#1A1A1A] font-medium">No edit access</p>
+          <p className="text-sm text-[#4A5568] mt-1">You need edit permissions to manage inspection templates.</p>
+        </div>
+      </AppShell>
+    );
+  }
+
   if (!isNew && isLoading) {
     return (
       <AppShell>
@@ -470,6 +523,7 @@ export function TemplateEditorPage() {
       <div className="bg-white border-b border-[#E5E7EB] sticky top-0 z-30 shadow-sm">
         <div className="max-w-[1200px] mx-auto px-3 md:px-4 py-2 md:py-1 md:min-h-12 flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-3">
           <button
+            type="button"
             onClick={() => navigate('/templates')}
             className="text-[#4A5568] hover:text-[#1A1A1A] flex items-center gap-1 text-sm min-h-10 md:min-h-0"
           >
@@ -492,13 +546,12 @@ export function TemplateEditorPage() {
             ))}
           </select>
 
-          {/* Save indicator */}
           <div className="hidden md:flex items-center gap-1.5 text-xs text-[#4A5568] shrink-0">
             {isLoading && <><LoadingSpinner size="sm" /> Loading...</>}
-            {!isLoading && saveState === 'saving' && <><LoadingSpinner size="sm" /> Saving...</>}
-            {!isLoading && saveState === 'saved' && <><CheckCircle size={13} className="text-[#1B7F3A]" /> Saved</>}
-            {!isLoading && saveState === 'unsaved' && <><div className="w-2 h-2 rounded-full bg-amber-400" /> {templateId ? 'Saving soon…' : 'Unsaved'}</>}
-            {!isLoading && saveState === 'error' && <><AlertCircle size={13} className="text-[#B42318]" /> Error</>}
+            {!isLoading && saveState === 'saved' && <CheckCircle size={13} className="text-[#1B7F3A]" />}
+            {!isLoading && (
+              <span data-save-status={saveState}>{unsaved.hint}</span>
+            )}
           </div>
 
           <div className="flex gap-2 w-full md:w-auto">
@@ -530,10 +583,20 @@ export function TemplateEditorPage() {
         </div>
       </div>
 
-      {/* Validation errors */}
+      {deleteError && (
+        <div className="max-w-[1200px] mx-auto px-4 pt-3">
+          <div className="bg-red-50 border border-red-200 rounded-md p-3" role="alert">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={14} className="text-red-600" />
+              <p className="text-sm font-medium text-red-700">{deleteError}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {validationErrors.length > 0 && (
         <div className="max-w-[1200px] mx-auto px-4 pt-3">
-          <div className="bg-red-50 border border-red-200 rounded-md p-3">
+          <div className="bg-red-50 border border-red-200 rounded-md p-3" role="alert">
             <div className="flex items-center gap-2 mb-1">
               <AlertCircle size={14} className="text-red-600" />
               <p className="text-sm font-medium text-red-700">Please fix the following before saving:</p>
@@ -832,7 +895,7 @@ export function TemplateEditorPage() {
                           index={idx}
                           allQuestions={allQuestions}
                           onChange={updates => updateQuestion(q.id, updates)}
-                          onDelete={() => deleteQuestion(q.id)}
+                          onDelete={() => setDeleteQuestionId(q.id)}
                         />
                       ))}
                     </div>
@@ -916,6 +979,26 @@ export function TemplateEditorPage() {
         renderer={renderer}
         schema={schema}
       />
+
+      <UnsavedChangesDialog guard={unsaved} />
+      {deleteQuestionId && (() => {
+        const label = schema.sections.flatMap(section => section.questions).find(q => q.id === deleteQuestionId)?.label;
+        const copy = templateQuestionDeleteCopy(label);
+        return (
+          <ConfirmDialog
+            open
+            title={copy.title}
+            message={copy.message}
+            confirmLabel={copy.confirmLabel}
+            variant="danger"
+            onConfirm={() => {
+              deleteQuestion(deleteQuestionId);
+              setDeleteQuestionId(null);
+            }}
+            onCancel={() => setDeleteQuestionId(null)}
+          />
+        );
+      })()}
     </AppShell>
   );
 }

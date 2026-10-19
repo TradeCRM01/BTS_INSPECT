@@ -25,7 +25,8 @@ import {
   type ComplianceListFloorItem,
 } from '../lib/complianceList';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, Modal } from '../components/ui';
+import { DateFieldInput, LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, Modal } from '../components/ui';
+import { DATE_INVALID_MESSAGE, DATE_REQUIRED_MESSAGE, parseAuDate } from '../lib/dateTimeIntegrity';
 import type { MenuEntry } from '../components/ui';
 import { format } from 'date-fns';
 import {
@@ -33,6 +34,11 @@ import {
   dateFieldYearError,
   safeFormatDate,
 } from '../lib/safeDate';
+
+function namedDateRaw(id: string, fallback: string): string {
+  const el = document.getElementById(id);
+  return el instanceof HTMLInputElement ? el.value : fallback;
+}
 import {
   Plus, X, Trash2, Pencil, MoreHorizontal,
   ShieldCheck, Pause, Play, CheckCircle2, History, Mail,
@@ -800,7 +806,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function ComplianceForm({
+export function ComplianceForm({
   item, onClose, onSaved,
 }: {
   item: ComplianceItem | null;
@@ -823,8 +829,11 @@ function ComplianceForm({
   const [clients, setClients] = useState<Client[]>([]);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [firstDueInvalid, setFirstDueInvalid] = useState(false);
+  const [lastCompletedInvalid, setLastCompletedInvalid] = useState(false);
   const [firstDueError, setFirstDueError] = useState<string | null>(null);
   const [lastCompletedError, setLastCompletedError] = useState<string | null>(null);
+  const [firstDueRequiredErr, setFirstDueRequiredErr] = useState<string | null>(null);
 
   useEffect(() => {
     supabase
@@ -838,29 +847,54 @@ function ComplianceForm({
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    setSaving(true);
-    setErr(null);
+    const firstDueRaw = namedDateRaw('compliance-first-due-date', form.first_due_date);
+    const lastCompletedRaw = namedDateRaw('compliance-last-completed-date', form.last_completed_date);
     setFirstDueError(null);
     setLastCompletedError(null);
-    const firstDueYearError = dateFieldYearError(form.first_due_date, true);
+    const firstDueYearError = dateFieldYearError(firstDueRaw, true);
     if (firstDueYearError) {
+      if (!firstDueRaw.trim()) {
+        setFirstDueRequiredErr(DATE_REQUIRED_MESSAGE);
+        setErr(DATE_REQUIRED_MESSAGE);
+        setSaving(false);
+        return;
+      }
       setFirstDueError(firstDueYearError);
       setErr(firstDueYearError);
       setSaving(false);
       return;
     }
-    const lastCompletedYearError = dateFieldYearError(form.last_completed_date, false);
+    const lastCompletedYearError = dateFieldYearError(lastCompletedRaw, false);
     if (lastCompletedYearError) {
       setLastCompletedError(lastCompletedYearError);
       setErr(lastCompletedYearError);
       setSaving(false);
       return;
     }
+    const firstDue = parseAuDate(firstDueRaw, { requireFourDigitYear: true });
+    const lastCompleted = lastCompletedRaw.trim() ? parseAuDate(lastCompletedRaw, { requireFourDigitYear: true }) : null;
+    if (!firstDue) {
+      if (firstDueRaw.trim() || firstDueInvalid) {
+        setFirstDueError(DATE_INVALID_MESSAGE);
+        setErr(DATE_INVALID_MESSAGE);
+        return;
+      }
+      setFirstDueRequiredErr(DATE_REQUIRED_MESSAGE);
+      setErr(DATE_REQUIRED_MESSAGE);
+      return;
+    }
+    if (lastCompletedRaw.trim() && !lastCompleted) {
+      setLastCompletedError(DATE_INVALID_MESSAGE);
+      setErr(DATE_INVALID_MESSAGE);
+      return;
+    }
+    setFirstDueRequiredErr(null);
+    setSaving(true);
+    setErr(null);
     try {
       const interval = parseInt(form.recurrence_interval) || 12;
       const unit = form.recurrence_unit as RecurrenceUnit;
-      const lastCompleted = form.last_completed_date || null;
-      const nextDue = computeNextDueDate(lastCompleted, form.first_due_date, interval, unit);
+      const nextDue = computeNextDueDate(lastCompleted, firstDue, interval, unit);
       const status = deriveComplianceStatus(nextDue, lastCompleted, false);
 
       const payload = {
@@ -871,7 +905,7 @@ function ComplianceForm({
         standard_or_regulation: form.standard_or_regulation || null,
         recurrence_interval: interval,
         recurrence_unit: unit,
-        first_due_date: form.first_due_date,
+        first_due_date: firstDue,
         last_completed_date: lastCompleted,
         next_due_date: nextDue,
         reminder_days_before: parseInt(form.reminder_days_before) || 30,
@@ -987,29 +1021,39 @@ function ComplianceForm({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="First Due Date *">
-              <input
+              <DateFieldInput
                 id="compliance-first-due-date"
-                required
-                type="date"
                 value={form.first_due_date}
-                onChange={e => { setFirstDueError(null); setForm(f => ({ ...f, first_due_date: e.target.value })); }}
+                onChange={first_due_date => {
+                  setFirstDueError(null);
+                  setFirstDueRequiredErr(null);
+                  setForm(f => ({ ...f, first_due_date }));
+                }}
+                onValidityChange={setFirstDueInvalid}
+                hideAlert={Boolean(firstDueError || firstDueRequiredErr)}
+                ariaInvalid={Boolean(firstDueError || firstDueRequiredErr || firstDueInvalid)}
+                ariaDescribedBy={firstDueError || firstDueRequiredErr ? 'compliance-first-due-date-error' : undefined}
                 className="form-input"
-                aria-invalid={firstDueError ? true : undefined}
-                aria-describedby={firstDueError ? 'compliance-first-due-date-error' : undefined}
               />
               {firstDueError ? (
                 <p id="compliance-first-due-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{firstDueError}</p>
+              ) : firstDueRequiredErr ? (
+                <p id="compliance-first-due-date-error" className="text-sm text-[#B42318] mt-1" role="alert">{firstDueRequiredErr}</p>
               ) : null}
             </Field>
             <Field label="Last Completed (optional)">
-              <input
+              <DateFieldInput
                 id="compliance-last-completed-date"
-                type="date"
                 value={form.last_completed_date}
-                onChange={e => { setLastCompletedError(null); setForm(f => ({ ...f, last_completed_date: e.target.value })); }}
+                onChange={last_completed_date => {
+                  setLastCompletedError(null);
+                  setForm(f => ({ ...f, last_completed_date }));
+                }}
+                onValidityChange={setLastCompletedInvalid}
+                hideAlert={Boolean(lastCompletedError)}
+                ariaInvalid={Boolean(lastCompletedError || lastCompletedInvalid)}
+                ariaDescribedBy={lastCompletedError ? 'compliance-last-completed-date-error' : undefined}
                 className="form-input"
-                aria-invalid={lastCompletedError ? true : undefined}
-                aria-describedby={lastCompletedError ? 'compliance-last-completed-date-error' : undefined}
               />
               {lastCompletedError ? (
                 <p id="compliance-last-completed-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{lastCompletedError}</p>

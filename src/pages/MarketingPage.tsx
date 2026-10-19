@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { BrandLockup } from '../components/brand/BrandLockup';
+import { BRAND_NAME } from '../lib/brand';
 import { usePublicDocumentHead } from '../lib/publicSeo';
 import { PublicLegalLinks } from '../components/legal/PublicLegalLinks';
 
@@ -26,7 +27,7 @@ export function MarketingPage() {
   return (
     <div className="hub-marketing">
       <header className="hub-marketing-nav">
-        <Link to="/" aria-label="Grafter">
+        <Link to="/" aria-label={BRAND_NAME}>
           <BrandLockup size="marketing" />
         </Link>
         <div className="hub-marketing-nav-actions">

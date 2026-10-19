@@ -4,8 +4,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
+import { TemplateAccessDenied } from '../components/layout/TemplateAccessDenied';
+import { canEditTemplates, canViewTemplates, throwIfNoRows } from '../lib/templateAccess';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
+import { UnsavedChangesDialog } from '../components/unsaved/UnsavedChangesDialog';
+import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard';
 import { nanoid } from '../lib/nanoid';
 import type { JhaTemplateSchema, RiskLevel, PpeOption, SignOffRole, JhaCustomField, JhaStep } from '../types/jha';
 import { formatControlMeasuresText, normalizeJhaStep } from '../types/jha';
@@ -13,7 +17,7 @@ import { JHA_STEP_PACKS, clonePackSteps } from '../lib/jhaStepPacks';
 import { JhaSwmsLibraryPicker } from '../components/jha/JhaSwmsLibraryPicker';
 import {
   ChevronLeft, Save, Trash2, Plus, ShieldCheck, AlertCircle,
-  HardHat, X, Check, GripVertical, Library,
+  HardHat, X, GripVertical, Library,
 } from 'lucide-react';
 
 type SaveState = 'saved' | 'saving' | 'unsaved' | 'error';
@@ -121,8 +125,9 @@ export function JhaTemplateEditorPage() {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const schemaDirtyRef = useRef(false);
+  const allowLeaveRef = useRef(false);
 
-  const canEdit = profile?.role === 'admin' || profile?.template_access === 'edit';
+  const canEdit = canEditTemplates(profile);
 
   const { data: existingTemplate, isLoading, isError, refetch } = useQuery({
     queryKey: ['jha-template', id],
@@ -315,8 +320,8 @@ export function JhaTemplateEditorPage() {
       };
 
       if (templateId) {
-        const { error } = await supabase.from('jha_templates').update(payload).eq('id', templateId);
-        if (error) throw error;
+        const result = await supabase.from('jha_templates').update(payload).eq('id', templateId).select('id');
+        throwIfNoRows(result);
       } else {
         const { data, error } = await supabase
           .from('jha_templates')
@@ -331,6 +336,7 @@ export function JhaTemplateEditorPage() {
         if (error) throw error;
         if (!data?.id) throw new Error('Save succeeded but no template id was returned');
         setTemplateId(data.id);
+        allowLeaveRef.current = true;
         navigate(`/jha-templates/${data.id}`, { replace: true });
       }
       setTemplateVersion(nextVersion);
@@ -344,15 +350,33 @@ export function JhaTemplateEditorPage() {
     }
   }
 
+  const unsaved = useUnsavedChangesGuard({
+    status: saveState,
+    flush: () => {
+      if (!templateId) return;
+      void doSave();
+    },
+    allowLeaveRef,
+  });
+
   async function handleDelete() {
     if (!templateId) return;
     if (!confirm('Delete this JHA template? This cannot be undone.')) return;
-    const { error } = await supabase.from('jha_templates').delete().eq('id', templateId);
-    if (error) {
-      alert(error.message);
+    try {
+      const result = await supabase.from('jha_templates').delete().eq('id', templateId).select('id');
+      throwIfNoRows(result);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setValidationErrors([msg]);
+      setSaveState('error');
       return;
     }
+    allowLeaveRef.current = true;
     navigate('/templates');
+  }
+
+  if (!canViewTemplates(profile)) {
+    return <TemplateAccessDenied />;
   }
 
   if (!canEdit) {
@@ -410,10 +434,7 @@ export function JhaTemplateEditorPage() {
           </button>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <span className="text-xs text-[#6B7280] shrink-0">v{templateVersion}</span>
-            {saveState === 'saved' && <span className="text-xs text-[#1B7F3A] flex items-center gap-1 shrink-0"><Check size={12} /> Saved</span>}
-            {saveState === 'saving' && <span className="text-xs text-[#4A5568] flex items-center gap-1 shrink-0"><LoadingSpinner size="sm" /> Saving...</span>}
-            {saveState === 'unsaved' && <span className="text-xs text-[#92400E] shrink-0">Unsaved changes</span>}
-            {saveState === 'error' && <span className="text-xs text-[#B42318] shrink-0">Save failed</span>}
+            <span className="text-xs text-[#4A5568] shrink-0" data-save-status={saveState}>{unsaved.hint}</span>
             {templateId && (
               <button type="button" onClick={handleDelete} className="p-1.5 text-[#4A5568] hover:text-[#B42318] hover:bg-red-50 rounded transition-colors" title="Delete template">
                 <Trash2 size={16} />
@@ -431,7 +452,7 @@ export function JhaTemplateEditorPage() {
 
         {/* Validation errors */}
         {validationErrors.length > 0 && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm space-y-1">
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm space-y-1" role="alert">
             {validationErrors.map((err, i) => (
               <div key={i} className="flex items-start gap-2">
                 <AlertCircle size={14} className="shrink-0 mt-0.5" />
@@ -781,6 +802,7 @@ export function JhaTemplateEditorPage() {
           </SectionCard>
         </div>
       </div>
+      <UnsavedChangesDialog guard={unsaved} />
     </AppShell>
   );
 }

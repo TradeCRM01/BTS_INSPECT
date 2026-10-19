@@ -33,6 +33,8 @@ describe('price book CSV import look', () => {
     expect(src('src/pages/QuotesPage.tsx')).toContain('calcLineDocumentTotals');
     expect(src('src/pages/InvoicesPage.tsx')).toContain('calcLineDocumentTotals');
     expect(src('src/lib/invoiceFromQuote.ts')).toContain('calcLineDocumentTotals(line_items, taxRate)');
+    expect(page).toContain("unit_price: item ? String(item.unit_price) : ''");
+    expect(page).toContain('onFocus={e => e.currentTarget.select()}');
   });
 
   it('uses the AU subtitle and hides toolbar actions on an empty book', () => {

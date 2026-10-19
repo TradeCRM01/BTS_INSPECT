@@ -1,7 +1,8 @@
-import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
-import { OperatorRoute } from './components/layout/OperatorRoute';
+import { TemplateAccessRoute } from './components/layout/TemplateAccessRoute';
+import { OperatorOnlyPage, OperatorRoute } from './components/layout/OperatorRoute';
 import { PageErrorBoundary } from './components/layout/PageErrorBoundary';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { ToastProvider } from './components/ui/Toast';
@@ -16,6 +17,7 @@ import { AuthConfirmPage } from './pages/AuthConfirmPage';
 import { RootPage } from './pages/RootPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { TermsPage } from './pages/TermsPage';
+import { NotFoundPage } from './pages/NotFoundPage';
 
 // Protected pages — code-split so only the visited page is parsed
 const TemplatesPage = lazy(() => import('./pages/TemplatesPage').then(m => ({ default: m.TemplatesPage })));
@@ -95,9 +97,18 @@ function Protected({ children }: { children: React.ReactNode }) {
   );
 }
 
+function ThemeReapplyOnRoute() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.grafterTheme?.reapply();
+  }, [pathname]);
+  return null;
+}
+
 export default function App() {
   return (
     <ToastProvider>
+    <ThemeReapplyOnRoute />
     <JobInvoiceCreateHoldOverlay />
     <Routes>
       {/* Public routes */}
@@ -121,9 +132,9 @@ export default function App() {
 
       {/* Protected routes — each page is a separate JS chunk */}
       <Route path="/" element={<RootPage />} />
-      <Route path="/templates" element={<Protected><TemplatesPage /></Protected>} />
-      <Route path="/templates/new" element={<Protected><TemplateEditorPage /></Protected>} />
-      <Route path="/templates/:id" element={<Protected><TemplateEditorPage /></Protected>} />
+      <Route path="/templates" element={<Protected><TemplateAccessRoute><TemplatesPage /></TemplateAccessRoute></Protected>} />
+      <Route path="/templates/new" element={<Protected><TemplateAccessRoute><TemplateEditorPage /></TemplateAccessRoute></Protected>} />
+      <Route path="/templates/:id" element={<Protected><TemplateAccessRoute><TemplateEditorPage /></TemplateAccessRoute></Protected>} />
       <Route path="/inspections" element={<Protected><InspectionsPage /></Protected>} />
       <Route path="/inspections/new" element={<Protected><NewInspectionPage /></Protected>} />
       <Route path="/inspections/:id" element={<Protected><InspectionFillPage /></Protected>} />
@@ -137,12 +148,12 @@ export default function App() {
       <Route path="/settings/company" element={<Protected><CompanySettingsPage /></Protected>} />
       <Route path="/settings/billing" element={<Protected><BillingSettingsPage /></Protected>} />
       <Route path="/settings/team" element={<Protected><TeamSettingsPage /></Protected>} />
-      <Route path="/ai-console" element={<Protected><AiConsolePage /></Protected>} />
+      <Route path="/ai-console" element={<Protected><OperatorOnlyPage><AiConsolePage /></OperatorOnlyPage></Protected>} />
       <Route path="/assistant" element={<Protected><AiAssistantPage /></Protected>} />
       <Route path="/settings/ai" element={<Protected><AiSettingsPage /></Protected>} />
       <Route path="/jha-templates" element={<Navigate to="/templates" replace />} />
-      <Route path="/jha-templates/new" element={<Protected><JhaTemplateEditorPage /></Protected>} />
-      <Route path="/jha-templates/:id" element={<Protected><JhaTemplateEditorPage /></Protected>} />
+      <Route path="/jha-templates/new" element={<Protected><TemplateAccessRoute><JhaTemplateEditorPage /></TemplateAccessRoute></Protected>} />
+      <Route path="/jha-templates/:id" element={<Protected><TemplateAccessRoute><JhaTemplateEditorPage /></TemplateAccessRoute></Protected>} />
       <Route path="/jha" element={<Protected><JhaDocumentsPage /></Protected>} />
       <Route path="/jha/swms-library" element={<Protected><SwmsLibraryPage /></Protected>} />
       <Route path="/jha/new" element={<Protected><JhaFillPage /></Protected>} />
@@ -194,8 +205,7 @@ export default function App() {
         />
       ) : null}
 
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
     </ToastProvider>
   );

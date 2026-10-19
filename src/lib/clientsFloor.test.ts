@@ -335,11 +335,11 @@ describe('clients look — open record is the document sheet', () => {
     expect(detail).not.toContain('<thead');
     expect(detail).not.toMatch(/Relovi|Littleloop/);
 
-    expect(clientCss).toContain('--client-page: #F5F0E6');
-    expect(clientCss).toContain('--client-sheet: #FFFDF8');
-    expect(clientCss).toContain('--client-ink: #0A2540');
-    expect(clientCss).toContain('--client-muted: #5B6B7C');
-    expect(clientCss).toContain('--client-line: #E2D9CC');
+    expect(clientCss).toContain('--client-page: var(--g-bg)');
+    expect(clientCss).toContain('--client-sheet: var(--g-surface)');
+    expect(clientCss).toContain('--client-ink: var(--g-ink)');
+    expect(clientCss).toContain('--client-muted: var(--g-ink-muted)');
+    expect(clientCss).toContain('--client-line: var(--g-line)');
     expect(clientCss).toContain('#2E75B6');
     expect(clientCss).toContain('box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(clientCss).toContain('box-shadow: inset 0 1px 0 #fff');

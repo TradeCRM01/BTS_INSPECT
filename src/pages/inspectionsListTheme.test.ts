@@ -29,11 +29,11 @@ describe('inspections list cream paper look', () => {
     expect(list).not.toMatch(/Grafter|Relovi|Littleloop/);
 
     expect(css).toContain('.hub-inspections.ops-page');
-    expect(css).toContain('--insp-look-page: #F5F0E6');
-    expect(css).toContain('--insp-look-sheet: #FFFDF8');
-    expect(css).toContain('--insp-look-ink: #0A2540');
-    expect(css).toContain('--insp-look-muted: #5B6B7C');
-    expect(css).toContain('--insp-look-line: #E2D9CC');
+    expect(css).toContain('--insp-look-page: var(--g-bg)');
+    expect(css).toContain('--insp-look-sheet: var(--g-surface)');
+    expect(css).toContain('--insp-look-ink: var(--g-ink)');
+    expect(css).toContain('--insp-look-muted: var(--g-ink-muted)');
+    expect(css).toContain('--insp-look-line: var(--g-line)');
     expect(css).toContain('#2E75B6');
     expect(css).toContain("font-family: Rajdhani, sans-serif");
     expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
@@ -64,7 +64,7 @@ describe('inspections list cream paper look', () => {
     const css = src('src/index.css');
     expect(css).toContain('.insp-doc-theme .ops-doc-head');
     expect(css).toContain('--insp-navy: #0A2540');
-    expect(css).toContain('--insp-accent: #2E75B6');
+    expect(css).toContain('--insp-accent: var(--g-accent)');
     expect(css).not.toMatch(/\.insp-doc-theme \.btn-primary/);
     expect(css).not.toMatch(/\.insp-doc-theme \.ops-next-control/);
 

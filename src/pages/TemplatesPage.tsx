@@ -3,37 +3,57 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { TEMPLATE_WRITE_NO_ROW, canEditTemplates, canViewTemplates, throwIfNoRows } from '../lib/templateAccess';
+import { TemplateAccessDenied } from '../components/layout/TemplateAccessDenied';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner as _LoadingSpinner, PageError } from '../components/ui';
+import { PageError } from '../components/ui';
 import { SkeletonList } from '../components/ui/Skeletons';
 import { Plus, LayoutTemplate, Zap, ChevronRight, Archive, ArchiveRestore, Copy, ShieldCheck } from 'lucide-react';
 import { safeFormatDate } from '../lib/safeDate';
+import { documentCreatorLine } from '../lib/inspectorSnapshot';
 
 type Tab = 'inspections' | 'jha';
+
+const LOOK_TEMPLATES_SNAPSHOT = 'templates-snapshot';
+
+type TemplateRow = {
+  id: string;
+  name: string;
+  description?: string | null;
+  report_renderer?: string | null;
+  schema?: unknown;
+  company_id?: string;
+  archived?: boolean;
+  updated_at?: string;
+  created_by?: string | null;
+  creator_name_snapshot?: string | null;
+};
+
+function templatesSnapshotLook(tab: Tab): TemplateRow[] {
+  return [{
+    id: tab === 'jha' ? 'look-jha-tmpl-pat' : 'look-tmpl-pat',
+    name: tab === 'jha' ? 'Site JHA' : 'Switchboard',
+    report_renderer: tab === 'jha' ? null : 'generic_inspection',
+    schema: tab === 'jha' ? { riskLevels: [], ppeOptions: [], signOffRoles: [] } : {},
+    updated_at: '2026-09-03T00:00:00.000Z',
+    created_by: null,
+    creator_name_snapshot: 'Pat Snapshot',
+  }];
+}
 
 export function TemplatesPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const lookTemplates = searchParams.get('look') === LOOK_TEMPLATES_SNAPSHOT;
   const [activeTab, setActiveTab] = useState<Tab>(() => searchParams.get('tab') === 'jha' ? 'jha' : 'inspections');
   const [showArchived, setShowArchived] = useState(false);
+  const [writeError, setWriteError] = useState('');
 
-  const canEdit = profile?.role === 'admin' || profile?.template_access === 'edit';
-  const canView = profile?.role === 'admin' || profile?.template_access === 'edit' || profile?.template_access === 'view';
-
-  if (!canView) {
-    return (
-      <AppShell>
-        <div className="max-w-[1200px] mx-auto px-4 py-16 text-center">
-          <LayoutTemplate size={40} className="mx-auto text-[#E5E7EB] mb-3" />
-          <p className="text-[#1A1A1A] font-medium">No template access</p>
-          <p className="text-sm text-[#4A5568] mt-1">Your account doesn't have permission to view templates. Contact your admin.</p>
-        </div>
-      </AppShell>
-    );
-  }
+  const canEdit = canEditTemplates(profile);
+  const canView = canViewTemplates(profile);
 
   // Inspection templates query
   const { data: templates, isLoading: inspLoading, isError: inspError, refetch: inspRefetch } = useQuery({
@@ -47,7 +67,7 @@ export function TemplatesPage() {
       if (error) throw error;
       return data;
     },
-    enabled: !!profile && activeTab === 'inspections',
+    enabled: canView && !!profile && activeTab === 'inspections' && !lookTemplates,
   });
 
   // JHA templates query
@@ -62,15 +82,21 @@ export function TemplatesPage() {
       if (error) throw error;
       return data;
     },
-    enabled: !!profile && activeTab === 'jha',
+    enabled: canView && !!profile && activeTab === 'jha' && !lookTemplates,
   });
 
   const unarchiveInspectionMutation = useMutation({
     mutationFn: async (templateId: string) => {
-      const { error } = await supabase.from('templates').update({ archived: false }).eq('id', templateId);
-      if (error) throw error;
+      const result = await supabase.from('templates').update({ archived: false }).eq('id', templateId).select('id');
+      throwIfNoRows(result);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['templates'] }),
+    onSuccess: () => {
+      setWriteError('');
+      queryClient.invalidateQueries({ queryKey: ['templates'] });
+    },
+    onError: (err: unknown) => {
+      setWriteError(err instanceof Error ? err.message : TEMPLATE_WRITE_NO_ROW);
+    },
   });
 
   const duplicateInspectionMutation = useMutation({
@@ -98,10 +124,16 @@ export function TemplatesPage() {
 
   const unarchiveJhaMutation = useMutation({
     mutationFn: async (templateId: string) => {
-      const { error } = await supabase.from('jha_templates').update({ archived: false }).eq('id', templateId);
-      if (error) throw error;
+      const result = await supabase.from('jha_templates').update({ archived: false }).eq('id', templateId).select('id');
+      throwIfNoRows(result);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['jha-templates'] }),
+    onSuccess: () => {
+      setWriteError('');
+      queryClient.invalidateQueries({ queryKey: ['jha-templates'] });
+    },
+    onError: (err: unknown) => {
+      setWriteError(err instanceof Error ? err.message : TEMPLATE_WRITE_NO_ROW);
+    },
   });
 
   const duplicateJhaMutation = useMutation({
@@ -129,9 +161,16 @@ export function TemplatesPage() {
     },
   });
 
-  const isLoading = activeTab === 'inspections' ? inspLoading : jhaLoading;
-  const isError = activeTab === 'inspections' ? inspError : jhaError;
+  const lookRows = lookTemplates ? templatesSnapshotLook(activeTab) : null;
+  const inspectionRows = lookRows && activeTab === 'inspections' ? lookRows : templates;
+  const jhaRows = lookRows && activeTab === 'jha' ? lookRows : jhaTemplates;
+  const isLoading = lookTemplates ? false : (activeTab === 'inspections' ? inspLoading : jhaLoading);
+  const isError = lookTemplates ? false : (activeTab === 'inspections' ? inspError : jhaError);
   const refetch = activeTab === 'inspections' ? inspRefetch : jhaRefetch;
+
+  if (!canView) {
+    return <TemplateAccessDenied />;
+  }
 
   return (
     <AppShell>
@@ -182,12 +221,18 @@ export function TemplatesPage() {
           </button>
         </div>
 
+        {writeError && (
+          <p className="mb-3 text-sm text-[#B42318]" role="alert">
+            {writeError}
+          </p>
+        )}
+
         {isLoading ? (
           <SkeletonList count={5} />
         ) : pageQueryBlocked(isError) ? (
           <PageError onRetry={refetch} />
         ) : activeTab === 'inspections' ? (
-          templates?.length === 0 ? (
+          inspectionRows?.length === 0 ? (
             <EmptyState
               icon={LayoutTemplate}
               message="No inspection templates yet"
@@ -198,7 +243,7 @@ export function TemplatesPage() {
             />
           ) : (
             <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm divide-y divide-[#E5E7EB]">
-              {templates?.map(tmpl => (
+              {inspectionRows?.map(tmpl => (
                 <div key={tmpl.id} className="flex items-center px-4 py-3.5 hover:bg-[#F9FAFB] transition-colors">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="w-8 h-8 rounded bg-[#0A2540]/10 flex items-center justify-center shrink-0">
@@ -213,6 +258,7 @@ export function TemplatesPage() {
                       <p className="text-xs text-[#4A5568]">
                         {tmpl.report_renderer === 'electrical_3000' ? 'AS/NZS 3000:2018' : 'Generic Inspection'} ·{' '}
                         Updated {safeFormatDate(tmpl.updated_at, 'd MMM yyyy')}
+                        {documentCreatorLine(tmpl.creator_name_snapshot) ? ` · ${documentCreatorLine(tmpl.creator_name_snapshot)}` : ''}
                       </p>
                     </div>
                   </div>
@@ -224,7 +270,7 @@ export function TemplatesPage() {
                           disabled={unarchiveInspectionMutation.isPending}
                           className="flex items-center gap-1.5 text-xs border border-[#0A2540] text-[#0A2540] px-3 py-1.5 rounded hover:bg-[#0A2540]/5 transition-colors font-medium disabled:opacity-50"
                         >
-                          <ArchiveRestore size={12} /> Unarchive
+                          <ArchiveRestore size={12} /> Restore
                         </button>
                       )
                     ) : (
@@ -261,7 +307,7 @@ export function TemplatesPage() {
             </div>
           )
         ) : (
-          jhaTemplates?.length === 0 ? (
+          jhaRows?.length === 0 ? (
             <EmptyState
               icon={ShieldCheck}
               message="No JHA templates yet"
@@ -272,7 +318,7 @@ export function TemplatesPage() {
             />
           ) : (
             <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm divide-y divide-[#E5E7EB]">
-              {jhaTemplates?.map(tmpl => {
+              {jhaRows?.map(tmpl => {
                 const schema = tmpl.schema as { riskLevels?: unknown[]; ppeOptions?: unknown[]; signOffRoles?: unknown[] };
                 return (
                   <div key={tmpl.id} className="flex items-center px-4 py-3.5 hover:bg-[#F9FAFB] transition-colors">
@@ -285,6 +331,7 @@ export function TemplatesPage() {
                         <p className="text-xs text-[#4A5568]">
                           {schema.riskLevels?.length ?? 0} risk levels · {schema.ppeOptions?.length ?? 0} PPE items · {schema.signOffRoles?.length ?? 0} sign-off roles ·{' '}
                           Updated {safeFormatDate(tmpl.updated_at, 'd MMM yyyy')}
+                          {documentCreatorLine(tmpl.creator_name_snapshot) ? ` · ${documentCreatorLine(tmpl.creator_name_snapshot)}` : ''}
                         </p>
                       </div>
                     </div>
@@ -296,7 +343,7 @@ export function TemplatesPage() {
                             disabled={unarchiveJhaMutation.isPending}
                             className="flex items-center gap-1.5 text-xs border border-[#0A2540] text-[#0A2540] px-3 py-1.5 rounded hover:bg-[#0A2540]/5 transition-colors font-medium disabled:opacity-50"
                           >
-                            <ArchiveRestore size={12} /> Unarchive
+                            <ArchiveRestore size={12} /> Restore
                           </button>
                         )
                       ) : (

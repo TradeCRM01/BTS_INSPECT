@@ -3,6 +3,8 @@ import { supabase } from './supabase';
 import { generatePdf } from '../reports/generatePdf';
 import type { TemplateSchema } from '../types/template';
 import { applyLivingJobToInspection } from './livingJha';
+import { isFinalisedInspection } from './isFinalisedInspection';
+import { resolveInspectionPrintFields, inspectionPrintSnapshotsFromRow } from './inspectionPrintSnapshot';
 import { reportSiteName } from './sendReport';
 
 export interface PackExportProfile {
@@ -63,9 +65,39 @@ async function ensurePdfBlob(args: {
       livingJob = { ...job, client_name: clientName };
     }
   }
-  const living = applyLivingJobToInspection(rawMeta, livingJob);
-  const meta = living.meta;
-  const siteName = reportSiteName(meta, livingJob);
+  const finalised = isFinalisedInspection(
+    (inspection as { status?: string | null }).status,
+    (inspection as { archived?: boolean | null }).archived,
+  );
+  const printed = resolveInspectionPrintFields({
+    meta: rawMeta,
+    snapshots: inspectionPrintSnapshotsFromRow(inspection as {
+      client_name_snapshot?: string | null;
+      job_title_snapshot?: string | null;
+      site_name_snapshot?: string | null;
+      site_address_snapshot?: string | null;
+    }),
+    live: livingJob
+      ? {
+          clientName: livingJob.client_name,
+          jobTitle: livingJob.title,
+          siteName: livingJob.address || livingJob.title,
+          siteAddress: livingJob.address,
+        }
+      : null,
+    finalised,
+  });
+  const living = applyLivingJobToInspection(rawMeta, finalised ? null : livingJob);
+  const meta = finalised
+    ? {
+        ...rawMeta,
+        siteName: printed.siteName,
+        siteAddress: printed.siteAddress,
+        clientName: printed.clientName,
+        jobDescription: printed.jobTitle || rawMeta.jobDescription || '',
+      }
+    : living.meta;
+  const siteName = finalised ? (printed.siteName || 'Site') : reportSiteName(meta, livingJob);
 
   const { data: report } = await supabase
     .from('reports')
@@ -111,6 +143,13 @@ async function ensurePdfBlob(args: {
       completed_at: inspection.completed_at,
       doc_version: (inspection as { doc_version?: number | null }).doc_version ?? 1,
       amendment_reason: (inspection as { amendment_reason?: string | null }).amendment_reason ?? null,
+      inspector_id: (inspection as { inspector_id?: string | null }).inspector_id ?? null,
+      inspector_name_snapshot: (inspection as { inspector_name_snapshot?: string | null }).inspector_name_snapshot ?? null,
+      inspector_licence_snapshot: (inspection as { inspector_licence_snapshot?: string | null }).inspector_licence_snapshot ?? null,
+      client_name_snapshot: (inspection as { client_name_snapshot?: string | null }).client_name_snapshot ?? null,
+      job_title_snapshot: (inspection as { job_title_snapshot?: string | null }).job_title_snapshot ?? null,
+      site_name_snapshot: (inspection as { site_name_snapshot?: string | null }).site_name_snapshot ?? null,
+      site_address_snapshot: (inspection as { site_address_snapshot?: string | null }).site_address_snapshot ?? null,
     },
     template: {
       name: snapshot.name ?? 'Inspection',

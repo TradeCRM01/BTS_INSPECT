@@ -28,11 +28,11 @@ describe('job list cream paper look', () => {
     expect(list).not.toMatch(/Grafter|Relovi|Littleloop/);
 
     expect(css).toContain('.hub-jobs.ops-page');
-    expect(css).toContain('--job-look-page: #F5F0E6');
-    expect(css).toContain('--job-look-sheet: #FFFDF8');
-    expect(css).toContain('--job-look-ink: #0A2540');
-    expect(css).toContain('--job-look-muted: #5B6B7C');
-    expect(css).toContain('--job-look-line: #E2D9CC');
+    expect(css).toContain('--job-look-page: var(--g-bg)');
+    expect(css).toContain('--job-look-sheet: var(--g-surface)');
+    expect(css).toContain('--job-look-ink: var(--g-ink)');
+    expect(css).toContain('--job-look-muted: var(--g-ink-muted)');
+    expect(css).toContain('--job-look-line: var(--g-line)');
     expect(css).toContain('#2E75B6');
     expect(css).toContain("font-family: Rajdhani, sans-serif");
     expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");

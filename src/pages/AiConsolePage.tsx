@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
@@ -147,16 +147,14 @@ function useEdgeFn() {
 }
 
 const WELCOME_SUGGESTIONS = [
-  'Run a query to show all active inspections for this company',
-  'Check the database for any inspections in draft status older than 30 days',
-  'Show me the current company settings',
-  'List all team members and their roles',
-  'How do I add a new question type to the template editor?',
-  'Diagnose why PDFs might not be generating',
+  'What needs attention in this company today?',
+  'Summarise open jobs and overdue invoices',
+  'Create a reminder to follow up tomorrow',
+  'How do I turn an accepted quote into a job?',
 ];
 
 export function AiConsolePage() {
-  const { profile } = useAuth();
+  const { profile, isPlatformOperator } = useAuth();
   const navigate = useNavigate();
   const { get, del, streamChat } = useEdgeFn();
 
@@ -176,8 +174,8 @@ export function AiConsolePage() {
   const currentSessionRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (profile && profile.role !== 'admin') navigate('/', { replace: true });
-  }, [profile, navigate]);
+    if (profile && !isPlatformOperator) navigate('/', { replace: true });
+  }, [profile, isPlatformOperator, navigate]);
 
   useEffect(() => {
     if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -262,11 +260,11 @@ export function AiConsolePage() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   }, [sendMessage]);
 
-  if (profile && profile.role !== 'admin') return null;
+  if (profile && !isPlatformOperator) return <Navigate to="/" replace />;
 
   return (
     <AppShell>
-      <div className="relative flex h-[calc(100vh-56px)] overflow-hidden bg-[#F9FAFB]">
+      <div className="relative flex h-[calc(100vh-56px)] overflow-hidden bg-[#F9FAFB]" data-ai-console="1">
         {/* Sidebar */}
         <aside className={`flex flex-col bg-[#0A2540] text-white transition-all duration-200 shrink-0 max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-20 ${sidebarOpen ? 'w-64' : 'w-0 overflow-hidden'}`}>
           <div className="p-3 border-b border-white/10">
@@ -298,7 +296,7 @@ export function AiConsolePage() {
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-medium text-white/90 truncate">{profile?.name}</p>
-                <p className="text-[10px] text-white/40">Admin</p>
+                <p className="text-[10px] text-white/40">Operator</p>
               </div>
             </div>
           </div>
@@ -312,7 +310,7 @@ export function AiConsolePage() {
             </button>
             <Terminal size={16} className="text-[#2E75B6]" />
             <h1 className="text-sm font-semibold text-[#1A1A1A]">AI Console</h1>
-            <span className="text-xs bg-[#FEF3C7] text-[#92400E] px-2 py-0.5 rounded-full font-medium">Admin · Can modify data</span>
+            <span className="text-xs bg-[#FEF3C7] text-[#92400E] px-2 py-0.5 rounded-full font-medium shrink-0">Operator</span>
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 py-6">
@@ -322,12 +320,12 @@ export function AiConsolePage() {
                   <div className="w-14 h-14 bg-[#FEF3C7] rounded-2xl flex items-center justify-center mb-4">
                     <Sparkles size={28} className="text-[#D97706]" />
                   </div>
-                  <h2 className="text-lg font-semibold text-[#1A1A1A] mb-1">Admin AI Console</h2>
+                  <h2 className="text-lg font-semibold text-[#1A1A1A] mb-1">Operator AI console</h2>
                   <p className="text-sm text-[#4A5568] max-w-md mb-2">
-                    I can query the database, update records, diagnose issues, and help you make direct changes to the platform.
+                    Look up this company, or create a job, reminder, or compliance item when you ask.
                   </p>
-                  <p className="text-xs text-[#F59E0B] bg-[#FFFBEB] border border-[#FDE68A] rounded-lg px-3 py-2 mb-8 max-w-sm">
-                    This console can modify live data. Review all actions carefully before confirming.
+                  <p className="text-xs text-[#92400E] bg-[#FFFBEB] border border-[#FDE68A] rounded-lg px-3 py-2 mb-8 max-w-sm">
+                    Writes stay in this company. Check before you confirm a change.
                   </p>
                   <div className="grid grid-cols-1 gap-2 w-full max-w-lg">
                     {WELCOME_SUGGESTIONS.map(s => (
@@ -354,7 +352,7 @@ export function AiConsolePage() {
             <div className="max-w-3xl mx-auto flex gap-3 items-end">
               <div className="flex-1 bg-[#F9FAFB] border border-[#E5E7EB] rounded-2xl px-4 py-2.5 focus-within:border-[#2E75B6] focus-within:bg-white transition-colors">
                 <textarea ref={textareaRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
-                  placeholder="Ask me to query data, fix issues, update records… (Enter to send)"
+                  placeholder="Ask about this company, or create a job or reminder…"
                   rows={1} disabled={streaming}
                   className="w-full bg-transparent text-sm text-[#1A1A1A] placeholder:text-[#9CA3AF] resize-none outline-none leading-relaxed"
                   style={{ minHeight: '44px', maxHeight: '160px' }} />
@@ -365,7 +363,7 @@ export function AiConsolePage() {
               </button>
             </div>
             <p className="text-center text-xs text-[#9CA3AF] mt-2">
-              Powered by Claude · Admin console · Changes are applied directly to the database
+              Operator console · Company-scoped tools
             </p>
           </div>
         </div>

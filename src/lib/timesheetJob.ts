@@ -65,14 +65,19 @@ function bookingTimeInput(value?: string | null): string {
   return trimmed ? trimmed.slice(0, 5) : '';
 }
 
-/** Add hours from the job page: today in company TZ, blank start/end, Labour work type. */
-export function timeEntryDefaultsForAddHours(now = new Date()): {
+/** Add hours from the job page: job date when it is today or earlier, else today. */
+export function timeEntryDefaultsForAddHours(
+  now = new Date(),
+  jobScheduledDate?: string | null,
+): {
   date: string;
   start_time: string;
   end_time: string;
 } {
+  const today = localDateIso(now);
+  const job = bookingDateInput(jobScheduledDate);
   return {
-    date: localDateIso(now),
+    date: job && job <= today ? job : today,
     start_time: '',
     end_time: '',
   };
@@ -101,17 +106,31 @@ function addHoursToHm(startHm: string, hours: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
+function chipCrossesMidnight(startHm: string, hours: number): boolean {
+  const [hStr, mStr] = startHm.split(':');
+  const base = (Number(hStr) || 0) * 60 + (Number(mStr) || 0);
+  return base + Math.round(hours * 60) >= 24 * 60;
+}
+
 /** 1/2/4/8h chips: blank start → round now + duration; else extend end from start. */
 export function applyTimeEntryDurationChip(
   form: { start_time: string; end_time: string },
   hours: number,
   now = new Date(),
-): { start_time: string; end_time: string } {
+): { start_time: string; end_time: string; ends_next_day: boolean } {
   if (!form.start_time.trim()) {
     const start = localTimeHm(now);
-    return { start_time: start, end_time: addHoursToHm(start, hours) };
+    return {
+      start_time: start,
+      end_time: addHoursToHm(start, hours),
+      ends_next_day: chipCrossesMidnight(start, hours),
+    };
   }
-  return { start_time: form.start_time, end_time: addHoursToHm(form.start_time, hours) };
+  return {
+    start_time: form.start_time,
+    end_time: addHoursToHm(form.start_time, hours),
+    ends_next_day: chipCrossesMidnight(form.start_time, hours),
+  };
 }
 
 /** Add hours on a booked job opens as that booking, not today 08:00–17:00. */

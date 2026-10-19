@@ -17,6 +17,7 @@ export { ConfirmDialog } from './ConfirmDialog';
 export { Breadcrumbs } from './Breadcrumbs';
 export { ToastProvider, useToast } from './Toast';
 export { TimeFieldInput } from './TimeFieldInput';
+export { DateFieldInput } from './DateFieldInput';
 export { LoadingSpinner } from './LoadingSpinner';
 export { PageError } from './PageError';
 export {

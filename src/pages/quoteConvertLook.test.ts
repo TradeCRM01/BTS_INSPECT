@@ -37,8 +37,8 @@ describe('quote editor Convert LOOK — Job date + Crew on paper', () => {
     expect(editor).not.toMatch(/Relovi|Littleloop|Simpro/i);
     expect(editor).not.toMatch(/\bute\b/i);
 
-    expect(src('src/index.css')).toContain('--quote-page: #F5F0E6');
-    expect(src('src/index.css')).toContain('--quote-sheet: #FFFDF8');
+    expect(src('src/index.css')).toContain('--quote-page: var(--g-bg)');
+    expect(src('src/index.css')).toContain('--quote-sheet: var(--g-surface)');
     expect(css).toContain('#FFFDF8');
     expect(css).toContain('#0A2540');
     expect(css).toContain('#5B6B7C');

@@ -43,7 +43,7 @@ const AGENT_SUGGESTIONS = [
 ];
 
 export function AiAgentWidget({}: WidgetProps) {
-  const { session } = useAuth();
+  const { session, isPlatformOperator } = useAuth();
   const { ready: aiKeyReady, hasKey: companyAiKey } = useCompanyAiKey();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -110,6 +110,14 @@ export function AiAgentWidget({}: WidgetProps) {
       });
     } finally { setBusy(false); }
   }, [input, busy, messages, session, queryClient]);
+
+  if (!isPlatformOperator) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center text-center px-3">
+        <p className="text-[11px] text-[#5B6B7C] leading-snug">Coming soon</p>
+      </div>
+    );
+  }
 
   if (aiKeyReady && !companyAiKey) {
     return (
@@ -621,7 +629,7 @@ const ACTION_ICONS: Record<string, { icon: typeof Bot; color: string; bg: string
 };
 
 export function AgentActivityWidget() {
-  const { session } = useAuth();
+  const { session, isPlatformOperator } = useAuth();
   const { ready: aiKeyReady, hasKey: companyAiKey } = useCompanyAiKey();
   const { data, isLoading } = useQuery({
     queryKey: ['widget-agent-activity'],
@@ -636,9 +644,17 @@ export function AgentActivityWidget() {
         summary: string; status: string; created_at: string;
       }>;
     },
-    enabled: !!session && companyAiKey,
+    enabled: !!session && companyAiKey && isPlatformOperator,
     refetchInterval: companyAiKey ? 15000 : false,
   });
+
+  if (!isPlatformOperator) {
+    return (
+      <div className="h-full flex items-center justify-center text-center px-3 text-[11px] text-[#5B6B7C]">
+        Coming soon
+      </div>
+    );
+  }
 
   if (aiKeyReady && !companyAiKey) {
     return (

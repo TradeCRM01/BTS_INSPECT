@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { getAuditEmptyList } from '../lib/devFieldAuditDocs';
 import { ManagedSelect } from '../components/ui/ManagedSelect';
 import { LIST_KEYS, useManagedList } from '../lib/useManagedList';
 import { AppShell } from '../components/layout/AppShell';
@@ -14,6 +15,14 @@ import type { StockItem, StockItemWithSupplier, Supplier } from '../types/fsm';
 import { getStockLevel, STOCK_LEVEL_STYLES, STOCK_LEVEL_LABELS, formatMoney } from '../types/fsm';
 import { DriveCard } from './StockLocationPage';
 import { locationLabel, encodeLocationKey } from '../lib/stockLocations';
+import {
+  commitMoneyField,
+  commitNumberField,
+  moneyDraftAllowed,
+  moneyFieldMessage,
+  numberDraftAllowed,
+  numberFieldMessage,
+} from '../lib/parseDecimal';
 import {
   Plus, Package, X, Trash2, Pencil, Archive, ArchiveRestore,
   ChevronDown, Tag, Boxes, Filter, HardDrive,
@@ -66,6 +75,8 @@ export function StockPage() {
   const { data: items, isLoading, error } = useQuery<StockItemWithSupplier[]>({
     queryKey: ['stock-items', showArchived],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as StockItemWithSupplier[];
       const { data, error } = await supabase
         .from('stock_items')
         .select('id, company_id, name, sku, description, category, unit_of_measure, quantity_on_hand, reorder_level, reorder_quantity, storage_location, unit_cost, supplier_id, archived, created_at, updated_at, suppliers!supplier_id(name)')
@@ -468,6 +479,10 @@ const StockCard = memo(function StockCard({
 
 // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Stock Item Form Modal ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 
+export function commitStockQtyOnHand(raw: string) {
+  return commitNumberField(raw, 'zero');
+}
+
 export function StockItemForm({ item, onClose, onSaved }: {
   item: StockItem | null;
   onClose: () => void;
@@ -478,7 +493,7 @@ export function StockItemForm({ item, onClose, onSaved }: {
     name: item?.name ?? '', sku: item?.sku ?? '', description: item?.description ?? '', category: item?.category ?? '',
     unit_of_measure: item?.unit_of_measure ?? 'each', quantity_on_hand: String(item?.quantity_on_hand ?? 0),
     reorder_level: String(item?.reorder_level ?? 0), reorder_quantity: String(item?.reorder_quantity ?? 0),
-    storage_location: item?.storage_location ?? '', unit_cost: String(item?.unit_cost ?? 0), supplier_id: item?.supplier_id ?? '',
+    storage_location: item?.storage_location ?? '', unit_cost: item != null ? String(item.unit_cost) : '', supplier_id: item?.supplier_id ?? '',
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -500,15 +515,19 @@ export function StockItemForm({ item, onClose, onSaved }: {
     e.preventDefault();
     if (!form.name.trim()) { setErr('Name is required'); return; }
     if (!profile?.company_id) return;
+    const cost = commitMoneyField(form.unit_cost, 'zero');
+    if (!cost.ok) { setErr(cost.message); return; }
+    const qty = commitStockQtyOnHand(form.quantity_on_hand);
+    if (!qty.ok) { setErr(qty.message); return; }
     setSaving(true);
     setErr('');
 
     const payload = {
       name: form.name.trim(), sku: form.sku.trim() || null, description: form.description.trim() || null,
       category: form.category.trim() || null, unit_of_measure: form.unit_of_measure.trim() || 'each',
-      quantity_on_hand: Number(form.quantity_on_hand) || 0, reorder_level: Number(form.reorder_level) || 0,
+      quantity_on_hand: Number(qty.value) || 0, reorder_level: Number(form.reorder_level) || 0,
       reorder_quantity: Number(form.reorder_quantity) || 0, storage_location: form.storage_location.trim() || null,
-      unit_cost: Number(form.unit_cost) || 0, supplier_id: form.supplier_id || null,
+      unit_cost: cost.value, supplier_id: form.supplier_id || null,
     };
 
     const { error } = item
@@ -554,12 +573,45 @@ export function StockItemForm({ item, onClose, onSaved }: {
             </Field>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Input label="Qty On Hand" k="quantity_on_hand" ph="0" type="number" form={form} setForm={setForm} />
+            <Field label="Qty On Hand">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={form.quantity_on_hand}
+                aria-label="Qty On Hand"
+                onChange={e => {
+                  if (!numberDraftAllowed(e.target.value)) return;
+                  setForm(f => ({ ...f, quantity_on_hand: e.target.value }));
+                }}
+                className="form-input"
+                placeholder="0"
+              />
+              {numberFieldMessage(form.quantity_on_hand) ? (
+                <p className="text-xs text-[#B42318] mt-1">{numberFieldMessage(form.quantity_on_hand)}</p>
+              ) : null}
+            </Field>
             <Input label="Reorder Level" k="reorder_level" ph="0" type="number" form={form} setForm={setForm} />
             <Input label="Reorder Qty" k="reorder_quantity" ph="0" type="number" form={form} setForm={setForm} />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input label="Unit Cost (AUD)" k="unit_cost" ph="0.00" type="number" step="0.01" min="0" form={form} setForm={setForm} />
+            <Field label="Unit Cost (AUD)">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={form.unit_cost}
+                aria-label="Unit Cost (AUD)"
+                onChange={e => {
+                  if (!moneyDraftAllowed(e.target.value)) return;
+                  setForm(f => ({ ...f, unit_cost: e.target.value }));
+                }}
+                onFocus={e => e.currentTarget.select()}
+                className="form-input"
+                placeholder="0.00"
+              />
+              {moneyFieldMessage(form.unit_cost) ? (
+                <p className="text-xs text-[#B42318] mt-1">{moneyFieldMessage(form.unit_cost)}</p>
+              ) : null}
+            </Field>
             <Field label="Supplier">
               <select value={form.supplier_id} onChange={e => setForm(f => ({ ...f, supplier_id: e.target.value }))} className="form-input">
                 <option value="">None</option>

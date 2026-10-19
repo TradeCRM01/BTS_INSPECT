@@ -10,7 +10,9 @@ import {
 } from '../../lib/jobCrewScheduleStatus';
 import { X, Trash2, GitBranch } from 'lucide-react';
 import { OverlayPortal } from '../ui/OverlayPortal';
+import { DateFieldInput } from '../ui/DateFieldInput';
 import { TimeFieldInput } from '../ui/TimeFieldInput';
+import { DATE_INVALID_MESSAGE, END_BEFORE_START_MESSAGE, jobClockOrderError } from '../../lib/dateTimeIntegrity';
 import {
   applyTimeFieldsSaveBlock,
   focusTimeFieldInput,
@@ -23,6 +25,7 @@ import { persistLivingJobOnBoundJhas } from '../../lib/persistLivingJobJha';
 import { formatJobRef, nextCostCode, normalizeCostCode } from '../../lib/jobRef';
 import { JOB_COLORS, jobColorToStore } from '../../lib/jobColors';
 import { assumedTradeTag, checkDateTag, fromBookingTag } from '../../lib/quickBook';
+import { commitMoneyField, moneyDraftAllowed, moneyFieldMessage } from '../../lib/parseDecimal';
 import { getAuditClients, getAuditTeamMembers } from '../../lib/devFieldAuditDocs';
 import { crewAssignmentHelper } from '../../lib/jobDispatchCrew';
 import { FromBooking } from './FromBooking';
@@ -67,6 +70,10 @@ interface JobFormModalProps {
   onSaved: (jobId: string, opts?: { deleted?: boolean }) => void;
 }
 
+export function commitJobBudget(raw: string) {
+  return commitMoneyField(raw, 'null');
+}
+
 export function JobFormModal({
   job,
   presetDate,
@@ -95,6 +102,7 @@ export function JobFormModal({
   const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>(presetTeam ?? []);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  const [dateInvalid, setDateInvalid] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [addingClient, setAddingClient] = useState(false);
   const [parentJobs, setParentJobs] = useState<{ id: string; title: string; job_number: number | null }[]>([]);
@@ -262,6 +270,7 @@ export function JobFormModal({
     }
     setClientErr('');
     if (!profile?.company_id) return;
+    if (dateInvalid) { setErr(DATE_INVALID_MESSAGE); return; }
     if (!detailsOnly && !unscheduledOnly) {
       const block = timeFieldsSaveValidation({
         start: form.start_time ?? '',
@@ -277,7 +286,14 @@ export function JobFormModal({
         });
         return;
       }
+      const order = jobClockOrderError(form.start_time ?? '', form.end_time ?? '');
+      if (order) {
+        setErr(order);
+        return;
+      }
     }
+    const budget = commitJobBudget(String(form.budget ?? ''));
+    if (!budget.ok) { setErr(budget.message); return; }
     setSaving(true);
     setErr('');
 
@@ -287,7 +303,7 @@ export function JobFormModal({
       description: form.description.trim() || null,
       priority: form.priority,
       address: form.address.trim() || null,
-      budget: form.budget ? Number(form.budget) : null,
+      budget: budget.value,
       parent_job_id: form.parent_job_id || null,
       cost_code: normalizeCostCode(form.cost_code) || null,
       color: jobColorToStore(form.color),
@@ -512,17 +528,15 @@ export function JobFormModal({
                     <span className="hub-schedule-from-booking">{dateCheck}</span>
                   ) : null}
                 </label>
-                <input
-                  type="date"
-                  lang="en-AU"
+                <DateFieldInput
                   value={form.scheduled_date ?? ''}
-                  onChange={e => {
-                    setForm(f => ({ ...f, scheduled_date: e.target.value }));
+                  onChange={scheduled_date => {
+                    setForm(f => ({ ...f, scheduled_date }));
                     setDateEdited(true);
                   }}
-                  className="form-input hub-date-input-en-au"
+                  onValidityChange={setDateInvalid}
+                  className="form-input"
                 />
-                <p className="ops-meta mt-1">dd/mm/yyyy</p>
               </div>
               <div>
                 <label className="ops-field-label">
@@ -549,11 +563,17 @@ export function JobFormModal({
                 <div ref={endFieldRef}>
                   <TimeFieldInput
                     value={form.end_time ?? ''}
-                    onChange={v => setForm(f => ({ ...f, end_time: v }))}
+                    onChange={v => {
+                      setForm(f => ({ ...f, end_time: v }));
+                      if (err === END_BEFORE_START_MESSAGE) setErr('');
+                    }}
                     onTimeFieldHintChange={setEndTimeHint}
                     className="form-input"
                   />
                 </div>
+                {err === END_BEFORE_START_MESSAGE ? (
+                  <p className="text-sm text-fail mt-1" role="alert">{err}</p>
+                ) : null}
               </div>
               <div className="overlay-form-span-all hub-job-form-crew">
                 <label className="ops-field-label">
@@ -599,14 +619,20 @@ export function JobFormModal({
           <div>
             <label className="ops-field-label">Job Budget (AUD)</label>
             <input
-              type="number"
-              step="0.01"
-              min="0"
+              type="text"
+              inputMode="decimal"
               value={form.budget ?? ''}
-              onChange={e => setForm(f => ({ ...f, budget: e.target.value }))}
+              onChange={e => {
+                if (!moneyDraftAllowed(e.target.value)) return;
+                setForm(f => ({ ...f, budget: e.target.value }));
+              }}
               className="form-input"
               placeholder="0.00"
+              aria-label="Job Budget (AUD)"
             />
+            {moneyFieldMessage(String(form.budget ?? '')) ? (
+              <p className="text-xs text-[#B42318] mt-1">{moneyFieldMessage(String(form.budget ?? ''))}</p>
+            ) : null}
           </div>
 
           <div className="overlay-form-span-all">

@@ -43,9 +43,8 @@ describe('profiles labour unit cost select', () => {
     expect(profilesSelectForLabourBill(false)).toBe('id');
     const bill = readFileSync(resolve(process.cwd(), 'src/lib/hoursToJobBill.ts'), 'utf8');
     expect(bill).toContain('loadProfilesForLabourBill');
-    expect(bill).not.toMatch(
-      /\.from\('profiles'\)[\s\S]{0,80}\.select\('id, expense_cost_model_id'\)/,
-    );
+    expect(bill).toContain("rpc('get_company_members'");
+    expect(bill).not.toMatch(/\.from\(['"]profiles['"]\)/);
   });
 
   it('treats PostgREST PGRST204 as a missing column', () => {
@@ -55,34 +54,73 @@ describe('profiles labour unit cost select', () => {
     )).toBe(true);
   });
 
-  it('loadProfilesForLabourBill falls back to id-only without throwing', async () => {
+  it('loadProfilesForLabourBill reads other members via get_company_members', async () => {
     resetProfilesLabourUnitCostColumnCache();
-    const calls: string[] = [];
+    const rpcCalls: Array<{ name: string; args: { p_company_id: string } }> = [];
     const client = {
+      from: () => {
+        throw new Error('must not use from(profiles); own-profile RLS hides other cost models');
+      },
+      rpc: async (name: string, args: { p_company_id: string }) => {
+        rpcCalls.push({ name, args });
+        return {
+          data: [
+            { id: 'self', expense_cost_model_id: 'm-self' },
+            { id: 'other', expense_cost_model_id: 'm-other' },
+          ],
+          error: null,
+        };
+      },
+    };
+    const rows = await loadProfilesForLabourBill(client as never, 'co-1');
+    expect(rpcCalls).toEqual([{ name: 'get_company_members', args: { p_company_id: 'co-1' } }]);
+    expect(rows).toEqual([
+      { id: 'self', expense_cost_model_id: 'm-self' },
+      { id: 'other', expense_cost_model_id: 'm-other' },
+    ]);
+  });
+
+  it('mutant C12: own-profile from(profiles) silently drops other members cost models', async () => {
+    async function loadProfilesMutant(
+      client: { from: (table: string) => { select: (cols: string) => { eq: (col: string, val: string) => Promise<{ data: Array<{ id: string; expense_cost_model_id?: string | null }> | null; error: unknown }> } } },
+      companyId: string,
+    ): Promise<Array<{ id: string; expense_cost_model_id?: string | null }>> {
+      const { data, error } = await client
+        .from('profiles')
+        .select('id, expense_cost_model_id')
+        .eq('company_id', companyId);
+      if (error) throw error;
+      return data ?? [];
+    }
+    const ownOnly = {
       from: () => ({
-        select: (cols: string) => ({
-          eq: async () => {
-            calls.push(cols);
-            if (cols.includes('expense_cost_model_id')) {
-              return {
-                data: null,
-                error: {
-                  code: 'PGRST204',
-                  message: "Could not find the 'expense_cost_model_id' column of 'profiles' in the schema cache",
-                },
-              };
-            }
-            return { data: [{ id: 'p1' }], error: null };
-          },
+        select: () => ({
+          eq: async () => ({
+            data: [{ id: 'self', expense_cost_model_id: 'm-self' }],
+            error: null,
+          }),
         }),
       }),
     };
-    const rows = await loadProfilesForLabourBill(client as never, 'co-1');
-    expect(rows).toEqual([{ id: 'p1' }]);
-    expect(calls).toEqual(['id, expense_cost_model_id', 'id']);
-    const again = await loadProfilesForLabourBill(client as never, 'co-1');
-    expect(again).toEqual([{ id: 'p1' }]);
-    expect(calls).toEqual(['id, expense_cost_model_id', 'id', 'id']);
+    const mutantRows = await loadProfilesMutant(ownOnly as never, 'co-1');
+    expect(mutantRows).toEqual([{ id: 'self', expense_cost_model_id: 'm-self' }]);
+    expect(mutantRows.map((r: { id: string }) => r.id)).not.toContain('other');
+
+    const rpcClient = {
+      from: () => {
+        throw new Error('production path must not use from(profiles)');
+      },
+      rpc: async () => ({
+        data: [
+          { id: 'self', expense_cost_model_id: 'm-self' },
+          { id: 'other', expense_cost_model_id: 'm-other' },
+        ],
+        error: null,
+      }),
+    };
+    const rows = await loadProfilesForLabourBill(rpcClient as never, 'co-1');
+    expect(rows.map((r) => r.id).sort()).toEqual(['other', 'self']);
+    expect(rows.find((r) => r.id === 'other')?.expense_cost_model_id).toBe('m-other');
   });
 });
 

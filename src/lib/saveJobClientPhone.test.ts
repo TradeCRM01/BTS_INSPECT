@@ -116,6 +116,31 @@ describe('decideJobClientPhoneSave', () => {
       phone: '   ',
     })).toEqual({ action: 'write', clientId: 'c1', phone: null });
   });
+
+  it('misses junk that used to save as abc', () => {
+    expect(decideJobClientPhoneSave({ clientId: 'c1', phone: 'abc' })).toEqual({
+      action: 'miss',
+      reason: 'invalid_phone',
+      message: 'Enter an Australian phone number',
+    });
+    expect(decideJobClientPhoneSave({ clientId: 'c1', phone: 'call me 0400000000' }).action).toBe('miss');
+  });
+
+  it.each([
+    '(07) 3123 4567',
+    '07 3123 4567',
+    '+61 7 3123 4567',
+    '0412 345 678',
+    '+61412345678',
+    '1300 123 456',
+    '13 12 34',
+  ])('stores typed AU phone %s', (phone) => {
+    expect(decideJobClientPhoneSave({ clientId: 'c1', phone })).toEqual({
+      action: 'write',
+      clientId: 'c1',
+      phone,
+    });
+  });
 });
 
 describe('clientPhoneForSms after save', () => {

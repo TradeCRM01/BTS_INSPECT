@@ -88,10 +88,11 @@ describe('signed Grafter speed-bar mark', () => {
     expect(mark).not.toContain('M10 8.25');
     expect(mark).not.toContain('M13.1 17.15');
 
-    expect(lockup).toContain('Grafter');
-    expect(lockup).toContain('tracking-tighter');
+    expect(lockup).toContain('Wordmark');
+    expect(lockup).toContain('BrandMark');
+    expect(src('src/components/brand/Wordmark.tsx')).toContain('tracking-tighter');
     expect(lockup).toContain('bg-cream');
-    expect(lockup).toContain('<BtsMark');
+    expect(src('src/components/brand/BrandMark.tsx')).toContain('BtsMark');
     expect(lockup).toContain('framed={false}');
     expect(lockup).not.toContain('BTS Inspect');
 
@@ -100,7 +101,7 @@ describe('signed Grafter speed-bar mark', () => {
     expect(src('src/components/auth/AuthShell.tsx')).toContain('BrandLockup');
     expect(src('src/components/auth/AuthShell.tsx')).toContain("size=\"marketing\"");
     expect(shell).toContain("size=\"header\"");
-    expect(shell).toContain('aria-label="Grafter"');
+    expect(shell).toContain('aria-label={BRAND_NAME}');
     expect(shell).toContain('BrandLockup');
 
     const marketing = src('src/pages/MarketingPage.tsx');
@@ -137,7 +138,8 @@ describe('signed Grafter speed-bar mark', () => {
     expect(manifest).toContain('icon-512.svg');
 
     expect(src('tailwind.config.js')).toContain("cream: '#F5F0E6'");
-    expect(src('src/index.css')).toContain('--ops-cream: #F5F0E6');
+    expect(src('src/index.css')).toContain('--ops-cream: var(--g-bg)');
+    expect(src('src/styles/tokens.css')).toContain('--g-bg: #F5F0E6');
   });
 
   it('LOOK frames cover login lockup, header mark, and PWA icon only', () => {

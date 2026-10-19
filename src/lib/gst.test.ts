@@ -40,6 +40,18 @@ describe('calcDocumentTotals', () => {
 });
 
 describe('calcLineDocumentTotals', () => {
+  it('rounds each line to cents before summing', () => {
+    expect(calcLineDocumentTotals([
+      { quantity: 2.5, unit_price: 41.535 },
+      { quantity: 3.3, unit_price: 31.466 },
+      { quantity: 4.7, unit_price: 22.093 },
+    ], 10)).toEqual({
+      subtotal: 311.52,
+      taxAmount: 31.15,
+      total: 342.67,
+    });
+  });
+
   it('charges GST on a 10% line only when the other line is GST-free', () => {
     expect(calcLineDocumentTotals([
       { quantity: 1, unit_price: 100, gst_rate: 10 },
@@ -94,5 +106,13 @@ describe('moneyRound', () => {
   it('stores two decimal places', () => {
     expect(moneyRound(1.239)).toBe(1.24);
     expect(moneyRound(0)).toBe(0);
+  });
+
+  it('rounds negatives with the same half-up and normalises -0', () => {
+    expect(moneyRound(-131.025)).toBe(-131.03);
+    expect(moneyRound(131.025)).toBe(131.03);
+    expect(moneyRound(-0.005)).toBe(-0.01);
+    expect(Object.is(moneyRound(-0), -0)).toBe(false);
+    expect(moneyRound(-0)).toBe(0);
   });
 });

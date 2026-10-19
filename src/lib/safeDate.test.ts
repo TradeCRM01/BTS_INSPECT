@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DATE_INVALID_MESSAGE,
   DATE_REQUIRED_MESSAGE,
   DATE_YEAR_RANGE_MESSAGE,
   HOTFIX_BAD_DATE_ISO,
@@ -7,6 +8,7 @@ import {
   dateFieldYearError,
   isSupportedDateYear,
   isValidDate,
+  parseFieldDate,
   parseToDate,
   safeFormatDate,
   safeLocaleDateString,
@@ -66,5 +68,12 @@ describe('year guard at save', () => {
     expect(dateFieldYearError('1900-01-01')).toBeNull();
     expect(dateFieldYearError('2100-12-31')).toBeNull();
     expect(dateFieldYearError('2101-01-01')).toBe(DATE_YEAR_RANGE_MESSAGE);
+  });
+
+  it('rejects calendar-invalid dates with the AU message and parses real days', () => {
+    expect(dateFieldYearError('31/02/2026')).toBe(DATE_INVALID_MESSAGE);
+    expect(dateFieldYearError('21/10/202')).toBe(DATE_INVALID_MESSAGE);
+    expect(parseFieldDate('05/11/2026')).toBe('2026-11-05');
+    expect(parseFieldDate('2026-11-05')).toBe('2026-11-05');
   });
 });

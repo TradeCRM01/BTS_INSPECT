@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
+import { moneyRound } from './gst';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { invalidateJobBillInvoicePreview } from './jobBillInvoicePreviewQuery';
 import { entryMinutes } from './timesheetJob';
@@ -70,12 +71,9 @@ export const PROFILES_LABOUR_UNIT_COST_COLUMN = 'expense_cost_model_id';
 
 let warnedTimesheetColumnMissing = false;
 let warnedCompanyLabourRateColumnMissing = false;
-let warnedProfileExpenseCostModelColumnMissing = false;
-/** When false, skip selecting expense_cost_model_id to avoid repeated PostgREST 400s. */
-let profilesLabourUnitCostColumnAvailable: boolean | null = null;
 
 export function resetProfilesLabourUnitCostColumnCache(): void {
-  profilesLabourUnitCostColumnAvailable = null;
+  // Retired: labour bill reads get_company_members (migration 089), not own-profile RLS.
 }
 
 export function profilesSelectForLabourBill(includeExpenseCostModelId: boolean): string {
@@ -98,32 +96,16 @@ export async function loadProfilesForLabourBill(
   client: SupabaseClient,
   companyId: string,
 ): Promise<Array<{ id: string; expense_cost_model_id?: string | null }>> {
-  const tryFullSelect = profilesLabourUnitCostColumnAvailable !== false;
-  const select = profilesSelectForLabourBill(tryFullSelect);
-  const { data, error } = await client
-    .from('profiles')
-    .select(select)
-    .eq('company_id', companyId);
-
-  if (!error) {
-    if (tryFullSelect) profilesLabourUnitCostColumnAvailable = true;
-    return (data ?? []) as unknown as Array<{ id: string; expense_cost_model_id?: string | null }>;
-  }
-
-  if (tryFullSelect && isSchemaColumnMissingError(error, PROFILES_LABOUR_UNIT_COST_COLUMN)) {
-    profilesLabourUnitCostColumnAvailable = false;
-    if (!warnedProfileExpenseCostModelColumnMissing) {
-      console.warn(
-        '[hoursToJobBill] profiles.expense_cost_model_id missing — run migration 084',
-      );
-      warnedProfileExpenseCostModelColumnMissing = true;
-    }
-    const retry = await client.from('profiles').select('id').eq('company_id', companyId);
-    if (retry.error) throw retry.error;
-    return (retry.data ?? []) as unknown as Array<{ id: string; expense_cost_model_id?: string | null }>;
-  }
-
-  throw error;
+  // Own-profile RLS on public.profiles returns only the caller. Cost models for
+  // other crew must come from the same-company SECURITY DEFINER RPC.
+  const { data, error } = await client.rpc('get_company_members', {
+    p_company_id: companyId,
+  });
+  if (error) throw error;
+  return ((data ?? []) as Array<{ id: string; expense_cost_model_id?: string | null }>).map((row) => ({
+    id: row.id,
+    expense_cost_model_id: row.expense_cost_model_id ?? null,
+  }));
 }
 
 export function isLabourCategory(category: string | null | undefined): boolean {
@@ -426,10 +408,10 @@ export function buildJobCostFromTimesheetEntry(args: {
     description,
     quantity: qty,
     unit_cost: unitCost,
-    total_cost: Number((qty * unitCost).toFixed(2)),
+    total_cost: moneyRound(qty * unitCost),
     markup_percent: 0,
     unit_price: unitPrice,
-    total_price: Number((qty * unitPrice).toFixed(2)),
+    total_price: moneyRound(qty * unitPrice),
     charge_type: 'Labour',
     stock_item_id: null,
     purchase_order_id: null,

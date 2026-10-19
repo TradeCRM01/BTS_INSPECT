@@ -512,7 +512,8 @@ describe('quickBook speech helper and Schedule wire', () => {
     expect(src('src/index.css')).toContain('flex-wrap: nowrap');
     expect(src('src/index.css')).not.toMatch(/\.hub-schedule-job-sheet-hint \{\s*margin: -4px/);
     expect(src('src/index.css')).not.toMatch(/\.hub-schedule-voice \.form-input \{[\s\S]{0,80}flex: 1 1 100%/);
-    expect(sheet).toContain('scheduleDayKey(job.scheduled_date)');
+    expect(sheet).toContain('scheduleSheetDateSeed');
+    expect(sheet).toContain('scheduleSheetSaveError');
     expect(sheet).toContain('assumedTradeTag');
     expect(sheet).toContain('checkDateTag');
     expect(sheet).toContain('setStartEdited(true)');

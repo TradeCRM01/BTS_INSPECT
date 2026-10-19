@@ -40,6 +40,11 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { duplicateJhaDocument } from '../lib/duplicateJhaDocument';
+import { UnsavedChangesDialog } from '../components/unsaved/UnsavedChangesDialog';
+import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard';
+import { nextClientDraftId } from '../lib/unsavedChangesGuard';
+import { jhaPersistStatus, planJhaDocumentWrite } from '../lib/jhaDocumentWrite';
+import { documentCreatorLine } from '../lib/inspectorSnapshot';
 
 function generateJhaNumber(): string {
   const now = new Date();
@@ -55,7 +60,8 @@ interface JhaDocRow {
   template_id: string;
   template_snapshot: { name?: string; schema: JhaTemplateSchema };
   company_id: string;
-  created_by: string;
+  created_by: string | null;
+  creator_name_snapshot?: string | null;
   status: string;
   meta: Record<string, string>;
   steps: JhaStep[];
@@ -88,14 +94,57 @@ const EMPTY_STEP: JhaStep = {
   photos: [],
 };
 
+const LOOK_JHA_CREATOR = 'jha-creator-snapshot';
+
+function jhaCreatorLookDoc(look: string | null): JhaDocRow | null {
+  if (look !== LOOK_JHA_CREATOR) return null;
+  return {
+    id: 'look-jha-pat',
+    template_id: 'look-jha-tmpl',
+    template_snapshot: {
+      name: 'JHA',
+      schema: {
+        meta: {
+          requiresTaskName: false,
+          requiresSiteName: false,
+          requiresDate: false,
+          requiresSupervisor: false,
+        },
+        riskLevels: [],
+        ppeOptions: [],
+        signOffRoles: [],
+      },
+    },
+    company_id: 'look-co',
+    created_by: null,
+    creator_name_snapshot: 'Pat Snapshot',
+    status: 'draft',
+    meta: { siteName: 'Snapshot Yard' },
+    steps: [],
+    ppe: [],
+    sign_offs: [],
+    report_number: 'JHA-1',
+    pdf_storage_path: null,
+    client_id: null,
+    job_id: null,
+    doc_version: 1,
+    amended_from_id: null,
+    amendment_reason: null,
+    created_at: '2026-09-03T00:00:00.000Z',
+    completed_at: null,
+  };
+}
+
 export function JhaFillPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { profile, company } = useAuth();
   const queryClient = useQueryClient();
 
+  const lookParam = searchParams.get('look');
+  const lookJhaCreator = jhaCreatorLookDoc(lookParam);
   const templateId = searchParams.get('templateId');
-  const docId = searchParams.get('docId');
+  const docId = lookJhaCreator ? lookJhaCreator.id : searchParams.get('docId');
   const presetJobId = searchParams.get('jobId') ?? '';
   const presetClientId = searchParams.get('clientId') ?? '';
   const isEditMode = !!docId;
@@ -125,6 +174,10 @@ export function JhaFillPage() {
   const [showMoreIdentity, setShowMoreIdentity] = useState(false);
   const [showMoreDoc, setShowMoreDoc] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const allowLeaveRef = useRef(false);
+  const createdIdRef = useRef<string | null>(docId);
+  const rowExistsRef = useRef(!!docId);
+  const insertInFlightRef = useRef<Promise<string | null> | null>(null);
   const crewRef = useRef(crew);
   const metaRef = useRef(meta);
   crewRef.current = crew;
@@ -147,6 +200,7 @@ export function JhaFillPage() {
   const { data: existingDoc, isLoading: docLoading, isError: docError, refetch: refetchDoc } = useQuery({
     queryKey: ['jha-document', docId],
     queryFn: async () => {
+      if (lookJhaCreator) return lookJhaCreator;
       const mock = getAuditJhaDoc(docId!);
       if (mock) return mock as unknown as JhaDocRow;
       const { data, error } = await supabase
@@ -237,6 +291,7 @@ export function JhaFillPage() {
       setSelectedPpe(existingDoc.ppe || []);
       setSignOffs(existingDoc.sign_offs || []);
       setCrew(parseCrewSignOns(existingDoc.meta?.crewSignOns));
+      createdIdRef.current = existingDoc.id;
       setDocIdState(existingDoc.id);
       setClientId(existingDoc.client_id ?? '');
       setJobId(existingDoc.job_id ?? '');
@@ -296,7 +351,7 @@ export function JhaFillPage() {
     if (!applied.changed) return;
     setMeta(prev => ({ ...prev, siteName: applied.siteName || prev.siteName }));
     setCrew(applied.crew);
-    if (!docIdState || isDevFieldAuditAuth()) return;
+    if (!docIdState || isDevFieldAuditAuth() || lookJhaCreator) return;
     void supabase
       .from('jha_documents')
       .select('meta')
@@ -530,45 +585,59 @@ export function JhaFillPage() {
     setError('');
 
     try {
+      const persistAs = jhaPersistStatus(status, existingDoc?.status);
       const payload = {
         meta: persistableMeta(),
         steps,
         ppe: selectedPpe,
         sign_offs: signOffs,
-        status,
+        status: persistAs,
         client_id: clientId || null,
         job_id: jobId || null,
         doc_version: docVersion,
         amended_from_id: amendedFromId,
         amendment_reason: amendmentReason || null,
-        ...(status === 'completed' ? { completed_at: new Date().toISOString() } : {}),
+        ...(persistAs === 'completed' || persistAs === 'published'
+          ? { completed_at: existingDoc?.completed_at ?? new Date().toISOString() }
+          : {}),
       };
 
-      let savedId = docIdState;
-
-      if (docIdState) {
-        const { error } = await supabase.from('jha_documents').update(payload).eq('id', docIdState);
+      const savedId = nextClientDraftId(createdIdRef.current ?? docIdState);
+      createdIdRef.current = savedId;
+      if (insertInFlightRef.current) {
+        await insertInFlightRef.current;
+      }
+      const persistedId = docIdState || (rowExistsRef.current ? savedId : null);
+      const plan = planJhaDocumentWrite({
+        persistedId,
+        clientDraftId: savedId,
+        templateId,
+        templateName,
+        schema,
+        companyId: profile.company_id,
+        createdBy: profile.id,
+        payload,
+      });
+      const pending = (async () => {
+        const query = plan.op === 'insert'
+          ? supabase.from('jha_documents').insert(plan.row)
+          : supabase.from('jha_documents').update(plan.row).eq('id', plan.id);
+        const { data, error } = await query.select().maybeSingle();
         if (error) throw error;
-      } else {
-        if (!templateId) throw new Error('Missing JHA template — go back and start from a template.');
-        const { data, error } = await supabase
-          .from('jha_documents')
-          .insert({
-            template_id: templateId,
-            template_snapshot: { name: templateName, schema },
-            company_id: profile.company_id,
-            created_by: profile.id,
-            ...payload,
-          })
-          .select()
-          .maybeSingle();
-        if (error) throw error;
-        if (!data?.id) throw new Error('Failed to create JHA document');
-        savedId = data.id;
-        setDocIdState(data.id);
-        if (opts?.navigateOnCreate !== false) {
-          navigate(`/jha/new?docId=${data.id}`, { replace: true });
+        rowExistsRef.current = true;
+        return data?.id ?? plan.id;
+      })();
+      insertInFlightRef.current = pending.catch(() => savedId);
+      try {
+        const wroteId = await pending;
+        const firstWrite = !docIdState;
+        setDocIdState(wroteId);
+        if (firstWrite && opts?.navigateOnCreate !== false) {
+          allowLeaveRef.current = true;
+          navigate(`/jha/new?docId=${wroteId}`, { replace: true });
         }
+      } finally {
+        insertInFlightRef.current = null;
       }
       setSaveState('saved');
       queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
@@ -582,6 +651,14 @@ export function JhaFillPage() {
       throw err;
     }
   }
+
+  const unsaved = useUnsavedChangesGuard({
+    status: saveState,
+    flush: () => {
+      void doSave('draft').catch(() => {});
+    },
+    allowLeaveRef,
+  });
 
   async function handlePublish() {
     if (!profile || !company || !schema) return;
@@ -884,12 +961,7 @@ export function JhaFillPage() {
     scrollToId(target);
   }
 
-  const saveHint =
-    saveState === 'saved' && docIdState ? 'Saved'
-      : saveState === 'saving' ? 'Saving…'
-        : saveState === 'unsaved' ? 'Unsaved'
-          : saveState === 'error' ? 'Save failed'
-            : null;
+  const saveHint = unsaved.hint;
 
   const jobBound = !!jobId;
   const docColors = jhaDocumentColors(
@@ -914,8 +986,8 @@ export function JhaFillPage() {
           >
             JHA documents
           </Link>
-          {saveHint && saveState !== 'saved' && (
-            <span className={`hub-jha-save ${saveState === 'error' ? 'is-bad' : ''}`}>
+          {saveHint && (
+            <span className={`hub-jha-save ${saveState === 'error' ? 'is-bad' : ''}`} data-save-status={saveState}>
               {saveHint}
             </span>
           )}
@@ -993,6 +1065,11 @@ export function JhaFillPage() {
               {templateName ? (
                 <p className="hub-jha-ledger-row">
                   <span className="hub-jha-muted">{templateName}</span>
+                </p>
+              ) : null}
+              {documentCreatorLine(existingDoc?.creator_name_snapshot) ? (
+                <p className="hub-jha-ledger-row" data-creator-line="1">
+                  <span className="hub-jha-muted">{documentCreatorLine(existingDoc?.creator_name_snapshot)}</span>
                 </p>
               ) : null}
               <p className="hub-jha-ledger-row">
@@ -1619,6 +1696,7 @@ export function JhaFillPage() {
           </div>
         </article>
       </div>
+      <UnsavedChangesDialog guard={unsaved} />
     </AppShell>
   );
 }

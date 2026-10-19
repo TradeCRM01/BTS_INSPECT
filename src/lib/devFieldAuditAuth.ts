@@ -46,6 +46,8 @@ export function isDevFieldAuditAuth(): boolean {
       || params.get('look') === 'person-tickets'
       || params.get('look') === 'team-list'
       || params.get('look') === 'dashboard'
+      || params.get('look') === 'dashboard-seed'
+      || params.get('look') === 'dashboard-repro'
       || params.get('look') === 'visit-notes'
       || params.get('look') === 'job-photos'
       || params.get('look') === 'week-board'
@@ -59,7 +61,14 @@ export function isDevFieldAuditAuth(): boolean {
       || params.get('look') === 'sms-settings'
       || params.get('look') === 'sms-settings-invalid'
       || params.get('look') === 'hotfix-date-bad'
+      || params.get('look') === 'ai-settings'
+      || params.get('look') === 'ai-console'
       || params.get('look') === 'drive-error'
+      || params.get('look') === 'inspections-list'
+      || params.get('look') === 'inspection-snapshot-view'
+      || params.get('look') === 'inspection-snapshot-edit'
+      || params.get('look') === 'inspection-issued-view'
+      || params.get('look') === 'inspection-issued-edit'
       || window.location.pathname === '/__field-audit'
     ) {
       sessionStorage.setItem(AUDIT_KEY, '1');
@@ -116,7 +125,7 @@ export const DEV_AUDIT_SESSION = {
 export const DEV_AUDIT_PROFILE = {
   id: AUDIT_USER_ID,
   company_id: AUDIT_COMPANY_ID,
-  name: 'Field Audit',
+  name: devAuditName('Field Audit'),
   role: 'admin',
   email: 'field-audit@example.com',
   licence_number: 'EL-12345',
@@ -134,10 +143,21 @@ function devAuditCompanyTrades(): string[] {
   }
 }
 
+/** DEV-only: ?auditName= overrides the mock profile and company names. */
+function devAuditName(fallback: string): string {
+  if (!import.meta.env.DEV) return fallback;
+  try {
+    const n = new URLSearchParams(window.location.search).get('auditName');
+    return n && n.trim() ? n.trim() : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export const DEV_AUDIT_COMPANY = {
   id: AUDIT_COMPANY_ID,
   created_by: AUDIT_USER_ID,
-  name: 'Field Audit Co',
+  name: devAuditName('Field Audit Co'),
   abn: '12 345 678 901',
   licence_number: 'EC-9988',
   phone: '08 1234 5678',

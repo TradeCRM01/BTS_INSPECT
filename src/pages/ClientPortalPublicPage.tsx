@@ -11,6 +11,11 @@ import { usePublicDocumentHead } from '../lib/publicSeo';
 import { companyPaymentMethodsCompleteForDocument } from '../lib/companyPaymentMethods';
 import { portalDocumentRef } from '../lib/quoteJobFields';
 import { portalQuoteLapsedCopy } from '../lib/sendQuote';
+import {
+  fetchClientPortal,
+  portalErrorCard,
+  shouldRetryPortalQuery,
+} from '../lib/clientPortalFetch';
 
 type PortalCompany = {
   name: string;
@@ -230,12 +235,9 @@ export function acceptClientPortalAuditQuote(
 }
 
 async function fetchPortal(token: string): Promise<PortalPayload> {
-  const { data, error } = await supabase.functions.invoke('client-portal', {
-    body: { token },
-  });
-  if (error) throw new Error(error.message || 'Could not load portal');
-  if (data?.error) throw new Error(String(data.error));
-  return data as PortalPayload;
+  return fetchClientPortal<PortalPayload>(async (_name, init) => {
+    return supabase.functions.invoke('client-portal', init);
+  }, token);
 }
 
 function portalQuoteStatusLabel(status: string): string {
@@ -255,7 +257,7 @@ function portalInvoiceShowsHowToPay(status: string): boolean {
 
 function PortalFrame({ children }: { children: React.ReactNode }) {
   return (
-    <div id="client-portal">
+    <div id="client-portal" data-theme="light">
       <div className="portal-doc">{children}</div>
     </div>
   );
@@ -300,7 +302,7 @@ export function ClientPortalPublicPage() {
     queryKey: ['client-portal-public', token],
     queryFn: () => fetchPortal(token),
     enabled: !auditPortal && !!token,
-    retry: 1,
+    retry: shouldRetryPortalQuery,
   });
   const data = auditPortal ? auditData : liveData;
 
@@ -350,14 +352,17 @@ export function ClientPortalPublicPage() {
   }
 
   if (isError || !data) {
+    const card = portalErrorCard(error);
     return (
       <PortalFrame>
         <div className="portal-state">
-          <div className="portal-sheet portal-state-card">
+          <div className="portal-sheet portal-state-card" data-portal-error={card.kind}>
             <AlertCircle className="portal-state-icon is-error" size={28} />
-            <p className="portal-state-title">Unable to open portal</p>
-            <p className="portal-muted">{error instanceof Error ? error.message : 'Invalid or expired link'}</p>
-            <button type="button" onClick={() => refetch()} className="portal-quiet-link">Try again</button>
+            <p className="portal-state-title">{card.title}</p>
+            <p className="portal-muted">{card.body}</p>
+            {card.retry ? (
+              <button type="button" onClick={() => refetch()} className="portal-quiet-link">Try again</button>
+            ) : null}
           </div>
         </div>
       </PortalFrame>

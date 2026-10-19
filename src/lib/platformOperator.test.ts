@@ -238,10 +238,10 @@ describe('appoint developers', () => {
     expect(scoped).toContain('#operator-developers');
     expect(scoped).toContain('#F4F6F8');
     expect(scoped).toContain('#FFFFFF');
-    expect(scoped).toContain('#0A2540');
-    expect(scoped).toContain('#5B6B7C');
+    expect(scoped).toContain('--dev-ink: var(--g-ink)');
+    expect(scoped).toContain('--dev-muted: var(--g-ink-muted)');
     expect(scoped).toContain('#D5DCE3');
-    expect(scoped).toContain('#2E75B6');
+    expect(scoped).toContain('--dev-action: var(--g-accent)');
     expect(scoped).toContain('font-size: 12px');
     expect(scoped).toContain('border-radius: 16px');
     expect(scoped).toContain('min-height: 44px');

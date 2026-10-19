@@ -105,6 +105,7 @@ const SUGGESTIONS = [
 ];
 
 export function AiAssistantPage() {
+  const { profile, isPlatformOperator } = useAuth();
   const { get, del, streamChat } = useEdgeFn();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -200,6 +201,19 @@ export function AiAssistantPage() {
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   }, [sendMessage]);
+
+  if (profile && !isPlatformOperator) {
+    return (
+      <AppShell>
+        <div className="page-shell-narrow" data-ai-assistant="coming-soon">
+          <h1 className="text-xl font-semibold text-[#1A1A1A] mb-1">Coming soon</h1>
+          <p className="text-sm text-[#4A5568]">
+            AI chat is not available on this workspace.
+          </p>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>

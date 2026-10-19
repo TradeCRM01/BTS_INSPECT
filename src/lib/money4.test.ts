@@ -6,6 +6,7 @@ import {
   defaultRecordPaymentDraft,
   INVOICE_PAYMENT_METHODS,
   previewInvoicePayment,
+  roundInvoiceMoney,
 } from './invoicePayments';
 import { INVOICE_STATUS_LABELS } from '../types/fsm';
 
@@ -34,6 +35,12 @@ describe('MONEY-4 invoice part payments', () => {
     expect(nudges).toContain('Part paid · Overdue');
     const job = src('src/lib/jobNextAction.ts');
     expect(job).toContain("'part_paid'");
+  });
+
+  it('roundInvoiceMoney keeps the 1e-8 half-up epsilon', () => {
+    expect(roundInvoiceMoney(1.5 * 87.35)).toBe(131.03);
+    expect(roundInvoiceMoney(1.5 * 87.35)).not.toBe(131.02);
+    expect(roundInvoiceMoney(1.5 * 87.35)).not.toBe(Number((1.5 * 87.35).toFixed(2)));
   });
 
   it('M2 — full payment marks paid; partial marks part paid', () => {

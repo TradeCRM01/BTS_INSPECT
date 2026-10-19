@@ -1,22 +1,23 @@
+@import './styles/tokens.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --ops-navy: #0A2540;
-    --ops-accent: #2E75B6;
-    --ops-cream: #F5F0E6;
-    --ops-pass: #1B7F3A;
-    --ops-fail: #B42318;
-    --ops-warning: #B54708;
-    --invoice-warn: #B54708;
+    --ops-navy: var(--g-ink);
+    --ops-accent: var(--g-accent);
+    --ops-cream: var(--g-bg);
+    --ops-pass: var(--g-ok);
+    --ops-fail: var(--g-bad);
+    --ops-warning: var(--g-warn);
+    --invoice-warn: var(--g-warn);
     --ops-ink: #1A1A1A;
     --ops-muted: #4A5568;
     --ops-rule: #E5E7EB;
     --ops-zebra: #F9FAFB;
     --ops-white: #FFFFFF;
-    --ops-radius: 8px;
+    --ops-radius: var(--g-radius-sm);
     --ops-radius-ctl: 6px;
     --hub-list-sheet-max: none;
   }
@@ -26,7 +27,7 @@
   }
 
   body {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--g-font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     color: var(--ops-ink);
@@ -34,7 +35,7 @@
   }
 
   .font-mono {
-    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-family: var(--g-font-mono);
   }
 
   input, textarea, select {
@@ -301,16 +302,16 @@
 
   /* Clients look only: signed document sheet on list + open record. Not a global restyle. */
   :is(.hub-clients) {
-    --client-page: #F5F0E6;
-    --client-sheet: #FFFDF8;
-    --client-ink: #0A2540;
-    --client-muted: #5B6B7C;
-    --client-line: #E2D9CC;
-    --client-action: #2E75B6;
-    --client-r-ctl: 12px;
-    --client-r-sheet: 16px;
-    --client-fail: #B42318;
-    --client-warn: #B54708;
+    --client-page: var(--g-bg);
+    --client-sheet: var(--g-surface);
+    --client-ink: var(--g-ink);
+    --client-muted: var(--g-ink-muted);
+    --client-line: var(--g-line);
+    --client-action: var(--g-accent);
+    --client-r-ctl: var(--g-radius-md);
+    --client-r-sheet: var(--g-radius-lg);
+    --client-fail: var(--g-bad);
+    --client-warn: var(--g-warn);
     font-family: 'Source Sans 3', system-ui, sans-serif;
   }
 
@@ -1064,13 +1065,20 @@
   .hub-clients .client-sheet-contact .job-client-phone {
     display: inline-flex;
     align-items: center;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 8px;
     min-width: 0;
     font-family: 'Source Sans 3', system-ui, sans-serif;
     color: #5B6B7C;
     font-size: 12px;
     font-weight: 500;
+  }
+
+  .hub-clients .client-sheet-contact .job-client-email .field-inline-error,
+  .hub-clients .client-sheet-contact .job-client-phone .field-inline-error {
+    flex: 1 0 100%;
+    margin-top: 0;
+    padding-left: 21px;
   }
 
   .hub-clients .client-sheet-contact .job-client-email .form-input-sm,
@@ -1147,7 +1155,6 @@
     text-decoration: none;
   }
 
-  .hub-clients .client-sheet-contact .job-client-phone,
   .hub-clients .client-sheet-contact a.job-client-phone-num {
     flex-shrink: 0;
     white-space: nowrap;
@@ -1769,6 +1776,19 @@
     @apply bg-white border border-fail text-fail rounded-md px-4 py-3 text-sm;
   }
 
+  .field-inline-error {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.3;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .field-inline-invalid {
+    border-color: var(--ops-fail, #B42318);
+  }
+
   .ops-choice {
     @apply flex-1 min-h-[44px] rounded-md text-sm font-semibold border border-rule text-muted;
   }
@@ -2183,6 +2203,14 @@
   .job-client-attach {
     max-width: 100%;
     min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .job-client-email .field-inline-error,
+  .job-client-phone .field-inline-error {
+    flex: 1 0 100%;
+    padding-left: 21px;
+    white-space: normal;
   }
 
   .job-client-email .form-input-sm,
@@ -2516,10 +2544,10 @@
   #job-schedule {
     --job-page: #F4F6F8;
     --job-sheet: #FFFFFF;
-    --job-ink: #0A2540;
-    --job-muted: #5B6B7C;
+    --job-ink: var(--g-ink);
+    --job-muted: var(--g-ink-muted);
     --job-line: #D5DCE3;
-    --job-action: #2E75B6;
+    --job-action: var(--g-accent);
     font-family: Inter, system-ui, sans-serif;
     color: var(--job-ink);
   }
@@ -2988,10 +3016,10 @@
   #inspection-due {
     --job-page: #F4F6F8;
     --job-sheet: #FFFFFF;
-    --job-ink: #0A2540;
-    --job-muted: #5B6B7C;
+    --job-ink: var(--g-ink);
+    --job-muted: var(--g-ink-muted);
     --job-line: #D5DCE3;
-    --job-action: #2E75B6;
+    --job-action: var(--g-accent);
     font-family: Inter, system-ui, sans-serif;
     color: var(--job-ink);
     background: var(--job-sheet);
@@ -3374,17 +3402,17 @@
 
   /* Invoice surfaces only: same cream paper kit as signed quotes. Not quote selectors. */
   :is(.hub-invoices, .hub-invoice-editor, .hub-invoice-send) {
-    --invoice-page: #F5F0E6;
-    --invoice-sheet: #FFFDF8;
-    --invoice-ink: #0A2540;
-    --invoice-muted: #5B6B7C;
-    --invoice-line: #E2D9CC;
-    --invoice-action: #2E75B6;
-    --invoice-r-ctl: 12px;
-    --invoice-r-sheet: 16px;
-    --invoice-pass: #1B7F3A;
-    --invoice-fail: #B42318;
-    --invoice-warn: #B54708;
+    --invoice-page: var(--g-bg);
+    --invoice-sheet: var(--g-surface);
+    --invoice-ink: var(--g-ink);
+    --invoice-muted: var(--g-ink-muted);
+    --invoice-line: var(--g-line);
+    --invoice-action: var(--g-accent);
+    --invoice-r-ctl: var(--g-radius-md);
+    --invoice-r-sheet: var(--g-radius-lg);
+    --invoice-pass: var(--g-ok);
+    --invoice-fail: var(--g-bad);
+    --invoice-warn: var(--g-warn);
   }
 
   :is(.hub-invoices, .hub-invoice-editor, .hub-invoice-send) {
@@ -4987,6 +5015,32 @@
     white-space: nowrap;
   }
 
+  .hub-invoice-send .job-client-phone:has(.field-inline-error),
+  .hub-invoice-send .job-client-email:has(.field-inline-error) {
+    display: flex;
+    flex-wrap: wrap;
+    flex-shrink: 1;
+    white-space: normal;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .hub-invoice-send .job-client-phone:has(.field-inline-error) .form-input-sm,
+  .hub-invoice-send .job-client-email:has(.field-inline-error) .form-input-sm {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    flex: 1 1 100%;
+    field-sizing: fixed;
+  }
+
+  .hub-invoice-send .job-client-phone:has(.field-inline-error) .field-inline-error,
+  .hub-invoice-send .job-client-email:has(.field-inline-error) .field-inline-error {
+    flex: 1 0 100%;
+    white-space: normal;
+  }
+
   .hub-invoice-send a.job-client-phone-num {
     color: #0A2540;
     text-decoration: none;
@@ -5116,7 +5170,7 @@
 
   .overlay-backdrop.hub-labour-rate-backdrop,
   #job-bill {
-    --invoice-warn: #B54708;
+    --invoice-warn: var(--g-warn);
   }
 
   @media (max-width: 639px) {
@@ -5767,15 +5821,15 @@
   :is(#job-swms, #job-insp, .hub-job-swms) {
     --job-page: #F4F6F8;
     --job-sheet: #FFFFFF;
-    --job-ink: #0A2540;
-    --job-muted: #5B6B7C;
+    --job-ink: var(--g-ink);
+    --job-muted: var(--g-ink-muted);
     --job-line: #D5DCE3;
-    --job-action: #2E75B6;
-    --job-pass: #1B7F3A;
-    --job-fail: #B42318;
-    --job-warn: #B54708;
-    --job-r-ctl: 12px;
-    --job-r-sheet: 16px;
+    --job-action: var(--g-accent);
+    --job-pass: var(--g-ok);
+    --job-fail: var(--g-bad);
+    --job-warn: var(--g-warn);
+    --job-r-ctl: var(--g-radius-md);
+    --job-r-sheet: var(--g-radius-lg);
     font-family: Inter, system-ui, sans-serif;
     color: var(--job-ink);
   }
@@ -6035,29 +6089,29 @@
   .job-cal-host {
     --job-page: #F4F6F8;
     --job-sheet: #FFFFFF;
-    --job-ink: #0A2540;
-    --job-muted: #5B6B7C;
+    --job-ink: var(--g-ink);
+    --job-muted: var(--g-ink-muted);
     --job-line: #D5DCE3;
-    --job-action: #2E75B6;
+    --job-action: var(--g-accent);
   }
 
   /* Schedule board only: same cream paper kit as signed jobs + quotes. */
   .hub-board-cal {
-    --job-page: #F5F0E6;
-    --job-sheet: #FFFDF8;
-    --job-ink: #0A2540;
-    --job-muted: #5B6B7C;
-    --job-line: #E2D9CC;
-    --job-action: #2E75B6;
-    --schedule-page: #F5F0E6;
-    --schedule-sheet: #FFFDF8;
-    --schedule-ink: #0A2540;
-    --schedule-muted: #5B6B7C;
-    --schedule-line: #E2D9CC;
-    --schedule-action: #2E75B6;
-    --schedule-pass: #1B7F3A;
-    --schedule-fail: #B42318;
-    --schedule-warn: #B54708;
+    --job-page: var(--g-bg);
+    --job-sheet: var(--g-surface);
+    --job-ink: var(--g-ink);
+    --job-muted: var(--g-ink-muted);
+    --job-line: var(--g-line);
+    --job-action: var(--g-accent);
+    --schedule-page: var(--g-bg);
+    --schedule-sheet: var(--g-surface);
+    --schedule-ink: var(--g-ink);
+    --schedule-muted: var(--g-ink-muted);
+    --schedule-line: var(--g-line);
+    --schedule-action: var(--g-accent);
+    --schedule-pass: var(--g-ok);
+    --schedule-fail: var(--g-bad);
+    --schedule-warn: var(--g-warn);
     font-family: 'Source Sans 3', system-ui, sans-serif;
   }
 
@@ -6359,10 +6413,10 @@
   .hub-board-cal .ops-tray,
   .hub-board-cal .hub-schedule-sheet,
   .hub-board-cal .hub-schedule-search-panel {
-    --ops-rule: #E2D9CC;
-    --ops-zebra: #F5F0E6;
-    --ops-white: #FFFDF8;
-    --ops-muted: #5B6B7C;
+    --ops-rule: var(--g-line);
+    --ops-zebra: var(--g-bg);
+    --ops-white: var(--g-surface);
+    --ops-muted: var(--g-ink-muted);
   }
 
   .hub-board-cal .border-rule {
@@ -8262,7 +8316,7 @@
   .job-cal-host .job-client-attach {
     display: inline-flex;
     align-items: center;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 8px;
     min-width: 0;
     font-family: Inter, system-ui, sans-serif;
@@ -8356,6 +8410,32 @@
   .job-cal-host a.job-client-phone-num {
     flex-shrink: 0;
     white-space: nowrap;
+  }
+
+  .job-cal-host .job-client-phone:has(.field-inline-error),
+  .job-cal-host .job-client-email:has(.field-inline-error) {
+    display: flex;
+    flex-wrap: wrap;
+    flex-shrink: 1;
+    white-space: normal;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .job-cal-host .job-client-phone:has(.field-inline-error) .form-input-sm,
+  .job-cal-host .job-client-email:has(.field-inline-error) .form-input-sm {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    flex: 1 1 100%;
+    field-sizing: fixed;
+  }
+
+  .job-cal-host .job-client-phone:has(.field-inline-error) .field-inline-error,
+  .job-cal-host .job-client-email:has(.field-inline-error) .field-inline-error {
+    flex: 1 0 100%;
+    white-space: normal;
   }
 
   .job-cal-host a.job-client-phone-num {
@@ -8765,7 +8845,7 @@
   /* Take 5 document chrome only. Saved report_theme paints header / titles / labels / sign-on. */
   .take5-doc-theme {
     --take5-navy: #0A2540;
-    --take5-accent: #2E75B6;
+    --take5-accent: var(--g-accent);
     --take5-navy-light: #153558;
     --take5-accent-light: #D6E8F7;
   }
@@ -8773,7 +8853,7 @@
   /* JHA document chrome only — saved report_theme paints banner / table navy. */
   .jha-doc-theme {
     --jha-navy: #0A2540;
-    --jha-accent: #2E75B6;
+    --jha-accent: var(--g-accent);
     --jha-navy-light: #153558;
     --jha-accent-light: #D6E8F7;
   }
@@ -8786,7 +8866,7 @@
   /* Inspection document chrome only. Saved report_theme paints banner / titles. */
   .insp-doc-theme {
     --insp-navy: #0A2540;
-    --insp-accent: #2E75B6;
+    --insp-accent: var(--g-accent);
     --insp-navy-light: #153558;
     --insp-accent-light: #D6E8F7;
   }
@@ -8822,16 +8902,16 @@
 
   /* Quote surfaces only. Cream paper kit. Not invoices. */
   :is(.hub-quotes, .hub-quote-editor, .hub-quote-send) {
-    --quote-page: #F5F0E6;
-    --quote-sheet: #FFFDF8;
-    --quote-ink: #0A2540;
-    --quote-muted: #5B6B7C;
-    --quote-line: #E2D9CC;
-    --quote-action: #2E75B6;
-    --quote-r-ctl: 12px;
-    --quote-r-sheet: 16px;
-    --quote-fail: #B42318;
-    --quote-warn: #B54708;
+    --quote-page: var(--g-bg);
+    --quote-sheet: var(--g-surface);
+    --quote-ink: var(--g-ink);
+    --quote-muted: var(--g-ink-muted);
+    --quote-line: var(--g-line);
+    --quote-action: var(--g-accent);
+    --quote-r-ctl: var(--g-radius-md);
+    --quote-r-sheet: var(--g-radius-lg);
+    --quote-fail: var(--g-bad);
+    --quote-warn: var(--g-warn);
     font-family: 'Source Sans 3', system-ui, sans-serif;
   }
 
@@ -9930,10 +10010,11 @@
       position: absolute;
       width: 1px;
       height: 1px;
-      padding: 0;
       margin: -1px;
+      padding: 0;
       overflow: hidden;
-      clip: rect(0, 0, 0, 0);
+      clip: rect(0 0 0 0);
+      clip-path: inset(50%);
       white-space: nowrap;
       border: 0;
     }
@@ -10365,7 +10446,7 @@
 
   .quote-doc-theme {
     --quote-navy: #0A2540;
-    --quote-accent: #2E75B6;
+    --quote-accent: var(--g-accent);
     --quote-navy-light: #153558;
     --quote-accent-light: #D6E8F7;
   }
@@ -10392,16 +10473,16 @@
 
   /* Job list + open job sheet only. Signed document sheet when a job is open. */
   :is(.hub-jobs, .hub-job-sheet) {
-    --job-look-page: #F5F0E6;
-    --job-look-sheet: #FFFDF8;
-    --job-look-ink: #0A2540;
-    --job-look-muted: #5B6B7C;
-    --job-look-line: #E2D9CC;
-    --job-look-action: #2E75B6;
-    --job-look-r-ctl: 12px;
-    --job-look-r-sheet: 16px;
-    --job-look-fail: #B42318;
-    --job-look-warn: #B54708;
+    --job-look-page: var(--g-bg);
+    --job-look-sheet: var(--g-surface);
+    --job-look-ink: var(--g-ink);
+    --job-look-muted: var(--g-ink-muted);
+    --job-look-line: var(--g-line);
+    --job-look-action: var(--g-accent);
+    --job-look-r-ctl: var(--g-radius-md);
+    --job-look-r-sheet: var(--g-radius-lg);
+    --job-look-fail: var(--g-bad);
+    --job-look-warn: var(--g-warn);
     font-family: 'Source Sans 3', system-ui, sans-serif;
   }
 
@@ -12425,21 +12506,22 @@
 
   /* Signed-in home / only. Same paper kit as signed quote / clients list. */
   .dashboard-home {
-    --dashboard-home-page: #F5F0E6;
-    --dashboard-home-sheet: #FFFDF8;
-    --dashboard-home-ink: #0A2540;
-    --dashboard-home-muted: #5B6B7C;
-    --dashboard-home-line: #E2D9CC;
-    --dashboard-home-action: #2E75B6;
-    --dashboard-home-r-ctl: 12px;
-    --dashboard-home-r-sheet: 16px;
-    --dashboard-home-warn: #B54708;
+    --dashboard-home-page: var(--g-bg);
+    --dashboard-home-sheet: var(--g-surface);
+    --dashboard-home-ink: var(--g-ink);
+    --dashboard-home-muted: var(--g-ink-muted);
+    --dashboard-home-line: var(--g-line);
+    --dashboard-home-action: var(--g-accent);
+    --dashboard-home-r-ctl: var(--g-radius-md);
+    --dashboard-home-r-sheet: var(--g-radius-lg);
+    --dashboard-home-warn: var(--g-warn);
     font-family: 'Source Sans 3', system-ui, sans-serif;
   }
 
   .dashboard-home.ops-page {
-    max-width: none;
+    max-width: 100%;
     width: 100%;
+    min-width: 0;
     min-height: calc(100dvh - 3.5rem);
     margin: 0;
     background: #F5F0E6;
@@ -12507,6 +12589,8 @@
   .dashboard-home-sheet {
     position: relative;
     min-height: 620px;
+    min-width: 0;
+    max-width: 100%;
     margin: 0 auto;
     background: #FFFDF8;
     border: 1px solid #E2D9CC;
@@ -12543,6 +12627,7 @@
     background: #FFFDF8;
     box-shadow: inset 0 1px 0 #fff;
     overflow: visible;
+    min-width: 0;
   }
 
   .dashboard-home-hero {
@@ -12803,6 +12888,7 @@
     padding: 16px 0 0;
     border-top: 1px solid #E2D9CC;
     max-width: none;
+    min-width: 0;
   }
 
   .dashboard-home-canvas {
@@ -12820,14 +12906,16 @@
 
   .dashboard-home-view-grid {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 16px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
     width: 100%;
+    min-width: 0;
   }
 
   @media (min-width: 640px) {
     .dashboard-home-view-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
     }
   }
 
@@ -12856,6 +12944,7 @@
   .dashboard-home-view-grid .dashboard-home-widget-ink {
     padding: 0;
     min-height: 168px;
+    min-width: 0;
   }
 
   .dashboard-home-widget-card .text-\[10px\],
@@ -12878,8 +12967,48 @@
 
   .dashboard-home-widget-stack {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 0;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    width: 100%;
+    min-width: 0;
+    align-items: start;
+  }
+
+  .dashboard-home-view-grid .dashboard-home-widget,
+  .dashboard-home-widget-stack .dashboard-home-widget {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .dashboard-home-phone-edit-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 8px;
+  }
+
+  .dashboard-home-phone-edit-bar button {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border: 1px solid #E2D9CC;
+    border-radius: 12px;
+    background: #FFFDF8;
+    color: #0A2540;
+    cursor: pointer;
+  }
+
+  .dashboard-home-phone-edit-bar .dashboard-home-phone-remove {
+    margin-left: auto;
+    color: #B54708;
+  }
+
+  .dashboard-home-phone-edit-bar button:disabled {
+    opacity: 0.4;
+    cursor: default;
   }
 
   .dashboard-home-widget {
@@ -12914,6 +13043,7 @@
 
   .dashboard-home-widget-stack .dashboard-home-widget-ink {
     padding: 0;
+    height: auto;
   }
 
   .dashboard-home-widget .text-\[\#1A1A1A\],
@@ -14159,16 +14289,16 @@
 
   /* Field Work inspections list only. Same cream paper lock as signed jobs/clients. */
   .hub-inspections {
-    --insp-look-page: #F5F0E6;
-    --insp-look-sheet: #FFFDF8;
-    --insp-look-ink: #0A2540;
-    --insp-look-muted: #5B6B7C;
-    --insp-look-line: #E2D9CC;
-    --insp-look-action: #2E75B6;
-    --insp-look-r-ctl: 12px;
-    --insp-look-r-sheet: 16px;
-    --insp-look-fail: #B42318;
-    --insp-look-warn: #B54708;
+    --insp-look-page: var(--g-bg);
+    --insp-look-sheet: var(--g-surface);
+    --insp-look-ink: var(--g-ink);
+    --insp-look-muted: var(--g-ink-muted);
+    --insp-look-line: var(--g-line);
+    --insp-look-action: var(--g-accent);
+    --insp-look-r-ctl: var(--g-radius-md);
+    --insp-look-r-sheet: var(--g-radius-lg);
+    --insp-look-fail: var(--g-bad);
+    --insp-look-warn: var(--g-warn);
     font-family: 'Source Sans 3', system-ui, sans-serif;
   }
 
@@ -14639,6 +14769,27 @@
     color: #2E75B6;
     font-size: 16px;
     font-weight: 500;
+  }
+
+  .hub-inspections-document .hub-inspections-issued-lock {
+    margin: 8px 0 0;
+    max-width: 100%;
+    min-width: 0;
+    color: var(--insp-look-muted);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .hub-inspections-document .hub-inspections-fill-lock {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+    min-inline-size: 0;
   }
 
   .hub-inspections-tools {
@@ -15387,16 +15538,16 @@
 
   /* Field Work JHA list + open fill only. Same signed sheet lock as inspections. */
   .hub-jha {
-    --jha-look-page: #F5F0E6;
-    --jha-look-sheet: #FFFDF8;
-    --jha-look-ink: #0A2540;
-    --jha-look-muted: #5B6B7C;
-    --jha-look-line: #E2D9CC;
-    --jha-look-action: #2E75B6;
-    --jha-look-r-ctl: 12px;
-    --jha-look-r-sheet: 16px;
-    --jha-look-fail: #B42318;
-    --jha-look-warn: #B54708;
+    --jha-look-page: var(--g-bg);
+    --jha-look-sheet: var(--g-surface);
+    --jha-look-ink: var(--g-ink);
+    --jha-look-muted: var(--g-ink-muted);
+    --jha-look-line: var(--g-line);
+    --jha-look-action: var(--g-accent);
+    --jha-look-r-ctl: var(--g-radius-md);
+    --jha-look-r-sheet: var(--g-radius-lg);
+    --jha-look-fail: var(--g-bad);
+    --jha-look-warn: var(--g-warn);
     font-family: 'Source Sans 3', system-ui, sans-serif;
   }
 
@@ -16139,10 +16290,10 @@
   #accounting-settings {
     --acct-page: #F4F6F8;
     --acct-sheet: #FFFFFF;
-    --acct-ink: #0A2540;
-    --acct-muted: #5B6B7C;
+    --acct-ink: var(--g-ink);
+    --acct-muted: var(--g-ink-muted);
     --acct-line: #D5DCE3;
-    --acct-action: #2E75B6;
+    --acct-action: var(--g-accent);
     font-family: Inter, system-ui, sans-serif;
     color: var(--acct-ink);
     background: var(--acct-page);
@@ -16421,10 +16572,10 @@
   #operator-developers {
     --dev-page: #F4F6F8;
     --dev-sheet: #FFFFFF;
-    --dev-ink: #0A2540;
-    --dev-muted: #5B6B7C;
+    --dev-ink: var(--g-ink);
+    --dev-muted: var(--g-ink-muted);
     --dev-line: #D5DCE3;
-    --dev-action: #2E75B6;
+    --dev-action: var(--g-accent);
     font-family: Inter, system-ui, sans-serif;
     color: var(--dev-ink);
   }
@@ -16876,12 +17027,12 @@
 
 /* Public landing look only. MarketingPage on `/`. Does not paint signed-in AppShell, auth, legal, quotes, invoices, or in-app job hub. */
 .hub-marketing {
-  --mkt-page: #F5F0E6;
-  --mkt-sheet: #FFFDF8;
-  --mkt-ink: #0A2540;
-  --mkt-muted: #5B6B7C;
-  --mkt-line: #E2D9CC;
-  --mkt-action: #2E75B6;
+  --mkt-page: var(--g-bg);
+  --mkt-sheet: var(--g-surface);
+  --mkt-ink: var(--g-ink);
+  --mkt-muted: var(--g-ink-muted);
+  --mkt-line: var(--g-line);
+  --mkt-action: var(--g-accent);
   min-height: 100vh;
   background: var(--ops-cream);
   color: var(--mkt-ink);
@@ -17365,12 +17516,12 @@
 }
 
 .hub-legal {
-  --legal-page: #F5F0E6;
-  --legal-sheet: #FFFDF8;
-  --legal-ink: #0A2540;
-  --legal-muted: #5B6B7C;
-  --legal-line: #E2D9CC;
-  --legal-action: #2E75B6;
+  --legal-page: var(--g-bg);
+  --legal-sheet: var(--g-surface);
+  --legal-ink: var(--g-ink);
+  --legal-muted: var(--g-ink-muted);
+  --legal-line: var(--g-line);
+  --legal-action: var(--g-accent);
   min-height: 100vh;
   background: var(--legal-page);
   color: var(--legal-ink);
@@ -17545,18 +17696,18 @@
 
 /* Auth screens — cream paper + whisper legal chrome. Not AppShell. */
 .hub-auth {
-  --auth-look-page: #F5F0E6;
-  --auth-look-sheet: #FFFDF8;
-  --auth-look-ink: #0A2540;
-  --auth-look-muted: #5B6B7C;
-  --auth-look-line: #E2D9CC;
-  --auth-look-action: #2E75B6;
-  --legal-page: #F5F0E6;
-  --legal-sheet: #FFFDF8;
-  --legal-ink: #0A2540;
-  --legal-muted: #5B6B7C;
-  --legal-line: #E2D9CC;
-  --legal-action: #2E75B6;
+  --auth-look-page: var(--g-bg);
+  --auth-look-sheet: var(--g-surface);
+  --auth-look-ink: var(--g-ink);
+  --auth-look-muted: var(--g-ink-muted);
+  --auth-look-line: var(--g-line);
+  --auth-look-action: var(--g-accent);
+  --legal-page: var(--g-bg);
+  --legal-sheet: var(--g-surface);
+  --legal-ink: var(--g-ink);
+  --legal-muted: var(--g-ink-muted);
+  --legal-line: var(--g-line);
+  --legal-action: var(--g-accent);
   min-height: 100vh;
   background: var(--auth-look-page);
   color: var(--auth-look-ink);
@@ -17709,14 +17860,14 @@
 
 /* Public /p portal only: signed quote sheet. Looplet document + xAI restraint. */
 #client-portal {
-  --portal-page: #F5F0E6;
-  --portal-sheet: #FFFDF8;
-  --portal-ink: #0A2540;
-  --portal-muted: #5B6B7C;
-  --portal-line: #E2D9CC;
-  --portal-action: #2E75B6;
-  --portal-r-ctl: 12px;
-  --portal-r-sheet: 16px;
+  --portal-page: var(--g-bg);
+  --portal-sheet: var(--g-surface);
+  --portal-ink: var(--g-ink);
+  --portal-muted: var(--g-ink-muted);
+  --portal-line: var(--g-line);
+  --portal-action: var(--g-accent);
+  --portal-r-ctl: var(--g-radius-md);
+  --portal-r-sheet: var(--g-radius-lg);
   font-family: 'Source Sans 3', system-ui, sans-serif;
   background: var(--portal-page);
   color: var(--portal-ink);
@@ -18773,15 +18924,15 @@
 
   /* Field Work Take 5 list + open fill only. Same signed sheet lock as JHA / inspections. */
   .hub-take5 {
-    --take5-look-page: #F5F0E6;
-    --take5-look-sheet: #FFFDF8;
-    --take5-look-ink: #0A2540;
-    --take5-look-muted: #5B6B7C;
-    --take5-look-line: #E2D9CC;
-    --take5-look-action: #2E75B6;
-    --take5-look-r-ctl: 12px;
-    --take5-look-r-sheet: 16px;
-    --take5-look-fail: #B42318;
+    --take5-look-page: var(--g-bg);
+    --take5-look-sheet: var(--g-surface);
+    --take5-look-ink: var(--g-ink);
+    --take5-look-muted: var(--g-ink-muted);
+    --take5-look-line: var(--g-line);
+    --take5-look-action: var(--g-accent);
+    --take5-look-r-ctl: var(--g-radius-md);
+    --take5-look-r-sheet: var(--g-radius-lg);
+    --take5-look-fail: var(--g-bad);
     font-family: 'Source Sans 3', system-ui, sans-serif;
   }
 
@@ -19846,16 +19997,16 @@
 
   /* Reports list look only. Open report is the document sheet. */
   .hub-reports {
-    --report-page: #F5F0E6;
-    --report-sheet: #FFFDF8;
-    --report-ink: #0A2540;
-    --report-muted: #5B6B7C;
-    --report-line: #E2D9CC;
-    --report-action: #2E75B6;
-    --report-r-ctl: 12px;
-    --report-r-sheet: 16px;
-    --report-fail: #B42318;
-    --report-warn: #B54708;
+    --report-page: var(--g-bg);
+    --report-sheet: var(--g-surface);
+    --report-ink: var(--g-ink);
+    --report-muted: var(--g-ink-muted);
+    --report-line: var(--g-line);
+    --report-action: var(--g-accent);
+    --report-r-ctl: var(--g-radius-md);
+    --report-r-sheet: var(--g-radius-lg);
+    --report-fail: var(--g-bad);
+    --report-warn: var(--g-warn);
     font-family: 'Source Sans 3', system-ui, sans-serif;
   }
 
@@ -20545,15 +20696,15 @@
 
   /* Timesheets list only. Job-sheet scale on cream paper. Not TimeEntryForm. */
   .hub-timesheets {
-    --ts-look-page: #F5F0E6;
-    --ts-look-sheet: #FFFDF8;
-    --ts-look-ink: #0A2540;
-    --ts-look-muted: #5B6B7C;
-    --ts-look-line: #E2D9CC;
-    --ts-look-action: #2E75B6;
-    --ts-look-r-ctl: 12px;
-    --ts-look-r-sheet: 16px;
-    --ts-look-fail: #B42318;
+    --ts-look-page: var(--g-bg);
+    --ts-look-sheet: var(--g-surface);
+    --ts-look-ink: var(--g-ink);
+    --ts-look-muted: var(--g-ink-muted);
+    --ts-look-line: var(--g-line);
+    --ts-look-action: var(--g-accent);
+    --ts-look-r-ctl: var(--g-radius-md);
+    --ts-look-r-sheet: var(--g-radius-lg);
+    --ts-look-fail: var(--g-bad);
     font-family: 'Source Sans 3', system-ui, sans-serif;
   }
 
@@ -21335,8 +21486,8 @@
     }
 
     .hub-timesheets-days {
-      overflow-x: auto;
-      flex-wrap: nowrap;
+      overflow-x: hidden;
+      flex-wrap: wrap;
     }
 
     .hub-timesheets-day {
@@ -21808,14 +21959,14 @@
 
   /* Compliance due-or-open floor look only. Open record is the document sheet. */
   .hub-compliance {
-    --compliance-look-page: #F5F0E6;
-    --compliance-look-sheet: #FFFDF8;
-    --compliance-look-ink: #0A2540;
-    --compliance-look-muted: #5B6B7C;
-    --compliance-look-line: #E2D9CC;
-    --compliance-look-action: #2E75B6;
-    --compliance-look-r-ctl: 12px;
-    --compliance-look-r-sheet: 16px;
+    --compliance-look-page: var(--g-bg);
+    --compliance-look-sheet: var(--g-surface);
+    --compliance-look-ink: var(--g-ink);
+    --compliance-look-muted: var(--g-ink-muted);
+    --compliance-look-line: var(--g-line);
+    --compliance-look-action: var(--g-accent);
+    --compliance-look-r-ctl: var(--g-radius-md);
+    --compliance-look-r-sheet: var(--g-radius-lg);
     font-family: 'Source Sans 3', system-ui, sans-serif;
   }
 

@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { DevConsole } from '../ui/DevConsole';
 import { BrandLockup } from '../brand/BrandLockup';
+import { BRAND_NAME } from '../../lib/brand';
 import { resolveAppShellColors } from './appShellTheme';
 import { PHONE_TABS, activePhoneTab, type PhoneTabId } from './appShellPhoneNav';
 import {
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react';
 import { GlobalSearch } from '../search/GlobalSearch';
 import { useCompanyAiKey } from '../../lib/useCompanyAiKey';
+import { navItemAllowedForProfile } from '../../lib/templateAccess';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -257,12 +259,16 @@ export function AppShell({ children }: AppShellProps) {
   const chrome = resolveAppShellColors(
     (company as { report_theme?: unknown } | null)?.report_theme ?? null,
   );
+  const switcherName = (company?.name || profile?.name || 'User').trim() || 'User';
   const phoneTab = activePhoneTab(location.pathname, menuOpen);
 
+  const visibleItems = (group: NavGroup) =>
+    group.items.filter(item => navItemAllowedForProfile(item.to, profile));
+
   const renderGroupMenu = (group: NavGroup) => (
-    group.items.map((item) => {
+    visibleItems(group).map((item) => {
       const ItemIcon = item.icon;
-      const itemActive = isNavItemActive(item, location.pathname, group.items);
+      const itemActive = isNavItemActive(item, location.pathname, visibleItems(group));
       return (
         <Link
           key={item.to}
@@ -289,11 +295,11 @@ export function AppShell({ children }: AppShellProps) {
         } as CSSProperties}
       >
         <div className="max-w-[1400px] mx-auto px-4 h-14 flex items-center justify-between gap-3">
-          <Link to="/" className="flex items-center shrink-0" onClick={handleLogoTap} aria-label="Grafter">
+          <Link to="/" className="flex items-center shrink-0" onClick={handleLogoTap} aria-label={BRAND_NAME}>
             <BrandLockup size="header" />
           </Link>
 
-          <nav className="hidden md:flex items-center gap-0.5 flex-1 justify-center h-14">
+          <nav className="hidden md:flex items-center gap-0.5 justify-center h-14">
             {NAV_GROUPS.map((group) => {
               const groupActive = isGroupActive(group, location.pathname);
               const isOpen = openGroup === group.label;
@@ -313,14 +319,15 @@ export function AppShell({ children }: AppShellProps) {
                         setOpenGroup(group.label);
                       }
                     }}
-                  className={`flex items-center gap-1.5 h-full px-3 text-sm font-medium tracking-tight border-b-2 transition-colors ${
+                    aria-label={group.label}
+                  className={`flex items-center gap-1.5 h-full px-3 text-sm font-medium tracking-tight whitespace-nowrap border-b-2 transition-colors ${
                       groupActive
                         ? 'text-white border-accent'
                         : 'text-white/65 border-transparent hover:text-white hover:border-white/25'
                     }`}
                   >
                     <Icon size={14} />
-                    <span>{group.label}</span>
+                    <span className="hidden lg:inline">{group.label}</span>
                     <ChevronDown size={11} className={`text-white/40 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                   </button>
 
@@ -337,28 +344,40 @@ export function AppShell({ children }: AppShellProps) {
             })}
           </nav>
 
-          <div className="hidden md:block w-48 lg:w-64 shrink-0">
+          <div className="hidden md:block w-9 shrink-0 lg:w-64 lg:min-w-0 lg:shrink">
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="flex items-center gap-2 w-full rounded-lg border border-white/15 bg-white/[0.04] px-3 py-1.5 text-[13px] tracking-tight text-white/60 transition-colors hover:border-white/25 hover:text-white"
+              aria-label="Search"
+              className="flex items-center justify-center lg:justify-start gap-2 w-full min-w-0 rounded-lg border border-white/15 bg-white/[0.04] px-1.5 lg:px-3 py-1.5 text-[13px] tracking-tight text-white/60 transition-colors hover:border-white/25 hover:text-white"
             >
-              <Search className="h-4 w-4 shrink-0" />
-              <span className="flex-1 text-left hidden sm:inline">Search…</span>
+              <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="hidden lg:block text-left">Search…</span>
             </button>
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
-            <div className="relative">
+            <div className="relative min-w-0">
               <button
                 onClick={() => setAvatarOpen(!avatarOpen)}
-                className="hidden md:flex items-center gap-2 px-2 py-1.5 hover:bg-white/5 transition-colors"
+                className="hidden md:flex items-center gap-2 px-2 py-1.5 hover:bg-white/5 transition-colors min-w-0 max-w-full"
+                title={switcherName}
+                aria-label={switcherName}
               >
-                <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center text-xs font-semibold">
-                  {profile?.name?.charAt(0)?.toUpperCase() ?? 'U'}
+                <div
+                  data-shell-switcher-avatar
+                  className="w-7 h-7 rounded-full bg-accent flex items-center justify-center text-xs font-semibold shrink-0"
+                >
+                  {switcherName.charAt(0).toUpperCase()}
                 </div>
-                <span className="text-sm tracking-tight text-white/80 max-w-[120px] truncate">{profile?.name ?? 'User'}</span>
-                <ChevronDown size={13} className="text-white/45" />
+                <span
+                  data-shell-switcher-name
+                  className="hidden lg:block text-sm tracking-tight text-white/80 max-w-[6rem] truncate"
+                  title={switcherName}
+                >
+                  {switcherName}
+                </span>
+                <ChevronDown data-shell-switcher-chevron size={13} className="text-white/45 shrink-0" />
               </button>
 
               {avatarOpen && (
@@ -386,7 +405,7 @@ export function AppShell({ children }: AppShellProps) {
                       className="shell-menu-item">
                       <ListChecks size={15} className="text-white/45" /> Managed Lists
                     </Link>
-                    {companyAiKey && (
+                    {isPlatformOperator && companyAiKey && (
                       <Link to="/assistant" onClick={() => setAvatarOpen(false)}
                         className="shell-menu-item">
                         <Sparkles size={15} className="text-white/45" /> AI Assistant
@@ -408,11 +427,13 @@ export function AppShell({ children }: AppShellProps) {
                           className="shell-menu-item">
                           <Building2 size={15} className="text-white/45" /> Accounting
                         </Link>
-                        <Link to="/settings/ai" onClick={() => setAvatarOpen(false)}
-                          className="shell-menu-item">
-                          <BrainCircuit size={15} className="text-white/45" /> AI Settings
-                        </Link>
-                        {companyAiKey && (
+                        {isPlatformOperator && (
+                          <Link to="/settings/ai" onClick={() => setAvatarOpen(false)}
+                            className="shell-menu-item">
+                            <BrainCircuit size={15} className="text-white/45" /> AI Settings
+                          </Link>
+                        )}
+                        {isPlatformOperator && companyAiKey && (
                           <Link to="/ai-console" onClick={() => setAvatarOpen(false)}
                             className="shell-menu-item">
                             <Sparkles size={15} className="text-white/45" /> AI Console
@@ -472,9 +493,9 @@ export function AppShell({ children }: AppShellProps) {
                   </button>
                   {isExpanded && (
                     <div className="pb-1">
-                      {group.items.map((item) => {
+                      {visibleItems(group).map((item) => {
                         const ItemIcon = item.icon;
-                        const itemActive = isNavItemActive(item, location.pathname, group.items);
+                        const itemActive = isNavItemActive(item, location.pathname, visibleItems(group));
                         return (
                           <Link key={item.to} to={item.to} onClick={() => setMenuOpen(false)}
                             className={`flex items-center gap-2.5 pl-11 pr-4 py-2.5 text-sm tracking-tight ${
@@ -501,7 +522,7 @@ export function AppShell({ children }: AppShellProps) {
             <Link to="/settings/lists" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
               <ListChecks size={16} /> Managed Lists
             </Link>
-            {companyAiKey && (
+            {isPlatformOperator && companyAiKey && (
               <Link to="/assistant" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
                 <Sparkles size={16} /> AI Assistant
               </Link>
@@ -517,10 +538,12 @@ export function AppShell({ children }: AppShellProps) {
                 <Link to="/settings/accounting" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
                   <Building2 size={16} /> Accounting
                 </Link>
-                <Link to="/settings/ai" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
-                  <BrainCircuit size={16} /> AI Settings
-                </Link>
-                {companyAiKey && (
+                {isPlatformOperator && (
+                  <Link to="/settings/ai" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70">
+                    <BrainCircuit size={16} /> AI Settings
+                  </Link>
+                )}
+                {isPlatformOperator && companyAiKey && (
                   <Link to="/ai-console" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/80 font-medium">
                     <Sparkles size={16} /> AI Console
                   </Link>

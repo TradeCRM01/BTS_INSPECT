@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AppDialog, EditorStickyFooter, TimeFieldInput } from '../ui';
+import { AppDialog, DateFieldInput, EditorStickyFooter, TimeFieldInput } from '../ui';
 import {
   applyTimeFieldsSaveBlock,
   focusTimeFieldInput,
@@ -7,7 +7,8 @@ import {
   type TimeFieldHintKind,
 } from '../../lib/timeFieldInput';
 import type { JobWithClient } from '../../types/crm';
-import { scheduleDayKey, type ScheduleSheetInput } from '../../lib/scheduleBoard';
+import { type ScheduleSheetInput } from '../../lib/scheduleBoard';
+import { DATE_INVALID_MESSAGE, scheduleSheetDateSeed, scheduleSheetSaveError } from '../../lib/dateTimeIntegrity';
 import { jobsListSite, jobsListSuburbFromSite } from '../../lib/jobsListRow';
 import { assumedTradeTag, checkDateTag, fromBookingTag } from '../../lib/quickBook';
 import { FromBooking } from './FromBooking';
@@ -25,7 +26,6 @@ function sheetSiteLine(job: JobWithClient | null): string {
 export function ScheduleJobSheet({
   job,
   teamMembers,
-  viewedDate,
   prefill = null,
   matchHints = null,
   fromBooking = null,
@@ -36,7 +36,6 @@ export function ScheduleJobSheet({
 }: {
   job: JobWithClient | null;
   teamMembers: { id: string; name: string }[];
-  viewedDate: string;
   prefill?: Partial<ScheduleSheetInput> | null;
   matchHints?: { job?: string | null; client?: string | null; crew?: string | null } | null;
   fromBooking?: {
@@ -53,7 +52,7 @@ export function ScheduleJobSheet({
   onSave: (fields: ScheduleSheetInput) => void;
 }) {
   const [crewId, setCrewId] = useState('');
-  const [date, setDate] = useState(viewedDate);
+  const [date, setDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [dateEdited, setDateEdited] = useState(false);
@@ -65,6 +64,7 @@ export function ScheduleJobSheet({
   const [startTimeHint, setStartTimeHint] = useState<TimeFieldHintKind>('none');
   const [endTimeHint, setEndTimeHint] = useState<TimeFieldHintKind>('none');
   const [saveErr, setSaveErr] = useState<string | null>(null);
+  const [dateInvalid, setDateInvalid] = useState(false);
   const startFieldRef = useRef<HTMLDivElement>(null);
   const endFieldRef = useRef<HTMLDivElement>(null);
   const site = sheetSiteLine(job);
@@ -83,14 +83,17 @@ export function ScheduleJobSheet({
     appliedBooking.current = fromBooking;
     const voiceCrew = !!prefill && 'crewId' in prefill && prefill.crewId;
     setCrewId(voiceCrew ? (prefill?.crewId ?? '') : (job.assigned_team?.[0] ?? ''));
-    setDate(prefill?.date || scheduleDayKey(job.scheduled_date) || viewedDate);
+    setDate(scheduleSheetDateSeed({
+      prefillDate: prefill?.date,
+      scheduledDate: job.scheduled_date,
+    }));
     setStartTime(prefill?.startTime ? timeInput(prefill.startTime) : timeInput(job.start_time));
     setEndTime(prefill?.endTime ? timeInput(prefill.endTime) : timeInput(job.end_time));
     setDateEdited(false);
     setStartEdited(false);
     setCrewEdited(false);
     setJobEdited(jobChanged && !bookingChanged);
-  }, [job, viewedDate, prefill, fromBooking]);
+  }, [job, prefill, fromBooking]);
 
   return (
     <AppDialog
@@ -104,7 +107,15 @@ export function ScheduleJobSheet({
         <EditorStickyFooter
           onCancel={onClose}
           onSave={() => {
-            if (!date) return;
+            if (dateInvalid) {
+              setSaveErr(DATE_INVALID_MESSAGE);
+              return;
+            }
+            const dateErr = scheduleSheetSaveError({ date, startTime, endTime });
+            if (dateErr) {
+              setSaveErr(dateErr);
+              return;
+            }
             const block = timeFieldsSaveValidation({
               start: startTime,
               end: endTime,
@@ -169,14 +180,15 @@ export function ScheduleJobSheet({
               <span className="hub-schedule-from-booking">{dateCheck}</span>
             ) : null}
           </span>
-          <input
-            type="date"
+          <DateFieldInput
             className="form-input"
             value={date}
-            onChange={e => {
-              setDate(e.target.value);
+            onChange={next => {
+              setDate(next);
               setDateEdited(true);
+              setSaveErr(null);
             }}
+            onValidityChange={setDateInvalid}
           />
         </label>
         <label className="block">

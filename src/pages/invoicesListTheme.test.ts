@@ -32,11 +32,11 @@ describe('invoice list cream document look', () => {
     expect(list).not.toMatch(/\bute\b/i);
 
     expect(css).toContain('.hub-invoices.ops-page');
-    expect(css).toContain('--invoice-page: #F5F0E6');
-    expect(css).toContain('--invoice-sheet: #FFFDF8');
-    expect(css).toContain('--invoice-ink: #0A2540');
-    expect(css).toContain('--invoice-muted: #5B6B7C');
-    expect(css).toContain('--invoice-line: #E2D9CC');
+    expect(css).toContain('--invoice-page: var(--g-bg)');
+    expect(css).toContain('--invoice-sheet: var(--g-surface)');
+    expect(css).toContain('--invoice-ink: var(--g-ink)');
+    expect(css).toContain('--invoice-muted: var(--g-ink-muted)');
+    expect(css).toContain('--invoice-line: var(--g-line)');
     expect(css).toContain('#2E75B6');
     expect(css).toContain("font-family: Rajdhani, sans-serif");
     expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");

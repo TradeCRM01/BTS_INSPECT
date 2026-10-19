@@ -64,6 +64,7 @@ describe('dashboard widgets stay on the paper', () => {
   it('shows persisted widgets without Customize, and seeds an empty table once', () => {
     const page = src('src/pages/DashboardPage.tsx');
     expect(page).toContain("from('dashboard_widgets')");
+    expect(page).toContain('if (error) throw error');
     expect(page).toContain('resolveDashboardWidgets');
     expect(page).toContain('defaultDashboardWidgetInserts');
     expect(page).toContain('dashboard_widgets_seeded');
@@ -97,7 +98,14 @@ describe('dashboard widgets stay on the paper', () => {
     expect(page).toContain('pickerDashboardWidgets');
     expect(page).toContain('measureDashboardCanvasWidth');
     expect(page).toContain('addingWidget');
-    expect(page).toContain('.catch(');
+    expect(page).toContain('await persistDashboardWidgetRepair(rows, repaired, profile.id)');
+    expect(page).toContain('persistDashboardWidgetPhoneOrder');
+    expect(page).toContain(".select('config')");
+    expect(page).toContain("console.error('Dashboard widget repair write failed'");
+    expect(page).toContain('if (error) throw error');
+    expect(page).toContain(".eq('user_id', userId)");
+    expect(page).toContain("if (!data?.length) throw new Error('Dashboard widget repair update matched 0 rows')");
+    expect(page).not.toContain('Could not repair the widget layout');
     expect(helper).not.toMatch(/['"]bitcoin['"]/);
     expect(helper).not.toMatch(/electric|electrical/i);
 
@@ -169,11 +177,11 @@ describe('signed-in dashboard document sheet look', () => {
     expect(homeCss).toContain('.dashboard-home-hero');
     expect(homeCss).toContain('.dashboard-home-label');
     expect(homeCss).toContain('.dashboard-home.is-day-open');
-    expect(homeCss).toContain('--dashboard-home-page: #F5F0E6');
-    expect(homeCss).toContain('--dashboard-home-sheet: #FFFDF8');
-    expect(homeCss).toContain('--dashboard-home-ink: #0A2540');
-    expect(homeCss).toContain('--dashboard-home-muted: #5B6B7C');
-    expect(homeCss).toContain('--dashboard-home-line: #E2D9CC');
+    expect(homeCss).toContain('--dashboard-home-page: var(--g-bg)');
+    expect(homeCss).toContain('--dashboard-home-sheet: var(--g-surface)');
+    expect(homeCss).toContain('--dashboard-home-ink: var(--g-ink)');
+    expect(homeCss).toContain('--dashboard-home-muted: var(--g-ink-muted)');
+    expect(homeCss).toContain('--dashboard-home-line: var(--g-line)');
     expect(homeCss).toContain('#2E75B6');
     expect(homeCss).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(homeCss).toContain('inset 0 1px 0 #fff');

@@ -4,8 +4,9 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { DATE_INVALID_MESSAGE } from '../lib/dateTimeIntegrity';
 import { AppShell } from '../components/layout/AppShell';
-import { AppDialog, EditorStickyFooter, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
+import { AppDialog, DateFieldInput, EditorStickyFooter, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
 import type { InvoiceWithDetails, InvoiceLineItem, InvoiceStatus, JobCost, Quote, StockItem, PriceBookItem } from '../types/fsm';
 import type { Client, Job } from '../types/crm';
 import { LineItemEditor, emptyLineItem, toEditLine, type EditLineItem } from '../components/invoicing/LineItemEditor';
@@ -22,7 +23,10 @@ import type { CommercialPdfData } from '../reports/commercial/CommercialDocument
 import { asStringList } from '../lib/asStringList';
 import { checkPriceSendBlock } from '../lib/checkPriceGate';
 import { listQueryBusy } from '../lib/listQueryReady';
-import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel } from '../lib/gst';
+import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel, lineExGstAmount, moneyRound } from '../lib/gst';
+import { commitDocumentLine, committedTaxRate } from '../lib/parseDecimal';
+import { commercialLinesForPreview, commitCommercialLines } from '../lib/commitCommercialLines';
+import { issuedDocumentLocksLines, issuedLinesLockCopy, persistDocumentMoney, persistIssuedClientId, persistIssuedLines } from '../lib/documentPersist';
 import { lineNeedsLabourRate } from '../lib/hoursToJobBill';
 import {
   effectiveInvoiceStatus,
@@ -41,8 +45,10 @@ import {
   INVOICE_PAYMENT_METHODS,
   INVOICE_PAYMENT_METHOD_LABELS,
   parseRecordPaymentAmount,
+  recordPaymentAmountReason,
   persistInvoicePayment,
   previewInvoicePayment,
+  recordPaymentStatusAfterLabel,
   mergeAuditInvoicePaymentRow,
   seedAuditInvoicePaymentsList,
   fetchInvoicePayments,
@@ -70,20 +76,24 @@ import {
   AUDIT_DOC_JOB_ID,
   AUDIT_FIX2_CLIENT_ID,
   AUDIT_INVOICE_ID,
+  AUDIT_INVOICE_ISSUED_SWEEP7_ID,
   getAuditClientsForInvoiceEditor,
   getAuditInvoiceEditorRow,
 } from '../lib/devFieldAuditDocs';
 import { companyPaymentMethodsForDocument } from '../lib/companyPaymentMethods';
 import {
+  decideJobClientEmailSave,
   jobClientEmailRow,
   jobClientEmailSaveToast,
   saveJobClientEmail,
 } from '../lib/saveJobClientEmail';
 import {
+  decideJobClientPhoneSave,
   jobClientPhoneRow,
   jobClientPhoneSaveToast,
   saveJobClientPhone,
 } from '../lib/saveJobClientPhone';
+import { FIELD_AU_PHONE, FIELD_EMAIL } from '../lib/fieldValidation';
 import {
   INVOICE_CLIENT_ATTACH_NO_CLIENTS,
   attachInvoiceClient,
@@ -103,7 +113,7 @@ import {
   INVOICE_MARKED_PAID_MESSAGE,
 } from '../lib/xeroAccounting';
 import { invoiceChase, invoiceChaseChipLabel, invoiceChasePatch } from '../lib/nudges';
-import { INVOICE_STATUS_LABELS, formatMoney } from '../types/fsm';
+import { formatMoney } from '../types/fsm';
 import { Plus, Receipt, Download, X, MoreHorizontal, Mail, Phone, User } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { safeFormatDate } from '../lib/safeDate';
@@ -169,6 +179,7 @@ export function InvoicesPage() {
   const paymentProof = isDevFieldAuditAuth() && searchParams.get('payment') === '1';
   const money4PartPaidLook = isDevFieldAuditAuth() && searchParams.get('look') === 'money-4-part-paid';
   const money4PartPaidOverdueLook = isDevFieldAuditAuth() && searchParams.get('look') === 'money-4-part-paid-overdue';
+  const sweep7IssuedLook = isDevFieldAuditAuth() && searchParams.get('look') === 'sweep7-issued';
 
   const { data: smtpSettings } = useQuery<SmtpSettingsRow | null>({
     queryKey: ['email-settings', profile?.company_id],
@@ -211,9 +222,13 @@ export function InvoicesPage() {
   });
 
   const { data: invoices, isLoading, isPending, error } = useQuery<InvoiceWithDetails[]>({
-    queryKey: ['invoices', lookLetterhead ? LETTERHEAD_LOOK : 'live', paymentProof, money4PartPaidLook, money4PartPaidOverdueLook],
+    queryKey: ['invoices', lookLetterhead ? LETTERHEAD_LOOK : 'live', paymentProof, money4PartPaidLook, money4PartPaidOverdueLook, sweep7IssuedLook],
     queryFn: async () => {
       if (isDevFieldAuditAuth()) {
+        if (sweep7IssuedLook) {
+          const issued = getAuditInvoiceEditorRow(AUDIT_INVOICE_ISSUED_SWEEP7_ID);
+          if (issued) return [issued as InvoiceWithDetails];
+        }
         try {
           const fix2Raw = sessionStorage.getItem('audit-fix2-invoice-row');
           if (fix2Raw) {
@@ -350,6 +365,13 @@ export function InvoicesPage() {
     setPresetClientId(null);
     setShowForm(true);
   }, [lookLetterhead, invoices, showForm]);
+
+  useEffect(() => {
+    if (!sweep7IssuedLook || !invoices?.length || showForm) return;
+    setEditingInvoice(invoices[0]);
+    setPresetClientId(null);
+    setShowForm(true);
+  }, [sweep7IssuedLook, invoices, showForm]);
 
   function openInvoice(inv: InvoiceWithDetails | null) {
     setEditingInvoice(inv);
@@ -716,7 +738,7 @@ function InvoiceNextControl({
   );
 }
 
-function InvoiceRecordPaymentSheet({
+export function InvoiceRecordPaymentSheet({
   total,
   amountPaid,
   busy,
@@ -730,12 +752,13 @@ function InvoiceRecordPaymentSheet({
   onConfirm: (payment: InvoiceRecordPaymentInput) => void | Promise<void>;
 }) {
   const [draft, setDraft] = useState(() => defaultRecordPaymentDraft(total, amountPaid));
+  const [paidAtInvalid, setPaidAtInvalid] = useState(false);
   const amountNum = parseRecordPaymentAmount(draft.amount);
   const overpayMsg = amountNum
     ? recordPaymentOverpayMessage(amountNum, total, amountPaid)
     : null;
   const preview = previewInvoicePayment(total, amountPaid, amountNum ?? 0);
-  const statusLabel = INVOICE_STATUS_LABELS[preview.statusAfter];
+  const statusLabel = recordPaymentStatusAfterLabel(draft.amount, total, amountPaid);
   const balance = invoiceBalanceRemaining(total, amountPaid);
   return (
     <AppDialog
@@ -753,6 +776,7 @@ function InvoiceRecordPaymentSheet({
           className="hub-invoice-payment-form"
           onSubmit={(e) => {
             e.preventDefault();
+            if (paidAtInvalid) return;
             const amount = parseRecordPaymentAmount(draft.amount);
             if (!amount) return;
             void onConfirm({
@@ -773,6 +797,9 @@ function InvoiceRecordPaymentSheet({
               aria-label="Payment amount"
             />
             {overpayMsg ? <span className="hub-invoice-payment-overpay">{overpayMsg}</span> : null}
+            {!overpayMsg && recordPaymentAmountReason(draft.amount) ? (
+              <span className="hub-invoice-payment-overpay">{recordPaymentAmountReason(draft.amount)}</span>
+            ) : null}
             {balance > 0 ? (
               <button
                 type="button"
@@ -785,12 +812,12 @@ function InvoiceRecordPaymentSheet({
           </label>
           <label>
             Date received
-            <input
-              type="date"
+            <DateFieldInput
+              id="invoice-payment-date"
               className="form-input"
               value={draft.paid_at}
-              onChange={e => setDraft(d => ({ ...d, paid_at: e.target.value }))}
-              aria-label="Payment date"
+              onChange={paid_at => setDraft(d => ({ ...d, paid_at }))}
+              onValidityChange={setPaidAtInvalid}
             />
           </label>
           <label>
@@ -821,8 +848,8 @@ function InvoiceRecordPaymentSheet({
           {preview.amountPaidBefore > 0 ? (
             <div><dt>Paid to date</dt><dd>{formatMoney(preview.amountPaidBefore)}</dd></div>
           ) : null}
-          <div><dt>This payment</dt><dd>{formatMoney(preview.paymentReceived)}</dd></div>
-          <div><dt>Balance after</dt><dd>{formatMoney(preview.balanceAfter)}</dd></div>
+          <div><dt>This payment</dt><dd>{amountNum != null ? formatMoney(preview.paymentReceived) : '—'}</dd></div>
+          <div><dt>Balance after</dt><dd>{amountNum != null && !overpayMsg ? formatMoney(preview.balanceAfter) : formatMoney(balance)}</dd></div>
           <div><dt>Status after</dt><dd>{statusLabel}</dd></div>
         </dl>
         <div className="hub-invoice-payment-actions">
@@ -832,6 +859,7 @@ function InvoiceRecordPaymentSheet({
             className="btn-primary hub-invoice-payment-confirm"
             disabled={busy || !amountNum || !!overpayMsg}
             onClick={() => {
+              if (paidAtInvalid) return;
               const amount = parseRecordPaymentAmount(draft.amount);
               if (!amount) return;
               void onConfirm({
@@ -864,7 +892,7 @@ interface EditorState {
   exclusions: string[];
 }
 
-function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady, onClose, onSaved, onRequestSend }: {
+export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady, onClose, onSaved, onRequestSend }: {
   invoice: InvoiceWithDetails | null;
   presetClientId?: string | null;
   defaultTaxRate: number;
@@ -894,10 +922,13 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   const moreRef = useRef<HTMLDetailsElement>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
   const [err, setErr] = useState('');
+  const [dueDateInvalid, setDueDateInvalid] = useState(false);
   const [xeroMiss, setXeroMiss] = useState('');
   const [savedId, setSavedId] = useState<string | null>(invoice?.id ?? null);
   const [clientEmailDraft, setClientEmailDraft] = useState(invoice?.client_email ?? '');
   const [clientPhoneDraft, setClientPhoneDraft] = useState(invoice?.client_phone ?? '');
+  const [clientEmailError, setClientEmailError] = useState('');
+  const [clientPhoneError, setClientPhoneError] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
   const [clientsLoaded, setClientsLoaded] = useState(false);
   const [writtenClientEmail, setWrittenClientEmail] = useState<{ clientId: string; email: string | null } | null>(null);
@@ -1038,10 +1069,12 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
         email: clientEmailDraft,
       });
     },
+    retry: 0,
     onSuccess: (result) => {
       setWrittenClientEmail({ clientId: result.clientId, email: result.email });
       setClients(cs => cs.map(c => c.id === result.clientId ? { ...c, email: result.email } : c));
       setClientEmailDraft(result.email ?? '');
+      setClientEmailError('');
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['invoice'] });
       queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
@@ -1049,7 +1082,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       const toast = jobClientEmailSaveToast(result.email);
       showToast(toast.message, toast.kind);
     },
-    onError: (e: Error) => showToast(e.message, 'info'),
+    onError: (e: Error) => setClientEmailError(e.message),
   });
 
   const saveClientPhone = useMutation({
@@ -1059,10 +1092,12 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
         phone: clientPhoneDraft,
       });
     },
+    retry: 0,
     onSuccess: (result) => {
       setWrittenClientPhone({ clientId: result.clientId, phone: result.phone });
       setClients(cs => cs.map(c => c.id === result.clientId ? { ...c, phone: result.phone } : c));
       setClientPhoneDraft(result.phone ?? '');
+      setClientPhoneError('');
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['invoice'] });
       queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
@@ -1070,14 +1105,25 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       const toast = jobClientPhoneSaveToast(result.phone);
       showToast(toast.message, toast.kind);
     },
-    onError: (e: Error) => showToast(e.message, 'info'),
+    onError: (e: Error) => setClientPhoneError(e.message),
   });
-  const fallbackTaxRate = parseFloat(form.tax_rate) || 0;
-  const gst = useMemo(
-    () => calcLineDocumentTotals(form.line_items, fallbackTaxRate),
-    [form.line_items, fallbackTaxRate],
+  const liveTaxRate = committedTaxRate(form.tax_rate);
+  const liveGst = useMemo(
+    () => calcLineDocumentTotals(form.line_items, liveTaxRate),
+    [form.line_items, liveTaxRate],
   );
-  const { subtotal, taxAmount, total: grandTotal } = gst;
+  const issuedStatus = invoice?.status ?? form.status;
+  const linesLocked = issuedDocumentLocksLines(issuedStatus);
+  const moneyShown = persistDocumentMoney(issuedStatus, {
+    subtotal: liveGst.subtotal,
+    tax_amount: liveGst.taxAmount,
+    total: liveGst.total,
+    tax_rate: liveTaxRate,
+  }, invoice);
+  const subtotal = moneyShown.subtotal;
+  const taxAmount = moneyShown.tax_amount;
+  const grandTotal = moneyShown.total;
+  const fallbackTaxRate = moneyShown.tax_rate;
   const gstHeading = gstDocumentLabel(form.line_items, fallbackTaxRate);
   const next = recommendInvoiceAction(invoiceActionContext({
     status: form.status,
@@ -1117,19 +1163,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
 
   const previewData = useMemo((): CommercialPdfData | null => {
     if (!company) return null;
-    const cleanLines: InvoiceLineItem[] = form.line_items
-      .filter(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0)
-      .map(li => ({
-        description: li.description.trim(),
-        quantity: parseFloat(li.quantity) || 0,
-        unit_price: parseFloat(li.unit_price) || 0,
-        charge_type: li.charge_type.trim() || null,
-        unit_cost: li.unit_cost ? parseFloat(li.unit_cost) : null,
-        markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
-        cost_model_id: li.cost_model_id ?? null,
-        gst_rate: li.gst_rate,
-        price_book_item_id: li.price_book_item_id ?? null,
-      }));
+    const cleanLines: InvoiceLineItem[] = commercialLinesForPreview(form.line_items);
     return commercialPdfPreviewData({
       kind: 'invoice' as const,
       title: 'Invoice charges',
@@ -1145,7 +1179,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       exclusions: form.exclusions,
       lines: linesFromQuoteItems(cleanLines, 'invoice', previewPriceBookCodes),
       subtotal,
-      taxRate: parseFloat(form.tax_rate) || 0,
+      taxRate: fallbackTaxRate,
       taxAmount,
       total: grandTotal,
       notes: form.notes.trim() || null,
@@ -1201,34 +1235,32 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
     markPaid?: boolean;
   }): Promise<string | null> => {
     if (!profile?.company_id) return null;
+    if (dueDateInvalid) { setErr(DATE_INVALID_MESSAGE); return null; }
     if (!form.client_id) { setErr('Please select a client'); return null; }
-    const cleanLines: InvoiceLineItem[] = form.line_items
-      .filter(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0)
-      .map(li => ({
-        description: li.description.trim(),
-        quantity: parseFloat(li.quantity) || 0,
-        unit_price: parseFloat(li.unit_price) || 0,
-        stock_item_id: li.stock_item_id ?? null,
-        price_book_item_id: li.price_book_item_id ?? null,
-        charge_type: li.charge_type.trim() || null,
-        unit_cost: li.unit_cost ? parseFloat(li.unit_cost) : null,
-        markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
-        cost_model_id: li.cost_model_id ?? null,
-        gst_rate: li.gst_rate,
-      }));
+    const committed = commitCommercialLines(form.line_items);
+    if (!committed.ok) { setErr(committed.message); return null; }
+    const cleanLines = committed.lines;
     if (cleanLines.length === 0) { setErr('Add at least one line item'); return null; }
     setSaving(true); setErr(''); setXeroMiss('');
     const storedStatus = persistableInvoiceStatus(status);
+    const persistStatus = invoice?.status ?? form.status;
+    const money = persistDocumentMoney(persistStatus, {
+      subtotal: liveGst.subtotal,
+      tax_amount: liveGst.taxAmount,
+      total: liveGst.total,
+      tax_rate: liveTaxRate,
+    }, invoice);
+    const persistLines = persistIssuedLines(persistStatus, cleanLines, invoice?.line_items ?? null);
     const payload = {
-      client_id: form.client_id || null,
+      client_id: persistIssuedClientId(persistStatus, form.client_id, invoice?.client_id),
       job_id: form.job_id || null,
       quote_id: form.quote_id || null,
       status: storedStatus,
-      line_items: cleanLines,
-      subtotal,
-      tax_rate: parseFloat(form.tax_rate) || 0,
-      tax_amount: taxAmount,
-      total: grandTotal,
+      line_items: persistLines,
+      subtotal: money.subtotal,
+      tax_rate: money.tax_rate,
+      tax_amount: money.tax_amount,
+      total: money.total,
       payment_terms: form.payment_terms.trim() || null,
       due_date: form.due_date || null,
       notes: form.notes.trim() || null,
@@ -1316,7 +1348,15 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
   const editorMoney = invoiceMoney(grandTotal);
   const editorSite = visibleSite(selectedJob?.address, selectedClient?.address);
   const editorTitle = invoice?.invoice_number != null ? invoiceTitle(invoice) : 'New invoice';
-  const docLines = form.line_items.filter(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0);
+  const docLines = form.line_items.filter(li => {
+    if (!li.description.trim()) return false;
+    const row = commitDocumentLine(li);
+    return row.ok && row.quantity > 0;
+  });
+  const liveLineSum = docLines.reduce((sum, li) => {
+    const row = commitDocumentLine(li);
+    return row.ok ? sum + lineExGstAmount({ quantity: row.quantity, unit_price: row.unit_price }) : sum;
+  }, 0);
   const showInvoiceActions = next.key === 'send' || next.key === 'mark_paid';
   const effectiveStatus = effectiveInvoiceStatus({ status: form.status, due_date: form.due_date });
   const paidReadPath = effectiveStatus === 'paid';
@@ -1329,7 +1369,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
       setRecordedPaid(grandTotal);
       setForm(f => ({ ...f, status: 'paid' }));
     }
-    if (look === 'invoice-edit-edit') {
+    if (look === 'invoice-edit-edit' || look === 'sweep7-issued') {
       setShowEdit(true);
     }
     if (look === 'invoice-edit-pdf') {
@@ -1619,6 +1659,15 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                         className="job-client-phone"
                         onSubmit={e => {
                           e.preventDefault();
+                          const phoneDecision = decideJobClientPhoneSave({
+                            clientId: form.client_id || null,
+                            phone: clientPhoneDraft,
+                          });
+                          if (phoneDecision.action === 'miss') {
+                            setClientPhoneError(FIELD_AU_PHONE);
+                            return;
+                          }
+                          setClientPhoneError('');
                           saveClientPhone.mutate();
                         }}
                       >
@@ -1626,12 +1675,17 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                         <input
                           type="tel"
                           value={clientPhoneDraft}
-                          onChange={e => setClientPhoneDraft(e.target.value)}
+                          onChange={e => {
+                            setClientPhoneDraft(e.target.value);
+                            setClientPhoneError('');
+                          }}
                           placeholder="Phone"
-                          className="form-input-sm"
+                          className={clientPhoneError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
                           aria-label="Client phone"
                           autoComplete="tel"
                           inputMode="tel"
+                          aria-invalid={clientPhoneError ? true : undefined}
+                          aria-describedby={clientPhoneError ? 'invoice-client-phone-error' : undefined}
                         />
                         <button
                           type="submit"
@@ -1640,6 +1694,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                         >
                           Save
                         </button>
+                        {clientPhoneError ? <p id="invoice-client-phone-error" className="field-inline-error text-fail">{clientPhoneError}</p> : null}
                       </form>
                     )}
                     {emailRow.kind === 'mailto' && (
@@ -1652,6 +1707,15 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                         className="job-client-email"
                         onSubmit={e => {
                           e.preventDefault();
+                          const emailDecision = decideJobClientEmailSave({
+                            clientId: form.client_id || null,
+                            email: clientEmailDraft,
+                          });
+                          if (emailDecision.action === 'miss') {
+                            setClientEmailError(FIELD_EMAIL);
+                            return;
+                          }
+                          setClientEmailError('');
                           saveClientEmail.mutate();
                         }}
                       >
@@ -1660,11 +1724,16 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                           ref={emailInputRef}
                           type="email"
                           value={clientEmailDraft}
-                          onChange={e => setClientEmailDraft(e.target.value)}
+                          onChange={e => {
+                            setClientEmailDraft(e.target.value);
+                            setClientEmailError('');
+                          }}
                           placeholder="Email"
-                          className="form-input-sm"
+                          className={clientEmailError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
                           aria-label="Client email"
                           autoComplete="email"
+                          aria-invalid={clientEmailError ? true : undefined}
+                          aria-describedby={clientEmailError ? 'invoice-client-email-error' : undefined}
                         />
                         <button
                           type="submit"
@@ -1673,6 +1742,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                         >
                           Save
                         </button>
+                        {clientEmailError ? <p id="invoice-client-email-error" className="field-inline-error text-fail">{clientEmailError}</p> : null}
                       </form>
                     )}
                   </div>
@@ -1698,8 +1768,9 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
               </thead>
               <tbody>
                 {docLines.map((li, idx) => {
-                  const qty = parseFloat(li.quantity) || 0;
-                  const unit = parseFloat(li.unit_price) || 0;
+                  const committedLine = commitDocumentLine(li);
+                  const qty = committedLine.ok ? committedLine.quantity : 0;
+                  const unit = committedLine.ok ? committedLine.unit_price : 0;
                   return (
                     <tr key={`${li.description}-${idx}`}>
                       <td className="job-bill-line-desc">
@@ -1713,7 +1784,7 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
                       </td>
                       <td className="hub-invoice-num">{qty}</td>
                       <td className="hub-invoice-num">{formatMoney(unit)}</td>
-                      <td className="hub-invoice-num">{formatMoney(qty * unit)}</td>
+                      <td className="hub-invoice-num">{formatMoney(lineExGstAmount({ quantity: qty, unit_price: unit }))}</td>
                     </tr>
                   );
                 })}
@@ -1732,6 +1803,11 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
               <span>Total (inc GST)</span>
               <span className="hub-invoice-display-total" data-invoice-total-inc-gst>{editorMoney}</span>
             </div>
+          ) : null}
+          {linesLocked && moneyRound(liveLineSum) !== moneyRound(subtotal) ? (
+            <p className="text-xs text-[#6B7280] mt-2">
+              Line amounts sum to {formatMoney(liveLineSum)}. This document kept {formatMoney(subtotal)} at issue.
+            </p>
           ) : null}
           {recordedPaid > 0 ? (
             <div className="hub-invoice-paid-summary">
@@ -1806,7 +1882,16 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
         <div className="hub-invoice-edit">
         <div className="overlay-body hub-invoice-editor-body">
           <Field label="Client" required>
-            <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value, job_id: '', quote_id: '' }))} className="form-input cursor-pointer">
+            <select
+              value={form.client_id}
+              aria-label="Client"
+              disabled={linesLocked}
+              onChange={e => {
+                if (linesLocked) return;
+                setForm(f => ({ ...f, client_id: e.target.value, job_id: '', quote_id: '' }));
+              }}
+              className="form-input cursor-pointer"
+            >
               <option value="">Select a client...</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -1861,6 +1946,8 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
             stockItems={stockItems}
             priceBookItems={priceBookItems}
             defaultMarkup={company?.default_material_markup ?? 0}
+            readOnly={linesLocked}
+            lockCopy={issuedLinesLockCopy('invoice', issuedStatus)}
             onChange={lines => setForm(f => ({ ...f, line_items: lines }))}
           />
 
@@ -1876,8 +1963,19 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="GST rate (%)">
-              <input type="number" min={0} step="0.01" value={form.tax_rate} onChange={e => setForm(f => ({ ...f, tax_rate: e.target.value }))}
-                className="form-input" placeholder="0" />
+              <input
+                type="text"
+                inputMode="decimal"
+                aria-label="GST rate (%)"
+                disabled={linesLocked}
+                value={form.tax_rate}
+                onChange={e => {
+                  if (linesLocked) return;
+                  setForm(f => ({ ...f, tax_rate: e.target.value }));
+                }}
+                className="form-input"
+                placeholder="0"
+              />
             </Field>
             <Field label="Payment Terms">
               <input value={form.payment_terms} onChange={e => setForm(f => ({ ...f, payment_terms: e.target.value }))}
@@ -1886,8 +1984,8 @@ function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, smtpReady
           </div>
 
           <Field label="Due Date">
-            <input type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))}
-              className="form-input" />
+            <DateFieldInput id="invoice-due-date" value={form.due_date} onChange={due_date => setForm(f => ({ ...f, due_date }))}
+              onValidityChange={setDueDateInvalid} className="form-input" />
           </Field>
 
           <Field label="Notes">

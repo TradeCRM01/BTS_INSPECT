@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { FIELD_EMAIL, FIELD_SAVE_MISS, fieldSaveMiss, isEmail, updateWroteRows } from './fieldValidation';
 import { clientEmailForSend } from './sendInvoice';
 
 /** Named miss when there is no existing client to write. Does not invent a client. */
@@ -36,6 +37,7 @@ export function jobClientEmailRow(input: {
 
 export type JobClientEmailSaveDecision =
   | { action: 'miss'; reason: 'no_client'; message: typeof JOB_CLIENT_EMAIL_NO_CLIENT }
+  | { action: 'miss'; reason: 'invalid_email'; message: typeof FIELD_EMAIL }
   | { action: 'write'; clientId: string; email: string | null };
 
 export function decideJobClientEmailSave(input: {
@@ -45,10 +47,14 @@ export function decideJobClientEmailSave(input: {
   if (!input.clientId) {
     return { action: 'miss', reason: 'no_client', message: JOB_CLIENT_EMAIL_NO_CLIENT };
   }
+  const email = jobClientEmailToStore(input.email);
+  if (email && !isEmail(email)) {
+    return { action: 'miss', reason: 'invalid_email', message: FIELD_EMAIL };
+  }
   return {
     action: 'write',
     clientId: input.clientId,
-    email: jobClientEmailToStore(input.email),
+    email,
   };
 }
 
@@ -75,10 +81,12 @@ export async function saveJobClientEmail(input: {
 }): Promise<SaveJobClientEmailResult> {
   const decision = decideJobClientEmailSave(input);
   if (decision.action === 'miss') throw new Error(decision.message);
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('clients')
     .update({ email: decision.email })
-    .eq('id', decision.clientId);
-  if (error) throw error;
+    .eq('id', decision.clientId)
+    .select('id');
+  if (error) throw new Error(fieldSaveMiss(error));
+  if (!updateWroteRows(data)) throw new Error(FIELD_SAVE_MISS);
   return { clientId: decision.clientId, email: decision.email };
 }
