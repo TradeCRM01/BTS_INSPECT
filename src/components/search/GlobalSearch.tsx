@@ -158,13 +158,8 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
-  // Reset state + focus input whenever the palette opens.
   useEffect(() => {
     if (!open) return;
-    setQuery('');
-    setGroups([]);
-    setActiveIndex(0);
-    setLoading(false);
     const t = window.setTimeout(() => inputRef.current?.focus(), 0);
     return () => window.clearTimeout(t);
   }, [open]);
@@ -266,7 +261,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onInputKeyDown}
-            placeholder="Search everything — jobs, clients, stock, assets, invoices, quotes, contracts…"
+            placeholder="Search…"
             className="min-h-[44px] h-auto py-2 w-full min-w-0 bg-transparent text-base text-[#0A2540] placeholder:text-[#4A5568]/60 focus:outline-none"
           />
           <button

@@ -22505,3 +22505,23 @@
   text-transform: none;
   font-variant: normal;
 }
+
+/* Icon-only search below xl is a 44px hit box. The overlay input fills the panel. */
+.shell-header button[aria-label="Search"] {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+}
+@media (min-width: 1280px) {
+  .shell-header button[aria-label="Search"] {
+    width: 100%;
+    min-width: 0;
+  }
+}
+.overlay-panel-xl {
+  width: 100%;
+}
+.overlay-panel-xl input {
+  width: 100%;
+}
