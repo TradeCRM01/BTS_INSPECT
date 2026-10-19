@@ -1,5 +1,14 @@
+import type { ReactNode } from 'react';
 import { isRouteErrorResponse, useRouteError } from 'react-router-dom';
 import { AppCrashScreen } from './AppCrashScreen';
+
+export function grafterRootRoute(element: ReactNode) {
+  return {
+    path: '*',
+    errorElement: <AppRouteError />,
+    element,
+  };
+}
 
 export function AppRouteError() {
   const error = useRouteError();

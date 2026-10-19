@@ -26,7 +26,7 @@ import { getAuditClient, getAuditInspection, getAuditJobs } from '../lib/devFiel
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 import { UnsavedChangesDialog } from '../components/unsaved/UnsavedChangesDialog';
 import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard';
-import { keepaliveRestWrite, type UnsavedChangesStatus } from '../lib/unsavedChangesGuard';
+import { keepaliveRestWrite, saveConfirmedByRows, type UnsavedChangesStatus } from '../lib/unsavedChangesGuard';
 
 type SaveStatus = UnsavedChangesStatus;
 
@@ -201,23 +201,24 @@ export function InspectionFillPage() {
       crm_job_id: payload.crm_job_id,
       client_id: payload.client_id,
     };
-    if (opts?.keepalive && keepaliveRestWrite({
-      table: 'inspections',
-      query: `id=eq.${id}`,
-      method: 'PATCH',
-      body,
-    })) {
-      setSaveStatus('saved');
-      pendingSaveRef.current = null;
+    if (opts?.keepalive) {
+      keepaliveRestWrite({
+        table: 'inspections',
+        query: `id=eq.${id}`,
+        method: 'PATCH',
+        body,
+      });
       return;
     }
     setSaveStatus('saving');
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('inspections')
         .update(body)
-        .eq('id', id);
+        .eq('id', id)
+        .select();
       if (error) throw error;
+      if (!saveConfirmedByRows(data)) throw new Error('Save wrote 0 rows');
       setSaveStatus('saved');
       pendingSaveRef.current = null;
     } catch {

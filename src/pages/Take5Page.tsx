@@ -20,7 +20,7 @@ import {
 import { getAuditJhaDoc, getAuditJob, getAuditTake5, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { UnsavedChangesDialog } from '../components/unsaved/UnsavedChangesDialog';
 import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard';
-import type { UnsavedChangesStatus } from '../lib/unsavedChangesGuard';
+import { nextClientDraftId, type UnsavedChangesStatus } from '../lib/unsavedChangesGuard';
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 
 type Take5Row = {
@@ -71,6 +71,8 @@ function Take5FillPage() {
   const sigRef = useRef<SignatureCanvas>(null);
 
   const [rowId, setRowId] = useState<string | null>(take5Id);
+  const rowIdRef = useRef<string | null>(take5Id);
+  const insertInFlightRef = useRef<Promise<string | null> | null>(null);
   const [stopThink, setStopThink] = useState('');
   const [identify, setIdentify] = useState('');
   const [assess, setAssess] = useState('');
@@ -164,6 +166,7 @@ function Take5FillPage() {
 
   useEffect(() => {
     if (!existing) return;
+    rowIdRef.current = existing.id;
     setRowId(existing.id);
     setStopThink(existing.stop_think || '');
     setIdentify(existing.identify_hazards || '');
@@ -289,21 +292,37 @@ function Take5FillPage() {
         go_no_go: goNoGo,
         signed_name: signedName,
         signature,
-        signed_at: status === 'completed' ? new Date().toISOString() : null,
+        signed_at: status === 'completed'
+          ? (existing?.signed_at ?? new Date().toISOString())
+          : null,
         updated_at: new Date().toISOString(),
       };
 
-      if (rowId) {
-        const { error: upErr } = await supabase.from('jha_take5').update(payload).eq('id', rowId);
+      const id = nextClientDraftId(rowIdRef.current);
+      rowIdRef.current = id;
+      if (insertInFlightRef.current) {
+        await insertInFlightRef.current;
+      }
+      const pending = (async () => {
+        const { data, error: upErr } = await supabase
+          .from('jha_take5')
+          .upsert({ id, ...payload }, { onConflict: 'id' })
+          .select()
+          .maybeSingle();
         if (upErr) throw upErr;
-      } else {
-        const { data, error: inErr } = await supabase.from('jha_take5').insert(payload).select().maybeSingle();
-        if (inErr) throw inErr;
-        if (data) {
-          setRowId(data.id);
+        return data?.id ?? id;
+      })();
+      insertInFlightRef.current = pending.catch(() => id);
+      try {
+        const savedId = await pending;
+        const firstWrite = !rowId;
+        setRowId(savedId);
+        if (firstWrite) {
           allowLeaveRef.current = true;
-          navigate(`/jha/take5?jhaId=${jhaId}&id=${data.id}`, { replace: true });
+          navigate(`/jha/take5?jhaId=${jhaId}&id=${savedId}`, { replace: true });
         }
+      } finally {
+        insertInFlightRef.current = null;
       }
       queryClient.invalidateQueries({ queryKey: ['jha-take5-list'] });
       queryClient.invalidateQueries({ queryKey: ['jha-take5-all'] });
@@ -385,7 +404,6 @@ function Take5FillPage() {
   const unsaved = useUnsavedChangesGuard({
     status: saveHint,
     flush: () => {
-      if (saveHint !== 'unsaved') return;
       void save(statusKey === 'completed' ? 'completed' : 'draft');
     },
     allowLeaveRef,

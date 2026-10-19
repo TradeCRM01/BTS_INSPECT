@@ -14,10 +14,9 @@ export function useUnsavedChangesGuard(args: {
   status: UnsavedChangesStatus;
   hasPending?: boolean;
   flush: (opts?: UnsavedFlushOpts) => void;
-  allowLeaveRef?: MutableRefObject<boolean>;
+  allowLeaveRef: MutableRefObject<boolean>;
 }) {
-  const innerAllow = useRef(false);
-  const allowLeaveRef = args.allowLeaveRef ?? innerAllow;
+  const allowLeaveRef = args.allowLeaveRef;
   const flushRef = useRef(args.flush);
   const statusRef = useRef(args.status);
   const hasPendingRef = useRef(args.hasPending ?? false);

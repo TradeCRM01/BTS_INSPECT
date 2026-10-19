@@ -224,7 +224,7 @@ export function TemplatesPage() {
                           disabled={unarchiveInspectionMutation.isPending}
                           className="flex items-center gap-1.5 text-xs border border-[#0A2540] text-[#0A2540] px-3 py-1.5 rounded hover:bg-[#0A2540]/5 transition-colors font-medium disabled:opacity-50"
                         >
-                          <ArchiveRestore size={12} /> Unarchive
+                          <ArchiveRestore size={12} /> Restore
                         </button>
                       )
                     ) : (
@@ -296,7 +296,7 @@ export function TemplatesPage() {
                             disabled={unarchiveJhaMutation.isPending}
                             className="flex items-center gap-1.5 text-xs border border-[#0A2540] text-[#0A2540] px-3 py-1.5 rounded hover:bg-[#0A2540]/5 transition-colors font-medium disabled:opacity-50"
                           >
-                            <ArchiveRestore size={12} /> Unarchive
+                            <ArchiveRestore size={12} /> Restore
                           </button>
                         )
                       ) : (
