@@ -44,8 +44,8 @@ describe('quote editor Convert LOOK — Job date + Crew on paper', () => {
     expect(css).toContain('#5B6B7C');
     expect(css).toContain('#E2D9CC');
     expect(css).toContain('#2E75B6');
-    expect(css).toContain("font-family: Rajdhani, sans-serif");
-    expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(css).toContain("font-family: var(--g-font-title)");
+    expect(css).toContain("font-family: var(--g-font-ui)");
     expect(css).toContain('font-size: 12px');
     expect(css).toContain('min-height: 44px');
     expect(css).toContain('border-radius: 12px');

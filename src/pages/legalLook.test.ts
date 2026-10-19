@@ -38,8 +38,8 @@ describe('public legal paper look', () => {
     expect(lookCss).toContain('border-radius: 16px');
     expect(lookCss).toContain('inset 0 1px 0 #fff');
     expect(lookCss).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
-    expect(lookCss).toContain("font-family: Rajdhani, sans-serif");
-    expect(lookCss).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(lookCss).toContain("font-family: var(--g-font-title)");
+    expect(lookCss).toContain("font-family: var(--g-font-ui)");
     expect(lookCss).toContain('font-weight: 700');
     expect(lookCss).not.toContain('hub-marketing-kicker');
     expect(lookCss).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);

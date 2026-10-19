@@ -50,8 +50,8 @@ describe('Expenses scan-receipt cream paper look', () => {
     expect(page).toContain('--ex-look-muted: #5B6B7C');
     expect(page).toContain('--ex-look-line: #E2D9CC');
     expect(page).toContain('#2E75B6');
-    expect(page).toContain("font-family: Rajdhani, sans-serif");
-    expect(page).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(page).toContain("font-family: var(--g-font-title)");
+    expect(page).toContain("font-family: var(--g-font-ui)");
     expect(page).toContain('box-shadow: inset 0 1px 0 #fff');
     expect(page).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(page).toContain('>Expenses</h1>');

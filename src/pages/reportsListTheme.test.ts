@@ -35,8 +35,8 @@ describe('reports list cream paper look', () => {
     expect(css).toContain('--report-muted: var(--g-ink-muted)');
     expect(css).toContain('--report-line: var(--g-line)');
     expect(css).toContain('#2E75B6');
-    expect(css).toContain("font-family: Rajdhani, sans-serif");
-    expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(css).toContain("font-family: var(--g-font-title)");
+    expect(css).toContain("font-family: var(--g-font-ui)");
     expect(css).not.toMatch(/\.hub-reports \.ops-page-title[\s\S]{0,160}Newsreader|Syne|Space Grotesk|IBM Plex/);
     expect(css).toContain('letter-spacing: 0.12em');
     expect(css).toContain('border-radius: 999px');
@@ -155,8 +155,8 @@ describe('reports open sheet LOOK', () => {
     expect(lookCss).toContain('box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(lookCss).toContain('box-shadow: inset 0 1px 0 #fff');
     expect(lookCss).toContain('font-size: 56px !important');
-    expect(lookCss).toContain("font-family: Rajdhani, sans-serif");
-    expect(lookCss).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(lookCss).toContain("font-family: var(--g-font-title)");
+    expect(lookCss).toContain("font-family: var(--g-font-ui)");
     expect(lookCss).toContain('font-variant-numeric: tabular-nums');
     expect(lookCss).not.toContain('.hub-reports-kicker');
     expect(lookCss).not.toContain('--report-pass');

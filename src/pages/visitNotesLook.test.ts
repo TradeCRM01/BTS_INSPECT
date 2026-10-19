@@ -101,8 +101,8 @@ describe('job-sheet Job notes & photos LOOK', () => {
     expect(lookCss).toContain('--visit-muted: #5B6B7C');
     expect(lookCss).toContain('--visit-line: #E2D9CC');
     expect(lookCss).toContain('--visit-action: #2E75B6');
-    expect(lookCss).toContain("font-family: Rajdhani, sans-serif");
-    expect(lookCss).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(lookCss).toContain("font-family: var(--g-font-title)");
+    expect(lookCss).toContain("font-family: var(--g-font-ui)");
     expect(lookCss).toContain('.job-notes-tabs');
     expect(lookCss).toContain('.job-notes-tab[aria-selected="true"]');
     expect(lookCss).toContain('.job-notes-primary');

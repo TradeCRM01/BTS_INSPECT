@@ -150,7 +150,7 @@ const EXPENSES_LOOK_CSS = `
   --ex-look-r-ctl: 12px;
   --ex-look-r-sheet: 16px;
   --ex-look-fail: #B42318;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
 }
 .hub-expenses.ops-page {
   max-width: none;
@@ -165,7 +165,7 @@ const EXPENSES_LOOK_CSS = `
   max-width: 720px;
   margin: 0 auto 24px;
   padding-top: 8px;
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-weight: 700;
   font-size: 56px;
   letter-spacing: 0.02em;
@@ -207,7 +207,7 @@ const EXPENSES_LOOK_CSS = `
   color: #fff;
   border: 1px solid #2E75B6;
   border-radius: 12px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 14px;
   font-weight: 600;
   box-shadow: none;
@@ -226,7 +226,7 @@ const EXPENSES_LOOK_CSS = `
   color: var(--ex-look-ink);
   border: 1px solid var(--ex-look-line);
   border-radius: 12px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 14px;
   font-weight: 600;
   box-shadow: none;
@@ -259,7 +259,7 @@ const EXPENSES_LOOK_CSS = `
   color: var(--ex-look-ink);
   border: 1px solid var(--ex-look-ink);
   border-radius: 12px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 14px;
   font-weight: 600;
   box-shadow: none;
@@ -292,7 +292,7 @@ const EXPENSES_LOOK_CSS = `
   padding: 10px 14px;
   background: none;
   border: none;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 14px;
   color: var(--ex-look-ink);
   cursor: pointer;
@@ -332,7 +332,7 @@ const EXPENSES_LOOK_CSS = `
   min-height: 44px;
   padding: 10px 0;
   border-bottom: 1px solid var(--ex-look-line);
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 14px;
   color: var(--ex-look-ink);
 }
@@ -350,7 +350,7 @@ const EXPENSES_LOOK_CSS = `
   box-shadow: none;
   padding: 0;
   color: var(--ex-look-ink);
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 14px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -361,7 +361,7 @@ const EXPENSES_LOOK_CSS = `
 }
 .hub-expenses-class-prompt {
   margin: 0 0 10px;
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-weight: 700;
   font-size: 14px;
   letter-spacing: 0.02em;
@@ -393,7 +393,7 @@ const EXPENSES_LOOK_CSS = `
 }
 .hub-expenses-class-label {
   margin: 0;
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-weight: 700;
   font-size: 15px;
   letter-spacing: 0.02em;
@@ -401,7 +401,7 @@ const EXPENSES_LOOK_CSS = `
 }
 .hub-expenses-class-help {
   margin: 4px 0 0;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 12px;
   line-height: 1.35;
   color: var(--ex-look-muted);
@@ -417,7 +417,7 @@ const EXPENSES_LOOK_CSS = `
   padding: 0;
   justify-content: flex-end;
   color: var(--ex-look-ink);
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 14px;
 }
 .hub-expenses-date {
@@ -443,7 +443,7 @@ const EXPENSES_LOOK_CSS = `
   border: none;
   border-radius: 12px;
   box-shadow: none;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
@@ -496,7 +496,7 @@ const EXPENSES_LOOK_CSS = `
   border: none;
   border-radius: 0;
   color: var(--ex-look-muted);
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -518,7 +518,7 @@ const EXPENSES_LOOK_CSS = `
   border-radius: 999px;
   background: var(--ex-look-sheet);
   color: var(--ex-look-ink);
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -580,7 +580,7 @@ const EXPENSES_LOOK_CSS = `
 }
 .hub-expenses-overlay-foot { border-bottom: none; border-top: 1px solid var(--ex-look-line); }
 .hub-expenses-overlay-title {
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-weight: 700;
   font-size: 24px;
   color: var(--ex-look-ink);
@@ -607,7 +607,7 @@ const EXPENSES_LOOK_CSS = `
   border: 1px solid var(--ex-look-line);
   border-radius: 12px;
   color: var(--ex-look-muted);
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 14px;
   cursor: pointer;
 }

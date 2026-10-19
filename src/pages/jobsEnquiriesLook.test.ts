@@ -39,7 +39,7 @@ describe('jobs enquiries LOOK — same jobs paper', () => {
     expect(src('src/components/crm/JobFormModal.tsx')).toContain('clientsForSelect');
     expect(src('src/components/crm/JobFormModal.tsx')).toContain('data-job-creating');
     expect(css).toContain('.hub-jobs-enquiry-row');
-    expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(css).toContain("font-family: var(--g-font-ui)");
     expect(css).toContain('background: #F5F0E6');
     expect(css).toContain('background: #FFFDF8');
     expect(css).toContain('color: #0A2540');

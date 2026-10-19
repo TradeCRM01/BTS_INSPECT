@@ -60,8 +60,8 @@ describe('Install Grafter overlay vs signup', () => {
     expect(prompt).toContain('--install-look-muted: #5B6B7C');
     expect(prompt).toContain('--install-look-line: #E2D9CC');
     expect(prompt).toContain('#2E75B6');
-    expect(prompt).toContain("font-family: Rajdhani, sans-serif");
-    expect(prompt).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(prompt).toContain("font-family: var(--g-font-title)");
+    expect(prompt).toContain("font-family: var(--g-font-ui)");
     expect(prompt).toContain('box-shadow:\n    inset 0 1px 0 #fff,\n    0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(prompt).toContain('min-height: 44px');
     expect(prompt).toMatch(/Install\s*<\/button>/);

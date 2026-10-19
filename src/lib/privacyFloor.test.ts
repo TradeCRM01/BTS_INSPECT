@@ -48,7 +48,7 @@ describe('Grafter privacy / legal floor', () => {
     expect(terms).not.toContain('BTS Inspect');
 
     expect(shell).toContain('hub-legal');
-    expect(shell).toContain('Australian-built. grafter.com.au');
+    expect(shell).toContain('Australian-built. {BRAND_DOMAIN}');
     expect(PUBLIC_SEO.privacy.title).toBe('Privacy Policy');
     expect(PUBLIC_SEO.privacy.path).toBe('/privacy');
     expect(PUBLIC_SEO.privacy.robots).toBe('index,follow');

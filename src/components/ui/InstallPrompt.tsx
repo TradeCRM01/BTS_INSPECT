@@ -27,7 +27,7 @@ const INSTALL_LOOK_CSS = `
   max-width: 24rem;
   padding: 0 16px;
   pointer-events: none;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
 }
 .hub-install-sheet {
   pointer-events: auto;
@@ -52,7 +52,7 @@ const INSTALL_LOOK_CSS = `
 }
 .hub-install-title {
   margin: 0;
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-weight: 700;
   font-size: 20px;
   letter-spacing: 0.02em;
@@ -61,7 +61,7 @@ const INSTALL_LOOK_CSS = `
 }
 .hub-install-copy {
   margin: 6px 0 0;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 14px;
   line-height: 1.45;
   color: var(--install-look-muted);
@@ -85,7 +85,7 @@ const INSTALL_LOOK_CSS = `
   background: var(--install-look-action);
   color: #fff;
   box-shadow: none;
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.02em;

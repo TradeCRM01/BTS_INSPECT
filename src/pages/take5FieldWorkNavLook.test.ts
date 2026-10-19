@@ -75,8 +75,8 @@ describe('Take 5 Field Work nav + JHA list row look', () => {
     expect(css).toContain('--jha-look-ink: var(--g-ink)');
     expect(css).toContain('--jha-look-muted: var(--g-ink-muted)');
     expect(css).toContain('--jha-look-line: var(--g-line)');
-    expect(css).toContain("font-family: Rajdhani, sans-serif");
-    expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(css).toContain("font-family: var(--g-font-title)");
+    expect(css).toContain("font-family: var(--g-font-ui)");
   });
 
   it('does not restyle the Take 5 fill sheet, invent a page, or touch stay-off floors', () => {

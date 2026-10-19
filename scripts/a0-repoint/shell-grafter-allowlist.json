@@ -1,35 +1,5 @@
 [
   {
-    "file": "index.html",
-    "line": 8,
-    "excerpt": "<title>Grafter , Trade job software for Australian crews</title>"
-  },
-  {
-    "file": "index.html",
-    "line": 13,
-    "excerpt": "<meta property=\"og:site_name\" content=\"Grafter\" />"
-  },
-  {
-    "file": "index.html",
-    "line": 15,
-    "excerpt": "<meta property=\"og:title\" content=\"Grafter , Trade job software for Australian crews\" />"
-  },
-  {
-    "file": "index.html",
-    "line": 19,
-    "excerpt": "<meta name=\"twitter:title\" content=\"Grafter , Trade job software for Australian crews\" />"
-  },
-  {
-    "file": "index.html",
-    "line": 23,
-    "excerpt": "<meta name=\"apple-mobile-web-app-title\" content=\"Grafter\" />"
-  },
-  {
-    "file": "src/components/layout/ProtectedRoute.tsx",
-    "line": 88,
-    "excerpt": "cannot use Grafter right now. Ask the person who invited you, or email billing if you think this is a mistake."
-  },
-  {
     "file": "src/components/ui/InstallPrompt.tsx",
     "line": 178,
     "excerpt": "<p className=\"hub-install-title\">Install Grafter</p>"
@@ -383,15 +353,5 @@
     "file": "supabase/templates/invite.html",
     "line": 52,
     "excerpt": "Sent by Grafter for {{ if .Data.company_name }}{{ .Data.company_name }}{{ else }}your team{{ end }}."
-  },
-  {
-    "file": "vite.config.ts",
-    "line": 35,
-    "excerpt": "name: 'Grafter',"
-  },
-  {
-    "file": "vite.config.ts",
-    "line": 36,
-    "excerpt": "short_name: 'Grafter',"
   }
 ]

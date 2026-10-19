@@ -4,9 +4,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        serif: ['Newsreader', 'Georgia', 'serif'],
-        mono: ['JetBrains Mono', 'Courier New', 'monospace'],
+        sans: ['Geist', 'Geist Fallback', 'system-ui', 'sans-serif'],
+        serif: ['Geist', 'Geist Fallback', 'Georgia', 'serif'],
+        mono: ['Geist', 'Geist Fallback', 'Courier New', 'monospace'],
       },
       colors: {
         navy: '#0A2540',

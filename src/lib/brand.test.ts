@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -107,12 +107,15 @@ function collectHits(): Map<string, string[]> {
       if (!file) return false;
       if (/\.test\.(ts|tsx)$/.test(file)) return false;
       if (file === 'src/lib/brand.ts') return false;
+      if (file === 'supabase/functions/_shared/brand.ts') return false;
       if (file.startsWith('src/content/')) return false;
       if (INTERNAL_FILES.has(file)) return false;
       return /\.(ts|tsx|html|toml)$/.test(file) || file === 'index.html' || file === 'vite.config.ts';
     });
-  const hits = new Map<string, string[]>();
+    const hits = new Map<string, string[]>();
   for (const file of listed) {
+    const abs = resolve(process.cwd(), file);
+    if (!existsSync(abs)) continue;
     const found = grafterHits(src(file));
     if (found.length) hits.set(file, found);
   }
@@ -145,15 +148,53 @@ describe('BRAND_NAME', () => {
     expect(src('src/lib/brand.ts')).toMatch(/export const BRAND_NAME = 'Grafter' as const/);
     expect(src('src/components/brand/Wordmark.tsx')).toContain('{BRAND_NAME}');
     expect(src('src/components/brand/Wordmark.tsx')).not.toContain("'Grafter'");
-    expect(src('src/components/brand/BrandMark.tsx')).toContain('BtsMark');
+    expect(src('src/components/brand/BrandMark.tsx')).toContain('currentColor');
+    expect(src('src/components/brand/BrandMark.tsx')).toContain('MITRE_PATH');
+    expect(src('src/components/brand/BrandMark.tsx')).not.toContain('BtsMark');
     expect(src('src/components/brand/BrandLockup.tsx')).toContain('<Wordmark');
     expect(src('src/components/brand/BrandLockup.tsx')).toContain('<BrandMark');
     expect(src('src/content/privacy.md')).toContain('Grafter');
     expect(src('src/content/terms.md')).toContain('Grafter');
   });
 
-  it('routes only the 10 A0 lines and keeps the 79-line SHELL allow-list', () => {
-    expect(SHELL_ALLOW).toHaveLength(79);
+  it('keeps the supabase brand copy equal to src/lib/brand.ts', () => {
+    expect(src('supabase/functions/_shared/brand.ts')).toBe(src('src/lib/brand.ts'));
+  });
+
+  it('exports domain, support email, and tagline beside the name', () => {
+    expect(src('src/lib/brand.ts')).toContain("export const BRAND_DOMAIN = 'grafter.com.au' as const");
+    expect(src('src/lib/brand.ts')).toContain("export const BRAND_SUPPORT_EMAIL = 'support@grafter.com.au' as const");
+    expect(src('src/lib/brand.ts')).toContain("export const BRAND_TAGLINE = 'Trade job software for Australian crews' as const");
+  });
+
+  it('kills leftover Grafter literals on the S1 scoped paths', () => {
+    const scoped = [
+      'index.html',
+      'vite.config.ts',
+      ...execSync('git ls-files -- src/components/brand src/components/layout src/components/auth src/components/legal', {
+        encoding: 'utf8',
+      })
+        .trim()
+        .split('\n')
+        .filter(Boolean),
+    ];
+    const leftover: string[] = [];
+    for (const file of scoped) {
+      if (/\.test\.(ts|tsx)$/.test(file)) continue;
+      if (file.endsWith('brand.ts')) continue;
+      if (!existsSync(resolve(process.cwd(), file))) continue;
+      const found = grafterHits(src(file));
+      if (found.length) leftover.push(`${file}\n${found.join('\n')}`);
+    }
+    expect(leftover).toEqual([]);
+  });
+
+  it('routes only the 10 A0 lines and keeps the 79-line SHELL allow-list after S1 head, layout, and vite', () => {
+    expect(SHELL_ALLOW).toHaveLength(71);
+    expect(SHELL_ALLOW.some((row) => row.file === 'index.html')).toBe(false);
+    expect(SHELL_ALLOW.some((row) => row.file === 'vite.config.ts')).toBe(false);
+    expect(SHELL_ALLOW.some((row) => row.file === 'src/components/layout/ProtectedRoute.tsx')).toBe(false);
+    expect(SHELL_ALLOW.some((row) => row.file === 'src/pages/MarketingPage.tsx' && row.line === 97)).toBe(false);
     expect(unexpectedHits(collectHits())).toEqual([]);
   });
 });

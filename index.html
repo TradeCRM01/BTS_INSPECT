@@ -2,7 +2,7 @@
 <html lang="en-AU">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <script>
       (function () {
@@ -30,6 +30,7 @@
         }
         function apply(choice) {
           var theme = forcedLight() ? 'light' : resolve(choice);
+          root.setAttribute('data-allow-dark', allowDark ? 'true' : 'false');
           root.setAttribute('data-theme', theme);
           root.style.colorScheme = theme;
           return theme;
@@ -60,27 +61,29 @@
         };
       })();
     </script>
-    <meta name="theme-color" content="#0A2540" />
-    <title>Grafter — Trade job software for Australian crews</title>
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F5F5F7" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0A0A0B" />
+    <title>%BRAND_NAME% — Trade job software for Australian crews</title>
     <meta name="description" content="Quote, schedule, invoice, get paid. Australian trade job software for crews — templates, JHA, Take 5, and SWMS stay on the job." />
     <meta name="robots" content="index,follow" />
     <link rel="canonical" href="https://grafter.com.au/" />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Grafter" />
+    <meta property="og:site_name" content="%BRAND_NAME%" />
     <meta property="og:locale" content="en_AU" />
-    <meta property="og:title" content="Grafter — Trade job software for Australian crews" />
+    <meta property="og:title" content="%BRAND_NAME% — Trade job software for Australian crews" />
     <meta property="og:description" content="Quote, schedule, invoice, get paid. Australian trade job software for crews — templates, JHA, Take 5, and SWMS stay on the job." />
     <meta property="og:url" content="https://grafter.com.au/" />
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Grafter — Trade job software for Australian crews" />
+    <meta name="twitter:title" content="%BRAND_NAME% — Trade job software for Australian crews" />
     <meta name="twitter:description" content="Quote, schedule, invoice, get paid. Australian trade job software for crews — templates, JHA, Take 5, and SWMS stay on the job." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Grafter" />
-    <link rel="apple-touch-icon" href="/icon-192.svg" />
+    <meta name="apple-mobile-web-app-title" content="%BRAND_NAME%" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Allura&family=Dancing+Script:wght@500;700&family=Great+Vibes&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,500&family=Pacifico&family=Rajdhani:wght@500;600;700&family=Satisfy&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Allura&family=Dancing+Script:wght@500;700&family=Great+Vibes&family=Pacifico&family=Satisfy&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>

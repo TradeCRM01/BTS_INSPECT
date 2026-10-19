@@ -129,7 +129,7 @@ const COMPANY_LOOK_CSS = `
   --co-look-r-ctl: 12px;
   --co-look-r-sheet: 16px;
   --co-look-fail: #B42318;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
 }
 .hub-company.ops-page {
   max-width: none;
@@ -172,7 +172,7 @@ const COMPANY_LOOK_CSS = `
   border-radius: 999px;
   background: var(--co-look-page);
   color: var(--co-look-ink);
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 14px;
   font-weight: 600;
   line-height: 1;
@@ -203,7 +203,7 @@ const COMPANY_LOOK_CSS = `
   max-width: 1100px;
   margin: 0 auto 16px;
   padding-top: 8px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0;
@@ -231,7 +231,7 @@ const COMPANY_LOOK_CSS = `
   color: #fff;
 }
 .hub-company-sheet-bar-meta {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 16px;
   font-weight: 500;
   color: #fff;
@@ -244,7 +244,7 @@ const COMPANY_LOOK_CSS = `
   padding: 0 12px;
   border: 1px solid transparent;
   border-radius: 999px;
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -261,7 +261,7 @@ const COMPANY_LOOK_CSS = `
   box-shadow: inset 0 1px 0 #fff;
 }
 .hub-company-hero {
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-weight: 700;
   font-size: 56px;
   letter-spacing: 0.02em;
@@ -291,7 +291,7 @@ const COMPANY_LOOK_CSS = `
   border: none;
   border-radius: 12px;
   box-shadow: none;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 14px;
   font-weight: 600;
   display: inline-flex;
@@ -318,7 +318,7 @@ const COMPANY_LOOK_CSS = `
   border: none;
   border-radius: 12px;
   color: #2E75B6;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 14px;
   font-weight: 500;
   box-shadow: none;
@@ -349,7 +349,7 @@ const COMPANY_LOOK_CSS = `
   align-items: center;
   gap: 8px;
   margin: 0;
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-size: 18px;
   font-weight: 700;
 }
@@ -388,7 +388,7 @@ const COMPANY_LOOK_CSS = `
   font-size: 14px;
 }
 .hub-company-kicker {
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -410,11 +410,11 @@ const COMPANY_LOOK_CSS = `
   box-shadow: none;
   min-height: 44px;
   font-size: 14px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   color: var(--co-look-ink);
 }
 .hub-company-row-label {
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-weight: 700;
   font-size: 14px;
   letter-spacing: 0.02em;
@@ -438,7 +438,7 @@ const COMPANY_LOOK_CSS = `
   border-radius: 12px;
   background: var(--co-look-sheet);
   color: var(--co-look-ink);
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 14px;
   box-shadow: none;
 }
@@ -471,7 +471,7 @@ const COMPANY_LOOK_CSS = `
   box-shadow: none;
 }
 .hub-company .company-logo-strip-title {
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -484,7 +484,7 @@ const COMPANY_LOOK_CSS = `
   height: 44px;
   padding: 0 12px;
   border-radius: 12px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 14px;
 }
 .hub-company .company-logo-strip-ctl {
@@ -498,11 +498,11 @@ const COMPANY_LOOK_CSS = `
 .hub-company .company-logo-strip-hint,
 .hub-company .company-logo-strip-miss {
   color: var(--co-look-muted);
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
 }
 .hub-company .company-logo-strip-size {
   color: var(--co-look-muted);
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
 }
 .hub-company .company-logo-strip-box {
   border-color: #2E75B6;

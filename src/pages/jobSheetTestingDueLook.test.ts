@@ -45,8 +45,8 @@ describe('job-sheet Testing due LOOK', () => {
     expect(lookCss).toContain('#5B6B7C');
     expect(lookCss).toContain('#E2D9CC');
     expect(lookCss).toContain('#B42318');
-    expect(lookCss).toContain("font-family: Rajdhani, sans-serif");
-    expect(lookCss).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(lookCss).toContain("font-family: var(--g-font-title)");
+    expect(lookCss).toContain("font-family: var(--g-font-ui)");
     expect(lookCss).toContain('font-size: 12px');
     expect(lookCss).toContain('.job-testing-due-open');
     expect(lookCss).toContain('border: 1px solid var(--testing-due-line)');

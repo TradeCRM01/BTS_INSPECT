@@ -217,8 +217,8 @@ describe('team settings floor wiring', () => {
     expect(page).toContain('--team-look-muted: #5B6B7C');
     expect(page).toContain('--team-look-line: #E2D9CC');
     expect(page).toContain('#2E75B6');
-    expect(page).toContain("font-family: Rajdhani, sans-serif");
-    expect(page).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(page).toContain("font-family: var(--g-font-title)");
+    expect(page).toContain("font-family: var(--g-font-ui)");
     expect(page).toContain('min-height: 44px');
     expect(page).toContain('inset 0 1px 0 #fff');
     expect(page).not.toContain('Newsreader');

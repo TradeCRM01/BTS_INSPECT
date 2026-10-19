@@ -1,6 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="192" height="192">
-  <rect width="32" height="32" rx="7" fill="#0A2540"/>
-  <path d="M7.5 7.5 L17 7.5 L21 12.5 L7.5 12.5 A2.5 2.5 0 0 1 7.5 7.5 Z" fill="#F5F0E6"/>
-  <path d="M7.5 13.5 L23 13.5 L27 18.5 L7.5 18.5 A2.5 2.5 0 0 1 7.5 13.5 Z" fill="#2E75B6"/>
-  <path d="M7.5 19.5 L17 19.5 L21 24.5 L7.5 24.5 A2.5 2.5 0 0 1 7.5 19.5 Z" fill="#F5F0E6"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><title>Grafter app icon</title><rect width="1024" height="1024" rx="229.07" fill="#0A0A0B"/><path fill="#FFFFFF" transform="translate(184.00 184.00) scale(13.6667)" d="M3 3L45 3L45 12L12 12L12 36L3 45ZM18 36L36 36L36 30L24 30L24 21L45 21L45 45L9 45Z"/></svg>

@@ -586,7 +586,7 @@ const JOB_TESTING_DUE_LOOK_CSS = `
           background: none;
         }
         .hub-jobs.is-record-open #job-testing-due .ops-section-title {
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-weight: 600;
           font-size: 16px;
           letter-spacing: 0;
@@ -622,14 +622,14 @@ const JOB_TESTING_DUE_LOOK_CSS = `
           background: transparent;
         }
         .hub-jobs.is-record-open #job-testing-due .ops-related-title {
-          font-family: Rajdhani, sans-serif;
+          font-family: var(--g-font-title);
           font-weight: 700;
           font-size: 16px;
           letter-spacing: 0.02em;
           color: var(--testing-due-ink);
         }
         .hub-jobs.is-record-open #job-testing-due .ops-meta {
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 12px;
           font-weight: 500;
           color: var(--testing-due-muted);
@@ -649,7 +649,7 @@ const JOB_TESTING_DUE_LOOK_CSS = `
           border-radius: 12px;
           background: none;
           color: var(--testing-due-ink);
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 12px;
           font-weight: 600;
           letter-spacing: 0;
@@ -669,7 +669,7 @@ const JOB_TESTING_DUE_LOOK_CSS = `
         }
         .hub-jobs.is-record-open #job-testing-due .ops-tray-empty p {
           margin: 0;
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 14px;
           font-weight: 400;
           color: var(--testing-due-muted);
@@ -721,7 +721,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
         }
         /* A flow, not a row. The title sits a step above the paper's 16px row titles. */
         .hub-jobs.is-record-open #job-visit-notes .ops-section-title {
-          font-family: Rajdhani, sans-serif;
+          font-family: var(--g-font-title);
           font-weight: 700;
           font-size: 20px;
           line-height: 24px;
@@ -748,7 +748,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           border: none;
           border-radius: 0;
           box-shadow: none;
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 15px;
           font-weight: 600;
           line-height: 20px;
@@ -840,7 +840,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
         }
         .hub-jobs.is-record-open #job-visit-notes .job-notes-step-title {
           margin: 0;
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 15px;
           font-weight: 600;
           line-height: 20px;
@@ -849,7 +849,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
         .hub-jobs.is-record-open #job-visit-notes .job-notes-step-meta,
         .hub-jobs.is-record-open #job-visit-notes .job-notes-helper {
           margin: 0;
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 13px;
           font-weight: 400;
           line-height: 18px;
@@ -865,7 +865,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           gap: 12px;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-notes-link {
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 14px;
           font-weight: 600;
           line-height: 18px;
@@ -894,7 +894,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           background: var(--visit-sheet);
           box-shadow: inset 0 1px 0 #fff;
           color: var(--visit-ink);
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 15px;
           font-weight: 600;
           line-height: 20px;
@@ -951,7 +951,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           background: var(--visit-sheet);
           box-shadow: inset 0 1px 0 #fff;
           color: var(--visit-ink);
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 16px;
           font-weight: 400;
           line-height: 22px;
@@ -1007,7 +1007,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           gap: 8px;
           padding: 4px 0;
           list-style: none;
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 15px;
           font-weight: 600;
           line-height: 20px;
@@ -1039,7 +1039,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           margin: 0;
         }
         .hub-jobs.is-record-open #job-visit-notes .job-notes-sub-title {
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 14px;
           font-weight: 600;
           line-height: 18px;
@@ -1073,7 +1073,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           align-items: center;
           gap: 10px;
           margin: 0;
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 13px;
           font-weight: 400;
           line-height: 18px;
@@ -1089,7 +1089,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           border-radius: 50%;
           border: 1px solid var(--visit-line);
           background: var(--visit-page);
-          font-family: Rajdhani, sans-serif;
+          font-family: var(--g-font-title);
           font-size: 12px;
           font-weight: 700;
           letter-spacing: 0.04em;
@@ -1105,7 +1105,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           align-items: center;
           gap: 5px;
           margin: 0;
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 12px;
           font-weight: 400;
           line-height: 16px;
@@ -1148,7 +1148,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           justify-content: space-between;
           gap: 2px 12px;
           margin: 0 0 8px;
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 12px;
           font-weight: 500;
           letter-spacing: 0;
@@ -1156,7 +1156,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           color: var(--visit-muted);
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-author {
-          font-family: Rajdhani, sans-serif;
+          font-family: var(--g-font-title);
           font-weight: 700;
           font-size: 14px;
           letter-spacing: 0.02em;
@@ -1164,7 +1164,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
           color: var(--visit-ink);
         }
         .hub-jobs.is-record-open #job-visit-notes .job-visit-time {
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 12px;
           font-weight: 500;
           line-height: 18px;
@@ -1174,7 +1174,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
         .hub-jobs.is-record-open #job-visit-notes .job-visit-body {
           margin: 0;
           padding-left: 8px;
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 14px;
           font-weight: 400;
           line-height: 1.4;
@@ -1190,7 +1190,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
         .hub-jobs.is-record-open #job-visit-notes .job-visit-body .job-visit-section-label {
           display: block;
           margin: 0;
-          font-family: Rajdhani, sans-serif;
+          font-family: var(--g-font-title);
           font-weight: 700;
           font-size: 11px;
           letter-spacing: 0.08em;
@@ -1224,7 +1224,7 @@ const JOB_VISIT_NOTES_LOOK_CSS = `
         }
         .hub-jobs.is-record-open #job-visit-notes .ops-tray-empty p {
           margin: 0;
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 14px;
           font-weight: 400;
           color: var(--visit-muted);
@@ -1313,7 +1313,7 @@ const JOB_GALLERY_LOOK_CSS = `
           display: block;
         }
         .hub-jobs.is-record-open #job-gallery .ops-section-title {
-          font-family: Rajdhani, sans-serif;
+          font-family: var(--g-font-title);
           font-weight: 700;
           font-size: 16px;
           letter-spacing: 0.02em;
@@ -1322,7 +1322,7 @@ const JOB_GALLERY_LOOK_CSS = `
         }
         .hub-jobs.is-record-open #job-gallery .ops-section-title .ops-meta {
           display: inline;
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 12px;
           font-weight: 500;
           color: #5B6B7C;
@@ -1340,7 +1340,7 @@ const JOB_GALLERY_LOOK_CSS = `
           display: inline-block;
           margin: 0;
           color: #5B6B7C;
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 14px;
           font-weight: 500;
           line-height: 24px;
@@ -1369,7 +1369,7 @@ const JOB_GALLERY_LOOK_CSS = `
           padding: 4px 0 6px;
           margin: 0 0 -1px;
           color: #5B6B7C;
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 13px;
           font-weight: 500;
           line-height: 1.2;
@@ -1425,7 +1425,7 @@ const JOB_GALLERY_LOOK_CSS = `
         .hub-jobs.is-record-open #job-gallery .job-gallery-meta {
           display: block;
           margin-top: 5px;
-          font-family: Rajdhani, sans-serif;
+          font-family: var(--g-font-title);
           font-weight: 700;
           font-size: 11px;
           letter-spacing: 0.06em;
@@ -1440,7 +1440,7 @@ const JOB_GALLERY_LOOK_CSS = `
           align-items: center;
           gap: 4px;
           margin-top: 1px;
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 12px;
           color: #5B6B7C;
           white-space: nowrap;
@@ -1482,12 +1482,12 @@ const JOB_GALLERY_LOOK_CSS = `
         .job-photo-lightbox-meta {
           display: grid;
           gap: 2px;
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 14px;
           line-height: 1.35;
         }
         .job-photo-lightbox-kind {
-          font-family: Rajdhani, sans-serif;
+          font-family: var(--g-font-title);
           font-weight: 700;
           font-size: 12px;
           letter-spacing: 0.06em;
@@ -1516,7 +1516,7 @@ const JOB_GALLERY_LOOK_CSS = `
           border-radius: 3px;
           background: #FFFDF8;
           color: #0A2540;
-          font-family: Rajdhani, sans-serif;
+          font-family: var(--g-font-title);
           font-weight: 700;
           font-size: 13px;
           letter-spacing: 0.06em;
@@ -1526,7 +1526,7 @@ const JOB_GALLERY_LOOK_CSS = `
         .hub-jobs.is-record-open #job-gallery .ops-tray-empty {
           margin: 0;
           padding: 8px 0 12px;
-          font-family: 'Source Sans 3', system-ui, sans-serif;
+          font-family: var(--g-font-ui);
           font-size: 14px;
           color: #5B6B7C;
           border-bottom: 1px solid #E2D9CC;

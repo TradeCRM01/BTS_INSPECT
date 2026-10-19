@@ -92,8 +92,8 @@ describe('job hub open sheet LOOK', () => {
     expect(lookCss).toContain('.hub-jobs-hero {\n      font-size: 20px !important');
     expect(lookCss).toContain('.hub-jobs-document .hub-jobs-identity .hub-jobs-hours {\n    font-size: 14px;');
     expect(lookCss).toContain('.hub-jobs-document .hub-jobs-identity .hub-jobs-hours {\n      font-size: 12px;');
-    expect(lookCss).toContain("font-family: Rajdhani, sans-serif");
-    expect(lookCss).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(lookCss).toContain("font-family: var(--g-font-title)");
+    expect(lookCss).toContain("font-family: var(--g-font-ui)");
     expect(lookCss).toContain('font-variant-numeric: tabular-nums');
     expect(lookCss).not.toContain('.hub-jobs-jobline');
     expect(lookCss).not.toContain('.hub-job-kicker');

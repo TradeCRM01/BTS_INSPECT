@@ -87,7 +87,7 @@ describe('inspection review/sign-off report_theme colours', () => {
     expect(shell).toContain('resolveAppShellColors');
 
     const mark = src('src/components/brand/grafterMark.ts');
-    expect(mark).toContain('GRAFTER_NAVY');
+    expect(mark).toContain('MITRE_PATH');
   });
 
   it('LOOK frames cover blank and saved inspection review chrome only', () => {

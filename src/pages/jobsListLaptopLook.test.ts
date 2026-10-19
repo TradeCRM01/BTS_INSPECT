@@ -87,8 +87,8 @@ describe('jobs list laptop LOOK — quote paper, overflow on the sheet', () => {
     expect(css).toContain('.hub-jobs-list-more.is-shift');
     expect(css).toContain('font-size: 12px');
     expect(css).toContain('font-size: 56px !important');
-    expect(css).toContain("font-family: Rajdhani, sans-serif");
-    expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(css).toContain("font-family: var(--g-font-title)");
+    expect(css).toContain("font-family: var(--g-font-ui)");
     expect(css).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(css).toContain('inset 0 1px 0 #fff');
     expect(css).toContain('min-height: 44px');

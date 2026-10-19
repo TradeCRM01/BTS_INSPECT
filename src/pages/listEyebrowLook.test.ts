@@ -24,7 +24,7 @@ describe('list-page quiet eyebrows (paper kit)', () => {
     expect(lookCss).toContain('.hub-compliance .ops-page-head .hub-compliance-label');
     expect(lookCss).toContain('.hub-quotes .ops-page-head .hub-quote-kicker');
     expect(lookCss).toContain('.dashboard-home .dashboard-home-label');
-    expect(lookCss).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(lookCss).toContain("font-family: var(--g-font-ui)");
     expect(lookCss).toContain('font-size: 13px');
     expect(lookCss).toContain('letter-spacing: 0');
     expect(lookCss).toContain('text-transform: none');

@@ -344,8 +344,8 @@ describe('clients look — open record is the document sheet', () => {
     expect(clientCss).toContain('box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(clientCss).toContain('box-shadow: inset 0 1px 0 #fff');
     expect(clientCss).toContain('font-size: 56px !important');
-    expect(clientCss).toContain("font-family: Rajdhani, sans-serif");
-    expect(clientCss).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(clientCss).toContain("font-family: var(--g-font-title)");
+    expect(clientCss).toContain("font-family: var(--g-font-ui)");
     expect(clientCss).toContain('font-variant-numeric: tabular-nums');
     expect(clientCss).toContain('letter-spacing: 0.12em');
     expect(clientCss).toContain('.hub-clients.is-record-open');

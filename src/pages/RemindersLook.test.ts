@@ -103,7 +103,7 @@ describe('reminders LOOK — same paper as the signed-in home', () => {
     expect(field).toContain('padding: 10px 12px');
     expect(field).toContain('font-size: 16px');
     expect(field).toContain('color: #0A2540');
-    expect(field).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(field).toContain("font-family: var(--g-font-ui)");
 
     expect(rule(css, '.reminders-capture-input:focus,\n  .reminders-field:focus')).toContain('0 0 0 3px rgba(46, 117, 182, .25)');
     expect(rule(css, '.reminders-secondary')).toContain('border: 1px solid #0A2540');
@@ -113,7 +113,7 @@ describe('reminders LOOK — same paper as the signed-in home', () => {
     expect(rule(css, '.dashboard-nudge')).toContain('min-height: 44px');
     expect(rule(css, '.dashboard-home-all')).toContain('min-height: 44px');
     expect(rule(css, '.reminders-scopes button,\n  .reminders-tag-chips button')).toContain('height: 32px');
-    expect(css).toContain("font-family: Rajdhani, sans-serif");
+    expect(css).toContain("font-family: var(--g-font-title)");
     expect(css).toContain('@media (max-width: 640px)');
 
     const hexes = [...new Set(css.match(/#[0-9A-Fa-f]{3,6}\b/g) ?? [])].map(h => h.toUpperCase());

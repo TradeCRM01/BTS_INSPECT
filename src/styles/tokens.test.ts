@@ -59,6 +59,28 @@ describe('semantic --g-* tokens', () => {
     expect(light.get('--g-ink')).toBe('#0A2540');
     expect(light.get('--g-accent')).toBe('#2E75B6');
     expect(src('src/index.css').startsWith("@import './styles/tokens.css';")).toBe(true);
+    expect(light.get('--g-font-sans')).toContain('Geist');
+    expect(css).toContain("font-family: 'Geist'");
+    expect(css).toContain("font-family: 'Geist Fallback'");
+    expect(css).toContain('font-display: optional');
+    expect(css).toContain('size-adjust: 102.01%');
+    expect(css).toContain("src: url('/fonts/Geist-Variable.woff2')");
+    expect(css).not.toContain('fonts.googleapis.com');
+  });
+
+  it('kills hand-set data-theme=dark while allowDark is false: dark tokens stay gated', () => {
+    const css = src('src/styles/tokens.css');
+    const html = src('index.html');
+    expect(css).toContain('html[data-allow-dark="true"][data-theme="dark"]');
+    expect(css).not.toMatch(/(?:^|\n)\s*\[data-theme="dark"\]\s*\{/);
+    expect(html).toContain("root.setAttribute('data-allow-dark', allowDark ? 'true' : 'false')");
+    expect(html).toMatch(/var allowDark = false/);
+    const mutant = css.replace(
+      'html[data-allow-dark="true"][data-theme="dark"]',
+      '[data-theme="dark"]',
+    );
+    expect(mutant).toMatch(/(?:^|\n)\s*\[data-theme="dark"\]\s*\{/);
+    expect(parseTokenBlocks(css).dark.get('--g-bg')).toBe('#0A0A0B');
   });
 
   it('map.json from-literals equal each token Light value', () => {

@@ -267,8 +267,8 @@ describe('LOOK — portal Accept is a signed quote sheet, not a leftover CRM but
     expect(css).toContain('--portal-action: var(--g-accent)');
     expect(css).toContain('--portal-r-ctl: var(--g-radius-md)');
     expect(css).toContain('--portal-r-sheet: var(--g-radius-lg)');
-    expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
-    expect(css).toContain('font-family: Rajdhani, sans-serif');
+    expect(css).toContain("font-family: var(--g-font-ui)");
+    expect(css).toContain('font-family: var(--g-font-title)');
     expect(css).toContain('min-height: 44px');
     expect(css).toContain('.portal-quote-accept');
     expect(css).toContain('background: #2E75B6');
