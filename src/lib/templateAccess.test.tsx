@@ -6,7 +6,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
 import {
   TEMPLATE_ACCESS_DENIED_TITLE,
+  TEMPLATE_WRITE_NO_ROW,
+  canEditTemplates,
   canViewTemplates,
+  throwIfNoRows,
 } from './templateAccess';
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -90,6 +93,25 @@ describe('canViewTemplates', () => {
   });
 });
 
+describe('throwIfNoRows', () => {
+  it('throws the visible failure text on a silent 0-row write', () => {
+    expect(() => throwIfNoRows({ data: [], error: null })).toThrow(TEMPLATE_WRITE_NO_ROW);
+    expect(() => throwIfNoRows({ data: null, error: null })).toThrow(TEMPLATE_WRITE_NO_ROW);
+    expect(() => throwIfNoRows({ data: null, error: { message: 'new row violates row-level security policy' } }))
+      .toThrow('new row violates row-level security policy');
+    expect(() => throwIfNoRows({ data: [{ id: 't1' }], error: null })).not.toThrow();
+  });
+});
+
+describe('canEditTemplates', () => {
+  it('allows admins and edit, and blocks view/none', () => {
+    expect(canEditTemplates({ role: 'admin', template_access: 'view' })).toBe(true);
+    expect(canEditTemplates({ role: 'member', template_access: 'edit' })).toBe(true);
+    expect(canEditTemplates({ role: 'member', template_access: 'view' })).toBe(false);
+    expect(canEditTemplates({ role: 'member', template_access: 'none' })).toBe(false);
+  });
+});
+
 describe('template guards render as a none member', () => {
   it('TemplateAccessRoute denies and hides children', async () => {
     const { container, root } = await render(
@@ -131,6 +153,23 @@ describe('template guards render as a none member', () => {
     expect(container.textContent).toContain(TEMPLATE_ACCESS_DENIED_TITLE);
     act(() => { root.unmount(); });
     container.remove();
+  });
+
+  it('TemplateEditorPage is read-only for a view member', async () => {
+    auth.profile.template_access = 'view';
+    auth.profile.role = 'member';
+    const { container, root } = await render(
+      <MemoryRouter initialEntries={['/templates/abc']}>
+        <Routes>
+          <Route path="/templates/:id" element={<TemplateEditorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(container.textContent).toContain('No edit access');
+    expect(container.textContent).not.toContain('Saved');
+    act(() => { root.unmount(); });
+    container.remove();
+    auth.profile.template_access = 'none';
   });
 
   it('JhaTemplateEditorPage renders No access', async () => {

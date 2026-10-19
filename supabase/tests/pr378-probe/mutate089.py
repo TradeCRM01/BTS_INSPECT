@@ -39,26 +39,48 @@ M={
  'S10':('089 RPC: drop role value validation', rpc_sub("    IF v_new_role IS NULL OR v_new_role NOT IN ('admin', 'member') THEN","    IF false THEN")),
  'S9':('089 RPC: drop REVOKE (PUBLIC/anon keep EXECUTE)', sub("REVOKE ALL ON FUNCTION public.update_member_settings(uuid, jsonb) FROM PUBLIC, anon;\n","")),
  'A1':('caller_template_access: admin no longer counts as edit', sub("    WHEN p.role = 'admin' THEN 'edit'\n","")),
+ 'A2':('caller_template_access: founder no longer counts as edit', sub("    WHEN p.id = public.company_founder_id(p.company_id) THEN 'edit'\n","")),
 }
 COMPANY = 'company_id = (SELECT company_id FROM public.profiles WHERE id = auth.uid())'
 EDIT = 'AND (SELECT public.caller_can_edit_templates())'
 EDIT_FN = '(SELECT public.caller_can_edit_templates())'
+OWNER_OR_ADMIN = """AND (
+          p.role = 'admin'
+          OR p.id = (SELECT public.company_founder_id(p.company_id))
+        )"""
+def upd_check_true(name):
+    def f(s):
+        i=s.index(f'CREATE POLICY "{name}"'); j=s.index(';',i); blk=s[i:j]
+        k=blk.rfind('WITH CHECK'); assert k>=0,(name,'no WITH CHECK')
+        blk2=blk[:k]+'WITH CHECK (true)'; assert blk2!=blk,name
+        return s[:i]+blk2+s[j:]
+    return f
 for t,pre in [('templates','templates'),('jha_templates','jha_templates')]:
     M[f'P_{t}_sel']=(f'{t} SELECT: drop company filter', pol(f'{pre}_select_company_members', COMPANY, 'true'))
     M[f'P_{t}_ins']=(f'{t} INSERT: drop edit gate', pol(f'{pre}_insert_by_template_access', EDIT, ''))
     M[f'P_{t}_updchk']=(f'{t} UPDATE: edit->true', pol(f'{pre}_update_by_template_access', EDIT_FN, 'true'))
     M[f'P_{t}_del']=(f'{t} DELETE: drop edit gate', pol(f'{pre}_delete_by_template_access', EDIT, ''))
+    M[f'P_{t}_ins_company']=(f'{t} INSERT: drop company filter', pol(f'{pre}_insert_by_template_access', COMPANY, 'true'))
+    M[f'P_{t}_upd_company']=(f'{t} UPDATE: drop company filter', pol(f'{pre}_update_by_template_access', COMPANY, 'true'))
+    M[f'P_{t}_del_company']=(f'{t} DELETE: drop company filter', pol(f'{pre}_delete_by_template_access', COMPANY, 'true'))
+    M[f'P_{t}_upd_check_true']=(f'{t} UPDATE: WITH CHECK true', upd_check_true(f'{pre}_update_by_template_access'))
 M['P_inspection_renderers_sel']=('inspection_renderers SELECT: drop company filter', pol('inspection_renderers_select_company_members', COMPANY, 'true'))
-M['P_inspection_renderers_ins']=('inspection_renderers INSERT: drop admin role', pol('Company admins can insert renderers', "AND role = 'admin'", ''))
-M['P_inspection_renderers_updchk']=('inspection_renderers UPDATE: drop admin role', pol('Company admins can update renderers', "AND role = 'admin'", ''))
-M['P_inspection_renderers_del']=('inspection_renderers DELETE: drop admin role', pol('Company admins can delete renderers', "AND role = 'admin'", ''))
+M['P_inspection_renderers_ins']=('inspection_renderers INSERT: drop owner-or-admin', pol('Company admins can insert renderers', OWNER_OR_ADMIN, ''))
+M['P_inspection_renderers_updchk']=('inspection_renderers UPDATE: drop owner-or-admin', pol('Company admins can update renderers', OWNER_OR_ADMIN, ''))
+M['P_inspection_renderers_del']=('inspection_renderers DELETE: drop owner-or-admin', pol('Company admins can delete renderers', OWNER_OR_ADMIN, ''))
+M['P_rend_upd_check_true']=('inspection_renderers UPDATE: WITH CHECK true', upd_check_true('Company admins can update renderers'))
+M['P_rend_upd_builtin']=('inspection_renderers UPDATE: drop built_in=false', pol('Company admins can update renderers', 'built_in = false AND ', ''))
+M['P_rend_del_builtin']=('inspection_renderers DELETE: drop built_in=false', pol('Company admins can delete renderers', 'built_in = false AND ', ''))
 ids=sys.argv[2].split(',') if len(sys.argv)>2 else list(M)
 res={}
+PGHOST=os.environ.get('PGHOST', f'/tmp/pg378r2-{PGV}')
+PGPORT=os.environ.get('PGPORT', os.environ.get('PROOF_PGPORT', f'554{PGV}'))
+PSQL=shutil.which('psql') or f'/usr/lib/postgresql/{PGV}/bin/psql'
 for mid in ids:
     desc,fn=M[mid]; mutated=fn(SRC); assert mutated!=SRC, mid
     d=f'/tmp/mut089/{mid}'; shutil.rmtree(d,ignore_errors=True); shutil.copytree(f'{REPO}/supabase/migrations',f'{d}/supabase/migrations'); shutil.copytree(f'{REPO}/supabase/tests',f'{d}/supabase/tests')
     mp=f'{d}/supabase/migrations/20261019020000_089_profile_self_escalation_and_template_rls.sql'; open(mp,'w').write(mutated)
-    PS=[f'/usr/lib/postgresql/{PGV}/bin/psql','-h',f'/tmp/pg378r2-{PGV}','-p',f'554{PGV}','-U','postgres','-X','-q']
+    PS=[PSQL,'-h',PGHOST,'-p',str(PGPORT),'-U','postgres','-X','-q']
     db=f'mut_{mid.lower()}'
     subprocess.run(PS+['-d','postgres','-c',f'DROP DATABASE IF EXISTS {db}','-c',f'CREATE DATABASE {db}'],capture_output=True)
     pr=subprocess.run(PS+['-d',db,'-v','ON_ERROR_STOP=1','-f',f'{d}/supabase/tests/update_member_settings.sql'],capture_output=True,text=True)

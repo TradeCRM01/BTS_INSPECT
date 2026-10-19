@@ -2,7 +2,7 @@
 """PR378 r2 probe: prod-faithful schema (prod profiles RLS/triggers/grants + prod template/inspection/JHA policies) + 088 + 089.
 Client cases run as SET ROLE authenticated with request.jwt.claims (Supabase auth.uid()).
 usage: suite2.py PGVER VARIANT [MIG089_PATH|-] [OUT_JSON] [ONLY_IDS_COMMA]   VARIANT in base|089|alt"""
-import subprocess, sys, json, os
+import shutil, subprocess, sys, json, os
 HERE=os.path.dirname(os.path.abspath(__file__))
 REPO=os.environ.get('REPO','/workspace')
 M088=f'{REPO}/supabase/migrations/20261019010000_088_update_member_settings.sql'
@@ -11,7 +11,10 @@ PGV=sys.argv[1]; VARIANT=sys.argv[2]
 MIG089=sys.argv[3] if len(sys.argv)>3 and sys.argv[3]!='-' else M089
 OUT=sys.argv[4] if len(sys.argv)>4 and sys.argv[4]!='-' else None
 ONLY=set(sys.argv[5].split(',')) if len(sys.argv)>5 else None
-BASE=[f'/usr/lib/postgresql/{PGV}/bin/psql','-h',f'/tmp/pg378r2-{PGV}','-p',f'554{PGV}','-U','postgres','-X','-q','-t','-A','-v','ON_ERROR_STOP=1']
+PSQL=shutil.which('psql') or f'/usr/lib/postgresql/{PGV}/bin/psql'
+PGHOST=os.environ.get('PGHOST', f'/tmp/pg378r2-{PGV}')
+PGPORT=os.environ.get('PGPORT', os.environ.get('PROOF_PGPORT', f'554{PGV}'))
+BASE=[PSQL,'-h',PGHOST,'-p',str(PGPORT),'-U','postgres','-X','-q','-t','-A','-v','ON_ERROR_STOP=1']
 DB=f'r2_{VARIANT}_{os.getpid()}'
 OA='11111111-1111-1111-1111-111111111111'; AA='33333333-3333-3333-3333-333333333333'; MA='44444444-4444-4444-4444-444444444444'; MN='44444444-4444-4444-4444-444444444445'
 OB='22222222-2222-2222-2222-222222222222'; MB='55555555-5555-5555-5555-555555555555'; OC='70000000-0000-0000-0000-000000000001'
@@ -235,11 +238,20 @@ def _():
     q(f"SET session_replication_role=replica; UPDATE public.profiles SET template_access='none' WHERE id='{AA}';")
     ok,out,err=run(f"INSERT INTO public.templates(company_id,created_by,name) VALUES ('{COA}','{AA}','admin-none') RETURNING 1;",AA)
     return bool(ok and out), out or err[:80]
-@case('F10','edit MEMBER (non-admin): INSERT custom renderer refused (admin-only as prod)')
+@case('F10','edit MEMBER (non-admin): INSERT custom renderer refused (owner or admin)')
 def _():
     q(f"SET session_replication_role=replica; UPDATE public.profiles SET template_access='edit' WHERE id='{MA}';")
     ok,out,err=run(f"INSERT INTO public.inspection_renderers(company_id,key,label,built_in) VALUES ('{COA}','k_edit','L',false) RETURNING 1;",MA)
     return (not ok) and 'row-level security' in (err or '').lower(), 'renderer insert='+('ALLOWED' if ok else err[:80])
+@case('F12','founder with role=member writes renderers (same owner helper as the RPC)',('089','alt'))
+def _():
+    ok,out,err=run(f"INSERT INTO public.inspection_renderers(company_id,key,label,built_in) VALUES ('cccccccc-cccc-cccc-cccc-cccccccccccc','k_founder','L',false) RETURNING 1;",OC)
+    return bool(ok and out), 'founder renderer insert='+('ok' if ok and out else (err[:80] if err else out))
+@case('A2p','founder with template_access=view still writes templates (founder counts as edit)',('089','alt'))
+def _():
+    q(f"SET session_replication_role=replica; UPDATE public.profiles SET template_access='view' WHERE id='{OC}';")
+    ok,out,err=run(f"INSERT INTO public.templates(company_id,created_by,name) VALUES ('cccccccc-cccc-cccc-cccc-cccccccccccc','{OC}','founder-view') RETURNING 1;",OC)
+    return bool(ok and out), 'founder-view template insert='+('ok' if ok and out else (err[:80] if err else out))
 @case('F11','company-B member reads 0 of company A on all 3 tables and cannot write them')
 def _():
     n=tsel(MB,f"SELECT count(*) FROM public.templates WHERE id='{T1}';")

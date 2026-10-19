@@ -9,7 +9,7 @@ import { showIfQuestionIds } from '../lib/conditionEval';
 import { INSPECTION_TEMPLATE_PACKS, clonePackSections, packMetaDefaults } from '../lib/inspectionTemplatePacks';
 import { AppShell } from '../components/layout/AppShell';
 import { TemplateAccessDenied } from '../components/layout/TemplateAccessDenied';
-import { canViewTemplates } from '../lib/templateAccess';
+import { canEditTemplates, canViewTemplates, throwIfNoRows } from '../lib/templateAccess';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { SectionPanel } from '../components/template-editor/SectionPanel';
@@ -19,7 +19,7 @@ import { PdfPreviewModal } from '../components/template-editor/PdfPreviewModal';
 import { QuestionTypePicker } from '../components/template-editor/QuestionTypePicker';
 import { ShowIfEditor } from '../components/template-editor/ShowIfEditor';
 import {
-  ChevronLeft, Save, CheckCircle, AlertCircle, Plus, Layers, Trash2, Settings2, X, Library, FileText
+  ChevronLeft, Save, CheckCircle, AlertCircle, Plus, Layers, Trash2, Settings2, X, Library, FileText, ShieldCheck
 } from 'lucide-react';
 import { nanoid } from '../lib/nanoid';
 import {
@@ -35,6 +35,7 @@ export function TemplateEditorPage() {
   const isNew = !id || id === 'new';
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const canEdit = canEditTemplates(profile);
   const qc = useQueryClient();
 
   const [templateName, setTemplateName] = useState('Untitled Template');
@@ -125,7 +126,7 @@ export function TemplateEditorPage() {
 
   // Autosave: debounce 2s after any change, only for already-persisted templates
   useEffect(() => {
-    if (saveState !== 'unsaved' || !templateId) return;
+    if (!canEdit || saveState !== 'unsaved' || !templateId) return;
     clearTimeout(autoSaveRef.current);
     autoSaveRef.current = setTimeout(() => {
       saveMutation.mutate();
@@ -137,12 +138,17 @@ export function TemplateEditorPage() {
   const deleteMutation = useMutation({
     mutationFn: async () => {
       if (!templateId) return;
-      const { error } = await supabase.from('templates').delete().eq('id', templateId);
-      if (error) throw error;
+      const result = await supabase.from('templates').delete().eq('id', templateId).select('id');
+      throwIfNoRows(result);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['templates'] });
       navigate('/templates');
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      setValidationErrors(prev => (prev.length > 0 ? prev : [msg]));
+      setSaveState('error');
     },
   });
 
@@ -163,7 +169,7 @@ export function TemplateEditorPage() {
       setValidationErrors([]);
 
       if (templateId) {
-        const { error } = await supabase
+        const result = await supabase
           .from('templates')
           .update({
             name: templateName,
@@ -171,8 +177,9 @@ export function TemplateEditorPage() {
             schema: schema as unknown as Record<string, unknown>,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', templateId);
-        if (error) throw error;
+          .eq('id', templateId)
+          .select('id');
+        throwIfNoRows(result);
       } else {
         const { data, error } = await supabase
           .from('templates')
@@ -450,6 +457,18 @@ export function TemplateEditorPage() {
     return <TemplateAccessDenied />;
   }
 
+  if (!canEdit) {
+    return (
+      <AppShell>
+        <div className="max-w-[1200px] mx-auto px-4 py-16 text-center">
+          <ShieldCheck size={40} className="mx-auto text-[#E5E7EB] mb-3" />
+          <p className="text-[#1A1A1A] font-medium">No edit access</p>
+          <p className="text-sm text-[#4A5568] mt-1">You need edit permissions to manage inspection templates.</p>
+        </div>
+      </AppShell>
+    );
+  }
+
   if (!isNew && isLoading) {
     return (
       <AppShell>
@@ -539,7 +558,7 @@ export function TemplateEditorPage() {
       {/* Validation errors */}
       {validationErrors.length > 0 && (
         <div className="max-w-[1200px] mx-auto px-4 pt-3">
-          <div className="bg-red-50 border border-red-200 rounded-md p-3">
+          <div className="bg-red-50 border border-red-200 rounded-md p-3" role="alert">
             <div className="flex items-center gap-2 mb-1">
               <AlertCircle size={14} className="text-red-600" />
               <p className="text-sm font-medium text-red-700">Please fix the following before saving:</p>

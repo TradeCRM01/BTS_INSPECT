@@ -5,7 +5,13 @@ set -euo pipefail
 V=$1
 P="$(cd "$(dirname "$0")" && pwd)"
 R="${REPO:-/workspace}"
-PS="/usr/lib/postgresql/$V/bin/psql -h /tmp/pg378r2-$V -p 554$V -U postgres -X -q -v ON_ERROR_STOP=1"
+PSQL_BIN="$(command -v psql || true)"
+if [ -z "$PSQL_BIN" ]; then
+  PSQL_BIN="/usr/lib/postgresql/$V/bin/psql"
+fi
+PGHOST_VAL="${PGHOST:-/tmp/pg378r2-$V}"
+PGPORT_VAL="${PGPORT:-554$V}"
+PS="$PSQL_BIN -h $PGHOST_VAL -p $PGPORT_VAL -U postgres -X -q -v ON_ERROR_STOP=1"
 OUT="${RB_OUT:-$P}"
 $PS -d postgres -c 'DROP DATABASE IF EXISTS rb' -c 'CREATE DATABASE rb'
 for f in "$P/sql/prod-schema.sql" "$R/supabase/migrations/20261019010000_088_update_member_settings.sql" "$P/sql/field-schema.sql"; do

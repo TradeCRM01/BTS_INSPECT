@@ -1125,9 +1125,12 @@ BEGIN
     DELETE FROM public.jha_templates WHERE id = 'b1111111-1111-4111-8111-111111111111';
     GET DIAGNOSTICS v_del = ROW_COUNT;
     RESET ROLE;
+    SELECT name INTO v_name FROM public.jha_templates
+      WHERE id = 'b1111111-1111-4111-8111-111111111111';
     INSERT INTO proof_result VALUES (
       'g_' || v_label || '_jha_iud_denied',
-      v_ins AND v_ins_msg ILIKE '%row-level security%' AND v_upd = 0 AND v_del = 0,
+      v_ins AND v_ins_msg ILIKE '%row-level security%' AND v_upd = 0 AND v_del = 0
+        AND v_name = 'Company A JHA',
       coalesce(v_ins_msg, 'insert ok') || format(' upd=%s del=%s', v_upd, v_del)
     );
 
@@ -1184,7 +1187,9 @@ BEGIN
   RESET ROLE;
   INSERT INTO proof_result VALUES (
     'g_edit_nonadmin_renderer_write_denied',
-    v_ins AND v_ins_msg ILIKE '%row-level security%' AND v_upd = 0 AND v_del = 0,
+    v_ins AND v_ins_msg ILIKE '%row-level security%' AND v_upd = 0 AND v_del = 0
+      AND (SELECT label FROM public.inspection_renderers
+             WHERE id = 'c3333333-3333-4333-8333-333333333333') = 'Custom A',
     coalesce(v_ins_msg, 'insert ok') || format(' upd=%s del=%s', v_upd, v_del)
   );
 END $$;
@@ -1226,7 +1231,9 @@ BEGIN
     'g_company_b_zero_of_a',
     n_t = 0 AND n_j = 0 AND n_r = 0
       AND v_ins AND v_ins_msg ILIKE '%row-level security%'
-      AND v_upd = 0 AND v_del = 0,
+      AND v_upd = 0 AND v_del = 0
+      AND (SELECT name FROM public.templates
+             WHERE id = 'a1111111-1111-4111-8111-111111111111') = 'Company A inspection',
     format('t=%s j=%s r=%s ins=%s upd=%s del=%s',
       n_t, n_j, n_r, coalesce(v_ins_msg, 'ok'), v_upd, v_del)
   );
@@ -1268,6 +1275,188 @@ BEGIN
     n = 1 AND v_ok,
     'admin-none templates count=' || n::text || ' write=' || v_ok::text
   );
+END $$;
+
+-- Company-B OWNER (admin, edit) so the edit gate cannot mask a missing company filter.
+-- WHERE true isolates UPDATE/DELETE policies from SELECT. Inner rollback restores seed.
+DO $$
+DECLARE
+  v_ins_t text; v_ins_j text; v_ins_r text;
+  v_wc_t text; v_wc_j text; v_wc_r text; v_bi_r text;
+  v_snap_before text; v_snap_after text;
+  v_upd_r int; v_del_r int; v_werr text := '';
+BEGIN
+  SELECT string_agg(x, '|' ORDER BY x) INTO v_snap_before FROM (
+    SELECT 't:'||id||':'||name||':'||schema::text x FROM public.templates WHERE company_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+    UNION ALL SELECT 'j:'||id||':'||name||':'||schema::text FROM public.jha_templates WHERE company_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+    UNION ALL SELECT 'r:'||id||':'||label||':'||built_in FROM public.inspection_renderers WHERE company_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa') s;
+  BEGIN
+    PERFORM public.proof_as_authenticated('22222222-2222-2222-2222-222222222222');
+    SET LOCAL ROLE authenticated;
+    BEGIN INSERT INTO public.templates (id, company_id, created_by, name) VALUES (gen_random_uuid(), 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'b->a'); EXCEPTION WHEN OTHERS THEN v_ins_t := SQLERRM; END;
+    BEGIN INSERT INTO public.jha_templates (id, company_id, created_by, name) VALUES (gen_random_uuid(), 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'b->a'); EXCEPTION WHEN OTHERS THEN v_ins_j := SQLERRM; END;
+    BEGIN INSERT INTO public.inspection_renderers (id, company_id, key, label, built_in) VALUES (gen_random_uuid(), 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'b_to_a', 'B to A', false); EXCEPTION WHEN OTHERS THEN v_ins_r := SQLERRM; END;
+    BEGIN UPDATE public.templates SET name = 'pwned' WHERE true; EXCEPTION WHEN OTHERS THEN v_werr := v_werr || SQLERRM || '; '; END;
+    BEGIN UPDATE public.jha_templates SET name = 'pwned' WHERE true; EXCEPTION WHEN OTHERS THEN v_werr := v_werr || SQLERRM || '; '; END;
+    BEGIN UPDATE public.inspection_renderers SET label = 'pwned' WHERE true; EXCEPTION WHEN OTHERS THEN v_werr := v_werr || SQLERRM || '; '; END;
+    BEGIN DELETE FROM public.templates WHERE true; EXCEPTION WHEN OTHERS THEN v_werr := v_werr || SQLERRM || '; '; END;
+    BEGIN DELETE FROM public.jha_templates WHERE true; EXCEPTION WHEN OTHERS THEN v_werr := v_werr || SQLERRM || '; '; END;
+    BEGIN DELETE FROM public.inspection_renderers WHERE true; EXCEPTION WHEN OTHERS THEN v_werr := v_werr || SQLERRM || '; '; END;
+    RESET ROLE;
+    PERFORM public.proof_as_authenticated('33333333-3333-3333-3333-333333333333');
+    SET LOCAL ROLE authenticated;
+    BEGIN UPDATE public.templates SET company_id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' WHERE true; EXCEPTION WHEN OTHERS THEN v_wc_t := SQLERRM; END;
+    BEGIN UPDATE public.jha_templates SET company_id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' WHERE true; EXCEPTION WHEN OTHERS THEN v_wc_j := SQLERRM; END;
+    BEGIN UPDATE public.inspection_renderers SET company_id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' WHERE true; EXCEPTION WHEN OTHERS THEN v_wc_r := SQLERRM; END;
+    BEGIN UPDATE public.inspection_renderers SET built_in = true WHERE id = 'c3333333-3333-4333-8333-333333333333'; EXCEPTION WHEN OTHERS THEN v_bi_r := SQLERRM; END;
+    UPDATE public.inspection_renderers SET label = 'x' WHERE id = 'c1111111-1111-4111-8111-111111111111';
+    GET DIAGNOSTICS v_upd_r = ROW_COUNT;
+    DELETE FROM public.inspection_renderers WHERE id = 'c1111111-1111-4111-8111-111111111111';
+    GET DIAGNOSTICS v_del_r = ROW_COUNT;
+    RESET ROLE;
+    SELECT string_agg(x, '|' ORDER BY x) INTO v_snap_after FROM (
+      SELECT 't:'||id||':'||name||':'||schema::text x FROM public.templates WHERE company_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+      UNION ALL SELECT 'j:'||id||':'||name||':'||schema::text FROM public.jha_templates WHERE company_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+      UNION ALL SELECT 'r:'||id||':'||label||':'||built_in FROM public.inspection_renderers WHERE company_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa') s;
+    RAISE EXCEPTION 'proof_rollback';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'proof_rollback' THEN RAISE; END IF;
+  END;
+  RESET ROLE;
+  INSERT INTO proof_result VALUES (
+    'g_company_b_owner_writes_none_of_a',
+    coalesce(v_ins_t ILIKE '%row-level security%' AND v_ins_j ILIKE '%row-level security%' AND v_ins_r ILIKE '%row-level security%'
+      AND v_snap_after = v_snap_before AND v_werr = '', false),
+    format('ins t/j/r=%s/%s/%s A_unchanged=%s write_err=%s', v_ins_t IS NOT NULL, v_ins_j IS NOT NULL, v_ins_r IS NOT NULL, v_snap_after = v_snap_before, nullif(v_werr,'')));
+  INSERT INTO proof_result VALUES (
+    'g_update_with_check_and_builtin',
+    coalesce(v_wc_t ILIKE '%row-level security%' AND v_wc_j ILIKE '%row-level security%' AND v_wc_r ILIKE '%row-level security%'
+      AND v_bi_r ILIKE '%row-level security%' AND v_upd_r = 0 AND v_del_r = 0, false),
+    format('wc t/j/r=%s/%s/%s builtin_flip=%s builtin upd=%s del=%s', v_wc_t IS NOT NULL, v_wc_j IS NOT NULL, v_wc_r IS NOT NULL, v_bi_r IS NOT NULL, v_upd_r, v_del_r));
+  INSERT INTO proof_result VALUES (
+    'g_renderer_cross_company_owner_denied',
+    coalesce(v_ins_r = 'new row violates row-level security policy for table "inspection_renderers"', false),
+    coalesce(v_ins_r, 'owner B insert into A succeeded')
+  );
+END $$;
+
+-- Renderer writes: owner OR admin (company_founder_id), same helper as the RPC.
+-- edit/view/none refused with the INSERT error text. Owner A is demoted to
+-- member+view for the owner-allowed and founder-view cases, then restored.
+DO $$
+DECLARE
+  v_rend_err constant text := 'new row violates row-level security policy for table "inspection_renderers"';
+  v_ins int; v_upd int; v_del int;
+  v_ok boolean := false;
+  v_msg text;
+  v_who uuid;
+  v_label text;
+  v_t_ok boolean := false;
+BEGIN
+  SET session_replication_role = replica;
+  UPDATE public.profiles
+    SET role = 'member', template_access = 'view'
+    WHERE id = '11111111-1111-1111-1111-111111111111';
+  SET session_replication_role = origin;
+
+  PERFORM public.proof_as_authenticated('11111111-1111-1111-1111-111111111111');
+  SET LOCAL ROLE authenticated;
+  BEGIN
+    INSERT INTO public.inspection_renderers (id, company_id, key, label, built_in)
+    VALUES ('cc0a0000-0000-4000-8000-00000000000a', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+            'owner_ok', 'Owner OK', false);
+    GET DIAGNOSTICS v_ins = ROW_COUNT;
+    UPDATE public.inspection_renderers SET label = 'Owner OK upd'
+      WHERE id = 'cc0a0000-0000-4000-8000-00000000000a';
+    GET DIAGNOSTICS v_upd = ROW_COUNT;
+    DELETE FROM public.inspection_renderers
+      WHERE id = 'cc0a0000-0000-4000-8000-00000000000a';
+    GET DIAGNOSTICS v_del = ROW_COUNT;
+  EXCEPTION WHEN OTHERS THEN
+    v_ins := 0; v_upd := 0; v_del := 0; v_msg := SQLERRM;
+  END;
+  BEGIN
+    INSERT INTO public.templates (id, company_id, created_by, name)
+    VALUES ('aa0a0000-0000-4000-8000-00000000000a', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+            '11111111-1111-1111-1111-111111111111', 'founder view write');
+    v_t_ok := true;
+  EXCEPTION WHEN OTHERS THEN
+    v_t_ok := false;
+    v_msg := SQLERRM;
+  END;
+  RESET ROLE;
+  DELETE FROM public.templates WHERE id = 'aa0a0000-0000-4000-8000-00000000000a';
+  DELETE FROM public.inspection_renderers WHERE id = 'cc0a0000-0000-4000-8000-00000000000a';
+  INSERT INTO proof_result VALUES (
+    'g_renderer_owner_write_allowed',
+    v_ins = 1 AND v_upd = 1 AND v_del = 1,
+    format('owner member ins=%s upd=%s del=%s', v_ins, v_upd, v_del)
+  );
+  INSERT INTO proof_result VALUES (
+    'g_founder_view_templates_write',
+    v_t_ok,
+    coalesce(v_msg, 'founder-with-view template insert ok')
+  );
+
+  SET session_replication_role = replica;
+  UPDATE public.profiles
+    SET role = 'admin', template_access = 'edit'
+    WHERE id = '11111111-1111-1111-1111-111111111111';
+  SET session_replication_role = origin;
+
+  PERFORM public.proof_as_authenticated('33333333-3333-3333-3333-333333333333');
+  SET LOCAL ROLE authenticated;
+  BEGIN
+    INSERT INTO public.inspection_renderers (id, company_id, key, label, built_in)
+    VALUES ('cc0b0000-0000-4000-8000-00000000000b', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+            'admin_ok', 'Admin OK', false);
+    GET DIAGNOSTICS v_ins = ROW_COUNT;
+    UPDATE public.inspection_renderers SET label = 'Admin OK upd'
+      WHERE id = 'cc0b0000-0000-4000-8000-00000000000b';
+    GET DIAGNOSTICS v_upd = ROW_COUNT;
+    DELETE FROM public.inspection_renderers
+      WHERE id = 'cc0b0000-0000-4000-8000-00000000000b';
+    GET DIAGNOSTICS v_del = ROW_COUNT;
+  EXCEPTION WHEN OTHERS THEN
+    v_ins := 0; v_upd := 0; v_del := 0; v_msg := SQLERRM;
+  END;
+  RESET ROLE;
+  DELETE FROM public.inspection_renderers WHERE id = 'cc0b0000-0000-4000-8000-00000000000b';
+  INSERT INTO proof_result VALUES (
+    'g_renderer_admin_write_allowed',
+    v_ins = 1 AND v_upd = 1 AND v_del = 1,
+    format('admin ins=%s upd=%s del=%s', v_ins, v_upd, v_del)
+  );
+
+  FOREACH v_who IN ARRAY ARRAY[
+    '15151515-1515-4515-8515-151515151515'::uuid,
+    '13131313-1313-4313-8313-131313131313'::uuid,
+    '14141414-1414-4414-8414-141414141414'::uuid
+  ]
+  LOOP
+    v_label := CASE v_who
+      WHEN '15151515-1515-4515-8515-151515151515' THEN 'edit'
+      WHEN '13131313-1313-4313-8313-131313131313' THEN 'view'
+      ELSE 'none' END;
+    v_ok := false; v_msg := NULL;
+    PERFORM public.proof_as_authenticated(v_who);
+    SET LOCAL ROLE authenticated;
+    BEGIN
+      INSERT INTO public.inspection_renderers (id, company_id, key, label, built_in)
+      VALUES (gen_random_uuid(), 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+              'denied_' || v_label, 'Denied', false);
+      v_ok := true;
+    EXCEPTION WHEN OTHERS THEN
+      v_ok := false;
+      v_msg := SQLERRM;
+    END;
+    RESET ROLE;
+    INSERT INTO proof_result VALUES (
+      'g_renderer_' || v_label || '_write_denied',
+      (NOT v_ok) AND v_msg = v_rend_err,
+      coalesce(v_msg, 'insert succeeded')
+    );
+  END LOOP;
 END $$;
 
 -- Mutant A1: admin no longer counts as edit -> admin with none cannot write templates.

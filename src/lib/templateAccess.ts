@@ -8,6 +8,24 @@ export type TemplateAccessProfile = {
 export const TEMPLATE_ACCESS_DENIED_TITLE = 'No access';
 export const TEMPLATE_ACCESS_DENIED_BODY =
   'Templates are hidden for this account. Ask an admin if you need them.';
+export const TEMPLATE_WRITE_NO_ROW =
+  'Could not save. The change was not stored.';
+
+export function throwIfNoRows(result: {
+  data: unknown;
+  error: { message?: string } | null;
+}): void {
+  if (result.error) {
+    throw new Error(result.error.message || TEMPLATE_WRITE_NO_ROW);
+  }
+  const { data } = result;
+  if (data == null) {
+    throw new Error(TEMPLATE_WRITE_NO_ROW);
+  }
+  if (Array.isArray(data) && data.length === 0) {
+    throw new Error(TEMPLATE_WRITE_NO_ROW);
+  }
+}
 
 export function templatesLookDenied(): boolean {
   try {

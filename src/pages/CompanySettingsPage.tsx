@@ -56,6 +56,7 @@ import {
   type TwilioSenderSettings,
 } from '../lib/twilioSenderSettings';
 import { ENQUIRY_SURFACE_LIVE } from '../lib/missedCallEnquiry';
+import { throwIfNoRows } from '../lib/templateAccess';
 import {
   emptySmsTextbackSettings,
   lookSmsTextbackSettings,
@@ -1074,25 +1075,35 @@ export function CompanySettingsPage() {
     e.preventDefault();
     if (!company || !newRendererLabel.trim()) return;
     setSavingRenderer(true);
+    setError('');
     const key = `custom_${Date.now()}`;
-    const { error } = await supabase.from('inspection_renderers').insert({
+    const result = await supabase.from('inspection_renderers').insert({
       company_id: company.id,
       key,
       label: newRendererLabel.trim(),
       built_in: false,
-    });
-    if (!error) {
+    }).select('id');
+    try {
+      throwIfNoRows(result);
       setNewRendererLabel('');
       setShowAddRenderer(false);
       await loadRenderers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     }
     setSavingRenderer(false);
   }
 
   async function handleDeleteRenderer(id: string) {
     if (!window.confirm('Delete this inspection type?')) return;
-    await supabase.from('inspection_renderers').delete().eq('id', id);
-    await loadRenderers();
+    setError('');
+    try {
+      const result = await supabase.from('inspection_renderers').delete().eq('id', id).select('id');
+      throwIfNoRows(result);
+      await loadRenderers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -1494,6 +1505,7 @@ export function CompanySettingsPage() {
         {/* Inspection Types */}
         <section id="settings-inspections" className="hub-company-snav-section">
         <p className="hub-company-kicker">Inspection Types</p>
+        {error && <p className="hub-company-fail" role="alert">{error}</p>}
         {!showAddRenderer && (
           <button
             onClick={() => setShowAddRenderer(true)}

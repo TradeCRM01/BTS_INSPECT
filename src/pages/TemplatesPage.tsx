@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
-import { canEditTemplates, canViewTemplates } from '../lib/templateAccess';
+import { TEMPLATE_WRITE_NO_ROW, canEditTemplates, canViewTemplates, throwIfNoRows } from '../lib/templateAccess';
 import { TemplateAccessDenied } from '../components/layout/TemplateAccessDenied';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
@@ -21,6 +21,7 @@ export function TemplatesPage() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<Tab>(() => searchParams.get('tab') === 'jha' ? 'jha' : 'inspections');
   const [showArchived, setShowArchived] = useState(false);
+  const [writeError, setWriteError] = useState('');
 
   const canEdit = canEditTemplates(profile);
   const canView = canViewTemplates(profile);
@@ -57,10 +58,16 @@ export function TemplatesPage() {
 
   const unarchiveInspectionMutation = useMutation({
     mutationFn: async (templateId: string) => {
-      const { error } = await supabase.from('templates').update({ archived: false }).eq('id', templateId);
-      if (error) throw error;
+      const result = await supabase.from('templates').update({ archived: false }).eq('id', templateId).select('id');
+      throwIfNoRows(result);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['templates'] }),
+    onSuccess: () => {
+      setWriteError('');
+      queryClient.invalidateQueries({ queryKey: ['templates'] });
+    },
+    onError: (err: unknown) => {
+      setWriteError(err instanceof Error ? err.message : TEMPLATE_WRITE_NO_ROW);
+    },
   });
 
   const duplicateInspectionMutation = useMutation({
@@ -88,10 +95,16 @@ export function TemplatesPage() {
 
   const unarchiveJhaMutation = useMutation({
     mutationFn: async (templateId: string) => {
-      const { error } = await supabase.from('jha_templates').update({ archived: false }).eq('id', templateId);
-      if (error) throw error;
+      const result = await supabase.from('jha_templates').update({ archived: false }).eq('id', templateId).select('id');
+      throwIfNoRows(result);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['jha-templates'] }),
+    onSuccess: () => {
+      setWriteError('');
+      queryClient.invalidateQueries({ queryKey: ['jha-templates'] });
+    },
+    onError: (err: unknown) => {
+      setWriteError(err instanceof Error ? err.message : TEMPLATE_WRITE_NO_ROW);
+    },
   });
 
   const duplicateJhaMutation = useMutation({
@@ -175,6 +188,12 @@ export function TemplatesPage() {
             <span className="flex items-center gap-2"><ShieldCheck size={16} /> JHA Templates</span>
           </button>
         </div>
+
+        {writeError && (
+          <p className="mb-3 text-sm text-[#B42318]" role="alert">
+            {writeError}
+          </p>
+        )}
 
         {isLoading ? (
           <SkeletonList count={5} />

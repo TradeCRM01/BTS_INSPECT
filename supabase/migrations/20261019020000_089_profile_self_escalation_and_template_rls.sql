@@ -227,16 +227,6 @@ AS $$
   LEFT JOIN public.profiles p ON p.id = u.uid
 $$;
 
-CREATE OR REPLACE FUNCTION public.caller_can_view_templates()
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-  SELECT public.caller_template_access() IN ('view', 'edit')
-$$;
-
 CREATE OR REPLACE FUNCTION public.caller_can_edit_templates()
 RETURNS boolean
 LANGUAGE sql
@@ -248,15 +238,14 @@ AS $$
 $$;
 
 REVOKE ALL ON FUNCTION public.caller_template_access() FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.caller_can_view_templates() FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.caller_can_edit_templates() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.caller_template_access() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.caller_can_view_templates() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.caller_can_edit_templates() TO authenticated;
 
 -- Same-company SELECT for every member (field use: start inspection/JHA, legacy fill).
 -- Library writes require template_access='edit' (admins/owner count as edit).
--- inspection_renderers writes stay admin-only, as on prod.
+-- inspection_renderers writes: owner or admin, same helper as
+-- update_member_settings (company_founder_id). No new check.
 
 DROP POLICY IF EXISTS "Company members can view templates" ON public.templates;
 DROP POLICY IF EXISTS "Company members can insert templates" ON public.templates;
@@ -370,8 +359,12 @@ CREATE POLICY "Company admins can insert renderers"
   TO authenticated
   WITH CHECK (
     company_id IN (
-      SELECT company_id FROM public.profiles
-      WHERE id = auth.uid() AND role = 'admin'
+      SELECT p.company_id FROM public.profiles p
+      WHERE p.id = auth.uid()
+        AND (
+          p.role = 'admin'
+          OR p.id = (SELECT public.company_founder_id(p.company_id))
+        )
     )
   );
 
@@ -380,14 +373,22 @@ CREATE POLICY "Company admins can update renderers"
   TO authenticated
   USING (
     built_in = false AND company_id IN (
-      SELECT company_id FROM public.profiles
-      WHERE id = auth.uid() AND role = 'admin'
+      SELECT p.company_id FROM public.profiles p
+      WHERE p.id = auth.uid()
+        AND (
+          p.role = 'admin'
+          OR p.id = (SELECT public.company_founder_id(p.company_id))
+        )
     )
   )
   WITH CHECK (
     built_in = false AND company_id IN (
-      SELECT company_id FROM public.profiles
-      WHERE id = auth.uid() AND role = 'admin'
+      SELECT p.company_id FROM public.profiles p
+      WHERE p.id = auth.uid()
+        AND (
+          p.role = 'admin'
+          OR p.id = (SELECT public.company_founder_id(p.company_id))
+        )
     )
   );
 
@@ -396,7 +397,11 @@ CREATE POLICY "Company admins can delete renderers"
   TO authenticated
   USING (
     built_in = false AND company_id IN (
-      SELECT company_id FROM public.profiles
-      WHERE id = auth.uid() AND role = 'admin'
+      SELECT p.company_id FROM public.profiles p
+      WHERE p.id = auth.uid()
+        AND (
+          p.role = 'admin'
+          OR p.id = (SELECT public.company_founder_id(p.company_id))
+        )
     )
   );
