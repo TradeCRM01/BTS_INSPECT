@@ -64,6 +64,7 @@ describe('dashboard widgets stay on the paper', () => {
   it('shows persisted widgets without Customize, and seeds an empty table once', () => {
     const page = src('src/pages/DashboardPage.tsx');
     expect(page).toContain("from('dashboard_widgets')");
+    expect(page).toContain('if (error) throw error');
     expect(page).toContain('resolveDashboardWidgets');
     expect(page).toContain('defaultDashboardWidgetInserts');
     expect(page).toContain('dashboard_widgets_seeded');
@@ -97,7 +98,14 @@ describe('dashboard widgets stay on the paper', () => {
     expect(page).toContain('pickerDashboardWidgets');
     expect(page).toContain('measureDashboardCanvasWidth');
     expect(page).toContain('addingWidget');
-    expect(page).toContain('.catch(');
+    expect(page).toContain('await persistDashboardWidgetRepair(rows, repaired, profile.id)');
+    expect(page).toContain('persistDashboardWidgetPhoneOrder');
+    expect(page).toContain(".select('config')");
+    expect(page).toContain("console.error('Dashboard widget repair write failed'");
+    expect(page).toContain('if (error) throw error');
+    expect(page).toContain(".eq('user_id', userId)");
+    expect(page).toContain("if (!data?.length) throw new Error('Dashboard widget repair update matched 0 rows')");
+    expect(page).not.toContain('Could not repair the widget layout');
     expect(helper).not.toMatch(/['"]bitcoin['"]/);
     expect(helper).not.toMatch(/electric|electrical/i);
 
