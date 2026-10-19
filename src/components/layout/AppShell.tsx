@@ -288,12 +288,12 @@ export function AppShell({ children }: AppShellProps) {
           '--shell-accent': chrome.accent,
         } as CSSProperties}
       >
-        <div className="max-w-[1400px] mx-auto px-4 h-14 flex items-center justify-between gap-3">
+        <div className="max-w-[1400px] mx-auto px-4 h-14 flex items-center justify-between gap-3 min-w-0 w-full">
           <Link to="/" className="flex items-center shrink-0" onClick={handleLogoTap} aria-label="Grafter">
             <BrandLockup size="header" />
           </Link>
 
-          <nav className="hidden md:flex items-center gap-0.5 flex-1 justify-center h-14">
+          <nav className="hidden md:flex items-center gap-0.5 grow shrink-0 justify-center h-14">
             {NAV_GROUPS.map((group) => {
               const groupActive = isGroupActive(group, location.pathname);
               const isOpen = openGroup === group.label;
@@ -301,7 +301,7 @@ export function AppShell({ children }: AppShellProps) {
               return (
                 <div
                   key={group.label}
-                  className="relative h-full flex items-center"
+                  className="relative h-full flex items-center shrink-0"
                   onMouseEnter={() => handleGroupEnter(group.label)}
                   onMouseLeave={handleGroupLeave}
                 >
@@ -313,14 +313,14 @@ export function AppShell({ children }: AppShellProps) {
                         setOpenGroup(group.label);
                       }
                     }}
-                  className={`flex items-center gap-1.5 h-full px-3 text-sm font-medium tracking-tight border-b-2 transition-colors ${
+                  className={`flex items-center gap-1.5 h-full px-3 text-sm font-medium tracking-tight whitespace-nowrap border-b-2 transition-colors ${
                       groupActive
                         ? 'text-white border-accent'
                         : 'text-white/65 border-transparent hover:text-white hover:border-white/25'
                     }`}
                   >
                     <Icon size={14} />
-                    <span>{group.label}</span>
+                    <span className="whitespace-nowrap">{group.label}</span>
                     <ChevronDown size={11} className={`text-white/40 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                   </button>
 
@@ -337,7 +337,7 @@ export function AppShell({ children }: AppShellProps) {
             })}
           </nav>
 
-          <div className="hidden md:block w-48 lg:w-64 shrink-0">
+          <div className="hidden md:block w-48 lg:w-64 min-w-0">
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
@@ -348,17 +348,25 @@ export function AppShell({ children }: AppShellProps) {
             </button>
           </div>
 
-          <div className="flex items-center gap-1 shrink-0">
-            <div className="relative">
+          <div className="flex items-center gap-1 min-w-0">
+            <div className="relative min-w-0">
               <button
                 onClick={() => setAvatarOpen(!avatarOpen)}
-                className="hidden md:flex items-center gap-2 px-2 py-1.5 hover:bg-white/5 transition-colors"
+                className="hidden md:flex items-center gap-2 px-2 py-1.5 hover:bg-white/5 transition-colors min-w-0 max-w-full"
+                title={profile?.name ?? 'User'}
+                aria-label={profile?.name ?? 'User'}
               >
-                <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center text-xs font-semibold">
+                <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center text-xs font-semibold shrink-0">
                   {profile?.name?.charAt(0)?.toUpperCase() ?? 'U'}
                 </div>
-                <span className="text-sm tracking-tight text-white/80 max-w-[120px] truncate">{profile?.name ?? 'User'}</span>
-                <ChevronDown size={13} className="text-white/45" />
+                <span
+                  data-shell-switcher-name
+                  className="text-sm tracking-tight text-white/80 min-w-0 truncate"
+                  title={profile?.name ?? 'User'}
+                >
+                  {profile?.name ?? 'User'}
+                </span>
+                <ChevronDown size={13} className="text-white/45 shrink-0" />
               </button>
 
               {avatarOpen && (
