@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { resolvePortalAdmin } from "./portalAdmin.ts";
 import {
   clientBelongsToPortal,
@@ -112,7 +112,7 @@ function costTypeFromLine(li: { cost_model_id?: string | null; charge_type?: str
   return "materials";
 }
 
-type PortalAdmin = ReturnType<typeof createClient>;
+type PortalAdmin = SupabaseClient<any>;
 
 type AcceptQuoteRow = {
   id: string;
@@ -157,6 +157,7 @@ async function ensureJobForAcceptedQuote(
       .from("clients")
       .select("address")
       .eq("id", quote.client_id)
+      .eq("company_id", quote.company_id)
       .maybeSingle();
     clientAddress = client?.address ?? null;
   }
@@ -273,7 +274,7 @@ export async function handleClientPortalRequest(req: Request) {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const admin = resolvePortalAdmin(() => createClient(supabaseUrl, serviceKey));
+    const admin = resolvePortalAdmin(() => createClient(supabaseUrl, serviceKey) as PortalAdmin);
 
     // 1) Per-report share token
     const { data: share } = await admin
@@ -300,16 +301,15 @@ export async function handleClientPortalRequest(req: Request) {
         .eq("id", share.inspection_id)
         .maybeSingle();
 
-      const { data: inspectorProfile } = inspection?.inspector_id
-        ? await admin
+      if (inspection?.inspector_id) {
+        const { data: inspectorProfile } = await admin
           .from("profiles")
           .select("id, company_id")
           .eq("id", inspection.inspector_id)
-          .maybeSingle()
-        : { data: null };
-
-      if (!inspectorCompanyMatches(inspectorProfile, share.company_id)) {
-        return json({ error: "Invalid link" }, 403);
+          .maybeSingle();
+        if (!inspectorCompanyMatches(inspectorProfile, share.company_id)) {
+          return json({ error: "Invalid link" }, 403);
+        }
       }
 
       const { data: report } = await admin
@@ -318,6 +318,10 @@ export async function handleClientPortalRequest(req: Request) {
         .eq("inspection_id", share.inspection_id)
         .eq("company_id", share.company_id)
         .maybeSingle();
+
+      if (!inspection?.inspector_id && !report) {
+        return json({ error: "Invalid link" }, 403);
+      }
 
       const { data: company } = await admin
         .from("companies")
@@ -383,6 +387,17 @@ export async function handleClientPortalRequest(req: Request) {
       .update({ last_accessed_at: new Date().toISOString() })
       .eq("id", portal.id);
 
+    const { data: client } = await admin
+      .from("clients")
+      .select("id, name, email, phone, address, company_id")
+      .eq("id", portal.client_id)
+      .eq("company_id", portal.company_id)
+      .maybeSingle();
+
+    if (!clientBelongsToPortal(client, portal.company_id)) {
+      return json({ error: "Invalid link" }, 403);
+    }
+
     if (isAccept) {
       if (!acceptQuoteId) return json({ error: "quoteId required" }, 400);
 
@@ -428,17 +443,6 @@ export async function handleClientPortalRequest(req: Request) {
         quoteId: quote.id,
         jobId: ensured.jobId,
       });
-    }
-
-    const { data: client } = await admin
-      .from("clients")
-      .select("id, name, email, phone, address, company_id")
-      .eq("id", portal.client_id)
-      .eq("company_id", portal.company_id)
-      .maybeSingle();
-
-    if (!clientBelongsToPortal(client, portal.company_id)) {
-      return json({ error: "Invalid link" }, 403);
     }
 
     const { data: company } = await admin
@@ -590,5 +594,8 @@ export async function handleClientPortalRequest(req: Request) {
 }
 
 if (import.meta.main) {
-  Deno.serve((req) => handleClientPortalRequest(req));
+  const handler = (req: Request) => handleClientPortalRequest(req);
+  const raw = Deno.env.get("CLIENT_PORTAL_PORT");
+  if (raw) Deno.serve({ port: Number(raw) }, handler);
+  else Deno.serve(handler);
 }

@@ -1,15 +1,31 @@
 const INDEX = new URL("./index.ts", import.meta.url);
-const TEST = new URL("./tenancy_test.ts", import.meta.url);
+const TENANCY = new URL("./portalTenancy.ts", import.meta.url);
+const TEST_FILES = [
+  new URL("./probe_386_test.ts", import.meta.url).pathname,
+  new URL("./tenancy_test.ts", import.meta.url).pathname,
+];
 
 type Mutant = {
   name: string;
-  find: string;
-  replace: string;
+  file: "index.ts" | "portalTenancy.ts";
+  find?: string;
+  replace?: string;
+  edits?: Array<{ find: string; replace: string }>;
+  expected?: "equivalent";
 };
+
+function mutantEdits(mutant: Mutant): Array<{ find: string; replace: string }> {
+  if (mutant.edits) return mutant.edits;
+  if (mutant.find != null && mutant.replace != null) {
+    return [{ find: mutant.find, replace: mutant.replace }];
+  }
+  return [];
+}
 
 const MUTANTS: Mutant[] = [
   {
-    name: "clients.eq company_id",
+    name: "L1 clients.eq company_id",
+    file: "index.ts",
     find: `.select("id, name, email, phone, address, company_id")
       .eq("id", portal.client_id)
       .eq("company_id", portal.company_id)`,
@@ -17,7 +33,8 @@ const MUTANTS: Mutant[] = [
       .eq("id", portal.client_id)`,
   },
   {
-    name: "quotes.eq company_id",
+    name: "L2 quotes.eq company_id",
+    file: "index.ts",
     find: `.select("id, quote_number, status, job_id, total, validity_date, updated_at")
           .eq("client_id", portal.client_id)
           .eq("company_id", portal.company_id)`,
@@ -25,7 +42,8 @@ const MUTANTS: Mutant[] = [
           .eq("client_id", portal.client_id)`,
   },
   {
-    name: "invoices.eq company_id",
+    name: "L3 invoices.eq company_id",
+    file: "index.ts",
     find: `.select("id, invoice_number, status, total, amount_paid, due_date, updated_at")
           .eq("client_id", portal.client_id)
           .eq("company_id", portal.company_id)`,
@@ -33,7 +51,8 @@ const MUTANTS: Mutant[] = [
           .eq("client_id", portal.client_id)`,
   },
   {
-    name: "jobs.eq company_id",
+    name: "L4 jobs.eq company_id",
+    file: "index.ts",
     find: `.select("id, title, status, scheduled_date, job_number, address, updated_at")
           .eq("client_id", portal.client_id)
           .eq("company_id", portal.company_id)`,
@@ -41,19 +60,22 @@ const MUTANTS: Mutant[] = [
           .eq("client_id", portal.client_id)`,
   },
   {
-    name: "portal reports.eq company_id",
+    name: "L5 portal reports.eq company_id",
+    file: "index.ts",
     find: `.in("inspection_id", inspectionIds)
         .eq("company_id", portal.company_id)`,
     replace: `.in("inspection_id", inspectionIds)`,
   },
   {
-    name: "share reports.eq company_id",
+    name: "L6 share reports.eq company_id",
+    file: "index.ts",
     find: `.eq("inspection_id", share.inspection_id)
         .eq("company_id", share.company_id)`,
     replace: `.eq("inspection_id", share.inspection_id)`,
   },
   {
-    name: "client 403",
+    name: "L7 client 403",
+    file: "index.ts",
     find: `    if (!clientBelongsToPortal(client, portal.company_id)) {
       return json({ error: "Invalid link" }, 403);
     }
@@ -62,7 +84,8 @@ const MUTANTS: Mutant[] = [
     replace: "",
   },
   {
-    name: "portal inspector to company",
+    name: "L8 portal inspector to company",
+    file: "index.ts",
     find: `    const scopedInspections = inspectionsForTokenCompany(
       inspections ?? [],
       inspectorProfiles ?? [],
@@ -71,23 +94,336 @@ const MUTANTS: Mutant[] = [
     replace: `    const scopedInspections = inspections ?? [];`,
   },
   {
-    name: "share inspector to company",
-    find: `      if (!inspectorCompanyMatches(inspectorProfile, share.company_id)) {
-        return json({ error: "Invalid link" }, 403);
-      }
-
+    name: "L9 share inspector to company",
+    file: "index.ts",
+    find: `        if (!inspectorCompanyMatches(inspectorProfile, share.company_id)) {
+          return json({ error: "Invalid link" }, 403);
+        }
 `,
     replace: "",
   },
   {
-    name: "signed-URL ordering",
-    find: `      if (!inspectorCompanyMatches(inspectorProfile, share.company_id)) {
+    name: "L10 signed-URL ordering",
+    file: "index.ts",
+    find: `        if (!inspectorCompanyMatches(inspectorProfile, share.company_id)) {
+          return json({ error: "Invalid link" }, 403);
+        }`,
+    replace: `        await admin.storage.from("reports").createSignedUrl("b-secret.pdf", 60 * 60);
+        if (!inspectorCompanyMatches(inspectorProfile, share.company_id)) {
+          return json({ error: "Invalid link" }, 403);
+        }`,
+  },
+  {
+    name: "O1 inspectionIds from unscoped inspections",
+    file: "index.ts",
+    find: `    const inspectionIds = scopedInspections.map((i) => i.id);`,
+    replace: `    const inspectionIds = (inspections ?? []).map((i) => i.id);`,
+    expected: "equivalent",
+  },
+  {
+    name: "O2 reportCards over unscoped inspections",
+    file: "index.ts",
+    find: `      scopedInspections.map(async (insp) => {`,
+    replace: `      (inspections ?? []).map(async (insp) => {`,
+    expected: "equivalent",
+  },
+  {
+    name: "O3 share check vs profile's own company",
+    file: "index.ts",
+    find: `inspectorCompanyMatches(inspectorProfile, share.company_id)`,
+    replace: `inspectorCompanyMatches(inspectorProfile, inspectorProfile?.company_id ?? "")`,
+  },
+  {
+    name: "O4 client check vs client's own company + client eq dropped",
+    file: "index.ts",
+    edits: [
+      {
+        find: `.eq("id", portal.client_id)
+      .eq("company_id", portal.company_id)
+      .maybeSingle();`,
+        replace: `.eq("id", portal.client_id)
+      .maybeSingle();`,
+      },
+      {
+        find: `clientBelongsToPortal(client, portal.company_id)`,
+        replace: `clientBelongsToPortal(client, client?.company_id ?? "")`,
+      },
+    ],
+  },
+  {
+    name: "O5 portal 403 moved after first B read (after Promise.all loads)",
+    file: "index.ts",
+    edits: [
+      {
+        find: `    if (!clientBelongsToPortal(client, portal.company_id)) {
+      return json({ error: "Invalid link" }, 403);
+    }
+
+`,
+        replace: "",
+      },
+      {
+        find: `          .limit(50),
+      ]);
+
+    const inspectorIds`,
+        replace: `          .limit(50),
+      ]);
+
+    if (!clientBelongsToPortal(client, portal.company_id)) {
+      return json({ error: "Invalid link" }, 403);
+    }
+
+    const inspectorIds`,
+      },
+    ],
+  },
+  {
+    name: "O6 share 403 moved after report+company load (before signed URL)",
+    file: "index.ts",
+    find: `        if (!inspectorCompanyMatches(inspectorProfile, share.company_id)) {
+          return json({ error: "Invalid link" }, 403);
+        }
+      }
+
+      const { data: report } = await admin
+        .from("reports")
+        .select("id, report_number, pdf_storage_path, created_at")
+        .eq("inspection_id", share.inspection_id)
+        .eq("company_id", share.company_id)
+        .maybeSingle();
+
+      if (!inspection?.inspector_id && !report) {
         return json({ error: "Invalid link" }, 403);
-      }`,
-    replace: `      await admin.storage.from("reports").createSignedUrl("b-secret.pdf", 60 * 60);
-      if (!inspectorCompanyMatches(inspectorProfile, share.company_id)) {
+      }
+
+      const { data: company } = await admin
+        .from("companies")
+        .select("id, name, logo_url, phone, email, website")
+        .eq("id", share.company_id)
+        .maybeSingle();`,
+    replace: `      }
+
+      const { data: report } = await admin
+        .from("reports")
+        .select("id, report_number, pdf_storage_path, created_at")
+        .eq("inspection_id", share.inspection_id)
+        .eq("company_id", share.company_id)
+        .maybeSingle();
+
+      if (!inspection?.inspector_id && !report) {
         return json({ error: "Invalid link" }, 403);
+      }
+
+      const { data: company } = await admin
+        .from("companies")
+        .select("id, name, logo_url, phone, email, website")
+        .eq("id", share.company_id)
+        .maybeSingle();
+
+        if (!inspectorCompanyMatches(inspectorProfile, share.company_id)) {
+          return json({ error: "Invalid link" }, 403);
+        }`,
+  },
+  {
+    name: "O7 share: real report load + createSignedUrl before the check",
+    file: "index.ts",
+    find: `        if (!inspectorCompanyMatches(inspectorProfile, share.company_id)) {
+          return json({ error: "Invalid link" }, 403);
+        }
+      }
+
+      const { data: report } = await admin
+        .from("reports")
+        .select("id, report_number, pdf_storage_path, created_at")
+        .eq("inspection_id", share.inspection_id)
+        .eq("company_id", share.company_id)
+        .maybeSingle();
+
+      if (!inspection?.inspector_id && !report) {
+        return json({ error: "Invalid link" }, 403);
+      }
+
+      const { data: company } = await admin
+        .from("companies")
+        .select("id, name, logo_url, phone, email, website")
+        .eq("id", share.company_id)
+        .maybeSingle();
+
+      let pdfUrl: string | null = null;
+      if (report?.pdf_storage_path) {
+        const { data: signed } = await admin.storage
+          .from("reports")
+          .createSignedUrl(report.pdf_storage_path, 60 * 60);
+        pdfUrl = signed?.signedUrl ?? null;
       }`,
+    replace: `      }
+
+      const { data: report } = await admin
+        .from("reports")
+        .select("id, report_number, pdf_storage_path, created_at")
+        .eq("inspection_id", share.inspection_id)
+        .eq("company_id", share.company_id)
+        .maybeSingle();
+
+      if (!inspection?.inspector_id && !report) {
+        return json({ error: "Invalid link" }, 403);
+      }
+
+      const { data: company } = await admin
+        .from("companies")
+        .select("id, name, logo_url, phone, email, website")
+        .eq("id", share.company_id)
+        .maybeSingle();
+
+      let pdfUrl: string | null = null;
+      if (report?.pdf_storage_path) {
+        const { data: signed } = await admin.storage
+          .from("reports")
+          .createSignedUrl(report.pdf_storage_path, 60 * 60);
+        pdfUrl = signed?.signedUrl ?? null;
+      }
+
+        if (!inspectorCompanyMatches(inspectorProfile, share.company_id)) {
+          return json({ error: "Invalid link" }, 403);
+        }`,
+  },
+  {
+    name: "O8 share: signed URL before check AND share reports unscoped",
+    file: "index.ts",
+    find: `        if (!inspectorCompanyMatches(inspectorProfile, share.company_id)) {
+          return json({ error: "Invalid link" }, 403);
+        }
+      }
+
+      const { data: report } = await admin
+        .from("reports")
+        .select("id, report_number, pdf_storage_path, created_at")
+        .eq("inspection_id", share.inspection_id)
+        .eq("company_id", share.company_id)
+        .maybeSingle();
+
+      if (!inspection?.inspector_id && !report) {
+        return json({ error: "Invalid link" }, 403);
+      }
+
+      const { data: company } = await admin
+        .from("companies")
+        .select("id, name, logo_url, phone, email, website")
+        .eq("id", share.company_id)
+        .maybeSingle();
+
+      let pdfUrl: string | null = null;
+      if (report?.pdf_storage_path) {
+        const { data: signed } = await admin.storage
+          .from("reports")
+          .createSignedUrl(report.pdf_storage_path, 60 * 60);
+        pdfUrl = signed?.signedUrl ?? null;
+      }`,
+    replace: `      }
+
+      const { data: report } = await admin
+        .from("reports")
+        .select("id, report_number, pdf_storage_path, created_at")
+        .eq("inspection_id", share.inspection_id)
+        .maybeSingle();
+
+      if (!inspection?.inspector_id && !report) {
+        return json({ error: "Invalid link" }, 403);
+      }
+
+      const { data: company } = await admin
+        .from("companies")
+        .select("id, name, logo_url, phone, email, website")
+        .eq("id", share.company_id)
+        .maybeSingle();
+
+      let pdfUrl: string | null = null;
+      if (report?.pdf_storage_path) {
+        const { data: signed } = await admin.storage
+          .from("reports")
+          .createSignedUrl(report.pdf_storage_path, 60 * 60);
+        pdfUrl = signed?.signedUrl ?? null;
+      }
+
+        if (!inspectorCompanyMatches(inspectorProfile, share.company_id)) {
+          return json({ error: "Invalid link" }, 403);
+        }`,
+  },
+  {
+    name: "O9 accept quote select drops company_id eq",
+    file: "index.ts",
+    find: `        .eq("id", acceptQuoteId)
+        .eq("client_id", portal.client_id)
+        .eq("company_id", portal.company_id)`,
+    replace: `        .eq("id", acceptQuoteId)
+        .eq("client_id", portal.client_id)`,
+  },
+  {
+    name: "O10 accept quote update drops company_id eq",
+    file: "index.ts",
+    find: `          .eq("client_id", portal.client_id)
+          .eq("company_id", portal.company_id)
+          .eq("status", "sent");`,
+    replace: `          .eq("client_id", portal.client_id)
+          .eq("status", "sent");`,
+    expected: "equivalent",
+  },
+  {
+    name: "O11 accept quote select drops client_id and company_id",
+    file: "index.ts",
+    find: `        .eq("id", acceptQuoteId)
+        .eq("client_id", portal.client_id)
+        .eq("company_id", portal.company_id)`,
+    replace: `        .eq("id", acceptQuoteId)`,
+  },
+  {
+    name: "O12 invert portal reports-list company filter (neq)",
+    file: "index.ts",
+    find: `.in("inspection_id", inspectionIds)
+        .eq("company_id", portal.company_id)`,
+    replace: `.in("inspection_id", inspectionIds)
+        .neq("company_id", portal.company_id)`,
+  },
+  {
+    name: "O13 invert inspectionsForTokenCompany comparison",
+    file: "portalTenancy.ts",
+    find: `return companyByInspector.get(inspection.inspector_id) === tokenCompanyId;`,
+    replace: `return companyByInspector.get(inspection.inspector_id) !== tokenCompanyId;`,
+  },
+  {
+    name: "O14 portal token expiry check removed",
+    file: "index.ts",
+    find: `    if (portal.expires_at && new Date(portal.expires_at).getTime() < Date.now()) {
+      return json({ error: "Link expired" }, 403);
+    }`,
+    replace: "",
+  },
+  {
+    name: "O15 share token expiry check removed",
+    file: "index.ts",
+    find: `      if (share.expires_at && new Date(share.expires_at).getTime() < Date.now()) {
+        return json({ error: "Link expired" }, 403);
+      }`,
+    replace: "",
+  },
+  {
+    name: "O16 portal revoked check removed",
+    file: "index.ts",
+    find: `    if (portal.revoked) return json({ error: "Link revoked" }, 403);`,
+    replace: "",
+  },
+  {
+    name: "O17 inspectorCompanyMatches fail-open on missing profile",
+    file: "portalTenancy.ts",
+    find: `  return Boolean(profile && profile.company_id === tokenCompanyId);`,
+    replace: `  return !profile || profile.company_id === tokenCompanyId;`,
+  },
+  {
+    name: "O18 share revoked check removed",
+    file: "index.ts",
+    find: `      if (share.revoked) return json({ error: "Link revoked" }, 403);`,
+    replace: "",
   },
 ];
 
@@ -98,7 +434,7 @@ function stripAnsi(text: string): string {
 function parseFailures(output: string): Array<{ name: string; loc: string }> {
   const plain = stripAnsi(output);
   const rows: Array<{ name: string; loc: string }> = [];
-  const re = /^(.*) => ((?:\.\.?\/|file:\/\/)?\S*tenancy_test\.ts:\d+:\d+)$/gm;
+  const re = /^(.*) => ((?:\.\.?\/|file:\/\/)?\S*\/(?:tenancy_test|probe_386_test)\.ts:\d+:\d+)$/gm;
   let match: RegExpExecArray | null;
   while ((match = re.exec(plain)) !== null) {
     const name = match[1].trim();
@@ -114,12 +450,11 @@ async function runTests(): Promise<{ ok: boolean; output: string }> {
   const cmd = new Deno.Command("deno", {
     args: [
       "test",
-      "--no-check",
       "--node-modules-dir=auto",
       "--allow-import",
       "--allow-env",
       "--allow-net",
-      TEST.pathname,
+      ...TEST_FILES,
     ],
     cwd: new URL("../../../", import.meta.url).pathname,
     stdout: "piped",
@@ -130,39 +465,57 @@ async function runTests(): Promise<{ ok: boolean; output: string }> {
   return { ok: proc.success, output };
 }
 
-const original = await Deno.readTextFile(INDEX);
+const originals: Record<string, string> = {
+  "index.ts": await Deno.readTextFile(INDEX),
+  "portalTenancy.ts": await Deno.readTextFile(TENANCY),
+};
+const pathFor = (file: Mutant["file"]) => file === "index.ts" ? INDEX : TENANCY;
+
 const lines: string[] = [
-  "| Mutant | Applied | Killed by |",
-  "| --- | --- | --- |",
+  "| Mutant | Applied | Verdict | Killed by |",
+  "| --- | --- | --- | --- |",
 ];
 
 try {
   for (const mutant of MUTANTS) {
-    if (!original.includes(mutant.find)) {
-      lines.push(`| ${mutant.name} | NO find string | SURVIVED |`);
+    const original = originals[mutant.file];
+    const edits = mutantEdits(mutant);
+    if (edits.length === 0) {
+      lines.push(`| ${mutant.name} | NO edits | SURVIVED | - |`);
       continue;
     }
-    const mutated = original.replace(mutant.find, mutant.replace);
+    if (edits.some((edit) => !original.includes(edit.find))) {
+      lines.push(`| ${mutant.name} | NO find string | SURVIVED | - |`);
+      continue;
+    }
+    let mutated = original;
+    for (const edit of edits) mutated = mutated.replace(edit.find, edit.replace);
     if (mutated === original) {
-      lines.push(`| ${mutant.name} | NO change | SURVIVED |`);
+      lines.push(`| ${mutant.name} | NO change | SURVIVED | - |`);
       continue;
     }
-    await Deno.writeTextFile(INDEX, mutated);
+    await Deno.writeTextFile(pathFor(mutant.file), mutated);
     const result = await runTests();
-    await Deno.writeTextFile(INDEX, original);
+    await Deno.writeTextFile(pathFor(mutant.file), original);
     if (result.ok) {
-      lines.push(`| ${mutant.name} | yes | SURVIVED |`);
+      const verdict = mutant.expected === "equivalent" ? "SURVIVED (equivalent)" : "SURVIVED";
+      lines.push(`| ${mutant.name} | yes | ${verdict} | - |`);
       continue;
     }
     const failures = parseFailures(result.output);
     const first = failures[0];
+    const typeCheck = /Type checking failed/.test(stripAnsi(result.output));
     const killed = first
       ? `${first.name} (${first.loc})`
+      : typeCheck
+      ? "deno type-check failed"
       : "FAILED but parse missed file:line";
-    lines.push(`| ${mutant.name} | yes | ${killed} |`);
+    const verdict = mutant.expected === "equivalent" ? "KILLED (expected equivalent)" : "KILLED";
+    lines.push(`| ${mutant.name} | yes | ${verdict} | ${killed} |`);
   }
 } finally {
-  await Deno.writeTextFile(INDEX, original);
+  await Deno.writeTextFile(INDEX, originals["index.ts"]);
+  await Deno.writeTextFile(TENANCY, originals["portalTenancy.ts"]);
 }
 
 console.log(lines.join("\n"));

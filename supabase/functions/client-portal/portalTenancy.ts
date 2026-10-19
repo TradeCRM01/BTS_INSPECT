@@ -13,7 +13,7 @@ export function inspectorCompanyMatches(
 }
 
 export function inspectionsForTokenCompany<
-  T extends { inspector_id?: string | null },
+  T extends { id?: string; inspector_id?: string | null },
 >(
   inspections: T[],
   profiles: Array<{ id: string; company_id?: string | null }>,
@@ -22,7 +22,8 @@ export function inspectionsForTokenCompany<
   const companyByInspector = new Map(
     profiles.map((profile) => [profile.id, profile.company_id]),
   );
-  return inspections.filter((inspection) =>
-    companyByInspector.get(inspection.inspector_id ?? "") === tokenCompanyId
-  );
+  return inspections.filter((inspection) => {
+    if (!inspection.inspector_id) return true;
+    return companyByInspector.get(inspection.inspector_id) === tokenCompanyId;
+  });
 }
