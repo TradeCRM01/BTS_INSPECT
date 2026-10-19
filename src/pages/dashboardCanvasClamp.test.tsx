@@ -4,8 +4,6 @@
  */
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -105,14 +103,6 @@ async function waitFor(fn: () => boolean, what: string) {
 }
 
 describe('dashboard canvas clamp', () => {
-  it('DashboardPage clamps display widgets to the measured canvas in view and edit', () => {
-    const page = readFileSync(resolve(process.cwd(), 'src/pages/DashboardPage.tsx'), 'utf8');
-    expect(page).toContain('clampDashboardWidgetsToCanvas(widgets ?? [], canvasW)');
-    expect(page).toContain('displayWidgets.map(w =>');
-    expect(page).toContain('sortDashboardWidgetsForView(displayWidgets)');
-    expect(page).not.toContain('{(widgets ?? []).map(w => (\n                            <FreeWidget');
-  });
-
   it('renders look Compliance inside a 910 canvas; removing the clamp fails this', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     await act(async () => {

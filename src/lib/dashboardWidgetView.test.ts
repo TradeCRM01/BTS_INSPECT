@@ -20,6 +20,23 @@ describe('dashboardWidgetView', () => {
     expect(dashboardWidgetViewTier('upcoming_jobs')).toBe('ops');
   });
 
+  it('renumbers 0..n-1 so C up, remove A, reload, B down still moves', () => {
+    const rows = ['A', 'B', 'C', 'D'].map((id, index) => ({
+      id,
+      widget_type: 'weather',
+      config: {},
+      index,
+    }));
+    const afterCUp = swapAdjacentDashboardWidgetPhoneOrder(rows, 'C', -1);
+    expect(sortDashboardWidgetsForView(afterCUp).map(w => w.id)).toEqual(['A', 'C', 'B', 'D']);
+    const withoutA = afterCUp.filter(row => row.id !== 'A');
+    expect(sortDashboardWidgetsForView(withoutA).map(w => w.id)).toEqual(['C', 'B', 'D']);
+    const afterBDown = swapAdjacentDashboardWidgetPhoneOrder(withoutA, 'B', 1);
+    expect(sortDashboardWidgetsForView(afterBDown).map(w => w.id)).toEqual(['C', 'D', 'B']);
+    expect(Object.fromEntries(afterBDown.map(row => [row.id, (row.config as { phone_order: number }).phone_order])))
+      .toEqual({ C: 0, D: 1, B: 2 });
+  });
+
   it('uses the same phone_order for view and customize after a swap', () => {
     const widgets = [
       { id: 'jobs', widget_type: 'upcoming_jobs', config: {} },

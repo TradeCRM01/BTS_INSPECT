@@ -75,7 +75,10 @@ export function sortDashboardWidgetsForView<T extends DashboardWidgetRow>(widget
     .map(({ w }) => w);
 }
 
-/** Phone reorder only. Never copies grid_x / grid_y / grid_w / grid_h. */
+/**
+ * Phone reorder only. Never copies grid_x / grid_y / grid_w / grid_h.
+ * Renumbers every card 0..n-1 so an explicit order cannot tie an implicit one.
+ */
 export function swapAdjacentDashboardWidgetPhoneOrder<T extends DashboardWidgetRow>(
   widgets: readonly T[],
   id: string,
@@ -85,15 +88,14 @@ export function swapAdjacentDashboardWidgetPhoneOrder<T extends DashboardWidgetR
   const i = ordered.findIndex(row => row.id === id);
   const j = i + direction;
   if (i < 0 || j < 0 || j >= ordered.length) return [...widgets];
-  const a = ordered[i];
-  const b = ordered[j];
-  const aIndex = widgets.findIndex(row => row.id === a.id);
-  const bIndex = widgets.findIndex(row => row.id === b.id);
-  const aOrder = dashboardWidgetPhoneOrder(a, aIndex);
-  const bOrder = dashboardWidgetPhoneOrder(b, bIndex);
+  const next = [...ordered];
+  const swapped = next[i];
+  next[i] = next[j];
+  next[j] = swapped;
+  const rank = new Map(next.map((row, index) => [row.id, index]));
   return widgets.map(row => {
-    if (row.id === a.id) return withDashboardWidgetPhoneOrder(row, bOrder);
-    if (row.id === b.id) return withDashboardWidgetPhoneOrder(row, aOrder);
-    return row;
+    const order = rank.get(row.id);
+    if (order === undefined) return row;
+    return withDashboardWidgetPhoneOrder(row, order);
   });
 }

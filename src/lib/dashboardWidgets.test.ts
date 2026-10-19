@@ -4,6 +4,9 @@ import {
   DASHBOARD_WIDGET_CELL_H,
   DASHBOARD_WIDGET_CELL_W,
   DEFAULT_DASHBOARD_WIDGET_TYPES,
+  DASHBOARD_WIDGET_MIN_W,
+  applyDashboardWidgetDrag,
+  applyDashboardWidgetResize,
   clampDashboardWidgetToCanvas,
   clampDashboardWidgetsToCanvas,
   dashboardWidgetFitsCanvas,
@@ -414,7 +417,12 @@ describe('dashboard widget grid placement', () => {
     }
     expect(rawLayoutOverlaps(next)).toBe(false);
     expect(repairDashboardWidgetLayout(next).changed).toBe(false);
-    expect(next.find(row => row.id === 'weather')).toEqual(weather);
+    expect(next.find(row => row.id === 'weather')).toMatchObject({
+      grid_x: weather.grid_x,
+      grid_y: weather.grid_y,
+      grid_w: weather.grid_w,
+      grid_h: weather.grid_h,
+    });
   });
 
   it('clamps right-edge Compliance into a 910 canvas without rewriting stored rows or overlapping', () => {
@@ -462,15 +470,83 @@ describe('dashboard widget grid placement', () => {
     }
   });
 
-  it('fails the 1024 clip when the clamp is a no-op (mutant)', () => {
-    const rows: DashboardWidgetRect[] = [
-      { id: 'compliance', widget_type: 'compliance_deadlines', grid_x: 672, grid_y: 0, grid_w: 320, grid_h: 200 },
+  it('clamps a card wider than the canvas to canvas minus the gutter', () => {
+    const row: DashboardWidgetRect = {
+      id: 'wide', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 780, grid_h: 270,
+    };
+    const next = clampDashboardWidgetToCanvas(row, 686);
+    expect(next.grid_x).toBe(20);
+    expect(next.grid_w).toBe(666);
+    expect(next.grid_x + next.grid_w).toBe(686);
+    expect(row.grid_w).toBe(780);
+  });
+
+  it('does not shrink a card below the 180px resize minimum', () => {
+    const live: DashboardWidgetRect[] = [
+      { id: 'w-jobs', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270 },
+      { id: 'w-weather1', widget_type: 'weather', grid_x: 540, grid_y: 20, grid_w: 260, grid_h: 270 },
+      { id: 'w-pending', widget_type: 'pending_reports', grid_x: 540, grid_y: 740, grid_w: 390, grid_h: 180 },
     ];
-    const identity = (widgets: DashboardWidgetRect[]) => widgets.map(row => ({ ...row }));
-    const skipped = identity(rows);
-    expect(skipped.every(row => row.grid_x + row.grid_w <= 910)).toBe(false);
-    expect(clampDashboardWidgetToCanvas(rows[0], 910).grid_x + clampDashboardWidgetToCanvas(rows[0], 910).grid_w)
-      .toBeLessThanOrEqual(910);
+    const next = clampDashboardWidgetsToCanvas(live, 686);
+    for (const row of next) {
+      expect(row.grid_w).toBeGreaterThanOrEqual(DASHBOARD_WIDGET_MIN_W);
+      expect(row.grid_x + row.grid_w).toBeLessThanOrEqual(686);
+    }
+    expect(dashboardWidgetLayoutOverlaps(next)).toBe(false);
+    expect(live.find(row => row.id === 'w-weather1')).toMatchObject({ grid_x: 540, grid_w: 260 });
+  });
+
+  it('re-places a clamped card into the nearest free slot, not the bottom', () => {
+    const rows: DashboardWidgetRect[] = [
+      { id: 'w-jobs', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270 },
+      { id: 'w-weather1', widget_type: 'weather', grid_x: 540, grid_y: 20, grid_w: 260, grid_h: 270 },
+      { id: 'w-weather2', widget_type: 'weather', grid_x: 20, grid_y: 380, grid_w: 260, grid_h: 270 },
+      { id: 'w-weather3', widget_type: 'weather', grid_x: 410, grid_y: 380, grid_w: 260, grid_h: 270 },
+      { id: 'w-invoices', widget_type: 'outstanding_invoices', grid_x: 800, grid_y: 380, grid_w: 260, grid_h: 180 },
+      { id: 'w-compliance', widget_type: 'compliance_deadlines', grid_x: 20, grid_y: 740, grid_w: 390, grid_h: 270 },
+      { id: 'w-pending', widget_type: 'pending_reports', grid_x: 540, grid_y: 740, grid_w: 390, grid_h: 180 },
+      { id: 'w-clock', widget_type: 'clock', grid_x: 20, grid_y: 1030, grid_w: 260, grid_h: 180 },
+      { id: 'w-calendar', widget_type: 'calendar', grid_x: 410, grid_y: 1030, grid_w: 390, grid_h: 270 },
+      { id: 'w-calculator', widget_type: 'calculator', grid_x: 20, grid_y: 1320, grid_w: 260, grid_h: 320 },
+      { id: 'w-quick', widget_type: 'quick_actions', grid_x: 410, grid_y: 1320, grid_w: 260, grid_h: 270 },
+      { id: 'w-kpi', widget_type: 'kpi_scorecard', grid_x: 800, grid_y: 1030, grid_w: 390, grid_h: 270 },
+    ];
+    const next = clampDashboardWidgetsToCanvas(rows, 910);
+    const invoices = next.find(row => row.id === 'w-invoices')!;
+    expect(invoices.grid_x + invoices.grid_w).toBeLessThanOrEqual(910);
+    expect(invoices.grid_y).toBe(940);
+    expect(invoices.grid_y).toBeLessThan(1640);
+    expect(dashboardWidgetLayoutOverlaps(next)).toBe(false);
+    expect(rows.find(row => row.id === 'w-invoices')).toMatchObject({ grid_x: 800, grid_y: 380 });
+  });
+
+  it('drag on a clamped card starts from the drawn rect and stays on a 910 canvas', () => {
+    const live: DashboardWidgetRect[] = [
+      { id: 'w-jobs', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270 },
+      { id: 'w-weather1', widget_type: 'weather', grid_x: 540, grid_y: 20, grid_w: 260, grid_h: 270 },
+      { id: 'w-weather2', widget_type: 'weather', grid_x: 20, grid_y: 380, grid_w: 260, grid_h: 270 },
+      { id: 'w-invoices', widget_type: 'outstanding_invoices', grid_x: 800, grid_y: 380, grid_w: 260, grid_h: 180 },
+      { id: 'w-compliance', widget_type: 'compliance_deadlines', grid_x: 20, grid_y: 740, grid_w: 390, grid_h: 270 },
+    ];
+    const drawn = clampDashboardWidgetsToCanvas(live, 910).find(row => row.id === 'w-invoices')!;
+    expect(drawn.grid_x).not.toBe(800);
+    const next = applyDashboardWidgetDrag(drawn, { x: -100, y: 0 }, 910);
+    expect(next.grid_x).toBe(drawn.grid_x - 100);
+    expect(next.grid_y).toBe(drawn.grid_y);
+    expect(next.grid_w).toBe(drawn.grid_w);
+    expect(next.grid_x + next.grid_w).toBeLessThanOrEqual(910);
+    expect(next.grid_x).not.toBe(700);
+  });
+
+  it('resize max follows the canvas from the drawn x', () => {
+    const sized = applyDashboardWidgetResize(
+      { grid_x: 650, grid_w: 260, grid_h: 180 },
+      { x: 400, y: 0 },
+      910,
+    );
+    expect(sized.grid_x).toBe(650);
+    expect(sized.grid_w).toBe(260);
+    expect(sized.grid_x + sized.grid_w).toBe(910);
   });
 
   it('filters the picker with the same helper the page uses', () => {

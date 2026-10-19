@@ -54,6 +54,8 @@ import {
 } from '../lib/dashboardHome';
 import {
   DASHBOARD_WIDGET_CANVAS_W,
+  applyDashboardWidgetDrag,
+  applyDashboardWidgetResize,
   clampDashboardWidgetsToCanvas,
   isRetiredDashboardWidgetType,
   measureDashboardCanvasWidth,
@@ -85,13 +87,14 @@ async function persistDashboardWidgetRepair(
 ) {
   const afterById = new Map(repaired.widgets.map(row => [row.id, row]));
   for (const id of repaired.droppedIds) {
-    await supabase.from('dashboard_widgets').delete().eq('id', id);
+    const { error } = await supabase.from('dashboard_widgets').delete().eq('id', id);
+    if (error) throw error;
   }
   for (const prev of before) {
     const next = afterById.get(prev.id);
     if (!next) continue;
     if (next.grid_x === prev.grid_x && next.grid_y === prev.grid_y) continue;
-    await supabase
+    const { error } = await supabase
       .from('dashboard_widgets')
       .update({
         grid_x: next.grid_x,
@@ -99,19 +102,18 @@ async function persistDashboardWidgetRepair(
         updated_at: new Date().toISOString(),
       } as never)
       .eq('id', prev.id);
+    if (error) throw error;
   }
 }
 
-const MIN_W = 180;
-const MIN_H = 120;
-const MAX_W = 800;
-const MAX_H = 700;
 const CANVAS_PAD = 16;
 
 /** Signed dashboard frame seed — home look only, not a live company. */
 const DASHBOARD_LOOK = 'dashboard';
 /** Playwright: /?look=dashboard-seed — 11-widget layout with Compliance on the right edge */
 const DASHBOARD_LOOK_SEED = 'dashboard-seed';
+/** Playwright: /?look=dashboard-repro — live 12-widget canvas with Invoices on the right edge */
+const DASHBOARD_LOOK_REPRO = 'dashboard-repro';
 /** Playwright: /?auditAuth=1&look=dashboard-jack — seven-widget money-first view grid */
 const DASHBOARD_LOOK_JACK_LAYOUT = 'dashboard-jack';
 /** Playwright: /?auditAuth=1&look=crew-s8d-dashboard-needs — Today row Needs crew */
@@ -235,6 +237,26 @@ function dashboardSeedLookWidgets(): DashboardWidget[] {
     });
   }
   return rows;
+}
+
+function dashboardReproLookWidgets(): DashboardWidget[] {
+  const blank = (id: string, widget_type: string, grid_x: number, grid_y: number, grid_w: number, grid_h: number): DashboardWidget => ({
+    id, widget_type, grid_x, grid_y, grid_w, grid_h, config: {} as Json,
+  });
+  return [
+    blank('w-jobs', 'upcoming_jobs', 20, 20, 390, 270),
+    blank('w-weather1', 'weather', 540, 20, 260, 270),
+    blank('w-weather2', 'weather', 20, 380, 260, 270),
+    blank('w-weather3', 'weather', 410, 380, 260, 270),
+    blank('w-invoices', 'outstanding_invoices', 800, 380, 260, 180),
+    blank('w-compliance', 'compliance_deadlines', 20, 740, 390, 270),
+    blank('w-pending', 'pending_reports', 540, 740, 390, 180),
+    blank('w-clock', 'clock', 20, 1030, 260, 180),
+    blank('w-calendar', 'calendar', 410, 1030, 390, 270),
+    blank('w-calculator', 'calculator', 20, 1320, 260, 320),
+    blank('w-quick', 'quick_actions', 410, 1320, 260, 270),
+    blank('w-kpi', 'kpi_scorecard', 800, 1030, 390, 270),
+  ];
 }
 
 function dashboardJackLookWidgets(): DashboardWidget[] {
@@ -403,10 +425,12 @@ export function DashboardPage() {
   const lookCrewS8dDashboard = lookParam === CREW_S8D_DASHBOARD_NEEDS;
   const lookDashboardJack = lookParam === DASHBOARD_LOOK_JACK_LAYOUT;
   const lookDashboardSeed = lookParam === DASHBOARD_LOOK_SEED;
+  const lookDashboardRepro = lookParam === DASHBOARD_LOOK_REPRO;
   const lookDashboard = lookParam === DASHBOARD_LOOK
     || lookCrewS8dDashboard
     || lookDashboardJack
-    || lookDashboardSeed;
+    || lookDashboardSeed
+    || lookDashboardRepro;
   const [editMode, setEditMode] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [addingWidget, setAddingWidget] = useState(false);
@@ -428,6 +452,7 @@ export function DashboardPage() {
     queryKey: ['dashboard-widgets'],
     queryFn: async () => {
       if (lookDashboardSeed) return repairDashboardWidgetLayout(dashboardSeedLookWidgets()).widgets;
+      if (lookDashboardRepro) return repairDashboardWidgetLayout(dashboardReproLookWidgets()).widgets;
       if (lookDashboardJack) return repairDashboardWidgetLayout(dashboardJackLookWidgets()).widgets;
       if (lookDashboard) return repairDashboardWidgetLayout(dashboardLookWidgets()).widgets;
       const mock = getAuditDashboardWidgets();
@@ -438,7 +463,8 @@ export function DashboardPage() {
         const { data, error } = await supabase
           .from('dashboard_widgets')
           .select('id, widget_type, grid_x, grid_y, grid_w, grid_h, config')
-          .order('grid_y', { ascending: true });
+          .order('grid_y', { ascending: true })
+          .order('id', { ascending: true });
         if (error) throw error;
         return (data ?? []) as DashboardWidget[];
       };
@@ -748,7 +774,11 @@ export function DashboardPage() {
     }
   }, [queryClient, widgets]);
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ DnD Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+  const displayWidgets = useMemo(
+    () => clampDashboardWidgetsToCanvas(widgets ?? [], canvasW),
+    [widgets, canvasW],
+  );
+
   const handleDragStart = (e: DragStartEvent) => {
     setActiveId(String(e.active.id));
   };
@@ -757,17 +787,24 @@ export function DashboardPage() {
     setActiveId(null);
     const { active, delta } = e;
     if (!delta.x && !delta.y) return;
-    const w = (widgets ?? []).find(x => x.id === active.id);
-    if (!w) return;
-    const newX = Math.max(0, w.grid_x + delta.x);
-    const newY = Math.max(0, w.grid_y + delta.y);
+    const shown = displayWidgets.find(x => x.id === active.id);
+    if (!shown) return;
+    const next = applyDashboardWidgetDrag(shown, delta, canvasW);
     queryClient.setQueryData<DashboardWidget[]>(['dashboard-widgets'],
-      (widgets ?? []).map(x => x.id === w.id ? { ...x, grid_x: newX, grid_y: newY } : x));
-    persistWidget(w.id, { grid_x: newX, grid_y: newY });
+      (widgets ?? []).map(x => x.id === shown.id ? { ...x, ...next } : x));
+    persistWidget(shown.id, next);
   };
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Resize via pointer events Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
-  const resizeState = useRef<{ id: string; startX: number; startY: number; startW: number; startH: number } | null>(null);
+  const resizeState = useRef<{
+    id: string;
+    startX: number;
+    startY: number;
+    startW: number;
+    startH: number;
+    grid_x: number;
+    canvasW: number;
+    last?: { grid_x: number; grid_w: number; grid_h: number };
+  } | null>(null);
 
   const startResize = (e: React.PointerEvent, widget: DashboardWidget) => {
     e.preventDefault();
@@ -778,6 +815,8 @@ export function DashboardPage() {
       startY: e.clientY,
       startW: widget.grid_w,
       startH: widget.grid_h,
+      grid_x: widget.grid_x,
+      canvasW,
     };
     window.addEventListener('pointermove', onResizeMove);
     window.addEventListener('pointerup', onResizeEnd, { once: true });
@@ -786,29 +825,22 @@ export function DashboardPage() {
   const onResizeMove = useCallback((e: PointerEvent) => {
     const rs = resizeState.current;
     if (!rs) return;
-    const dw = e.clientX - rs.startX;
-    const dh = e.clientY - rs.startY;
-    const newW = Math.max(MIN_W, Math.min(MAX_W, rs.startW + dw));
-    const newH = Math.max(MIN_H, Math.min(MAX_H, rs.startH + dh));
+    const sized = applyDashboardWidgetResize(
+      { grid_x: rs.grid_x, grid_w: rs.startW, grid_h: rs.startH },
+      { x: e.clientX - rs.startX, y: e.clientY - rs.startY },
+      rs.canvasW,
+    );
+    rs.last = sized;
     queryClient.setQueryData<DashboardWidget[]>(['dashboard-widgets'],
-      (widgets ?? []).map(x => x.id === rs.id ? { ...x, grid_w: newW, grid_h: newH } : x));
+      (widgets ?? []).map(x => x.id === rs.id ? { ...x, ...sized } : x));
   }, [queryClient, widgets]);
 
   const onResizeEnd = useCallback(() => {
     const rs = resizeState.current;
     resizeState.current = null;
     window.removeEventListener('pointermove', onResizeMove);
-    if (rs) {
-      const w = (widgets ?? []).find(x => x.id === rs.id);
-      if (w) persistWidget(rs.id, { grid_w: w.grid_w, grid_h: w.grid_h });
-    }
-  }, [widgets, persistWidget, onResizeMove]);
-
-  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Canvas height: grows to fit all widgets Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
-  const displayWidgets = useMemo(
-    () => clampDashboardWidgetsToCanvas(widgets ?? [], canvasW),
-    [widgets, canvasW],
-  );
+    if (rs?.last) persistWidget(rs.id, rs.last);
+  }, [persistWidget, onResizeMove]);
 
   const canvasHeight = useMemo(() => {
     const ws = displayWidgets;

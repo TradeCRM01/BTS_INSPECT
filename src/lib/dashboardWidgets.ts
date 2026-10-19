@@ -21,6 +21,9 @@ export type DefaultDashboardWidgetType = (typeof DEFAULT_DASHBOARD_WIDGET_TYPES)
 export const DASHBOARD_WIDGET_ORIGIN = 20;
 export const DASHBOARD_WIDGET_CANVAS_W = 1100;
 export const DASHBOARD_WIDGET_GAP = 20;
+/** Same floor as desktop resize. Shrink-in-place never goes below this. */
+export const DASHBOARD_WIDGET_MIN_W = 180;
+export const DASHBOARD_WIDGET_MIN_H = 120;
 
 export type DashboardWidgetInsert = {
   widget_type: string;
@@ -104,23 +107,27 @@ export function dashboardWidgetFitsCanvas(
   row: Pick<DashboardWidgetRect, 'grid_x' | 'grid_w'>,
   canvasW: number,
 ): boolean {
-  if (row.grid_w > canvasW) return row.grid_x === DASHBOARD_WIDGET_ORIGIN;
-  return row.grid_x + row.grid_w <= canvasW;
+  return row.grid_x >= 0 && row.grid_x + row.grid_w <= canvasW;
+}
+
+function dashboardCanvasMaxWidth(canvasW: number): number {
+  return Math.max(1, canvasW - DASHBOARD_WIDGET_ORIGIN);
 }
 
 /**
  * Render-time fit. Does not rewrite stored rows.
- * Shrink in place when the leftover strip is at least one cell; otherwise
+ * Shrink in place when the leftover strip is at least MIN_W; otherwise
  * keep the widget's width and slide it so x+w fits. Callers repair overlap.
  */
 export function clampDashboardWidgetToCanvas<T extends DashboardWidgetRect>(row: T, canvasW: number): T {
   const origin = DASHBOARD_WIDGET_ORIGIN;
+  const maxW = dashboardCanvasMaxWidth(canvasW);
   let w = Math.max(1, row.grid_w);
   let x = row.grid_x;
-  if (w > canvasW) return { ...row, grid_x: origin, grid_w: canvasW };
+  if (w > maxW) return { ...row, grid_x: origin, grid_w: maxW };
   if (x + w <= canvasW) return row;
   const remaining = canvasW - x;
-  if (x < canvasW && remaining >= DASHBOARD_WIDGET_CELL_W) {
+  if (x < canvasW && remaining >= DASHBOARD_WIDGET_MIN_W) {
     w = remaining;
   } else {
     x = Math.max(origin, canvasW - w);
@@ -128,6 +135,36 @@ export function clampDashboardWidgetToCanvas<T extends DashboardWidgetRect>(row:
   }
   if (x === row.grid_x && w === row.grid_w) return row;
   return { ...row, grid_x: x, grid_w: w };
+}
+
+/** Drag from the drawn rect. Result stays inside the measured canvas. */
+export function applyDashboardWidgetDrag(
+  shown: Pick<DashboardWidgetRect, 'grid_x' | 'grid_y' | 'grid_w'>,
+  delta: { x: number; y: number },
+  canvasW: number,
+): { grid_x: number; grid_y: number; grid_w: number } {
+  const grid_w = Math.min(shown.grid_w, dashboardCanvasMaxWidth(canvasW));
+  const maxX = Math.max(0, canvasW - grid_w);
+  return {
+    grid_x: Math.min(Math.max(0, shown.grid_x + delta.x), maxX),
+    grid_y: Math.max(0, shown.grid_y + delta.y),
+    grid_w,
+  };
+}
+
+/** Resize from the drawn rect. Width cannot run past the canvas edge. */
+export function applyDashboardWidgetResize(
+  shown: Pick<DashboardWidgetRect, 'grid_x' | 'grid_w' | 'grid_h'>,
+  delta: { x: number; y: number },
+  canvasW: number,
+): { grid_x: number; grid_w: number; grid_h: number } {
+  const fitW = Math.max(1, canvasW - shown.grid_x);
+  const minW = Math.min(DASHBOARD_WIDGET_MIN_W, fitW);
+  return {
+    grid_x: shown.grid_x,
+    grid_w: Math.max(minW, Math.min(fitW, shown.grid_w + delta.x)),
+    grid_h: Math.max(DASHBOARD_WIDGET_MIN_H, Math.min(700, shown.grid_h + delta.y)),
+  };
 }
 
 /**
@@ -172,7 +209,6 @@ export function firstFreeDashboardWidgetSlot(
 
   for (let y = DASHBOARD_WIDGET_ORIGIN; y <= lastY; y += DASHBOARD_WIDGET_CELL_H) {
     for (let x = DASHBOARD_WIDGET_ORIGIN; x <= maxX; x += DASHBOARD_WIDGET_CELL_W) {
-      if (w <= canvasW && x + w > canvasW) continue;
       const candidate: DashboardWidgetRect = {
         widget_type: '',
         grid_x: x,
@@ -187,6 +223,62 @@ export function firstFreeDashboardWidgetSlot(
   }
 
   return { grid_x: DASHBOARD_WIDGET_ORIGIN, grid_y: floor + DASHBOARD_WIDGET_GAP };
+}
+
+function slotConflicts(
+  existing: readonly DashboardWidgetRect[],
+  slot: Pick<DashboardWidgetRect, 'grid_x' | 'grid_y' | 'grid_w' | 'grid_h'>,
+): boolean {
+  const candidate: DashboardWidgetRect = { widget_type: '', ...slot };
+  return existing.some(row => dashboardWidgetRectsConflict(candidate, row));
+}
+
+/** Prefer the free slot closest to `from` (slide on the same row first). */
+export function nearestFreeDashboardWidgetSlot(
+  existing: readonly DashboardWidgetRect[],
+  size: Pick<DashboardWidgetRect, 'grid_w' | 'grid_h'>,
+  canvasW: number,
+  from: Pick<DashboardWidgetRect, 'grid_x' | 'grid_y'>,
+): { grid_x: number; grid_y: number } {
+  const w = Math.max(1, size.grid_w);
+  const h = Math.max(1, size.grid_h);
+  const origin = DASHBOARD_WIDGET_ORIGIN;
+  const maxX = Math.max(origin, canvasW - w);
+  const slideX = Math.min(Math.max(origin, from.grid_x), maxX);
+  if (!slotConflicts(existing, { grid_x: slideX, grid_y: from.grid_y, grid_w: w, grid_h: h })) {
+    return { grid_x: slideX, grid_y: from.grid_y };
+  }
+
+  const floor = existing.reduce(
+    (max, row) => Math.max(max, row.grid_y + row.grid_h),
+    origin,
+  );
+  const lastY = Math.max(floor + DASHBOARD_WIDGET_CELL_H * 16, from.grid_y + DASHBOARD_WIDGET_CELL_H * 8);
+  const xs = new Set<number>([origin, slideX, Math.min(maxX, Math.max(origin, from.grid_x))]);
+  const ys = new Set<number>([origin, from.grid_y]);
+  for (let x = origin; x <= maxX; x += DASHBOARD_WIDGET_CELL_W) xs.add(x);
+  for (let y = origin; y <= lastY; y += DASHBOARD_WIDGET_CELL_H) ys.add(y);
+  for (const row of existing) {
+    xs.add(Math.min(maxX, Math.max(origin, row.grid_x)));
+    xs.add(Math.min(maxX, Math.max(origin, row.grid_x + row.grid_w + DASHBOARD_WIDGET_GAP)));
+    ys.add(row.grid_y);
+    ys.add(row.grid_y + row.grid_h + DASHBOARD_WIDGET_GAP);
+  }
+
+  let best: { grid_x: number; grid_y: number } | null = null;
+  let bestDist = Infinity;
+  for (const y of ys) {
+    for (const x of xs) {
+      if (x + w > canvasW) continue;
+      if (slotConflicts(existing, { grid_x: x, grid_y: y, grid_w: w, grid_h: h })) continue;
+      const dist = Math.abs(x - from.grid_x) + Math.abs(y - from.grid_y);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = { grid_x: x, grid_y: y };
+      }
+    }
+  }
+  return best ?? { grid_x: origin, grid_y: floor + DASHBOARD_WIDGET_GAP };
 }
 
 export function placeAddedDashboardWidget(
@@ -233,7 +325,7 @@ export function repairDashboardWidgetLayout<T extends DashboardWidgetRect>(
       continue;
     }
     moved = true;
-    const next = { ...widget, ...firstFreeDashboardWidgetSlot(obstacles, widget, canvasW) };
+    const next = { ...widget, ...nearestFreeDashboardWidgetSlot(obstacles, widget, canvasW, widget) };
     placed.push(next);
     nextByWidget.set(widget, next);
   }
