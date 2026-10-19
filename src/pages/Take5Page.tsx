@@ -24,6 +24,7 @@ import {
 } from '../lib/take5NextAction';
 import { trimSafetySite } from '../lib/safetySite';
 import { jhaPersistStatus } from '../lib/jhaDocumentWrite';
+import { take5SaveRow } from '../lib/take5DocumentWrite';
 import { safetySignOffLine } from '../lib/safetySignOff';
 import { getAuditJhaDoc, getAuditJob, getAuditTake5, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { UnsavedChangesDialog } from '../components/unsaved/UnsavedChangesDialog';
@@ -295,6 +296,7 @@ function Take5FillPage() {
 
       const persistAs = jhaPersistStatus(status, statusKey);
       const location = trimSafetySite(jobBound ? (living.siteName || meta.location) : meta.location);
+      const id = nextClientDraftId(rowIdRef.current);
       const payload = {
         company_id: profile.company_id,
         jha_document_id: jhaId,
@@ -315,8 +317,8 @@ function Take5FillPage() {
           : null,
         updated_at: new Date().toISOString(),
       };
+      const row = take5SaveRow(id, payload);
 
-      const id = nextClientDraftId(rowIdRef.current);
       rowIdRef.current = id;
       if (insertInFlightRef.current) {
         await insertInFlightRef.current;
@@ -324,7 +326,7 @@ function Take5FillPage() {
       const pending = (async () => {
         const { data, error: upErr } = await supabase
           .from('jha_take5')
-          .upsert({ id, ...payload }, { onConflict: 'id' })
+          .upsert(row, { onConflict: 'id' })
           .select()
           .maybeSingle();
         if (upErr) throw upErr;

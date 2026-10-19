@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { jhaPersistStatus, planJhaDocumentWrite } from './jhaDocumentWrite';
+import { take5SaveRow, type Take5WritePayload } from './take5DocumentWrite';
 import { take5SignatureForSave } from './take5NextAction';
 import { trimSafetySite } from './safetySite';
 
@@ -12,6 +13,8 @@ const USER = '00000000-0000-4000-8000-0000000000bb';
 const TEMPLATE = '00000000-0000-4000-8000-0000000000cc';
 const DOC = '00000000-0000-4000-8000-0000000000dd';
 const TAKE5 = '00000000-0000-4000-8000-0000000000ee';
+const DOC_WALK = '00000000-0000-4000-8000-0000000000f0';
+const TAKE5_WALK = '00000000-0000-4000-8000-0000000000f1';
 
 function findBin(name: string): string | null {
   const look = spawnSync('sh', ['-c', `command -v ${name}`], { encoding: 'utf8' });
@@ -94,7 +97,7 @@ unix_socket_directories = '${sockDir}'
     const take5Sql = readFileSync('supabase/migrations/20260813111445_jha_p3_ecosystem.sql', 'utf8');
     runSql(companies.replace(/REFERENCES auth\.users\(id\)[^,]*/g, ''));
     runSql(tables);
-    runSql(take5Sql.split('alter table')[0]);
+    runSql(take5Sql);
     runSql(`
       ALTER TABLE jha_documents DISABLE ROW LEVEL SECURITY;
       ALTER TABLE jha_templates DISABLE ROW LEVEL SECURITY;
@@ -243,5 +246,92 @@ unix_socket_directories = '${sockDir}'
     expect(row).toContain('data:image/png;base64,take5sig');
     expect(row).toContain('Jane Spark');
     expect(row).toContain('Cupboard face');
+  });
+
+  it('first Take 5 save, second save, and a list-opened save keep one row', () => {
+    const parent = planJhaDocumentWrite({
+      persistedId: null,
+      clientDraftId: DOC_WALK,
+      templateId: TEMPLATE,
+      templateName: 'Iso',
+      schema: { meta: {} },
+      companyId: COMPANY,
+      createdBy: USER,
+      payload: {
+        meta: { siteName: 'Walk face' },
+        steps: [],
+        ppe: [],
+        sign_offs: [],
+        status: 'draft',
+        client_id: null,
+        job_id: null,
+        doc_version: 1,
+        amended_from_id: null,
+        amendment_reason: null,
+      },
+    });
+    const insertCols = ['id', 'template_id', 'template_snapshot', 'company_id', 'created_by', 'status', 'meta', 'steps', 'ppe', 'sign_offs'];
+    runSql(`INSERT INTO jha_documents (${insertCols.join(',')}) VALUES (${insertCols.map(col => sqlLiteral(parent.row[col])).join(',')})`);
+
+    const basePayload: Take5WritePayload = {
+      company_id: COMPANY,
+      jha_document_id: DOC_WALK,
+      created_by: USER,
+      status: jhaPersistStatus('draft', 'draft'),
+      meta: { location: trimSafetySite('  Board 4  '), date: '2026-10-19', time: '09:00', crewSignOns: '' },
+      stop_think: 'Isolate',
+      identify_hazards: 'Live',
+      assess_risk: 'High',
+      control_actions: 'Lock out',
+      go_no_go: 'go',
+      signed_name: 'Jane Spark',
+      signature: take5SignatureForSave({
+        canvasDataUrl: 'data:image/png;base64,take5sig',
+        existingSignature: null,
+      }),
+      signed_at: null,
+      updated_at: '2026-10-19T09:00:00.000Z',
+    };
+
+    const upsert = (row: Record<string, unknown>) => {
+      const cols = Object.keys(row);
+      const insert = `INSERT INTO jha_take5 (${cols.join(',')}) VALUES (${cols.map(col => sqlLiteral(row[col])).join(',')})`;
+      const set = cols.filter(col => col !== 'id').map(col => `${col} = EXCLUDED.${col}`).join(', ');
+      runSql(`${insert} ON CONFLICT (id) DO UPDATE SET ${set}`);
+    };
+
+    const first = take5SaveRow(TAKE5_WALK, basePayload);
+    upsert(first);
+
+    const second = take5SaveRow(TAKE5_WALK, {
+      ...basePayload,
+      meta: { ...basePayload.meta, location: trimSafetySite('  Board 4 face  ') },
+      signature: take5SignatureForSave({
+        canvasDataUrl: 'data:image/png;base64,take5sig2',
+        existingSignature: String(first.signature ?? ''),
+      }),
+      updated_at: '2026-10-19T09:01:00.000Z',
+    });
+    expect(Object.keys(second)).toEqual(Object.keys(first));
+    upsert(second);
+
+    const listed = take5SaveRow(TAKE5_WALK, {
+      ...basePayload,
+      meta: { ...basePayload.meta, location: 'From list' },
+      signature: take5SignatureForSave({
+        canvasDataUrl: null,
+        existingSignature: String(second.signature ?? ''),
+      }),
+      updated_at: '2026-10-19T09:02:00.000Z',
+    });
+    expect(Object.keys(listed)).toEqual(Object.keys(first));
+    upsert(listed);
+
+    const count = runSql(`SELECT count(*) FROM jha_take5 WHERE id = '${TAKE5_WALK}'`);
+    expect(count).toMatch(/\b1\b/);
+    const saved = runSql(`SELECT signature, signed_name, meta->>'location' AS location FROM jha_take5 WHERE id = '${TAKE5_WALK}'`);
+    expect(saved).toContain('From list');
+    expect(saved).toContain('Jane Spark');
+    expect(saved).toContain('data:image/png;base64,take5sig2');
   });
 });
