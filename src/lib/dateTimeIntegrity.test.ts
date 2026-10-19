@@ -14,6 +14,7 @@ import {
   REVERSED_TIME_ENTRY_MESSAGE,
   TIME_ENTRY_OVERLAP_MESSAGE,
   TIME_ENTRY_OVERNIGHT_CAP_MESSAGE,
+  TIME_ENTRY_ZERO_LENGTH_MESSAGE,
   TIME_NEEDS_DATE_MESSAGE,
   addLocalDate,
   clockOffSaveError,
@@ -196,7 +197,26 @@ describe('time entry overlap', () => {
     expect(clockOffSaveError({
       startIso: '2026-10-21T07:45:10+10:00',
       endIso: '2026-10-21T07:45:40+10:00',
-    })).toBe(END_BEFORE_START_MESSAGE);
+    })).toBe(TIME_ENTRY_ZERO_LENGTH_MESSAGE);
+    expect(clockOffSaveError({
+      startIso: '2026-10-21T07:45:50+10:00',
+      endIso: '2026-10-21T07:46:20+10:00',
+    })).toBe(TIME_ENTRY_ZERO_LENGTH_MESSAGE);
+    expect(clockOffSaveError({
+      startIso: '2026-10-21T07:45:59.000+10:00',
+      endIso: '2026-10-21T07:46:58.900+10:00',
+    })).toBe(TIME_ENTRY_ZERO_LENGTH_MESSAGE);
+    expect(clockOffSaveError({
+      startIso: '2026-10-21T07:45:30+10:00',
+      endIso: '2026-10-21T07:46:30+10:00',
+    })).toBeNull();
+  });
+
+  it('allows a clock-off 24 hours later at the same HH:mm', () => {
+    expect(clockOffSaveError({
+      startIso: '2026-10-19T07:45:00+10:00',
+      endIso: '2026-10-20T07:45:00+10:00',
+    })).toBeNull();
   });
 
   it('blocks clock-off that overlaps another closed entry', () => {

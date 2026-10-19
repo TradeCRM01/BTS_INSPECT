@@ -1,10 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const calls: unknown[] = [];
-const sheets = [{ id: 'ts-y', date: '2026-10-20', employee_id: 'emp-1' }];
+const sheets = [
+  { id: 'ts-y', date: '2026-10-20', employee_id: 'emp-1' },
+  { id: 'ts-old', date: '2026-10-17', employee_id: 'emp-1' },
+  { id: 'ts-other', date: '2026-10-17', employee_id: 'emp-2' },
+];
 const entries = [
   { id: 'e-over', timesheet_id: 'ts-y', start_time: '2026-10-20T23:00:00+10:00', end_time: '2026-10-21T01:00:00+10:00' },
   { id: 'e-open', timesheet_id: 'ts-y', start_time: '2026-10-20T22:00:00+10:00', end_time: null },
+  { id: 'e-old-open', timesheet_id: 'ts-old', start_time: '2026-10-17T06:00:00+10:00', end_time: null },
+  { id: 'e-other-open', timesheet_id: 'ts-other', start_time: '2026-10-17T06:00:00+10:00', end_time: null },
 ];
 
 vi.mock('./supabase', () => ({
@@ -82,7 +88,8 @@ describe('overlap previous day and open clock-ons', () => {
 
   it('loads yesterday\'s overnight wrap and open clock-on for today\'s save', async () => {
     const sib = await loadPersonTimeEntries({ employeeId: 'emp-1', date: '2026-10-21' });
-    expect(sib.map(r => r.id).sort()).toEqual(['e-open', 'e-over']);
+    expect(sib.map(r => r.id).sort()).toEqual(['e-old-open', 'e-open', 'e-over']);
+    expect(sib.map(r => r.id)).not.toContain('e-other-open');
     expect(timeEntrySaveError({
       date: '2026-10-21',
       start: '00:30',

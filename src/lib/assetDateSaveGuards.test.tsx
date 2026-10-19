@@ -209,6 +209,20 @@ describe('AssetForm never writes null on a bad date', () => {
   });
 });
 
+describe('AssetForm name required', () => {
+  it('does not write when the name is blank', async () => {
+    const onSaved = vi.fn();
+    await act(async () => {
+      root.render(providers(<AssetForm asset={null} onClose={() => {}} onSaved={onSaved} />));
+    });
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { clickSave(); });
+    expect(writes).toEqual([]);
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain('Name is required.');
+  });
+});
+
 describe('Assets list display', () => {
   it('renders 212026 warranty as an em dash and does not crash', async () => {
     await act(async () => {
@@ -220,6 +234,9 @@ describe('Assets list display', () => {
       }
     });
     expect(document.body.textContent).toContain('Bad year asset');
+    const list = document.querySelector<HTMLButtonElement>('button[title="List view"]');
+    if (!list) throw new Error('missing list view toggle');
+    await act(async () => { list.click(); });
     expect(document.body.textContent).not.toContain('212026');
     expect(document.body.textContent).toContain(SAFE_DATE_FALLBACK);
   });

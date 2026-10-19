@@ -11,7 +11,7 @@ import { ExpenseEditorModal } from '../pages/ExpensesPage';
 import { InvoiceEditorModal, InvoiceRecordPaymentSheet } from '../pages/InvoicesPage';
 import { QuoteEditorModal } from '../pages/QuotesPage';
 import { ApplyEmployeeCostModelModal, ApplyExpenseTemplateModal } from '../components/expenses/ExpenseModelsModals';
-import { DATE_INVALID_MESSAGE } from './dateTimeIntegrity';
+import { DATE_INVALID_MESSAGE, DATE_REQUIRED_MESSAGE } from './dateTimeIntegrity';
 
 const { writes, uploads, chain } = vi.hoisted(() => {
   const writes: unknown[] = [];
@@ -144,6 +144,18 @@ function clickSave() {
   });
 }
 
+function clickNamed(label: string) {
+  const btn = [...document.querySelectorAll('button')].find(b => (b.textContent ?? '').includes(label));
+  if (!btn) throw new Error(`missing ${label}`);
+  btn.click();
+}
+
+async function flushActs() {
+  await act(async () => {
+    for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  });
+}
+
 const acceptedQuote = {
   id: 'q-1',
   company_id: 'co-1',
@@ -163,7 +175,7 @@ const acceptedQuote = {
   inclusions: [] as string[],
   exclusions: [] as string[],
   scheduled_date: '2026-10-21',
-  assigned_team: [] as string[],
+  assigned_team: ['emp-1'] as string[],
   created_by: 'emp-1',
   created_at: '2026-10-01T00:00:00.000Z',
   updated_at: '2026-10-01T00:00:00.000Z',
@@ -238,6 +250,34 @@ describe('expense / invoice payment date wiring', () => {
     expect(document.body.textContent).toContain(DATE_INVALID_MESSAGE);
   });
 
+  it('blocks ExpenseEditorModal when the date is blank', async () => {
+    const onSaved = vi.fn();
+    await act(async () => {
+      root.render(providers(
+        <ExpenseEditorModal
+          expense={null}
+          formLookSeed={{
+            cost_class: 'cogs',
+            category: 'Materials (job)',
+            description: 'Tape',
+            amount: '10',
+            expense_date: '2026-10-19',
+          }}
+          defaultTaxRate={10}
+          onClose={() => {}}
+          onSaved={onSaved}
+          onDeleted={() => {}}
+        />,
+      ));
+    });
+    await act(async () => { await Promise.resolve(); });
+    await setNamedDate('expense-date', '');
+    await act(async () => { clickSave(); });
+    expect(writes).toEqual([]);
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(DATE_REQUIRED_MESSAGE);
+  });
+
   it('blocks model and template expense dates', async () => {
     await act(async () => {
       root.render(providers(
@@ -251,7 +291,8 @@ describe('expense / invoice payment date wiring', () => {
       expect(document.getElementById(id)?.getAttribute('data-date-field')).toBe('au');
     }
     await setNamedDate('model-expense-date', '31/02/2026');
-    await act(async () => { clickSave(); });
+    await act(async () => { clickNamed('Post employee costs'); });
+    await flushActs();
     expect(writes).toEqual([]);
     expect(document.body.textContent).toContain(DATE_INVALID_MESSAGE);
 
@@ -263,9 +304,70 @@ describe('expense / invoice payment date wiring', () => {
     });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     await setNamedDate('template-expense-date', '31/02/2026');
-    await act(async () => { clickSave(); });
+    await act(async () => { clickNamed('Post template'); });
+    await flushActs();
     expect(writes).toEqual([]);
     expect(document.body.textContent).toContain(DATE_INVALID_MESSAGE);
+  });
+
+  it('blocks an invalid cost-model expense date and does not post', async () => {
+    await act(async () => {
+      root.render(providers(
+        <ApplyEmployeeCostModelModal onClose={() => {}} onApplied={() => {}} />,
+      ));
+    });
+    await flushActs();
+    const selectAll = [...document.querySelectorAll('button')].find(btn => btn.textContent?.includes('Select all'));
+    await act(async () => { selectAll?.click(); });
+    await setNamedDate('model-expense-date', '31/02/2026');
+    await act(async () => { clickNamed('Post employee costs'); });
+    await flushActs();
+    expect(writes).toEqual([]);
+    expect(document.body.textContent).toContain(DATE_INVALID_MESSAGE);
+  });
+
+  it('blocks an invalid template expense date and does not post', async () => {
+    await act(async () => {
+      root.render(providers(
+        <ApplyExpenseTemplateModal onClose={() => {}} onApplied={() => {}} />,
+      ));
+    });
+    await flushActs();
+    await setNamedDate('template-expense-date', '31/02/2026');
+    await act(async () => { clickNamed('Post template'); });
+    await flushActs();
+    expect(writes).toEqual([]);
+    expect(document.body.textContent).toContain(DATE_INVALID_MESSAGE);
+  });
+
+  it('blocks a blank cost-model expense date', async () => {
+    await act(async () => {
+      root.render(providers(
+        <ApplyEmployeeCostModelModal onClose={() => {}} onApplied={() => {}} />,
+      ));
+    });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    const selectAll = [...document.querySelectorAll('button')].find(btn => btn.textContent?.includes('Select all'));
+    await act(async () => { selectAll?.click(); });
+    await setNamedDate('model-expense-date', '');
+    await act(async () => { clickNamed('Post employee costs'); });
+    await flushActs();
+    expect(writes).toEqual([]);
+    expect(document.body.textContent).toContain(DATE_REQUIRED_MESSAGE);
+  });
+
+  it('blocks a blank template expense date', async () => {
+    await act(async () => {
+      root.render(providers(
+        <ApplyExpenseTemplateModal onClose={() => {}} onApplied={() => {}} />,
+      ));
+    });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await setNamedDate('template-expense-date', '');
+    await act(async () => { clickNamed('Post template'); });
+    await flushActs();
+    expect(writes).toEqual([]);
+    expect(document.body.textContent).toContain(DATE_REQUIRED_MESSAGE);
   });
 
   it('blocks pay-period dates on an employee expense before upload', async () => {
@@ -369,7 +471,8 @@ describe('expense / invoice payment date wiring', () => {
     });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     await setNamedDate('quote-convert-date', '31/02/2026');
-    await act(async () => { clickSave(); });
+    const convert = [...document.querySelectorAll('button')].find(btn => (btn.textContent ?? '').trim() === 'Convert to job');
+    await act(async () => { convert?.click(); });
     expect(writes.filter(w => (w as { table?: string }).table === 'quotes' || (w as { table?: string }).table === 'jobs')).toEqual([]);
     expect(document.body.textContent).toContain(DATE_INVALID_MESSAGE);
   });
@@ -390,6 +493,18 @@ describe('expense / invoice payment date wiring', () => {
       ));
     });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    const desc = document.querySelector<HTMLInputElement>('input[placeholder="Description"]');
+    if (desc) {
+      await act(async () => { setInput(desc, 'Labour'); });
+    }
+    const qty = document.querySelector<HTMLInputElement>('input[placeholder="0"]');
+    if (qty && !qty.value) {
+      await act(async () => { setInput(qty, '1'); });
+    }
+    const price = document.querySelector<HTMLInputElement>('input[placeholder="0.00"]');
+    if (price && !price.value) {
+      await act(async () => { setInput(price, '100'); });
+    }
     await setNamedDate('invoice-due-date', '31/02/2026');
     await act(async () => { clickSave(); });
     expect(writes).toEqual([]);
