@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { ANTHROPIC_KEY_TEST_FAILED, buildAiSettingsUpsert, publicAiSettings } from "./aiSettingsPublic.ts";
+import { lookupPlatformOperator } from "../ai-console/aiConsoleAdmin.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,7 +12,9 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-async function getAdminContext(authHeader: string): Promise<{ userId: string; companyId: string } | null> {
+async function getUserContext(
+  authHeader: string,
+): Promise<{ userId: string; companyId: string; isOperator: boolean } | null> {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const token = authHeader.replace("Bearer ", "");
@@ -22,8 +25,9 @@ async function getAdminContext(authHeader: string): Promise<{ userId: string; co
       .select("role, company_id")
       .eq("id", user.id)
       .maybeSingle();
-    if (!profile || profile.role !== "admin") return null;
-    return { userId: user.id, companyId: profile.company_id };
+    if (!profile) return null;
+    const isOperator = await lookupPlatformOperator(supabase, user.id);
+    return { userId: user.id, companyId: profile.company_id, isOperator };
   } catch {
     return null;
   }
@@ -36,7 +40,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
-    const ctx = await getAdminContext(authHeader);
+    const ctx = await getUserContext(authHeader);
     if (!ctx) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 403,
@@ -59,8 +63,14 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // POST — upsert settings
+    // POST — operator-only upsert
     if (req.method === "POST") {
+      if (!ctx.isOperator) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       const body = await req.json() as {
         anthropic_api_key?: string;
         model?: string;

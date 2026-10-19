@@ -31,6 +31,13 @@ async function measure(page) {
         scrollW: el.scrollWidth,
         clientW: el.clientWidth,
       }));
+    let maxRight = 0;
+    let maxRightNoHeader = 0;
+    for (const el of document.querySelectorAll('*')) {
+      const right = el.getBoundingClientRect().right;
+      if (right > maxRight) maxRight = right;
+      if (!el.closest('.shell-header') && right > maxRightNoHeader) maxRightNoHeader = right;
+    }
     return {
       title: document.title,
       href: location.href,
@@ -39,6 +46,8 @@ async function measure(page) {
       innerWidth: window.innerWidth,
       scrollWidth: root.scrollWidth,
       overflow: root.scrollWidth > window.innerWidth,
+      maxRight,
+      maxRightNoHeader,
       clipped,
     };
   });
@@ -110,6 +119,8 @@ const table = rows.map((row) => ({
   innerWidth: row.innerWidth,
   scrollWidth: row.scrollWidth,
   overflow: row.overflow,
+  maxRight: row.maxRight,
+  maxRightNoHeader: row.maxRightNoHeader,
   heading: row.heading,
   href: row.href,
   clippedCount: row.clipped.length,

@@ -3,4 +3,4 @@
 -- Does not undo 20261019003952_ai_settings_interim_lock.
 -- Do not run on production without approval.
 
-GRANT DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.ai_settings TO authenticated, anon;
+GRANT DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.ai_settings TO authenticated, anon;

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
 import { useAuth } from '../contexts/AuthContext';
 import { StorageAnalytics } from '../components/admin/StorageAnalytics';
@@ -18,8 +17,7 @@ const MODELS = [
 type TestState = 'idle' | 'testing' | 'ok' | 'fail';
 
 export function AiSettingsPage() {
-  const { profile } = useAuth();
-  const isAdmin = profile?.role === 'admin';
+  const { isPlatformOperator } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [keySet, setKeySet] = useState(false);
@@ -38,15 +36,26 @@ export function AiSettingsPage() {
   const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isPlatformOperator) return;
     fetchAiSettings().then(data => {
       setKeySet(data.keySet ?? false);
       setModel(data.model ?? 'claude-opus-4-7');
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, [isAdmin]);
+  }, [isPlatformOperator]);
 
-  if (!isAdmin) return <Navigate to="/" replace />;
+  if (!isPlatformOperator) {
+    return (
+      <AppShell>
+        <div className="page-shell-narrow" data-ai-settings="coming-soon">
+          <h1 className="text-xl font-semibold text-[#1A1A1A] mb-1">Coming soon</h1>
+          <p className="text-sm text-[#4A5568]">
+            AI settings are not available on this workspace.
+          </p>
+        </div>
+      </AppShell>
+    );
+  }
 
   async function handleTestKey() {
     const key = newKey.trim();

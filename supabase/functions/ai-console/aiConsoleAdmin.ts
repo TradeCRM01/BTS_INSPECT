@@ -186,6 +186,18 @@ export function canUseAdminAiRoutes(isAdmin: boolean): boolean {
   return isAdmin;
 }
 
+export function canUseOperatorAiRoutes(isOperator: boolean): boolean {
+  return isOperator;
+}
+
+export const MAX_CHAT_BODY_CHARS = 100_000;
+export const MAX_CHAT_TURNS = 40;
+export const ANTHROPIC_UNAVAILABLE = "The assistant is unavailable. Try again.";
+
+export function anthropicSseChunkIsError(text: string): boolean {
+  return /\bevent:\s*error\b/i.test(text) || /"type"\s*:\s*"error"/.test(text);
+}
+
 export function inspectorIdsFromProfiles(data: unknown): string[] {
   return ((data ?? []) as Array<{ id?: string }>)
     .map((row) => String(row.id ?? "").trim())

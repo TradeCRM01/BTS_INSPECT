@@ -40,8 +40,8 @@ describe('SWEEP-AI ai_settings grants', () => {
     expect(existsSync(resolve(process.cwd(), 'supabase/rollbacks/20261019000000_088_ai_settings_lockdown.rollback.sql'))).toBe(false);
     expect(existsSync(resolve(process.cwd(), EXTRA_REVOKE))).toBe(true);
     expect(existsSync(resolve(process.cwd(), EXTRA_ROLLBACK))).toBe(true);
-    expect(src(EXTRA_REVOKE)).toContain('REVOKE DELETE, TRUNCATE, REFERENCES, TRIGGER');
-    expect(src(EXTRA_ROLLBACK)).toContain('GRANT DELETE, TRUNCATE, REFERENCES, TRIGGER');
+    expect(src(EXTRA_REVOKE)).toContain('REVOKE DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN');
+    expect(src(EXTRA_ROLLBACK)).toContain('GRANT DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN');
 
     expect(src('src/lib/aiSettingsClient.ts')).toContain('/functions/v1/ai-settings');
     expect(src('src/lib/useCompanyAiKey.ts')).toContain('fetchAiSettings');

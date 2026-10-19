@@ -1,8 +1,6 @@
 /**
  * @vitest-environment jsdom
  */
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
@@ -22,10 +20,15 @@ vi.mock('../lib/aiSettingsClient', () => ({
   postAiSettings: async () => ({ ok: true }),
 }));
 
+const auth = vi.hoisted(() => ({
+  isPlatformOperator: false,
+  role: 'admin',
+}));
+
 vi.mock('../contexts/AuthContext', () => ({
   useAuth: () => ({
-    profile: { role: 'admin', name: 'Customer Admin' },
-    isPlatformOperator: false,
+    profile: { role: auth.role, name: 'User' },
+    isPlatformOperator: auth.isPlatformOperator,
     session: null,
   }),
 }));
@@ -38,6 +41,8 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
+  auth.isPlatformOperator = false;
+  auth.role = 'admin';
 });
 
 afterEach(() => {
@@ -46,7 +51,30 @@ afterEach(() => {
 });
 
 describe('SWEEP-AI settings UI', () => {
-  it('does not show a modify toggle to a customer admin', async () => {
+  it('M45 customer admin sees Coming soon and no key entry', async () => {
+    await act(async () => {
+      root.render(
+        <MemoryRouter>
+          <AiSettingsPage />
+        </MemoryRouter>,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const text = container.textContent ?? '';
+    expect(text).toContain('Coming soon');
+    expect(text).not.toContain('Add key');
+    expect(text).not.toContain('Replace');
+    expect(text).not.toContain('sk-ant');
+    expect(text).not.toContain('last4');
+    expect(text).not.toContain('Admin Console Tools');
+    expect(container.querySelector('[data-ai-settings="coming-soon"]')).not.toBeNull();
+  });
+
+  it('operator who is not a company admin can see key entry and never last-4', async () => {
+    auth.isPlatformOperator = true;
+    auth.role = 'inspector';
     await act(async () => {
       root.render(
         <MemoryRouter>
@@ -59,24 +87,8 @@ describe('SWEEP-AI settings UI', () => {
     });
     const text = container.textContent ?? '';
     expect(text).toContain('AI Settings');
-    expect(text).toContain('The assistant can look up this company');
-    expect(text).not.toContain('Admin Console Tools');
-    expect(text).not.toContain('query and modify');
-    expect(text).not.toContain('Can modify data');
-    expect(text).not.toContain('admin_tools_enabled');
-    expect(text).not.toContain('abcd');
+    expect(text).toContain('Add key');
     expect(text).not.toContain('last4');
-    expect(container.querySelector('[data-ai-settings="1"]')).not.toBeNull();
-  });
-
-  it('starts with tools and key status off and never renders last-4', () => {
-    const page = readFileSync(resolve(process.cwd(), 'src/pages/AiSettingsPage.tsx'), 'utf8');
-    expect(page).toContain('const [keySet, setKeySet] = useState(false)');
-    expect(page).not.toContain('adminToolsEnabled');
-    expect(page).not.toContain('admin_tools_enabled');
-    expect(page).not.toContain('slice(-4)');
-    expect(page).not.toContain('maskedKey');
-    expect(page).not.toContain('last4');
-    expect(page).toContain('API key is set');
+    expect(text).not.toContain('abcd');
   });
 });

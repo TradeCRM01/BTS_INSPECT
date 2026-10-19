@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Navigate } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { Send, Plus, Trash2, MessageSquare, Bot, User, ChevronLeft, AlertCircle, HelpCircle } from 'lucide-react';
@@ -106,7 +105,7 @@ const SUGGESTIONS = [
 ];
 
 export function AiAssistantPage() {
-  const { profile } = useAuth();
+  const { profile, isPlatformOperator } = useAuth();
   const { get, del, streamChat } = useEdgeFn();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -203,7 +202,18 @@ export function AiAssistantPage() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   }, [sendMessage]);
 
-  if (profile && profile.role !== 'admin') return <Navigate to="/" replace />;
+  if (profile && !isPlatformOperator) {
+    return (
+      <AppShell>
+        <div className="page-shell-narrow" data-ai-assistant="coming-soon">
+          <h1 className="text-xl font-semibold text-[#1A1A1A] mb-1">Coming soon</h1>
+          <p className="text-sm text-[#4A5568]">
+            AI chat is not available on this workspace.
+          </p>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>

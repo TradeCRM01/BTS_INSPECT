@@ -58,12 +58,9 @@ export function isDevFieldAuditAuth(): boolean {
       || params.get('look') === 'conversation-empty'
       || params.get('look') === 'sms-settings'
       || params.get('look') === 'sms-settings-invalid'
-<<<<<<< HEAD
       || params.get('look') === 'hotfix-date-bad'
-=======
       || params.get('look') === 'ai-settings'
       || params.get('look') === 'ai-console'
->>>>>>> e2d586f (fix(ai): lock write tools to platform operators)
       || params.get('look') === 'drive-error'
       || window.location.pathname === '/__field-audit'
     ) {

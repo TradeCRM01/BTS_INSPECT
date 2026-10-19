@@ -308,7 +308,7 @@ describe('SEC-2 ai-console surface', () => {
     expect(edge).toContain('refuseToolIfUnauthorized(toolName, isOperator)');
     expect(edge).toContain('lookupPlatformOperator');
     expect(edge).toContain('acceptClientUserMessages');
-    expect(edge).toContain('canUseAdminAiRoutes(isAdmin)');
+    expect(edge).toContain('canUseOperatorAiRoutes(isOperator)');
     expect(edge).toContain('fetchCompanyDashboardSummary');
     expect(edge).toContain('Do not invent SQL access or send email');
     expect(edge).not.toContain('database tools');

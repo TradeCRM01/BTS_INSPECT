@@ -1,21 +1,14 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
-  OPERATOR_ONLY_TOOL_NAMES,
   TOOL_REFUSED_NOT_OPERATOR,
   WRITE_TOOL_NAMES,
   acceptClientUserMessages,
-  canUseAdminAiRoutes,
+  canUseOperatorAiRoutes,
   lookupPlatformOperator,
   refuseToolIfUnauthorized,
   toolsAllowedForCaller,
   type OperatorLookupClient,
 } from '../../supabase/functions/ai-console/aiConsoleAdmin.ts';
-
-function src(rel: string): string {
-  return readFileSync(resolve(process.cwd(), rel), 'utf8');
-}
 
 function operatorStub(userIds: string[]): OperatorLookupClient {
   return {
@@ -58,32 +51,9 @@ describe('SWEEP-AI operator tools', () => {
     expect(refuseToolIfUnauthorized('create_job', true)).toBe(null);
   });
 
-  it('mutant: drop the operator check and this test fails', () => {
-    const edge = src('supabase/functions/ai-console/index.ts');
-    const helper = src('supabase/functions/ai-console/aiConsoleAdmin.ts');
-    const refuseAt = edge.indexOf('refuseToolIfUnauthorized(toolName, isOperator)');
-    const createJobAt = edge.indexOf('if (toolName === "create_job")');
-    const listTablesAt = edge.indexOf('if (toolName === "list_tables")');
-    expect(refuseAt).toBeGreaterThan(-1);
-    expect(createJobAt).toBeGreaterThan(refuseAt);
-    expect(listTablesAt).toBeGreaterThan(refuseAt);
-    expect(edge).toContain('lookupPlatformOperator(supabase, user.id)');
-    expect(edge).toContain('toolsAllowedForCaller(isOperator, isAdmin)');
-    expect(helper).toContain('if (isOperatorOnlyTool(toolName) && !isOperator)');
-    expect(toolsAllowedForCaller(false, true)).not.toEqual(
-      expect.arrayContaining([...OPERATOR_ONLY_TOOL_NAMES]),
-    );
-    if (toolsAllowedForCaller(false, true).includes('create_job')) {
-      throw new Error('mutant: operator check dropped');
-    }
-  });
-
-  it('looks up platform_operators the same way requireOperator does', async () => {
+  it('looks up platform_operators by user id and rejects a non-operator', async () => {
     expect(await lookupPlatformOperator(operatorStub(['op-1']), 'op-1')).toBe(true);
     expect(await lookupPlatformOperator(operatorStub(['op-1']), 'admin-1')).toBe(false);
-    const platform = src('supabase/functions/platform-operator/index.ts');
-    expect(platform).toContain('.from("platform_operators")');
-    expect(platform).toContain('.eq("user_id", user.id)');
   });
 });
 
@@ -99,15 +69,8 @@ describe('SWEEP-AI client messages and admin routes', () => {
     expect(acceptClientUserMessages('nope')).toEqual([]);
   });
 
-  it('requires admin for help chat and actions', () => {
-    expect(canUseAdminAiRoutes(false)).toBe(false);
-    expect(canUseAdminAiRoutes(true)).toBe(true);
-    const edge = src('supabase/functions/ai-console/index.ts');
-    const actionsAt = edge.indexOf('path === "actions"');
-    const chatAt = edge.indexOf('path === "chat"');
-    const firstAdmin = edge.indexOf('canUseAdminAiRoutes(isAdmin)', actionsAt);
-    const secondAdmin = edge.indexOf('canUseAdminAiRoutes(isAdmin)', chatAt);
-    expect(firstAdmin).toBeGreaterThan(actionsAt);
-    expect(secondAdmin).toBeGreaterThan(chatAt);
+  it('requires an operator for chat', () => {
+    expect(canUseOperatorAiRoutes(false)).toBe(false);
+    expect(canUseOperatorAiRoutes(true)).toBe(true);
   });
 });

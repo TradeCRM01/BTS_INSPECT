@@ -2,8 +2,12 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   RELATED_TYPE_REQUIRED_ERROR,
+  ANTHROPIC_UNAVAILABLE,
+  MAX_CHAT_BODY_CHARS,
+  MAX_CHAT_TURNS,
   acceptClientUserMessages,
-  canUseAdminAiRoutes,
+  anthropicSseChunkIsError,
+  canUseOperatorAiRoutes,
   fetchCompanyDashboardSummary,
   inspectorIdsFromProfiles,
   lookupPlatformOperator,
@@ -14,6 +18,7 @@ import {
   type CompanyOwnedRowClient,
   type DashboardSummaryClient,
 } from "./aiConsoleAdmin.ts";
+import { DUE_DATE_INVALID_ERROR, isAcceptableDueDate } from "../_shared/safeDate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -214,7 +219,7 @@ async function getUser(authHeader: string): Promise<{
 
 // ── Tool execution ────────────────────────────────────────────────────────────
 
-async function executeTool(
+export async function executeTool(
   toolName: string,
   toolInput: Record<string, string>,
   companyId: string,
@@ -318,7 +323,10 @@ async function executeTool(
         if (foreign) return foreign;
       }
       const insert: Record<string, unknown> = { company_id: companyId, user_id: userId, title };
-      if (toolInput.due_date) insert.due_date = toolInput.due_date;
+      if (toolInput.due_date) {
+        if (!isAcceptableDueDate(String(toolInput.due_date))) return DUE_DATE_INVALID_ERROR;
+        insert.due_date = toolInput.due_date;
+      }
       if (toolInput.related_type) insert.related_type = toolInput.related_type;
       if (toolInput.related_id) insert.related_id = toolInput.related_id;
       const { data, error } = await supabase.from("agent_reminders").insert(insert).select("id").single();
@@ -335,6 +343,7 @@ async function executeTool(
       const title = String(toolInput.title ?? "").trim();
       const firstDue = String(toolInput.first_due_date ?? "").trim();
       if (!clientId || !title || !firstDue) return "Error: client_id, title, and first_due_date are required.";
+      if (!isAcceptableDueDate(firstDue)) return DUE_DATE_INVALID_ERROR;
       const foreign = await rejectIfForeignOwned(
         supabase as unknown as CompanyOwnedRowClient,
         "client",
@@ -436,7 +445,7 @@ async function streamChat(
 
     if (!anthropicRes.ok) {
       await anthropicRes.text().catch(() => "");
-      throw new Error("The assistant is unavailable. Try again.");
+      throw new Error(ANTHROPIC_UNAVAILABLE);
     }
 
     // Parse the full streamed response to detect tool calls
@@ -452,10 +461,14 @@ async function streamChat(
       const { done, value } = await reader.read();
       if (done) break;
 
-      // Stream SSE bytes through to the client
+      const text = decoder.decode(value, { stream: true });
+      if (anthropicSseChunkIsError(text)) {
+        console.error("anthropic stream error", text);
+        throw new Error(ANTHROPIC_UNAVAILABLE);
+      }
       onChunk(value);
 
-      buffer += decoder.decode(value, { stream: true });
+      buffer += text;
       const lines = buffer.split("\n");
       buffer = lines.pop() ?? "";
 
@@ -586,6 +599,18 @@ Deno.serve(async (req: Request) => {
     const isAdmin = userCtx.role === "admin";
     const isOperator = userCtx.isOperator;
 
+    if (
+      (req.method === "POST" && (!path || path === "chat"))
+      || (req.method === "GET" && path === "actions")
+    ) {
+      if (!canUseOperatorAiRoutes(isOperator)) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // Load AI settings from DB (falls back to env var for backwards compat)
     const aiSettings = await getAiSettings(userCtx.companyId);
     if (!aiSettings.apiKey) {
@@ -646,12 +671,6 @@ Deno.serve(async (req: Request) => {
 
     // ── GET /actions ──────────────────────────────────────────────────────────
     if (req.method === "GET" && path === "actions") {
-      if (!canUseAdminAiRoutes(isAdmin)) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
       const { data } = await supabase
         .from("agent_actions")
@@ -666,20 +685,25 @@ Deno.serve(async (req: Request) => {
 
     // ── POST /chat ────────────────────────────────────────────────────────────
     if (req.method === "POST" && (!path || path === "chat")) {
-      if (!canUseAdminAiRoutes(isAdmin)) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 403,
+      const raw = await req.text();
+      if (raw.length > MAX_CHAT_BODY_CHARS) {
+        return new Response(JSON.stringify({ error: "Request too large" }), {
+          status: 413,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const body = await req.json();
-      const messages = acceptClientUserMessages(
-        (body as { messages?: unknown }).messages,
-      );
-      const sessionId = (body as { sessionId?: string }).sessionId;
+      const body = JSON.parse(raw) as { messages?: unknown; sessionId?: string };
+      const messages = acceptClientUserMessages(body.messages);
+      const sessionId = body.sessionId;
 
       if (messages.length === 0) {
         return new Response(JSON.stringify({ error: "messages required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (messages.length > MAX_CHAT_TURNS) {
+        return new Response(JSON.stringify({ error: "Too many turns" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -703,7 +727,7 @@ Deno.serve(async (req: Request) => {
           } catch {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({
               type: "content_block_delta",
-              delta: { type: "text_delta", text: "\n\nError: The assistant is unavailable. Try again." },
+              delta: { type: "text_delta", text: `\n\nError: ${ANTHROPIC_UNAVAILABLE}` },
             })}\n\n`));
           } finally {
             controller.close();

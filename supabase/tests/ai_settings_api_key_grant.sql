@@ -23,4 +23,8 @@ SELECT
   has_table_privilege('authenticated', 'public.ai_settings', 'TRIGGER')
     AS authenticated_can_trigger,
   has_table_privilege('anon', 'public.ai_settings', 'DELETE')
-    AS anon_can_delete;
+    AS anon_can_delete,
+  has_table_privilege('authenticated', 'public.ai_settings', 'MAINTAIN')
+    AS authenticated_can_maintain,
+  has_table_privilege('anon', 'public.ai_settings', 'MAINTAIN')
+    AS anon_can_maintain;

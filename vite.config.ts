@@ -2,6 +2,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   server: {
@@ -14,6 +18,10 @@ export default defineConfig({
       VITE_SUPABASE_URL: 'https://example.supabase.co',
       VITE_SUPABASE_ANON_KEY: 'test-anon-key',
     },
+    alias: [
+      { find: /^npm:@supabase\/supabase-js@2$/, replacement: path.join(root, 'src/lib/aiEdgeHarness/sbStub.ts') },
+      { find: /^jsr:.*$/, replacement: path.join(root, 'src/lib/aiEdgeHarness/empty.ts') },
+    ],
   },
   plugins: [
     react(),
