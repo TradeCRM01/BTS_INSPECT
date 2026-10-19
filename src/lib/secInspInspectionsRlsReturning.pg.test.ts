@@ -226,6 +226,9 @@ function registerSuite(version: string) {
         const before = companyAContent();
         expect(Number(before.split('|')[0])).toBeGreaterThan(0);
         const n = dml(uid, sql);
+        // ROW_COUNT === 0 (00000|0). Unchanged company-A content is not
+        // enough: a 42501 WITH CHECK failure also leaves rows untouched
+        // because the plpgsql helper rolls the statement back.
         expect(n, n).toBe('00000|0');
         expect(companyAContent()).toBe(before);
       }
@@ -407,18 +410,18 @@ unix_socket_directories = '${sockDir}'
           expect(updCheck).toContain('profile_company_id_for_caller(inspector_id)');
         });
 
-        it('WHERE-less DELETE as foreign admin and member leaves company A count and content unchanged', () => {
+        it('WHERE-less DELETE as foreign admin and member affects 0 rows and leaves company A count and content unchanged', () => {
           stripCompanyBInspections();
           assertWhereLessUntouched(OTHER, 'DELETE FROM public.inspections');
           assertWhereLessUntouched(OTHER_MEMBER, 'DELETE FROM public.inspections');
         });
 
-        it('WHERE-less UPDATE inspector_id = auth.uid() as foreign admin and member leaves company A unchanged', () => {
+        it('WHERE-less UPDATE inspector_id = auth.uid() as foreign admin and member affects 0 rows and leaves company A count and content unchanged', () => {
           assertWhereLessUntouched(OTHER, 'UPDATE public.inspections SET inspector_id = auth.uid()');
           assertWhereLessUntouched(OTHER_MEMBER, 'UPDATE public.inspections SET inspector_id = auth.uid()');
         });
 
-        it("WHERE-less UPDATE SET title = 'x' as foreign admin and member leaves company A unchanged", () => {
+        it("WHERE-less UPDATE SET title = 'x' as foreign admin and member affects 0 rows and leaves company A count and content unchanged", () => {
           assertWhereLessUntouched(OTHER, "UPDATE public.inspections SET title = 'x'");
           assertWhereLessUntouched(OTHER_MEMBER, "UPDATE public.inspections SET title = 'x'");
         });
