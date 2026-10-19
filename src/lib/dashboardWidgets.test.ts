@@ -4,6 +4,7 @@ import {
   DASHBOARD_WIDGET_CELL_H,
   DASHBOARD_WIDGET_CELL_W,
   DEFAULT_DASHBOARD_WIDGET_TYPES,
+  dashboardWidgetFitsCanvas,
   dashboardWidgetLayoutOverlaps,
   dashboardWidgetPixelSize,
   dashboardWidgetRectsOverlap,
@@ -13,12 +14,11 @@ import {
   placeAddedDashboardWidget,
   repairDashboardWidgetLayout,
   resolveDashboardWidgets,
-  sortDashboardWidgetsForPhone,
-  swapAdjacentDashboardWidgetPositions,
   type DashboardWidgetInsert,
   type DashboardWidgetRect,
   type DashboardWidgetSeedIo,
 } from './dashboardWidgets';
+import { sortDashboardWidgetsForView, swapAdjacentDashboardWidgetPhoneOrder } from './dashboardWidgetView';
 
 type Row = DashboardWidgetInsert & { id?: string };
 
@@ -349,19 +349,70 @@ describe('dashboard widget grid placement', () => {
     expect(rawLayoutOverlaps(widgets)).toBe(false);
   });
 
-  it('orders phone customize by canvas position and swaps neighbours', () => {
-    const rows: DashboardWidgetRect[] = [
-      { id: 'b', widget_type: 'weather', grid_x: 20, grid_y: 200, grid_w: 260, grid_h: 180 },
-      { id: 'a', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 180 },
-      { id: 'c', widget_type: 'clock', grid_x: 20, grid_y: 400, grid_w: 260, grid_h: 180 },
+  it('phone reorder swaps display order without moving desktop x/y/w/h', () => {
+    const rows: Array<DashboardWidgetRect & { id: string; config?: unknown }> = [
+      { id: 'b', widget_type: 'weather', grid_x: 20, grid_y: 200, grid_w: 260, grid_h: 180, config: {} },
+      { id: 'a', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 180, config: {} },
+      { id: 'c', widget_type: 'clock', grid_x: 20, grid_y: 400, grid_w: 260, grid_h: 180, config: {} },
     ];
-    expect(sortDashboardWidgetsForPhone(rows).map(row => row.id)).toEqual(['a', 'b', 'c']);
-    const down = swapAdjacentDashboardWidgetPositions(rows, 'a', 1);
-    expect(sortDashboardWidgetsForPhone(down).map(row => row.id)).toEqual(['b', 'a', 'c']);
-    expect(down.find(row => row.id === 'a')).toMatchObject({ grid_x: 20, grid_y: 200 });
-    expect(down.find(row => row.id === 'b')).toMatchObject({ grid_x: 20, grid_y: 20 });
-    const top = swapAdjacentDashboardWidgetPositions(rows, 'a', -1);
-    expect(sortDashboardWidgetsForPhone(top).map(row => row.id)).toEqual(['a', 'b', 'c']);
+    expect(sortDashboardWidgetsForView(rows).map(row => row.id)).toEqual(['a', 'b', 'c']);
+    const down = swapAdjacentDashboardWidgetPhoneOrder(rows, 'a', 1);
+    expect(sortDashboardWidgetsForView(down).map(row => row.id)).toEqual(['b', 'a', 'c']);
+    expect(down.find(row => row.id === 'a')).toMatchObject({ grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 180 });
+    expect(down.find(row => row.id === 'b')).toMatchObject({ grid_x: 20, grid_y: 200, grid_w: 260, grid_h: 180 });
+    const top = swapAdjacentDashboardWidgetPhoneOrder(rows, 'a', -1);
+    expect(sortDashboardWidgetsForView(top).map(row => row.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('phone Down on live Invoices keeps Compliance on the 1166 canvas', () => {
+    const live: Array<DashboardWidgetRect & { id: string; config?: unknown }> = [
+      { id: 'w-jobs', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270, config: {} },
+      { id: 'w-weather1', widget_type: 'weather', grid_x: 540, grid_y: 20, grid_w: 260, grid_h: 270, config: {} },
+      { id: 'w-weather2', widget_type: 'weather', grid_x: 20, grid_y: 380, grid_w: 260, grid_h: 270, config: {} },
+      { id: 'w-invoices', widget_type: 'outstanding_invoices', grid_x: 800, grid_y: 380, grid_w: 260, grid_h: 180, config: {} },
+      { id: 'w-compliance', widget_type: 'compliance_deadlines', grid_x: 20, grid_y: 740, grid_w: 390, grid_h: 270, config: {} },
+    ];
+    const next = swapAdjacentDashboardWidgetPhoneOrder(live, 'w-invoices', 1);
+    for (const row of next) {
+      const prev = live.find(item => item.id === row.id)!;
+      expect(row).toMatchObject({
+        grid_x: prev.grid_x,
+        grid_y: prev.grid_y,
+        grid_w: prev.grid_w,
+        grid_h: prev.grid_h,
+      });
+    }
+    expect(next.find(row => row.id === 'w-compliance')).toMatchObject({ grid_x: 20, grid_y: 740, grid_w: 390 });
+    expect(dashboardWidgetLayoutOverlaps(next)).toBe(false);
+    expect(next.every(row => dashboardWidgetFitsCanvas(row, 1166))).toBe(true);
+    expect(repairDashboardWidgetLayout(next, 1166).changed).toBe(false);
+  });
+
+  it('phone Down on Upcoming Jobs does not overlap Weather on the seed-plus-tools layout', () => {
+    const seed = withIds(defaultDashboardWidgetInserts()).map(row => ({
+      ...row,
+      id: row.id ?? row.widget_type,
+      config: {},
+    }));
+    const weatherPlace = placeAddedDashboardWidget(seed, 'weather')!;
+    const weather = { id: 'weather', widget_type: 'weather', ...weatherPlace, config: {} };
+    const miniPlace = placeAddedDashboardWidget([...seed, weather], 'mini_calendar')!;
+    const mini = { id: 'mini', widget_type: 'mini_calendar', ...miniPlace, config: {} };
+    const rows = [...seed, weather, mini];
+    const jobs = rows.find(row => row.widget_type === 'upcoming_jobs')!;
+    const next = swapAdjacentDashboardWidgetPhoneOrder(rows, jobs.id!, 1);
+    for (const row of next) {
+      const prev = rows.find(item => item.id === row.id)!;
+      expect(row).toMatchObject({
+        grid_x: prev.grid_x,
+        grid_y: prev.grid_y,
+        grid_w: prev.grid_w,
+        grid_h: prev.grid_h,
+      });
+    }
+    expect(rawLayoutOverlaps(next)).toBe(false);
+    expect(repairDashboardWidgetLayout(next).changed).toBe(false);
+    expect(next.find(row => row.id === 'weather')).toEqual(weather);
   });
 
   it('filters the picker with the same helper the page uses', () => {

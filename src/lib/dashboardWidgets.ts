@@ -91,32 +91,6 @@ export function dashboardWidgetRectsConflict(
     && b.grid_y < a.grid_y + a.grid_h + gap;
 }
 
-export function sortDashboardWidgetsForPhone<T extends DashboardWidgetRect>(widgets: readonly T[]): T[] {
-  return [...widgets].sort((a, b) => {
-    if (a.grid_y !== b.grid_y) return a.grid_y - b.grid_y;
-    if (a.grid_x !== b.grid_x) return a.grid_x - b.grid_x;
-    return (a.id ?? a.widget_type).localeCompare(b.id ?? b.widget_type);
-  });
-}
-
-export function swapAdjacentDashboardWidgetPositions<T extends DashboardWidgetRect>(
-  widgets: readonly T[],
-  id: string,
-  direction: -1 | 1,
-): T[] {
-  const ordered = sortDashboardWidgetsForPhone(widgets);
-  const i = ordered.findIndex(row => row.id === id);
-  const j = i + direction;
-  if (i < 0 || j < 0 || j >= ordered.length) return [...widgets];
-  const a = ordered[i];
-  const b = ordered[j];
-  return widgets.map(row => {
-    if (row.id === a.id) return { ...row, grid_x: b.grid_x, grid_y: b.grid_y };
-    if (row.id === b.id) return { ...row, grid_x: a.grid_x, grid_y: a.grid_y };
-    return row;
-  });
-}
-
 export function dashboardWidgetLayoutOverlaps(widgets: readonly DashboardWidgetRect[]): boolean {
   for (let i = 0; i < widgets.length; i += 1) {
     for (let j = i + 1; j < widgets.length; j += 1) {

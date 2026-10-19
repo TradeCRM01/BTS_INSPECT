@@ -31,7 +31,11 @@ import {
   Plus, X, GripVertical, Trash2, Sparkles, Briefcase, MoreHorizontal,
   ChevronUp, ChevronDown,
 } from 'lucide-react';
-import { sortDashboardWidgetsForView } from '../lib/dashboardWidgetView';
+import {
+  readDashboardWidgetPhoneOrder,
+  sortDashboardWidgetsForView,
+  swapAdjacentDashboardWidgetPhoneOrder,
+} from '../lib/dashboardWidgetView';
 import { WIDGET_CATEGORIES, getWidgetDef } from '../widgets/registry';
 import { WidgetRenderer } from '../widgets/WidgetComponents';
 import type { Json } from '../types/database';
@@ -56,8 +60,6 @@ import {
   repairDashboardWidgetLayout,
   defaultDashboardWidgetInserts,
   resolveDashboardWidgets,
-  sortDashboardWidgetsForPhone,
-  swapAdjacentDashboardWidgetPositions,
 } from '../lib/dashboardWidgets';
 import type { ScheduleCrewMember } from '../lib/scheduleBoard';
 import {
@@ -637,26 +639,17 @@ export function DashboardPage() {
   const removeWidget = async (id: string) => {
     if (!localDashboard) {
       const { error } = await supabase.from('dashboard_widgets').delete().eq('id', id);
-      if (error) return;
+      if (error) {
+        showToast('Could not remove the widget.', 'error');
+        return;
+      }
     }
     queryClient.setQueryData<DashboardWidget[]>(['dashboard-widgets'], prev =>
       (prev ?? []).filter(w => w.id !== id));
   };
 
-  const movePhoneWidget = (id: string, direction: -1 | 1) => {
-    const current = queryClient.getQueryData<DashboardWidget[]>(['dashboard-widgets']) ?? [];
-    const next = swapAdjacentDashboardWidgetPositions(current, id, direction);
-    queryClient.setQueryData<DashboardWidget[]>(['dashboard-widgets'], next);
-    if (localDashboard) return;
-    for (const row of next) {
-      const prev = current.find(w => w.id === row.id);
-      if (!prev || (prev.grid_x === row.grid_x && prev.grid_y === row.grid_y)) continue;
-      void persistWidget(row.id, { grid_x: row.grid_x, grid_y: row.grid_y });
-    }
-  };
-
   const persistWidget = useCallback(async (id: string, patch: Partial<DashboardWidget>) => {
-    if (lookDashboard || !!getAuditDashboardWidgets()) return;
+    if (lookDashboard || !!getAuditDashboardWidgets()) return null;
     const update: Record<string, unknown> = { ...patch, updated_at: new Date().toISOString() };
     delete update.id;
     delete update.widget_type;
@@ -665,7 +658,36 @@ export function DashboardPage() {
       .update(update as never)
       .eq('id', id);
     if (error) console.error('Widget update failed', error);
+    return error ?? null;
   }, [lookDashboard]);
+
+  const movePhoneWidget = async (id: string, direction: -1 | 1) => {
+    const current = widgets ?? [];
+    const next = swapAdjacentDashboardWidgetPhoneOrder(current, id, direction);
+    const changed = next.filter(row => {
+      const prev = current.find(w => w.id === row.id);
+      if (!prev) return false;
+      return readDashboardWidgetPhoneOrder(prev.config) !== readDashboardWidgetPhoneOrder(row.config);
+    });
+    if (changed.length === 0) return;
+    queryClient.setQueryData<DashboardWidget[]>(['dashboard-widgets'], next);
+    if (localDashboard) return;
+
+    const results = await Promise.all(changed.map(async row => {
+      const prev = current.find(w => w.id === row.id)!;
+      const error = await persistWidget(row.id, { config: row.config });
+      return { row, prev, error };
+    }));
+    if (!results.some(result => result.error)) return;
+
+    await Promise.all(
+      results
+        .filter(result => !result.error)
+        .map(result => persistWidget(result.prev.id, { config: result.prev.config })),
+    );
+    queryClient.setQueryData<DashboardWidget[]>(['dashboard-widgets'], current);
+    showToast('Could not move the widget.', 'error');
+  };
 
   const updateWidgetConfig = useCallback(async (id: string, config: Record<string, unknown>) => {
     const { error } = await supabase
@@ -980,7 +1002,11 @@ export function DashboardPage() {
                 ) : (
                   <div className="dashboard-home-view-grid min-w-0" data-dashboard-view-grid="1">
                     {viewWidgets.map(w => (
-                      <div key={w.id} className="dashboard-home-widget dashboard-home-widget-card min-w-0">
+                      <div
+                        key={w.id}
+                        className="dashboard-home-widget dashboard-home-widget-card min-w-0"
+                        data-dashboard-widget-id={w.id}
+                      >
                         <div className="dashboard-home-widget-ink">
                           <WidgetRenderer
                             type={w.widget_type}
@@ -1045,10 +1071,7 @@ function placeDashboardMore(more: HTMLDetailsElement) {
 export function DashboardPhoneEditStack<T extends {
   id: string;
   widget_type: string;
-  grid_x: number;
-  grid_y: number;
-  grid_w: number;
-  grid_h: number;
+  config?: unknown;
 }>({
   widgets,
   onMove,
@@ -1060,46 +1083,50 @@ export function DashboardPhoneEditStack<T extends {
   onRemove: (id: string) => void;
   children: (widget: T) => ReactNode;
 }) {
-  const ordered = sortDashboardWidgetsForPhone(widgets);
+  const ordered = sortDashboardWidgetsForView(widgets);
   return (
     <div className="md:hidden dashboard-home-widget-stack" data-dashboard-phone-stack="1">
-      {ordered.map((w, index) => (
-        <div
-          key={w.id}
-          className="dashboard-home-widget min-w-0"
-          data-dashboard-widget-id={w.id}
-        >
-          <div className="dashboard-home-phone-edit-bar">
-            <button
-              type="button"
-              aria-label="Move widget up"
-              disabled={index === 0}
-              onClick={() => onMove(w.id, -1)}
-            >
-              <ChevronUp size={18} />
-            </button>
-            <button
-              type="button"
-              aria-label="Move widget down"
-              disabled={index === ordered.length - 1}
-              onClick={() => onMove(w.id, 1)}
-            >
-              <ChevronDown size={18} />
-            </button>
-            <button
-              type="button"
-              aria-label="Remove widget"
-              title="Remove widget"
-              onClick={() => onRemove(w.id)}
-            >
-              <Trash2 size={16} />
-            </button>
+      {ordered.map((w, index) => {
+        const name = getWidgetDef(w.widget_type)?.label ?? 'widget';
+        return (
+          <div
+            key={w.id}
+            className="dashboard-home-widget min-w-0"
+            data-dashboard-widget-id={w.id}
+          >
+            <div className="dashboard-home-phone-edit-bar">
+              <button
+                type="button"
+                aria-label={`Move ${name} up`}
+                disabled={index === 0}
+                onClick={() => onMove(w.id, -1)}
+              >
+                <ChevronUp size={18} />
+              </button>
+              <button
+                type="button"
+                aria-label={`Move ${name} down`}
+                disabled={index === ordered.length - 1}
+                onClick={() => onMove(w.id, 1)}
+              >
+                <ChevronDown size={18} />
+              </button>
+              <button
+                type="button"
+                className="dashboard-home-phone-remove"
+                aria-label={`Remove ${name}`}
+                title={`Remove ${name}`}
+                onClick={() => onRemove(w.id)}
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+            <div className="dashboard-home-widget-ink">
+              {children(w)}
+            </div>
           </div>
-          <div className="dashboard-home-widget-ink">
-            {children(w)}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -1184,6 +1211,7 @@ function FreeWidget({
   return (
     <div
       ref={setNodeRef}
+      data-dashboard-widget-id={widget.id}
       style={{ ...posStyle, ...dragStyle }}
       className={`absolute ${isDragging || isDragActive ? 'z-50' : 'z-10'} ${isDragActive ? 'select-none' : ''}`}
     >

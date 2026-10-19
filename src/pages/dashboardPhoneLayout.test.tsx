@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '../components/ui';
-import { swapAdjacentDashboardWidgetPositions } from '../lib/dashboardWidgets';
+import { swapAdjacentDashboardWidgetPhoneOrder } from '../lib/dashboardWidgetView';
 import { DashboardPage, DashboardPhoneEditStack } from './DashboardPage';
 
 vi.mock('../components/layout/AppShell', () => ({
@@ -159,10 +159,20 @@ describe('dashboard phone layout', () => {
     const view = ruleBeforeMedia(css, '.dashboard-home-view-grid', '@media (min-width: 640px)');
     expect(view).toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\)/);
     expect(view).not.toMatch(/grid-template-columns:\s*1fr;/);
+    expect(view).toMatch(/gap:\s*20px/);
+    const mdBlock = css.slice(css.indexOf('@media (min-width: 640px)'));
+    const mdViewStart = mdBlock.indexOf('.dashboard-home-view-grid {');
+    const mdView = mdBlock.slice(mdViewStart, mdBlock.indexOf('}', mdViewStart) + 1);
+    expect(mdView).toMatch(/gap:\s*16px/);
     const stack = css.slice(css.indexOf('.dashboard-home-widget-stack {'));
     const stackRule = stack.slice(0, stack.indexOf('}') + 1);
     expect(stackRule).toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\)/);
     expect(stackRule).not.toMatch(/grid-template-columns:\s*1fr;/);
+    expect(stackRule).toMatch(/gap:\s*20px/);
+    const stackInkStart = css.indexOf('.dashboard-home-widget-stack .dashboard-home-widget-ink {');
+    const stackInk = css.slice(stackInkStart, css.indexOf('}', stackInkStart) + 1);
+    expect(stackInk).toMatch(/height:\s*auto/);
+    expect(stackInk).not.toMatch(/height:\s*100%/);
   });
 
   it('renders phone widgets inside a shrinking grid on the look dashboard', async () => {
@@ -184,12 +194,14 @@ describe('dashboard phone layout', () => {
     const stack = phoneStack();
     expect(stack.className.split(/\s+/)).toContain('md:hidden');
     expect(stack.className.split(/\s+/)).not.toContain('hidden');
-    const remove = [...stack.querySelectorAll('button[aria-label="Remove widget"]')] as HTMLButtonElement[];
-    const up = [...stack.querySelectorAll('button[aria-label="Move widget up"]')] as HTMLButtonElement[];
-    const down = [...stack.querySelectorAll('button[aria-label="Move widget down"]')] as HTMLButtonElement[];
+    const remove = [...stack.querySelectorAll('button[aria-label^="Remove "]')] as HTMLButtonElement[];
+    const up = [...stack.querySelectorAll('button[aria-label^="Move "][aria-label$=" up"]')] as HTMLButtonElement[];
+    const down = [...stack.querySelectorAll('button[aria-label^="Move "][aria-label$=" down"]')] as HTMLButtonElement[];
     expect(remove.length).toBeGreaterThan(0);
     expect(up.length).toBe(remove.length);
     expect(down.length).toBe(remove.length);
+    expect(remove.some(btn => btn.getAttribute('aria-label') === 'Remove Outstanding Invoices')).toBe(true);
+    expect(up.some(btn => btn.getAttribute('aria-label') === 'Move Upcoming Jobs up')).toBe(true);
     const css = lookCss();
     expect(css).toContain('.dashboard-home-phone-edit-bar button');
     expect(css).toMatch(/\.dashboard-home-phone-edit-bar button[\s\S]*min-height:\s*44px/);
@@ -203,7 +215,7 @@ describe('dashboard phone layout', () => {
     const before = phoneWidgetIds();
     expect(before).toEqual(['a', 'b', 'c']);
     const remove = phoneStack().querySelector(
-      '[data-dashboard-widget-id="a"] button[aria-label="Remove widget"]',
+      '[data-dashboard-widget-id="a"] button[aria-label="Remove Upcoming Jobs"]',
     ) as HTMLButtonElement | null;
     expect(remove).toBeTruthy();
     await act(async () => {
@@ -217,7 +229,7 @@ describe('dashboard phone layout', () => {
       root.render(<PhoneStackHarness />);
     });
     const down = phoneStack().querySelector(
-      '[data-dashboard-widget-id="a"] button[aria-label="Move widget down"]',
+      '[data-dashboard-widget-id="a"] button[aria-label="Move Upcoming Jobs down"]',
     ) as HTMLButtonElement | null;
     expect(down).toBeTruthy();
     await act(async () => {
@@ -225,7 +237,7 @@ describe('dashboard phone layout', () => {
     });
     expect(phoneWidgetIds()).toEqual(['b', 'a', 'c']);
     const up = phoneStack().querySelector(
-      '[data-dashboard-widget-id="a"] button[aria-label="Move widget up"]',
+      '[data-dashboard-widget-id="a"] button[aria-label="Move Upcoming Jobs up"]',
     ) as HTMLButtonElement | null;
     expect(up).toBeTruthy();
     await act(async () => {
@@ -233,12 +245,60 @@ describe('dashboard phone layout', () => {
     });
     expect(phoneWidgetIds()).toEqual(['a', 'b', 'c']);
   });
+
+  it('uses the same order for phone view and Customize, including after a move', async () => {
+    await renderDashboard();
+    await waitForSelector('[data-dashboard-view-grid="1"]');
+    const viewIds = () => [...document.querySelectorAll('[data-dashboard-view-grid="1"] [data-dashboard-widget-id]')].map(
+      el => el.getAttribute('data-dashboard-widget-id') ?? '',
+    );
+    expect(viewIds()).toEqual([
+      'look-widget-outstanding-invoices',
+      'look-widget-upcoming-jobs',
+      'look-widget-compliance',
+    ]);
+    await enterCustomize();
+    expect(phoneWidgetIds()).toEqual([
+      'look-widget-outstanding-invoices',
+      'look-widget-upcoming-jobs',
+      'look-widget-compliance',
+    ]);
+    const down = phoneStack().querySelector(
+      '[data-dashboard-widget-id="look-widget-outstanding-invoices"] button[aria-label="Move Outstanding Invoices down"]',
+    ) as HTMLButtonElement | null;
+    expect(down).toBeTruthy();
+    await act(async () => {
+      down!.click();
+      await new Promise(resolve => setTimeout(resolve, 30));
+    });
+    expect(phoneWidgetIds()).toEqual([
+      'look-widget-upcoming-jobs',
+      'look-widget-outstanding-invoices',
+      'look-widget-compliance',
+    ]);
+    const more = document.querySelector('.dashboard-home-more > summary') as HTMLElement;
+    await act(async () => {
+      more.click();
+    });
+    const done = [...document.querySelectorAll('[role="menuitem"]')].find(
+      el => el.textContent === 'Done editing',
+    ) as HTMLElement;
+    await act(async () => {
+      done.click();
+    });
+    await waitForSelector('[data-dashboard-view-grid="1"]');
+    expect(viewIds()).toEqual([
+      'look-widget-upcoming-jobs',
+      'look-widget-outstanding-invoices',
+      'look-widget-compliance',
+    ]);
+  });
 });
 
 const SAMPLE_PHONE_WIDGETS = [
-  { id: 'a', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 180 },
-  { id: 'b', widget_type: 'weather', grid_x: 20, grid_y: 200, grid_w: 260, grid_h: 180 },
-  { id: 'c', widget_type: 'clock', grid_x: 20, grid_y: 400, grid_w: 260, grid_h: 180 },
+  { id: 'a', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 180, config: {} },
+  { id: 'b', widget_type: 'weather', grid_x: 20, grid_y: 200, grid_w: 260, grid_h: 180, config: {} },
+  { id: 'c', widget_type: 'clock', grid_x: 20, grid_y: 400, grid_w: 260, grid_h: 180, config: {} },
 ];
 
 function PhoneStackHarness() {
@@ -247,7 +307,7 @@ function PhoneStackHarness() {
     <DashboardPhoneEditStack
       widgets={widgets}
       onMove={(id, direction) => {
-        setWidgets(current => swapAdjacentDashboardWidgetPositions(current, id, direction));
+        setWidgets(current => swapAdjacentDashboardWidgetPhoneOrder(current, id, direction));
       }}
       onRemove={id => {
         setWidgets(current => current.filter(row => row.id !== id));

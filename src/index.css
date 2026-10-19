@@ -12826,7 +12826,7 @@
   .dashboard-home-view-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
+    gap: 20px;
     width: 100%;
     min-width: 0;
   }
@@ -12834,6 +12834,7 @@
   @media (min-width: 640px) {
     .dashboard-home-view-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
     }
   }
 
@@ -12886,9 +12887,10 @@
   .dashboard-home-widget-stack {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 0;
+    gap: 20px;
     width: 100%;
     min-width: 0;
+    align-items: start;
   }
 
   .dashboard-home-view-grid .dashboard-home-widget,
@@ -12918,7 +12920,7 @@
     cursor: pointer;
   }
 
-  .dashboard-home-phone-edit-bar button[aria-label="Remove widget"] {
+  .dashboard-home-phone-edit-bar .dashboard-home-phone-remove {
     margin-left: auto;
     color: #B54708;
   }
@@ -12960,6 +12962,7 @@
 
   .dashboard-home-widget-stack .dashboard-home-widget-ink {
     padding: 0;
+    height: auto;
   }
 
   .dashboard-home-widget .text-\[\#1A1A1A\],
