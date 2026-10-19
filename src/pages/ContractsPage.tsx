@@ -11,6 +11,7 @@ import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import type { MenuEntry } from '../components/ui';
 import { format } from 'date-fns';
 import {
+  SAFE_DATE_FALLBACK,
   dateFieldYearError,
   safeFormatDate,
 } from '../lib/safeDate';
@@ -35,7 +36,8 @@ const STATUS_TABS: { key: 'all' | ContractStatus; label: string }[] = [
 ];
 
 function formatContractDay(ymd: string, pattern: string): string {
-  return safeFormatDate(ymd, pattern);
+  const day = (ymd ?? '').trim().slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? safeFormatDate(day, pattern) : SAFE_DATE_FALLBACK;
 }
 
 export function ContractsPage() {

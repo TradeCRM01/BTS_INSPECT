@@ -12,7 +12,7 @@ import { LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmD
 import { SkeletonCardGrid, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import type { MenuEntry } from '../components/ui';
 import { parseISO, isPast } from 'date-fns';
-import { dateSaveIso, safeFormatDate } from '../lib/safeDate';
+import { dateFieldYearError, safeFormatDate } from '../lib/safeDate';
 import {
   Plus, Search, HardDrive, X, Trash2, Pencil, MoreVertical, MapPin,
   Tag, Wrench, Calendar, ShieldCheck, AlertTriangle,
@@ -312,15 +312,15 @@ function AssetForm({ asset, onClose, onSaved }: { asset: Asset | null; onClose: 
     e.preventDefault();
     setSaving(true);
     setErr(null);
-    const installParsed = dateSaveIso(form.install_date, false);
-    if (!installParsed.ok) {
-      setErr(installParsed.error);
+    const installYearError = dateFieldYearError(form.install_date, false);
+    if (installYearError) {
+      setErr(installYearError);
       setSaving(false);
       return;
     }
-    const warrantyParsed = dateSaveIso(form.warranty_expiry, false);
-    if (!warrantyParsed.ok) {
-      setErr(warrantyParsed.error);
+    const warrantyYearError = dateFieldYearError(form.warranty_expiry, false);
+    if (warrantyYearError) {
+      setErr(warrantyYearError);
       setSaving(false);
       return;
     }
@@ -335,8 +335,8 @@ function AssetForm({ asset, onClose, onSaved }: { asset: Asset | null; onClose: 
         category: form.category || null,
         client_id: form.client_id || null,
         location_description: form.location_description || null,
-        install_date: installParsed.iso,
-        warranty_expiry: warrantyParsed.iso,
+        install_date: form.install_date || null,
+        warranty_expiry: form.warranty_expiry || null,
         status: form.status,
         notes: form.notes || null,
         updated_at: new Date().toISOString(),

@@ -1,14 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
-  AU_DATE_FORMAT_MESSAGE,
+  DATE_REQUIRED_MESSAGE,
   DATE_YEAR_RANGE_MESSAGE,
   HOTFIX_BAD_DATE_ISO,
   SAFE_DATE_FALLBACK,
   dateFieldYearError,
-  dateSaveError,
   isSupportedDateYear,
   isValidDate,
-  parseAuDateInput,
   parseToDate,
   safeFormatDate,
   safeLocaleDateString,
@@ -48,24 +46,25 @@ describe('safeFormatDate never throws', () => {
     expect(safeToIsoString(HOTFIX_BAD_DATE_ISO)).toBeNull();
     expect(safeToIsoString('2026-10-21')).toMatch(/^2026-10-2[01]T/);
   });
+
+  it('does not read non-ISO strings in US order', () => {
+    expect(safeFormatDate('03/04/2026')).toBe(SAFE_DATE_FALLBACK);
+    expect(parseToDate('03/04/2026')).toBeNull();
+    expect(safeFormatDate('04-03-2026')).toBe(SAFE_DATE_FALLBACK);
+    expect(safeFormatDate('10/21/2026')).toBe(SAFE_DATE_FALLBACK);
+  });
 });
 
-describe('AU date entry does not silently take US order', () => {
-  it('reads 21/10/2026 as 21 Oct, not 11 Feb', () => {
-    expect(parseAuDateInput('21/10/2026')).toEqual({ ok: true, iso: '2026-10-21' });
-    expect(parseAuDateInput('21-10-2026')).toEqual({ ok: true, iso: '2026-10-21' });
-    expect(parseAuDateInput('21102026')).toEqual({ ok: true, iso: '2026-10-21' });
-    expect(parseAuDateInput('2026-10-21')).toEqual({ ok: true, iso: '2026-10-21' });
-    expect(parseAuDateInput('10/21/2026')).toEqual({ ok: false, error: AU_DATE_FORMAT_MESSAGE });
-  });
-
-  it('rejects year 212026 before save', () => {
+describe('year guard at save', () => {
+  it('rejects year 212026 before save and uses a required message when empty', () => {
     expect(dateFieldYearError(HOTFIX_BAD_DATE_ISO, true)).toBe(DATE_YEAR_RANGE_MESSAGE);
     expect(dateFieldYearError('212026-10-21')).toBe(DATE_YEAR_RANGE_MESSAGE);
     expect(dateFieldYearError('2026-10-21')).toBeNull();
-    expect(dateFieldYearError('', true)).toBe(DATE_YEAR_RANGE_MESSAGE);
+    expect(dateFieldYearError('', true)).toBe(DATE_REQUIRED_MESSAGE);
     expect(dateFieldYearError('', false)).toBeNull();
-    expect(parseAuDateInput(HOTFIX_BAD_DATE_ISO)).toEqual({ ok: false, error: DATE_YEAR_RANGE_MESSAGE });
-    expect(dateSaveError(HOTFIX_BAD_DATE_ISO, true)).toBe(DATE_YEAR_RANGE_MESSAGE);
+    expect(dateFieldYearError('1899-12-31')).toBe(DATE_YEAR_RANGE_MESSAGE);
+    expect(dateFieldYearError('1900-01-01')).toBeNull();
+    expect(dateFieldYearError('2100-12-31')).toBeNull();
+    expect(dateFieldYearError('2101-01-01')).toBe(DATE_YEAR_RANGE_MESSAGE);
   });
 });

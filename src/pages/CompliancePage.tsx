@@ -147,7 +147,7 @@ export function CompliancePage() {
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const lookComplianceList = searchParams.get('look') === COMPLIANCE_LIST_LOOK;
-  const lookHotfixDate = searchParams.get('look') === HOTFIX_DATE_LOOK;
+  const lookHotfixDate = import.meta.env.DEV && searchParams.get('look') === HOTFIX_DATE_LOOK;
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<ComplianceListFilter>(
     lookComplianceList ? 'all' : COMPLIANCE_LIST_DEFAULT_FILTER,
