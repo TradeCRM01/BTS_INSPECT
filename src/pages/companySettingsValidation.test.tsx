@@ -16,6 +16,12 @@ const harness = vi.hoisted(() => ({
   updateError: null as unknown,
   labourColumnMissing: false,
   refreshed: false,
+  emailSettings: { smtp_port: 587, from_email: '', from_name: '' } as {
+    smtp_port: number;
+    from_email: string;
+    from_name: string;
+  },
+  emailUpsertError: null as unknown,
   profile: { id: 'u1', company_id: 'co1', role: 'admin' },
   company: {
     id: 'co1',
@@ -68,7 +74,7 @@ vi.mock('../lib/supabase', () => ({
   supabase: {
     from(table: string) {
       return {
-        select() { return query({ data: table === 'email_settings' ? { smtp_port: 587, from_email: '' } : [], error: null }); },
+        select() { return query({ data: table === 'email_settings' ? harness.emailSettings : [], error: null }); },
         update(payload: unknown) {
           harness.writes.push({ table, op: 'update', payload });
           if (
@@ -86,7 +92,7 @@ vi.mock('../lib/supabase', () => ({
         },
         upsert(payload: unknown) {
           harness.writes.push({ table, op: 'upsert', payload });
-          return query({ data: { id: 'co1' }, error: null });
+          return query({ data: harness.emailUpsertError ? null : { id: 'co1' }, error: harness.emailUpsertError });
         },
         insert(payload: unknown) {
           harness.writes.push({ table, op: 'insert', payload });
@@ -158,6 +164,8 @@ beforeEach(() => {
   harness.updateError = null;
   harness.labourColumnMissing = false;
   harness.refreshed = false;
+  harness.emailSettings = { smtp_port: 587, from_email: '', from_name: '' };
+  harness.emailUpsertError = null;
   harness.company.abn = '';
   harness.company.phone = '';
   harness.company.email = 'jack@example.com';
@@ -571,5 +579,67 @@ describe('Company Settings field validation', () => {
     });
     const write = harness.writes.find(row => row.table === 'companies' && row.op === 'update');
     expect((write?.payload as { phone: string }).phone).toBe(phone);
+  });
+
+  it('saves a From Name edit when the stored From email is invalid', async () => {
+    harness.emailSettings = { smtp_port: 587, from_email: 'not-an-email', from_name: 'Office' };
+    await renderPage();
+    const fromName = Array.from(container.querySelectorAll('input')).find(el =>
+      el.getAttribute('placeholder') === 'Grafter',
+    ) as HTMLInputElement;
+    expect(fromName).toBeTruthy();
+    await act(async () => {
+      setInput(fromName, 'Shop');
+    });
+    const saveEmail = Array.from(container.querySelectorAll('button')).find(btn =>
+      btn.textContent?.includes('Save Email Settings'),
+    );
+    await act(async () => {
+      saveEmail!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const write = harness.writes.find(row => row.table === 'email_settings' && row.op === 'upsert');
+    expect(write).toBeTruthy();
+    expect((write?.payload as { from_name: string; from_email: string }).from_name).toBe('Shop');
+    expect((write?.payload as { from_email: string }).from_email).toBe('not-an-email');
+    expect(container.querySelector('#smtp-from-error')).toBeNull();
+  });
+
+  it('blocks a changed invalid From email', async () => {
+    harness.emailSettings = { smtp_port: 587, from_email: 'not-an-email', from_name: 'Office' };
+    await renderPage();
+    const from = container.querySelector('#smtp-from') as HTMLInputElement;
+    await act(async () => {
+      setInput(from, 'still-bad');
+    });
+    const saveEmail = Array.from(container.querySelectorAll('button')).find(btn =>
+      btn.textContent?.includes('Save Email Settings'),
+    );
+    const writesBefore = harness.writes.length;
+    await act(async () => {
+      saveEmail!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(harness.writes.length).toBe(writesBefore);
+    expect(container.querySelector('#smtp-from-error')?.textContent).toBe(FIELD_EMAIL);
+  });
+
+  it('shows the miss copy on a permission-denied SMTP save and does not leak the raw error', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    harness.emailUpsertError = { message: 'permission denied' };
+    await renderPage();
+    const saveEmail = Array.from(container.querySelectorAll('button')).find(btn =>
+      btn.textContent?.includes('Save Email Settings'),
+    );
+    await act(async () => {
+      saveEmail!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(container.textContent).toContain("Couldn't save. Check your connection and try again.");
+    expect(container.textContent).not.toContain('permission denied');
+    expect(container.textContent).not.toContain('Saved');
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
   });
 });

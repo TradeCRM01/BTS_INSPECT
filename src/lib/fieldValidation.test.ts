@@ -43,6 +43,8 @@ describe('fieldValidation predicates', () => {
     expect(isAuPhone('12345678')).toBe(false);
     expect(isAuPhone('0400000000123456')).toBe(false);
     expect(isAuPhone('+131450')).toBe(false);
+    expect(isAuPhone('(07 3123 4567')).toBe(false);
+    expect(isAuPhone('07) 3123 4567')).toBe(false);
     expect(prefillSmsTo('0412 345 678')).toBe('+61412345678');
     expect(prefillSmsTo('abc')).toBe('');
   });
@@ -194,6 +196,18 @@ describe('field error maps', () => {
     });
     expect(smtpFieldErrors({ from_email: 'ops@co.com.au', smtp_port: '587' })).toEqual({});
     expect(smtpFieldErrors({ from_email: '', smtp_port: '' })).toEqual({});
+  });
+
+  it('does not block a From Name save when the stored From email is invalid', () => {
+    const stored = { from_email: 'not-an-email', smtp_port: '587' };
+    expect(smtpFieldErrors({
+      from_email: stored.from_email,
+      smtp_port: stored.smtp_port,
+    }, stored)).toEqual({});
+    expect(smtpFieldErrors({
+      from_email: 'still-bad',
+      smtp_port: stored.smtp_port,
+    }, stored).from_email).toBe(FIELD_EMAIL);
   });
 
   it('treats an empty update result as a miss', () => {

@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '../components/ui/Toast';
-import { FIELD_AU_PHONE } from '../lib/fieldValidation';
+import { FIELD_AU_PHONE, FIELD_EMAIL } from '../lib/fieldValidation';
 import { JobDetailPage } from './JobDetailPage';
 
 const harness = vi.hoisted(() => {
@@ -193,5 +193,28 @@ describe('Job detail client phone and email', () => {
     expect(phone!.getAttribute('aria-invalid')).toBe('true');
     expect(phone!.getAttribute('aria-describedby')).toBe('job-client-phone-error');
     expect(phoneError?.closest('form.job-client-phone')).toBeTruthy();
+  });
+
+  it('shows the inline email error for a@b..c instead of a native email popup', async () => {
+    await renderPage();
+    const email = container.querySelector('input[aria-label="Client email"]') as HTMLInputElement | null;
+    expect(email).toBeTruthy();
+    const form = email!.closest('form.job-client-email') as HTMLFormElement | null;
+    expect(form).toBeTruthy();
+    expect(form!.noValidate || email!.getAttribute('type') === 'text').toBe(true);
+    if (email!.getAttribute('type') === 'text') {
+      expect(email!.getAttribute('inputMode')).toBe('email');
+    }
+    await act(async () => {
+      setInput(email!, 'a@b..c');
+    });
+    await act(async () => {
+      container.querySelector('.job-client-email-save')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(harness.writes).toEqual([]);
+    const emailError = container.querySelector('#job-client-email-error');
+    expect(emailError?.textContent).toBe(FIELD_EMAIL);
+    expect(email!.getAttribute('aria-invalid')).toBe('true');
+    expect(email!.getAttribute('aria-describedby')).toBe('job-client-email-error');
   });
 });
