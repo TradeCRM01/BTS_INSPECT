@@ -231,7 +231,7 @@ function BoardChipLabel({
       className={`hub-marketing-block hub-marketing-block-long !block sm:!flex !h-auto sm:!h-6 !overflow-visible !text-[11px] leading-tight !px-1 sm:!px-2 !left-1 !right-1 !w-auto sm:!left-[4%] sm:!right-auto sm:!w-[88%] ${className}`.trim()}
     >
       <span className="w-full min-w-0 whitespace-normal sm:whitespace-nowrap tracking-normal">
-        <span className="whitespace-nowrap sm:whitespace-nowrap">{jobRef} · {title}</span>
+        <span className="block min-w-0 whitespace-normal break-words sm:inline sm:whitespace-nowrap">{jobRef} · {title}</span>
         <span className="block sm:inline">
           <span className="hidden sm:inline"> · </span>
           {time}

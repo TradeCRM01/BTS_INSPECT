@@ -225,8 +225,10 @@ describe('public landing seed frames', () => {
     expect(page.indexOf('time={LANDING_SEED_JOB.time}')).toBeGreaterThan(page.indexOf('function ScheduleFrame'));
     expect(page).toContain('time={LANDING_SEED_TOM.time}');
     expect(page).toContain('{jobRef} · {title}');
+    expect(page).toContain('block min-w-0 whitespace-normal break-words sm:inline sm:whitespace-nowrap');
     expect(page).toContain('block sm:inline');
     expect(page).toContain('whitespace-normal sm:whitespace-nowrap');
+    expect(page).not.toContain('whitespace-nowrap sm:whitespace-nowrap');
     expect(page).toContain('!overflow-visible');
     expect(page).not.toContain('truncate');
     expect(page.indexOf("ref: '#0040'")).toBeGreaterThan(0);
