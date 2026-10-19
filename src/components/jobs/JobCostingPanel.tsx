@@ -402,18 +402,12 @@ export function JobCostingPanel({ jobId, clientId, onInvoiceCreated }: JobCostin
     const nature = form.charge_type.trim();
     const note = form.description.trim();
     const description = note || nature || COST_TYPE_LABELS[form.cost_type];
-    const qtyRow = commitNumberField(form.quantity, 'reject');
-    if (!qtyRow.ok) return setFormErr(qtyRow.message);
-    const costRow = commitMoneyField(form.unit_cost, 'zero');
-    if (!costRow.ok) return setFormErr(costRow.message);
-    const priceRow = form.unit_price.trim()
-      ? commitMoneyField(form.unit_price, 'reject')
-      : { ok: true as const, value: 0 };
-    if (!priceRow.ok) return setFormErr(priceRow.message);
-    const qty = Number(qtyRow.value) || 0;
-    const unitCost = Number(costRow.value) || 0;
+    const charged = commitJobBillCharge(form.quantity, form.unit_cost, form.unit_price);
+    if (!charged.ok) return setFormErr(charged.message);
+    const qty = Number(charged.quantity) || 0;
+    const unitCost = Number(charged.unit_cost) || 0;
     const markup = parseFloat(form.markup_percent) || 0;
-    const unitPrice = Number(priceRow.value) || sellFromCost(unitCost, markup);
+    const unitPrice = Number(charged.unit_price) || sellFromCost(unitCost, markup);
     if (qty <= 0) return setFormErr('Enter a quantity');
     if (unitCost < 0 || unitPrice < 0) return setFormErr('Enter valid cost / charge amounts');
     if (!nature && !note && unitCost === 0 && unitPrice === 0 && !form.cost_model_id) {

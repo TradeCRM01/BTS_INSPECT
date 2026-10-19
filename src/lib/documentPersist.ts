@@ -2,6 +2,19 @@ export function issuedDocumentKeepsStoredTotals(status: string | null | undefine
   return status === 'sent' || status === 'paid' || status === 'part_paid' || status === 'accepted' || status === 'overdue';
 }
 
+export function issuedDocumentLocksLines(status: string | null | undefined): boolean {
+  return issuedDocumentKeepsStoredTotals(status);
+}
+
+export function persistIssuedLines<T>(
+  status: string | null | undefined,
+  liveLines: T[],
+  storedLines: T[] | null | undefined,
+): T[] {
+  if (issuedDocumentLocksLines(status) && storedLines) return storedLines;
+  return liveLines;
+}
+
 export function persistDocumentMoney(
   status: string | null | undefined,
   live: { subtotal: number; tax_amount: number; total: number },

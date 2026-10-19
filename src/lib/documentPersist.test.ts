@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { persistDocumentMoney } from './documentPersist';
+import { persistDocumentMoney, persistIssuedLines } from './documentPersist';
 
 const live = { subtotal: 311.52, tax_amount: 31.15, total: 342.67 };
 const stored = { subtotal: 311.51, tax_amount: 31.15, total: 342.66 };
@@ -18,5 +18,13 @@ describe('persistDocumentMoney locks issued totals', () => {
   it('rewrites live totals on draft only', () => {
     expect(persistDocumentMoney('draft', live, stored)).toEqual(live);
     expect(persistDocumentMoney(null, live, stored)).toEqual(live);
+  });
+
+  it('shows stored $342.66 when live lines sum to $342.67 on a sent invoice', () => {
+    const shown = persistDocumentMoney('sent', live, stored);
+    expect(shown.total).toBe(342.66);
+    expect(shown.total).not.toBe(342.67);
+    expect(persistIssuedLines('sent', [{ unit_price: 200 }], [{ unit_price: 100 }])).toEqual([{ unit_price: 100 }]);
+    expect(persistIssuedLines('draft', [{ unit_price: 200 }], [{ unit_price: 100 }])).toEqual([{ unit_price: 200 }]);
   });
 });

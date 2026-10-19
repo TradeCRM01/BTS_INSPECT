@@ -123,24 +123,24 @@ export function parseDecimalInput(
   return { status: 'invalid', message: DECIMAL_INVALID };
 }
 
-export function parseMoneyInput(raw: string): DecimalParseResult {
-  return parseDecimalInput(raw, 'money');
+export function parseMoneyInput(raw: string, opts: DecimalParseOpts = {}): DecimalParseResult {
+  return parseDecimalInput(raw, 'money', opts);
 }
 
 export function parseNumberInput(raw: string, opts: DecimalParseOpts = {}): DecimalParseResult {
   return parseDecimalInput(raw, 'number', opts);
 }
 
-export function moneyDraftAllowed(raw: string): boolean {
-  return raw === '' || parseMoneyInput(raw).status !== 'invalid';
+export function moneyDraftAllowed(raw: string, opts: DecimalParseOpts = {}): boolean {
+  return raw === '' || parseMoneyInput(raw, opts).status !== 'invalid';
 }
 
 export function numberDraftAllowed(raw: string, opts: DecimalParseOpts = {}): boolean {
   return raw === '' || parseNumberInput(raw, opts).status !== 'invalid';
 }
 
-export function committedMoney(raw: string): number | null {
-  const parsed = parseMoneyInput(raw);
+export function committedMoney(raw: string, opts: DecimalParseOpts = {}): number | null {
+  const parsed = parseMoneyInput(raw, opts);
   return parsed.status === 'valid' ? parsed.value : null;
 }
 
@@ -153,8 +153,12 @@ export function committedMoneyOrZero(raw: string): number {
   return committedMoney(raw) ?? 0;
 }
 
-export function moneyFieldMessage(raw: string, emptyMessage: string | null = null): string | null {
-  const parsed = parseMoneyInput(raw);
+export function moneyFieldMessage(
+  raw: string,
+  emptyMessage: string | null = null,
+  opts: DecimalParseOpts = {},
+): string | null {
+  const parsed = parseMoneyInput(raw, opts);
   if (parsed.status === 'empty') return emptyMessage;
   if (parsed.status === 'incomplete') return MONEY_COMMA_HINT;
   if (parsed.status === 'invalid') return parsed.message;
@@ -171,8 +175,9 @@ export function numberFieldMessage(raw: string, opts: DecimalParseOpts = {}): st
 export function commitMoneyField(
   raw: string,
   empty: MoneyEmptyPolicy = 'zero',
+  opts: DecimalParseOpts = {},
 ): { ok: true; value: number | null } | { ok: false; message: string } {
-  const parsed = parseMoneyInput(raw);
+  const parsed = parseMoneyInput(raw, opts);
   if (parsed.status === 'valid') return { ok: true, value: parsed.value };
   if (parsed.status === 'empty') {
     if (empty === 'zero') return { ok: true, value: 0 };
@@ -215,12 +220,12 @@ export function commitDocumentLine(li: {
 }): { ok: true; quantity: number; unit_price: number; unit_cost: number | null } | { ok: false; message: string } {
   const qty = commitNumberField(li.quantity, 'zero');
   if (!qty.ok) return qty;
-  const price = commitMoneyField(li.unit_price, 'zero');
+  const price = commitMoneyField(li.unit_price, 'zero', { allowNegative: true });
   if (!price.ok) return price;
   if (li.unit_cost == null || String(li.unit_cost).trim() === '') {
     return { ok: true, quantity: Number(qty.value) || 0, unit_price: Number(price.value) || 0, unit_cost: null };
   }
-  const cost = commitMoneyField(String(li.unit_cost), 'null');
+  const cost = commitMoneyField(String(li.unit_cost), 'null', { allowNegative: true });
   if (!cost.ok) return cost;
   return {
     ok: true,

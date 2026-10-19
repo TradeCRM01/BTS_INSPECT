@@ -7,7 +7,7 @@ import {
   type PdfThemeTokens,
 } from '../shared/styles';
 import { formatMoney } from '../../types/fsm';
-import { lineExGstAmount } from '../../lib/gst';
+import { commercialPdfLineAmount } from '../../lib/gst';
 import type { QuoteLineItem, InvoiceLineItem } from '../../types/fsm';
 import { gstDocumentLabel, gstLabel, type LineForGst } from '../../lib/gst';
 import { commercialPdfLogoBox, companyDocumentLogoUrl } from '../../lib/companyLogo';
@@ -370,7 +370,7 @@ export function CommercialDocumentPdf({ data }: { data: CommercialPdfData }) {
           <Text style={[s.th, { width: '15%', textAlign: 'right' }]}>Amount</Text>
         </View>
         {data.lines.map((li, i) => {
-          const amount = lineExGstAmount(li);
+          const amount = commercialPdfLineAmount(li);
           return (
             <View key={i} style={i % 2 === 1 ? [s.row, s.rowAlt] : s.row} wrap={false}>
               <Text style={[s.td, { width: '18%', color: colors.textMuted }]}>{li.charge_type || '—'}</Text>

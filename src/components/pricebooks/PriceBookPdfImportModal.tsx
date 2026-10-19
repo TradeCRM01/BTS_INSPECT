@@ -209,6 +209,7 @@ export function PriceBookPdfImportModal({
     let inserted = 0;
     let updated = 0;
     try {
+      const committed: { r: typeof toApply[number]; sell: number; cost: number | null }[] = [];
       for (const r of toApply) {
         const sellRow = commitMoneyField(r.unit_price, 'zero');
         if (!sellRow.ok) {
@@ -222,8 +223,9 @@ export function PriceBookPdfImportModal({
           setSaving(false);
           return;
         }
-        const cost = costRow.value;
-        const sell = Number(sellRow.value) || 0;
+        committed.push({ r, sell: Number(sellRow.value) || 0, cost: costRow.value });
+      }
+      for (const { r, sell, cost } of committed) {
         const payload = {
           price_book_id: priceBookId,
           company_id: profile.company_id,

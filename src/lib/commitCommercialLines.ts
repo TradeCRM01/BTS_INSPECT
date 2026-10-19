@@ -32,10 +32,12 @@ export function commitCommercialLines(
   items: CommercialLineDraft[],
 ): { ok: true; lines: CommercialLineCommitted[] } | { ok: false; message: string } {
   const lines: CommercialLineCommitted[] = [];
+  let lineNo = 0;
   for (const li of items) {
     if (!li.description.trim()) continue;
+    lineNo += 1;
     const committed = commitDocumentLine(li);
-    if (!committed.ok) return committed;
+    if (!committed.ok) return { ok: false, message: `Line ${lineNo}: ${committed.message}` };
     if (committed.quantity <= 0) continue;
     lines.push({
       description: li.description.trim(),

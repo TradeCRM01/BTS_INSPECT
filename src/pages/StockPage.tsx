@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { getAuditEmptyList } from '../lib/devFieldAuditDocs';
 import { ManagedSelect } from '../components/ui/ManagedSelect';
 import { LIST_KEYS, useManagedList } from '../lib/useManagedList';
 import { AppShell } from '../components/layout/AppShell';
@@ -74,6 +75,8 @@ export function StockPage() {
   const { data: items, isLoading, error } = useQuery<StockItemWithSupplier[]>({
     queryKey: ['stock-items', showArchived],
     queryFn: async () => {
+      const empty = getAuditEmptyList();
+      if (empty) return empty as StockItemWithSupplier[];
       const { data, error } = await supabase
         .from('stock_items')
         .select('id, company_id, name, sku, description, category, unit_of_measure, quantity_on_hand, reorder_level, reorder_quantity, storage_location, unit_cost, supplier_id, archived, created_at, updated_at, suppliers!supplier_id(name)')

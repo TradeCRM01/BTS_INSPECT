@@ -58,6 +58,10 @@ export function lineExGstAmount(line: LineForGst): number {
   return moneyRound(lineQty(line.quantity) * lineUnitPrice(line.unit_price));
 }
 
+export function commercialPdfLineAmount(line: LineForGst): number {
+  return lineExGstAmount(line);
+}
+
 /** Per-line GST. Lines with no rate use the document tax rate so old quotes and invoices match calcDocumentTotals. */
 export function calcLineDocumentTotals(lines: LineForGst[], fallbackRate: number): DocumentTotals {
   const rawSubtotal = lines.reduce((sum, line) => sum + lineExGstAmount(line), 0);

@@ -26,7 +26,7 @@ import { listQueryBusy } from '../lib/listQueryReady';
 import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel, lineExGstAmount } from '../lib/gst';
 import { commitDocumentLine } from '../lib/parseDecimal';
 import { commitCommercialLines } from '../lib/commitCommercialLines';
-import { persistDocumentMoney } from '../lib/documentPersist';
+import { issuedDocumentLocksLines, persistDocumentMoney, persistIssuedLines } from '../lib/documentPersist';
 import { lineNeedsLabourRate } from '../lib/hoursToJobBill';
 import {
   effectiveInvoiceStatus,
@@ -76,6 +76,7 @@ import {
   AUDIT_DOC_JOB_ID,
   AUDIT_FIX2_CLIENT_ID,
   AUDIT_INVOICE_ID,
+  AUDIT_INVOICE_ISSUED_SWEEP7_ID,
   getAuditClientsForInvoiceEditor,
   getAuditInvoiceEditorRow,
 } from '../lib/devFieldAuditDocs';
@@ -175,6 +176,7 @@ export function InvoicesPage() {
   const paymentProof = isDevFieldAuditAuth() && searchParams.get('payment') === '1';
   const money4PartPaidLook = isDevFieldAuditAuth() && searchParams.get('look') === 'money-4-part-paid';
   const money4PartPaidOverdueLook = isDevFieldAuditAuth() && searchParams.get('look') === 'money-4-part-paid-overdue';
+  const sweep7IssuedLook = isDevFieldAuditAuth() && searchParams.get('look') === 'sweep7-issued';
 
   const { data: smtpSettings } = useQuery<SmtpSettingsRow | null>({
     queryKey: ['email-settings', profile?.company_id],
@@ -217,9 +219,13 @@ export function InvoicesPage() {
   });
 
   const { data: invoices, isLoading, isPending, error } = useQuery<InvoiceWithDetails[]>({
-    queryKey: ['invoices', lookLetterhead ? LETTERHEAD_LOOK : 'live', paymentProof, money4PartPaidLook, money4PartPaidOverdueLook],
+    queryKey: ['invoices', lookLetterhead ? LETTERHEAD_LOOK : 'live', paymentProof, money4PartPaidLook, money4PartPaidOverdueLook, sweep7IssuedLook],
     queryFn: async () => {
       if (isDevFieldAuditAuth()) {
+        if (sweep7IssuedLook) {
+          const issued = getAuditInvoiceEditorRow(AUDIT_INVOICE_ISSUED_SWEEP7_ID);
+          if (issued) return [issued as InvoiceWithDetails];
+        }
         try {
           const fix2Raw = sessionStorage.getItem('audit-fix2-invoice-row');
           if (fix2Raw) {
@@ -1087,11 +1093,20 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
     onError: (e: Error) => showToast(e.message, 'info'),
   });
   const fallbackTaxRate = parseFloat(form.tax_rate) || 0;
-  const gst = useMemo(
+  const liveGst = useMemo(
     () => calcLineDocumentTotals(form.line_items, fallbackTaxRate),
     [form.line_items, fallbackTaxRate],
   );
-  const { subtotal, taxAmount, total: grandTotal } = gst;
+  const issuedStatus = invoice?.status ?? form.status;
+  const linesLocked = issuedDocumentLocksLines(issuedStatus);
+  const moneyShown = persistDocumentMoney(issuedStatus, {
+    subtotal: liveGst.subtotal,
+    tax_amount: liveGst.taxAmount,
+    total: liveGst.total,
+  }, invoice);
+  const subtotal = moneyShown.subtotal;
+  const taxAmount = moneyShown.tax_amount;
+  const grandTotal = moneyShown.total;
   const gstHeading = gstDocumentLabel(form.line_items, fallbackTaxRate);
   const next = recommendInvoiceAction(invoiceActionContext({
     status: form.status,
@@ -1212,13 +1227,18 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
     if (cleanLines.length === 0) { setErr('Add at least one line item'); return null; }
     setSaving(true); setErr(''); setXeroMiss('');
     const storedStatus = persistableInvoiceStatus(status);
-    const money = persistDocumentMoney(invoice?.status ?? form.status, { subtotal, tax_amount: taxAmount, total: grandTotal }, invoice);
+    const money = persistDocumentMoney(invoice?.status ?? form.status, {
+      subtotal: liveGst.subtotal,
+      tax_amount: liveGst.taxAmount,
+      total: liveGst.total,
+    }, invoice);
+    const persistLines = persistIssuedLines(invoice?.status ?? form.status, cleanLines, invoice?.line_items ?? null);
     const payload = {
       client_id: form.client_id || null,
       job_id: form.job_id || null,
       quote_id: form.quote_id || null,
       status: storedStatus,
-      line_items: cleanLines,
+      line_items: persistLines,
       subtotal: money.subtotal,
       tax_rate: parseFloat(form.tax_rate) || 0,
       tax_amount: money.tax_amount,
@@ -1318,7 +1338,7 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
   const showInvoiceActions = next.key === 'send' || next.key === 'mark_paid';
   const effectiveStatus = effectiveInvoiceStatus({ status: form.status, due_date: form.due_date });
   const paidReadPath = effectiveStatus === 'paid';
-  const showSaveFooter = showEdit && !paidReadPath;
+  const showSaveFooter = showEdit && !paidReadPath && !linesLocked;
 
   useEffect(() => {
     const look = searchParams.get('look');
@@ -1327,7 +1347,7 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
       setRecordedPaid(grandTotal);
       setForm(f => ({ ...f, status: 'paid' }));
     }
-    if (look === 'invoice-edit-edit') {
+    if (look === 'invoice-edit-edit' || look === 'sweep7-issued') {
       setShowEdit(true);
     }
     if (look === 'invoice-edit-pdf') {
@@ -1860,6 +1880,7 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
             stockItems={stockItems}
             priceBookItems={priceBookItems}
             defaultMarkup={company?.default_material_markup ?? 0}
+            readOnly={linesLocked}
             onChange={lines => setForm(f => ({ ...f, line_items: lines }))}
           />
 

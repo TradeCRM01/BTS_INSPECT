@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calcLineDocumentTotals, lineExGstAmount, moneyRound } from './gst';
+import { calcLineDocumentTotals, commercialPdfLineAmount, lineExGstAmount, moneyRound } from './gst';
 import { calcSubtotal, type EditLineItem } from '../components/invoicing/LineItemEditor';
 import { formatMoney } from '../types/fsm';
 
@@ -44,6 +44,8 @@ describe('quote/invoice totals half-up on integer cents', () => {
     expect(calcSubtotal(asEditLines())).toBe(311.52);
     expect(formatMoney(totals.subtotal)).toBe('$311.52');
     expect(formatMoney(totals.total)).toBe('$342.67');
+    expect(commercialPdfLineAmount(SWEEP_PROD_LINES[0])).toBe(131.03);
+    expect(commercialPdfLineAmount(SWEEP_PROD_LINES[0])).not.toBe(1.5 * 87.35);
   });
 
   it('kills a toFixed / half-down moneyRound mutant', () => {

@@ -85,6 +85,7 @@ interface LineItemEditorProps {
   priceBookItems?: PriceBookItem[];
   defaultMarkup: number;
   onChange: (lines: EditLineItem[]) => void;
+  readOnly?: boolean;
 }
 
 type PickerMode = 'stock' | 'pricebook' | null;
@@ -98,6 +99,7 @@ export function LineItemEditor({
   priceBookItems = [],
   defaultMarkup,
   onChange,
+  readOnly = false,
 }: LineItemEditorProps) {
   const [picker, setPicker] = useState<PickerMode>(null);
   const [search, setSearch] = useState('');
@@ -258,6 +260,9 @@ export function LineItemEditor({
     <div className="hub-line-editor">
       <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
         <label className="text-xs font-medium text-[#4A5568]">Line Items</label>
+        {readOnly ? (
+          <span className="text-xs text-[#6B7280]">Issued document — lines are locked</span>
+        ) : (
         <div className="flex gap-2 flex-wrap">
           <button
             type="button"
@@ -281,6 +286,7 @@ export function LineItemEditor({
             <Plus size={13} /> Add manual line
           </button>
         </div>
+        )}
       </div>
 
       {picker === 'stock' && (
@@ -384,8 +390,8 @@ export function LineItemEditor({
           const lineTotal = committed.ok
             ? lineExGstAmount({ quantity: committed.quantity, unit_price: committed.unit_price })
             : null;
-          const priceHint = moneyFieldMessage(li.unit_price);
-          const costHint = moneyFieldMessage(li.unit_cost ?? '');
+          const priceHint = readOnly ? null : moneyFieldMessage(li.unit_price, null, { allowNegative: true });
+          const costHint = readOnly ? null : moneyFieldMessage(li.unit_cost ?? '', null, { allowNegative: true });
           const qtyHint = numberFieldMessage(li.quantity);
           const fromStock = !!li.stock_item_id;
           const fromBook = !!li.price_book_item_id;
@@ -431,9 +437,15 @@ export function LineItemEditor({
                   {fromBook && <BookOpen size={10} className="text-[#2E75B6] shrink-0" aria-label="From price book" />}
                   <input
                     value={li.description}
-                    onChange={e => updateLine(idx, { description: e.target.value })}
+                    onChange={e => {
+                      if (readOnly) return;
+                      updateLine(idx, { description: e.target.value });
+                    }}
+                    readOnly={readOnly}
+                    disabled={readOnly}
                     className="form-input-sm min-w-0"
                     placeholder="Description"
+                    aria-label="Description"
                   />
                 </div>
                 {li.check_price ? (
@@ -453,10 +465,13 @@ export function LineItemEditor({
                   inputMode="decimal"
                   value={li.quantity}
                   onChange={e => {
+                    if (readOnly) return;
                     const raw = e.target.value;
                     if (!numberDraftAllowed(raw)) return;
                     updateLine(idx, { quantity: raw });
                   }}
+                  readOnly={readOnly}
+                  disabled={readOnly}
                   className="form-input-sm text-right min-w-0"
                   aria-label="Quantity"
                 />
@@ -469,10 +484,13 @@ export function LineItemEditor({
                   inputMode="decimal"
                   value={li.unit_cost ?? ''}
                   onChange={e => {
+                    if (readOnly) return;
                     const raw = e.target.value;
-                    if (!moneyDraftAllowed(raw)) return;
+                    if (!moneyDraftAllowed(raw, { allowNegative: true })) return;
                     handleCostChange(idx, raw);
                   }}
+                  readOnly={readOnly}
+                  disabled={readOnly}
                   className="form-input-sm text-right min-w-0"
                   placeholder="0.00"
                   aria-label="Unit cost"
@@ -486,10 +504,13 @@ export function LineItemEditor({
                   inputMode="decimal"
                   value={li.markup_percent ?? ''}
                   onChange={e => {
+                    if (readOnly) return;
                     const raw = e.target.value;
                     if (raw !== '' && !/^-?\d*\.?\d*$/.test(raw)) return;
                     handleMarkupChange(idx, raw);
                   }}
+                  readOnly={readOnly}
+                  disabled={readOnly}
                   className="form-input-sm text-right min-w-0"
                   placeholder="0"
                   aria-label="Markup percent"
@@ -502,13 +523,16 @@ export function LineItemEditor({
                   inputMode="decimal"
                   value={li.unit_price}
                   onChange={e => {
+                    if (readOnly) return;
                     const raw = e.target.value;
-                    if (!moneyDraftAllowed(raw)) return;
+                    if (!moneyDraftAllowed(raw, { allowNegative: true })) return;
                     updateLine(idx, {
                       unit_price: raw,
                       check_price: checkPriceAfterUnitPrice(raw, li.check_price),
                     });
                   }}
+                  readOnly={readOnly}
+                  disabled={readOnly}
                   className="form-input-sm text-right font-medium min-w-0"
                   placeholder="0.00"
                   aria-label="Unit price"
@@ -522,6 +546,7 @@ export function LineItemEditor({
               <button
                 type="button"
                 onClick={() => removeLine(idx)}
+                disabled={readOnly}
                 aria-label="Remove line"
                 className="hub-line-editor-del w-7 h-7 flex items-center justify-center rounded text-[#9CA3AF] hover:text-red-600 hover:bg-red-50"
               >

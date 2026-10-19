@@ -10,7 +10,6 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DECIMAL_INVALID, MONEY_COMMA_HINT } from '../lib/parseDecimal';
 import { commitCommercialLines } from '../lib/commitCommercialLines';
-import { persistDocumentMoney } from '../lib/documentPersist';
 import { calcSubtotal, emptyLineItem, LineItemEditor } from '../components/invoicing/LineItemEditor';
 import { ToastProvider } from '../components/ui/Toast';
 
@@ -48,7 +47,7 @@ function thenable<T>(data: T, table: string) {
   query.insert = (payload: Record<string, unknown> | Record<string, unknown>[]) => {
     const rows = Array.isArray(payload) ? payload : [payload];
     rows.forEach(row => harness.inserts.push({ table, payload: row }));
-    return Promise.resolve(result);
+    return thenable({ id: `${table}-new`, ...(rows[0] ?? {}) }, table);
   };
   query.update = (payload: Record<string, unknown>) => {
     harness.updates.push({ table, payload });
@@ -91,11 +90,13 @@ import { PriceBookItemForm, commitPriceBookPrices } from './PriceBooksPage';
 import { StockItemForm, commitStockQtyOnHand } from './StockPage';
 import { StockAdjustmentForm, commitStockAdjustment } from './StockDetailPage';
 import { POEditorModal, commitPOLine } from './PurchaseOrdersPage';
-import { InvoiceRecordPaymentSheet } from './InvoicesPage';
+import { InvoiceEditorModal, InvoiceRecordPaymentSheet } from './InvoicesPage';
+import { QuoteEditorModal } from './QuotesPage';
 import { JobFormModal, commitJobBudget } from '../components/crm/JobFormModal';
 import { PriceBookPdfImportModal } from '../components/pricebooks/PriceBookPdfImportModal';
 import { ApplyEmployeeCostModelModal, commitModelLine } from '../components/expenses/ExpenseModelsModals';
-import { commitJobBillCharge } from '../components/jobs/JobCostingPanel';
+import { JobCostingPanel, commitJobBillCharge } from '../components/jobs/JobCostingPanel';
+import userEvent from '@testing-library/user-event';
 
 let container: HTMLDivElement;
 let root: Root;
@@ -206,7 +207,7 @@ describe('commit helpers reject 1,5 on every money form', () => {
       description: 'Labour',
       quantity: '1',
       unit_price: '1,5',
-    }])).toEqual({ ok: false, message: MONEY_COMMA_HINT });
+    }])).toEqual({ ok: false, message: `Line 1: ${MONEY_COMMA_HINT}` });
     expect(commitCommercialLines([{
       ...emptyLineItem(),
       description: 'Labour',
@@ -294,34 +295,68 @@ describe('LineItemEditor unit price, qty, line total', () => {
 });
 
 describe('Quotes and invoices persist wiring', () => {
-  it('save paths use commitCommercialLines + persistDocumentMoney, not parseFloat on unit price', () => {
-    const quotes = src('src/pages/QuotesPage.tsx');
-    const invoices = src('src/pages/InvoicesPage.tsx');
-    expect(quotes).toContain('commitCommercialLines(form.line_items)');
-    expect(quotes).toContain('persistDocumentMoney(quote?.status');
-    expect(invoices).toContain('commitCommercialLines(form.line_items)');
-    expect(invoices).toContain('persistDocumentMoney(invoice?.status');
-    expect(quotes).not.toMatch(/unit_price:\s*parseFloat/);
-    expect(invoices).not.toMatch(/unit_price:\s*parseFloat/);
-    expect(quotes).toContain('commitDocumentLine(li)');
-    expect(quotes).not.toMatch(/parseFloat\(li\.quantity\)/);
-    expect(quotes).not.toMatch(/parseFloat\(li\.unit_price\)/);
-    const saved = commitCommercialLines([{
-      ...emptyLineItem(),
-      description: 'Labour',
-      quantity: '1.5',
-      unit_price: '87.35',
-    }]);
-    expect(saved.ok).toBe(true);
-    if (saved.ok) {
-      const money = persistDocumentMoney('draft', { subtotal: 131.03, tax_amount: 13.1, total: 144.13 }, null);
-      expect(money.subtotal).toBe(131.03);
-      expect(persistDocumentMoney('sent', { subtotal: 131.03, tax_amount: 13.1, total: 144.13 }, {
-        subtotal: 131.02,
-        tax_amount: 13.1,
-        total: 144.12,
-      }).subtotal).toBe(131.02);
-    }
+  async function fillLine(description: string, priceRaw: string) {
+    const lineDesc = pageRoot().querySelector('[aria-label="Description"]') as HTMLInputElement;
+    const price = pageRoot().querySelector('[aria-label="Unit price"]') as HTMLInputElement;
+    await act(async () => { setNativeValue(lineDesc, description); });
+    await typeKeys(price, priceRaw);
+    return { lineDesc, price };
+  }
+
+  function saveButton() {
+    return Array.from(pageRoot().querySelectorAll('button')).find(b => /Save draft|^Save$/i.test(b.textContent || '')) as HTMLButtonElement;
+  }
+
+  it('rendered quote save writes committed 1,250 and refuses 1,5', async () => {
+    await renderNode(
+      <QuoteEditorModal
+        quote={null}
+        presetClientId="cl-1"
+        defaultTaxRate={10}
+        onClose={() => {}}
+        onSaved={() => {}}
+        onRequestSend={() => {}}
+      />,
+    );
+    await fillLine('Labour', '1,5');
+    expect(pageRoot().textContent).toContain(MONEY_COMMA_HINT);
+    await act(async () => { saveButton().click(); });
+    await flush();
+    expect(harness.inserts.filter(row => row.table === 'quotes')).toEqual([]);
+
+    await fillLine('Labour', '1,250');
+    await act(async () => { saveButton().click(); });
+    await flush();
+    const quotes = harness.inserts.filter(row => row.table === 'quotes');
+    expect(quotes).toHaveLength(1);
+    expect((quotes[0]?.payload.line_items as { unit_price: number }[])[0]?.unit_price).toBe(1250);
+    expect((quotes[0]?.payload.line_items as { unit_price: number }[])[0]?.unit_price).not.toBe(1);
+  });
+
+  it('rendered invoice save writes committed 1,250 and refuses 1,5', async () => {
+    await renderNode(
+      <InvoiceEditorModal
+        invoice={null}
+        presetClientId="cl-1"
+        defaultTaxRate={10}
+        smtpReady={false}
+        onClose={() => {}}
+        onSaved={() => {}}
+        onRequestSend={() => {}}
+      />,
+    );
+    await fillLine('Labour', '1,5');
+    expect(pageRoot().textContent).toContain(MONEY_COMMA_HINT);
+    await act(async () => { saveButton().click(); });
+    await flush();
+    expect(harness.inserts.filter(row => row.table === 'invoices')).toEqual([]);
+
+    await fillLine('Labour', '1,250');
+    await act(async () => { saveButton().click(); });
+    await flush();
+    const invoices = harness.inserts.filter(row => row.table === 'invoices');
+    expect(invoices).toHaveLength(1);
+    expect((invoices[0]?.payload.line_items as { unit_price: number }[])[0]?.unit_price).toBe(1250);
   });
 });
 
@@ -717,5 +752,224 @@ describe('Cost-model wage override', () => {
     const estimate = pageRoot().querySelector('[aria-label="Wage package estimate"]');
     expect(estimate?.textContent).toContain('$190,000.00');
     expect(estimate?.textContent).not.toContain('$152.00');
+  });
+});
+
+describe('Stock qty userEvent keystrokes', () => {
+  it('New Item qty userEvent.type 1,5 saves 1.5', async () => {
+    const user = userEvent.setup();
+    await renderNode(
+      <StockItemForm item={null} onClose={() => {}} onSaved={() => {}} />,
+    );
+    const name = container.querySelector('input[placeholder="e.g. 20mm PVC Conduit"]') as HTMLInputElement;
+    const qty = container.querySelector('[aria-label="Qty On Hand"]') as HTMLInputElement;
+    await act(async () => { setNativeValue(name, 'Conduit'); });
+    await user.clear(qty);
+    await user.type(qty, '1,5');
+    expect(qty.value).toBe('1,5');
+    const add = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Add Item') as HTMLButtonElement;
+    await act(async () => { add.click(); });
+    await flush();
+    expect(harness.inserts.filter(row => row.table === 'stock_items')[0]?.payload.quantity_on_hand).toBe(1.5);
+  });
+
+  it('Manual Adjustment qty userEvent.type 1,5 and -1,5', async () => {
+    const user = userEvent.setup();
+    const seen: number[] = [];
+    function Harness() {
+      const [qty, setQty] = useState('');
+      return (
+        <StockAdjustmentForm
+          qty={qty}
+          reason=""
+          onQtyChange={setQty}
+          onReasonChange={() => {}}
+          onSubmit={() => {
+            const committed = commitStockAdjustment(qty);
+            if (!committed.ok) return;
+            seen.push(committed.value);
+          }}
+        />
+      );
+    }
+    await renderNode(<Harness />);
+    const qty = pageRoot().querySelector('[aria-label="Adjustment quantity"]') as HTMLInputElement;
+    await user.clear(qty);
+    await user.type(qty, '1,5');
+    expect(qty.value).toBe('1,5');
+    const adjust = Array.from(pageRoot().querySelectorAll('button')).find(b => b.textContent?.includes('Adjust')) as HTMLButtonElement;
+    await act(async () => { adjust.click(); });
+    await flush();
+    expect(seen).toEqual([1.5]);
+    await user.clear(qty);
+    await user.type(qty, '-1,5');
+    expect(qty.value).toBe('-1,5');
+    await act(async () => { adjust.click(); });
+    await flush();
+    expect(seen).toEqual([1.5, -1.5]);
+  });
+});
+
+describe('Convert to job refuses invalid lines', () => {
+  it('names the bad line and does not create a job when line 2 is 1,5', async () => {
+    await renderNode(
+      <QuoteEditorModal
+        quote={{
+          id: 'q-1',
+          company_id: 'co-1',
+          quote_number: 10,
+          client_id: 'cl-1',
+          job_id: null,
+          status: 'accepted',
+          description: 'Switchboard',
+          scope_of_works: '',
+          line_items: [
+            { description: 'Labour', quantity: 1, unit_price: 100 },
+            { description: 'Fitting', quantity: 1, unit_price: '1,5' as unknown as number },
+          ],
+          subtotal: 100,
+          tax_rate: 10,
+          tax_amount: 10,
+          total: 110,
+          validity_date: null,
+          notes: null,
+          inclusions: [],
+          exclusions: [],
+          scheduled_date: '2026-10-20',
+          assigned_team: ['user-1'],
+          created_by: 'user-1',
+          created_at: '2026-10-01T00:00:00.000Z',
+          updated_at: '2026-10-01T00:00:00.000Z',
+          invoice_id: null,
+        } as never}
+        defaultTaxRate={10}
+        onClose={() => {}}
+        onSaved={() => {}}
+        onRequestSend={() => {}}
+      />,
+    );
+    const convert = Array.from(pageRoot().querySelectorAll('button')).find(b => /Convert to job/i.test(b.textContent || '')) as HTMLButtonElement;
+    expect(convert).toBeTruthy();
+    await act(async () => { convert.click(); });
+    await flush();
+    expect(pageRoot().textContent).toContain(`Line 2: ${MONEY_COMMA_HINT}`);
+    expect(harness.inserts.filter(row => row.table === 'jobs')).toEqual([]);
+  });
+});
+
+describe('Job bill rendered panel uses commitJobBillCharge', () => {
+  it('types charge 1,5, shows the hint, and does not insert', async () => {
+    await renderNode(
+      <JobCostingPanel jobId="job-1" clientId="cl-1" />,
+    );
+    const charge = pageRoot().querySelector('[aria-label="Charge customer (each)"]') as HTMLInputElement;
+    const qty = pageRoot().querySelector('[aria-label="Qty"]') as HTMLInputElement;
+    await typeKeys(qty, '1');
+    await typeKeys(charge, '1,5');
+    expect(pageRoot().textContent).toContain(MONEY_COMMA_HINT);
+    const add = Array.from(pageRoot().querySelectorAll('button')).find(b => /Add to bill/i.test(b.textContent || '')) as HTMLButtonElement;
+    await act(async () => { add.click(); });
+    await flush();
+    expect(harness.inserts.filter(row => row.table === 'job_costs')).toEqual([]);
+  });
+
+  it('types qty 1,5 and charge 20 and inserts qty 1.5', async () => {
+    await renderNode(
+      <JobCostingPanel jobId="job-1" clientId="cl-1" />,
+    );
+    const charge = pageRoot().querySelector('[aria-label="Charge customer (each)"]') as HTMLInputElement;
+    const qty = pageRoot().querySelector('[aria-label="Qty"]') as HTMLInputElement;
+    await typeKeys(qty, '1,5');
+    await typeKeys(charge, '20');
+    const add = Array.from(pageRoot().querySelectorAll('button')).find(b => /Add to bill/i.test(b.textContent || '')) as HTMLButtonElement;
+    await act(async () => { add.click(); });
+    await flush();
+    const rows = harness.inserts.filter(row => row.table === 'job_costs');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.payload.quantity).toBe(1.5);
+    expect(rows[0]?.payload.unit_price).toBe(20);
+  });
+});
+
+describe('Issued invoice locks lines and shows stored totals', () => {
+  const storedInvoice = {
+    id: '37e27b33',
+    company_id: 'co-1',
+    invoice_number: 37,
+    client_id: 'cl-1',
+    job_id: null,
+    quote_id: null,
+    status: 'sent',
+    line_items: [
+      { description: 'Labour', quantity: 1.5, unit_price: 87.35 },
+      { description: 'Fitting', quantity: 3, unit_price: 33.33 },
+      { description: 'Consumables', quantity: 7, unit_price: 11.5 },
+    ],
+    subtotal: 311.51,
+    tax_rate: 10,
+    tax_amount: 31.15,
+    total: 342.66,
+    amount_paid: 0,
+    payment_terms: null,
+    due_date: null,
+    notes: null,
+    inclusions: [],
+    exclusions: [],
+    created_by: 'user-1',
+    created_at: '2026-10-01T00:00:00.000Z',
+    updated_at: '2026-10-01T00:00:00.000Z',
+  };
+
+  it('shows stored $342.66 and locks unit price on a sent invoice', async () => {
+    await renderNode(
+      <InvoiceEditorModal
+        invoice={storedInvoice as never}
+        defaultTaxRate={10}
+        smtpReady={false}
+        onClose={() => {}}
+        onSaved={() => {}}
+        onRequestSend={() => {}}
+      />,
+    );
+    expect(pageRoot().textContent).toContain('$342.66');
+    expect(pageRoot().textContent).not.toContain('$342.67');
+    const edit = Array.from(pageRoot().querySelectorAll('button')).find(b => /Edit invoice/i.test(b.textContent || '')) as HTMLButtonElement;
+    expect(edit).toBeTruthy();
+    await act(async () => { edit.click(); });
+    await flush();
+    expect(pageRoot().textContent).toContain('Issued document — lines are locked');
+    expect(pageRoot().textContent).toContain('$342.66');
+    expect(pageRoot().textContent).not.toContain('$342.67');
+    const price = pageRoot().querySelector('[aria-label="Unit price"]') as HTMLInputElement;
+    expect(price.disabled).toBe(true);
+    const save = Array.from(pageRoot().querySelectorAll('button')).find(b => /Save/i.test(b.textContent || '')) as HTMLButtonElement;
+    if (save) {
+      await act(async () => { save.click(); });
+      await flush();
+    }
+    const updates = harness.updates.filter(row => row.table === 'invoices');
+    for (const row of updates) {
+      expect(row.payload.total).toBe(342.66);
+      expect(row.payload.line_items).toEqual(storedInvoice.line_items);
+    }
+  });
+});
+
+describe('Negative unit price can be typed and saved', () => {
+  it('types -5 on unit price and keeps it', async () => {
+    let lines = [{ ...emptyLineItem(), description: 'Credit', quantity: '1', unit_price: '' }];
+    await renderNode(
+      <LineEditorHarness
+        initial={lines}
+        onLines={next => { lines = next; }}
+      />,
+    );
+    const price = pageRoot().querySelector('[aria-label="Unit price"]') as HTMLInputElement;
+    await typeKeys(price, '-5');
+    expect(price.value).toBe('-5');
+    expect(commitCommercialLines(lines)).toMatchObject({
+      ok: true,
+      lines: [{ quantity: 1, unit_price: -5 }],
+    });
   });
 });

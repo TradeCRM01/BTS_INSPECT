@@ -56,7 +56,7 @@ import {
 import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel, lineExGstAmount } from '../lib/gst';
 import { commitDocumentLine } from '../lib/parseDecimal';
 import { commitCommercialLines } from '../lib/commitCommercialLines';
-import { persistDocumentMoney } from '../lib/documentPersist';
+import { issuedDocumentLocksLines, persistDocumentMoney, persistIssuedLines } from '../lib/documentPersist';
 import { LineItemEditor, emptyLineItem, toEditLine, type EditLineItem } from '../components/invoicing/LineItemEditor';
 import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariationsEditor';
 import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
@@ -275,7 +275,6 @@ function fieldAuditConvertedQuotes(): QuoteListItem[] {
     },
   ];
 }
-
 
 function fieldAuditGstQuote(): QuoteListItem | null {
   if (!isDevFieldAuditAuth()) return null;
@@ -1118,11 +1117,20 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
         : clients,
   });
   const fallbackTaxRate = parseFloat(form.tax_rate) || 0;
-  const gst = useMemo(
+  const liveGst = useMemo(
     () => calcLineDocumentTotals(form.line_items, fallbackTaxRate),
     [form.line_items, fallbackTaxRate],
   );
-  const { subtotal, taxAmount, total: grandTotal } = gst;
+  const issuedStatus = quote?.status ?? form.status;
+  const linesLocked = issuedDocumentLocksLines(issuedStatus);
+  const moneyShown = persistDocumentMoney(issuedStatus, {
+    subtotal: liveGst.subtotal,
+    tax_amount: liveGst.taxAmount,
+    total: liveGst.total,
+  }, quote);
+  const subtotal = moneyShown.subtotal;
+  const taxAmount = moneyShown.tax_amount;
+  const grandTotal = moneyShown.total;
   const gstHeading = gstDocumentLabel(form.line_items, fallbackTaxRate);
 
   const next = recommendQuoteAction(quoteActionContext({
@@ -1293,7 +1301,12 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
     const committed = commitCommercialLines(form.line_items);
     if (!committed.ok) return { ok: false as const, message: committed.message };
     const cleanLines = committed.lines;
-    const money = persistDocumentMoney(quote?.status ?? status, { subtotal, tax_amount: taxAmount, total: grandTotal }, quote);
+    const money = persistDocumentMoney(quote?.status ?? status, {
+      subtotal: liveGst.subtotal,
+      tax_amount: liveGst.taxAmount,
+      total: liveGst.total,
+    }, quote);
+    const persistLines = persistIssuedLines(quote?.status ?? status, cleanLines, quote?.line_items ?? null);
     return {
       ok: true as const,
       cleanLines,
@@ -1301,7 +1314,7 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
         client_id: form.client_id || null, job_id: form.job_id || null, status,
         description: form.description.trim() || null,
         scope_of_works: form.scope_of_works.trim() || null,
-        line_items: cleanLines, subtotal: money.subtotal, tax_rate: parseFloat(form.tax_rate) || 0, tax_amount: money.tax_amount, total: money.total,
+        line_items: persistLines, subtotal: money.subtotal, tax_rate: parseFloat(form.tax_rate) || 0, tax_amount: money.tax_amount, total: money.total,
         validity_date: form.validity_date || null, notes: form.notes.trim() || null,
         inclusions: form.inclusions, exclusions: form.exclusions,
         scheduled_date: form.scheduled_date || null,
@@ -1330,7 +1343,7 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
         message: opts?.message ?? 'Quote updated',
         listRow: {
           id,
-          total: grandTotal,
+          total: payload.total,
           status,
           client_id: payload.client_id,
           line_items: cleanLines,
@@ -1439,6 +1452,13 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
       releaseQuoteConvertLock(convertingLock);
       return;
     }
+    const built = buildPayload('accepted');
+    if (!built.ok) {
+      setErr(built.message);
+      setConverting(false);
+      releaseQuoteConvertLock(convertingLock);
+      return;
+    }
     setErr('');
     const id = savedId ?? quote?.id ?? '';
     let converted = false;
@@ -1451,11 +1471,8 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
         job_id: form.job_id || null,
         description: form.description,
         scope_of_works: form.scope_of_works,
-        line_items: (() => {
-          const built = buildPayload('accepted');
-          return built.ok ? built.payload.line_items : [];
-        })(),
-        total: grandTotal,
+        line_items: built.payload.line_items,
+        total: built.payload.total,
         scheduled_date: form.scheduled_date || null,
         assigned_team: form.assigned_team,
         start_time,
@@ -1559,7 +1576,18 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
       onClose={onClose}
       title="Quote"
       panelClassName="overlay-panel-xl hub-quote-editor"
-      footer={(
+      footer={linesLocked ? (
+        <div className="hub-editor-sticky-footer" data-quote-view-footer="1">
+          <button
+            type="button"
+            data-editor-sticky-cancel="1"
+            onClick={onClose}
+            className="hub-editor-sticky-cancel"
+          >
+            Close
+          </button>
+        </div>
+      ) : (
         <EditorStickyFooter
           onCancel={onClose}
           onSave={() => { void persist(form.status, { close: true }); }}
@@ -1667,6 +1695,7 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
                 >
                   Preview PDF
                 </button>
+                {!linesLocked && (
                 <button
                   type="button"
                   role="menuitem"
@@ -1675,6 +1704,7 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
                 >
                   {saving ? 'Saving...' : quote || savedId ? 'Save' : 'Save draft'}
                 </button>
+                )}
                 <button
                   type="button"
                   role="menuitem"
@@ -2044,6 +2074,7 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
             stockItems={stockItems}
             priceBookItems={priceBookItems}
             defaultMarkup={company?.default_material_markup ?? 0}
+            readOnly={linesLocked}
             onChange={lines => setForm(f => ({ ...f, line_items: lines }))}
           />
 

@@ -59,6 +59,17 @@ describe('parseMoneyInput', () => {
     expect(moneyDraftAllowed('1,25')).toBe(true);
     expect(moneyDraftAllowed('nope')).toBe(false);
   });
+
+  it('rejects 1,2,3.5 and keeps negatives off money unless opted in', () => {
+    expect(parseMoneyInput('1,2,3.5').status).toBe('invalid');
+    expect(parseNumberInput('1,2,3.5').status).toBe('invalid');
+    expect(parseMoneyInput('-5').status).toBe('invalid');
+    expect(parseMoneyInput('-5', { allowNegative: true })).toEqual({ status: 'valid', value: -5 });
+    expect(moneyDraftAllowed('-', { allowNegative: true })).toBe(true);
+    expect(moneyDraftAllowed('-5')).toBe(false);
+    expect(parseRecordPaymentAmount('-5')).toBeNull();
+    expect(recordPaymentStatusAfterLabel('-5', 836, 0)).toBe('—');
+  });
 });
 
 describe('parseNumberInput disambiguates 1,250 from 1,5', () => {
