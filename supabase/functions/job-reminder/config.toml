@@ -1,2 +1,0 @@
-# Cron calls with a service/anon JWT. The gateway requires a JWT.
-verify_jwt = true
