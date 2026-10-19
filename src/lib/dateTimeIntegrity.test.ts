@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DATE_REQUIRED_MESSAGE as SAFE_DATE_REQUIRED_MESSAGE, DATE_YEAR_RANGE_MESSAGE } from './safeDate';
 import {
   AU_DATE_PLACEHOLDER,
   DATE_INVALID_MESSAGE,
@@ -242,11 +243,11 @@ describe('AU date format and parse', () => {
     expect(parseAuDate('21/10/1026')).toBeNull();
     expect(parseAuDate('21/10/9999')).toBeNull();
     expect(parseAuDate('2101-01-01')).toBeNull();
-    expect(dateFieldYearError('2101-01-01')).toBe(DATE_INVALID_MESSAGE);
+    expect(dateFieldYearError('2101-01-01')).toBe(DATE_YEAR_RANGE_MESSAGE);
     expect(dateFieldYearError('1900-01-01')).toBeNull();
     expect(dateFieldYearError('31/02/2026')).toBe(DATE_INVALID_MESSAGE);
     expect(dateFieldYearError('')).toBeNull();
-    expect(dateFieldYearError('', true)).toBe(DATE_INVALID_MESSAGE);
+    expect(dateFieldYearError('', true)).toBe(SAFE_DATE_REQUIRED_MESSAGE);
     expect(parseAuDate('1899-12-31')).toBeNull();
     expect(parseAuDate('1900-01-01')).toBe('1900-01-01');
     expect(parseAuDate('2100-12-31')).toBe('2100-12-31');

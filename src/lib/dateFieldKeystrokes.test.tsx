@@ -99,6 +99,18 @@ describe('DateFieldInput keystrokes against a stateful parent', () => {
     expect(h.state).toBe('2026-10-21');
   });
 
+  it('does not emit on each keystroke until the date is complete and valid', () => {
+    const h = harness('');
+    h.type('21/10/20');
+    expect(h.shown).toBe('21/10/20');
+    expect(h.state).toBe('');
+    expect(h.log).toEqual([]);
+    expect(h.invalid).toBe(true);
+    h.type('26');
+    expect(h.state).toBe('2026-10-21');
+    expect(h.log).toEqual(['2026-10-21']);
+  });
+
   it('does not emit a 2-digit year until blur', () => {
     const h = harness('');
     h.type('1/1/26');

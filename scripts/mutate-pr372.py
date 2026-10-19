@@ -14,6 +14,7 @@ TS = 'src/pages/TimesheetsPage.tsx'
 DISP = 'src/components/jobs/JobDispatchPanel.tsx'
 DFI = 'src/components/ui/DateFieldInput.tsx'
 OQ = 'src/lib/timesheetOverlapQuery.ts'
+ASSET = 'src/pages/AssetsPage.tsx'
 TESTS = [
     'src/lib/dateTimeIntegrity.test.ts',
     'src/lib/dateTimeIntegrityForms.test.tsx',
@@ -24,6 +25,8 @@ TESTS = [
     'src/lib/timesheetOverlapQuery.test.ts',
     'src/lib/timesheetOverlapPrevDay.test.ts',
     'src/lib/clockGuardWiring.test.ts',
+    'src/lib/safeDate.test.ts',
+    'src/lib/assetDateSaveGuards.test.tsx',
 ]
 M = [
     ('M1a blank-date lib: scheduleSheetDateError always null', L,
@@ -247,6 +250,22 @@ M = [
               type="date"
               value={dateDraft}
               onChange={e => setDateDraft(e.target.value)}"""),
+    ('M7a Assets install year guard dropped', ASSET,
+     """    const installYearError = dateFieldYearError(form.install_date, false);
+    if (installYearError) {
+      setErr(installYearError);
+      return;
+    }
+""",
+     ''),
+    ('M7b Assets warranty year guard dropped', ASSET,
+     """    const warrantyYearError = dateFieldYearError(form.warranty_expiry, false);
+    if (warrantyYearError) {
+      setErr(warrantyYearError);
+      return;
+    }
+""",
+     ''),
 ]
 
 def failset(path):

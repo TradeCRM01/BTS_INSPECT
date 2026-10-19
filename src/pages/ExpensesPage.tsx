@@ -1263,7 +1263,7 @@ export function ExpensesPage() {
             ) : null}
 
             {!reviewingScan && (
-            <div className="hub-expenses-list">
+            <div className={`hub-expenses-list${showForm ? ' hidden' : ''}`}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
           <button
             type="button"
