@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS public.companies (
 
 CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid PRIMARY KEY,
-  company_id uuid NOT NULL REFERENCES public.companies(id),
+  company_id uuid REFERENCES public.companies(id),
   email text,
   name text,
   role text NOT NULL DEFAULT 'member' CHECK (role IN ('admin', 'member'))
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 
 CREATE TABLE IF NOT EXISTS public.inspections (
   id uuid PRIMARY KEY,
-  inspector_id uuid NOT NULL REFERENCES public.profiles(id),
+  inspector_id uuid REFERENCES public.profiles(id),
   status text NOT NULL DEFAULT 'draft'
 );
 
@@ -138,12 +138,14 @@ INSERT INTO public.profiles (id, company_id, email, name, role) VALUES
   ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'x@example.test', 'Member X', 'member'),
   ('33333333-3333-3333-3333-333333333333', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'y@example.test', 'Member Y', 'member'),
   ('44444444-4444-4444-4444-444444444444', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'admin-a@example.test', 'Admin A', 'admin'),
-  ('22222222-2222-2222-2222-222222222222', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'admin-b@example.test', 'Admin B', 'admin');
+  ('22222222-2222-2222-2222-222222222222', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'admin-b@example.test', 'Admin B', 'admin'),
+  ('55555555-5555-5555-5555-555555555555', NULL, 'n@example.test', 'NullCo', 'member');
 
 INSERT INTO public.clients (id, company_id, name) VALUES
   ('caaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Client A');
 
 INSERT INTO public.inspections (id, inspector_id, status) VALUES
+  ('daaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 'draft'),
   ('deaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '33333333-3333-3333-3333-333333333333', 'draft'),
   ('ddaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '33333333-3333-3333-3333-333333333333', 'draft'),
   ('dbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '22222222-2222-2222-2222-222222222222', 'draft');
@@ -156,11 +158,15 @@ CREATE OR REPLACE FUNCTION public.sec_insp_as_authenticated(p_uid uuid)
 RETURNS void
 LANGUAGE plpgsql AS $$
 BEGIN
-  PERFORM set_config(
-    'request.jwt.claims',
-    json_build_object('sub', p_uid::text, 'role', 'authenticated')::text,
-    false
-  );
+  IF p_uid IS NULL THEN
+    PERFORM set_config('request.jwt.claims', '{"role":"authenticated"}', false);
+  ELSE
+    PERFORM set_config(
+      'request.jwt.claims',
+      json_build_object('sub', p_uid::text, 'role', 'authenticated')::text,
+      false
+    );
+  END IF;
 END;
 $$;
 
@@ -369,6 +375,127 @@ LANGUAGE sql AS $$
     AND polrelid = 'public.inspections'::regclass
 $$;
 
+CREATE OR REPLACE FUNCTION public.sec_insp_test_reassign(
+  p_uid uuid,
+  p_insp uuid,
+  p_new uuid
+)
+RETURNS text
+LANGUAGE plpgsql AS $$
+DECLARE
+  v_state text;
+  v_n integer;
+  v_old uuid;
+BEGIN
+  SELECT inspector_id INTO v_old
+  FROM public.inspections
+  WHERE id = p_insp;
+  PERFORM public.sec_insp_as_authenticated(p_uid);
+  SET LOCAL ROLE authenticated;
+  BEGIN
+    UPDATE public.inspections
+      SET inspector_id = p_new
+      WHERE id = p_insp;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    v_state := '00000|' || v_n::text;
+  EXCEPTION WHEN OTHERS THEN
+    v_state := SQLSTATE || '|' || SQLERRM;
+  END;
+  RESET ROLE;
+  UPDATE public.inspections
+    SET inspector_id = v_old
+    WHERE id = p_insp;
+  RETURN v_state;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.sec_insp_test_reassign_teammate_to_b()
+RETURNS text
+LANGUAGE plpgsql AS $$
+BEGIN
+  RETURN public.sec_insp_test_reassign(
+    '11111111-1111-1111-1111-111111111111',
+    'deaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    '22222222-2222-2222-2222-222222222222'
+  );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.sec_insp_test_reassign_own_to_b()
+RETURNS text
+LANGUAGE plpgsql AS $$
+BEGIN
+  RETURN public.sec_insp_test_reassign(
+    '11111111-1111-1111-1111-111111111111',
+    'daaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    '22222222-2222-2222-2222-222222222222'
+  );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.sec_insp_test_reassign_null_inspector()
+RETURNS text
+LANGUAGE plpgsql AS $$
+BEGIN
+  RETURN public.sec_insp_test_reassign(
+    '11111111-1111-1111-1111-111111111111',
+    'deaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    NULL
+  );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.sec_insp_test_unscoped_select(p_uid uuid)
+RETURNS text
+LANGUAGE plpgsql AS $$
+DECLARE
+  v_n bigint;
+BEGIN
+  PERFORM public.sec_insp_as_authenticated(p_uid);
+  SET LOCAL ROLE authenticated;
+  SELECT count(*) INTO v_n FROM public.inspections;
+  RESET ROLE;
+  RETURN v_n::text;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.sec_insp_test_unscoped_update(p_uid uuid)
+RETURNS text
+LANGUAGE plpgsql AS $$
+DECLARE
+  v_n integer;
+BEGIN
+  PERFORM public.sec_insp_as_authenticated(p_uid);
+  SET LOCAL ROLE authenticated;
+  UPDATE public.inspections SET status = 'x';
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  RESET ROLE;
+  UPDATE public.inspections SET status = 'draft' WHERE status = 'x';
+  RETURN v_n::text;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.sec_insp_test_profile_helper_caller()
+RETURNS text
+LANGUAGE plpgsql AS $$
+DECLARE
+  v_same uuid;
+  v_other uuid;
+BEGIN
+  PERFORM public.sec_insp_as_authenticated('11111111-1111-1111-1111-111111111111');
+  SET LOCAL ROLE authenticated;
+  SELECT public.profile_company_id_for_caller('33333333-3333-3333-3333-333333333333')
+    INTO v_same;
+  RESET ROLE;
+  PERFORM public.sec_insp_as_authenticated('22222222-2222-2222-2222-222222222222');
+  SET LOCAL ROLE authenticated;
+  SELECT public.profile_company_id_for_caller('33333333-3333-3333-3333-333333333333')
+    INTO v_other;
+  RESET ROLE;
+  RETURN coalesce(v_same::text, 'null') || '|' || coalesce(v_other::text, 'null');
+END;
+$$;
+
 \if :{?sec_insp_fixture_only}
 \echo fixture only
 \else
@@ -385,11 +512,13 @@ DECLARE
   r_upd text;
   r_own text;
   r_other text;
+  r_own_b text;
 BEGIN
   r_sel := public.sec_insp_test_teammate_select();
   r_upd := public.sec_insp_test_teammate_update();
   r_own := public.sec_insp_test_insert_own();
   r_other := public.sec_insp_test_insert_other();
+  r_own_b := public.sec_insp_test_reassign_own_to_b();
   INSERT INTO proof_result VALUES (
     'repro_teammate_select_zero',
     r_sel = '0',
@@ -410,6 +539,11 @@ BEGIN
     split_part(r_other, '|', 1) = '42501',
     r_other
   );
+  INSERT INTO proof_result VALUES (
+    'baseline_own_reassign_to_b_42501',
+    split_part(r_own_b, '|', 1) = '42501',
+    r_own_b
+  );
 END $$;
 
 \ir ../migrations/20261019140000_sec_insp_inspections_rls.sql
@@ -426,6 +560,16 @@ DECLARE
   r_own text;
   r_other text;
   insert_expr text;
+  r_team_b text;
+  r_own_b text;
+  r_null_ins text;
+  r_np_sel text;
+  r_nu_sel text;
+  r_nc_sel text;
+  r_np_upd text;
+  r_nu_upd text;
+  r_nc_upd text;
+  r_helper text;
 BEGIN
   r_sel := public.sec_insp_test_teammate_select();
   r_upd := public.sec_insp_test_teammate_update();
@@ -437,6 +581,16 @@ BEGIN
   r_own := public.sec_insp_test_insert_own();
   r_other := public.sec_insp_test_insert_other();
   insert_expr := public.sec_insp_insert_policy_expr();
+  r_team_b := public.sec_insp_test_reassign_teammate_to_b();
+  r_own_b := public.sec_insp_test_reassign_own_to_b();
+  r_null_ins := public.sec_insp_test_reassign_null_inspector();
+  r_np_sel := public.sec_insp_test_unscoped_select('99999999-9999-4999-8999-999999999999');
+  r_nu_sel := public.sec_insp_test_unscoped_select(NULL);
+  r_nc_sel := public.sec_insp_test_unscoped_select('55555555-5555-5555-5555-555555555555');
+  r_np_upd := public.sec_insp_test_unscoped_update('99999999-9999-4999-8999-999999999999');
+  r_nu_upd := public.sec_insp_test_unscoped_update(NULL);
+  r_nc_upd := public.sec_insp_test_unscoped_update('55555555-5555-5555-5555-555555555555');
+  r_helper := public.sec_insp_test_profile_helper_caller();
   INSERT INTO proof_result VALUES (
     'fix_teammate_select',
     r_sel = '2',
@@ -486,6 +640,36 @@ BEGIN
     'fix_insert_policy_unchanged',
     insert_expr IN ('inspector_id = auth.uid()', '(inspector_id = auth.uid())'),
     insert_expr
+  );
+  INSERT INTO proof_result VALUES (
+    'fix_teammate_reassign_to_b_42501',
+    split_part(r_team_b, '|', 1) = '42501',
+    r_team_b
+  );
+  INSERT INTO proof_result VALUES (
+    'fix_own_reassign_to_b_42501',
+    split_part(r_own_b, '|', 1) = '42501',
+    r_own_b
+  );
+  INSERT INTO proof_result VALUES (
+    'fix_null_inspector_denied',
+    split_part(r_null_ins, '|', 1) = '42501',
+    r_null_ins
+  );
+  INSERT INTO proof_result VALUES (
+    'fix_noprofile_nulluid_nullco_select_zero',
+    r_np_sel = '0' AND r_nu_sel = '0' AND r_nc_sel = '0',
+    r_np_sel || ' ' || r_nu_sel || ' ' || r_nc_sel
+  );
+  INSERT INTO proof_result VALUES (
+    'fix_noprofile_nulluid_nullco_update_zero',
+    r_np_upd = '0' AND r_nu_upd = '0' AND r_nc_upd = '0',
+    r_np_upd || ' ' || r_nu_upd || ' ' || r_nc_upd
+  );
+  INSERT INTO proof_result VALUES (
+    'fix_profile_helper_caller_company',
+    r_helper = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa|null',
+    r_helper
   );
 END $$;
 
@@ -631,6 +815,75 @@ END $$;
 
 \ir ../migrations/20261019140000_sec_insp_inspections_rls.sql
 
+DROP POLICY IF EXISTS "Users can update company inspections" ON inspections;
+CREATE POLICY "Users can update company inspections"
+  ON inspections FOR UPDATE
+  TO authenticated
+  USING (
+    public.inspection_inspector_company_id(inspections.id) =
+    (SELECT company_id FROM profiles WHERE id = auth.uid())
+  );
+
+DO $$
+DECLARE
+  r text;
+  has_check boolean;
+BEGIN
+  SELECT pg_get_expr(polwithcheck, polrelid) IS NOT NULL
+    INTO has_check
+  FROM pg_policy
+  WHERE polname = 'Users can update company inspections'
+    AND polrelid = 'public.inspections'::regclass;
+  r := public.sec_insp_test_reassign_teammate_to_b();
+  INSERT INTO proof_result VALUES (
+    'mutant_update_no_with_check_applied',
+    has_check IS NOT TRUE AND split_part(r, '|', 1) = '00000' AND split_part(r, '|', 2) = '1',
+    'check=' || coalesce(has_check::text, 'null') || ' ' || r
+  );
+  INSERT INTO proof_result VALUES (
+    'mutant_update_no_with_check_killed',
+    split_part(r, '|', 1) <> '42501',
+    'killed by sec_insp_test_reassign_teammate_to_b ' || r
+  );
+END $$;
+
+\ir ../migrations/20261019140000_sec_insp_inspections_rls.sql
+
+CREATE OR REPLACE FUNCTION public.profile_company_id_for_caller(p_profile_id uuid)
+RETURNS uuid
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT p.company_id
+  FROM public.profiles p
+  WHERE p.id = p_profile_id
+$$;
+
+DO $$
+DECLARE
+  r text;
+  has_caller boolean;
+BEGIN
+  SELECT pg_get_functiondef('public.profile_company_id_for_caller(uuid)'::regprocedure)
+    LIKE '%caller.company_id%'
+    INTO has_caller;
+  r := public.sec_insp_test_profile_helper_caller();
+  INSERT INTO proof_result VALUES (
+    'mutant_drop_profile_helper_caller_applied',
+    has_caller IS NOT TRUE AND split_part(r, '|', 2) <> 'null',
+    'caller=' || coalesce(has_caller::text, 'null') || ' ' || r
+  );
+  INSERT INTO proof_result VALUES (
+    'mutant_drop_profile_helper_caller_killed',
+    split_part(r, '|', 2) <> 'null',
+    'killed by sec_insp_test_profile_helper_caller ' || r
+  );
+END $$;
+
+\ir ../migrations/20261019140000_sec_insp_inspections_rls.sql
+
 DO $$
 DECLARE
   r_sel text;
@@ -640,6 +893,10 @@ DECLARE
   r_b_sel text;
   r_own text;
   r_other text;
+  r_team_b text;
+  r_own_b text;
+  r_null_ins text;
+  r_helper text;
 BEGIN
   r_sel := public.sec_insp_test_teammate_select();
   r_upd := public.sec_insp_test_teammate_update();
@@ -648,6 +905,10 @@ BEGIN
   r_b_sel := public.sec_insp_test_company_b_select();
   r_own := public.sec_insp_test_insert_own();
   r_other := public.sec_insp_test_insert_other();
+  r_team_b := public.sec_insp_test_reassign_teammate_to_b();
+  r_own_b := public.sec_insp_test_reassign_own_to_b();
+  r_null_ins := public.sec_insp_test_reassign_null_inspector();
+  r_helper := public.sec_insp_test_profile_helper_caller();
   INSERT INTO proof_result VALUES (
     'restore_teammate_select',
     r_sel = '2',
@@ -682,6 +943,26 @@ BEGIN
     'restore_insert_other_42501',
     split_part(r_other, '|', 1) = '42501',
     r_other
+  );
+  INSERT INTO proof_result VALUES (
+    'restore_teammate_reassign_to_b_42501',
+    split_part(r_team_b, '|', 1) = '42501',
+    r_team_b
+  );
+  INSERT INTO proof_result VALUES (
+    'restore_own_reassign_to_b_42501',
+    split_part(r_own_b, '|', 1) = '42501',
+    r_own_b
+  );
+  INSERT INTO proof_result VALUES (
+    'restore_null_inspector_denied',
+    split_part(r_null_ins, '|', 1) = '42501',
+    r_null_ins
+  );
+  INSERT INTO proof_result VALUES (
+    'restore_profile_helper_caller_company',
+    r_helper = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa|null',
+    r_helper
   );
 END $$;
 

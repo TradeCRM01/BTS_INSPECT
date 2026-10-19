@@ -52,7 +52,10 @@ FROM (
   )
   FROM pg_proc p
   WHERE p.pronamespace = 'public'::regnamespace
-    AND p.proname = 'inspection_inspector_company_id'
+    AND p.proname IN (
+      'inspection_inspector_company_id',
+      'profile_company_id_for_caller'
+    )
 ) s;
 SQL
 }

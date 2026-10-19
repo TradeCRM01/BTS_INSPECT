@@ -33,3 +33,5 @@ CREATE POLICY "Admins can delete company inspections"
     (SELECT company_id FROM profiles WHERE id = auth.uid()) =
     (SELECT company_id FROM profiles WHERE id = inspector_id)
   );
+
+DROP FUNCTION IF EXISTS public.profile_company_id_for_caller(uuid);
