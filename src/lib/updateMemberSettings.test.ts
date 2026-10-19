@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -79,6 +80,29 @@ describe('updateMemberSettings', () => {
     };
     await expect(updateMemberSettings(client, 'm1', { template_access: 'none' }))
       .rejects.toThrow(MEMBER_SETTINGS_NO_ROW);
+  });
+});
+
+describe('089 self-escalation and template RLS', () => {
+  it('keeps 088 byte-identical and puts the bypass flag in 089', () => {
+    const sql088 = src('supabase/migrations/20261019010000_088_update_member_settings.sql');
+    const hash = createHash('sha256').update(sql088).digest('hex');
+    expect(hash).toBe('b6b835173b8ecab683b6b454e39e6f2b00714785d032df52ca11d7fd95ae010e');
+    const sql089 = src('supabase/migrations/20261019020000_089_profile_self_escalation_and_template_rls.sql');
+    expect(sql089).toContain("set_config('app.member_admin', 'on', true)");
+    expect(sql089).toContain('CREATE OR REPLACE FUNCTION public.update_member_settings');
+    expect(sql089).toContain('prevent_profile_self_escalation');
+    expect(sql089).toContain('auth.uid() = OLD.id');
+    expect(sql089).toContain('never current_user');
+    expect(sql089).not.toMatch(/\bcurrent_user\s*=/);
+    expect(sql089).not.toMatch(/DROP TRIGGER IF EXISTS trg_prevent_profile_tenant_hop/);
+    expect(sql089).not.toMatch(/CREATE(?: OR REPLACE)? FUNCTION public\.prevent_profile_tenant_hop/);
+    expect(sql089).toContain('templates_select_by_template_access');
+    expect(sql089).toContain('jha_templates_select_by_template_access');
+    expect(sql089).toContain('inspection_renderers_select_by_template_access');
+    const rollback = src('docs/operations/rollback-20261019020000_089_profile_self_escalation_and_template_rls.sql');
+    expect(rollback).toContain('DROP TRIGGER IF EXISTS trg_prevent_profile_self_escalation');
+    expect(rollback).not.toContain("set_config('app.member_admin'");
   });
 });
 
