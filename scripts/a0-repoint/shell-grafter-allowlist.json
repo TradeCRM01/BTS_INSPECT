@@ -220,11 +220,6 @@
     "excerpt": "<span>Grafter</span>"
   },
   {
-    "file": "src/pages/MarketingPage.tsx",
-    "line": 97,
-    "excerpt": "3 months free. Then seats only , same Grafter on every plan. AUD, GST included."
-  },
-  {
     "file": "src/pages/SignupPage.tsx",
     "line": 84,
     "excerpt": "title=\"Create a Grafter workspace\""
