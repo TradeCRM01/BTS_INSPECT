@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
 import { ChevronLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -11,6 +10,7 @@ import { SignatureCapture } from '../components/ui/SignatureCapture';
 import { parseCrewSignOns, type JhaCrewMember } from '../types/jha';
 import { livingJobSite } from '../lib/livingJha';
 import { getAuditJhaDoc, getAuditJob } from '../lib/devFieldAuditDocs';
+import { crewSignConfirmCopy } from '../lib/safetySignOff';
 
 export function JhaCrewSignPage() {
   const [params] = useSearchParams();
@@ -23,6 +23,7 @@ export function JhaCrewSignPage() {
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
   const [signature, setSignature] = useState('');
+  const [confirmedAt, setConfirmedAt] = useState<string | null>(null);
 
   const { data: doc, isLoading, isError, refetch } = useQuery({
     queryKey: ['jha-document-sign', docId],
@@ -73,8 +74,9 @@ export function JhaCrewSignPage() {
     if (member?.signature) {
       setDone(true);
       setSignature(member.signature);
+      if (member.signedAt) setConfirmedAt(member.signedAt);
     }
-  }, [member?.signature]);
+  }, [member?.signature, member?.signedAt]);
 
   const canSign =
     !!member &&
@@ -115,6 +117,8 @@ export function JhaCrewSignPage() {
         .update({ meta })
         .eq('id', doc.id);
       if (upErr) throw upErr;
+      const signedAt = new Date().toISOString();
+      setConfirmedAt(signedAt);
       setDone(true);
       queryClient.invalidateQueries({ queryKey: ['jha-document', doc.id] });
       queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
@@ -194,7 +198,7 @@ export function JhaCrewSignPage() {
 
             {done || member.signature ? (
               <div className="text-sm text-[#1B7F3A] space-y-2">
-                <p>Signed {member.signedAt ? format(new Date(member.signedAt), 'd MMM yyyy HH:mm') : ''}. Thank you.</p>
+                <p data-crew-sign-confirm>{crewSignConfirmCopy(confirmedAt || member.signedAt)}</p>
                 {(signature || member.signature) && (
                   <img src={signature || member.signature} alt="Signature" className="h-16 object-contain" />
                 )}

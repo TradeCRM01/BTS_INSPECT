@@ -87,6 +87,35 @@ export function recommendTake5FillAction(ctx: Take5FillActionContext): Recommend
   return { key: 'complete', label: 'Complete Take 5', detail: 'Lock it in and generate the PDF for the job file.' };
 }
 
+/** Save draft and Mark done stay on a draft after the first save. */
+export function take5DraftControlsVisible(status: string): boolean {
+  return status !== 'completed';
+}
+
+/** Persist the pad on draft save. Completing used to be the only write. */
+export function take5SignatureForSave(args: {
+  canvasDataUrl: string | null;
+  existingSignature: string | null;
+}): string | null {
+  return args.canvasDataUrl || args.existingSignature || null;
+}
+
+export function take5PdfPreviewTitle(hasPdf: boolean): string {
+  return hasPdf ? 'Take 5 PDF ready' : 'Take 5 PDF';
+}
+
+export function take5PdfPreviewHint(hasPdf: boolean): string | null {
+  return hasPdf ? null : 'Complete the Take 5 to generate the PDF.';
+}
+
+export function take5IdentityOpen(args: {
+  showMore: boolean;
+  nextKey: string;
+  identityActive: boolean;
+}): boolean {
+  return args.showMore || args.nextKey === 'site' || args.identityActive;
+}
+
 /** List-card next — all of these open fill; the label says what to do there. */
 export function recommendTake5ListAction(ctx: Take5ListActionContext): RecommendedTake5Action {
   if (ctx.status === 'completed') {

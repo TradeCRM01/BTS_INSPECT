@@ -9,6 +9,8 @@ import {
   jhaStepsReady,
   recommendJhaFillAction,
   recommendJhaListAction,
+  jhaHeaderPrimary,
+  jhaIdentityOpen,
 } from './jhaNextAction';
 import type { JhaCrewMember, JhaSignOff, JhaStep } from '../types/jha';
 
@@ -104,6 +106,20 @@ describe('recommendJhaFillAction', () => {
       signOffs: [supervisor],
     });
     expect(recommendJhaFillAction(ctx).key).toBe('publish');
+  });
+});
+
+describe('jha header and site field while typing', () => {
+  it('shows Save draft while unsaved, then Sign off once the draft is saved', () => {
+    const signOff = { key: 'sign' as const, label: 'Sign off', detail: 'Supervisor must sign' };
+    expect(jhaHeaderPrimary(signOff, true).label).toBe('Save draft');
+    expect(jhaHeaderPrimary(signOff, false).label).toBe('Sign off');
+  });
+
+  it('keeps the Site field open while it has focus', () => {
+    expect(jhaIdentityOpen({ showMore: false, nextKey: 'steps', identityActive: true })).toBe(true);
+    expect(jhaIdentityOpen({ showMore: false, nextKey: 'steps', identityActive: false })).toBe(false);
+    expect(jhaIdentityOpen({ showMore: false, nextKey: 'site', identityActive: false })).toBe(true);
   });
 });
 

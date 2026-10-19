@@ -14,6 +14,7 @@ import {
 import {
   TAKE5_LIST_DEFAULT_FILTER,
   TAKE5_LIST_FILTERS,
+  TAKE5_LIST_TABS,
   take5ListAttachParent,
   take5ListEmptyKind,
   take5ListGroups,
@@ -233,6 +234,20 @@ export function Take5ListPage() {
           <div className="hub-take5-list-body">
             <h1 className="ops-page-title">Take 5</h1>
             <p className="hub-take5-list-whisper">{whisper}</p>
+            <div className="hub-take5-list-tabs" role="tablist" aria-label="Take 5 status">
+              {TAKE5_LIST_TABS.map(tab => (
+                <button
+                  key={tab.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === tab.value}
+                  onClick={() => setFilter(tab.value)}
+                  className={`hub-take5-list-tab ${filter === tab.value ? 'is-on' : ''}`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
             <div className="hub-take5-list-tools">
               <Link to="/jha" className="btn-primary">
                 Open JHA documents

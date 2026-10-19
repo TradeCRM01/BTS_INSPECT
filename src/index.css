@@ -18130,6 +18130,52 @@
     color: #5B6B7C;
   }
 
+  .hub-take5-list-tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+    margin-top: 16px;
+    border-bottom: 1px solid #E2D9CC;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .hub-take5-list-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hub-take5-list-tab {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 0;
+    background: none;
+    color: #5B6B7C;
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    box-shadow: none;
+    cursor: pointer;
+  }
+
+  .hub-take5-list-tab:hover {
+    color: #0A2540;
+  }
+
+  .hub-take5-list-tab.is-on {
+    color: #0A2540;
+    font-weight: 600;
+    box-shadow: inset 0 -2px 0 #2E75B6;
+  }
+
+  .hub-take5-list-tab:focus-visible {
+    outline: 2px solid #2E75B6;
+    outline-offset: -2px;
+  }
+
   .hub-take5-list-tools {
     display: flex;
     flex-wrap: nowrap;

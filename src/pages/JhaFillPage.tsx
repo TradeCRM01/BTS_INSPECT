@@ -30,7 +30,9 @@ import { SignatureCapture } from '../components/ui/SignatureCapture';
 import { EMPTY_SWMS, HRCW_CATEGORIES, parseSwmsMeta, type JhaSwmsData } from '../lib/swmsHrcw';
 import { getAuditClients, getAuditJhaDoc, getAuditJobs, getAuditTake5List, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
-import { jhaFillContext, jhaStatusLabel, recommendJhaFillAction } from '../lib/jhaNextAction';
+import { jhaFillContext, jhaHeaderPrimary, jhaIdentityOpen, jhaStatusLabel, recommendJhaFillAction } from '../lib/jhaNextAction';
+import { trimSafetySite } from '../lib/safetySite';
+import { safetySignOffLine } from '../lib/safetySignOff';
 import { applyLivingJobToJha, livingJobSite, livingTake5MetaPatches } from '../lib/livingJha';
 import { take5FillPath, take5ListContext, take5StatusClass, take5StatusLabel, recommendTake5ListAction } from '../lib/take5NextAction';
 import {
@@ -127,6 +129,7 @@ export function JhaFillPage() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'form' | 'preview'>('form');
   const [showMoreIdentity, setShowMoreIdentity] = useState(false);
+  const [identityActive, setIdentityActive] = useState(false);
   const [showMoreDoc, setShowMoreDoc] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const allowLeaveRef = useRef(false);
@@ -415,7 +418,7 @@ export function JhaFillPage() {
 
   function persistableMeta(): Record<string, string> {
     const job = jobs.find(j => j.id === jobId);
-    const siteName = job ? (livingJobSite(job) || meta.siteName || '') : (meta.siteName ?? '');
+    const siteName = trimSafetySite(job ? (livingJobSite(job) || meta.siteName || '') : (meta.siteName ?? ''));
     return {
       ...meta,
       siteName,
@@ -883,6 +886,10 @@ export function JhaFillPage() {
     signOffRoles: schema.signOffRoles ?? [],
     signOffs,
   }));
+  const headerAction = jhaHeaderPrimary(
+    next,
+    saveState === 'unsaved' || saveState === 'error',
+  );
   const nextBusy = publishing || saveState === 'saving' || duplicating;
 
   function getRiskInfo(riskId: string) {
@@ -890,25 +897,25 @@ export function JhaFillPage() {
   }
 
   function runNext() {
-    if (next.key === 'save') {
+    if (headerAction.key === 'save') {
       void doSave('draft').catch(() => {});
       return;
     }
-    if (next.key === 'publish') {
+    if (headerAction.key === 'publish') {
       void handlePublish();
       return;
     }
     setActiveTab('form');
-    if (next.key === 'pdf') {
+    if (headerAction.key === 'pdf') {
       setActiveTab('preview');
       return;
     }
     const target =
-      next.key === 'site' ? 'jha-identity'
-        : next.key === 'steps' ? 'jha-steps'
-          : next.key === 'crew' ? 'jha-crew'
+      headerAction.key === 'site' ? 'jha-identity'
+        : headerAction.key === 'steps' ? 'jha-steps'
+          : headerAction.key === 'crew' ? 'jha-crew'
             : 'jha-signoff';
-    if (next.key === 'sign' && crew.some(c => c.name.trim() && !c.signature)) {
+    if (headerAction.key === 'sign' && crew.some(c => c.name.trim() && !c.signature)) {
       scrollToId('jha-crew');
       return;
     }
@@ -963,9 +970,9 @@ export function JhaFillPage() {
                 disabled={nextBusy}
                 className="hub-jha-primary"
               >
-                {publishing || (saveState === 'saving' && next.key === 'save')
+                {publishing || (saveState === 'saving' && headerAction.key === 'save')
                   ? <><LoadingSpinner size="sm" /> {publishing ? 'Publishing…' : 'Saving…'}</>
-                  : <><FileText size={16} /> {next.label}</>}
+                  : <><FileText size={16} /> {headerAction.label}</>}
               </button>
               <button
                 type="button"
@@ -1033,7 +1040,20 @@ export function JhaFillPage() {
               </div>
             )}
 
-            <section id="jha-identity" className={`hub-jha-identity${showMoreIdentity || next.key === 'site' ? ' is-open' : ''}`}>
+            <section
+              id="jha-identity"
+              className={`hub-jha-identity${jhaIdentityOpen({
+                showMore: showMoreIdentity,
+                nextKey: next.key,
+                identityActive,
+              }) ? ' is-open' : ''}`}
+              onFocusCapture={() => setIdentityActive(true)}
+              onBlurCapture={event => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                  setIdentityActive(false);
+                }
+              }}
+            >
               <div className="hub-jha-ledger-row hub-jha-field">
                 <label className="hub-jha-muted">
                   Document title
@@ -1060,6 +1080,10 @@ export function JhaFillPage() {
                     type="text"
                     value={meta.siteName ?? ''}
                     onChange={e => updateMeta('siteName', e.target.value)}
+                    onBlur={e => {
+                      const siteName = trimSafetySite(e.target.value);
+                      if (siteName !== e.target.value) updateMeta('siteName', siteName);
+                    }}
                     placeholder="Where is the work?"
                     className="hub-jha-input"
                   />
@@ -1360,8 +1384,11 @@ export function JhaFillPage() {
                           )}
                         </div>
                         {sign.signature && (
-                          <span className="text-xs text-pass flex items-center gap-1">
-                            <CheckCircle size={12} /> Signed {sign.date && format(new Date(sign.date), 'd MMM yyyy')}
+                          <span className="text-xs text-pass flex items-center gap-1" data-jha-signoff>
+                            <CheckCircle size={12} /> {safetySignOffLine({
+                              name: sign.name,
+                              when: sign.date ? format(new Date(sign.date), 'd MMM yyyy') : null,
+                            })}
                           </span>
                         )}
                       </div>

@@ -11,6 +11,11 @@ import {
   take5StatusLabel,
   recommendTake5FillAction,
   recommendTake5ListAction,
+  take5DraftControlsVisible,
+  take5IdentityOpen,
+  take5PdfPreviewHint,
+  take5PdfPreviewTitle,
+  take5SignatureForSave,
 } from './take5NextAction';
 
 describe('take5 status', () => {
@@ -106,7 +111,40 @@ describe('recommendTake5ListAction', () => {
     });
     expect(take5CardHint(ctx)).toBe('Continue');
   });
+});
 
+describe('take5 draft chrome and signature save', () => {
+  it('keeps Save and Mark done on drafts and hides them once completed', () => {
+    expect(take5DraftControlsVisible('draft')).toBe(true);
+    expect(take5DraftControlsVisible('completed')).toBe(false);
+  });
+
+  it('writes the pad on draft save, not only on complete', () => {
+    expect(take5SignatureForSave({
+      canvasDataUrl: 'data:image/png;base64,new',
+      existingSignature: null,
+    })).toBe('data:image/png;base64,new');
+    expect(take5SignatureForSave({
+      canvasDataUrl: null,
+      existingSignature: 'data:image/png;base64,old',
+    })).toBe('data:image/png;base64,old');
+  });
+
+  it('does not say PDF ready when there is no PDF', () => {
+    expect(take5PdfPreviewTitle(false)).toBe('Take 5 PDF');
+    expect(take5PdfPreviewHint(false)).toBe('Complete the Take 5 to generate the PDF.');
+    expect(take5PdfPreviewTitle(true)).toBe('Take 5 PDF ready');
+    expect(take5PdfPreviewHint(true)).toBe(null);
+  });
+
+  it('keeps the location fields open while the crew is typing', () => {
+    expect(take5IdentityOpen({ showMore: false, nextKey: 'checks', identityActive: true })).toBe(true);
+    expect(take5IdentityOpen({ showMore: false, nextKey: 'checks', identityActive: false })).toBe(false);
+    expect(take5IdentityOpen({ showMore: false, nextKey: 'site', identityActive: false })).toBe(true);
+  });
+});
+
+describe('take5 list living site', () => {
   it('treats a living job site as site identity even when Take 5 location is empty', () => {
     const ctx = take5ListContext({
       status: 'draft',

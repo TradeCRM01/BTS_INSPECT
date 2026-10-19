@@ -120,6 +120,25 @@ export function recommendJhaFillAction(ctx: JhaFillActionContext): RecommendedJh
   return { key: 'publish', label: 'Publish JHA', detail: 'Lock it in and generate the PDF for the job file.' };
 }
 
+/** Unsaved edits keep Save draft in the header. Sign off is the next saved step. */
+export function jhaHeaderPrimary(
+  next: RecommendedJhaAction,
+  unsaved: boolean,
+): RecommendedJhaAction {
+  if (unsaved) {
+    return { key: 'save', label: 'Save draft', detail: 'Save these changes before the next step.' };
+  }
+  return next;
+}
+
+export function jhaIdentityOpen(args: {
+  showMore: boolean;
+  nextKey: string;
+  identityActive: boolean;
+}): boolean {
+  return args.showMore || args.nextKey === 'site' || args.identityActive;
+}
+
 /** List-card next — all of these open fill; the label says what to do there. */
 export function recommendJhaListAction(ctx: JhaListActionContext): RecommendedJhaAction {
   if (ctx.status === 'published') {

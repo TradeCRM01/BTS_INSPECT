@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { nanoid } from '../../lib/nanoid';
 import { SignatureCapture } from '../ui/SignatureCapture';
 import type { JhaCrewMember } from '../../types/jha';
+import { safetySignOffLine } from '../../lib/safetySignOff';
 
 type Member = {
   id: string;
@@ -259,9 +260,12 @@ export function JhaCrewRegister({ companyId, documentId, crew, onChange, current
 
             <div className="flex flex-wrap items-center gap-2 text-xs">
               {member.signature ? (
-                <span className="inline-flex items-center gap-1 text-[#1B7F3A]">
+                <span className="inline-flex items-center gap-1 text-[#1B7F3A]" data-jha-crew-signoff>
                   <CheckCircle size={12} />
-                  Signed {member.signedAt ? format(new Date(member.signedAt), 'd MMM HH:mm') : ''}
+                  {safetySignOffLine({
+                    name: member.name,
+                    when: member.signedAt ? format(new Date(member.signedAt), 'd MMM yyyy') : null,
+                  })}
                 </span>
               ) : (
                 <span className="text-[#B45309]">Awaiting signature</span>
