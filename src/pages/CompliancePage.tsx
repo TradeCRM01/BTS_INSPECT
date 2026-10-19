@@ -26,13 +26,12 @@ import {
 } from '../lib/complianceList';
 import { AppShell } from '../components/layout/AppShell';
 import { DateFieldInput, LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast, Modal } from '../components/ui';
-import { DATE_INVALID_MESSAGE, DATE_REQUIRED_MESSAGE } from '../lib/dateTimeIntegrity';
+import { DATE_INVALID_MESSAGE, DATE_REQUIRED_MESSAGE, parseAuDate } from '../lib/dateTimeIntegrity';
 import type { MenuEntry } from '../components/ui';
 import { format } from 'date-fns';
 import {
   HOTFIX_BAD_DATE_ISO,
   dateFieldYearError,
-  parseFieldDate,
   safeFormatDate,
 } from '../lib/safeDate';
 
@@ -872,10 +871,11 @@ export function ComplianceForm({
       setSaving(false);
       return;
     }
-    const firstDue = parseFieldDate(firstDueRaw);
-    const lastCompleted = lastCompletedRaw.trim() ? parseFieldDate(lastCompletedRaw) : null;
+    const firstDue = parseAuDate(firstDueRaw, { requireFourDigitYear: true });
+    const lastCompleted = lastCompletedRaw.trim() ? parseAuDate(lastCompletedRaw, { requireFourDigitYear: true }) : null;
     if (!firstDue) {
       if (firstDueRaw.trim() || firstDueInvalid) {
+        setFirstDueError(DATE_INVALID_MESSAGE);
         setErr(DATE_INVALID_MESSAGE);
         return;
       }
@@ -884,6 +884,7 @@ export function ComplianceForm({
       return;
     }
     if (lastCompletedRaw.trim() && !lastCompleted) {
+      setLastCompletedError(DATE_INVALID_MESSAGE);
       setErr(DATE_INVALID_MESSAGE);
       return;
     }

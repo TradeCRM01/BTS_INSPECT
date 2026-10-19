@@ -104,7 +104,7 @@ export function DateFieldInput({
             onBlurCommit?.('');
             return;
           }
-          const iso = parseAuDate(trimmed);
+          const iso = parseAuDate(trimmed, { requireFourDigitYear: true });
           if (iso) {
             setText(formatAuDate(iso));
             emitIso(iso, false);
@@ -112,6 +112,7 @@ export function DateFieldInput({
             return;
           }
           setValidity(true);
+          if (lastEmittedRef.current) emitIso('', true);
           onBlurCommit?.('');
         }}
       />

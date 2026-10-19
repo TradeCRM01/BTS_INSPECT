@@ -14,7 +14,6 @@ import { format } from 'date-fns';
 import {
   SAFE_DATE_FALLBACK,
   dateFieldYearError,
-  parseFieldDate,
   safeFormatDate,
 } from '../lib/safeDate';
 import { Plus, FileText, X, Trash2, Pencil, Briefcase, Mail } from 'lucide-react';
@@ -469,7 +468,7 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
     e.preventDefault();
     const startRaw = namedDateRaw('contract-start-date', form.start_date);
     const endRaw = namedDateRaw('contract-end-date', form.end_date);
-    const nextRaw = nextTypedRef.current ?? namedDateRaw('contract-next-service-date', form.next_service_date);
+    const nextRaw = namedDateRaw('contract-next-service-date', nextTypedRef.current ?? form.next_service_date);
     setStartDateError(null);
     setEndDateError(null);
     setNextServiceError(null);
@@ -486,7 +485,9 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
       setErr(startYearError);
       return;
     }
-    if (startRaw.trim() && !parseFieldDate(startRaw) && startInvalid) {
+    const startDate = parseAuDate(startRaw, { requireFourDigitYear: true }) ?? '';
+    if (startRaw.trim() && !startDate) {
+      setStartDateError(DATE_INVALID_MESSAGE);
       setErr(DATE_INVALID_MESSAGE);
       return;
     }
@@ -512,9 +513,9 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
       setErr(nextTitleErr || nextClientErr || nextStartRequired);
       return;
     }
-    const startDate = parseFieldDate(startRaw) ?? (startInvalid ? '' : form.start_date);
-    const endDate = endRaw.trim() ? (parseFieldDate(endRaw) ?? (endInvalid ? '' : form.end_date)) : '';
-    if (endRaw.trim() && !parseFieldDate(endRaw) && endInvalid) {
+    const endDate = endRaw.trim() ? (parseAuDate(endRaw, { requireFourDigitYear: true }) ?? '') : '';
+    if (endRaw.trim() && !endDate) {
+      setEndDateError(DATE_INVALID_MESSAGE);
       setErr(DATE_INVALID_MESSAGE);
       return;
     }
