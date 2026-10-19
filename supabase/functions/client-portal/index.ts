@@ -314,7 +314,7 @@ export async function handleClientPortalRequest(req: Request) {
 
       const { data: report } = await admin
         .from("reports")
-        .select("id, report_number, pdf_storage_path, created_at")
+        .select("id, report_number, pdf_storage_path, generated_at")
         .eq("inspection_id", share.inspection_id)
         .eq("company_id", share.company_id)
         .maybeSingle();
@@ -364,7 +364,7 @@ export async function handleClientPortalRequest(req: Request) {
           docVersion: inspection?.doc_version ?? 1,
           amendmentReason: inspection?.amendment_reason ?? null,
           pdfUrl,
-          issuedAt: report?.created_at ?? null,
+          issuedAt: report?.generated_at ?? null,
         },
       });
     }
@@ -503,7 +503,7 @@ export async function handleClientPortalRequest(req: Request) {
     const { data: reports } = inspectionIds.length
       ? await admin
         .from("reports")
-        .select("id, inspection_id, report_number, pdf_storage_path, created_at")
+        .select("id, inspection_id, report_number, pdf_storage_path, generated_at")
         .in("inspection_id", inspectionIds)
         .eq("company_id", portal.company_id)
       : { data: [] as Array<{
@@ -511,7 +511,7 @@ export async function handleClientPortalRequest(req: Request) {
         inspection_id: string;
         report_number: string;
         pdf_storage_path: string;
-        created_at: string;
+        generated_at: string;
       }> };
 
     const reportByInspection = new Map((reports ?? []).map((r) => [r.inspection_id, r]));
@@ -537,7 +537,7 @@ export async function handleClientPortalRequest(req: Request) {
           completedAt: insp.completed_at,
           docVersion: insp.doc_version ?? 1,
           pdfUrl,
-          issuedAt: report?.created_at ?? null,
+          issuedAt: report?.generated_at ?? null,
         };
       }),
     );

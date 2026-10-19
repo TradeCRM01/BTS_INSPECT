@@ -17774,12 +17774,14 @@
 }
 
 #client-portal .portal-doc {
+  width: 100%;
   max-width: 720px;
   margin: 0 auto;
   padding: 16px 16px 32px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  box-sizing: border-box;
 }
 
 #client-portal .portal-brand {
@@ -18037,9 +18039,12 @@
 
 #client-portal .portal-state-card {
   width: 100%;
-  max-width: 28rem;
+  max-width: min(28rem, 100%);
   padding: 24px;
   text-align: center;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 #client-portal .portal-state-icon {
@@ -18055,6 +18060,13 @@
   margin: 0 0 8px;
   font-size: 16px;
   font-weight: 600;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+#client-portal .portal-state-card .portal-muted {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 #client-portal .portal-state-card .portal-quiet-link {

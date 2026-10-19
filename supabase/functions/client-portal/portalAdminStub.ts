@@ -1,3 +1,5 @@
+import { assertPortalColumn } from "./portalColumns.ts";
+
 export type FilterCall = { method: string; args: unknown[] };
 
 export type QueryCall = {
@@ -246,7 +248,7 @@ export function sameCompanySeed(): PortalSeed {
           inspection_id: IDS.inspectionA,
           report_number: "R-A",
           pdf_storage_path: "a.pdf",
-          created_at: STAMP,
+          generated_at: STAMP,
         },
         {
           id: IDS.reportB,
@@ -254,7 +256,7 @@ export function sameCompanySeed(): PortalSeed {
           inspection_id: IDS.inspectionB,
           report_number: "B-LEAK-REPORT",
           pdf_storage_path: "b-secret.pdf",
-          created_at: STAMP,
+          generated_at: STAMP,
         },
       ],
       client_portal_tokens: [
@@ -316,16 +318,17 @@ export function mixedInspectorSeed(): PortalSeed {
     inspection_id: "inspection-mixed-b",
     report_number: "B-LEAK-REPORT",
     pdf_storage_path: "b-secret.pdf",
-    created_at: STAMP,
+    generated_at: STAMP,
   });
   return seed;
 }
 
-function project(row: StubRow, select: string | undefined): StubRow {
+function project(table: string, row: StubRow, select: string | undefined): StubRow {
   if (!select || select.trim() === "*") return { ...row };
   const cols = select.split(",").map((part) => part.trim()).filter(Boolean);
   const out: StubRow = {};
   for (const col of cols) {
+    assertPortalColumn(table, col);
     out[col] = row[col];
   }
   return out;
@@ -358,30 +361,40 @@ class QueryBuilder {
 
   select(cols: string) {
     this.selectCols = cols;
+    if (cols && cols.trim() !== "*") {
+      for (const col of cols.split(",").map((part) => part.trim()).filter(Boolean)) {
+        assertPortalColumn(this.table, col);
+      }
+    }
     return this;
   }
 
   eq(col: string, val: unknown) {
+    assertPortalColumn(this.table, col);
     this.filters.push({ method: "eq", args: [col, val] });
     return this;
   }
 
   neq(col: string, val: unknown) {
+    assertPortalColumn(this.table, col);
     this.filters.push({ method: "neq", args: [col, val] });
     return this;
   }
 
   in(col: string, val: unknown) {
+    assertPortalColumn(this.table, col);
     this.filters.push({ method: "in", args: [col, val] });
     return this;
   }
 
   is(col: string, val: unknown) {
+    assertPortalColumn(this.table, col);
     this.filters.push({ method: "is", args: [col, val] });
     return this;
   }
 
-  order(_col: string, _opts?: unknown) {
+  order(col: string, _opts?: unknown) {
+    assertPortalColumn(this.table, col);
     return this;
   }
 
@@ -454,7 +467,7 @@ class QueryBuilder {
       return { data: merged[0] ?? { id: rows[0]?.id ?? "updated-id" }, error: null };
     }
     const rows = (this.seed.tables[this.table] ?? []).filter((row) => matches(row, this.filters));
-    const projected = rows.map((row) => project(row, this.selectCols));
+    const projected = rows.map((row) => project(this.table, row, this.selectCols));
     if (mode === "many") return { data: projected, error: null };
     if (projected.length === 0) return { data: null, error: null };
     return { data: projected[0], error: null };

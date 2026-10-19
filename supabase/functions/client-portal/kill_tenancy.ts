@@ -1,23 +1,41 @@
 const INDEX = new URL("./index.ts", import.meta.url);
 const TENANCY = new URL("./portalTenancy.ts", import.meta.url);
+const STUB = new URL("./portalAdminStub.ts", import.meta.url);
+const COLUMNS = new URL("./portalColumns.ts", import.meta.url);
 const TEST_FILES = [
-  new URL("./probe_386_test.ts", import.meta.url).pathname,
+  new URL("./stub_columns_test.ts", import.meta.url).pathname,
   new URL("./tenancy_test.ts", import.meta.url).pathname,
+  new URL("./probe_386_test.ts", import.meta.url).pathname,
 ];
+
+type MutantFile = "index.ts" | "portalTenancy.ts" | "portalAdminStub.ts" | "portalColumns.ts";
 
 type Mutant = {
   name: string;
-  file: "index.ts" | "portalTenancy.ts";
+  file?: MutantFile;
   find?: string;
   replace?: string;
-  edits?: Array<{ find: string; replace: string }>;
+  edits?: Array<{ file?: MutantFile; find: string; replace: string }>;
   expected?: "equivalent";
 };
 
-function mutantEdits(mutant: Mutant): Array<{ find: string; replace: string }> {
-  if (mutant.edits) return mutant.edits;
+function pathFor(file: MutantFile) {
+  if (file === "portalTenancy.ts") return TENANCY;
+  if (file === "portalAdminStub.ts") return STUB;
+  if (file === "portalColumns.ts") return COLUMNS;
+  return INDEX;
+}
+
+function mutantEdits(mutant: Mutant): Array<{ file: MutantFile; find: string; replace: string }> {
+  if (mutant.edits) {
+    return mutant.edits.map((edit) => ({
+      file: edit.file ?? mutant.file ?? "index.ts",
+      find: edit.find,
+      replace: edit.replace,
+    }));
+  }
   if (mutant.find != null && mutant.replace != null) {
-    return [{ find: mutant.find, replace: mutant.replace }];
+    return [{ file: mutant.file ?? "index.ts", find: mutant.find, replace: mutant.replace }];
   }
   return [];
 }
@@ -188,7 +206,7 @@ const MUTANTS: Mutant[] = [
 
       const { data: report } = await admin
         .from("reports")
-        .select("id, report_number, pdf_storage_path, created_at")
+        .select("id, report_number, pdf_storage_path, generated_at")
         .eq("inspection_id", share.inspection_id)
         .eq("company_id", share.company_id)
         .maybeSingle();
@@ -206,7 +224,7 @@ const MUTANTS: Mutant[] = [
 
       const { data: report } = await admin
         .from("reports")
-        .select("id, report_number, pdf_storage_path, created_at")
+        .select("id, report_number, pdf_storage_path, generated_at")
         .eq("inspection_id", share.inspection_id)
         .eq("company_id", share.company_id)
         .maybeSingle();
@@ -235,7 +253,7 @@ const MUTANTS: Mutant[] = [
 
       const { data: report } = await admin
         .from("reports")
-        .select("id, report_number, pdf_storage_path, created_at")
+        .select("id, report_number, pdf_storage_path, generated_at")
         .eq("inspection_id", share.inspection_id)
         .eq("company_id", share.company_id)
         .maybeSingle();
@@ -261,7 +279,7 @@ const MUTANTS: Mutant[] = [
 
       const { data: report } = await admin
         .from("reports")
-        .select("id, report_number, pdf_storage_path, created_at")
+        .select("id, report_number, pdf_storage_path, generated_at")
         .eq("inspection_id", share.inspection_id)
         .eq("company_id", share.company_id)
         .maybeSingle();
@@ -298,7 +316,7 @@ const MUTANTS: Mutant[] = [
 
       const { data: report } = await admin
         .from("reports")
-        .select("id, report_number, pdf_storage_path, created_at")
+        .select("id, report_number, pdf_storage_path, generated_at")
         .eq("inspection_id", share.inspection_id)
         .eq("company_id", share.company_id)
         .maybeSingle();
@@ -324,7 +342,7 @@ const MUTANTS: Mutant[] = [
 
       const { data: report } = await admin
         .from("reports")
-        .select("id, report_number, pdf_storage_path, created_at")
+        .select("id, report_number, pdf_storage_path, generated_at")
         .eq("inspection_id", share.inspection_id)
         .maybeSingle();
 
@@ -425,6 +443,40 @@ const MUTANTS: Mutant[] = [
     find: `      if (share.revoked) return json({ error: "Link revoked" }, 403);`,
     replace: "",
   },
+  {
+    name: "A share reports select created_at",
+    file: "index.ts",
+    find: `.select("id, report_number, pdf_storage_path, generated_at")`,
+    replace: `.select("id, report_number, pdf_storage_path, created_at")`,
+  },
+  {
+    name: "B portal reports select created_at",
+    file: "index.ts",
+    find: `.select("id, inspection_id, report_number, pdf_storage_path, generated_at")`,
+    replace: `.select("id, inspection_id, report_number, pdf_storage_path, created_at")`,
+  },
+  {
+    name: "S1 drop stub unknown-column check + reports.created_at",
+    edits: [
+      {
+        file: "portalColumns.ts",
+        find: `  if (!cols || !cols.includes(column)) {
+    throw new Error(\`column \${table}.\${column} does not exist\`);
+  }`,
+        replace: `  return;`,
+      },
+      {
+        file: "index.ts",
+        find: `.select("id, report_number, pdf_storage_path, generated_at")`,
+        replace: `.select("id, report_number, pdf_storage_path, created_at")`,
+      },
+      {
+        file: "index.ts",
+        find: `.select("id, inspection_id, report_number, pdf_storage_path, generated_at")`,
+        replace: `.select("id, inspection_id, report_number, pdf_storage_path, created_at")`,
+      },
+    ],
+  },
 ];
 
 function stripAnsi(text: string): string {
@@ -434,7 +486,7 @@ function stripAnsi(text: string): string {
 function parseFailures(output: string): Array<{ name: string; loc: string }> {
   const plain = stripAnsi(output);
   const rows: Array<{ name: string; loc: string }> = [];
-  const re = /^(.*) => ((?:\.\.?\/|file:\/\/)?\S*\/(?:tenancy_test|probe_386_test)\.ts:\d+:\d+)$/gm;
+  const re = /^(.*) => ((?:\.\.?\/|file:\/\/)?\S*\/(?:tenancy_test|probe_386_test|stub_columns_test)\.ts:\d+:\d+)$/gm;
   let match: RegExpExecArray | null;
   while ((match = re.exec(plain)) !== null) {
     const name = match[1].trim();
@@ -450,6 +502,7 @@ async function runTests(): Promise<{ ok: boolean; output: string }> {
   const cmd = new Deno.Command("deno", {
     args: [
       "test",
+      "--no-check",
       "--node-modules-dir=auto",
       "--allow-import",
       "--allow-env",
@@ -465,11 +518,18 @@ async function runTests(): Promise<{ ok: boolean; output: string }> {
   return { ok: proc.success, output };
 }
 
-const originals: Record<string, string> = {
+const snapshot: Record<MutantFile, string> = {
   "index.ts": await Deno.readTextFile(INDEX),
   "portalTenancy.ts": await Deno.readTextFile(TENANCY),
+  "portalAdminStub.ts": await Deno.readTextFile(STUB),
+  "portalColumns.ts": await Deno.readTextFile(COLUMNS),
 };
-const pathFor = (file: Mutant["file"]) => file === "index.ts" ? INDEX : TENANCY;
+
+async function restoreAll() {
+  for (const file of Object.keys(snapshot) as MutantFile[]) {
+    await Deno.writeTextFile(pathFor(file), snapshot[file]);
+  }
+}
 
 const lines: string[] = [
   "| Mutant | Applied | Verdict | Killed by |",
@@ -478,25 +538,35 @@ const lines: string[] = [
 
 try {
   for (const mutant of MUTANTS) {
-    const original = originals[mutant.file];
     const edits = mutantEdits(mutant);
     if (edits.length === 0) {
       lines.push(`| ${mutant.name} | NO edits | SURVIVED | - |`);
       continue;
     }
-    if (edits.some((edit) => !original.includes(edit.find))) {
+    const working: Record<MutantFile, string> = { ...snapshot };
+    if (edits.some((edit) => !working[edit.file].includes(edit.find))) {
       lines.push(`| ${mutant.name} | NO find string | SURVIVED | - |`);
       continue;
     }
-    let mutated = original;
-    for (const edit of edits) mutated = mutated.replace(edit.find, edit.replace);
-    if (mutated === original) {
+    let changed = false;
+    for (const edit of edits) {
+      const next = working[edit.file].replace(edit.find, edit.replace);
+      if (next !== working[edit.file]) {
+        working[edit.file] = next;
+        changed = true;
+      }
+    }
+    if (!changed) {
       lines.push(`| ${mutant.name} | NO change | SURVIVED | - |`);
       continue;
     }
-    await Deno.writeTextFile(pathFor(mutant.file), mutated);
+    for (const file of Object.keys(working) as MutantFile[]) {
+      if (working[file] !== snapshot[file]) {
+        await Deno.writeTextFile(pathFor(file), working[file]);
+      }
+    }
     const result = await runTests();
-    await Deno.writeTextFile(pathFor(mutant.file), original);
+    await restoreAll();
     if (result.ok) {
       const verdict = mutant.expected === "equivalent" ? "SURVIVED (equivalent)" : "SURVIVED";
       lines.push(`| ${mutant.name} | yes | ${verdict} | - |`);
@@ -514,8 +584,7 @@ try {
     lines.push(`| ${mutant.name} | yes | ${verdict} | ${killed} |`);
   }
 } finally {
-  await Deno.writeTextFile(INDEX, originals["index.ts"]);
-  await Deno.writeTextFile(TENANCY, originals["portalTenancy.ts"]);
+  await restoreAll();
 }
 
 console.log(lines.join("\n"));
