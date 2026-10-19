@@ -14,6 +14,7 @@ import {
 } from '../shared/inspectionCompose';
 import type { PdfThemeTokens } from '../shared/styles';
 import { companyDocumentLogoUrl } from '../../lib/companyLogo';
+import { resolveInspectorIdentity } from '../../lib/inspectorSnapshot';
 import { inspectionReportTheme } from '../generic_inspection/theme';
 
 interface ComposeInput {
@@ -24,6 +25,9 @@ interface ComposeInput {
     completed_at?: string | null;
     doc_version?: number | null;
     amendment_reason?: string | null;
+    inspector_id?: string | null;
+    inspector_name_snapshot?: string | null;
+    inspector_licence_snapshot?: string | null;
   };
   template: { name: string; schema: TemplateSchema };
   profile: { name: string; licence_number?: string | null };
@@ -45,9 +49,17 @@ export function composeElectricalReport(input: ComposeInput): ElectricalReportDa
   const { inspection, template, profile, company, photos, reportNumber } = input;
   const { responses, meta } = inspection;
 
+  const inspector = resolveInspectorIdentity({
+    inspectorId: inspection.inspector_id,
+    live: { name: profile.name, licence: profile.licence_number },
+    snapshot: {
+      name: inspection.inspector_name_snapshot,
+      licence: inspection.inspector_licence_snapshot,
+    },
+  });
   const sections = composeInspectionSections(template.schema, responses, photos);
   const overallVerdict = computeOverallVerdict(sections);
-  const signatures = collectSignatures(sections, profile.name);
+  const signatures = collectSignatures(sections, inspector.name);
   const photoAppendix = collectPhotoAppendix(sections);
   const customFields = composeCustomFields(template.schema, meta);
   const defects = collectDefects(sections);
@@ -69,8 +81,8 @@ export function composeElectricalReport(input: ComposeInput): ElectricalReportDa
       siteAddress: meta.siteAddress ?? '',
       client: meta.clientName ?? '',
       jobNumber: meta.jobNumber,
-      inspector: profile.name,
-      licenceNumber: profile.licence_number ?? '',
+      inspector: inspector.name,
+      licenceNumber: inspector.licence ?? '',
       dateOfTest: inspection.completed_at
         ? format(new Date(inspection.completed_at), 'd MMMM yyyy')
         : format(new Date(), 'd MMMM yyyy'),

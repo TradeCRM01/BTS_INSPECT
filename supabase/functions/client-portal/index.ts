@@ -3,6 +3,7 @@ import { resolvePortalAdmin } from "./portalAdmin.ts";
 import {
   clientBelongsToPortal,
   inspectorCompanyMatches,
+  inspectorSnapshotFields,
   inspectionsForTokenCompany,
 } from "./portalTenancy.ts";
 
@@ -301,7 +302,7 @@ export async function handleClientPortalRequest(req: Request) {
 
       const { data: inspection } = await admin
         .from("inspections")
-        .select("id, meta, status, completed_at, doc_version, amendment_reason, template_snapshot, inspector_id")
+        .select("id, meta, status, completed_at, doc_version, amendment_reason, template_snapshot, inspector_id, inspector_name_snapshot, inspector_licence_snapshot")
         .eq("id", share.inspection_id)
         .maybeSingle();
 
@@ -373,6 +374,7 @@ export async function handleClientPortalRequest(req: Request) {
           amendmentReason: inspection?.amendment_reason ?? null,
           pdfUrl,
           issuedAt: report?.generated_at ?? null,
+          ...inspectorSnapshotFields(inspection ?? {}),
         },
       });
     }
@@ -490,7 +492,7 @@ export async function handleClientPortalRequest(req: Request) {
           .limit(50),
         admin
           .from("inspections")
-          .select("id, status, meta, completed_at, doc_version, template_snapshot, inspector_id")
+          .select("id, status, meta, completed_at, doc_version, template_snapshot, inspector_id, inspector_name_snapshot, inspector_licence_snapshot")
           .eq("client_id", portal.client_id)
           .in("status", ["completed", "issued"])
           .order("completed_at", { ascending: false })
@@ -555,6 +557,7 @@ export async function handleClientPortalRequest(req: Request) {
           docVersion: insp.doc_version ?? 1,
           pdfUrl,
           issuedAt: report?.generated_at ?? null,
+          ...inspectorSnapshotFields(insp),
         };
       }),
     );

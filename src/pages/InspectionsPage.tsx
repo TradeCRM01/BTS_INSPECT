@@ -44,6 +44,10 @@ import {
 import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
 import { inspectionDisplayStatus } from '../lib/sendReport';
 import { applyLivingJobToInspection } from '../lib/livingJha';
+import {
+  inspectionInspectorLine,
+  resolveInspectorIdentity,
+} from '../lib/inspectorSnapshot';
 
 interface Inspection {
   id: string;
@@ -52,8 +56,11 @@ interface Inspection {
   started_at: string;
   completed_at: string | null;
   template_snapshot: { name?: string; report_renderer?: string; schema?: TemplateSchema } | null;
-  inspector_id: string;
+  inspector_id: string | null;
   inspector_name?: string;
+  inspector_licence?: string | null;
+  inspector_name_snapshot?: string | null;
+  inspector_licence_snapshot?: string | null;
   archived: boolean;
   parent_inspection_id: string | null;
   crm_job_id: string | null;
@@ -94,6 +101,7 @@ function inspectionsListLookRows(): Inspection[] {
   const base = {
     inspector_id: 'look-insp-dave',
     inspector_name: 'Dave',
+    inspector_licence: null as string | null,
     archived: false,
     parent_inspection_id: null as string | null,
     crm_job_id: null as string | null,
@@ -126,7 +134,33 @@ function inspectionsListLookRows(): Inspection[] {
       status: 'completed',
       meta: { siteName: 'Midland Workshops', siteAddress: '44 Helena St, Midland WA 6056' },
     },
+    mapInspectionInspector({
+      ...base,
+      id: 'look-insp-pat',
+      inspector_id: null,
+      inspector_name: undefined,
+      inspector_name_snapshot: 'Pat Snapshot',
+      inspector_licence_snapshot: 'EC-4411',
+      status: 'completed',
+      meta: { siteName: 'Snapshot Yard', siteAddress: '9 Harbour Rd, Fremantle WA 6160' },
+    }),
   ];
+}
+
+function mapInspectionInspector(row: Inspection, liveName?: string | null): Inspection {
+  const identity = resolveInspectorIdentity({
+    inspectorId: row.inspector_id,
+    live: { name: liveName, licence: null },
+    snapshot: {
+      name: row.inspector_name_snapshot,
+      licence: row.inspector_licence_snapshot,
+    },
+  });
+  return {
+    ...row,
+    inspector_name: identity.name,
+    inspector_licence: identity.licence,
+  };
 }
 
 function inspectionListStatusText(item: InspectionListFloorItem<Inspection>, displayStatus: string): string {
@@ -193,12 +227,12 @@ export function InspectionsPage() {
 
       const { data, error } = await supabase
         .from('inspections')
-        .select('id, status, meta, started_at, completed_at, template_snapshot, inspector_id, archived, parent_inspection_id, crm_job_id, responses, due_on')
+        .select('id, status, meta, started_at, completed_at, template_snapshot, inspector_id, inspector_name_snapshot, inspector_licence_snapshot, archived, parent_inspection_id, crm_job_id, responses, due_on')
         .order('started_at', { ascending: false });
       if (error) throw error;
 
       const list = (data ?? []) as Inspection[];
-      const inspectorIds = [...new Set(list.map(i => i.inspector_id))];
+      const inspectorIds = [...new Set(list.map(i => i.inspector_id).filter(Boolean))] as string[];
       const jobIds = [...new Set(list.map(i => i.crm_job_id).filter(Boolean))] as string[];
       const inspectionIds = list.map(i => i.id);
       const [profilesRes, jobsRes, reportsRes] = await Promise.all([
@@ -223,12 +257,15 @@ export function InspectionsPage() {
       const clientNameMap = new Map((clientsRes.data ?? []).map(c => [c.id, c.name]));
       const reportMap = new Map((reportsRes.data ?? []).map(r => [r.inspection_id, r]));
 
-      return list.map(i => ({
+      return list.map(i => {
+        const named = mapInspectionInspector(i, nameMap[i.inspector_id ?? '']);
+        return {
         ...i,
         meta: (i.meta ?? {}) as Record<string, string>,
         template_snapshot: (i.template_snapshot ?? null) as Inspection['template_snapshot'],
         responses: (i.responses ?? {}) as Record<string, unknown>,
-        inspector_name: nameMap[i.inspector_id] ?? 'Unknown',
+        inspector_name: named.inspector_name,
+        inspector_licence: named.inspector_licence,
         archived: i.archived ?? false,
         report_id: reportMap.get(i.id)?.id ?? null,
         report_sent_at: reportMap.get(i.id)?.sent_at ?? null,
@@ -243,7 +280,8 @@ export function InspectionsPage() {
         job_client_name: i.crm_job_id
           ? clientNameMap.get(jobMap.get(i.crm_job_id)?.client_id ?? '') ?? null
           : null,
-      })) as Inspection[];
+      };
+      }) as Inspection[];
     },
     enabled: !!profile && !lookInspectionsList,
   });
@@ -818,6 +856,10 @@ function InspectionRow({
     : opsSiteLabel(doc.meta?.siteName, doc.meta?.siteAddress, doc.job_address, doc.job_title);
   const title = doc.template_snapshot?.name || 'Inspection';
   const when = formatInspectionListStamp(doc.completed_at || doc.started_at);
+  const inspector = inspectionInspectorLine({
+    name: doc.inspector_name || 'Unknown',
+    licence: doc.inspector_licence ?? null,
+  });
   const muted = [title, when].filter(Boolean).join(' · ');
 
   return (
@@ -832,6 +874,7 @@ function InspectionRow({
       <span className="min-w-0">
         <span className="hub-inspections-site truncate">{site}</span>
         {muted ? <span className="hub-inspections-muted truncate">{muted}</span> : null}
+        {inspector ? <span className="hub-inspections-muted min-w-0 break-words" data-inspector-line="1">{inspector}</span> : null}
       </span>
       <span className="hub-inspections-status">{inspectionListStatusText(item, displayStatus)}</span>
       <span className="hub-inspections-row-next" onClick={e => e.stopPropagation()}>

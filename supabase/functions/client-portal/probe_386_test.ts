@@ -175,6 +175,8 @@ Deno.test("P5 forged share: 403 before any reports/companies read", async () => 
 function nullInspectorSeed(): PortalSeed {
   const seed = sameCompanySeed();
   seed.tables.inspections[0].inspector_id = null;
+  seed.tables.inspections[0].inspector_name_snapshot = "Pat Snapshot";
+  seed.tables.inspections[0].inspector_licence_snapshot = "EC-4411";
   return seed;
 }
 
@@ -184,6 +186,8 @@ Deno.test("P6 REGRESSION: same-company report by a removed inspector still liste
   assertEquals(body.reports?.length, 1);
   assertEquals(body.reports[0].inspectionId, IDS.inspectionA);
   assertEquals(body.reports[0].reportNumber, "R-A");
+  assertEquals(body.reports[0].inspectorName, "Pat Snapshot");
+  assertEquals(body.reports[0].inspectorLicence, "EC-4411");
   assertEquals(leakedBMarkers(body), []);
 });
 
@@ -192,6 +196,8 @@ Deno.test("P6b REGRESSION: same-company share link for a removed inspector's rep
   assertEquals(res.status, 200);
   assertEquals(body.report?.reportNumber, "R-A");
   assertEquals(body.report?.pdfUrl, "https://signed.example/reports/a.pdf");
+  assertEquals(body.report?.inspectorName, "Pat Snapshot");
+  assertEquals(body.report?.inspectorLicence, "EC-4411");
   assertEquals(leakedBMarkers(body), []);
   const reportLoad = selectCalls(stub.calls, "reports").find((call) =>
     hasEq(call, "inspection_id", IDS.inspectionA)

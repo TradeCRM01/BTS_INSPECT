@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, type CSSProperties } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
@@ -27,6 +27,61 @@ import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
 import { UnsavedChangesDialog } from '../components/unsaved/UnsavedChangesDialog';
 import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard';
 import { keepaliveRestWrite, saveConfirmedByRows, type UnsavedChangesStatus } from '../lib/unsavedChangesGuard';
+import {
+  inspectionInspectorLine,
+  resolveInspectorIdentity,
+} from '../lib/inspectorSnapshot';
+
+const LOOK_SNAPSHOT_VIEW = 'inspection-snapshot-view';
+const LOOK_SNAPSHOT_EDIT = 'inspection-snapshot-edit';
+const LOOK_SNAPSHOT_INSPECTION_ID = 'look-insp-pat';
+const LOOK_SNAPSHOT_JOB_ID = 'look-job-pat';
+
+const LOOK_SNAPSHOT_SCHEMA: TemplateSchema = {
+  meta: {
+    requiresSiteName: false,
+    requiresSiteAddress: false,
+    requiresClientName: false,
+    requiresJobNumber: false,
+  },
+  sections: [{ id: 's1', title: 'Checks', isRepeating: false, questions: [] }],
+};
+
+function inspectionSnapshotLookDoc(look: string | null) {
+  if (look !== LOOK_SNAPSHOT_VIEW && look !== LOOK_SNAPSHOT_EDIT) return null;
+  return {
+    id: LOOK_SNAPSHOT_INSPECTION_ID,
+    status: 'draft',
+    inspector_id: null,
+    inspector_name_snapshot: 'Pat Snapshot',
+    inspector_licence_snapshot: 'EC-4411',
+    meta: {
+      siteName: 'Snapshot Yard',
+      siteAddress: '9 Harbour Rd, Fremantle WA 6160',
+      clientName: 'Harbour Co',
+    },
+    responses: {},
+    template_snapshot: { name: 'Inspection', schema: LOOK_SNAPSHOT_SCHEMA },
+    started_at: '2026-09-03T00:00:00.000Z',
+    completed_at: null,
+    crm_job_id: look === LOOK_SNAPSHOT_VIEW ? LOOK_SNAPSHOT_JOB_ID : null,
+    client_id: look === LOOK_SNAPSHOT_VIEW ? 'look-client-pat' : null,
+  };
+}
+
+function inspectionSnapshotLookJobs(look: string | null) {
+  if (look !== LOOK_SNAPSHOT_VIEW) return null;
+  return [{
+    id: LOOK_SNAPSHOT_JOB_ID,
+    title: 'Snapshot job',
+    client_id: 'look-client-pat',
+    address: '9 Harbour Rd, Fremantle WA 6160',
+    job_number: 41,
+    scheduled_date: '2026-09-03',
+    company_id: '00000000-0000-0000-0000-000000000001',
+    start_time: null,
+  }];
+}
 
 type SaveStatus = UnsavedChangesStatus;
 
@@ -48,8 +103,12 @@ interface PendingSave {
 
 export function InspectionFillPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { profile, company } = useAuth();
+  const lookParam = import.meta.env.DEV ? searchParams.get('look') : null;
+  const lookInspection = inspectionSnapshotLookDoc(lookParam);
+  const lookJobs = inspectionSnapshotLookJobs(lookParam);
 
   const [responses, setResponses] = useState<Record<string, unknown>>({});
   const [meta, setMeta] = useState<Record<string, string>>({});
@@ -69,6 +128,7 @@ export function InspectionFillPage() {
   const { data: inspection, isLoading, isError, refetch } = useQuery({
     queryKey: ['inspection', id],
     queryFn: async () => {
+      if (lookInspection) return lookInspection as never;
       const mock = getAuditInspection(id!);
       if (mock) return mock as never;
       const { data, error } = await supabase
@@ -104,6 +164,7 @@ export function InspectionFillPage() {
   const { data: jobs = [] } = useQuery({
     queryKey: ['jobs-for-inspection-fill'],
     queryFn: async () => {
+      if (lookJobs) return lookJobs;
       const mock = getAuditJobs();
       if (mock) return mock;
       const { data, error } = await supabase
@@ -140,7 +201,7 @@ export function InspectionFillPage() {
   });
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || lookParam === LOOK_SNAPSHOT_VIEW || lookParam === LOOK_SNAPSHOT_EDIT) return;
     supabase.from('photos').select('*').eq('inspection_id', id).then(({ data, error }) => {
       if (error) { console.error('Photo fetch error:', error); return; }
       if (!data?.length) return;
@@ -151,7 +212,7 @@ export function InspectionFillPage() {
         })
       ).then(photosWithUrls => setPhotos(photosWithUrls)).catch(err => console.error('Photo URL error:', err));
     });
-  }, [id]);
+  }, [id, lookParam]);
 
   useEffect(() => {
     if (!inspection) return;
@@ -406,6 +467,18 @@ export function InspectionFillPage() {
     || (selectedJob?.job_number != null ? String(selectedJob.job_number).padStart(4, '0') : '');
   const when = inspection.started_at ? format(new Date(inspection.started_at), 'd MMM yyyy') : null;
   const jobBound = !!jobId;
+  const fillInspectorId = (inspection as { inspector_id?: string | null } | null)?.inspector_id ?? null;
+  const fillSnapshot = {
+    name: (inspection as { inspector_name_snapshot?: string | null } | null)?.inspector_name_snapshot ?? null,
+    licence: (inspection as { inspector_licence_snapshot?: string | null } | null)?.inspector_licence_snapshot ?? null,
+  };
+  const inspectorLine = inspectionInspectorLine(resolveInspectorIdentity({
+    inspectorId: fillInspectorId,
+    live: profile && fillInspectorId === profile.id
+      ? { name: profile.name, licence: profile.licence_number }
+      : fillSnapshot,
+    snapshot: fillSnapshot,
+  }));
   const jobLine = [jobNumber ? `#${jobNumber}` : null, selectedJob?.title || templateName || null]
     .filter(Boolean)
     .join(' ');
@@ -717,6 +790,9 @@ export function InspectionFillPage() {
                   <span className="hub-inspections-muted">{templateName}</span>
                 </p>
               ) : null}
+              <p className="hub-inspections-ledger-row min-w-0" data-inspector-line="1">
+                <span className="hub-inspections-muted min-w-0 break-words">{inspectorLine}</span>
+              </p>
               <p className="hub-inspections-ledger-row">
                 <span className="hub-inspections-muted">{jobNumber ? `#${jobNumber}` : 'Inspection'}</span>
                 {when ? <span className="hub-inspections-hours">{when}</span> : null}

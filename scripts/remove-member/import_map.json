@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "npm:@supabase/supabase-js@2": "./mock_supabase.ts",
+    "jsr:@supabase/functions-js/edge-runtime.d.ts": "./empty.d.ts"
+  }
+}

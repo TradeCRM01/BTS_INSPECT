@@ -44,6 +44,7 @@ import { UnsavedChangesDialog } from '../components/unsaved/UnsavedChangesDialog
 import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard';
 import { nextClientDraftId } from '../lib/unsavedChangesGuard';
 import { jhaPersistStatus, planJhaDocumentWrite } from '../lib/jhaDocumentWrite';
+import { documentCreatorLine } from '../lib/inspectorSnapshot';
 
 function generateJhaNumber(): string {
   const now = new Date();
@@ -59,7 +60,8 @@ interface JhaDocRow {
   template_id: string;
   template_snapshot: { name?: string; schema: JhaTemplateSchema };
   company_id: string;
-  created_by: string;
+  created_by: string | null;
+  creator_name_snapshot?: string | null;
   status: string;
   meta: Record<string, string>;
   steps: JhaStep[];
@@ -92,14 +94,57 @@ const EMPTY_STEP: JhaStep = {
   photos: [],
 };
 
+const LOOK_JHA_CREATOR = 'jha-creator-snapshot';
+
+function jhaCreatorLookDoc(look: string | null): JhaDocRow | null {
+  if (look !== LOOK_JHA_CREATOR) return null;
+  return {
+    id: 'look-jha-pat',
+    template_id: 'look-jha-tmpl',
+    template_snapshot: {
+      name: 'JHA',
+      schema: {
+        meta: {
+          requiresTaskName: false,
+          requiresSiteName: false,
+          requiresDate: false,
+          requiresSupervisor: false,
+        },
+        riskLevels: [],
+        ppeOptions: [],
+        signOffRoles: [],
+      },
+    },
+    company_id: 'look-co',
+    created_by: null,
+    creator_name_snapshot: 'Pat Snapshot',
+    status: 'draft',
+    meta: { siteName: 'Snapshot Yard' },
+    steps: [],
+    ppe: [],
+    sign_offs: [],
+    report_number: 'JHA-1',
+    pdf_storage_path: null,
+    client_id: null,
+    job_id: null,
+    doc_version: 1,
+    amended_from_id: null,
+    amendment_reason: null,
+    created_at: '2026-09-03T00:00:00.000Z',
+    completed_at: null,
+  };
+}
+
 export function JhaFillPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { profile, company } = useAuth();
   const queryClient = useQueryClient();
 
+  const lookParam = searchParams.get('look');
+  const lookJhaCreator = jhaCreatorLookDoc(lookParam);
   const templateId = searchParams.get('templateId');
-  const docId = searchParams.get('docId');
+  const docId = lookJhaCreator ? lookJhaCreator.id : searchParams.get('docId');
   const presetJobId = searchParams.get('jobId') ?? '';
   const presetClientId = searchParams.get('clientId') ?? '';
   const isEditMode = !!docId;
@@ -155,6 +200,7 @@ export function JhaFillPage() {
   const { data: existingDoc, isLoading: docLoading, isError: docError, refetch: refetchDoc } = useQuery({
     queryKey: ['jha-document', docId],
     queryFn: async () => {
+      if (lookJhaCreator) return lookJhaCreator;
       const mock = getAuditJhaDoc(docId!);
       if (mock) return mock as unknown as JhaDocRow;
       const { data, error } = await supabase
@@ -305,7 +351,7 @@ export function JhaFillPage() {
     if (!applied.changed) return;
     setMeta(prev => ({ ...prev, siteName: applied.siteName || prev.siteName }));
     setCrew(applied.crew);
-    if (!docIdState || isDevFieldAuditAuth()) return;
+    if (!docIdState || isDevFieldAuditAuth() || lookJhaCreator) return;
     void supabase
       .from('jha_documents')
       .select('meta')
@@ -1019,6 +1065,11 @@ export function JhaFillPage() {
               {templateName ? (
                 <p className="hub-jha-ledger-row">
                   <span className="hub-jha-muted">{templateName}</span>
+                </p>
+              ) : null}
+              {documentCreatorLine(existingDoc?.creator_name_snapshot) ? (
+                <p className="hub-jha-ledger-row" data-creator-line="1">
+                  <span className="hub-jha-muted">{documentCreatorLine(existingDoc?.creator_name_snapshot)}</span>
                 </p>
               ) : null}
               <p className="hub-jha-ledger-row">
