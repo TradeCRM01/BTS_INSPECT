@@ -36,8 +36,9 @@ import {
 } from '../../lib/sendInvoice';
 import { loadInvoiceSendBundle } from '../../lib/sendInvoiceDeliver';
 import { checkPriceSendBlock, throwIfCheckPriceUnpriced } from '../../lib/checkPriceGate';
-import { jobClientEmailRow, saveJobClientEmail } from '../../lib/saveJobClientEmail';
-import { jobClientPhoneRow, saveJobClientPhone } from '../../lib/saveJobClientPhone';
+import { decideJobClientEmailSave, jobClientEmailRow, saveJobClientEmail } from '../../lib/saveJobClientEmail';
+import { decideJobClientPhoneSave, jobClientPhoneRow, saveJobClientPhone } from '../../lib/saveJobClientPhone';
+import { FIELD_AU_PHONE, FIELD_EMAIL, FIELD_SAVE_MISS } from '../../lib/fieldValidation';
 import {
   INVOICE_CLIENT_ATTACH_NO_CLIENTS,
   attachInvoiceClient,
@@ -96,6 +97,8 @@ export function InvoiceSendDialog({
   const [copy, setCopy] = useState<ShareCopyResult | null>(null);
   const [clientEmailDraft, setClientEmailDraft] = useState('');
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
+  const [clientEmailError, setClientEmailError] = useState('');
+  const [clientPhoneError, setClientPhoneError] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
   const [savingAttach, setSavingAttach] = useState(false);
   const emailInputRef = useRef<HTMLInputElement>(null);
@@ -222,6 +225,15 @@ export function InvoiceSendDialog({
 
   const handleSaveEmail = async () => {
     if (emailRow.kind !== 'edit' || !bundle) return;
+    const emailDecision = decideJobClientEmailSave({
+      clientId: emailRow.clientId,
+      email: clientEmailDraft,
+    });
+    if (emailDecision.action === 'miss') {
+      setClientEmailError(FIELD_EMAIL);
+      return;
+    }
+    setClientEmailError('');
     setSavingEmail(true);
     setErr('');
     try {
@@ -237,7 +249,7 @@ export function InvoiceSendDialog({
       void queryClient.invalidateQueries({ queryKey: ['invoices'] });
       void queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Could not save the email.');
+      setClientEmailError(e instanceof Error ? e.message : FIELD_SAVE_MISS);
     } finally {
       setSavingEmail(false);
     }
@@ -245,6 +257,15 @@ export function InvoiceSendDialog({
 
   const handleSavePhone = async () => {
     if (phoneRow.kind !== 'edit' || !bundle) return;
+    const phoneDecision = decideJobClientPhoneSave({
+      clientId: phoneRow.clientId,
+      phone: clientPhoneDraft,
+    });
+    if (phoneDecision.action === 'miss') {
+      setClientPhoneError(FIELD_AU_PHONE);
+      return;
+    }
+    setClientPhoneError('');
     setSavingPhone(true);
     setErr('');
     try {
@@ -260,7 +281,7 @@ export function InvoiceSendDialog({
       void queryClient.invalidateQueries({ queryKey: ['invoices'] });
       void queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Could not save the phone.');
+      setClientPhoneError(e instanceof Error ? e.message : FIELD_SAVE_MISS);
     } finally {
       setSavingPhone(false);
     }
@@ -474,11 +495,16 @@ export function InvoiceSendDialog({
                         ref={emailInputRef}
                         type="email"
                         value={clientEmailDraft}
-                        onChange={e => setClientEmailDraft(e.target.value)}
+                        onChange={e => {
+                          setClientEmailDraft(e.target.value);
+                          setClientEmailError('');
+                        }}
                         placeholder="Email"
-                        className="form-input-sm"
+                        className={clientEmailError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
                         aria-label="Client email"
                         autoComplete="email"
+                        aria-invalid={clientEmailError ? true : undefined}
+                        aria-describedby={clientEmailError ? 'invoice-send-client-email-error' : undefined}
                       />
                       <button
                         type="submit"
@@ -487,6 +513,7 @@ export function InvoiceSendDialog({
                       >
                         Save
                       </button>
+                      {clientEmailError ? <p id="invoice-send-client-email-error" className="field-inline-error text-fail">{clientEmailError}</p> : null}
                     </form>
                   ) : (
                     <>
@@ -513,12 +540,17 @@ export function InvoiceSendDialog({
                       <input
                         type="tel"
                         value={clientPhoneDraft}
-                        onChange={e => setClientPhoneDraft(e.target.value)}
+                        onChange={e => {
+                          setClientPhoneDraft(e.target.value);
+                          setClientPhoneError('');
+                        }}
                         placeholder="Phone"
-                        className="form-input-sm"
+                        className={clientPhoneError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
                         aria-label="Client phone"
                         autoComplete="tel"
                         inputMode="tel"
+                        aria-invalid={clientPhoneError ? true : undefined}
+                        aria-describedby={clientPhoneError ? 'invoice-send-client-phone-error' : undefined}
                       />
                       <button
                         type="submit"
@@ -527,6 +559,7 @@ export function InvoiceSendDialog({
                       >
                         Save
                       </button>
+                      {clientPhoneError ? <p id="invoice-send-client-phone-error" className="field-inline-error text-fail">{clientPhoneError}</p> : null}
                     </form>
                   ) : (
                     <p className="hub-invoice-send-value tabular-nums">
@@ -603,11 +636,16 @@ export function InvoiceSendDialog({
                     ref={emailInputRef}
                     type="email"
                     value={clientEmailDraft}
-                    onChange={e => setClientEmailDraft(e.target.value)}
+                    onChange={e => {
+                      setClientEmailDraft(e.target.value);
+                      setClientEmailError('');
+                    }}
                     placeholder="Email"
-                    className="form-input-sm"
+                    className={clientEmailError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
                     aria-label="Client email"
                     autoComplete="email"
+                    aria-invalid={clientEmailError ? true : undefined}
+                    aria-describedby={clientEmailError ? 'invoice-send-client-email-error' : undefined}
                   />
                   <button
                     type="submit"
@@ -616,6 +654,7 @@ export function InvoiceSendDialog({
                   >
                     Save
                   </button>
+                  {clientEmailError ? <p id="invoice-send-client-email-error" className="field-inline-error text-fail">{clientEmailError}</p> : null}
                 </form>
               )}
               {showPhoneInkOnMiss && phoneRow.kind === 'tel' && (
@@ -635,12 +674,17 @@ export function InvoiceSendDialog({
                   <input
                     type="tel"
                     value={clientPhoneDraft}
-                    onChange={e => setClientPhoneDraft(e.target.value)}
+                    onChange={e => {
+                      setClientPhoneDraft(e.target.value);
+                      setClientPhoneError('');
+                    }}
                     placeholder="Phone"
-                    className="form-input-sm"
+                    className={clientPhoneError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
                     aria-label="Client phone"
                     autoComplete="tel"
                     inputMode="tel"
+                    aria-invalid={clientPhoneError ? true : undefined}
+                    aria-describedby={clientPhoneError ? 'invoice-send-client-phone-error' : undefined}
                   />
                   <button
                     type="submit"
@@ -649,6 +693,7 @@ export function InvoiceSendDialog({
                   >
                     Save
                   </button>
+                  {clientPhoneError ? <p id="invoice-send-client-phone-error" className="field-inline-error text-fail">{clientPhoneError}</p> : null}
                 </form>
               )}
             </>

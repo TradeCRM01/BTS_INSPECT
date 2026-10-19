@@ -1078,6 +1078,7 @@
   .hub-clients .client-sheet-contact .job-client-phone .field-inline-error {
     flex: 1 0 100%;
     margin-top: 0;
+    padding-left: 21px;
   }
 
   .hub-clients .client-sheet-contact .job-client-email .form-input-sm,
@@ -2202,6 +2203,14 @@
   .job-client-attach {
     max-width: 100%;
     min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .job-client-email .field-inline-error,
+  .job-client-phone .field-inline-error {
+    flex: 1 0 100%;
+    padding-left: 21px;
+    white-space: normal;
   }
 
   .job-client-email .form-input-sm,
@@ -8281,7 +8290,7 @@
   .job-cal-host .job-client-attach {
     display: inline-flex;
     align-items: center;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 8px;
     min-width: 0;
     font-family: Inter, system-ui, sans-serif;

@@ -256,7 +256,7 @@ describe('quote-send honesty — wiring on the existing Send sheet', () => {
     const handleEmail = dialog.slice(dialog.indexOf('const handleSaveEmail'), dialog.indexOf('const handleSavePhone'));
     const handlePhone = dialog.slice(dialog.indexOf('const handleSavePhone'), dialog.indexOf('const prepareShare'));
     const handleSendFn = dialog.slice(dialog.indexOf('const handleDownload'), dialog.indexOf('const ready'));
-    const sendBtn = dialog.slice(dialog.indexOf('{showShare && share?.canMailto'), dialog.indexOf('{showShare && !share?.canMailto'));
+    const sendBtn = dialog.slice(dialog.indexOf('{showShare && !checkPriceBlock && share?.canMailto'), dialog.indexOf('{showShare && !share?.canMailto'));
 
     expect(dialog).toContain('saveJobClientEmail');
     expect(dialog).toContain('saveJobClientPhone');

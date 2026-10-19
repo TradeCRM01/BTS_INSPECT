@@ -272,7 +272,7 @@ describe('invoice-send client phone — wiring', () => {
     const dialog = src('src/components/invoicing/InvoiceSendDialog.tsx');
     const handleSave = dialog.slice(dialog.indexOf('const handleSavePhone'), dialog.indexOf('const prepareShare'));
     const handleSendFn = dialog.slice(dialog.indexOf('const handleDownload'), dialog.indexOf('const ready'));
-    const mailBtn = dialog.slice(dialog.indexOf('{showShare && share?.canMailto'), dialog.indexOf('{showShare && !share?.canMailto'));
+    const mailBtn = dialog.slice(dialog.indexOf('{showShare && !checkPriceBlock && share?.canMailto'), dialog.indexOf('{showShare && !share?.canMailto'));
 
     expect(dialog).toContain('disabled={!!busy}');
     expect(mailBtn).toContain('Open mail draft');

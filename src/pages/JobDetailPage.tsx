@@ -111,15 +111,18 @@ import {
   jobSheetClientName,
 } from '../lib/attachJobClient';
 import {
+  decideJobClientEmailSave,
   jobClientEmailRow,
   jobClientEmailSaveToast,
   saveJobClientEmail,
 } from '../lib/saveJobClientEmail';
 import {
+  decideJobClientPhoneSave,
   jobClientPhoneRow,
   jobClientPhoneSaveToast,
   saveJobClientPhone,
 } from '../lib/saveJobClientPhone';
+import { FIELD_AU_PHONE, FIELD_EMAIL } from '../lib/fieldValidation';
 import {
   ARRIVING_NEXT_LABEL,
   isJobRescheduleQuery,
@@ -1592,6 +1595,8 @@ export function JobDetailPage() {
   const [sendingReportId, setSendingReportId] = useState<string | null>(null);
   const [clientEmailDraft, setClientEmailDraft] = useState('');
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
+  const [clientEmailError, setClientEmailError] = useState('');
+  const [clientPhoneError, setClientPhoneError] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
   const [visitDraft, setVisitDraft] = useState<VisitUpdateDraft>(emptyVisitUpdateDraft);
   const [visitTab, setVisitTab] = useState<'new' | 'history'>('new');
@@ -2318,13 +2323,15 @@ export function JobDetailPage() {
         email: clientEmailDraft,
       });
     },
+    retry: 0,
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['job-client', job?.client_id] });
       setClientEmailDraft(result.email ?? '');
+      setClientEmailError('');
       const toast = jobClientEmailSaveToast(result.email);
       showToast(toast.message, toast.kind);
     },
-    onError: (e: Error) => showToast(e.message, 'info'),
+    onError: (e: Error) => setClientEmailError(e.message),
   });
 
   const saveClientPhone = useMutation({
@@ -2334,13 +2341,15 @@ export function JobDetailPage() {
         phone: clientPhoneDraft,
       });
     },
+    retry: 0,
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['job-client', job?.client_id] });
       setClientPhoneDraft(result.phone ?? '');
+      setClientPhoneError('');
       const toast = jobClientPhoneSaveToast(result.phone);
       showToast(toast.message, toast.kind);
     },
-    onError: (e: Error) => showToast(e.message, 'info'),
+    onError: (e: Error) => setClientPhoneError(e.message),
   });
 
   const postVisitNote = useMutation({
@@ -2937,6 +2946,15 @@ export function JobDetailPage() {
 
   const writeClientPhone = () => {
     if (clientPhoneDraft.trim()) {
+      const phoneDecision = decideJobClientPhoneSave({
+        clientId: job?.client_id,
+        phone: clientPhoneDraft,
+      });
+      if (phoneDecision.action === 'miss') {
+        setClientPhoneError(FIELD_AU_PHONE);
+        return;
+      }
+      setClientPhoneError('');
       saveClientPhone.mutate();
       return;
     }
@@ -3404,6 +3422,15 @@ export function JobDetailPage() {
                   className="job-client-phone"
                   onSubmit={e => {
                     e.preventDefault();
+                    const phoneDecision = decideJobClientPhoneSave({
+                      clientId: job.client_id,
+                      phone: clientPhoneDraft,
+                    });
+                    if (phoneDecision.action === 'miss') {
+                      setClientPhoneError(FIELD_AU_PHONE);
+                      return;
+                    }
+                    setClientPhoneError('');
                     saveClientPhone.mutate();
                   }}
                 >
@@ -3412,12 +3439,17 @@ export function JobDetailPage() {
                     ref={phoneInputRef}
                     type="tel"
                     value={clientPhoneDraft}
-                    onChange={e => setClientPhoneDraft(e.target.value)}
+                    onChange={e => {
+                      setClientPhoneDraft(e.target.value);
+                      setClientPhoneError('');
+                    }}
                     placeholder="Phone"
-                    className="form-input-sm"
+                    className={clientPhoneError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
                     aria-label="Client phone"
                     autoComplete="tel"
                     inputMode="tel"
+                    aria-invalid={clientPhoneError ? true : undefined}
+                    aria-describedby={clientPhoneError ? 'job-client-phone-error' : undefined}
                   />
                   <button
                     type="submit"
@@ -3426,6 +3458,7 @@ export function JobDetailPage() {
                   >
                     Save
                   </button>
+                  {clientPhoneError ? <p id="job-client-phone-error" className="field-inline-error text-fail">{clientPhoneError}</p> : null}
                 </form>
               )}
               {!contactHeld && emailRow.kind === 'mailto' && (
@@ -3438,6 +3471,15 @@ export function JobDetailPage() {
                   className="job-client-email"
                   onSubmit={e => {
                     e.preventDefault();
+                    const emailDecision = decideJobClientEmailSave({
+                      clientId: job.client_id,
+                      email: clientEmailDraft,
+                    });
+                    if (emailDecision.action === 'miss') {
+                      setClientEmailError(FIELD_EMAIL);
+                      return;
+                    }
+                    setClientEmailError('');
                     saveClientEmail.mutate();
                   }}
                 >
@@ -3445,11 +3487,16 @@ export function JobDetailPage() {
                   <input
                     type="email"
                     value={clientEmailDraft}
-                    onChange={e => setClientEmailDraft(e.target.value)}
+                    onChange={e => {
+                      setClientEmailDraft(e.target.value);
+                      setClientEmailError('');
+                    }}
                     placeholder="Email"
-                    className="form-input-sm"
+                    className={clientEmailError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
                     aria-label="Client email"
                     autoComplete="email"
+                    aria-invalid={clientEmailError ? true : undefined}
+                    aria-describedby={clientEmailError ? 'job-client-email-error' : undefined}
                   />
                   <button
                     type="submit"
@@ -3458,6 +3505,7 @@ export function JobDetailPage() {
                   >
                     Save
                   </button>
+                  {clientEmailError ? <p id="job-client-email-error" className="field-inline-error text-fail">{clientEmailError}</p> : null}
                 </form>
               )}
               </div>

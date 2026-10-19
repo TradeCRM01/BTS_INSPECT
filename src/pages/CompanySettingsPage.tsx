@@ -42,6 +42,7 @@ import {
   COMPANY_DETAIL_FOCUS_ORDER,
   FIELD_SAVE_MISS,
   companyDetailsFieldErrors,
+  fieldSaveMiss,
   firstInvalidFieldId,
   parseNonNegativeNumber,
   parsePercent,
@@ -55,7 +56,6 @@ import {
   blankCompanyPaymentMethod,
   COMPANY_PAYMENT_KIND_LABEL,
   companyHasInvoicePaymentMethod,
-  companyPaymentMethodsSaveError,
   companyPaymentMethodsSavePayload,
   parseCompanyPaymentMethods,
   type CompanyPaymentKind,
@@ -1135,6 +1135,7 @@ export function CompanySettingsPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!company) return;
+    const storedLabour = (company as { default_labour_rate?: number | null }).default_labour_rate;
     const nextErrors = companyDetailsFieldErrors({
       abn,
       phone,
@@ -1142,7 +1143,14 @@ export function CompanySettingsPage() {
       taxRate,
       materialMarkup,
       labourRate: defaultLabourRate,
-    }, company.abn ?? '');
+    }, {
+      abn: company.abn ?? '',
+      phone: company.phone ?? '',
+      email: company.email ?? '',
+      taxRate: company.default_tax_rate?.toString() ?? '10',
+      materialMarkup: company.default_material_markup?.toString() ?? '0',
+      labourRate: storedLabour != null ? String(storedLabour) : '',
+    });
     setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length) {
       revealInvalidField(firstInvalidFieldId(nextErrors, COMPANY_DETAIL_FOCUS_ORDER));
@@ -1152,17 +1160,23 @@ export function CompanySettingsPage() {
     setError('');
     const tax = parsePercent(taxRate);
     const markup = parsePercent(materialMarkup);
-    if (!tax.ok || !markup.ok) return;
+    if (!tax.ok || !markup.ok) {
+      setSaving(false);
+      return;
+    }
     const labour = defaultLabourRate.trim() === ''
       ? { ok: true as const, value: null as number | null }
       : parseNonNegativeNumber(defaultLabourRate);
-    if (!labour.ok) return;
+    if (!labour.ok) {
+      setSaving(false);
+      return;
+    }
     const labourRatePayload = labour.value;
     const baseUpdate = {
       name,
       abn: abn.trim(),
       licence_number: licenceNumber,
-      phone,
+      phone: phone.trim(),
       email,
       website,
       default_tax_rate: tax.value,
@@ -1173,15 +1187,15 @@ export function CompanySettingsPage() {
     };
     let { data, error } = await supabase.from('companies').update(baseUpdate).eq('id', company.id).select('id');
     if (error && /default_labour_rate/i.test(error.message) && /(column|schema cache|does not exist)/i.test(error.message)) {
-      const withoutLabour = { ...baseUpdate };
-      delete withoutLabour.default_labour_rate;
+      const { default_labour_rate: _drop, ...withoutLabour } = baseUpdate;
+      void _drop;
       ({ data, error } = await supabase.from('companies').update(withoutLabour).eq('id', company.id).select('id'));
       if (!error) {
         console.warn('[CompanySettings] companies.default_labour_rate missing — run migration 083');
       }
     }
     if (error || !updateWroteRows(data)) {
-      setError(error?.message || FIELD_SAVE_MISS);
+      setError(fieldSaveMiss(error));
     } else {
       await refreshProfile();
       invalidateAllJobBillInvoicePreviews(queryClient);
@@ -1298,7 +1312,7 @@ export function CompanySettingsPage() {
       .eq('id', company.id)
       .select('id');
     if (error || !updateWroteRows(data)) {
-      setPayError(error ? companyPaymentMethodsSaveError(error.message) : FIELD_SAVE_MISS);
+      setPayError(error ? fieldSaveMiss(error) : FIELD_SAVE_MISS);
     } else {
       await refreshProfile();
       setSavedPay(true);

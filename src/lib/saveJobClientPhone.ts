@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { FIELD_AU_PHONE, FIELD_SAVE_MISS, isAuPhone, updateWroteRows } from './fieldValidation';
+import { FIELD_AU_PHONE, FIELD_SAVE_MISS, fieldSaveMiss, isAuPhone, updateWroteRows } from './fieldValidation';
 import { clientPhoneForSms } from './sendInvoice';
 
 /** Named miss when there is no existing client to write. Does not invent a client. */
@@ -87,7 +87,7 @@ export async function saveJobClientPhone(input: {
     .update({ phone: decision.phone })
     .eq('id', decision.clientId)
     .select('id');
-  if (error) throw error;
+  if (error) throw new Error(fieldSaveMiss(error));
   if (!updateWroteRows(data)) throw new Error(FIELD_SAVE_MISS);
   return { clientId: decision.clientId, phone: decision.phone };
 }

@@ -7,12 +7,12 @@ export const FIELD_ABN = 'Enter a valid 11-digit ABN';
 export const FIELD_PERCENT = 'Enter a number from 0 to 100';
 export const FIELD_RATE = 'Enter a valid amount';
 export const FIELD_PORT = 'Port must be 1 to 65535';
-export const FIELD_SAVE_MISS = 'Could not save. Try again.';
+export const FIELD_SAVE_MISS = "Couldn't save. Check your connection and try again.";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ABN_WEIGHTS = [10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19] as const;
 const DIGIT_GROUP_RE = /^[\d\s-]+$/;
-const PHONE_CHAR_RE = /^\+?[\d\s-]+$/;
+const PHONE_CHAR_RE = /^\+?[\d\s-()]+$/;
 
 export type FieldErrors = Partial<Record<string, string>>;
 
@@ -55,13 +55,20 @@ function isAuPhoneDigits(digits: string, plus: boolean): boolean {
   );
 }
 
+function auPhoneDigits(raw: string): { digits: string; plus: boolean } {
+  const plus = raw.startsWith('+');
+  let digits = digitsOnly(raw);
+  if (plus && /^610\d{9}$/.test(digits)) digits = `61${digits.slice(3)}`;
+  return { digits, plus };
+}
+
 export function isAuPhone(value: string): boolean {
   const raw = value.trim();
   if (!raw) return false;
   if (!hasAllowedPhoneChars(raw)) return false;
-  const digits = digitsOnly(raw);
-  if (digits.length === 6) return isAuPhoneDigits(digits, false);
-  return digits.length >= 8 && digits.length <= 15 && isAuPhoneDigits(digits, raw.startsWith('+'));
+  const { digits, plus } = auPhoneDigits(raw);
+  if (digits.length === 6) return !plus && isAuPhoneDigits(digits, false);
+  return digits.length >= 8 && digits.length <= 15 && isAuPhoneDigits(digits, plus);
 }
 
 export function isBsb(value: string): boolean {
@@ -119,33 +126,62 @@ export function optionalBlank(value: string, check: (filled: string) => boolean)
   return !value.trim() || check(value);
 }
 
+function fieldChanged(current: string, original: string | undefined): boolean {
+  return original === undefined || current !== original;
+}
+
 export function clientFormFieldErrors(form: {
   name: string;
   phone: string;
   email: string;
-}): FieldErrors {
+}, original?: { phone?: string; email?: string }): FieldErrors {
   const errors: FieldErrors = {};
   if (!form.name.trim()) errors.name = FIELD_NAME_REQUIRED;
-  if (!optionalBlank(form.phone, isAuPhone)) errors.phone = FIELD_AU_PHONE;
-  if (!optionalBlank(form.email, isEmail)) errors.email = FIELD_EMAIL;
+  if (fieldChanged(form.phone, original?.phone) && !optionalBlank(form.phone, isAuPhone)) {
+    errors.phone = FIELD_AU_PHONE;
+  }
+  if (fieldChanged(form.email, original?.email) && !optionalBlank(form.email, isEmail)) {
+    errors.email = FIELD_EMAIL;
+  }
   return errors;
 }
 
-export function companyDetailsFieldErrors(form: {
-  abn: string;
-  phone: string;
-  email: string;
-  taxRate: string;
-  materialMarkup: string;
-  labourRate: string;
-}, originalAbn?: string): FieldErrors {
+export type CompanyDetailsOriginal = {
+  abn?: string;
+  phone?: string;
+  email?: string;
+  taxRate?: string;
+  materialMarkup?: string;
+  labourRate?: string;
+};
+
+export function companyDetailsFieldErrors(
+  form: {
+    abn: string;
+    phone: string;
+    email: string;
+    taxRate: string;
+    materialMarkup: string;
+    labourRate: string;
+  },
+  original?: CompanyDetailsOriginal | string,
+): FieldErrors {
+  const stored = typeof original === 'string' ? { abn: original } : original;
   const errors: FieldErrors = {};
-  if ((originalAbn === undefined || form.abn !== originalAbn) && !optionalBlank(form.abn, isAbn)) errors.abn = FIELD_ABN;
-  if (!optionalBlank(form.phone, isAuPhone)) errors.phone = FIELD_AU_PHONE;
-  if (!optionalBlank(form.email, isEmail)) errors.email = FIELD_EMAIL;
-  if (!parsePercent(form.taxRate).ok) errors.taxRate = FIELD_PERCENT;
-  if (!parsePercent(form.materialMarkup).ok) errors.materialMarkup = FIELD_PERCENT;
-  if (form.labourRate.trim() && !parseNonNegativeNumber(form.labourRate).ok) {
+  if (fieldChanged(form.abn, stored?.abn) && !optionalBlank(form.abn, isAbn)) errors.abn = FIELD_ABN;
+  if (fieldChanged(form.phone, stored?.phone) && !optionalBlank(form.phone, isAuPhone)) {
+    errors.phone = FIELD_AU_PHONE;
+  }
+  if (fieldChanged(form.email, stored?.email) && !optionalBlank(form.email, isEmail)) {
+    errors.email = FIELD_EMAIL;
+  }
+  if (fieldChanged(form.taxRate, stored?.taxRate) && !parsePercent(form.taxRate).ok) {
+    errors.taxRate = FIELD_PERCENT;
+  }
+  if (fieldChanged(form.materialMarkup, stored?.materialMarkup) && !parsePercent(form.materialMarkup).ok) {
+    errors.materialMarkup = FIELD_PERCENT;
+  }
+  if (fieldChanged(form.labourRate, stored?.labourRate) && form.labourRate.trim() && !parseNonNegativeNumber(form.labourRate).ok) {
     errors.labourRate = FIELD_RATE;
   }
   return errors;
@@ -208,4 +244,17 @@ export function updateWroteRows(data: unknown): boolean {
     return Boolean((data as { id?: unknown }).id);
   }
   return false;
+}
+
+export function fieldSaveMiss(error?: unknown): string {
+  if (error) console.error(error);
+  return FIELD_SAVE_MISS;
+}
+
+export function fieldControlAria(error: string, describedBy: string): {
+  'aria-invalid'?: true;
+  'aria-describedby'?: string;
+} {
+  if (!error) return {};
+  return { 'aria-invalid': true, 'aria-describedby': describedBy };
 }

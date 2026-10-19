@@ -34,8 +34,9 @@ import {
 } from '../../lib/sendQuote';
 import { loadQuoteSendBundle } from '../../lib/sendQuoteDeliver';
 import { checkPriceSendBlock, throwIfCheckPriceUnpriced } from '../../lib/checkPriceGate';
-import { jobClientEmailRow, saveJobClientEmail } from '../../lib/saveJobClientEmail';
-import { jobClientPhoneRow, saveJobClientPhone } from '../../lib/saveJobClientPhone';
+import { decideJobClientEmailSave, jobClientEmailRow, saveJobClientEmail } from '../../lib/saveJobClientEmail';
+import { decideJobClientPhoneSave, jobClientPhoneRow, saveJobClientPhone } from '../../lib/saveJobClientPhone';
+import { FIELD_AU_PHONE, FIELD_EMAIL, FIELD_SAVE_MISS } from '../../lib/fieldValidation';
 import {
   QUOTE_CLIENT_ATTACH_NO_CLIENTS,
   attachQuoteClient,
@@ -86,6 +87,8 @@ export function QuoteSendDialog({
   const [copy, setCopy] = useState<ShareCopyResult | null>(null);
   const [clientEmailDraft, setClientEmailDraft] = useState('');
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
+  const [clientEmailError, setClientEmailError] = useState('');
+  const [clientPhoneError, setClientPhoneError] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
   const [savingAttach, setSavingAttach] = useState(false);
   const emailInputRef = useRef<HTMLInputElement>(null);
@@ -212,6 +215,15 @@ export function QuoteSendDialog({
 
   const handleSaveEmail = async () => {
     if (emailRow.kind !== 'edit' || !bundle) return;
+    const emailDecision = decideJobClientEmailSave({
+      clientId: emailRow.clientId,
+      email: clientEmailDraft,
+    });
+    if (emailDecision.action === 'miss') {
+      setClientEmailError(FIELD_EMAIL);
+      return;
+    }
+    setClientEmailError('');
     setSavingEmail(true);
     setErr('');
     try {
@@ -227,7 +239,7 @@ export function QuoteSendDialog({
       void queryClient.invalidateQueries({ queryKey: ['quotes'] });
       void queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Could not save the email.');
+      setClientEmailError(e instanceof Error ? e.message : FIELD_SAVE_MISS);
     } finally {
       setSavingEmail(false);
     }
@@ -235,6 +247,15 @@ export function QuoteSendDialog({
 
   const handleSavePhone = async () => {
     if (phoneRow.kind !== 'edit' || !bundle) return;
+    const phoneDecision = decideJobClientPhoneSave({
+      clientId: phoneRow.clientId,
+      phone: clientPhoneDraft,
+    });
+    if (phoneDecision.action === 'miss') {
+      setClientPhoneError(FIELD_AU_PHONE);
+      return;
+    }
+    setClientPhoneError('');
     setSavingPhone(true);
     setErr('');
     try {
@@ -250,7 +271,7 @@ export function QuoteSendDialog({
       void queryClient.invalidateQueries({ queryKey: ['quotes'] });
       void queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Could not save the phone.');
+      setClientPhoneError(e instanceof Error ? e.message : FIELD_SAVE_MISS);
     } finally {
       setSavingPhone(false);
     }
@@ -430,11 +451,16 @@ export function QuoteSendDialog({
                         ref={emailInputRef}
                         type="email"
                         value={clientEmailDraft}
-                        onChange={e => setClientEmailDraft(e.target.value)}
+                        onChange={e => {
+                          setClientEmailDraft(e.target.value);
+                          setClientEmailError('');
+                        }}
                         placeholder="Email"
-                        className="form-input-sm"
+                        className={clientEmailError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
                         aria-label="Client email"
                         autoComplete="email"
+                        aria-invalid={clientEmailError ? true : undefined}
+                        aria-describedby={clientEmailError ? 'quote-send-client-email-error' : undefined}
                       />
                       <button
                         type="submit"
@@ -443,6 +469,7 @@ export function QuoteSendDialog({
                       >
                         Save
                       </button>
+                      {clientEmailError ? <p id="quote-send-client-email-error" className="field-inline-error text-fail">{clientEmailError}</p> : null}
                     </form>
                   ) : (
                     <>
@@ -469,12 +496,17 @@ export function QuoteSendDialog({
                       <input
                         type="tel"
                         value={clientPhoneDraft}
-                        onChange={e => setClientPhoneDraft(e.target.value)}
+                        onChange={e => {
+                          setClientPhoneDraft(e.target.value);
+                          setClientPhoneError('');
+                        }}
                         placeholder="Phone"
-                        className="form-input-sm"
+                        className={clientPhoneError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
                         aria-label="Client phone"
                         autoComplete="tel"
                         inputMode="tel"
+                        aria-invalid={clientPhoneError ? true : undefined}
+                        aria-describedby={clientPhoneError ? 'quote-send-client-phone-error' : undefined}
                       />
                       <button
                         type="submit"
@@ -483,6 +515,7 @@ export function QuoteSendDialog({
                       >
                         Save
                       </button>
+                      {clientPhoneError ? <p id="quote-send-client-phone-error" className="field-inline-error text-fail">{clientPhoneError}</p> : null}
                     </form>
                   ) : (
                     <p className="hub-invoice-send-value tabular-nums">
@@ -559,11 +592,16 @@ export function QuoteSendDialog({
                     ref={emailInputRef}
                     type="email"
                     value={clientEmailDraft}
-                    onChange={e => setClientEmailDraft(e.target.value)}
+                    onChange={e => {
+                      setClientEmailDraft(e.target.value);
+                      setClientEmailError('');
+                    }}
                     placeholder="Email"
-                    className="form-input-sm"
+                    className={clientEmailError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
                     aria-label="Client email"
                     autoComplete="email"
+                    aria-invalid={clientEmailError ? true : undefined}
+                    aria-describedby={clientEmailError ? 'quote-send-client-email-error' : undefined}
                   />
                   <button
                     type="submit"
@@ -572,6 +610,7 @@ export function QuoteSendDialog({
                   >
                     Save
                   </button>
+                  {clientEmailError ? <p id="quote-send-client-email-error" className="field-inline-error text-fail">{clientEmailError}</p> : null}
                 </form>
               )}
               {showPhoneInkOnMiss && phoneRow.kind === 'tel' && (
@@ -591,12 +630,17 @@ export function QuoteSendDialog({
                   <input
                     type="tel"
                     value={clientPhoneDraft}
-                    onChange={e => setClientPhoneDraft(e.target.value)}
+                    onChange={e => {
+                      setClientPhoneDraft(e.target.value);
+                      setClientPhoneError('');
+                    }}
                     placeholder="Phone"
-                    className="form-input-sm"
+                    className={clientPhoneError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
                     aria-label="Client phone"
                     autoComplete="tel"
                     inputMode="tel"
+                    aria-invalid={clientPhoneError ? true : undefined}
+                    aria-describedby={clientPhoneError ? 'quote-send-client-phone-error' : undefined}
                   />
                   <button
                     type="submit"
@@ -605,6 +649,7 @@ export function QuoteSendDialog({
                   >
                     Save
                   </button>
+                  {clientPhoneError ? <p id="quote-send-client-phone-error" className="field-inline-error text-fail">{clientPhoneError}</p> : null}
                 </form>
               )}
             </>

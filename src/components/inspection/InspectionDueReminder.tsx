@@ -23,16 +23,19 @@ import {
 } from '../../lib/attachJobClient';
 import {
   JOB_CLIENT_EMAIL_NO_CLIENT,
+  decideJobClientEmailSave,
   jobClientEmailRow,
   jobClientEmailSaveToast,
   saveJobClientEmail,
 } from '../../lib/saveJobClientEmail';
 import {
   JOB_CLIENT_PHONE_NO_CLIENT,
+  decideJobClientPhoneSave,
   jobClientPhoneRow,
   jobClientPhoneSaveToast,
   saveJobClientPhone,
 } from '../../lib/saveJobClientPhone';
+import { FIELD_AU_PHONE, FIELD_EMAIL } from '../../lib/fieldValidation';
 
 /** Honest no_email miss on this tray — write the address below. Not a failed-send line. */
 export const DUE_REMINDER_NO_EMAIL_FIELD =
@@ -69,6 +72,8 @@ export function InspectionDueReminder({
   const [emailOverride, setEmailOverride] = useState<string | null | undefined>(undefined);
   const [clientPhoneDraft, setClientPhoneDraft] = useState(client?.phone ?? '');
   const [phoneOverride, setPhoneOverride] = useState<string | null | undefined>(undefined);
+  const [clientEmailError, setClientEmailError] = useState('');
+  const [clientPhoneError, setClientPhoneError] = useState('');
   const liveClient = client
     ? {
         ...client,
@@ -218,15 +223,17 @@ export function InspectionDueReminder({
         email: clientEmailDraft,
       });
     },
+    retry: 0,
     onSuccess: (result) => {
       setEmailOverride(result.email);
       setClientEmailDraft(result.email ?? '');
+      setClientEmailError('');
       queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
       queryClient.invalidateQueries({ queryKey: ['inspection-due-client', result.clientId] });
       const toast = jobClientEmailSaveToast(result.email);
       showToast(toast.message, toast.kind);
     },
-    onError: (e: Error) => showToast(e.message, 'info'),
+    onError: (e: Error) => setClientEmailError(e.message),
   });
 
   const savePhone = useMutation({
@@ -239,15 +246,17 @@ export function InspectionDueReminder({
         phone: clientPhoneDraft,
       });
     },
+    retry: 0,
     onSuccess: (result) => {
       setPhoneOverride(result.phone);
       setClientPhoneDraft(result.phone ?? '');
+      setClientPhoneError('');
       queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
       queryClient.invalidateQueries({ queryKey: ['inspection-due-client', result.clientId] });
       const toast = jobClientPhoneSaveToast(result.phone);
       showToast(toast.message, toast.kind);
     },
-    onError: (e: Error) => showToast(e.message, 'info'),
+    onError: (e: Error) => setClientPhoneError(e.message),
   });
 
   const send = useMutation({
@@ -333,6 +342,15 @@ export function InspectionDueReminder({
                 className="job-client-email"
                 onSubmit={e => {
                   e.preventDefault();
+                  const emailDecision = decideJobClientEmailSave({
+                    clientId: emailRow.kind === 'edit' ? emailRow.clientId : null,
+                    email: clientEmailDraft,
+                  });
+                  if (emailDecision.action === 'miss') {
+                    setClientEmailError(emailDecision.reason === 'invalid_email' ? FIELD_EMAIL : emailDecision.message);
+                    return;
+                  }
+                  setClientEmailError('');
                   saveEmail.mutate();
                 }}
               >
@@ -340,11 +358,16 @@ export function InspectionDueReminder({
                 <input
                   type="email"
                   value={clientEmailDraft}
-                  onChange={e => setClientEmailDraft(e.target.value)}
+                  onChange={e => {
+                    setClientEmailDraft(e.target.value);
+                    setClientEmailError('');
+                  }}
                   placeholder="Email"
-                  className="form-input-sm"
+                  className={clientEmailError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
                   aria-label="Client email"
                   autoComplete="email"
+                  aria-invalid={clientEmailError ? true : undefined}
+                  aria-describedby={clientEmailError ? 'inspection-due-client-email-error' : undefined}
                 />
                 <button
                   type="submit"
@@ -353,6 +376,7 @@ export function InspectionDueReminder({
                 >
                   Save
                 </button>
+                {clientEmailError ? <p id="inspection-due-client-email-error" className="field-inline-error text-fail">{clientEmailError}</p> : null}
               </form>
             ) : (
               <input
@@ -373,6 +397,15 @@ export function InspectionDueReminder({
                 className="job-client-phone"
                 onSubmit={e => {
                   e.preventDefault();
+                  const phoneDecision = decideJobClientPhoneSave({
+                    clientId: phoneRow.kind === 'edit' ? phoneRow.clientId : null,
+                    phone: clientPhoneDraft,
+                  });
+                  if (phoneDecision.action === 'miss') {
+                    setClientPhoneError(phoneDecision.reason === 'invalid_phone' ? FIELD_AU_PHONE : phoneDecision.message);
+                    return;
+                  }
+                  setClientPhoneError('');
                   savePhone.mutate();
                 }}
               >
@@ -380,12 +413,17 @@ export function InspectionDueReminder({
                 <input
                   type="tel"
                   value={clientPhoneDraft}
-                  onChange={e => setClientPhoneDraft(e.target.value)}
+                  onChange={e => {
+                    setClientPhoneDraft(e.target.value);
+                    setClientPhoneError('');
+                  }}
                   placeholder="Phone"
-                  className="form-input-sm tabular-nums"
+                  className={clientPhoneError ? 'form-input-sm tabular-nums field-inline-invalid' : 'form-input-sm tabular-nums'}
                   aria-label="Client phone"
                   autoComplete="tel"
                   inputMode="tel"
+                  aria-invalid={clientPhoneError ? true : undefined}
+                  aria-describedby={clientPhoneError ? 'inspection-due-client-phone-error' : undefined}
                 />
                 <button
                   type="submit"
@@ -394,6 +432,7 @@ export function InspectionDueReminder({
                 >
                   Save
                 </button>
+                {clientPhoneError ? <p id="inspection-due-client-phone-error" className="field-inline-error text-fail">{clientPhoneError}</p> : null}
               </form>
             ) : (
               <input

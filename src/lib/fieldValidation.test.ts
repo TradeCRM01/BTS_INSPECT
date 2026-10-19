@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { prefillReminderTo, prefillSmsTo } from './jobReminder';
 import {
   FIELD_ABN,
@@ -10,8 +10,10 @@ import {
   FIELD_PERCENT,
   FIELD_PORT,
   FIELD_RATE,
+  FIELD_SAVE_MISS,
   clientFormFieldErrors,
   companyDetailsFieldErrors,
+  fieldSaveMiss,
   isAbn,
   isAccountNumber,
   isAuPhone,
@@ -40,8 +42,21 @@ describe('fieldValidation predicates', () => {
     expect(isAuPhone('+1 212 555 0100')).toBe(false);
     expect(isAuPhone('12345678')).toBe(false);
     expect(isAuPhone('0400000000123456')).toBe(false);
+    expect(isAuPhone('+131450')).toBe(false);
     expect(prefillSmsTo('0412 345 678')).toBe('+61412345678');
     expect(prefillSmsTo('abc')).toBe('');
+  });
+
+  it.each([
+    '(07) 3123 4567',
+    '07 3123 4567',
+    '+61 7 3123 4567',
+    '0412 345 678',
+    '+61412345678',
+    '1300 123 456',
+    '13 12 34',
+  ])('accepts typed AU phone %s', (phone) => {
+    expect(isAuPhone(phone)).toBe(true);
   });
 
   it('accepts a real email and rejects not-an-email', () => {
@@ -102,6 +117,8 @@ describe('fieldValidation predicates', () => {
     expect(parsePercent('101')).toEqual({ ok: false });
     expect(parsePercent('abc')).toEqual({ ok: false });
     expect(parsePercent('1.5abc')).toEqual({ ok: false });
+    expect(parsePercent('0x10')).toEqual({ ok: false });
+    expect(parsePercent('1e3')).toEqual({ ok: false });
   });
 
   it('parses labour 95 and rejects a comma that would become 15', () => {
@@ -205,5 +222,47 @@ describe('field error maps', () => {
       materialMarkup: '0',
       labourRate: '',
     }, stored).abn).toBe(FIELD_ABN);
+  });
+
+  it('does not block an unchanged invalid stored phone, email, percent, or rate', () => {
+    const stored = {
+      abn: '12 345 678 901',
+      phone: 'not-a-phone',
+      email: 'not-an-email',
+      taxRate: '0x10',
+      materialMarkup: '1e3',
+      labourRate: '1,5',
+    };
+    expect(companyDetailsFieldErrors({
+      abn: stored.abn,
+      phone: stored.phone,
+      email: stored.email,
+      taxRate: stored.taxRate,
+      materialMarkup: stored.materialMarkup,
+      labourRate: stored.labourRate,
+    }, stored)).toEqual({});
+    expect(companyDetailsFieldErrors({
+      ...stored,
+      phone: 'abc',
+    }, stored).phone).toBe(FIELD_AU_PHONE);
+    expect(clientFormFieldErrors({
+      name: 'Acme',
+      phone: 'old-junk',
+      email: 'bad@',
+    }, { phone: 'old-junk', email: 'bad@' })).toEqual({});
+    expect(clientFormFieldErrors({
+      name: 'Acme',
+      phone: 'abc',
+      email: 'bad@',
+    }, { phone: 'old-junk', email: 'bad@' }).phone).toBe(FIELD_AU_PHONE);
+  });
+
+  it('returns the miss copy and logs the raw error', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const raw = { message: 'permission denied' };
+    expect(fieldSaveMiss(raw)).toBe("Couldn't save. Check your connection and try again.");
+    expect(FIELD_SAVE_MISS).toBe("Couldn't save. Check your connection and try again.");
+    expect(spy).toHaveBeenCalledWith(raw);
+    spy.mockRestore();
   });
 });

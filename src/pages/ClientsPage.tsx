@@ -12,8 +12,8 @@ import type { MenuEntry } from '../components/ui';
 import type { Client, ClientWithStats } from '../types/crm';
 import { Plus, Users, X, Trash2, CreditCard as Edit3, Archive, ArchiveRestore, Briefcase, FileText, Receipt, MoreHorizontal } from 'lucide-react';
 import {
-  FIELD_SAVE_MISS,
   clientFormFieldErrors,
+  fieldSaveMiss,
   updateWroteRows,
 } from '../lib/fieldValidation';
 import {
@@ -607,7 +607,9 @@ export function ClientForm({ client, onClose, onSaved, openedFromJob = false, pr
   const [fieldErrors, setFieldErrors] = useState<ReturnType<typeof clientFormFieldErrors>>({});
 
   const persistClient = async (): Promise<string | null> => {
-    const nextErrors = clientFormFieldErrors(form);
+    const nextErrors = clientFormFieldErrors(form, client
+      ? { phone: client.phone ?? '', email: client.email ?? '' }
+      : undefined);
     setFieldErrors(nextErrors);
     if (nextErrors.name || nextErrors.phone || nextErrors.email) {
       setErr('');
@@ -629,7 +631,7 @@ export function ClientForm({ client, onClose, onSaved, openedFromJob = false, pr
     if (client) {
       const { data, error } = await supabase.from('clients').update(payload).eq('id', client.id).select('id');
       setSaving(false);
-      if (error || !updateWroteRows(data)) { setErr(error?.message || FIELD_SAVE_MISS); return null; }
+      if (error || !updateWroteRows(data)) { setErr(fieldSaveMiss(error)); return null; }
       return client.id;
     }
 
@@ -639,7 +641,7 @@ export function ClientForm({ client, onClose, onSaved, openedFromJob = false, pr
       .select('id')
       .single();
     setSaving(false);
-    if (error) { setErr(error.message); return null; }
+    if (error) { setErr(fieldSaveMiss(error)); return null; }
     return data.id as string;
   };
 

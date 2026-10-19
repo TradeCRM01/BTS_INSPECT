@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { FIELD_EMAIL, FIELD_SAVE_MISS, isEmail, updateWroteRows } from './fieldValidation';
+import { FIELD_EMAIL, FIELD_SAVE_MISS, fieldSaveMiss, isEmail, updateWroteRows } from './fieldValidation';
 import { clientEmailForSend } from './sendInvoice';
 
 /** Named miss when there is no existing client to write. Does not invent a client. */
@@ -86,7 +86,7 @@ export async function saveJobClientEmail(input: {
     .update({ email: decision.email })
     .eq('id', decision.clientId)
     .select('id');
-  if (error) throw error;
+  if (error) throw new Error(fieldSaveMiss(error));
   if (!updateWroteRows(data)) throw new Error(FIELD_SAVE_MISS);
   return { clientId: decision.clientId, email: decision.email };
 }

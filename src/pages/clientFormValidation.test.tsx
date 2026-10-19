@@ -10,6 +10,7 @@ import { ClientForm } from './ClientsPage';
 
 const harness = vi.hoisted(() => ({
   writes: [] as Array<{ table: string; op: string; payload: unknown }>,
+  selectCols: [] as unknown[],
   updateResult: { data: [{ id: 'c-edit' }] as unknown, error: null as unknown },
   savedIds: [] as string[],
 }));
@@ -31,9 +32,17 @@ vi.mock('../lib/supabase', () => ({
         update(payload: unknown) {
           harness.writes.push({ table, op: 'update', payload });
           const row: Record<string, unknown> = {
+            selected: undefined,
             eq() { return row; },
-            select() { return row; },
+            select(cols?: string) {
+              row.selected = cols;
+              harness.selectCols.push(cols);
+              return row;
+            },
             then(onFulfilled: (value: unknown) => unknown, onRejected?: (reason: unknown) => unknown) {
+              if (row.selected === undefined) {
+                return Promise.resolve({ data: null, error: null }).then(onFulfilled, onRejected);
+              }
               return Promise.resolve(harness.updateResult).then(onFulfilled, onRejected);
             },
           };
@@ -72,6 +81,7 @@ async function renderForm(client: Parameters<typeof ClientForm>[0]['client'] = n
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   harness.writes = [];
+  harness.selectCols = [];
   harness.updateResult = { data: [{ id: 'c-edit' }], error: null };
   harness.savedIds = [];
   container = document.createElement('div');
@@ -209,8 +219,123 @@ describe('ClientForm field validation', () => {
         notes: null,
       },
     }]);
+    expect(harness.selectCols).toEqual(['id']);
     expect(container.textContent).toContain(FIELD_SAVE_MISS);
     expect(container.textContent).not.toContain('Saved');
     expect(harness.savedIds).toEqual([]);
+  });
+
+  it('saves a valid client edit after selecting id', async () => {
+    await renderForm({
+      id: 'c-edit',
+      company_id: 'co1',
+      name: 'Acme Plumbing',
+      contact_person: null,
+      phone: '0400 000 000',
+      email: 'jane@acme.com.au',
+      address: null,
+      notes: null,
+      archived: false,
+      created_at: '2026-08-24T00:00:00.000Z',
+    });
+    const save = Array.from(container.querySelectorAll('button')).find(btn => btn.textContent?.includes('Save Changes'));
+    await act(async () => {
+      save!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(harness.selectCols).toEqual(['id']);
+    expect(harness.savedIds).toEqual(['c-edit']);
+  });
+
+  it('shows the miss copy on a permission-denied client edit and does not leak the raw error', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    harness.updateResult = { data: null, error: { message: 'permission denied' } };
+    await renderForm({
+      id: 'c-edit',
+      company_id: 'co1',
+      name: 'Acme Plumbing',
+      contact_person: null,
+      phone: '0400 000 000',
+      email: 'jane@acme.com.au',
+      address: null,
+      notes: null,
+      archived: false,
+      created_at: '2026-08-24T00:00:00.000Z',
+    });
+    const save = Array.from(container.querySelectorAll('button')).find(btn => btn.textContent?.includes('Save Changes'));
+    await act(async () => {
+      save!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(container.textContent).toContain("Couldn't save. Check your connection and try again.");
+    expect(container.textContent).not.toContain('permission denied');
+    expect(harness.savedIds).toEqual([]);
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('saves an unrelated name edit when the stored phone is invalid', async () => {
+    await renderForm({
+      id: 'c-edit',
+      company_id: 'co1',
+      name: 'Acme Plumbing',
+      contact_person: null,
+      phone: 'not-a-phone',
+      email: 'jane@acme.com.au',
+      address: null,
+      notes: null,
+      archived: false,
+      created_at: '2026-08-24T00:00:00.000Z',
+    });
+    const name = container.querySelector('#client-form-name') as HTMLInputElement;
+    await act(async () => {
+      setInput(name, 'Acme Gas');
+    });
+    const save = Array.from(container.querySelectorAll('button')).find(btn => btn.textContent?.includes('Save Changes'));
+    await act(async () => {
+      save!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    expect(harness.writes).toEqual([{
+      table: 'clients',
+      op: 'update',
+      payload: {
+        name: 'Acme Gas',
+        contact_person: null,
+        phone: 'not-a-phone',
+        email: 'jane@acme.com.au',
+        address: null,
+        notes: null,
+      },
+    }]);
+    expect(harness.savedIds).toEqual(['c-edit']);
+    expect(container.querySelector('#client-form-phone-error')).toBeNull();
+  });
+
+  it('blocks a changed invalid client phone', async () => {
+    await renderForm({
+      id: 'c-edit',
+      company_id: 'co1',
+      name: 'Acme Plumbing',
+      contact_person: null,
+      phone: 'not-a-phone',
+      email: 'jane@acme.com.au',
+      address: null,
+      notes: null,
+      archived: false,
+      created_at: '2026-08-24T00:00:00.000Z',
+    });
+    const phone = container.querySelector('#client-form-phone') as HTMLInputElement;
+    await act(async () => {
+      setInput(phone, 'abc');
+    });
+    const save = Array.from(container.querySelectorAll('button')).find(btn => btn.textContent?.includes('Save Changes'));
+    await act(async () => {
+      save!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(harness.writes).toEqual([]);
+    expect(container.querySelector('#client-form-phone-error')?.textContent).toBe(FIELD_AU_PHONE);
   });
 });

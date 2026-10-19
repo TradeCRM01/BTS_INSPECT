@@ -14,8 +14,9 @@ import {
   type ReportSendDecision,
 } from '../../lib/sendReport';
 import { deliverReport, loadReportSendBundle } from '../../lib/sendReportDeliver';
-import { jobClientEmailRow, saveJobClientEmail } from '../../lib/saveJobClientEmail';
-import { jobClientPhoneRow, saveJobClientPhone } from '../../lib/saveJobClientPhone';
+import { decideJobClientEmailSave, jobClientEmailRow, saveJobClientEmail } from '../../lib/saveJobClientEmail';
+import { decideJobClientPhoneSave, jobClientPhoneRow, saveJobClientPhone } from '../../lib/saveJobClientPhone';
+import { FIELD_AU_PHONE, FIELD_EMAIL, FIELD_SAVE_MISS } from '../../lib/fieldValidation';
 import {
   REPORT_CLIENT_ATTACH_NO_CLIENTS,
   attachReportClient,
@@ -47,6 +48,8 @@ export function ReportSendDialog({
   const [err, setErr] = useState('');
   const [clientEmailDraft, setClientEmailDraft] = useState('');
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
+  const [clientEmailError, setClientEmailError] = useState('');
+  const [clientPhoneError, setClientPhoneError] = useState('');
   const [clientAttachDraft, setClientAttachDraft] = useState('');
   const [savingAttach, setSavingAttach] = useState(false);
 
@@ -165,6 +168,15 @@ export function ReportSendDialog({
 
   const handleSaveEmail = async () => {
     if (emailRow.kind !== 'edit' || !bundle) return;
+    const emailDecision = decideJobClientEmailSave({
+      clientId: emailRow.clientId,
+      email: clientEmailDraft,
+    });
+    if (emailDecision.action === 'miss') {
+      setClientEmailError(FIELD_EMAIL);
+      return;
+    }
+    setClientEmailError('');
     setSavingEmail(true);
     setErr('');
     try {
@@ -181,7 +193,7 @@ export function ReportSendDialog({
       setClientEmailDraft(result.email ?? '');
       void queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Could not save the email.');
+      setClientEmailError(e instanceof Error ? e.message : FIELD_SAVE_MISS);
     } finally {
       setSavingEmail(false);
     }
@@ -189,6 +201,15 @@ export function ReportSendDialog({
 
   const handleSavePhone = async () => {
     if (phoneRow.kind !== 'edit' || !bundle) return;
+    const phoneDecision = decideJobClientPhoneSave({
+      clientId: phoneRow.clientId,
+      phone: clientPhoneDraft,
+    });
+    if (phoneDecision.action === 'miss') {
+      setClientPhoneError(FIELD_AU_PHONE);
+      return;
+    }
+    setClientPhoneError('');
     setSavingPhone(true);
     setErr('');
     try {
@@ -205,7 +226,7 @@ export function ReportSendDialog({
       setClientPhoneDraft(result.phone ?? '');
       void queryClient.invalidateQueries({ queryKey: ['job-client', result.clientId] });
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Could not save the phone.');
+      setClientPhoneError(e instanceof Error ? e.message : FIELD_SAVE_MISS);
     } finally {
       setSavingPhone(false);
     }
@@ -279,12 +300,17 @@ export function ReportSendDialog({
                       <input
                         type="tel"
                         value={clientPhoneDraft}
-                        onChange={e => setClientPhoneDraft(e.target.value)}
+                        onChange={e => {
+                          setClientPhoneDraft(e.target.value);
+                          setClientPhoneError('');
+                        }}
                         placeholder="Phone"
-                        className="form-input-sm"
+                        className={clientPhoneError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
                         aria-label="Client phone"
                         autoComplete="tel"
                         inputMode="tel"
+                        aria-invalid={clientPhoneError ? true : undefined}
+                        aria-describedby={clientPhoneError ? 'report-send-client-phone-error' : undefined}
                       />
                       <button
                         type="submit"
@@ -293,6 +319,7 @@ export function ReportSendDialog({
                       >
                         Save
                       </button>
+                      {clientPhoneError ? <p id="report-send-client-phone-error" className="field-inline-error text-fail">{clientPhoneError}</p> : null}
                     </form>
                   ) : (
                     <>
@@ -361,11 +388,16 @@ export function ReportSendDialog({
                   <input
                     type="email"
                     value={clientEmailDraft}
-                    onChange={e => setClientEmailDraft(e.target.value)}
+                    onChange={e => {
+                      setClientEmailDraft(e.target.value);
+                      setClientEmailError('');
+                    }}
                     placeholder="Email"
-                    className="form-input-sm"
+                    className={clientEmailError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
                     aria-label="Client email"
                     autoComplete="email"
+                    aria-invalid={clientEmailError ? true : undefined}
+                    aria-describedby={clientEmailError ? 'report-send-client-email-error' : undefined}
                   />
                   <button
                     type="submit"
@@ -374,6 +406,7 @@ export function ReportSendDialog({
                   >
                     Save
                   </button>
+                  {clientEmailError ? <p id="report-send-client-email-error" className="field-inline-error text-fail">{clientEmailError}</p> : null}
                 </form>
               )}
               {showPhoneInkOnMiss && phoneRow.kind === 'tel' && (
@@ -393,12 +426,17 @@ export function ReportSendDialog({
                   <input
                     type="tel"
                     value={clientPhoneDraft}
-                    onChange={e => setClientPhoneDraft(e.target.value)}
+                    onChange={e => {
+                      setClientPhoneDraft(e.target.value);
+                      setClientPhoneError('');
+                    }}
                     placeholder="Phone"
-                    className="form-input-sm"
+                    className={clientPhoneError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
                     aria-label="Client phone"
                     autoComplete="tel"
                     inputMode="tel"
+                    aria-invalid={clientPhoneError ? true : undefined}
+                    aria-describedby={clientPhoneError ? 'report-send-client-phone-error' : undefined}
                   />
                   <button
                     type="submit"
@@ -407,6 +445,7 @@ export function ReportSendDialog({
                   >
                     Save
                   </button>
+                  {clientPhoneError ? <p id="report-send-client-phone-error" className="field-inline-error text-fail">{clientPhoneError}</p> : null}
                 </form>
               )}
             </>

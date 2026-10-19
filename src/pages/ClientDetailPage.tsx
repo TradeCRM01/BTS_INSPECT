@@ -286,6 +286,7 @@ export function ClientDetailPage() {
         email: clientEmailDraft,
       });
     },
+    retry: 0,
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['client', id] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
@@ -304,6 +305,7 @@ export function ClientDetailPage() {
         phone: clientPhoneDraft,
       });
     },
+    retry: 0,
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['client', id] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
