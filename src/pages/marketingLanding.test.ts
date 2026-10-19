@@ -57,8 +57,8 @@ describe('public Grafter landing', () => {
       page.indexOf('Arriving. Clock in. Hours on the sheet.'),
     );
 
-    expect(page).toContain('not booking the job');
-    expect(page).toContain('that is a second tap');
+    expect(page).toContain("Accepting doesn't book the job");
+    expect(page).toContain('You book it with one more tap');
     expect(page).not.toMatch(/Accept books the job/i);
     expect(page).not.toMatch(/Accept schedules the job/i);
 
@@ -69,7 +69,10 @@ describe('public Grafter landing', () => {
     expect(page).not.toContain('$79');
     expect(page).not.toContain('$149');
     expect(page).not.toContain('$249');
+    expect(page).toContain('aria-hidden="true">mo');
+    expect(page).toContain('className="sr-only">per month');
     expect(page).toContain('3 months free');
+    expect(page).toContain('Then you pay for seats. Every plan is the same Grafter.');
     expect(page).toContain('Crew');
     expect(page).toContain('Company');
     expect(page).toContain('Plant');
@@ -80,10 +83,19 @@ describe('public Grafter landing', () => {
     expect(page).toContain('Create a workspace');
     expect(page).toContain('PublicLegalLinks');
     expect(page).toContain('Australian trade job software');
-    expect(page).toContain('Is this only for electricians?');
+    expect(page).toContain('Which trades is it for?');
     expect(page).toContain(
-      'No. Grafter is for trade crews — plumbing, mechanical, carpentry, electrical, the lot.',
+      'Any trade crew: plumbing, gas, drainage, carpentry, mechanical, electrical, maintenance.',
     );
+    expect(page).not.toMatch(/<details[^>]*\sopen\b/);
+    expect(page).toContain('Custom templates, JHA and Take 5, with your SWMS attached, all filed on the job.');
+    expect(page).toContain('#0036 · 12 Grange Rd, Stafford');
+    expect(page).toContain('Northside Plumbing & Gas · Mon 19 Oct · 07:00–10:30');
+    expect(page).toContain('Dean Moretti');
+    expect(page).toContain('Tom Nguyen');
+    expect(page).not.toContain('Field Audit');
+    expect(page).not.toContain('Perth');
+    expect(page).not.toContain('\u2014');
     expect(page).not.toContain('electrical and trade');
     expect(page).not.toContain('Northside Electrical');
     expect(page).not.toContain('Switchboard upgrade');

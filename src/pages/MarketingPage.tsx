@@ -48,7 +48,7 @@ export function MarketingPage() {
           <article>
             <h2 className="hub-marketing-subhead">Send a GST quote.</h2>
             <p>
-              Build the quote with GST, send the PDF, they Accept on their phone. Accepting the quote is not booking the job — that is a second tap.
+              Build the quote with GST, send the PDF, they Accept on their phone. Accepting doesn't book the job. You book it with one more tap.
             </p>
           </article>
           <article>
@@ -85,7 +85,7 @@ export function MarketingPage() {
           <article>
             <h2 className="hub-marketing-subhead">Paperwork stays with the work.</h2>
             <p>
-              Custom templates, JHA, Take 5, attach SWMS — filed on the job.
+              Custom templates, JHA and Take 5, with your SWMS attached, all filed on the job.
             </p>
           </article>
         </section>
@@ -94,28 +94,37 @@ export function MarketingPage() {
           <p className="hub-marketing-kicker">Pricing</p>
           <h2 className="hub-marketing-subhead">What it costs.</h2>
           <p>
-            3 months free. Then seats only — same Grafter on every plan. AUD, GST included.
+            3 months free. Then you pay for seats. Every plan is the same Grafter. AUD, GST included.
           </p>
           <div className="hub-marketing-grid">
             <article>
               <p className="hub-marketing-kicker">Crew</p>
               <p>1–5 seats</p>
               <p className="hub-marketing-subhead" data-price-slot="crew">$59</p>
-              <p>mo</p>
+              <p>
+                <span aria-hidden="true">mo</span>
+                <span className="sr-only">per month</span>
+              </p>
               <p>GST included</p>
             </article>
             <article>
               <p className="hub-marketing-kicker">Company</p>
               <p>6–15 seats</p>
               <p className="hub-marketing-subhead" data-price-slot="company">$119</p>
-              <p>mo</p>
+              <p>
+                <span aria-hidden="true">mo</span>
+                <span className="sr-only">per month</span>
+              </p>
               <p>GST included</p>
             </article>
             <article>
               <p className="hub-marketing-kicker">Plant</p>
               <p>16–40 seats</p>
               <p className="hub-marketing-subhead" data-price-slot="plant">$199</p>
-              <p>mo</p>
+              <p>
+                <span aria-hidden="true">mo</span>
+                <span className="sr-only">per month</span>
+              </p>
               <p>GST included</p>
             </article>
           </div>
@@ -128,9 +137,9 @@ export function MarketingPage() {
           <h2 className="hub-marketing-subhead">Before you open a workspace.</h2>
           <div>
             <details>
-              <summary>Is this only for electricians?</summary>
+              <summary>Which trades is it for?</summary>
               <p>
-                No. Grafter is for trade crews — plumbing, mechanical, carpentry, electrical, the lot.
+                Any trade crew: plumbing, gas, drainage, carpentry, mechanical, electrical, maintenance.
               </p>
             </details>
             <details>
@@ -194,15 +203,15 @@ function JobFrame() {
       </div>
       <div className="hub-marketing-job-body">
         <div className="hub-marketing-job-row">
-          <p className="hub-marketing-job-id">#0042 | 12 Workshop Rd, Perth</p>
+          <p className="hub-marketing-job-id">#0036 · 12 Grange Rd, Stafford</p>
           <span className="hub-marketing-pill">Scheduled</span>
         </div>
         <p className="hub-marketing-job-title">Workshop fit-out</p>
-        <p className="hub-marketing-job-meta">Northside Plumbing · Tue 25 Aug · 07:30–16:00</p>
+        <p className="hub-marketing-job-meta">Northside Plumbing & Gas · Mon 19 Oct · 07:00–10:30</p>
         <span className="hub-marketing-next">Open job</span>
         <div className="hub-marketing-stage">
           <p className="hub-marketing-job-id">#0042.01 Fit-out labour</p>
-          <p className="hub-marketing-job-meta">09:00–11:00 · Field Audit</p>
+          <p className="hub-marketing-job-meta">09:00–11:00 · Dean Moretti</p>
         </div>
       </div>
     </div>
@@ -221,7 +230,14 @@ function ScheduleFrame() {
         <span>11</span>
       </div>
       <div className="hub-marketing-board-row">
-        <span className="hub-marketing-person">Field Audit</span>
+        <span className="hub-marketing-person">Dean Moretti</span>
+        <div className="hub-marketing-lane">
+          <span className="hub-marketing-block hub-marketing-block-long">#0042 · 07:30–16:00</span>
+          <span className="hub-marketing-block hub-marketing-block-part">#0042.01 · 09:00–11:00</span>
+        </div>
+      </div>
+      <div className="hub-marketing-board-row">
+        <span className="hub-marketing-person">Tom Nguyen</span>
         <div className="hub-marketing-lane">
           <span className="hub-marketing-block hub-marketing-block-long">#0042 · 07:30–16:00</span>
           <span className="hub-marketing-block hub-marketing-block-part">#0042.01 · 09:00–11:00</span>
