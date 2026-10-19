@@ -367,6 +367,31 @@ describe('inspection fill page flush', () => {
     expect(container.querySelector('[data-save-status]')?.getAttribute('data-save-status')).toBe('error');
   });
 
+  it('after Saved, Inspections navigates with no leave dialog', async () => {
+    await renderPage();
+    const notes = await waitForNotes();
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+      setter?.call(notes, 'saved then leave');
+      notes.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 800));
+    });
+    expect(container.querySelector('[data-save-status]')?.getAttribute('data-save-status')).toBe('saved');
+    const back = Array.from(document.body.querySelectorAll('a')).find(link => (
+      link.textContent?.replace(/\s+/g, ' ').trim() === 'Inspections'
+    ));
+    if (!back) throw new Error('missing Inspections link');
+    await act(async () => {
+      back.click();
+    });
+    expect(document.body.textContent).not.toContain('Leave without saving?');
+    expect(document.body.textContent).not.toContain('Your last edit is saved');
+    expect(document.body.textContent).not.toContain('Leave?');
+    expect(document.body.textContent).toContain('Inspections list');
+  });
+
   it('R2: after Saved, Review navigates with no leave dialog', async () => {
     await renderPage();
     const notes = await waitForNotes();
