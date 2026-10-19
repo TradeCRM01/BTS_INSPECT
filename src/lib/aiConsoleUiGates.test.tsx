@@ -123,10 +123,16 @@ describe('M45 to M48 UI gates', () => {
     });
   }
 
-  function aiHrefs() {
-    return [...container.querySelectorAll('a')]
+  function aiHrefs(root: ParentNode = container) {
+    return [...root.querySelectorAll('a')]
       .map((a) => a.getAttribute('href') ?? '')
       .filter((href) => href === '/assistant' || href === '/settings/ai' || href === '/ai-console');
+  }
+
+  function phoneMenu() {
+    const el = container.querySelector('.shell-phone-menu');
+    expect(el, 'phone More menu .shell-phone-menu').toBeTruthy();
+    return el as HTMLElement;
   }
 
   it('G04-G09 customer admin sees 0 AI links after avatar and More open', async () => {
@@ -134,7 +140,7 @@ describe('M45 to M48 UI gates', () => {
     await openAvatarMenu();
     expect(aiHrefs()).toEqual([]);
     await openPhoneMore();
-    expect(aiHrefs()).toEqual([]);
+    expect(aiHrefs(phoneMenu())).toEqual([]);
     expect(container.textContent).not.toContain('AI Settings');
     expect(container.textContent).not.toContain('AI Assistant');
     expect(container.textContent).not.toContain('AI Console');
@@ -150,7 +156,7 @@ describe('M45 to M48 UI gates', () => {
     expect(container.textContent).toContain('AI Assistant');
     expect(container.textContent).toContain('AI Console');
     await openPhoneMore();
-    expect(new Set(aiHrefs())).toEqual(new Set(['/assistant', '/settings/ai', '/ai-console']));
+    expect(new Set(aiHrefs(phoneMenu()))).toEqual(new Set(['/assistant', '/settings/ai', '/ai-console']));
   });
 
   it('G10 customer admin dashboard agent widget is Coming soon, not chat', async () => {

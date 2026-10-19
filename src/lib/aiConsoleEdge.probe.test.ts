@@ -381,4 +381,15 @@ describe('caps and stream errors', () => {
     expect(res.status).toBe(400);
     expect(raw).not.toMatch(/TypeError|Cannot read|undefined/i);
   });
+  it('N03 malformed JSON chat body is 400', async () => {
+    const res = await consoleHandler(new Request('http://edge.local/ai-console/chat', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer tok-op', 'Content-Type': 'application/json' },
+      body: '{not-json',
+    }));
+    const raw = await res.text();
+    expect(res.status).toBe(400);
+    expect(JSON.parse(raw)).toEqual({ error: 'messages required' });
+    expect(raw).not.toMatch(/SyntaxError|Unexpected token|JSON\.parse/i);
+  });
 });
