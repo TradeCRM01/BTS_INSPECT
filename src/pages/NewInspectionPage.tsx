@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
+import { canEditTemplates } from '../lib/templateAccess';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
@@ -19,6 +20,7 @@ export function NewInspectionPage() {
   const jobIdParam = searchParams.get('jobId');
   const crmJobIdParam = searchParams.get('crmJobId');
   const { profile } = useAuth();
+  const canEdit = canEditTemplates(profile);
 
   const [selectedTemplateId, setSelectedTemplateId] = useState(preSelectedId ?? '');
   const [meta, setMeta] = useState<Record<string, string>>({});
@@ -402,10 +404,16 @@ export function NewInspectionPage() {
             {hasNoSections && (
               <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2">
                 This template has no sections yet.{' '}
-                <button onClick={() => navigate(`/templates/${selectedTemplate!.id}`)} className="underline font-medium">
-                  Edit the template
-                </button>{' '}
-                to add questions before starting an inspection.
+                {canEdit ? (
+                  <>
+                    <button onClick={() => navigate(`/templates/${selectedTemplate!.id}`)} className="underline font-medium">
+                      Edit the template
+                    </button>
+                    {' '}to add questions before starting an inspection.
+                  </>
+                ) : (
+                  'Ask someone with edit access to add questions before starting an inspection.'
+                )}
               </p>
             )}
             <button

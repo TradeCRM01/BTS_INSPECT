@@ -3,9 +3,11 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { TEMPLATE_WRITE_NO_ROW, canEditTemplates, canViewTemplates, throwIfNoRows } from '../lib/templateAccess';
+import { TemplateAccessDenied } from '../components/layout/TemplateAccessDenied';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner as _LoadingSpinner, PageError } from '../components/ui';
+import { PageError } from '../components/ui';
 import { SkeletonList } from '../components/ui/Skeletons';
 import { Plus, LayoutTemplate, Zap, ChevronRight, Archive, ArchiveRestore, Copy, ShieldCheck } from 'lucide-react';
 import { safeFormatDate } from '../lib/safeDate';
@@ -19,21 +21,10 @@ export function TemplatesPage() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<Tab>(() => searchParams.get('tab') === 'jha' ? 'jha' : 'inspections');
   const [showArchived, setShowArchived] = useState(false);
+  const [writeError, setWriteError] = useState('');
 
-  const canEdit = profile?.role === 'admin' || profile?.template_access === 'edit';
-  const canView = profile?.role === 'admin' || profile?.template_access === 'edit' || profile?.template_access === 'view';
-
-  if (!canView) {
-    return (
-      <AppShell>
-        <div className="max-w-[1200px] mx-auto px-4 py-16 text-center">
-          <LayoutTemplate size={40} className="mx-auto text-[#E5E7EB] mb-3" />
-          <p className="text-[#1A1A1A] font-medium">No template access</p>
-          <p className="text-sm text-[#4A5568] mt-1">Your account doesn't have permission to view templates. Contact your admin.</p>
-        </div>
-      </AppShell>
-    );
-  }
+  const canEdit = canEditTemplates(profile);
+  const canView = canViewTemplates(profile);
 
   // Inspection templates query
   const { data: templates, isLoading: inspLoading, isError: inspError, refetch: inspRefetch } = useQuery({
@@ -47,7 +38,7 @@ export function TemplatesPage() {
       if (error) throw error;
       return data;
     },
-    enabled: !!profile && activeTab === 'inspections',
+    enabled: canView && !!profile && activeTab === 'inspections',
   });
 
   // JHA templates query
@@ -62,15 +53,21 @@ export function TemplatesPage() {
       if (error) throw error;
       return data;
     },
-    enabled: !!profile && activeTab === 'jha',
+    enabled: canView && !!profile && activeTab === 'jha',
   });
 
   const unarchiveInspectionMutation = useMutation({
     mutationFn: async (templateId: string) => {
-      const { error } = await supabase.from('templates').update({ archived: false }).eq('id', templateId);
-      if (error) throw error;
+      const result = await supabase.from('templates').update({ archived: false }).eq('id', templateId).select('id');
+      throwIfNoRows(result);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['templates'] }),
+    onSuccess: () => {
+      setWriteError('');
+      queryClient.invalidateQueries({ queryKey: ['templates'] });
+    },
+    onError: (err: unknown) => {
+      setWriteError(err instanceof Error ? err.message : TEMPLATE_WRITE_NO_ROW);
+    },
   });
 
   const duplicateInspectionMutation = useMutation({
@@ -98,10 +95,16 @@ export function TemplatesPage() {
 
   const unarchiveJhaMutation = useMutation({
     mutationFn: async (templateId: string) => {
-      const { error } = await supabase.from('jha_templates').update({ archived: false }).eq('id', templateId);
-      if (error) throw error;
+      const result = await supabase.from('jha_templates').update({ archived: false }).eq('id', templateId).select('id');
+      throwIfNoRows(result);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['jha-templates'] }),
+    onSuccess: () => {
+      setWriteError('');
+      queryClient.invalidateQueries({ queryKey: ['jha-templates'] });
+    },
+    onError: (err: unknown) => {
+      setWriteError(err instanceof Error ? err.message : TEMPLATE_WRITE_NO_ROW);
+    },
   });
 
   const duplicateJhaMutation = useMutation({
@@ -132,6 +135,10 @@ export function TemplatesPage() {
   const isLoading = activeTab === 'inspections' ? inspLoading : jhaLoading;
   const isError = activeTab === 'inspections' ? inspError : jhaError;
   const refetch = activeTab === 'inspections' ? inspRefetch : jhaRefetch;
+
+  if (!canView) {
+    return <TemplateAccessDenied />;
+  }
 
   return (
     <AppShell>
@@ -181,6 +188,12 @@ export function TemplatesPage() {
             <span className="flex items-center gap-2"><ShieldCheck size={16} /> JHA Templates</span>
           </button>
         </div>
+
+        {writeError && (
+          <p className="mb-3 text-sm text-[#B42318]" role="alert">
+            {writeError}
+          </p>
+        )}
 
         {isLoading ? (
           <SkeletonList count={5} />

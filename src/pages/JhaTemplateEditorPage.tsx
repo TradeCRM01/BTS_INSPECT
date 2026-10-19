@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
+import { TemplateAccessDenied } from '../components/layout/TemplateAccessDenied';
+import { canEditTemplates, canViewTemplates, throwIfNoRows } from '../lib/templateAccess';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { nanoid } from '../lib/nanoid';
@@ -122,7 +124,7 @@ export function JhaTemplateEditorPage() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const schemaDirtyRef = useRef(false);
 
-  const canEdit = profile?.role === 'admin' || profile?.template_access === 'edit';
+  const canEdit = canEditTemplates(profile);
 
   const { data: existingTemplate, isLoading, isError, refetch } = useQuery({
     queryKey: ['jha-template', id],
@@ -315,8 +317,8 @@ export function JhaTemplateEditorPage() {
       };
 
       if (templateId) {
-        const { error } = await supabase.from('jha_templates').update(payload).eq('id', templateId);
-        if (error) throw error;
+        const result = await supabase.from('jha_templates').update(payload).eq('id', templateId).select('id');
+        throwIfNoRows(result);
       } else {
         const { data, error } = await supabase
           .from('jha_templates')
@@ -347,12 +349,20 @@ export function JhaTemplateEditorPage() {
   async function handleDelete() {
     if (!templateId) return;
     if (!confirm('Delete this JHA template? This cannot be undone.')) return;
-    const { error } = await supabase.from('jha_templates').delete().eq('id', templateId);
-    if (error) {
-      alert(error.message);
+    try {
+      const result = await supabase.from('jha_templates').delete().eq('id', templateId).select('id');
+      throwIfNoRows(result);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setValidationErrors([msg]);
+      setSaveState('error');
       return;
     }
     navigate('/templates');
+  }
+
+  if (!canViewTemplates(profile)) {
+    return <TemplateAccessDenied />;
   }
 
   if (!canEdit) {
@@ -431,7 +441,7 @@ export function JhaTemplateEditorPage() {
 
         {/* Validation errors */}
         {validationErrors.length > 0 && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm space-y-1">
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm space-y-1" role="alert">
             {validationErrors.map((err, i) => (
               <div key={i} className="flex items-start gap-2">
                 <AlertCircle size={14} className="shrink-0 mt-0.5" />
