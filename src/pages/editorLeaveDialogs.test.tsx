@@ -152,6 +152,10 @@ vi.mock('../lib/supabase', () => {
         harness.saves.push({ table, payload });
         return query;
       },
+      upsert(payload: Record<string, unknown>) {
+        harness.saves.push({ table, payload });
+        return query;
+      },
       delete() { return query; },
       maybeSingle() { return promise; },
       single() { return promise; },

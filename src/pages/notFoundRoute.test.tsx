@@ -157,7 +157,8 @@ describe('unknown URL 404 and known deep routes', () => {
     expect(app).toContain('path="*"');
     expect(app).not.toMatch(/path="\*"\s+element=\{<Navigate to="\/" replace \/>\}/);
     expect(main).toContain('<App />');
-    expect(main).toContain("path: '*'");
+    expect(main).toContain('grafterRootRoute');
+    expect(src('src/components/layout/AppRouteError.tsx')).toContain("path: '*'");
     expect(main).not.toContain('<NotFoundPage');
     expect(redirects).toMatch(/^\/\*\s+\/index\.html\s+200$/m);
     expect(existsSync(resolve(process.cwd(), 'public/404.html'))).toBe(false);

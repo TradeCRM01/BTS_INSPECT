@@ -11,6 +11,7 @@ import { ToastProvider } from '../components/ui';
 import { TemplateEditorPage } from './TemplateEditorPage';
 
 const harness = vi.hoisted(() => ({
+  writes: [] as string[],
   userId: '00000000-0000-4000-8000-0000000000aa',
   companyId: '00000000-0000-4000-8000-0000000000bb',
   templateId: '00000000-0000-4000-8000-0000000000dd',
@@ -88,9 +89,9 @@ vi.mock('../lib/supabase', () => {
       in() { return query; },
       limit() { return query; },
       or() { return query; },
-      update() { return query; },
-      insert() { return query; },
-      delete() { return query; },
+      update() { harness.writes.push(`${table}:update`); return query; },
+      insert() { harness.writes.push(`${table}:insert`); return query; },
+      delete() { harness.writes.push(`${table}:delete`); return query; },
       maybeSingle() { return promise; },
       single() { return promise; },
       then(onFulfilled: (value: unknown) => unknown, onRejected?: (reason: unknown) => unknown) {
@@ -113,11 +114,14 @@ vi.mock('../lib/supabase', () => {
   };
 });
 
+{ const R = globalThis.Request; (globalThis as { Request: unknown }).Request = class extends R { constructor(i: RequestInfo | URL, init?: RequestInit) { const { signal: _s, ...rest } = init ?? {}; super(i, rest); } }; }
+
 let container: HTMLDivElement;
 let root: Root;
 
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  harness.writes = [];
   sessionStorage.clear();
   container = document.createElement('div');
   document.body.appendChild(container);
@@ -131,23 +135,22 @@ afterEach(() => {
   container.remove();
 });
 
-async function renderPage() {
+async function renderPage(initial = `/templates/${harness.templateId}`) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  const editor = () => (
+    <AuthProvider>
+      <ToastProvider>
+        <TemplateEditorPage />
+      </ToastProvider>
+    </AuthProvider>
+  );
   const router = createMemoryRouter([
-    {
-      path: '/templates/:id',
-      element: (
-        <AuthProvider>
-          <ToastProvider>
-            <TemplateEditorPage />
-          </ToastProvider>
-        </AuthProvider>
-      ),
-    },
+    { path: '/templates/new', element: editor() },
+    { path: '/templates/:id', element: editor() },
     { path: '/templates', element: <div>Templates list</div> },
-  ], { initialEntries: [`/templates/${harness.templateId}`] });
+  ], { initialEntries: [initial] });
   await act(async () => {
     root.render(
       <QueryClientProvider client={client}>
@@ -226,5 +229,68 @@ describe('template editor leave and question delete', () => {
       confirm.click();
     });
     expect(document.body.textContent).not.toContain('Water off at meter');
+  });
+
+  it('R3: first Save on a new template navigates with no leave dialog; the next edit re-arms', async () => {
+    await renderPage('/templates/new');
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 400));
+    });
+    const name = document.querySelector('input[placeholder="Template name"]') as HTMLInputElement | null;
+    if (!name) throw new Error('missing template name');
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+      setter?.call(name, 'New probe');
+      name.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const save = Array.from(document.body.querySelectorAll('button')).find(btn => /^\s*Save\s*$/.test(btn.textContent || ''));
+    if (!save) throw new Error('missing Save');
+    await act(async () => {
+      save.click();
+    });
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 400));
+    });
+    expect(document.body.textContent).not.toContain('Leave without saving?');
+    expect(harness.writes).toContain('templates:insert');
+    await waitForText('Water off at meter').catch(() => {});
+    const renamed = document.querySelector('input[placeholder="Template name"]') as HTMLInputElement | null;
+    if (!renamed) throw new Error('missing template name after save');
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+      setter?.call(renamed, 'New probe edited');
+      renamed.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await clickNamed('Templates');
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 80));
+    });
+    expect(document.body.textContent).toContain('Leave without saving?');
+    expect(document.body.textContent).not.toContain('Templates list');
+  });
+
+  it('R7: delete navigates to the list with no leave dialog', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await renderPage();
+    await waitForText('Water off at meter');
+    const name = document.querySelector('input[placeholder="Template name"]') as HTMLInputElement;
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+      setter?.call(name, 'Edited then deleted');
+      name.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const del = Array.from(document.body.querySelectorAll('button')).find(btn => (
+      btn.textContent?.replace(/\s+/g, ' ').trim() === 'Delete'
+    ));
+    if (!del) throw new Error('missing Delete');
+    await act(async () => {
+      del.click();
+    });
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 80));
+    });
+    expect(document.body.textContent).not.toContain('Leave without saving?');
+    expect(document.body.textContent).toContain('Templates list');
+    confirm.mockRestore();
   });
 });

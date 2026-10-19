@@ -36,6 +36,21 @@ export function unsavedChangesLeaveCopy(): {
   };
 }
 
+export function saveConfirmedByRows(data: unknown): boolean {
+  if (Array.isArray(data)) return data.length >= 1;
+  return data != null;
+}
+
+export function nextClientDraftId(existing?: string | null): string {
+  return existing || crypto.randomUUID();
+}
+
+let sessionAccessToken = '';
+
+export function setKeepaliveAccessToken(token: string | null | undefined) {
+  sessionAccessToken = token?.trim() ?? '';
+}
+
 export function keepaliveRestWrite(args: {
   table: string;
   query?: string;
@@ -43,15 +58,15 @@ export function keepaliveRestWrite(args: {
   body: unknown;
 }): boolean {
   const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-  if (!url || !key) return false;
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+  if (!url || !anonKey || !sessionAccessToken) return false;
   const path = args.query ? `${args.table}?${args.query}` : args.table;
   void fetch(`${url}/rest/v1/${path}`, {
     method: args.method,
     keepalive: true,
     headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
+      apikey: anonKey,
+      Authorization: `Bearer ${sessionAccessToken}`,
       'Content-Type': 'application/json',
       Prefer: 'return=minimal',
     },

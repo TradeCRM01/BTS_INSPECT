@@ -8,6 +8,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { UnsavedChangesDialog } from '../components/unsaved/UnsavedChangesDialog';
 import {
   bindUnsavedChangesFlush,
+  keepaliveRestWrite,
+  nextClientDraftId,
+  saveConfirmedByRows,
+  setKeepaliveAccessToken,
   unsavedChangesHint,
   unsavedChangesLeaveCopy,
   unsavedChangesNeedsWarn,
@@ -61,11 +65,15 @@ function FlushProbe({
 function GuardedEditor({
   flush,
   status = 'unsaved',
+  hasPending,
 }: {
   flush: () => void;
   status?: 'saved' | 'saving' | 'unsaved' | 'error';
+  hasPending?: boolean;
 }) {
-  const guard = useUnsavedChangesGuard({ status, hasPending: status === 'unsaved', flush });
+  const allowLeaveRef = useRef(false);
+  const pending = hasPending ?? status === 'unsaved';
+  const guard = useUnsavedChangesGuard({ status, hasPending: pending, flush, allowLeaveRef });
   return (
     <div>
       <span data-save-status={status}>{guard.hint}</span>
@@ -97,11 +105,25 @@ describe('shared unsaved changes guard', () => {
     expect(unsavedChangesHint('saved')).toBe('Saved');
     expect(unsavedChangesHint('saving')).toBe('Saving…');
     expect(unsavedChangesHint('unsaved')).toBe('Unsaved');
+    expect(unsavedChangesHint('error')).toBe('Save failed');
+    expect(unsavedChangesHint('offline')).toBe('Offline');
     expect(unsavedChangesNeedsWarn('unsaved')).toBe(true);
+    expect(unsavedChangesNeedsWarn('saving')).toBe(true);
+    expect(unsavedChangesNeedsWarn('error')).toBe(true);
+    expect(unsavedChangesNeedsWarn('offline')).toBe(false);
     expect(unsavedChangesNeedsWarn('saved', true)).toBe(true);
     expect(unsavedChangesNeedsWarn('saved', false)).toBe(false);
     expect(unsavedChangesShouldFlush('saved', false)).toBe(false);
+    expect(unsavedChangesShouldFlush('saving', false)).toBe(false);
+    expect(unsavedChangesShouldFlush('offline', false)).toBe(false);
+    expect(unsavedChangesShouldFlush('error')).toBe(true);
     expect(unsavedChangesShouldFlush('unsaved')).toBe(true);
+    expect(saveConfirmedByRows([])).toBe(false);
+    expect(saveConfirmedByRows(null)).toBe(false);
+    expect(saveConfirmedByRows([{ id: '1' }])).toBe(true);
+    expect(saveConfirmedByRows({ id: '1' })).toBe(true);
+    expect(nextClientDraftId('kept-id')).toBe('kept-id');
+    expect(nextClientDraftId(null)).toMatch(/^[0-9a-f-]{36}$/i);
     expect(unsavedChangesLeaveCopy().title).toBe('Leave without saving?');
     expect(unsavedChangesLeaveCopy().message).toContain('unsaved changes');
     expect(unsavedChangesLeaveCopy().message).not.toContain('lost');
@@ -226,5 +248,79 @@ describe('shared unsaved changes guard', () => {
     });
     expect(document.body.textContent).toContain('Away');
     expect(document.body.textContent).not.toContain('Leave without saving?');
+  });
+
+  it('F10: blocked leave while saving does not flush', async () => {
+    const flush = vi.fn();
+    const router = createMemoryRouter([
+      { path: '/', element: <GuardedEditor flush={flush} status="saving" hasPending={false} /> },
+      { path: '/away', element: <div>Away</div> },
+    ], { initialEntries: ['/'] });
+
+    await act(async () => {
+      root.render(<RouterProvider router={router} />);
+    });
+    await act(async () => {
+      document.querySelector('a')?.click();
+    });
+    expect(document.body.textContent).toContain('Leave without saving?');
+    expect(document.body.textContent).not.toContain('Away');
+    expect(flush).not.toHaveBeenCalled();
+  });
+
+  it('F11: shouldFlush stays false while saving with no pending edit', () => {
+    expect(unsavedChangesShouldFlush('saving', false)).toBe(false);
+    expect(unsavedChangesNeedsWarn('saving', false)).toBe(true);
+  });
+
+  it('K2/K3: keepalive PATCH sends the session bearer and sets keepalive', async () => {
+    setKeepaliveAccessToken('session-token-xyz');
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://proj.supabase.co');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'ANON_KEY_123');
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const orig = globalThis.fetch;
+    globalThis.fetch = ((url: string, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return Promise.resolve(new Response(null, { status: 204 }));
+    }) as typeof fetch;
+    try {
+      expect(keepaliveRestWrite({
+        table: 'inspections',
+        query: 'id=eq.1',
+        method: 'PATCH',
+        body: { notes: 'kept?' },
+      })).toBe(true);
+      expect(calls).toHaveLength(1);
+      expect(calls[0].init.keepalive).toBe(true);
+      const headers = calls[0].init.headers as Record<string, string>;
+      expect(headers.apikey).toBe('ANON_KEY_123');
+      expect(headers.Authorization).toBe('Bearer session-token-xyz');
+      expect(headers.Authorization).not.toContain('ANON_KEY');
+    } finally {
+      globalThis.fetch = orig;
+      vi.unstubAllEnvs();
+      setKeepaliveAccessToken(null);
+    }
+  });
+
+  it('pagehide without a session token does not write', () => {
+    setKeepaliveAccessToken(null);
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://proj.supabase.co');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'ANON_KEY_123');
+    const orig = globalThis.fetch;
+    const fetch = vi.fn();
+    globalThis.fetch = fetch as typeof globalThis.fetch;
+    try {
+      expect(keepaliveRestWrite({
+        table: 'inspections',
+        query: 'id=eq.1',
+        method: 'PATCH',
+        body: { notes: 'kept?' },
+      })).toBe(false);
+      expect(fetch).not.toHaveBeenCalled();
+    } finally {
+      globalThis.fetch = orig;
+      vi.unstubAllEnvs();
+    }
   });
 });

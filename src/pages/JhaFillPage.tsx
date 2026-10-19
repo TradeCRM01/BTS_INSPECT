@@ -42,6 +42,7 @@ import { format } from 'date-fns';
 import { duplicateJhaDocument } from '../lib/duplicateJhaDocument';
 import { UnsavedChangesDialog } from '../components/unsaved/UnsavedChangesDialog';
 import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard';
+import { nextClientDraftId } from '../lib/unsavedChangesGuard';
 
 function generateJhaNumber(): string {
   const now = new Date();
@@ -128,6 +129,8 @@ export function JhaFillPage() {
   const [showMoreDoc, setShowMoreDoc] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const allowLeaveRef = useRef(false);
+  const createdIdRef = useRef<string | null>(docId);
+  const insertInFlightRef = useRef<Promise<string | null> | null>(null);
   const crewRef = useRef(crew);
   const metaRef = useRef(meta);
   crewRef.current = crew;
@@ -240,6 +243,7 @@ export function JhaFillPage() {
       setSelectedPpe(existingDoc.ppe || []);
       setSignOffs(existingDoc.sign_offs || []);
       setCrew(parseCrewSignOns(existingDoc.meta?.crewSignOns));
+      createdIdRef.current = existingDoc.id;
       setDocIdState(existingDoc.id);
       setClientId(existingDoc.client_id ?? '');
       setJobId(existingDoc.job_id ?? '');
@@ -547,32 +551,43 @@ export function JhaFillPage() {
         ...(status === 'completed' ? { completed_at: new Date().toISOString() } : {}),
       };
 
-      let savedId = docIdState;
-
-      if (docIdState) {
-        const { error } = await supabase.from('jha_documents').update(payload).eq('id', docIdState);
-        if (error) throw error;
-      } else {
-        if (!templateId) throw new Error('Missing JHA template — go back and start from a template.');
+      if (!createdIdRef.current && !docIdState && !templateId) {
+        throw new Error('Missing JHA template — go back and start from a template.');
+      }
+      const savedId = nextClientDraftId(createdIdRef.current ?? docIdState);
+      createdIdRef.current = savedId;
+      if (insertInFlightRef.current) {
+        await insertInFlightRef.current;
+      }
+      const pending = (async () => {
         const { data, error } = await supabase
           .from('jha_documents')
-          .insert({
-            template_id: templateId,
-            template_snapshot: { name: templateName, schema },
-            company_id: profile.company_id,
-            created_by: profile.id,
+          .upsert({
+            id: savedId,
+            ...(templateId ? {
+              template_id: templateId,
+              template_snapshot: { name: templateName, schema },
+              company_id: profile.company_id,
+              created_by: profile.id,
+            } : {}),
             ...payload,
-          })
+          }, { onConflict: 'id' })
           .select()
           .maybeSingle();
         if (error) throw error;
-        if (!data?.id) throw new Error('Failed to create JHA document');
-        savedId = data.id;
-        setDocIdState(data.id);
-        if (opts?.navigateOnCreate !== false) {
+        return data?.id ?? savedId;
+      })();
+      insertInFlightRef.current = pending.catch(() => savedId);
+      try {
+        const wroteId = await pending;
+        const firstWrite = !docIdState;
+        setDocIdState(wroteId);
+        if (firstWrite && opts?.navigateOnCreate !== false) {
           allowLeaveRef.current = true;
-          navigate(`/jha/new?docId=${data.id}`, { replace: true });
+          navigate(`/jha/new?docId=${wroteId}`, { replace: true });
         }
+      } finally {
+        insertInFlightRef.current = null;
       }
       setSaveState('saved');
       queryClient.invalidateQueries({ queryKey: ['jha-documents'] });
@@ -590,9 +605,8 @@ export function JhaFillPage() {
   const unsaved = useUnsavedChangesGuard({
     status: saveState,
     flush: () => {
-      if (saveState !== 'unsaved') return;
       const keepCompleted = existingDoc?.status === 'completed' || existingDoc?.status === 'published';
-      void doSave(keepCompleted ? 'completed' : 'draft', { navigateOnCreate: false }).catch(() => {});
+      void doSave(keepCompleted ? 'completed' : 'draft').catch(() => {});
     },
     allowLeaveRef,
   });

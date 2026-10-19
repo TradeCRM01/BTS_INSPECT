@@ -5,13 +5,7 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { AppRouteError } from './AppRouteError';
-
-function src(rel: string): string {
-  return readFileSync(resolve(process.cwd(), rel), 'utf8');
-}
+import { grafterRootRoute } from './AppRouteError';
 
 function Boom(): React.ReactElement {
   throw new Error('boom-route');
@@ -35,12 +29,10 @@ afterEach(() => {
 });
 
 describe('router errorElement', () => {
-  it('uses the app crash screen, not the raw React Router stack', async () => {
-    expect(src('src/main.tsx')).toContain('errorElement: <AppRouteError />');
-    expect(src('src/main.tsx')).toContain('AppCrashScreen');
-
+  it('E1: a throwing route renders the app crash screen from grafterRootRoute', async () => {
+    const route = grafterRootRoute(<Boom />);
     const router = createMemoryRouter([
-      { path: '/', element: <Boom />, errorElement: <AppRouteError /> },
+      { ...route, path: '/' },
     ], { initialEntries: ['/'] });
 
     await act(async () => {

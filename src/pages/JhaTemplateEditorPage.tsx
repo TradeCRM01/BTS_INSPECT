@@ -353,7 +353,6 @@ export function JhaTemplateEditorPage() {
   const unsaved = useUnsavedChangesGuard({
     status: saveState,
     flush: () => {
-      if (saveState !== 'unsaved') return;
       if (!templateId) return;
       void doSave();
     },
@@ -372,6 +371,7 @@ export function JhaTemplateEditorPage() {
       setSaveState('error');
       return;
     }
+    allowLeaveRef.current = true;
     navigate('/templates');
   }
 

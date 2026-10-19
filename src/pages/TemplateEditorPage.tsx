@@ -228,7 +228,6 @@ export function TemplateEditorPage() {
   const unsaved = useUnsavedChangesGuard({
     status: saveState,
     flush: () => {
-      if (saveState !== 'unsaved') return;
       if (!templateId || getAuditTemplate(templateId)) return;
       saveMutation.mutate();
     },
