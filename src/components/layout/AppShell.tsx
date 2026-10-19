@@ -257,6 +257,7 @@ export function AppShell({ children }: AppShellProps) {
   const chrome = resolveAppShellColors(
     (company as { report_theme?: unknown } | null)?.report_theme ?? null,
   );
+  const switcherName = (company?.name || profile?.name || 'User').trim() || 'User';
   const phoneTab = activePhoneTab(location.pathname, menuOpen);
 
   const renderGroupMenu = (group: NavGroup) => (
@@ -293,7 +294,7 @@ export function AppShell({ children }: AppShellProps) {
             <BrandLockup size="header" />
           </Link>
 
-          <nav className="hidden md:flex items-center gap-0.5 grow justify-center h-14">
+          <nav className="hidden md:flex items-center gap-0.5 justify-center h-14">
             {NAV_GROUPS.map((group) => {
               const groupActive = isGroupActive(group, location.pathname);
               const isOpen = openGroup === group.label;
@@ -321,7 +322,7 @@ export function AppShell({ children }: AppShellProps) {
                     }`}
                   >
                     <Icon size={14} />
-                    <span className="hidden lg:inline whitespace-nowrap">{group.label}</span>
+                    <span className="hidden lg:inline">{group.label}</span>
                     <ChevronDown size={11} className={`text-white/40 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                   </button>
 
@@ -343,32 +344,35 @@ export function AppShell({ children }: AppShellProps) {
               type="button"
               onClick={() => setSearchOpen(true)}
               aria-label="Search"
-              className="flex items-center justify-center lg:justify-start gap-2 w-full min-w-0 overflow-hidden rounded-lg border border-white/15 bg-white/[0.04] px-1.5 lg:px-3 py-1.5 text-[13px] tracking-tight text-white/60 transition-colors hover:border-white/25 hover:text-white"
+              className="flex items-center justify-center lg:justify-start gap-2 w-full min-w-0 rounded-lg border border-white/15 bg-white/[0.04] px-1.5 lg:px-3 py-1.5 text-[13px] tracking-tight text-white/60 transition-colors hover:border-white/25 hover:text-white"
             >
               <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span className="hidden lg:block min-w-0 flex-1 truncate text-left">Search…</span>
+              <span className="hidden lg:block text-left">Search…</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-1 min-w-0">
+          <div className="flex items-center gap-1 shrink-0">
             <div className="relative min-w-0">
               <button
                 onClick={() => setAvatarOpen(!avatarOpen)}
                 className="hidden md:flex items-center gap-2 px-2 py-1.5 hover:bg-white/5 transition-colors min-w-0 max-w-full"
-                title={profile?.name ?? 'User'}
-                aria-label={profile?.name ?? 'User'}
+                title={switcherName}
+                aria-label={switcherName}
               >
-                <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center text-xs font-semibold shrink-0">
-                  {profile?.name?.charAt(0)?.toUpperCase() ?? 'U'}
+                <div
+                  data-shell-switcher-avatar
+                  className="w-7 h-7 rounded-full bg-accent flex items-center justify-center text-xs font-semibold shrink-0"
+                >
+                  {switcherName.charAt(0).toUpperCase()}
                 </div>
                 <span
                   data-shell-switcher-name
-                  className="hidden lg:block text-sm tracking-tight text-white/80 min-w-0 truncate"
-                  title={profile?.name ?? 'User'}
+                  className="hidden lg:block text-sm tracking-tight text-white/80 max-w-[6rem] truncate"
+                  title={switcherName}
                 >
-                  {profile?.name ?? 'User'}
+                  {switcherName}
                 </span>
-                <ChevronDown size={13} className="text-white/45 shrink-0" />
+                <ChevronDown data-shell-switcher-chevron size={13} className="text-white/45 shrink-0" />
               </button>
 
               {avatarOpen && (

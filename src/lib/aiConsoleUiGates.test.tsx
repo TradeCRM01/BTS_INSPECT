@@ -104,11 +104,7 @@ describe('M45 to M48 UI gates', () => {
   }
 
   async function openAvatarMenu() {
-    const name = auth.profile?.name ?? '';
-    const avatar = [...container.querySelectorAll('button')].find((b) => {
-      const text = b.textContent ?? '';
-      return text.includes(name) && text.includes(name.charAt(0).toUpperCase());
-    });
+    const avatar = container.querySelector('[data-shell-switcher-name]')?.closest('button');
     expect(avatar, 'avatar menu button').toBeTruthy();
     await act(async () => {
       avatar!.dispatchEvent(new MouseEvent('click', { bubbles: true }));

@@ -120,7 +120,7 @@ export const DEV_AUDIT_SESSION = {
 export const DEV_AUDIT_PROFILE = {
   id: AUDIT_USER_ID,
   company_id: AUDIT_COMPANY_ID,
-  name: 'Field Audit',
+  name: devAuditName('Field Audit'),
   role: 'admin',
   email: 'field-audit@example.com',
   licence_number: 'EL-12345',
@@ -138,10 +138,21 @@ function devAuditCompanyTrades(): string[] {
   }
 }
 
+/** DEV-only: ?auditName= overrides the mock profile and company names. */
+function devAuditName(fallback: string): string {
+  if (!import.meta.env.DEV) return fallback;
+  try {
+    const n = new URLSearchParams(window.location.search).get('auditName');
+    return n && n.trim() ? n.trim() : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export const DEV_AUDIT_COMPANY = {
   id: AUDIT_COMPANY_ID,
   created_by: AUDIT_USER_ID,
-  name: 'Field Audit Co',
+  name: devAuditName('Field Audit Co'),
   abn: '12 345 678 901',
   licence_number: 'EC-9988',
   phone: '08 1234 5678',

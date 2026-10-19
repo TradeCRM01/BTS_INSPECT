@@ -53,8 +53,6 @@ let root: Root;
 
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-  Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 800 });
-  Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: 800 });
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -68,7 +66,7 @@ afterEach(() => {
 });
 
 describe('AppShell desktop Search button', () => {
-  it('has an accessible name at 800 (mutant: drop aria-label when Search is icon-only)', async () => {
+  it('has an accessible name (mutant: drop aria-label when Search is icon-only)', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     await act(async () => {
       root.render(
@@ -81,7 +79,6 @@ describe('AppShell desktop Search button', () => {
         </QueryClientProvider>,
       );
     });
-    expect(window.innerWidth).toBe(800);
     const search = getByRole('button', { name: 'Search' });
     expect(search.getAttribute('aria-label')).toBe('Search');
   });
