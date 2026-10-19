@@ -17,6 +17,85 @@ import {
   Package, Tag, MapPin, Pencil, AlertTriangle, ArrowUpCircle,
   ArrowDownCircle, RotateCcw, SlidersHorizontal, TrendingUp, ArrowRightLeft,
 } from 'lucide-react';
+import {
+  DECIMAL_INVALID,
+  commitNumberField,
+  numberDraftAllowed,
+  numberFieldMessage,
+} from '../lib/parseDecimal';
+
+export function commitStockAdjustment(raw: string) {
+  const committed = commitNumberField(raw, 'reject', { allowNegative: true });
+  if (!committed.ok) return committed;
+  if (!committed.value) return { ok: false as const, message: DECIMAL_INVALID };
+  return { ok: true as const, value: Number(committed.value) };
+}
+
+export function StockAdjustmentForm({
+  qty,
+  reason,
+  pending,
+  error,
+  onQtyChange,
+  onReasonChange,
+  onSubmit,
+}: {
+  qty: string;
+  reason: string;
+  pending?: boolean;
+  error?: string;
+  onQtyChange: (value: string) => void;
+  onReasonChange: (value: string) => void;
+  onSubmit: () => void;
+}) {
+  const hint = numberFieldMessage(qty, { allowNegative: true });
+  const committed = commitStockAdjustment(qty);
+  return (
+    <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5">
+      <h2 className="text-sm font-semibold text-[#1A1A1A] mb-3 flex items-center gap-2">
+        <SlidersHorizontal size={15} className="text-[#2E75B6]" /> Manual Adjustment
+      </h2>
+      <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-[#4A5568] mb-1">
+            Quantity <span className="text-[#9CA3AF]">(positive = add, negative = remove)</span>
+          </label>
+          <input
+            type="text"
+            inputMode="decimal"
+            aria-label="Adjustment quantity"
+            value={qty}
+            onChange={e => {
+              if (!numberDraftAllowed(e.target.value, { allowNegative: true })) return;
+              onQtyChange(e.target.value);
+            }}
+            className="form-input"
+            placeholder="e.g. 10 or -5"
+          />
+          {hint ? <p className="text-xs text-[#B42318] mt-1">{hint}</p> : null}
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-[#4A5568] mb-1">Reason</label>
+          <input
+            value={reason}
+            onChange={e => onReasonChange(e.target.value)}
+            className="form-input"
+            placeholder="e.g. Stock count correction"
+          />
+        </div>
+        {error ? <p className="text-xs text-red-600">{error}</p> : null}
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={pending || !committed.ok}
+          className="w-full flex items-center justify-center gap-2 bg-[#0A2540] text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] disabled:opacity-50"
+        >
+          {pending ? 'Adjusting...' : <><SlidersHorizontal size={15} /> Adjust</>}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const MOVEMENT_META: Record<
   StockMovementWithDetails['movement_type'],
@@ -115,9 +194,9 @@ export function StockDetailPage() {
   const isLow = level !== 'adequate';
 
   const handleAdjust = () => {
-    const qty = Number(adjQty);
-    if (!adjQty || isNaN(qty) || qty === 0) return;
-    adjustMutation.mutate({ quantity: qty, reason: adjReason });
+    const qty = commitStockAdjustment(adjQty);
+    if (!qty.ok) return;
+    adjustMutation.mutate({ quantity: qty.value, reason: adjReason });
   };
 
   const stats = [
@@ -199,42 +278,15 @@ export function StockDetailPage() {
 
         {/* Adjustment + history */}
         <div className="grid lg:grid-cols-3 gap-4">
-          {/* Manual adjustment */}
-          <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5">
-            <h2 className="text-sm font-semibold text-[#1A1A1A] mb-3 flex items-center gap-2">
-              <SlidersHorizontal size={15} className="text-[#2E75B6]" /> Manual Adjustment
-            </h2>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-[#4A5568] mb-1">
-                  Quantity <span className="text-[#9CA3AF]">(positive = add, negative = remove)</span>
-                </label>
-                <input
-                  type="number" step="any" value={adjQty}
-                  onChange={e => setAdjQty(e.target.value)}
-                  className="form-input" placeholder="e.g. 10 or -5"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-[#4A5568] mb-1">Reason</label>
-                <input
-                  value={adjReason}
-                  onChange={e => setAdjReason(e.target.value)}
-                  className="form-input" placeholder="e.g. Stock count correction"
-                />
-              </div>
-              {adjustMutation.isError && (
-                <p className="text-xs text-red-600">{(adjustMutation.error as Error).message}</p>
-              )}
-              <button
-                onClick={handleAdjust}
-                disabled={adjustMutation.isPending || !adjQty || Number(adjQty) === 0}
-                className="w-full flex items-center justify-center gap-2 bg-[#0A2540] text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] disabled:opacity-50"
-              >
-                {adjustMutation.isPending ? 'Adjusting...' : <><SlidersHorizontal size={15} /> Adjust</>}
-              </button>
-            </div>
-          </div>
+          <StockAdjustmentForm
+            qty={adjQty}
+            reason={adjReason}
+            pending={adjustMutation.isPending}
+            error={adjustMutation.isError ? (adjustMutation.error as Error).message : undefined}
+            onQtyChange={setAdjQty}
+            onReasonChange={setAdjReason}
+            onSubmit={handleAdjust}
+          />
 
           {/* Movement history */}
           <div className="lg:col-span-2 bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">

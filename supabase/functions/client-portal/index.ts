@@ -21,6 +21,13 @@ function json(data: unknown, status = 200) {
   });
 }
 
+function moneyRound(n: number): number {
+  const x = Number(n) || 0;
+  if (x === 0) return 0;
+  const rounded = Math.sign(x) * Math.round(Math.abs(x) * 100 + 1e-8) / 100;
+  return rounded === 0 ? 0 : rounded;
+}
+
 function padQuoteNumber(n: number | null | undefined): string {
   return String(n ?? 0).padStart(4, "0");
 }
@@ -203,10 +210,10 @@ async function ensureJobForAcceptedQuote(
       description: li.description,
       quantity: qty,
       unit_cost: unitCost,
-      total_cost: Number((qty * unitCost).toFixed(2)),
+      total_cost: moneyRound(qty * unitCost),
       markup_percent: markup,
       unit_price: unitPrice,
-      total_price: Number((qty * unitPrice).toFixed(2)),
+      total_price: moneyRound(qty * unitPrice),
       charge_type: li.charge_type ?? null,
       stock_item_id: li.stock_item_id ?? null,
       purchase_order_id: null,

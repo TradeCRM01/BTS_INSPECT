@@ -53,7 +53,10 @@ import {
   invoiceReuseOpen,
   quoteListInvoiceId,
 } from '../lib/invoiceFromQuote';
-import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel } from '../lib/gst';
+import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel, lineExGstAmount, moneyRound } from '../lib/gst';
+import { commitDocumentLine, committedTaxRate } from '../lib/parseDecimal';
+import { commitCommercialLines } from '../lib/commitCommercialLines';
+import { issuedDocumentLocksLines, issuedLinesLockCopy, persistDocumentMoney, persistIssuedClientId, persistIssuedLines } from '../lib/documentPersist';
 import { LineItemEditor, emptyLineItem, toEditLine, type EditLineItem } from '../components/invoicing/LineItemEditor';
 import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariationsEditor';
 import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
@@ -163,6 +166,49 @@ function suburbFromSite(site: string): string {
 
 function quoteRef(quote: { quote_number?: number | null }): string {
   return quote.quote_number != null ? `#${padQuoteNumber(quote.quote_number)}` : 'Quote';
+}
+
+function fieldAuditIssuedSweep7Quote(): QuoteListItem | null {
+  if (!isDevFieldAuditAuth()) return null;
+  let look: string | null = null;
+  try {
+    look = new URLSearchParams(window.location.search).get('look');
+  } catch {
+    look = null;
+  }
+  if (look !== 'sweep7-issued') return null;
+  return {
+    id: 'audit-quote-issued-sweep7',
+    company_id: DEV_AUDIT_COMPANY.id,
+    quote_number: 37,
+    client_id: AUDIT_DOC_CLIENT_ID,
+    job_id: null,
+    status: 'sent',
+    description: 'Issued site works',
+    scope_of_works: 'Labour and materials on site.',
+    line_items: [
+      { description: 'Labour', quantity: 1.5, unit_price: 87.35 },
+      { description: 'Fitting', quantity: 3, unit_price: 33.33 },
+      { description: 'Consumables', quantity: 7, unit_price: 11.5 },
+    ],
+    subtotal: 311.51,
+    tax_rate: 10,
+    tax_amount: 31.15,
+    total: 342.66,
+    validity_date: '2026-09-07',
+    notes: null,
+    inclusions: [],
+    exclusions: [],
+    scheduled_date: null,
+    assigned_team: [],
+    created_by: DEV_AUDIT_PROFILE.id,
+    created_at: '2026-08-24T00:00:00.000Z',
+    updated_at: '2026-08-24T00:00:00.000Z',
+    client_name: 'Northside Electrical',
+    client_email: 'accounts@northside.example',
+    job_address: '12 Workshop Rd, Perth WA 6000',
+    invoice_id: null,
+  };
 }
 
 function fieldAuditConvertQuote(): QuoteListItem | null {
@@ -439,9 +485,12 @@ export function QuotesPage() {
   const sendCompany = quoteSendCompanyFrom(company);
   const Speech = browserSpeechRecognition();
 
+  const sweep7IssuedLook = searchParams.get('look') === 'sweep7-issued';
   const { data: quotes, isLoading, isPending, error } = useQuery<QuoteListItem[]>({
-    queryKey: ['quotes'],
+    queryKey: ['quotes', sweep7IssuedLook ? 'sweep7-issued' : 'live'],
     queryFn: async () => {
+      const issuedSweep7 = fieldAuditIssuedSweep7Quote();
+      if (issuedSweep7) return [issuedSweep7];
       const convertQuote = fieldAuditConvertQuote();
       if (convertQuote) {
         if (lookLetterhead) return [convertQuote];
@@ -565,6 +614,13 @@ export function QuotesPage() {
     setPresetClientId(null);
     setShowForm(true);
   }, [lookLetterhead, quotes, showForm]);
+
+  useEffect(() => {
+    if (!sweep7IssuedLook || !quotes?.length || showForm) return;
+    setEditingQuote(quotes[0]);
+    setPresetClientId(null);
+    setShowForm(true);
+  }, [sweep7IssuedLook, quotes, showForm]);
 
   function openQuote(q: QuoteListItem | null, opts?: { focusConvert?: boolean }) {
     setEditingQuote(q);
@@ -995,6 +1051,12 @@ interface EditorState {
   end_time: string;
 }
 
+export function quotePreviewLines(form: { line_items: EditLineItem[] }): QuoteLineItem[] {
+    const committed = commitCommercialLines(form.line_items);
+    const cleanLines: QuoteLineItem[] = committed.ok ? committed.lines : [];
+    return cleanLines;
+}
+
 export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusConvert, onFocusedConvert, onClose, onSaved, onRequestSend }: {
   quote: QuoteListItem | null;
   presetClientId?: string | null;
@@ -1113,12 +1175,23 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
         ? null
         : clients,
   });
-  const fallbackTaxRate = parseFloat(form.tax_rate) || 0;
-  const gst = useMemo(
-    () => calcLineDocumentTotals(form.line_items, fallbackTaxRate),
-    [form.line_items, fallbackTaxRate],
+  const liveTaxRate = committedTaxRate(form.tax_rate);
+  const liveGst = useMemo(
+    () => calcLineDocumentTotals(form.line_items, liveTaxRate),
+    [form.line_items, liveTaxRate],
   );
-  const { subtotal, taxAmount, total: grandTotal } = gst;
+  const issuedStatus = quote?.status ?? form.status;
+  const linesLocked = issuedDocumentLocksLines(issuedStatus);
+  const moneyShown = persistDocumentMoney(issuedStatus, {
+    subtotal: liveGst.subtotal,
+    tax_amount: liveGst.taxAmount,
+    total: liveGst.total,
+    tax_rate: liveTaxRate,
+  }, quote);
+  const subtotal = moneyShown.subtotal;
+  const taxAmount = moneyShown.tax_amount;
+  const grandTotal = moneyShown.total;
+  const fallbackTaxRate = moneyShown.tax_rate;
   const gstHeading = gstDocumentLabel(form.line_items, fallbackTaxRate);
 
   const next = recommendQuoteAction(quoteActionContext({
@@ -1254,20 +1327,7 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
 
   const previewData = useMemo((): CommercialPdfData | null => {
     if (!company) return null;
-    const cleanLines: QuoteLineItem[] = form.line_items
-      .filter(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0)
-      .map(li => ({
-        description: li.description.trim(),
-        quantity: parseFloat(li.quantity) || 0,
-        unit_price: parseFloat(li.unit_price) || 0,
-        charge_type: li.charge_type.trim() || null,
-        unit_cost: li.unit_cost ? parseFloat(li.unit_cost) : null,
-        markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
-        cost_model_id: li.cost_model_id ?? null,
-        gst_rate: li.gst_rate,
-        check_price: li.check_price,
-        price_book_item_id: li.price_book_item_id ?? null,
-      }));
+    const cleanLines: QuoteLineItem[] = quotePreviewLines(form);
     return commercialPdfPreviewData({
       kind: 'quote',
       title: 'Quoted prices',
@@ -1290,7 +1350,7 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
       scopeOfWorks: form.scope_of_works.trim() || null,
       lines: linesFromQuoteItems(cleanLines, 'quote', previewPriceBookCodes),
       subtotal,
-      taxRate: parseFloat(form.tax_rate) || 0,
+      taxRate: fallbackTaxRate,
       taxAmount,
       total: grandTotal,
       notes: form.notes.trim() || null,
@@ -1298,28 +1358,25 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
   }, [company, form, quote, selectedClient, emailClient, phoneClient, selectedJob, subtotal, taxAmount, grandTotal, previewPriceBookCodes]);
 
   const buildPayload = (status: QuoteStatus) => {
-    const cleanLines: QuoteLineItem[] = form.line_items
-      .filter(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0)
-      .map(li => ({
-        description: li.description.trim(),
-        quantity: parseFloat(li.quantity) || 0,
-        unit_price: parseFloat(li.unit_price) || 0,
-        stock_item_id: li.stock_item_id ?? null,
-        price_book_item_id: li.price_book_item_id ?? null,
-        charge_type: li.charge_type.trim() || null,
-        unit_cost: li.unit_cost ? parseFloat(li.unit_cost) : null,
-        markup_percent: li.markup_percent ? parseFloat(li.markup_percent) : null,
-        cost_model_id: li.cost_model_id ?? null,
-        gst_rate: li.gst_rate,
-        check_price: li.check_price || undefined,
-      }));
+    const committed = commitCommercialLines(form.line_items);
+    if (!committed.ok) return { ok: false as const, message: committed.message };
+    const cleanLines = committed.lines;
+    const persistStatus = quote?.status ?? status;
+    const money = persistDocumentMoney(persistStatus, {
+      subtotal: liveGst.subtotal,
+      tax_amount: liveGst.taxAmount,
+      total: liveGst.total,
+      tax_rate: liveTaxRate,
+    }, quote);
+    const persistLines = persistIssuedLines(persistStatus, cleanLines, quote?.line_items ?? null);
     return {
+      ok: true as const,
       cleanLines,
       payload: {
-        client_id: form.client_id || null, job_id: form.job_id || null, status,
+        client_id: persistIssuedClientId(persistStatus, form.client_id, quote?.client_id), job_id: form.job_id || null, status,
         description: form.description.trim() || null,
         scope_of_works: form.scope_of_works.trim() || null,
-        line_items: cleanLines, subtotal, tax_rate: parseFloat(form.tax_rate) || 0, tax_amount: taxAmount, total: grandTotal,
+        line_items: persistLines, subtotal: money.subtotal, tax_rate: money.tax_rate, tax_amount: money.tax_amount, total: money.total,
         validity_date: form.validity_date || null, notes: form.notes.trim() || null,
         inclusions: form.inclusions, exclusions: form.exclusions,
         scheduled_date: form.scheduled_date || null,
@@ -1332,7 +1389,9 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
     if (!profile?.company_id) return null;
     if (validityInvalid || convertDateInvalid) { setErr(DATE_INVALID_MESSAGE); return null; }
     if (!form.client_id) { setErr('Please select a client'); return null; }
-    const { cleanLines, payload } = buildPayload(status);
+    const built = buildPayload(status);
+    if (!built.ok) { setErr(built.message); return null; }
+    const { cleanLines, payload } = built;
     if (cleanLines.length === 0) { setErr('Add at least one line item'); return null; }
     setSaving(true); setErr('');
     const id = savedId ?? quote?.id;
@@ -1346,7 +1405,7 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
         message: opts?.message ?? 'Quote updated',
         listRow: {
           id,
-          total: grandTotal,
+          total: payload.total,
           status,
           client_id: payload.client_id,
           line_items: cleanLines,
@@ -1455,6 +1514,13 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
       releaseQuoteConvertLock(convertingLock);
       return;
     }
+    const built = buildPayload('accepted');
+    if (!built.ok) {
+      setErr(built.message);
+      setConverting(false);
+      releaseQuoteConvertLock(convertingLock);
+      return;
+    }
     setErr('');
     const id = savedId ?? quote?.id ?? '';
     let converted = false;
@@ -1467,8 +1533,8 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
         job_id: form.job_id || null,
         description: form.description,
         scope_of_works: form.scope_of_works,
-        line_items: buildPayload('accepted').payload.line_items,
-        total: grandTotal,
+        line_items: built.payload.line_items,
+        total: built.payload.total,
         scheduled_date: form.scheduled_date || null,
         assigned_team: form.assigned_team,
         start_time,
@@ -1492,7 +1558,15 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
   const editorSite = visibleSite(selectedJob?.address, selectedClient?.address);
   const editorTitle = quoteTitle(quote);
   const sheetLogo = companyDocumentLogoUrl(company);
-  const docLines = form.line_items.filter(li => li.description.trim() && (parseFloat(li.quantity) || 0) > 0);
+  const docLines = form.line_items.filter(li => {
+    if (!li.description.trim()) return false;
+    const qty = commitDocumentLine(li);
+    return qty.ok && qty.quantity > 0;
+  });
+  const liveLineSum = docLines.reduce((sum, li) => {
+    const row = commitDocumentLine(li);
+    return row.ok ? sum + lineExGstAmount({ quantity: row.quantity, unit_price: row.unit_price }) : sum;
+  }, 0);
 
   const closeMore = () => {
     if (moreRef.current) moreRef.current.open = false;
@@ -1898,8 +1972,9 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
               </thead>
               <tbody>
                 {docLines.map((li, idx) => {
-                  const qty = parseFloat(li.quantity) || 0;
-                  const unit = parseFloat(li.unit_price) || 0;
+                  const committed = commitDocumentLine(li);
+                  const qty = committed.ok ? committed.quantity : 0;
+                  const unit = committed.ok ? committed.unit_price : 0;
                   return (
                     <tr key={`${li.description}-${idx}`}>
                       <td>
@@ -1913,7 +1988,7 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
                       </td>
                       <td className="hub-quote-num">{qty}</td>
                       <td className="hub-quote-num">{formatMoney(unit)}</td>
-                      <td className="hub-quote-num">{formatMoney(qty * unit)}</td>
+                      <td className="hub-quote-num">{formatMoney(lineExGstAmount({ quantity: qty, unit_price: unit }))}</td>
                     </tr>
                   );
                 })}
@@ -1932,6 +2007,11 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
               <span>Total (inc GST)</span>
               <span className="hub-quote-display-total">{editorMoney}</span>
             </div>
+          ) : null}
+          {linesLocked && moneyRound(liveLineSum) !== moneyRound(subtotal) ? (
+            <p className="text-xs text-[#6B7280] mt-2">
+              Line amounts sum to {formatMoney(liveLineSum)}. This document kept {formatMoney(subtotal)} at issue.
+            </p>
           ) : null}
 
           {next.key === 'convert_job' && (
@@ -2009,7 +2089,16 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
         <div className="overlay-body hub-quote-editor-body">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Client" required>
-              <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value, job_id: '' }))} className="form-input cursor-pointer">
+              <select
+                value={form.client_id}
+                aria-label="Client"
+                disabled={linesLocked}
+                onChange={e => {
+                  if (linesLocked) return;
+                  setForm(f => ({ ...f, client_id: e.target.value, job_id: '' }));
+                }}
+                className="form-input cursor-pointer"
+              >
                 <option value="">Select a client...</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
@@ -2052,6 +2141,8 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
             stockItems={stockItems}
             priceBookItems={priceBookItems}
             defaultMarkup={company?.default_material_markup ?? 0}
+            readOnly={linesLocked}
+            lockCopy={issuedLinesLockCopy('quote', issuedStatus)}
             onChange={lines => setForm(f => ({ ...f, line_items: lines }))}
           />
 
@@ -2067,7 +2158,19 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="GST rate (%)">
-              <input type="number" min={0} step="0.01" value={form.tax_rate} onChange={e => setForm(f => ({ ...f, tax_rate: e.target.value }))} className="form-input" placeholder="0" />
+              <input
+                type="text"
+                inputMode="decimal"
+                aria-label="GST rate (%)"
+                disabled={linesLocked}
+                value={form.tax_rate}
+                onChange={e => {
+                  if (linesLocked) return;
+                  setForm(f => ({ ...f, tax_rate: e.target.value }));
+                }}
+                className="form-input"
+                placeholder="0"
+              />
             </Field>
             <Field label="Valid Until">
               <DateFieldInput id="quote-valid-until" value={form.validity_date} onChange={validity_date => setForm(f => ({ ...f, validity_date }))} onValidityChange={setValidityInvalid} className="form-input" />

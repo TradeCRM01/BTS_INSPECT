@@ -17,6 +17,7 @@ export const AUDIT_JHA_DOC_ID = 'audit-jha-fill';
 export const AUDIT_TAKE5_ID = 'audit-take5-fill';
 export const AUDIT_INVOICE_ID = 'audit-invoice-send';
 export const AUDIT_INVOICE_GST_ID = 'audit-invoice-gst';
+export const AUDIT_INVOICE_ISSUED_SWEEP7_ID = 'audit-invoice-issued-sweep7';
 export const AUDIT_QUOTE_ID = 'audit-quote-send';
 export const AUDIT_PO_ID = 'audit-po-send';
 export const AUDIT_REPORT_ID = 'audit-report-send';
@@ -1049,6 +1050,42 @@ export function getAuditInvoiceEditorRow(invoiceId: string) {
     } catch {
       /* ignore */
     }
+  }
+  if (isDevFieldAuditAuth() && invoiceId === AUDIT_INVOICE_ISSUED_SWEEP7_ID) {
+    const client = getAuditClient(AUDIT_DOC_CLIENT_ID);
+    return {
+      id: AUDIT_INVOICE_ISSUED_SWEEP7_ID,
+      company_id: DEV_AUDIT_COMPANY.id,
+      invoice_number: 37,
+      client_id: AUDIT_DOC_CLIENT_ID,
+      job_id: null,
+      quote_id: null,
+      source: null,
+      status: 'sent' as const,
+      line_items: [
+        { description: 'Labour', quantity: 1.5, unit_price: 87.35 },
+        { description: 'Fitting', quantity: 3, unit_price: 33.33 },
+        { description: 'Consumables', quantity: 7, unit_price: 11.5 },
+      ],
+      subtotal: 311.51,
+      tax_rate: 10,
+      tax_amount: 31.15,
+      total: 342.66,
+      amount_paid: 0,
+      payment_terms: 'Net 30',
+      due_date: '2026-09-07',
+      notes: null,
+      inclusions: [],
+      exclusions: [],
+      created_by: DEV_AUDIT_PROFILE.id,
+      created_at: NOW,
+      updated_at: NOW,
+      client_name: client?.name ?? 'Northside Electrical',
+      client_email: client?.email ?? 'accounts@northside.example',
+      client_phone: client?.phone ?? '0412 000 111',
+      job_title: null,
+      job_address: client?.address ?? '12 Workshop Rd, Perth WA 6000',
+    };
   }
   if (isDevFieldAuditAuth() && invoiceId === AUDIT_INVOICE_GST_ID) {
     return {

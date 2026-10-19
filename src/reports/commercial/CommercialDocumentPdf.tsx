@@ -8,13 +8,18 @@ import {
 } from '../shared/styles';
 import { formatMoney } from '../../types/fsm';
 import type { QuoteLineItem, InvoiceLineItem } from '../../types/fsm';
-import { gstDocumentLabel, gstLabel, type LineForGst } from '../../lib/gst';
+import { commercialPdfLineAmount, gstDocumentLabel, gstLabel, type LineForGst } from '../../lib/gst';
+
 import { commercialPdfLogoBox, companyDocumentLogoUrl } from '../../lib/companyLogo';
 import { customerFacingLineDescription } from '../../lib/customerFacingLineDescription';
 import {
   priceBookCodeFromLookup,
   type PriceBookCodeLookup,
 } from '../../lib/priceBookItemCodesForLines';
+
+export function formatCommercialPdfLineAmount(line: LineForGst): string {
+  return formatMoney(commercialPdfLineAmount(line));
+}
 
 /** Saved companies.report_theme on this document, or the existing commercial default. */
 export function commercialDocumentColors(theme?: unknown): PdfColors {
@@ -369,14 +374,14 @@ export function CommercialDocumentPdf({ data }: { data: CommercialPdfData }) {
           <Text style={[s.th, { width: '15%', textAlign: 'right' }]}>Amount</Text>
         </View>
         {data.lines.map((li, i) => {
-          const amount = (li.quantity || 0) * (li.unit_price || 0);
+          const amount = formatCommercialPdfLineAmount(li);
           return (
             <View key={i} style={i % 2 === 1 ? [s.row, s.rowAlt] : s.row} wrap={false}>
               <Text style={[s.td, { width: '18%', color: colors.textMuted }]}>{li.charge_type || '—'}</Text>
               <Text style={[s.td, { width: '42%' }]}>{li.description}</Text>
               <Text style={[s.td, { width: '10%', textAlign: 'right' }]}>{li.quantity}</Text>
               <Text style={[s.td, { width: '15%', textAlign: 'right' }]}>{formatMoney(li.unit_price)}</Text>
-              <Text style={[s.td, { width: '15%', textAlign: 'right', fontWeight: 700 }]}>{formatMoney(amount)}</Text>
+              <Text style={[s.td, { width: '15%', textAlign: 'right', fontWeight: 700 }]}>{amount}</Text>
             </View>
           );
         })}

@@ -20,6 +20,8 @@ import {
   Package, ArrowRight,
 } from 'lucide-react';
 import { safeFormatDate } from '../lib/safeDate';
+import { commitDocumentLine, commitNumberField, DECIMAL_NEGATIVE, moneyDraftAllowed, moneyFieldMessage, numberDraftAllowed } from '../lib/parseDecimal';
+import { lineExGstAmount, moneyRound } from '../lib/gst';
 
 /** List chrome only. Same week-board / #145 quiet elevation. Not a new kit. */
 const PO_LIST_LOOK_CSS = `
@@ -350,11 +352,25 @@ const PO_LINE_GRID = 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_80p
 function toPOLineEdit(li: POLineItem): POLineEdit {
   return { description: li.description, quantity: String(li.quantity), unit_cost: String(li.unit_cost), received_quantity: li.received_quantity ?? 0, stock_item_id: li.stock_item_id ?? null };
 }
-function fromPOLineEdit(li: POLineEdit): POLineItem {
-  return { description: li.description, quantity: parseFloat(li.quantity) || 0, unit_cost: parseFloat(li.unit_cost) || 0, received_quantity: li.received_quantity, stock_item_id: li.stock_item_id ?? null };
+export function commitPOLine(li: POLineEdit) {
+  const committed = commitDocumentLine({ quantity: li.quantity, unit_price: li.unit_cost });
+  if (!committed.ok) return committed;
+  if (committed.quantity < 0 || committed.unit_price < 0) {
+    return { ok: false as const, message: DECIMAL_NEGATIVE };
+  }
+  return {
+    ok: true as const,
+    line: {
+      description: li.description,
+      quantity: committed.quantity,
+      unit_cost: committed.unit_price,
+      received_quantity: li.received_quantity,
+      stock_item_id: li.stock_item_id ?? null,
+    } satisfies POLineItem,
+  };
 }
 
-function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
+export function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
   po: PurchaseOrderWithDetails | null;
   onClose: () => void;
   onSaved: (opts?: { close?: boolean; message?: string }) => void;
@@ -391,9 +407,15 @@ function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
     });
   }, [profile?.company_id]);
 
-  const subtotal = useMemo(() => lines.reduce((s, l) => s + (parseFloat(l.quantity) || 0) * (parseFloat(l.unit_cost) || 0), 0), [lines]);
-  const taxAmount = useMemo(() => subtotal * (parseFloat(form.tax_rate) || 0) / 100, [subtotal, form.tax_rate]);
-  const grandTotal = subtotal + taxAmount;
+  const subtotal = useMemo(
+    () => moneyRound(lines.reduce((s, l) => s + lineExGstAmount({ quantity: l.quantity, unit_price: l.unit_cost }), 0)),
+    [lines],
+  );
+  const poTaxRate = commitNumberField(form.tax_rate, 'zero');
+  const poTaxRateValue = poTaxRate.ok ? Number(poTaxRate.value) || 0 : 0;
+  const taxAmount = useMemo(() => moneyRound(subtotal * poTaxRateValue / 100), [subtotal, poTaxRateValue]);
+  const grandTotal = moneyRound(subtotal + taxAmount);
+  const poLineBlocked = lines.some(l => l.description.trim() && !commitPOLine(l).ok);
 
   const updateLine = (idx: number, patch: Partial<POLineEdit>) =>
     setLines(prev => prev.map((l, i) => i === idx ? { ...l, ...patch } : l));
@@ -409,7 +431,12 @@ function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
 
   const persist = async (status: POStatus, opts?: { close?: boolean; message?: string }) => {
     if (!profile?.company_id) return null;
-    const validLines: POLineItem[] = lines.filter(l => l.description.trim()).map(fromPOLineEdit);
+    const validLines: POLineItem[] = [];
+    for (const l of lines.filter(row => row.description.trim())) {
+      const committed = commitPOLine(l);
+      if (!committed.ok) { setErr(committed.message); return null; }
+      validLines.push(committed.line);
+    }
     if (!form.supplier_id) { setErr('Please select a supplier'); return null; }
     setSaving(true); setErr('');
 
@@ -419,7 +446,7 @@ function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
       job_id: form.job_id || null,
       status: nextStatus,
       line_items: validLines as any,
-      subtotal, tax_rate: parseFloat(form.tax_rate) || 0, tax_amount: taxAmount, total: grandTotal,
+      subtotal, tax_rate: poTaxRateValue, tax_amount: taxAmount, total: grandTotal,
       expected_delivery_date: form.expected_delivery_date || null,
       notes: form.notes.trim() || null,
     };
@@ -527,19 +554,24 @@ function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
                   <input type="text" inputMode="decimal" value={line.quantity}
                     onChange={e => {
                       const raw = e.target.value;
-                      if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
+                      if (!numberDraftAllowed(raw)) return;
                       updateLine(i, { quantity: raw });
                     }}
                     className="form-input-sm text-right min-w-0" aria-label="Quantity" />
-                  <input type="text" inputMode="decimal" value={line.unit_cost}
-                    onChange={e => {
-                      const raw = e.target.value;
-                      if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
-                      updateLine(i, { unit_cost: raw });
-                    }}
-                    className="form-input-sm text-right min-w-0" placeholder="0.00" aria-label="Unit cost" />
+                  <div>
+                    <input type="text" inputMode="decimal" value={line.unit_cost}
+                      onChange={e => {
+                        const raw = e.target.value;
+                        if (!moneyDraftAllowed(raw)) return;
+                        updateLine(i, { unit_cost: raw });
+                      }}
+                      className="form-input-sm text-right min-w-0" placeholder="0.00" aria-label="Unit cost" />
+                    {moneyFieldMessage(line.unit_cost) ? (
+                      <p className="text-xs text-[#B42318] mt-1">{moneyFieldMessage(line.unit_cost)}</p>
+                    ) : null}
+                  </div>
                   <span className="text-sm text-right font-medium text-[#1A1A1A]">
-                    {formatMoney((parseFloat(line.quantity) || 0) * (parseFloat(line.unit_cost) || 0))}
+                    {formatMoney(lineExGstAmount({ quantity: line.quantity, unit_price: line.unit_cost }))}
                   </span>
                   <button type="button" onClick={() => removeLine(i)}
                     className="w-7 h-7 flex items-center justify-center rounded text-[#9CA3AF] hover:text-red-600 hover:bg-red-50 justify-self-end">
@@ -585,10 +617,10 @@ function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
             </div>
             <div className="bg-[#F9FAFB] rounded-lg border border-[#E5E7EB] p-3 space-y-1.5 self-start">
               <div className="flex justify-between text-sm text-[#4A5568]">
-                <span>Subtotal</span><span>{formatMoney(subtotal)}</span>
+                <span>Subtotal</span><span aria-label="Subtotal">{formatMoney(subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm text-[#4A5568]">
-                <span>Tax ({parseFloat(form.tax_rate) || 0}%)</span><span>{formatMoney(taxAmount)}</span>
+                <span>Tax ({poTaxRateValue}%)</span><span>{formatMoney(taxAmount)}</span>
               </div>
               <div className="flex justify-between text-sm font-semibold text-[#0A2540] pt-1.5 border-t border-[#E5E7EB]">
                 <span>Grand Total</span><span>{formatMoney(grandTotal)}</span>
@@ -610,7 +642,7 @@ function POEditorModal({ po, onClose, onSaved, onRequestSend }: {
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-[#4A5568] border border-[#E5E7EB] rounded-md hover:bg-gray-50">
             Cancel
           </button>
-          <button onClick={handleSave} disabled={saving}
+          <button onClick={handleSave} disabled={saving || poLineBlocked}
             className="px-4 py-2 text-sm font-medium text-white bg-[#0A2540] rounded-md hover:bg-[#0d2f4e] disabled:opacity-50">
             {saving ? 'Saving...' : po ? 'Save Changes' : 'Create PO'}
           </button>
@@ -730,8 +762,8 @@ function ReceiveGoodsModal({ po, onClose, onSaved }: {
       const anyReceived = updatedLines.some(l => (l.received_quantity ?? 0) > 0);
       const newStatus: POStatus = allComplete ? 'received' : anyReceived ? 'partially_received' : po.status;
 
-      const subtotal = updatedLines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.unit_cost) || 0), 0);
-      const taxAmount = subtotal * (Number(po.tax_rate) || 0) / 100;
+      const subtotal = moneyRound(updatedLines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.unit_cost) || 0), 0));
+      const taxAmount = moneyRound(subtotal * (Number(po.tax_rate) || 0) / 100);
 
       const { error: poErr } = await supabase.from('purchase_orders').update({
         line_items: updatedLines as any, status: newStatus,

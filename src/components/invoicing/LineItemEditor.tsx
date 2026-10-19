@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Package, Plus, Trash2, Search, X, BookOpen } from 'lucide-react';
 import { formatMoney, type ExpenseCostModel, type StockItem, type PriceBookItem, EXPENSE_MODEL_TIME_UNIT_HOURS, type ExpenseModelTimeUnit } from '../../types/fsm';
@@ -11,6 +11,16 @@ import { lineNeedsLabourRate } from '../../lib/hoursToJobBill';
 import { quoteLineFromPriceBookItem } from '../../lib/priceBookImport';
 import { QUICK_QUOTE_CHECK_PRICE } from '../../lib/quickQuote';
 import { checkPriceAfterUnitPrice } from '../../lib/checkPriceGate';
+import { calcLineDocumentTotals, lineExGstAmount } from '../../lib/gst';
+import {
+  commitDocumentLine,
+  commitNumberField,
+  committedMoneyOrZero,
+  moneyDraftAllowed,
+  moneyFieldMessage,
+  numberDraftAllowed,
+  numberFieldMessage,
+} from '../../lib/parseDecimal';
 
 export interface EditLineItem {
   description: string;
@@ -40,6 +50,55 @@ export function emptyLineItem(defaultMarkup = 0): EditLineItem {
     gst_rate: null,
     check_price: false,
   };
+}
+
+export function growDescriptionField(field: HTMLTextAreaElement | null): void {
+  if (!field) return;
+  field.style.height = 'auto';
+  const style = getComputedStyle(field);
+  const borderY = Number.parseFloat(style.borderTopWidth) + Number.parseFloat(style.borderBottomWidth);
+  field.style.height = `${field.scrollHeight + (Number.isFinite(borderY) ? borderY : 0)}px`;
+}
+
+export function watchDescriptionFieldWidth(field: HTMLTextAreaElement | null): () => void {
+  if (!field) return () => {};
+  growDescriptionField(field);
+  if (typeof ResizeObserver === 'undefined') return () => {};
+  let lastWidth = field.getBoundingClientRect().width;
+  const ro = new ResizeObserver(() => {
+    const next = field.getBoundingClientRect().width;
+    if (Math.abs(next - lastWidth) < 0.5) return;
+    lastWidth = next;
+    growDescriptionField(field);
+  });
+  ro.observe(field);
+  return () => ro.disconnect();
+}
+
+function LineDescriptionInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const fieldRef = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => watchDescriptionFieldWidth(fieldRef.current), []);
+  useLayoutEffect(() => {
+    growDescriptionField(fieldRef.current);
+  }, [value]);
+  return (
+    <textarea
+      ref={fieldRef}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      onInput={e => growDescriptionField(e.currentTarget)}
+      className="form-input-sm min-w-0 w-full min-h-[36px] resize-none whitespace-pre-wrap break-words overflow-hidden [field-sizing:content]"
+      placeholder="Description"
+      aria-label="Description"
+      rows={1}
+    />
+  );
 }
 
 export function toEditLine(li: {
@@ -76,6 +135,8 @@ interface LineItemEditorProps {
   priceBookItems?: PriceBookItem[];
   defaultMarkup: number;
   onChange: (lines: EditLineItem[]) => void;
+  readOnly?: boolean;
+  lockCopy?: string;
 }
 
 type PickerMode = 'stock' | 'pricebook' | null;
@@ -89,6 +150,8 @@ export function LineItemEditor({
   priceBookItems = [],
   defaultMarkup,
   onChange,
+  readOnly = false,
+  lockCopy,
 }: LineItemEditorProps) {
   const [picker, setPicker] = useState<PickerMode>(null);
   const [search, setSearch] = useState('');
@@ -116,7 +179,10 @@ export function LineItemEditor({
   const updateLine = (idx: number, patch: Partial<EditLineItem>) =>
     onChange(lines.map((li, i) => (i === idx ? { ...li, ...patch } : li)));
 
-  const removeLine = (idx: number) => onChange(lines.filter((_, i) => i !== idx));
+  const removeLine = (idx: number) => {
+    if (readOnly) return;
+    onChange(lines.filter((_, i) => i !== idx));
+  };
   const addLine = () => onChange([...lines, emptyLineItem(defaultMarkup)]);
 
   const closePicker = () => {
@@ -132,7 +198,8 @@ export function LineItemEditor({
     const model = costModels.find(m => m.id === modelId);
     if (!model) return;
     const hourly = modelHourlyCost(model);
-    const markup = parseFloat(lines[idx].markup_percent ?? '') || defaultMarkup || 0;
+    const markupCommitted = commitNumberField(lines[idx].markup_percent ?? '', 'zero');
+    const markup = markupCommitted.ok ? Number(markupCommitted.value) || 0 : defaultMarkup || 0;
     const sell = hourly > 0 ? Number((hourly * (1 + markup / 100)).toFixed(2)) : 0;
     const unitPrice = sell > 0 ? sell.toFixed(2) : lines[idx].unit_price;
     updateLine(idx, {
@@ -197,8 +264,9 @@ export function LineItemEditor({
   };
 
   const handleMarkupChange = (idx: number, markupStr: string) => {
-    const cost = parseFloat(lines[idx].unit_cost ?? '0') || 0;
-    const markup = parseFloat(markupStr) || 0;
+    const cost = committedMoneyOrZero(lines[idx].unit_cost ?? '0');
+    const markupCommitted = commitNumberField(markupStr, 'zero');
+    const markup = markupCommitted.ok ? Number(markupCommitted.value) || 0 : 0;
     const sellPrice = cost * (1 + markup / 100);
     const unitPrice = sellPrice.toFixed(2);
     updateLine(idx, {
@@ -211,8 +279,9 @@ export function LineItemEditor({
   };
 
   const handleCostChange = (idx: number, costStr: string) => {
-    const cost = parseFloat(costStr) || 0;
-    const markup = parseFloat(lines[idx].markup_percent ?? '0') || 0;
+    const cost = committedMoneyOrZero(costStr);
+    const markupCommitted = commitNumberField(lines[idx].markup_percent ?? '0', 'zero');
+    const markup = markupCommitted.ok ? Number(markupCommitted.value) || 0 : 0;
     const sellPrice = cost * (1 + markup / 100);
     const unitPrice = sellPrice.toFixed(2);
     updateLine(idx, {
@@ -247,8 +316,13 @@ export function LineItemEditor({
 
   return (
     <div className="hub-line-editor">
-      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+      <div className={`flex mb-2 gap-2 ${readOnly ? 'flex-col items-start' : 'items-center justify-between flex-wrap'}`}>
         <label className="text-xs font-medium text-[#4A5568]">Line Items</label>
+        {readOnly ? (
+          <span className="text-xs text-[#6B7280] max-w-full whitespace-normal">
+            {lockCopy}
+          </span>
+        ) : (
         <div className="flex gap-2 flex-wrap">
           <button
             type="button"
@@ -272,6 +346,7 @@ export function LineItemEditor({
             <Plus size={13} /> Add manual line
           </button>
         </div>
+        )}
       </div>
 
       {picker === 'stock' && (
@@ -371,9 +446,13 @@ export function LineItemEditor({
         </div>
 
         {lines.map((li, idx) => {
-          const qty = parseFloat(li.quantity) || 0;
-          const price = parseFloat(li.unit_price) || 0;
-          const lineTotal = qty * price;
+          const committed = commitDocumentLine(li);
+          const lineTotal = committed.ok
+            ? lineExGstAmount({ quantity: committed.quantity, unit_price: committed.unit_price })
+            : null;
+          const priceHint = readOnly ? null : moneyFieldMessage(li.unit_price, null, { allowNegative: true });
+          const costHint = readOnly ? null : moneyFieldMessage(li.unit_cost ?? '', null, { allowNegative: true });
+          const qtyHint = numberFieldMessage(li.quantity);
           const fromStock = !!li.stock_item_id;
           const fromBook = !!li.price_book_item_id;
           const fromModel = !!li.cost_model_id;
@@ -389,6 +468,7 @@ export function LineItemEditor({
                 <select
                   value={li.cost_model_id ?? ''}
                   onChange={e => applyCostModel(idx, e.target.value)}
+                  disabled={readOnly}
                   className="form-input-sm w-full cursor-pointer"
                   title={costModels.length === 0 ? 'Create cost models under Expenses' : 'Labour cost code ($/hr)'}
                 >
@@ -416,12 +496,16 @@ export function LineItemEditor({
                 <div className="hub-line-editor-desc-row col-span-1 sm:col-span-2 lg:col-span-1">
                   {fromStock && <Package size={10} className="text-[#2E75B6] shrink-0" aria-label="From stock" />}
                   {fromBook && <BookOpen size={10} className="text-[#2E75B6] shrink-0" aria-label="From price book" />}
-                  <input
-                    value={li.description}
-                    onChange={e => updateLine(idx, { description: e.target.value })}
-                    className="form-input-sm min-w-0"
-                    placeholder="Description"
-                  />
+                  {readOnly ? (
+                    <p className="form-input-sm min-w-0 h-auto whitespace-pre-wrap break-words overflow-visible" aria-label="Description">
+                      {li.description}
+                    </p>
+                  ) : (
+                    <LineDescriptionInput
+                      value={li.description}
+                      onChange={next => updateLine(idx, { description: next })}
+                    />
+                  )}
                 </div>
                 {li.check_price ? (
                   <span className="hub-quote-check-price">{QUICK_QUOTE_CHECK_PRICE}</span>
@@ -440,13 +524,17 @@ export function LineItemEditor({
                   inputMode="decimal"
                   value={li.quantity}
                   onChange={e => {
+                    if (readOnly) return;
                     const raw = e.target.value;
-                    if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
+                    if (!numberDraftAllowed(raw)) return;
                     updateLine(idx, { quantity: raw });
                   }}
+                  readOnly={readOnly}
+                  disabled={readOnly}
                   className="form-input-sm text-right min-w-0"
                   aria-label="Quantity"
                 />
+                {qtyHint ? <p className="text-xs text-[#B42318] mt-1">{qtyHint}</p> : null}
               </div>
               <div className="hub-line-editor-ucost min-w-0">
                 <span className="hub-line-editor-lab">Unit cost</span>
@@ -455,14 +543,18 @@ export function LineItemEditor({
                   inputMode="decimal"
                   value={li.unit_cost ?? ''}
                   onChange={e => {
+                    if (readOnly) return;
                     const raw = e.target.value;
-                    if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
+                    if (!moneyDraftAllowed(raw, { allowNegative: true })) return;
                     handleCostChange(idx, raw);
                   }}
+                  readOnly={readOnly}
+                  disabled={readOnly}
                   className="form-input-sm text-right min-w-0"
                   placeholder="0.00"
                   aria-label="Unit cost"
                 />
+                {costHint ? <p className="text-xs text-[#B42318] mt-1">{costHint}</p> : null}
               </div>
               <div className="hub-line-editor-markup min-w-0">
                 <span className="hub-line-editor-lab">Markup %</span>
@@ -471,10 +563,13 @@ export function LineItemEditor({
                   inputMode="decimal"
                   value={li.markup_percent ?? ''}
                   onChange={e => {
+                    if (readOnly) return;
                     const raw = e.target.value;
-                    if (raw !== '' && !/^-?\d*\.?\d*$/.test(raw)) return;
+                    if (raw !== '' && !numberDraftAllowed(raw)) return;
                     handleMarkupChange(idx, raw);
                   }}
+                  readOnly={readOnly}
+                  disabled={readOnly}
                   className="form-input-sm text-right min-w-0"
                   placeholder="0"
                   aria-label="Markup percent"
@@ -487,25 +582,30 @@ export function LineItemEditor({
                   inputMode="decimal"
                   value={li.unit_price}
                   onChange={e => {
+                    if (readOnly) return;
                     const raw = e.target.value;
-                    if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
+                    if (!moneyDraftAllowed(raw, { allowNegative: true })) return;
                     updateLine(idx, {
                       unit_price: raw,
                       check_price: checkPriceAfterUnitPrice(raw, li.check_price),
                     });
                   }}
+                  readOnly={readOnly}
+                  disabled={readOnly}
                   className="form-input-sm text-right font-medium min-w-0"
                   placeholder="0.00"
                   aria-label="Unit price"
                 />
+                {priceHint ? <p className="text-xs text-[#B42318] mt-1">{priceHint}</p> : null}
               </div>
               <div className="hub-line-editor-total text-sm text-right font-medium text-[#1A1A1A]">
                 <span className="hub-line-editor-lab">Line total</span>
-                <span>{formatMoney(lineTotal)}</span>
+                <span aria-label="Line total">{lineTotal == null ? '—' : formatMoney(lineTotal)}</span>
               </div>
               <button
                 type="button"
                 onClick={() => removeLine(idx)}
+                disabled={readOnly}
                 aria-label="Remove line"
                 className="hub-line-editor-del w-7 h-7 flex items-center justify-center rounded text-[#9CA3AF] hover:text-red-600 hover:bg-red-50"
               >
@@ -530,7 +630,7 @@ export function LineItemEditor({
           {lines.filter(l => !l.stock_item_id && !l.price_book_item_id && !l.cost_model_id).length} manual
         </span>
         <span>
-          Subtotal {formatMoney(lines.reduce((s, li) => s + (parseFloat(li.quantity) || 0) * (parseFloat(li.unit_price) || 0), 0))}
+          Subtotal {formatMoney(calcSubtotal(lines))}
         </span>
       </div>
     </div>
@@ -538,5 +638,11 @@ export function LineItemEditor({
 }
 
 export function calcSubtotal(lines: EditLineItem[]): number {
-  return lines.reduce((s, li) => s + (parseFloat(li.quantity) || 0) * (parseFloat(li.unit_price) || 0), 0);
+  const committed = [];
+  for (const li of lines) {
+    const row = commitDocumentLine(li);
+    if (!row.ok) continue;
+    committed.push({ quantity: row.quantity, unit_price: row.unit_price });
+  }
+  return calcLineDocumentTotals(committed, 0).subtotal;
 }

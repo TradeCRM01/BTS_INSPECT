@@ -1,4 +1,5 @@
 import { DEFAULT_TAX_RATE, gstLabel, moneyRound } from './gst';
+import { parseMoneyCommitted } from './parseDecimal';
 import type { PriceBookItem } from '../types/fsm';
 
 export const PRICE_BOOK_IMPORT_FIELDS = ['code', 'name', 'unit', 'cost', 'sell', 'gst'] as const;
@@ -155,11 +156,9 @@ function cellAt(row: string[], index: number | undefined): string {
 export function parseMoneyCell(raw: string): { ok: true; value: number } | { ok: false } {
   const text = raw.trim();
   if (!text) return { ok: true, value: Number.NaN };
-  const cleaned = text.replace(/[$,\s]/g, '');
-  if (!/^-?\d+(\.\d+)?$/.test(cleaned)) return { ok: false };
-  const value = Number(cleaned);
-  if (!Number.isFinite(value)) return { ok: false };
-  return { ok: true, value: moneyRound(value) };
+  const parsed = parseMoneyCommitted(text);
+  if (!parsed.ok) return { ok: false };
+  return { ok: true, value: moneyRound(parsed.value) };
 }
 
 export function parseGstCell(raw: string): { ok: true; value: number } | { ok: false } {

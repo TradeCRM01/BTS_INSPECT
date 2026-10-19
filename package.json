@@ -35,6 +35,9 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
     "@types/jszip": "^3.4.0",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
