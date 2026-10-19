@@ -60,6 +60,7 @@ async function bundleHarness(): Promise<string> {
         query.then = (onFulfilled) => Promise.resolve({ data: [], error: null }).then(onFulfilled);
         return query;
       },
+      rpc() { return Promise.resolve({ data: [], error: null }); },
     };
   `);
   const authStubPath = join(outDir, 'auth-stub.js');
@@ -120,6 +121,10 @@ async function bundleHarness(): Promise<string> {
     white-space: pre-wrap;
     overflow-wrap: break-word;
   }
+  .overflow-hidden { overflow: hidden; }
+  .resize-none { resize: none; }
+  .whitespace-pre-wrap { white-space: pre-wrap; }
+  .break-words { overflow-wrap: break-word; }
 </style>
 </head>
 <body>
@@ -212,5 +217,82 @@ describe('LineItemEditor Description grows in a real browser', () => {
     }
     if (pageErrors.length) throw new Error(pageErrors.join('\n'));
     expect(rows).toHaveLength(8);
+  }, 60_000);
+
+  it('fits quote and invoice Description after a width change with no keystroke', async () => {
+    const outDir = await bundleHarness();
+    const server = await serveDir(outDir);
+    const browser = await launchBrowser();
+    const page = await browser.newPage();
+    const frames: Array<{ kind: string; from: number; to: number; sh: number; ch: number; overflowY: string }> = [];
+    try {
+      for (const kind of ['quote', 'invoice'] as const) {
+        const mount = kind === 'quote' ? 'mountQuoteEditor' : 'mountInvoiceEditor';
+        const editName = kind === 'quote' ? /Edit quote/i : /Edit invoice/i;
+        for (const [from, to] of [[1280, 375], [1024, 390], [375, 1280]] as const) {
+          await page.setViewportSize({ width: from, height: 900 });
+          await page.goto(server.url, { waitUntil: 'load' });
+          await page.waitForFunction(`typeof window.${mount} === "function"`);
+          await page.evaluate(`window.${mount}(${JSON.stringify(LONG)})`);
+          await page.waitForFunction(`[...document.querySelectorAll('button')].some(b => ${editName}.test(b.textContent || ''))`);
+          await page.evaluate(`([...document.querySelectorAll('button')].find(b => ${editName}.test(b.textContent || ''))).click()`);
+          await page.waitForSelector('textarea[aria-label="Description"]');
+          await page.waitForTimeout(80);
+          await page.setViewportSize({ width: to, height: 900 });
+          await page.waitForTimeout(80);
+          const metrics = await page.evaluate(`(() => {
+            const el = document.querySelector('textarea[aria-label="Description"]');
+            if (!el) throw new Error('missing Description');
+            const cs = getComputedStyle(el);
+            return { sh: el.scrollHeight, ch: el.clientHeight, overflowY: cs.overflowY };
+          })()`) as { sh: number; ch: number; overflowY: string };
+          frames.push({ kind, from, to, ...metrics });
+          expect(metrics.overflowY, `${kind} ${from}->${to} overflow`).toBe('hidden');
+          if (from > to) {
+            expect(metrics.sh, `${kind} ${from}->${to} sh ${metrics.sh} ch ${metrics.ch}`).toBeLessThanOrEqual(metrics.ch);
+          } else {
+            expect(Math.abs(metrics.sh - metrics.ch), `${kind} ${from}->${to} shrink sh ${metrics.sh} ch ${metrics.ch}`).toBeLessThanOrEqual(2);
+          }
+        }
+      }
+    } finally {
+      await browser.close();
+      await server.close();
+    }
+    expect(frames).toHaveLength(6);
+  }, 90_000);
+
+  it('grows quote and invoice Description on a keystroke at 375', async () => {
+    const outDir = await bundleHarness();
+    const server = await serveDir(outDir);
+    const browser = await launchBrowser();
+    const page = await browser.newPage();
+    try {
+      for (const kind of ['quote', 'invoice'] as const) {
+        const mount = kind === 'quote' ? 'mountQuoteEditor' : 'mountInvoiceEditor';
+        const editName = kind === 'quote' ? /Edit quote/i : /Edit invoice/i;
+        await page.setViewportSize({ width: 375, height: 900 });
+        await page.goto(server.url, { waitUntil: 'load' });
+        await page.waitForFunction(`typeof window.${mount} === "function"`);
+        await page.evaluate(`window.${mount}("Hi")`);
+        await page.waitForFunction(`[...document.querySelectorAll('button')].some(b => ${editName}.test(b.textContent || ''))`);
+        await page.evaluate(`([...document.querySelectorAll('button')].find(b => ${editName}.test(b.textContent || ''))).click()`);
+        const field = page.locator('textarea[aria-label="Description"]');
+        await field.waitFor();
+        await field.fill(LONG);
+        await page.waitForTimeout(80);
+        const metrics = await page.evaluate(`(() => {
+          const el = document.querySelector('textarea[aria-label="Description"]');
+          if (!el) throw new Error('missing Description');
+          return { sh: el.scrollHeight, ch: el.clientHeight, overflowY: getComputedStyle(el).overflowY };
+        })()`) as { sh: number; ch: number; overflowY: string };
+        expect(metrics.overflowY, `${kind} keystroke overflow`).toBe('hidden');
+        expect(metrics.sh, `${kind} keystroke sh ${metrics.sh} ch ${metrics.ch}`).toBeLessThanOrEqual(metrics.ch);
+        expect(metrics.sh).toBeGreaterThan(44);
+      }
+    } finally {
+      await browser.close();
+      await server.close();
+    }
   }, 60_000);
 });
