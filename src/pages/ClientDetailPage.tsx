@@ -17,6 +17,7 @@ import {
 import type { QuoteStatus } from '../types/fsm';
 import { Plus, FileText, ShieldCheck, Receipt, ClipboardList, Mail, Phone, CreditCard as Edit3 } from 'lucide-react';
 import { getAuditClient, getAuditClientInvoices, getAuditClientQuotes, getAuditEmptyList, getAuditJobs } from '../lib/devFieldAuditDocs';
+import { FIELD_AU_PHONE, FIELD_EMAIL, optionalBlank, isAuPhone, isEmail } from '../lib/fieldValidation';
 import {
   jobClientEmailRow,
   jobClientEmailSaveToast,
@@ -144,6 +145,8 @@ export function ClientDetailPage() {
   const [showEdit, setShowEdit] = useState(false);
   const [clientEmailDraft, setClientEmailDraft] = useState('');
   const [clientPhoneDraft, setClientPhoneDraft] = useState('');
+  const [clientEmailError, setClientEmailError] = useState('');
+  const [clientPhoneError, setClientPhoneError] = useState('');
 
   const { data: client, isLoading, error } = useQuery<Client>({
     queryKey: ['client', id],
@@ -393,32 +396,45 @@ export function ClientDetailPage() {
                   </a>
                 )}
                 {phoneRow.kind === 'edit' && (
-                  <form
-                    className="job-client-phone"
-                    onSubmit={e => {
-                      e.preventDefault();
-                      saveClientPhone.mutate();
-                    }}
-                  >
-                    <Phone size={13} />
-                    <input
-                      type="tel"
-                      value={clientPhoneDraft}
-                      onChange={e => setClientPhoneDraft(e.target.value)}
-                      placeholder="Phone"
-                      className="form-input-sm"
-                      aria-label="Client phone"
-                      autoComplete="tel"
-                      inputMode="tel"
-                    />
-                    <button
-                      type="submit"
-                      className="job-client-phone-save"
-                      disabled={saveClientPhone.isPending}
+                  <>
+                    <form
+                      className="job-client-phone"
+                      onSubmit={e => {
+                        e.preventDefault();
+                        if (!optionalBlank(clientPhoneDraft, isAuPhone)) {
+                          setClientPhoneError(FIELD_AU_PHONE);
+                          return;
+                        }
+                        setClientPhoneError('');
+                        saveClientPhone.mutate();
+                      }}
                     >
-                      Save
-                    </button>
-                  </form>
+                      <Phone size={13} />
+                      <input
+                        type="tel"
+                        value={clientPhoneDraft}
+                        onChange={e => {
+                          setClientPhoneDraft(e.target.value);
+                          setClientPhoneError('');
+                        }}
+                        placeholder="Phone"
+                        className={clientPhoneError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
+                        aria-label="Client phone"
+                        autoComplete="tel"
+                        inputMode="tel"
+                        aria-invalid={clientPhoneError ? true : undefined}
+                        aria-describedby={clientPhoneError ? 'client-card-phone-error' : undefined}
+                      />
+                      <button
+                        type="submit"
+                        className="job-client-phone-save"
+                        disabled={saveClientPhone.isPending}
+                      >
+                        Save
+                      </button>
+                    </form>
+                    {clientPhoneError ? <p id="client-card-phone-error" className="field-inline-error text-fail">{clientPhoneError}</p> : null}
+                  </>
                 )}
                 {emailRow.kind === 'edit' && (
                   <p className="client-sheet-miss">{CLIENT_SHEET_NO_EMAIL}</p>
@@ -429,31 +445,45 @@ export function ClientDetailPage() {
                   </a>
                 )}
                 {emailRow.kind === 'edit' && (
-                  <form
-                    className="job-client-email"
-                    onSubmit={e => {
-                      e.preventDefault();
-                      saveClientEmail.mutate();
-                    }}
-                  >
-                    <Mail size={13} />
-                    <input
-                      type="email"
-                      value={clientEmailDraft}
-                      onChange={e => setClientEmailDraft(e.target.value)}
-                      placeholder="Email"
-                      className="form-input-sm"
-                      aria-label="Client email"
-                      autoComplete="email"
-                    />
-                    <button
-                      type="submit"
-                      className="job-client-email-save"
-                      disabled={saveClientEmail.isPending}
+                  <>
+                    <form
+                      className="job-client-email"
+                      onSubmit={e => {
+                        e.preventDefault();
+                        if (!optionalBlank(clientEmailDraft, isEmail)) {
+                          setClientEmailError(FIELD_EMAIL);
+                          return;
+                        }
+                        setClientEmailError('');
+                        saveClientEmail.mutate();
+                      }}
                     >
-                      Save
-                    </button>
-                  </form>
+                      <Mail size={13} />
+                      <input
+                        type="text"
+                        inputMode="email"
+                        value={clientEmailDraft}
+                        onChange={e => {
+                          setClientEmailDraft(e.target.value);
+                          setClientEmailError('');
+                        }}
+                        placeholder="Email"
+                        className={clientEmailError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
+                        aria-label="Client email"
+                        autoComplete="email"
+                        aria-invalid={clientEmailError ? true : undefined}
+                        aria-describedby={clientEmailError ? 'client-card-email-error' : undefined}
+                      />
+                      <button
+                        type="submit"
+                        className="job-client-email-save"
+                        disabled={saveClientEmail.isPending}
+                      >
+                        Save
+                      </button>
+                    </form>
+                    {clientEmailError ? <p id="client-card-email-error" className="field-inline-error text-fail">{clientEmailError}</p> : null}
+                  </>
                 )}
               </div>
               <EnquiryConversation messages={conversationMessages} timeZone={tenantTimeZone} />

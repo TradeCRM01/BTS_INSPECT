@@ -12,6 +12,9 @@ import type { MenuEntry } from '../components/ui';
 import type { Client, ClientWithStats } from '../types/crm';
 import { Plus, Users, X, Trash2, CreditCard as Edit3, Archive, ArchiveRestore, Briefcase, FileText, Receipt, MoreHorizontal } from 'lucide-react';
 import {
+  clientFormFieldErrors,
+} from '../lib/fieldValidation';
+import {
   AU_ADDRESS_PLACEHOLDER,
   AU_EMAIL_PLACEHOLDER,
   AU_PHONE_PLACEHOLDER,
@@ -599,9 +602,15 @@ export function ClientForm({ client, onClose, onSaved, openedFromJob = false, pr
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<ReturnType<typeof clientFormFieldErrors>>({});
 
   const persistClient = async (): Promise<string | null> => {
-    if (!form.name.trim()) { setErr('Name is required'); return null; }
+    const nextErrors = clientFormFieldErrors(form);
+    setFieldErrors(nextErrors);
+    if (nextErrors.name || nextErrors.phone || nextErrors.email) {
+      setErr('');
+      return null;
+    }
     if (!profile?.company_id) return null;
     setSaving(true);
     setErr('');
@@ -657,21 +666,24 @@ export function ClientForm({ client, onClose, onSaved, openedFromJob = false, pr
 
         <form onSubmit={handleSubmit} className="overlay-body">
           <div className="overlay-form-grid">
-            <Field label="Client / Business Name" required>
-              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                className="form-input" placeholder="e.g. Acme Electrical" autoFocus />
+            <Field label="Client / Business Name" htmlFor="client-form-name" required error={fieldErrors.name}>
+              <input id="client-form-name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                className={fieldErrors.name ? 'form-input field-inline-invalid' : 'form-input'} placeholder="e.g. Acme Electrical" autoFocus
+                aria-invalid={fieldErrors.name ? true : undefined} aria-describedby={fieldErrors.name ? 'client-form-name-error' : undefined} />
             </Field>
             <Field label="Contact Person">
               <input value={form.contact_person} onChange={e => setForm(f => ({ ...f, contact_person: e.target.value }))}
                 className="form-input" placeholder="e.g. Alex Nguyen" />
             </Field>
-            <Field label="Phone">
-              <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                className="form-input" placeholder={AU_PHONE_PLACEHOLDER} inputMode="tel" autoComplete="tel" />
+            <Field label="Phone" htmlFor="client-form-phone" error={fieldErrors.phone}>
+              <input id="client-form-phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                className={fieldErrors.phone ? 'form-input field-inline-invalid' : 'form-input'} placeholder={AU_PHONE_PLACEHOLDER} inputMode="tel" autoComplete="tel"
+                aria-invalid={fieldErrors.phone ? true : undefined} aria-describedby={fieldErrors.phone ? 'client-form-phone-error' : undefined} />
             </Field>
-            <Field label="Email">
-              <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                className="form-input" placeholder={AU_EMAIL_PLACEHOLDER} autoComplete="email" />
+            <Field label="Email" htmlFor="client-form-email" error={fieldErrors.email}>
+              <input id="client-form-email" type="text" inputMode="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                className={fieldErrors.email ? 'form-input field-inline-invalid' : 'form-input'} placeholder={AU_EMAIL_PLACEHOLDER} autoComplete="email"
+                aria-invalid={fieldErrors.email ? true : undefined} aria-describedby={fieldErrors.email ? 'client-form-email-error' : undefined} />
             </Field>
             <div className="overlay-form-span-2">
               <Field label="Address">
@@ -707,13 +719,20 @@ export function ClientForm({ client, onClose, onSaved, openedFromJob = false, pr
   );
 }
 
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+function Field({ label, required, htmlFor, error, children }: {
+  label: string;
+  required?: boolean;
+  htmlFor?: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div>
-      <label className="ops-field-label">
+      <label className="ops-field-label" htmlFor={htmlFor}>
         {label}{required && <span className="text-fail"> *</span>}
       </label>
       {children}
+      {error ? <p id={htmlFor ? `${htmlFor}-error` : undefined} className="field-inline-error text-fail">{error}</p> : null}
     </div>
   );
 }

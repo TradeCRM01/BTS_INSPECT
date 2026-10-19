@@ -1770,6 +1770,19 @@
     @apply bg-white border border-fail text-fail rounded-md px-4 py-3 text-sm;
   }
 
+  .field-inline-error {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.3;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .field-inline-invalid {
+    border-color: var(--ops-fail, #B42318);
+  }
+
   .ops-choice {
     @apply flex-1 min-h-[44px] rounded-md text-sm font-semibold border border-rule text-muted;
   }

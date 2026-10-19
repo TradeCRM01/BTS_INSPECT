@@ -39,6 +39,15 @@ import {
   type JobPackTradeKey,
 } from '../lib/jobPack';
 import {
+  companyDetailsFieldErrors,
+  isAbn,
+  parseNonNegativeNumber,
+  parsePercent,
+  paymentMethodFieldErrors,
+  smtpFieldErrors,
+  type FieldErrors,
+} from '../lib/fieldValidation';
+import {
   blankCompanyPaymentMethod,
   COMPANY_PAYMENT_KIND_LABEL,
   companyHasInvoicePaymentMethod,
@@ -669,6 +678,9 @@ export function CompanySettingsPage() {
   const [savingPay, setSavingPay] = useState(false);
   const [savedPay, setSavedPay] = useState(false);
   const [payError, setPayError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [payFieldErrors, setPayFieldErrors] = useState<Record<string, FieldErrors>>({});
+  const [smtpErrors, setSmtpErrors] = useState<FieldErrors>({});
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
 
@@ -800,6 +812,10 @@ export function CompanySettingsPage() {
 
   async function loadEmailSettings() {
     if (!company) return;
+    if (isDevFieldAuditAuth()) {
+      setLoadingEmail(false);
+      return;
+    }
     setLoadingEmail(true);
     const { data } = await supabase
       .from('email_settings')
@@ -1020,11 +1036,14 @@ export function CompanySettingsPage() {
   async function handleSaveEmailSettings(e: React.FormEvent) {
     e.preventDefault();
     if (!company) return;
+    const nextSmtp = smtpFieldErrors(emailSettings);
+    setSmtpErrors(nextSmtp);
+    if (nextSmtp.from_email || nextSmtp.smtp_port) return;
     setSavingEmail(true);
     setEmailError('');
     setTestResult(null);
 
-    const payload = { ...emailSettings, smtp_port: parseInt(emailSettings.smtp_port, 10) || 587, company_id: company.id };
+    const payload = { ...emailSettings, smtp_port: Number(emailSettings.smtp_port), company_id: company.id };
     const { error } = await supabase
       .from('email_settings')
       .upsert(payload, { onConflict: 'company_id' });
@@ -1109,20 +1128,33 @@ export function CompanySettingsPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!company) return;
+    const nextErrors = companyDetailsFieldErrors({
+      abn,
+      phone,
+      email,
+      taxRate,
+      materialMarkup,
+      labourRate: defaultLabourRate,
+    });
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length) return;
     setSaving(true);
     setError('');
-    const labourRatePayload = defaultLabourRate.trim() === ''
-      ? null
-      : Number(defaultLabourRate);
+    const tax = parsePercent(taxRate);
+    const markup = parsePercent(materialMarkup);
+    const labour = defaultLabourRate.trim() === ''
+      ? { ok: true as const, value: null as number | null }
+      : parseNonNegativeNumber(defaultLabourRate);
+    const labourRatePayload = labour.ok ? labour.value : null;
     const baseUpdate = {
       name,
-      abn,
+      abn: abn.trim(),
       licence_number: licenceNumber,
       phone,
       email,
       website,
-      default_tax_rate: Number(taxRate),
-      default_material_markup: Number(materialMarkup) || 0,
+      default_tax_rate: tax.ok ? tax.value : 10,
+      default_material_markup: markup.ok ? markup.value : 0,
       default_labour_rate: labourRatePayload,
       // Before migration 080 the column is missing; only send it once an admin has touched the chips.
       ...(tradesTouched || Array.isArray(company.trades) ? { trades } : {}),
@@ -1233,6 +1265,13 @@ export function CompanySettingsPage() {
   async function handleSavePaymentMethods(e: React.FormEvent) {
     e.preventDefault();
     if (!company) return;
+    const nextPay: Record<string, FieldErrors> = {};
+    for (const method of paymentMethods) {
+      const rowErrors = paymentMethodFieldErrors(method);
+      if (Object.keys(rowErrors).length) nextPay[method.id] = rowErrors;
+    }
+    setPayFieldErrors(nextPay);
+    if (Object.keys(nextPay).length) return;
     setSavingPay(true);
     setPayError('');
     const { error } = await supabase
@@ -1267,7 +1306,7 @@ export function CompanySettingsPage() {
   const inputClass = 'hub-company-input';
   const sheetName = company?.name || 'Company';
   const hasInvoicePaymentMethod = companyHasInvoicePaymentMethod(paymentMethods);
-  const invoiceIdentityMissing = !abn.trim();
+  const invoiceIdentityMissing = !isAbn(abn);
   const invoicePaymentMissing = !hasInvoicePaymentMethod;
 
   return (
@@ -1367,15 +1406,17 @@ export function CompanySettingsPage() {
           <div className="hub-company-field" style={{ maxWidth: 160 }}>
             <div className="flex items-center gap-2">
               <input
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 value={taxRate}
                 onChange={e => setTaxRate(e.target.value)}
-                className={inputClass}
+                className={fieldErrors.taxRate ? inputClass + ' field-inline-invalid' : inputClass}
+                aria-invalid={fieldErrors.taxRate ? true : undefined}
+                aria-describedby={fieldErrors.taxRate ? 'company-tax-error' : undefined}
               />
               <span className="hub-company-row-meta">%</span>
             </div>
+            {fieldErrors.taxRate ? <p id="company-tax-error" className="field-inline-error hub-company-fail">{fieldErrors.taxRate}</p> : null}
           </div>
         </div>
         <div className="hub-company-row">
@@ -1383,15 +1424,17 @@ export function CompanySettingsPage() {
           <div className="hub-company-field" style={{ maxWidth: 240 }}>
             <div className="flex items-center gap-2">
               <input
-                type="number"
-                step="0.1"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 value={materialMarkup}
                 onChange={e => setMaterialMarkup(e.target.value)}
-                className={inputClass}
+                className={fieldErrors.materialMarkup ? inputClass + ' field-inline-invalid' : inputClass}
+                aria-invalid={fieldErrors.materialMarkup ? true : undefined}
+                aria-describedby={fieldErrors.materialMarkup ? 'company-markup-error' : undefined}
               />
               <span className="hub-company-row-meta">%</span>
             </div>
+            {fieldErrors.materialMarkup ? <p id="company-markup-error" className="field-inline-error hub-company-fail">{fieldErrors.materialMarkup}</p> : null}
             <p className="hub-company-row-meta">Applied to stock cost when adding materials to quotes/invoices.</p>
           </div>
         </div>
@@ -1862,12 +1905,17 @@ export function CompanySettingsPage() {
                   <label className="hub-company-row-label">From Email</label>
                   <div className="hub-company-field">
                     <input
-                      type="email"
+                      type="text"
+                      inputMode="email"
+                      autoComplete="email"
                       value={emailSettings.from_email}
                       onChange={e => setEmailSettings(s => ({ ...s, from_email: e.target.value }))}
                       placeholder="noreply@yourcompany.com"
-                      className={inputClass}
+                      className={smtpErrors.from_email ? inputClass + ' field-inline-invalid' : inputClass}
+                      aria-invalid={smtpErrors.from_email ? true : undefined}
+                      aria-describedby={smtpErrors.from_email ? 'smtp-from-error' : undefined}
                     />
+                    {smtpErrors.from_email ? <p id="smtp-from-error" className="field-inline-error hub-company-fail">{smtpErrors.from_email}</p> : null}
                   </div>
                 </div>
                 <p className="hub-company-kicker">SMTP Server</p>
@@ -1887,12 +1935,16 @@ export function CompanySettingsPage() {
                     <label className="hub-company-row-label">Port</label>
                     <div className="hub-company-field">
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         value={emailSettings.smtp_port}
                         onChange={e => setEmailSettings(s => ({ ...s, smtp_port: e.target.value }))}
-                        className={inputClass}
+                        className={smtpErrors.smtp_port ? inputClass + ' field-inline-invalid' : inputClass}
                         placeholder="587"
+                        aria-invalid={smtpErrors.smtp_port ? true : undefined}
+                        aria-describedby={smtpErrors.smtp_port ? 'smtp-port-error' : undefined}
                       />
+                      {smtpErrors.smtp_port ? <p id="smtp-port-error" className="field-inline-error hub-company-fail">{smtpErrors.smtp_port}</p> : null}
                     </div>
                   </div>
                 </div>
@@ -1923,6 +1975,7 @@ export function CompanySettingsPage() {
                       type="button"
                       onClick={() => setShowPass(v => !v)}
                       className="hub-company-eye"
+                      aria-label={showPass ? 'Hide SMTP password' : 'Show SMTP password'}
                     >
                       {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
@@ -2035,7 +2088,9 @@ export function CompanySettingsPage() {
             <label className="hub-company-row-label">ABN</label>
             <div className="hub-company-field">
               <input value={abn} onChange={e => setAbn(e.target.value)}
-                id="company-abn" className={inputClass + ' font-mono'} placeholder="00 000 000 000" />
+                id="company-abn" className={inputClass + ' font-mono' + (fieldErrors.abn ? ' field-inline-invalid' : '')} placeholder="00 000 000 000"
+                aria-invalid={fieldErrors.abn ? true : undefined} aria-describedby={fieldErrors.abn ? 'company-abn-error' : undefined} />
+              {fieldErrors.abn ? <p id="company-abn-error" className="field-inline-error hub-company-fail">{fieldErrors.abn}</p> : null}
             </div>
           </div>
           <div className="hub-company-row">
@@ -2075,14 +2130,18 @@ export function CompanySettingsPage() {
             <label className="hub-company-row-label">Phone</label>
             <div className="hub-company-field">
               <input value={phone} onChange={e => setPhone(e.target.value)}
-                className={inputClass} placeholder="0400 000 000" />
+                className={fieldErrors.phone ? inputClass + ' field-inline-invalid' : inputClass} placeholder="0400 000 000"
+                aria-invalid={fieldErrors.phone ? true : undefined} aria-describedby={fieldErrors.phone ? 'company-phone-error' : undefined} />
+              {fieldErrors.phone ? <p id="company-phone-error" className="field-inline-error hub-company-fail">{fieldErrors.phone}</p> : null}
             </div>
           </div>
           <div className="hub-company-row">
             <label className="hub-company-row-label">Email</label>
             <div className="hub-company-field">
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                className={inputClass} placeholder="info@company.com.au" />
+              <input type="text" inputMode="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)}
+                className={fieldErrors.email ? inputClass + ' field-inline-invalid' : inputClass} placeholder="info@company.com.au"
+                aria-invalid={fieldErrors.email ? true : undefined} aria-describedby={fieldErrors.email ? 'company-email-error' : undefined} />
+              {fieldErrors.email ? <p id="company-email-error" className="field-inline-error hub-company-fail">{fieldErrors.email}</p> : null}
             </div>
           </div>
           <div className="hub-company-row">
@@ -2110,17 +2169,19 @@ export function CompanySettingsPage() {
             <div className="flex items-center gap-2">
               <span className="hub-company-row-meta">$</span>
               <input
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 value={defaultLabourRate}
                 onChange={e => setDefaultLabourRate(e.target.value)}
-                className={inputClass}
+                className={fieldErrors.labourRate ? inputClass + ' field-inline-invalid' : inputClass}
                 placeholder="e.g. 95"
                 aria-label="Default labour rate ex GST"
+                aria-invalid={fieldErrors.labourRate ? true : undefined}
+                aria-describedby={fieldErrors.labourRate ? 'company-labour-error' : undefined}
               />
               <span className="hub-company-row-meta">/h</span>
             </div>
+            {fieldErrors.labourRate ? <p id="company-labour-error" className="field-inline-error hub-company-fail">{fieldErrors.labourRate}</p> : null}
             <p className="hub-company-row-meta">Used when pulling logged hours to the job bill. Save company details above.</p>
           </div>
         </div>
@@ -2175,13 +2236,21 @@ export function CompanySettingsPage() {
                   <div className="hub-company-row">
                     <label className="hub-company-row-label">BSB</label>
                     <div className="hub-company-field">
-                      <input value={method.bsb} onChange={e => patchPaymentMethod(method.id, { bsb: e.target.value })} className={inputClass + ' font-mono'} />
+                      <input value={method.bsb} onChange={e => patchPaymentMethod(method.id, { bsb: e.target.value })} className={inputClass + ' font-mono' + (payFieldErrors[method.id]?.bsb ? ' field-inline-invalid' : '')}
+                        aria-label="BSB"
+                        aria-invalid={payFieldErrors[method.id]?.bsb ? true : undefined}
+                        aria-describedby={payFieldErrors[method.id]?.bsb ? `pay-bsb-error-${method.id}` : undefined} />
+                      {payFieldErrors[method.id]?.bsb ? <p id={`pay-bsb-error-${method.id}`} className="field-inline-error hub-company-fail">{payFieldErrors[method.id]?.bsb}</p> : null}
                     </div>
                   </div>
                   <div className="hub-company-row">
                     <label className="hub-company-row-label">Account number</label>
                     <div className="hub-company-field">
-                      <input value={method.account_number} onChange={e => patchPaymentMethod(method.id, { account_number: e.target.value })} className={inputClass + ' font-mono'} />
+                      <input value={method.account_number} onChange={e => patchPaymentMethod(method.id, { account_number: e.target.value })} className={inputClass + ' font-mono' + (payFieldErrors[method.id]?.account ? ' field-inline-invalid' : '')}
+                        aria-label="Account number"
+                        aria-invalid={payFieldErrors[method.id]?.account ? true : undefined}
+                        aria-describedby={payFieldErrors[method.id]?.account ? `pay-account-error-${method.id}` : undefined} />
+                      {payFieldErrors[method.id]?.account ? <p id={`pay-account-error-${method.id}`} className="field-inline-error hub-company-fail">{payFieldErrors[method.id]?.account}</p> : null}
                     </div>
                   </div>
                 </>
