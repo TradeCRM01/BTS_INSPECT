@@ -8,6 +8,29 @@ import { InvoiceEditorModal } from '../../pages/InvoicesPage';
 
 let root: Root | null = null;
 
+const LONG_COST_NAME = 'Replace damaged GPO double (HPM Excel) and run a new circuit back to the switchboard with labelled breakers and a written test sheet for the client.';
+
+const COST_MODEL = {
+  id: 'cm-long',
+  company_id: 'co-1',
+  name: LONG_COST_NAME,
+  notes: null,
+  billing_period: 'monthly',
+  time_unit: 'hourly',
+  standard_hours: 1,
+  lines: [{
+    employee_cost_type: 'wages',
+    category: 'Labour',
+    description: 'Wages',
+    amount: 80,
+    amount_mode: 'fixed',
+    time_unit: 'hourly',
+    tax_rate: 10,
+  }],
+  created_at: '2026-10-01T00:00:00.000Z',
+  updated_at: '2026-10-01T00:00:00.000Z',
+};
+
 function host(): HTMLElement {
   const el = document.getElementById('root');
   if (!el) throw new Error('missing #root');
@@ -19,6 +42,7 @@ function wrap(node: React.ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { enabled: false, retry: false } },
   });
+  client.setQueryData(['expense-cost-models'], [COST_MODEL]);
   return (
     <MemoryRouter>
       <QueryClientProvider client={client}>
@@ -28,12 +52,17 @@ function wrap(node: React.ReactNode) {
   );
 }
 
-export function mountLineEditor(mode: 'edit' | 'view', text: string): void {
+function asTexts(text: string | string[]): string[] {
+  return Array.isArray(text) ? text : [text];
+}
+
+export function mountLineEditor(mode: 'edit' | 'view', text: string | string[]): void {
   host();
+  const texts = asTexts(text);
   root?.render(
     wrap(
       <LineItemEditor
-        lines={[{ ...emptyLineItem(), description: text, quantity: '1', unit_price: '87.35' }]}
+        lines={texts.map(description => ({ ...emptyLineItem(), description, quantity: '1', unit_price: '87.35' }))}
         stockItems={[]}
         defaultMarkup={0}
         onChange={() => {}}
@@ -45,8 +74,9 @@ export function mountLineEditor(mode: 'edit' | 'view', text: string): void {
 
 const LONG_LINE = { description: '', quantity: 1.5, unit_price: 87.35 };
 
-export function mountQuoteEditor(text: string): void {
+export function mountQuoteEditor(text: string | string[]): void {
   host();
+  const texts = asTexts(text);
   root?.render(
     wrap(
       <QuoteEditorModal
@@ -59,7 +89,7 @@ export function mountQuoteEditor(text: string): void {
           status: 'draft',
           description: 'Switchboard',
           scope_of_works: '',
-          line_items: [{ ...LONG_LINE, description: text }],
+          line_items: texts.map(description => ({ ...LONG_LINE, description })),
           subtotal: 131.03,
           tax_rate: 10,
           tax_amount: 13.1,
@@ -84,8 +114,9 @@ export function mountQuoteEditor(text: string): void {
   );
 }
 
-export function mountInvoiceEditor(text: string): void {
+export function mountInvoiceEditor(text: string | string[]): void {
   host();
+  const texts = asTexts(text);
   root?.render(
     wrap(
       <InvoiceEditorModal
@@ -97,7 +128,7 @@ export function mountInvoiceEditor(text: string): void {
           job_id: null,
           quote_id: null,
           status: 'draft',
-          line_items: [{ ...LONG_LINE, description: text }],
+          line_items: texts.map(description => ({ ...LONG_LINE, description })),
           subtotal: 131.03,
           tax_rate: 10,
           tax_amount: 13.1,
@@ -122,11 +153,17 @@ export function mountInvoiceEditor(text: string): void {
   );
 }
 
+export function unmountEditor(): void {
+  root?.render(null);
+}
+
 const api = window as unknown as {
   mountLineEditor: typeof mountLineEditor;
   mountQuoteEditor: typeof mountQuoteEditor;
   mountInvoiceEditor: typeof mountInvoiceEditor;
+  unmountEditor: typeof unmountEditor;
 };
 api.mountLineEditor = mountLineEditor;
 api.mountQuoteEditor = mountQuoteEditor;
 api.mountInvoiceEditor = mountInvoiceEditor;
+api.unmountEditor = unmountEditor;

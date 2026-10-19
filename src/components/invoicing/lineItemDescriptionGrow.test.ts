@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 const THREE_LINE = 'Labour — fault find tripping RCD, 2 techs\nReplace damaged GPO double (HPM Excel)\nTest and tag on site';
 const LONG = 'Replace damaged GPO double (HPM Excel) and run a new circuit back to the switchboard with labelled breakers and a written test sheet for the client.';
+const LABOUR = 'Labour';
 
 const require = createRequire(import.meta.url);
 const here = dirname(fileURLToPath(import.meta.url));
@@ -19,10 +20,46 @@ type DescMetrics = {
   heightStyle: string;
 };
 
+type FieldMetrics = {
+  sh: number;
+  ch: number;
+  h: number;
+  natural: number;
+  overflowY: string;
+  value: string;
+};
+
+type RoStats = { constructors: number; disconnects: number; live: number };
+
+const FIELD_METRICS = `(() => {
+  const el = document.querySelector('textarea[aria-label="Description"]');
+  if (!el) throw new Error('missing Description');
+  const clone = el.cloneNode(true);
+  clone.style.height = 'auto';
+  clone.style.position = 'absolute';
+  clone.style.visibility = 'hidden';
+  clone.style.left = '-9999px';
+  clone.style.width = getComputedStyle(el).width;
+  el.parentNode.appendChild(clone);
+  const cs = getComputedStyle(clone);
+  const borderY = Number.parseFloat(cs.borderTopWidth) + Number.parseFloat(cs.borderBottomWidth);
+  const natural = clone.scrollHeight + (Number.isFinite(borderY) ? borderY : 0);
+  clone.remove();
+  return {
+    sh: el.scrollHeight,
+    ch: el.clientHeight,
+    h: Number.parseFloat(el.style.height) || el.getBoundingClientRect().height,
+    natural,
+    overflowY: getComputedStyle(el).overflowY,
+    value: el.value,
+  };
+})()`;
+
 async function launchBrowser() {
   const chromeCandidates = [
     process.env.CHROME_PATH,
     process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+    '/home/ubuntu/.cache/ms-playwright/chromium-1148/chrome-linux64/chrome',
     '/home/ubuntu/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome',
     '/usr/bin/google-chrome',
     '/usr/bin/chromium',
@@ -30,7 +67,7 @@ async function launchBrowser() {
   ].filter((path): path is string => !!path && existsSync(path));
   const executablePath = chromeCandidates[0];
   const errors: string[] = [];
-  for (const spec of ['playwright-core', 'playwright']) {
+  for (const spec of ['playwright', 'playwright-core']) {
     try {
       const mod = await import(spec);
       return await mod.chromium.launch({
@@ -75,7 +112,7 @@ async function bundleHarness(): Promise<string> {
     export function AuthProvider({ children }) { return children; }
   `);
   const outfile = join(outDir, 'harness.js');
-    await esbuild.build({
+  await esbuild.build({
     entryPoints: [resolve(here, 'lineItemDescriptionGrow.harness.tsx')],
     bundle: true,
     format: 'iife',
@@ -129,6 +166,36 @@ async function bundleHarness(): Promise<string> {
 </head>
 <body>
 <div id="root"></div>
+<script>
+(function () {
+  var Native = window.ResizeObserver;
+  var live = new Set();
+  var constructors = 0;
+  var disconnects = 0;
+  window.ResizeObserver = class extends Native {
+    constructor(cb) {
+      super(cb);
+      constructors += 1;
+      live.add(this);
+    }
+    disconnect() {
+      if (live.has(this)) {
+        disconnects += 1;
+        live.delete(this);
+      }
+      super.disconnect();
+    }
+  };
+  window.__roStats = function () {
+    return { constructors: constructors, disconnects: disconnects, live: live.size };
+  };
+  window.__roReset = function () {
+    constructors = 0;
+    disconnects = 0;
+    live.clear();
+  };
+})();
+</script>
 <script src="./harness.js"></script>
 </body>
 </html>`);
@@ -167,6 +234,31 @@ function serveDir(dir: string): Promise<{ url: string; close: () => Promise<void
       });
     });
   });
+}
+
+function editName(kind: 'quote' | 'invoice'): RegExp {
+  return kind === 'quote' ? /Edit quote/i : /Edit invoice/i;
+}
+
+function mountName(kind: 'quote' | 'invoice'): string {
+  return kind === 'quote' ? 'mountQuoteEditor' : 'mountInvoiceEditor';
+}
+
+async function openDoc(page: { evaluate: (s: string) => Promise<unknown>; waitForFunction: (s: string) => Promise<unknown>; waitForSelector: (s: string) => Promise<unknown>; waitForTimeout: (n: number) => Promise<void> }, kind: 'quote' | 'invoice', texts: string | string[]) {
+  const mount = mountName(kind);
+  const name = editName(kind);
+  await page.waitForFunction(`typeof window.${mount} === "function"`);
+  await page.evaluate(`window.${mount}(${JSON.stringify(texts)})`);
+  await page.waitForFunction(`[...document.querySelectorAll('button')].some(b => ${name}.test(b.textContent || ''))`);
+  await page.evaluate(`([...document.querySelectorAll('button')].find(b => ${name}.test(b.textContent || ''))).click()`);
+  await page.waitForSelector('textarea[aria-label="Description"]');
+  await page.waitForTimeout(80);
+}
+
+function assertFits(label: string, metrics: FieldMetrics) {
+  expect(metrics.overflowY, `${label} overflow`).toBe('hidden');
+  expect(metrics.sh, `${label} sh ${metrics.sh} ch ${metrics.ch}`).toBeLessThanOrEqual(metrics.ch);
+  expect(Math.abs(metrics.h - metrics.natural), `${label} h ${metrics.h} natural ${metrics.natural}`).toBeLessThanOrEqual(2);
 }
 
 describe('LineItemEditor Description grows in a real browser', () => {
@@ -224,34 +316,28 @@ describe('LineItemEditor Description grows in a real browser', () => {
     const server = await serveDir(outDir);
     const browser = await launchBrowser();
     const page = await browser.newPage();
-    const frames: Array<{ kind: string; from: number; to: number; sh: number; ch: number; overflowY: string }> = [];
+    const frames: Array<{ kind: string; from: number; to: number } & FieldMetrics> = [];
+    const fresh1280: Record<string, FieldMetrics> = {};
     try {
       for (const kind of ['quote', 'invoice'] as const) {
-        const mount = kind === 'quote' ? 'mountQuoteEditor' : 'mountInvoiceEditor';
-        const editName = kind === 'quote' ? /Edit quote/i : /Edit invoice/i;
-        for (const [from, to] of [[1280, 375], [1024, 390], [375, 1280]] as const) {
+        await page.setViewportSize({ width: 1280, height: 900 });
+        await page.goto(server.url, { waitUntil: 'load' });
+        await openDoc(page, kind, LONG);
+        fresh1280[kind] = await page.evaluate(FIELD_METRICS) as FieldMetrics;
+        for (const [from, to] of [[1280, 375], [1024, 390], [375, 1280], [390, 1024]] as const) {
           await page.setViewportSize({ width: from, height: 900 });
           await page.goto(server.url, { waitUntil: 'load' });
-          await page.waitForFunction(`typeof window.${mount} === "function"`);
-          await page.evaluate(`window.${mount}(${JSON.stringify(LONG)})`);
-          await page.waitForFunction(`[...document.querySelectorAll('button')].some(b => ${editName}.test(b.textContent || ''))`);
-          await page.evaluate(`([...document.querySelectorAll('button')].find(b => ${editName}.test(b.textContent || ''))).click()`);
-          await page.waitForSelector('textarea[aria-label="Description"]');
-          await page.waitForTimeout(80);
+          await openDoc(page, kind, LONG);
           await page.setViewportSize({ width: to, height: 900 });
           await page.waitForTimeout(80);
-          const metrics = await page.evaluate(`(() => {
-            const el = document.querySelector('textarea[aria-label="Description"]');
-            if (!el) throw new Error('missing Description');
-            const cs = getComputedStyle(el);
-            return { sh: el.scrollHeight, ch: el.clientHeight, overflowY: cs.overflowY };
-          })()`) as { sh: number; ch: number; overflowY: string };
+          const metrics = await page.evaluate(FIELD_METRICS) as FieldMetrics;
           frames.push({ kind, from, to, ...metrics });
-          expect(metrics.overflowY, `${kind} ${from}->${to} overflow`).toBe('hidden');
-          if (from > to) {
-            expect(metrics.sh, `${kind} ${from}->${to} sh ${metrics.sh} ch ${metrics.ch}`).toBeLessThanOrEqual(metrics.ch);
-          } else {
-            expect(Math.abs(metrics.sh - metrics.ch), `${kind} ${from}->${to} shrink sh ${metrics.sh} ch ${metrics.ch}`).toBeLessThanOrEqual(2);
+          assertFits(`${kind} ${from}->${to}`, metrics);
+          if (from < to) {
+            expect(
+              Math.abs(metrics.h - fresh1280[kind].h),
+              `${kind} ${from}->${to} h ${metrics.h} fresh1280 ${fresh1280[kind].h}`,
+            ).toBeLessThanOrEqual(2);
           }
         }
       }
@@ -259,8 +345,36 @@ describe('LineItemEditor Description grows in a real browser', () => {
       await browser.close();
       await server.close();
     }
-    expect(frames).toHaveLength(6);
-  }, 90_000);
+    expect(frames).toHaveLength(8);
+  }, 120_000);
+
+  it('fits quote and invoice Description after a no-keystroke width round trip', async () => {
+    const outDir = await bundleHarness();
+    const server = await serveDir(outDir);
+    const browser = await launchBrowser();
+    const page = await browser.newPage();
+    const frames: Array<{ kind: string; seq: string; width: number } & FieldMetrics> = [];
+    try {
+      for (const kind of ['quote', 'invoice'] as const) {
+        for (const seq of [[375, 1280, 375], [1280, 375, 1280]] as const) {
+          await page.setViewportSize({ width: seq[0], height: 900 });
+          await page.goto(server.url, { waitUntil: 'load' });
+          await openDoc(page, kind, LONG);
+          for (const width of seq) {
+            await page.setViewportSize({ width, height: 900 });
+            await page.waitForTimeout(80);
+            const metrics = await page.evaluate(FIELD_METRICS) as FieldMetrics;
+            frames.push({ kind, seq: seq.join('->'), width, ...metrics });
+            assertFits(`${kind} ${seq.join('->')} @${width}`, metrics);
+          }
+        }
+      }
+    } finally {
+      await browser.close();
+      await server.close();
+    }
+    expect(frames).toHaveLength(12);
+  }, 120_000);
 
   it('grows quote and invoice Description on a keystroke at 375', async () => {
     const outDir = await bundleHarness();
@@ -269,30 +383,115 @@ describe('LineItemEditor Description grows in a real browser', () => {
     const page = await browser.newPage();
     try {
       for (const kind of ['quote', 'invoice'] as const) {
-        const mount = kind === 'quote' ? 'mountQuoteEditor' : 'mountInvoiceEditor';
-        const editName = kind === 'quote' ? /Edit quote/i : /Edit invoice/i;
         await page.setViewportSize({ width: 375, height: 900 });
         await page.goto(server.url, { waitUntil: 'load' });
-        await page.waitForFunction(`typeof window.${mount} === "function"`);
-        await page.evaluate(`window.${mount}("Hi")`);
-        await page.waitForFunction(`[...document.querySelectorAll('button')].some(b => ${editName}.test(b.textContent || ''))`);
-        await page.evaluate(`([...document.querySelectorAll('button')].find(b => ${editName}.test(b.textContent || ''))).click()`);
+        await openDoc(page, kind, 'Hi');
         const field = page.locator('textarea[aria-label="Description"]');
         await field.waitFor();
         await field.fill(LONG);
         await page.waitForTimeout(80);
-        const metrics = await page.evaluate(`(() => {
-          const el = document.querySelector('textarea[aria-label="Description"]');
-          if (!el) throw new Error('missing Description');
-          return { sh: el.scrollHeight, ch: el.clientHeight, overflowY: getComputedStyle(el).overflowY };
-        })()`) as { sh: number; ch: number; overflowY: string };
-        expect(metrics.overflowY, `${kind} keystroke overflow`).toBe('hidden');
-        expect(metrics.sh, `${kind} keystroke sh ${metrics.sh} ch ${metrics.ch}`).toBeLessThanOrEqual(metrics.ch);
-        expect(metrics.sh).toBeGreaterThan(44);
+        const grown = await page.evaluate(FIELD_METRICS) as FieldMetrics;
+        assertFits(`${kind} keystroke LONG`, grown);
+        expect(grown.sh).toBeGreaterThan(44);
+        await field.fill(LABOUR);
+        await page.waitForTimeout(80);
+        const shrunk = await page.evaluate(FIELD_METRICS) as FieldMetrics;
+        assertFits(`${kind} keystroke Labour`, shrunk);
+        expect(shrunk.h, `${kind} Labour h ${shrunk.h}`).toBeLessThanOrEqual(46);
       }
     } finally {
       await browser.close();
       await server.close();
     }
   }, 60_000);
+
+  it('fits the remaining Description after removing the first line at 375', async () => {
+    const outDir = await bundleHarness();
+    const server = await serveDir(outDir);
+    const browser = await launchBrowser();
+    const page = await browser.newPage();
+    const rows: Array<{ kind: string } & FieldMetrics> = [];
+    try {
+      for (const kind of ['quote', 'invoice'] as const) {
+        await page.setViewportSize({ width: 375, height: 900 });
+        await page.goto(server.url, { waitUntil: 'load' });
+        await openDoc(page, kind, [LABOUR, LONG]);
+        await page.waitForFunction('document.querySelectorAll(\'button[aria-label="Remove line"]\').length >= 2');
+        await page.evaluate(`document.querySelectorAll('button[aria-label="Remove line"]')[0].click()`);
+        await page.waitForFunction('document.querySelectorAll(\'textarea[aria-label="Description"]\').length === 1');
+        await page.waitForTimeout(80);
+        const metrics = await page.evaluate(FIELD_METRICS) as FieldMetrics;
+        rows.push({ kind, ...metrics });
+        expect(metrics.value).toBe(LONG);
+        assertFits(`${kind} remove-first`, metrics);
+      }
+    } finally {
+      await browser.close();
+      await server.close();
+    }
+    expect(rows).toHaveLength(2);
+  }, 60_000);
+
+  it('grows Description after a cost-model pick sets a long name at 375', async () => {
+    const outDir = await bundleHarness();
+    const server = await serveDir(outDir);
+    const browser = await launchBrowser();
+    const page = await browser.newPage();
+    const rows: Array<{ kind: string } & FieldMetrics> = [];
+    try {
+      for (const kind of ['quote', 'invoice'] as const) {
+        await page.setViewportSize({ width: 375, height: 900 });
+        await page.goto(server.url, { waitUntil: 'load' });
+        await openDoc(page, kind, '');
+        await page.waitForSelector('.hub-line-editor-cost select option[value="cm-long"]', { state: 'attached' });
+        await page.locator('.hub-line-editor-cost select').first().selectOption('cm-long');
+        await page.waitForFunction(`document.querySelector('textarea[aria-label="Description"]')?.value.length > 40`);
+        await page.waitForTimeout(80);
+        const metrics = await page.evaluate(FIELD_METRICS) as FieldMetrics;
+        rows.push({ kind, ...metrics });
+        expect(metrics.value).toBe(LONG);
+        assertFits(`${kind} cost-model pick`, metrics);
+        expect(metrics.sh).toBeGreaterThan(44);
+      }
+    } finally {
+      await browser.close();
+      await server.close();
+    }
+    expect(rows).toHaveLength(2);
+  }, 60_000);
+
+  it('disconnects description observers on unmount and line remove', async () => {
+    const outDir = await bundleHarness();
+    const server = await serveDir(outDir);
+    const browser = await launchBrowser();
+    const page = await browser.newPage();
+    try {
+      await page.setViewportSize({ width: 375, height: 900 });
+      await page.goto(server.url, { waitUntil: 'load' });
+      await page.waitForFunction('typeof window.unmountEditor === "function"');
+      await page.evaluate('window.__roReset()');
+      for (let i = 0; i < 5; i += 1) {
+        await openDoc(page, 'quote', LONG);
+        await page.evaluate('window.unmountEditor()');
+        await page.waitForTimeout(40);
+      }
+      const afterCycles = await page.evaluate('window.__roStats()') as RoStats;
+      expect(afterCycles.disconnects, `cycles ctor ${afterCycles.constructors} disc ${afterCycles.disconnects} live ${afterCycles.live}`).toBe(afterCycles.constructors);
+      expect(afterCycles.live).toBe(0);
+
+      await page.evaluate('window.__roReset()');
+      await openDoc(page, 'invoice', [LABOUR, LONG]);
+      await page.waitForFunction('document.querySelectorAll(\'textarea[aria-label="Description"]\').length === 2');
+      const beforeRemove = await page.evaluate('window.__roStats()') as RoStats;
+      await page.evaluate(`document.querySelectorAll('button[aria-label="Remove line"]')[0].click()`);
+      await page.waitForFunction('document.querySelectorAll(\'textarea[aria-label="Description"]\').length === 1');
+      await page.waitForTimeout(40);
+      const afterRemove = await page.evaluate('window.__roStats()') as RoStats;
+      expect(beforeRemove.live).toBeGreaterThanOrEqual(2);
+      expect(afterRemove.live, `remove live ${afterRemove.live} before ${beforeRemove.live}`).toBe(beforeRemove.live - 1);
+    } finally {
+      await browser.close();
+      await server.close();
+    }
+  }, 90_000);
 });
