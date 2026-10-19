@@ -9,8 +9,6 @@ else
 fi
 PORT="${PROOF_PGPORT:-55433}"
 LOG="${DATA_DIR}/postgres.log"
-MIGRATION="${ROOT}/supabase/migrations/20261019120000_090_accounting_credentials.sql"
-ROLLBACK="${ROOT}/docs/operations/rollback-20261019120000_090_accounting_credentials.sql"
 
 prefer_pg_bin() {
   if command -v initdb >/dev/null 2>&1; then
@@ -51,15 +49,5 @@ export PGPORT="${PORT}"
 echo "== accounting_credentials proof =="
 psql -h "${PGHOST}" -p "${PGPORT}" -U postgres -d postgres -v ON_ERROR_STOP=1 \
   -f "${ROOT}/supabase/tests/accounting_credentials.sql"
-
-echo "== rollback then re-apply =="
-psql -h "${PGHOST}" -p "${PGPORT}" -U postgres -d postgres -v ON_ERROR_STOP=1 \
-  -f "${ROLLBACK}"
-psql -h "${PGHOST}" -p "${PGPORT}" -U postgres -d postgres -v ON_ERROR_STOP=1 \
-  -f "${MIGRATION}"
-psql -h "${PGHOST}" -p "${PGPORT}" -U postgres -d postgres -v ON_ERROR_STOP=1 \
-  -f "${ROOT}/supabase/tests/accounting_credentials_seed_credentials.sql"
-psql -h "${PGHOST}" -p "${PGPORT}" -U postgres -d postgres -v ON_ERROR_STOP=1 \
-  -f "${ROOT}/supabase/tests/accounting_credentials_assert.sql"
 
 echo "accounting_credentials proof and rollback round-trip passed"

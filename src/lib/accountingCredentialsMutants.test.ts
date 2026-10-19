@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { clientSourceSelectsAccountingTokens } from './accountingClientTokenGuard';
-import { accountingSettingsWrite, stripAccountingSettingsTokenKeys } from './xeroAccounting';
+import { accountingTokenOffenders } from './accountingClientTokenGuard';
+import { accountingSettingsWrite } from './xeroAccounting';
 
 const execFileAsync = promisify(execFile);
 const ROOT = resolve(process.cwd());
@@ -13,215 +13,260 @@ const MIGRATION = resolve(ROOT, 'supabase/migrations/20261019120000_090_accounti
 const SETUP = resolve(ROOT, 'supabase/tests/accounting_credentials_setup.sql');
 const SEED_SETTINGS = resolve(ROOT, 'supabase/tests/accounting_credentials_seed_settings.sql');
 const SEED_CREDS = resolve(ROOT, 'supabase/tests/accounting_credentials_seed_credentials.sql');
+const PAGE = resolve(ROOT, 'src/pages/AccountingSettingsPage.tsx');
+const COMPANY_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const USER_A = '11111111-1111-1111-1111-111111111111';
+const USER_B = '22222222-2222-2222-2222-222222222222';
 
 function preferPgBin(): string {
-  const extra = ['/usr/lib/postgresql/16/bin'];
-  for (const dir of extra) {
-    try {
-      readFileSync(join(dir, 'initdb'));
-      return `${dir}:${process.env.PATH ?? ''}`;
-    } catch {
-      continue;
-    }
+  const dir = '/usr/lib/postgresql/16/bin';
+  try {
+    readFileSync(join(dir, 'initdb'));
+    return `${dir}:${process.env.PATH ?? ''}`;
+  } catch {
+    return process.env.PATH ?? '';
   }
-  return process.env.PATH ?? '';
 }
 
 const PATH_WITH_PG = preferPgBin();
 
-type Probe = {
-  authenticatedCanSelect: boolean;
-  nonMemberRows: number;
-  rpcColumns: string[];
-};
+type Pg = { dataDir: string; port: string; stop: () => Promise<void> };
 
-async function startPg(): Promise<{ dataDir: string; port: string; stop: () => Promise<void> }> {
+async function startPg(): Promise<Pg> {
   const dataDir = mkdtempSync(join(tmpdir(), 'pg-sec-xero-'));
-  const port = String(55434 + Math.floor(Math.random() * 20));
-  await execFileAsync('initdb', ['-D', dataDir, '--auth-local=trust', '--auth-host=trust', '--username=postgres'], {
-    env: { ...process.env, PATH: PATH_WITH_PG },
-  });
-  await execFileAsync('pg_ctl', ['-D', dataDir, '-o', `-p ${port} -k ${dataDir}`, '-l', join(dataDir, 'pg.log'), 'start'], {
-    env: { ...process.env, PATH: PATH_WITH_PG },
-  });
-  for (let i = 0; i < 40; i++) {
+  const port = String(56000 + Math.floor(Math.random() * 1000));
+  const env = { ...process.env, PATH: PATH_WITH_PG };
+  await execFileAsync('initdb', ['-D', dataDir, '--auth-local=trust', '--auth-host=trust', '--username=postgres'], { env });
+  await execFileAsync('pg_ctl', ['-D', dataDir, '-o', `-p ${port} -k ${dataDir}`, '-l', join(dataDir, 'pg.log'), 'start'], { env });
+  let ready = false;
+  for (let i = 0; i < 50; i++) {
     try {
-      await execFileAsync('pg_isready', ['-h', dataDir, '-p', port, '-U', 'postgres'], {
-        env: { ...process.env, PATH: PATH_WITH_PG },
-      });
+      await execFileAsync('pg_isready', ['-h', dataDir, '-p', port, '-U', 'postgres'], { env });
+      ready = true;
       break;
     } catch {
-      await new Promise((r) => setTimeout(r, 150));
+      await new Promise((r) => setTimeout(r, 200));
     }
+  }
+  if (!ready) {
+    const log = readFileSync(join(dataDir, 'pg.log'), 'utf8');
+    throw new Error(`postgres did not start\n${log}`);
   }
   return {
     dataDir,
     port,
     async stop() {
-      await execFileAsync('pg_ctl', ['-D', dataDir, 'stop', '-m', 'fast'], {
-        env: { ...process.env, PATH: PATH_WITH_PG },
-      }).catch(() => undefined);
+      await execFileAsync('pg_ctl', ['-D', dataDir, 'stop', '-m', 'fast'], { env }).catch(() => undefined);
       rmSync(dataDir, { recursive: true, force: true });
     },
   };
 }
 
-async function psql(pg: { dataDir: string; port: string }, args: string[]): Promise<string> {
-  const { stdout } = await execFileAsync('psql', [
+async function psql(pg: Pg, sql: string, file = false): Promise<string> {
+  const args = [
     '-h', pg.dataDir, '-p', pg.port, '-U', 'postgres', '-d', 'postgres',
-    '-v', 'ON_ERROR_STOP=1',
-    ...args,
-  ], { env: { ...process.env, PATH: PATH_WITH_PG } });
-  return stdout;
+    '-v', 'ON_ERROR_STOP=1', '-A', '-t', '-q',
+  ];
+  if (file) args.push('-f', sql);
+  else args.push('-c', sql);
+  try {
+    const { stdout } = await execFileAsync('psql', args, { env: { ...process.env, PATH: PATH_WITH_PG } });
+    return stdout;
+  } catch (err) {
+    const e = err as { stderr?: string; stdout?: string; message?: string };
+    throw new Error(`${e.stderr ?? ''}\n${e.stdout ?? ''}\n${e.message ?? ''}`);
+  }
 }
 
 function mutateMigration(kind: 'good' | 'drop-revoke' | 'add-select-policy' | 'drop-company-check' | 'return-token'): string {
-  let sql = readFileSync(MIGRATION, 'utf8');
+  const original = readFileSync(MIGRATION, 'utf8');
+  let sql = original;
   if (kind === 'drop-revoke') {
-    sql = sql
-      .replace('REVOKE ALL ON TABLE public.accounting_credentials FROM PUBLIC;\n', '')
-      .replace('REVOKE ALL ON TABLE public.accounting_credentials FROM anon, authenticated;\n', '');
+    sql = sql.replace(
+      'REVOKE ALL ON TABLE public.accounting_credentials FROM PUBLIC, anon, authenticated;\n',
+      '',
+    );
   }
   if (kind === 'add-select-policy') {
     sql += `
 GRANT SELECT ON public.accounting_credentials TO authenticated;
 CREATE POLICY accounting_credentials_select ON public.accounting_credentials
-  FOR SELECT TO authenticated USING (true);
+  FOR SELECT TO authenticated
+  USING (true);
 `;
   }
   if (kind === 'drop-company-check') {
-    const next = sql.replace(
-      /WHERE p_company_id IS NOT DISTINCT FROM public\.my_company_id\(\);/,
+    sql = sql.replace(
+      'WHERE p_company_id IS NOT DISTINCT FROM public.my_company_id();',
       'WHERE true;',
     );
-    if (next === sql) throw new Error('drop-company-check needle missed');
-    sql = next;
   }
   if (kind === 'return-token') {
-    const withCol = sql.replace(
-      /RETURNS TABLE \(([\s\S]*?)\)\nLANGUAGE sql/,
-      'RETURNS TABLE (\n  connected boolean,\n  tenant_name text,\n  last_synced_at timestamptz,\n  access_token text\n)\nLANGUAGE sql',
-    );
-    const next = withCol.replace(
-      /AS last_synced_at\n  WHERE/,
-      `AS last_synced_at,
+    sql = sql
+      .replace(
+        '  last_synced_at timestamptz\n)',
+        '  last_synced_at timestamptz,\n  access_token text\n)',
+      )
+      .replace(
+        `) AS last_synced_at
+  WHERE p_company_id IS NOT DISTINCT FROM public.my_company_id();`,
+        `) AS last_synced_at,
     (
       SELECT c.access_token
       FROM public.accounting_credentials AS c
-      WHERE c.company_id = p_company_id AND c.provider = 'xero'
+      WHERE c.company_id = p_company_id
+        AND c.provider = 'xero'
     ) AS access_token
-  WHERE`,
-    );
-    if (next === sql || !next.includes('access_token text')) {
-      throw new Error('return-token needle missed');
-    }
-    sql = next;
+  WHERE p_company_id IS NOT DISTINCT FROM public.my_company_id();`,
+      );
+  }
+  if (kind !== 'good' && sql === original) {
+    throw new Error(`mutant ${kind} did not change the migration`);
   }
   return sql;
 }
 
-async function applyAndProbe(pg: { dataDir: string; port: string }, sql: string): Promise<Probe> {
-  await psql(pg, ['-c', 'DROP FUNCTION IF EXISTS public.get_accounting_connection(uuid);']);
-  await psql(pg, ['-c', 'DROP TABLE IF EXISTS public.accounting_credentials;']);
-  const tmp = join(pg.dataDir, `mutant-${Date.now()}.sql`);
+async function applySql(pg: Pg, sql: string): Promise<void> {
+  await psql(pg, 'DROP FUNCTION IF EXISTS public.get_accounting_connection(uuid);');
+  await psql(pg, 'DROP TABLE IF EXISTS public.accounting_credentials;');
+  const tmp = join(pg.dataDir, 'mutant.sql');
   writeFileSync(tmp, sql);
-  await psql(pg, ['-f', tmp]);
-  await psql(pg, ['-f', SEED_CREDS]);
-  const { stdout } = await execFileAsync('psql', [
-    '-h', pg.dataDir, '-p', pg.port, '-U', 'postgres', '-d', 'postgres',
-    '-v', 'ON_ERROR_STOP=1', '-A', '-t',
-    '-c', `
-SELECT json_build_object(
-  'authenticatedCanSelect', has_table_privilege('authenticated', 'public.accounting_credentials', 'SELECT'),
-  'rpcColumns', (
-    SELECT coalesce(json_agg(u.n ORDER BY u.ord), '[]'::json)
-    FROM pg_proc p
-    CROSS JOIN LATERAL unnest(p.proargnames, p.proargmodes) WITH ORDINALITY AS u(n, m, ord)
-    WHERE p.proname = 'get_accounting_connection'
-      AND p.pronamespace = 'public'::regnamespace
-      AND u.m = 't'
-  )
-);
-`,
-  ], { env: { ...process.env, PATH: PATH_WITH_PG } });
-  const meta = JSON.parse(stdout.trim()) as { authenticatedCanSelect: boolean; rpcColumns: string[] };
-
-  const countOut = await execFileAsync('psql', [
-    '-h', pg.dataDir, '-p', pg.port, '-U', 'postgres', '-d', 'postgres',
-    '-v', 'ON_ERROR_STOP=1', '-A', '-t',
-    '-c', `SELECT set_config('request.jwt.claims', '{"sub":"11111111-1111-1111-1111-111111111111"}', false);
-SELECT count(*)::text FROM public.get_accounting_connection('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb');`,
-  ], { env: { ...process.env, PATH: PATH_WITH_PG } });
-  const lines = countOut.stdout.trim().split('\n').filter((line) => /^\d+$/.test(line));
-  const nonMemberRows = Number(lines[lines.length - 1]);
-
-  return {
-    authenticatedCanSelect: meta.authenticatedCanSelect,
-    nonMemberRows,
-    rpcColumns: meta.rpcColumns ?? [],
-  };
+  await psql(pg, tmp, true);
+  await psql(pg, SEED_CREDS, true);
 }
 
-describe('SEC-XERO mutants', () => {
-  let pg: Awaited<ReturnType<typeof startPg>>;
+async function authenticatedSelect(pg: Pg): Promise<{ denied: boolean; rows: number }> {
+  try {
+    const stdout = await psql(pg, 'SET ROLE authenticated; SELECT count(*)::text FROM public.accounting_credentials;');
+    const rows = Number(stdout.trim().split('\n').filter(Boolean).pop());
+    return { denied: false, rows };
+  } catch (err) {
+    const text = err instanceof Error ? err.message : String(err);
+    if (/permission denied/i.test(text)) return { denied: true, rows: -1 };
+    throw err;
+  }
+}
 
-  beforeAll(async () => {
-    pg = await startPg();
-    await psql(pg, ['-f', SETUP]);
-    await psql(pg, ['-f', SEED_SETTINGS]);
-  }, 30000);
+async function rpcRows(pg: Pg, sub: string, companyId: string): Promise<Record<string, unknown>[]> {
+  const stdout = await psql(pg, `
+SELECT set_config('request.jwt.claims', '{"sub":"${sub}"}', false);
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claims', '{"sub":"${sub}"}', false);
+SELECT 'ROWS:' || coalesce((
+  SELECT json_agg(to_jsonb(t))::text
+  FROM public.get_accounting_connection('${companyId}') AS t
+), '[]');
+`);
+  const line = stdout.split('\n').map((row) => row.trim()).filter((row) => row.startsWith('ROWS:')).pop();
+  if (!line) throw new Error(`rpc probe missing rows\n${stdout}`);
+  return JSON.parse(line.slice('ROWS:'.length)) as Record<string, unknown>[];
+}
 
-  afterAll(async () => {
-    await pg.stop();
+function compileMutantWrite(src: string): (payload: { settings?: unknown }) => { settings?: Record<string, unknown> } {
+  const start = src.indexOf('export function accountingSettingsWrite');
+  const end = src.indexOf('export function parseAccountingConnection');
+  if (start < 0 || end < start) throw new Error('accountingSettingsWrite not found');
+  const fn = src
+    .slice(start, end)
+    .replace('export ', '')
+    .replace(/<T extends Record<string, unknown>>\(payload: T\): T/, '(payload)')
+    .replace('(payload as { settings?: unknown }).settings', 'payload.settings');
+  return new Function(`${fn}\nreturn accountingSettingsWrite;`)() as (payload: { settings?: unknown }) => { settings?: Record<string, unknown> };
+}
+
+describe('SEC-XERO source mutants', () => {
+  it('kills client-selects-token: AccountingSettingsPage selecting accounting_credentials fails the guard', () => {
+    const original = readFileSync(PAGE, 'utf8');
+    const offenders = accountingTokenOffenders(resolve(ROOT, 'src'), (file) => {
+      const text = readFileSync(file, 'utf8');
+      if (file !== PAGE) return text;
+      return `${text}\nvoid supabase.from('accounting_credentials').select('access_token');\n`;
+    });
+    expect(offenders).toContain('pages/AccountingSettingsPage.tsx');
+    expect(readFileSync(PAGE, 'utf8')).toBe(original);
+    expect(accountingTokenOffenders(resolve(ROOT, 'src'))).not.toContain('pages/AccountingSettingsPage.tsx');
   });
 
-  it('kills drop-revoke: authenticated SELECT privilege comes back, the real REVOKE removes it', async () => {
-    const mutant = await applyAndProbe(pg, mutateMigration('drop-revoke'));
-    expect(mutant.authenticatedCanSelect).toBe(true);
-    const good = await applyAndProbe(pg, mutateMigration('good'));
-    expect(good.authenticatedCanSelect).toBe(false);
-  }, 20000);
-
-  it('kills add-select-policy: a GRANT+policy lets authenticated read, the real table has neither', async () => {
-    const mutant = await applyAndProbe(pg, mutateMigration('add-select-policy'));
-    expect(mutant.authenticatedCanSelect).toBe(true);
-    const good = await applyAndProbe(pg, mutateMigration('good'));
-    expect(good.authenticatedCanSelect).toBe(false);
-  }, 20000);
-
-  it('kills drop-company-check: a non-member gets a row, the real RPC returns none', async () => {
-    const mutant = await applyAndProbe(pg, mutateMigration('drop-company-check'));
-    expect(mutant.nonMemberRows).toBe(1);
-    const good = await applyAndProbe(pg, mutateMigration('good'));
-    expect(good.nonMemberRows).toBe(0);
-  }, 20000);
-
-  it('kills return-token: the RPC grows an access_token column, the real RPC has only status fields', async () => {
-    const mutant = await applyAndProbe(pg, mutateMigration('return-token'));
-    expect(mutant.rpcColumns).toContain('access_token');
-    const good = await applyAndProbe(pg, mutateMigration('good'));
-    expect(good.rpcColumns).toEqual(['connected', 'tenant_name', 'last_synced_at']);
-    expect(good.rpcColumns).not.toContain('access_token');
-  }, 20000);
-
-  it('kills client-selects-token: adding an accounting_credentials select trips the guard', () => {
-    const page = readFileSync(resolve(ROOT, 'src/pages/AccountingSettingsPage.tsx'), 'utf8');
-    expect(clientSourceSelectsAccountingTokens(page)).toBe(false);
-    const mutant = `${page}\nvoid supabase.from('accounting_credentials').select('access_token');\n`;
-    expect(clientSourceSelectsAccountingTokens(mutant)).toBe(true);
-  });
-
-  it('kills jsonb-write-keeps-keys: a write that keeps tokens is rejected by accountingSettingsWrite', () => {
+  it('kills jsonb-write-keeps-keys: accountingSettingsWrite keeps token keys when it stops stripping', () => {
+    const original = readFileSync(resolve(ROOT, 'src/lib/xeroAccounting.ts'), 'utf8');
+    const marker = 'settings: stripAccountingSettingsTokenKeys((payload as { settings?: unknown }).settings),';
+    const mutantSrc = original.replace(marker, 'settings: payload.settings,');
+    expect(mutantSrc).not.toBe(original);
     const dirty = {
       company_id: 'co1',
-      settings: { access_token: 'leak', refresh_token: 'leak', expires_at: 'x' },
+      settings: {
+        access_token: 'leak',
+        refresh_token: 'leak',
+        expires_at: 'x',
+        xero: { token: { cipher: 'c' }, tenant_name: "Jack's Bar", paid_invoices: { 'inv-1': 'xero-1' } },
+      },
     };
-    const keepKeys = <T extends Record<string, unknown>>(payload: T): T => payload;
-    expect(JSON.stringify(keepKeys(dirty))).toMatch(/access_token/);
+    const kept = compileMutantWrite(mutantSrc)(dirty);
+    expect(kept.settings).toHaveProperty('access_token', 'leak');
+    expect(kept.settings?.xero).toHaveProperty('token');
     const written = accountingSettingsWrite(dirty);
     expect(written.settings).not.toHaveProperty('access_token');
     expect(written.settings).not.toHaveProperty('refresh_token');
     expect(written.settings).not.toHaveProperty('expires_at');
-    expect(JSON.stringify(stripAccountingSettingsTokenKeys(dirty.settings))).not.toMatch(/access_token|refresh_token/);
+    expect(written.settings.xero).toEqual({
+      tenant_name: "Jack's Bar",
+      paid_invoices: { 'inv-1': 'xero-1' },
+    });
   });
+});
+
+describe('SEC-XERO postgres mutants', () => {
+  let pg: Pg;
+
+  beforeAll(async () => {
+    pg = await startPg();
+    await psql(pg, SETUP, true);
+    await psql(pg, SEED_SETTINGS, true);
+  }, 60000);
+
+  afterAll(async () => {
+    await pg?.stop();
+  });
+
+  it('kills drop-revoke: authenticated can select accounting_credentials until REVOKE is restored', async () => {
+    await applySql(pg, mutateMigration('drop-revoke'));
+    const mutant = await authenticatedSelect(pg);
+    expect(mutant.denied).toBe(false);
+    await applySql(pg, mutateMigration('good'));
+    const good = await authenticatedSelect(pg);
+    expect(good.denied).toBe(true);
+  }, 30000);
+
+  it('kills add-select-policy: an authenticated SELECT policy returns credential rows until it is removed', async () => {
+    await applySql(pg, mutateMigration('add-select-policy'));
+    const mutant = await authenticatedSelect(pg);
+    expect(mutant.denied).toBe(false);
+    expect(mutant.rows).toBeGreaterThan(0);
+    await applySql(pg, mutateMigration('good'));
+    const good = await authenticatedSelect(pg);
+    expect(good.denied).toBe(true);
+  }, 30000);
+
+  it('kills drop-company-check: a non-member receives the other company tenant_name until the check returns', async () => {
+    await applySql(pg, mutateMigration('drop-company-check'));
+    const leaked = await rpcRows(pg, USER_B, COMPANY_A);
+    expect(leaked).toHaveLength(1);
+    expect(leaked[0]?.tenant_name).toBe("Jack's Bar");
+    await applySql(pg, mutateMigration('good'));
+    expect(await rpcRows(pg, USER_B, COMPANY_A)).toEqual([]);
+  }, 30000);
+
+  it('kills return-token: the RPC returns access_token until the column is gone', async () => {
+    await applySql(pg, mutateMigration('return-token'));
+    const leaked = await rpcRows(pg, USER_A, COMPANY_A);
+    expect(leaked).toHaveLength(1);
+    expect(leaked[0]?.access_token).toBe('cred-access');
+    await applySql(pg, mutateMigration('good'));
+    const safe = await rpcRows(pg, USER_A, COMPANY_A);
+    expect(safe).toHaveLength(1);
+    expect(Object.keys(safe[0] ?? {}).sort()).toEqual(['connected', 'last_synced_at', 'tenant_name']);
+    expect(safe[0]?.connected).toBe(true);
+    expect(safe[0]?.tenant_name).toBe("Jack's Bar");
+    expect(safe[0]?.access_token).toBeUndefined();
+  }, 30000);
 });

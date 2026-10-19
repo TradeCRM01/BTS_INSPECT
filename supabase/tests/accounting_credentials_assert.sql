@@ -5,27 +5,44 @@ BEGIN
   SELECT settings INTO leftover
   FROM public.accounting_settings
   WHERE company_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-  IF leftover ? 'access_token' OR leftover ? 'refresh_token' OR leftover ? 'expires_at' OR leftover ? 'token' THEN
+  IF leftover ? 'access_token'
+    OR leftover ? 'refresh_token'
+    OR leftover ? 'expires_at'
+    OR leftover ? 'token' THEN
     RAISE EXCEPTION 'settings still has top-level token keys: %', leftover;
   END IF;
-  IF leftover -> 'xero' ? 'token' OR leftover -> 'xero' ? 'access_token' THEN
+  IF leftover -> 'xero' ? 'token'
+    OR leftover -> 'xero' ? 'access_token'
+    OR leftover -> 'xero' ? 'refresh_token'
+    OR leftover -> 'xero' ? 'expires_at' THEN
     RAISE EXCEPTION 'settings.xero still has token keys: %', leftover;
   END IF;
   IF leftover #>> '{xero,tenant_name}' IS DISTINCT FROM 'Jack''s Bar' THEN
     RAISE EXCEPTION 'tenant_name was stripped: %', leftover;
   END IF;
+  IF leftover #>> '{xero,paid_invoices,inv-1}' IS DISTINCT FROM 'xero-1' THEN
+    RAISE EXCEPTION 'paid_invoices was stripped: %', leftover;
+  END IF;
+  IF leftover -> 'other' IS DISTINCT FROM 'true'::jsonb THEN
+    RAISE EXCEPTION 'unrelated settings key was stripped: %', leftover;
+  END IF;
 END
 $strip$;
 
-SELECT set_config('request.jwt.claims', '{"sub":"11111111-1111-1111-1111-111111111111"}', false);
-
-DO $priv$
+DO $svc$
+DECLARE
+  tok text;
 BEGIN
-  IF has_table_privilege('authenticated', 'public.accounting_credentials', 'SELECT') THEN
-    RAISE EXCEPTION 'authenticated still has SELECT on accounting_credentials';
+  SET LOCAL ROLE service_role;
+  SELECT access_token INTO tok
+  FROM public.accounting_credentials
+  WHERE company_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+    AND provider = 'xero';
+  IF tok IS DISTINCT FROM 'cred-access' THEN
+    RAISE EXCEPTION 'service_role read %', tok;
   END IF;
 END
-$priv$;
+$svc$;
 
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claims', '{"sub":"11111111-1111-1111-1111-111111111111"}', false);
@@ -41,8 +58,8 @@ BEGIN
     WHEN insufficient_privilege THEN
       denied := true;
   END;
-  IF NOT denied AND n > 0 THEN
-    RAISE EXCEPTION 'authenticated read % credential rows', n;
+  IF NOT denied THEN
+    RAISE EXCEPTION 'authenticated select was not permission denied (rows=%)', n;
   END IF;
 END
 $select$;
@@ -50,6 +67,7 @@ $select$;
 DO $member$
 DECLARE
   r record;
+  keys text[];
 BEGIN
   SELECT * INTO r FROM public.get_accounting_connection('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
   IF r.connected IS NOT TRUE THEN
@@ -58,11 +76,12 @@ BEGIN
   IF r.tenant_name IS DISTINCT FROM 'Jack''s Bar' THEN
     RAISE EXCEPTION 'member rpc tenant_name=%', r.tenant_name;
   END IF;
-  IF r.last_synced_at IS NULL THEN
-    RAISE EXCEPTION 'member rpc missing last_synced_at';
+  IF r.last_synced_at IS DISTINCT FROM '2026-10-19T00:00:00Z'::timestamptz THEN
+    RAISE EXCEPTION 'member rpc last_synced_at=%', r.last_synced_at;
   END IF;
-  IF to_jsonb(r) ? 'access_token' OR to_jsonb(r) ? 'refresh_token' OR to_jsonb(r) ? 'expires_at' THEN
-    RAISE EXCEPTION 'member rpc leaked a token column: %', to_jsonb(r);
+  SELECT array_agg(k ORDER BY k) INTO keys FROM jsonb_object_keys(to_jsonb(r)) AS k;
+  IF keys IS DISTINCT FROM ARRAY['connected', 'last_synced_at', 'tenant_name']::text[] THEN
+    RAISE EXCEPTION 'member rpc columns %', keys;
   END IF;
 END
 $member$;
@@ -78,6 +97,27 @@ BEGIN
   END IF;
 END
 $nonmember$;
+
+SELECT set_config('request.jwt.claims', '{"sub":"22222222-2222-2222-2222-222222222222"}', false);
+
+DO $bare$
+DECLARE
+  n integer;
+  r record;
+BEGIN
+  SELECT count(*) INTO n
+  FROM public.get_accounting_connection('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb');
+  IF n <> 1 THEN
+    RAISE EXCEPTION 'member without settings returned % rows', n;
+  END IF;
+  SELECT * INTO r FROM public.get_accounting_connection('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb');
+  IF r.connected IS DISTINCT FROM false
+    OR r.tenant_name IS NOT NULL
+    OR r.last_synced_at IS NOT NULL THEN
+    RAISE EXCEPTION 'bare member rpc %', to_jsonb(r);
+  END IF;
+END
+$bare$;
 
 RESET ROLE;
 

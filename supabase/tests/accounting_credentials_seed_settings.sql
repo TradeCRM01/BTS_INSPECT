@@ -22,9 +22,13 @@ INSERT INTO public.accounting_settings (
     'access_token', 'stale-settings-token',
     'refresh_token', 'stale-settings-refresh',
     'expires_at', '2099-01-01T00:00:00Z',
+    'token', 'stale-top-token',
+    'other', true,
     'xero', jsonb_build_object(
       'token', jsonb_build_object('iv', 'iv', 'cipher', 'cipher'),
-      'access_token', 'nested-leak',
+      'access_token', 'nested-access',
+      'refresh_token', 'nested-refresh',
+      'expires_at', '2099-01-01T00:00:00Z',
       'tenant_name', 'Jack''s Bar',
       'paid_invoices', jsonb_build_object('inv-1', 'xero-1')
     )
