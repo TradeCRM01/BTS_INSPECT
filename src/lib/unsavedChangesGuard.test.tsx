@@ -127,6 +127,8 @@ describe('shared unsaved changes guard', () => {
     expect(unsavedChangesLeaveCopy().title).toBe('Leave without saving?');
     expect(unsavedChangesLeaveCopy().message).toContain('unsaved changes');
     expect(unsavedChangesLeaveCopy().message).not.toContain('lost');
+    expect(unsavedChangesLeaveCopy('Saved').title).toBe('Leave?');
+    expect(unsavedChangesLeaveCopy('Saved').message).not.toContain('unsaved');
 
     const flush = vi.fn();
     await act(async () => {

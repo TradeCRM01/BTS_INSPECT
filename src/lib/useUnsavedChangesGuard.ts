@@ -64,6 +64,6 @@ export function useUnsavedChangesGuard(args: {
     allowLeave: () => {
       allowLeaveRef.current = true;
     },
-    leaveCopy: unsavedChangesLeaveCopy(),
+    leaveCopy: unsavedChangesLeaveCopy(unsavedChangesHint(args.status)),
   };
 }

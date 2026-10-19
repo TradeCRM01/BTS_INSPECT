@@ -24,11 +24,18 @@ export function unsavedChangesShouldFlush(
   return hasPending || status === 'unsaved' || status === 'error';
 }
 
-export function unsavedChangesLeaveCopy(): {
+export function unsavedChangesLeaveCopy(hint?: string): {
   title: string;
   message: string;
   confirmLabel: string;
 } {
+  if (hint === 'Saved') {
+    return {
+      title: 'Leave?',
+      message: 'Your last edit is saved. Stay to keep editing, or leave.',
+      confirmLabel: 'Leave',
+    };
+  }
   return {
     title: 'Leave without saving?',
     message: 'You have unsaved changes. Stay to keep editing, or leave.',

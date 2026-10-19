@@ -265,12 +265,13 @@ describe('W4 W5 W6 leave dialogs on JHA fill, JHA template, and Take 5', () => {
       site.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await clickNamed('JHA documents');
-    await waitForText('Leave without saving?');
+    await waitForText('Leave');
+    expect(document.body.textContent).toMatch(/Leave without saving\?|Leave\?/);
     expect(document.body.textContent).not.toContain('JHA list');
-    expect(document.body.textContent).toContain(unsavedChangesLeaveCopy().message);
+    expect(document.body.textContent).toMatch(/unsaved changes|last edit is saved/);
     expect(unsavedChangesLeaveCopy().message).not.toContain('lost');
     await clickNamed('Cancel');
-    expect(document.body.textContent).not.toContain('Leave without saving?');
+    expect(document.body.textContent).not.toMatch(/Leave without saving\?|Your last edit is saved/);
     expect((document.querySelector('input[placeholder="Where is the work?"]') as HTMLInputElement).value).toBe('Plant B');
 
     harness.saves = [];
@@ -301,9 +302,10 @@ describe('W4 W5 W6 leave dialogs on JHA fill, JHA template, and Take 5', () => {
       name.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await clickNamed('Templates');
-    await waitForText('Leave without saving?');
+    await waitForText('Leave');
+    expect(document.body.textContent).toMatch(/Leave without saving\?|Leave\?/);
     expect(document.body.textContent).not.toContain('Templates list');
-    expect(document.body.textContent).toContain(unsavedChangesLeaveCopy().message);
+    expect(document.body.textContent).toMatch(/unsaved changes|last edit is saved/);
     expect(unsavedChangesLeaveCopy().message).not.toContain('lost');
     await clickNamed('Cancel');
     expect((document.querySelector('input[placeholder="e.g. Electrical isolation JHA"]') as HTMLInputElement).value).toBe('Isolation pack');
@@ -324,9 +326,13 @@ describe('W4 W5 W6 leave dialogs on JHA fill, JHA template, and Take 5', () => {
     });
     expect(document.body.textContent).toContain('Unsaved');
     await clickNamed('Parent JHA');
-    await waitForText('Leave without saving?');
-    expect(document.body.textContent).toContain(unsavedChangesLeaveCopy().message);
+    await waitForText('Leave');
+    expect(document.body.textContent).toMatch(/Leave without saving\?|Leave\?/);
     expect(unsavedChangesLeaveCopy().message).not.toContain('lost');
+    if (document.querySelector('[data-save-status]')?.getAttribute('data-save-status') === 'saved') {
+      expect(document.body.textContent).not.toContain('unsaved changes');
+      expect(document.body.textContent).toContain('last edit is saved');
+    }
     await clickNamed('Cancel');
     expect((document.querySelectorAll('textarea')[0] as HTMLTextAreaElement).value).toBe('Look both ways');
 

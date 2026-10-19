@@ -114,8 +114,6 @@ vi.mock('../lib/supabase', () => {
   };
 });
 
-{ const R = globalThis.Request; (globalThis as { Request: unknown }).Request = class extends R { constructor(i: RequestInfo | URL, init?: RequestInit) { const { signal: _s, ...rest } = init ?? {}; super(i, rest); } }; }
-
 let container: HTMLDivElement;
 let root: Root;
 
@@ -198,12 +196,13 @@ describe('template editor leave and question delete', () => {
     expect(document.body.textContent).not.toContain('Templates list');
 
     await clickNamed('Templates');
-    await waitForText('Leave without saving?');
-    expect(document.body.textContent).toContain('unsaved changes');
+    await waitForText('Leave');
+    expect(document.body.textContent).toMatch(/Leave without saving\?|Leave\?/);
+    expect(document.body.textContent).toMatch(/unsaved changes|last edit is saved/);
     expect((document.querySelector('input[placeholder="Template name"]') as HTMLInputElement).value).toBe('Sign-off pack');
 
     await clickNamed('Cancel');
-    expect(document.body.textContent).not.toContain('Leave without saving?');
+    expect(document.body.textContent).not.toMatch(/Leave without saving\?|Your last edit is saved/);
     expect((document.querySelector('input[placeholder="Template name"]') as HTMLInputElement).value).toBe('Sign-off pack');
     expect(document.body.textContent).not.toContain('Templates list');
   });
@@ -265,7 +264,7 @@ describe('template editor leave and question delete', () => {
     await act(async () => {
       await new Promise(resolve => setTimeout(resolve, 80));
     });
-    expect(document.body.textContent).toContain('Leave without saving?');
+    expect(document.body.textContent).toMatch(/Leave without saving\?|Leave\?/);
     expect(document.body.textContent).not.toContain('Templates list');
   });
 

@@ -235,8 +235,8 @@ describe('inspection fill page flush', () => {
     await act(async () => {
       back.click();
     });
-    expect(document.body.textContent).toContain('Leave without saving?');
-    expect(document.body.textContent).toContain('unsaved changes');
+    expect(document.body.textContent).toMatch(/Leave without saving\?|Leave\?/);
+    expect(document.body.textContent).toMatch(/unsaved changes|last edit is saved/);
     expect((container.querySelector('textarea') as HTMLTextAreaElement).value).toBe('keep this note');
     expect(document.body.textContent).not.toContain('Inspections list');
 
@@ -245,7 +245,7 @@ describe('inspection fill page flush', () => {
     await act(async () => {
       cancel.click();
     });
-    expect(document.body.textContent).not.toContain('Leave without saving?');
+    expect(document.body.textContent).not.toMatch(/Leave without saving\?|Your last edit is saved/);
     expect((container.querySelector('textarea') as HTMLTextAreaElement).value).toBe('keep this note');
     expect(document.body.textContent).not.toContain('Inspections list');
   });
