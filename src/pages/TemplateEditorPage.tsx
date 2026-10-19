@@ -9,7 +9,7 @@ import { showIfQuestionIds } from '../lib/conditionEval';
 import { INSPECTION_TEMPLATE_PACKS, clonePackSections, packMetaDefaults } from '../lib/inspectionTemplatePacks';
 import { AppShell } from '../components/layout/AppShell';
 import { TemplateAccessDenied } from '../components/layout/TemplateAccessDenied';
-import { canEditTemplates, canViewTemplates, throwIfNoRows } from '../lib/templateAccess';
+import { canEditTemplates, canViewTemplates, TEMPLATE_DELETE_FAILED, throwIfNoRows } from '../lib/templateAccess';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { SectionPanel } from '../components/template-editor/SectionPanel';
@@ -49,6 +49,7 @@ export function TemplateEditorPage() {
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [showQTypePicker, setShowQTypePicker] = useState(false);
   const [showMetaSettings, setShowMetaSettings] = useState(true);
   const [templateId, setTemplateId] = useState<string | null>(isNew ? null : id);
@@ -94,11 +95,11 @@ export function TemplateEditorPage() {
 
   async function initializeBuiltInRenderers() {
     if (!profile?.company_id) return;
-    await supabase.from('inspection_renderers').insert([
-      { company_id: profile.company_id, key: 'generic_inspection', label: 'Generic Inspection', built_in: true },
-      { company_id: profile.company_id, key: 'electrical_3000', label: 'AS/NZS 3000:2018', built_in: true },
-    ]);
-    // Reload
+    const { error } = await supabase.rpc('ensure_builtin_renderers');
+    if (error) {
+      console.error(error);
+      return;
+    }
     const { data } = await supabase
       .from('inspection_renderers')
       .select('key, label')
@@ -142,12 +143,13 @@ export function TemplateEditorPage() {
       throwIfNoRows(result);
     },
     onSuccess: () => {
+      setDeleteError(null);
       qc.invalidateQueries({ queryKey: ['templates'] });
       navigate('/templates');
     },
-    onError: (err: unknown) => {
-      const msg = err instanceof Error ? err.message : String(err);
-      setValidationErrors([msg]);
+    onError: () => {
+      setValidationErrors([]);
+      setDeleteError(TEMPLATE_DELETE_FAILED);
       setSaveState('error');
     },
   });
@@ -199,7 +201,10 @@ export function TemplateEditorPage() {
       await qc.invalidateQueries({ queryKey: ['templates'] });
     },
     onMutate: () => setSaveState('saving'),
-    onSuccess: () => setSaveState('saved'),
+    onSuccess: () => {
+      setDeleteError(null);
+      setSaveState('saved');
+    },
     onError: (err: unknown) => {
       setSaveState('error');
       const msg = err instanceof Error ? err.message : String(err);
@@ -555,7 +560,17 @@ export function TemplateEditorPage() {
         </div>
       </div>
 
-      {/* Validation errors */}
+      {deleteError && (
+        <div className="max-w-[1200px] mx-auto px-4 pt-3">
+          <div className="bg-red-50 border border-red-200 rounded-md p-3" role="alert">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={14} className="text-red-600" />
+              <p className="text-sm font-medium text-red-700">{deleteError}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {validationErrors.length > 0 && (
         <div className="max-w-[1200px] mx-auto px-4 pt-3">
           <div className="bg-red-50 border border-red-200 rounded-md p-3" role="alert">

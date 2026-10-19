@@ -10,6 +10,8 @@ export const TEMPLATE_ACCESS_DENIED_BODY =
   'Templates are hidden for this account. Ask an admin if you need them.';
 export const TEMPLATE_WRITE_NO_ROW =
   'Could not save. The change was not stored.';
+export const TEMPLATE_DELETE_FAILED =
+  "Couldn't delete this template. Nothing was changed. Try again.";
 
 export function throwIfNoRows(result: {
   data: unknown;

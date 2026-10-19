@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TEMPLATE_WRITE_NO_ROW } from './templateAccess';
+import { TEMPLATE_DELETE_FAILED, TEMPLATE_WRITE_NO_ROW } from './templateAccess';
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -36,6 +36,13 @@ const auth = vi.hoisted(() => ({
 
 const write = vi.hoisted(() => ({
   result: { data: [] as unknown, error: null as { message: string } | null },
+}));
+
+const seed = vi.hoisted(() => ({
+  rpc: 0,
+  insertPayloads: [] as unknown[],
+  emptyRenderers: false,
+  rpcError: null as { message: string } | null,
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -103,14 +110,20 @@ vi.mock('./supabase', () => {
       }
       if (table === 'templates') return { data: [template], error: null };
       if (table === 'jha_templates') return { data: [jha], error: null };
-      if (table === 'inspection_renderers') return { data: [renderer], error: null };
+      if (table === 'inspection_renderers') {
+        return { data: seed.emptyRenderers ? [] : [renderer], error: null };
+      }
       return { data: [], error: null };
     };
     const api = {
       select() { return api; },
       update() { op = 'update'; return api; },
       delete() { op = 'delete'; return api; },
-      insert() { op = 'insert'; return api; },
+      insert(payload?: unknown) {
+        op = 'insert';
+        seed.insertPayloads.push(payload);
+        return api;
+      },
       eq() { return api; },
       order() { return api; },
       filter() { return api; },
@@ -140,7 +153,13 @@ vi.mock('./supabase', () => {
   return {
     supabase: {
       from: (table: string) => chain(table),
-      rpc: async () => ({ data: [], error: null }),
+      rpc: async (name: string) => {
+        if (name === 'ensure_builtin_renderers') {
+          seed.rpc += 1;
+          return { data: null, error: seed.rpcError };
+        }
+        return { data: null, error: null };
+      },
       storage: { from: () => chain('storage') },
       auth: {
         getSession: async () => ({ data: { session: null } }),
@@ -216,6 +235,10 @@ describe('0-row template writes show a visible failure', () => {
   beforeEach(() => {
     navigate.mockReset();
     write.result = { data: [], error: null };
+    seed.rpc = 0;
+    seed.insertPayloads = [];
+    seed.emptyRenderers = false;
+    seed.rpcError = null;
     auth.profile.role = 'admin';
     auth.profile.template_access = 'edit';
     vi.spyOn(window, 'confirm').mockReturnValue(true);
@@ -262,10 +285,11 @@ describe('0-row template writes show a visible failure', () => {
     expect(del).toBeTruthy();
     await act(async () => { del!.click(); });
     await waitFor(
-      () => (container.querySelector('[role="alert"]')?.textContent || '').includes(TEMPLATE_WRITE_NO_ROW),
+      () => (container.querySelector('[role="alert"]')?.textContent || '').includes(TEMPLATE_DELETE_FAILED),
       () => `missing alert: ${(container.textContent || '').slice(0, 400)}`,
     );
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain(TEMPLATE_WRITE_NO_ROW);
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(TEMPLATE_DELETE_FAILED);
+    expect(container.textContent).not.toContain('Please fix the following before saving');
     expect(navigate).not.toHaveBeenCalledWith('/templates');
     act(() => { root.unmount(); });
     container.remove();
@@ -446,6 +470,153 @@ describe('0-row template writes show a visible failure', () => {
       () => `missing insert alert: ${(container.textContent || '').slice(0, 400)}`,
     );
     expect(container.querySelector('[role="alert"]')?.textContent).toContain(TEMPLATE_WRITE_NO_ROW);
+    act(() => { root.unmount(); });
+    container.remove();
+  });
+
+  it('initializeBuiltInRenderers calls ensure_builtin_renderers and does not insert built-ins', async () => {
+    seed.emptyRenderers = true;
+    const { container, root } = await render(
+      <MemoryRouter initialEntries={['/templates/tmpl-1']}>
+        <Routes>
+          <Route path="/templates/:id" element={<TemplateEditorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitForText(container, 'Save');
+    await waitFor(
+      () => seed.rpc >= 1,
+      () => `rpc count=${seed.rpc} inserts=${JSON.stringify(seed.insertPayloads)}`,
+    );
+    expect(seed.rpc).toBeGreaterThanOrEqual(1);
+    expect(seed.insertPayloads).toEqual([]);
+    act(() => { root.unmount(); });
+    container.remove();
+  });
+
+  it('K23: a failed delete replaces stale validation errors with the delete copy', async () => {
+    const { container, root } = await render(
+      <MemoryRouter initialEntries={['/templates/tmpl-1']}>
+        <Routes>
+          <Route path="/templates/:id" element={<TemplateEditorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitForText(container, 'Save');
+    const name = container.querySelector('input[placeholder="Template name"]') as HTMLInputElement;
+    expect(name).toBeTruthy();
+    await act(async () => { setInputValue(name, ''); });
+    const save = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Save'));
+    await act(async () => { save!.click(); });
+    await waitForText(container, 'Please fix the following before saving');
+    expect(container.textContent).toContain('Template name is required');
+    const del = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Delete'));
+    await act(async () => { del!.click(); });
+    await waitFor(
+      () => (container.textContent || '').includes(TEMPLATE_DELETE_FAILED),
+      () => `missing delete copy: ${(container.textContent || '').slice(0, 400)}`,
+    );
+    expect(container.textContent).not.toContain('Please fix the following before saving');
+    expect(container.textContent).not.toContain('Template name is required');
+    const alerts = [...container.querySelectorAll('[role="alert"]')];
+    expect(alerts.some(el => (el.textContent || '').trim() === TEMPLATE_DELETE_FAILED)).toBe(true);
+    expect(alerts.some(el => (el.textContent || '').includes('Please fix the following before saving'))).toBe(false);
+    act(() => { root.unmount(); });
+    container.remove();
+  });
+
+  it('shows the delete-failure copy as its own message', async () => {
+    const { container, root } = await render(
+      <MemoryRouter initialEntries={['/templates/tmpl-1']}>
+        <Routes>
+          <Route path="/templates/:id" element={<TemplateEditorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitForText(container, 'Delete');
+    const del = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Delete'));
+    await act(async () => { del!.click(); });
+    await waitForText(container, TEMPLATE_DELETE_FAILED);
+    expect(container.textContent).toContain(TEMPLATE_DELETE_FAILED);
+    expect(container.textContent).not.toContain('Please fix the following before saving');
+    const alert = [...container.querySelectorAll('[role="alert"]')]
+      .find(el => (el.textContent || '').includes(TEMPLATE_DELETE_FAILED));
+    expect(alert).toBeTruthy();
+    expect((alert!.textContent || '').trim()).toBe(TEMPLATE_DELETE_FAILED);
+    act(() => { root.unmount(); });
+    container.remove();
+  });
+
+  it('logs an ensure_builtin_renderers error once and still renders', async () => {
+    seed.emptyRenderers = true;
+    seed.rpcError = { message: 'seed failed' };
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { container, root } = await render(
+      <MemoryRouter initialEntries={['/templates/tmpl-1']}>
+        <Routes>
+          <Route path="/templates/:id" element={<TemplateEditorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitForText(container, 'Save');
+    await waitFor(
+      () => seed.rpc >= 1 && logged.mock.calls.length >= 1,
+      () => `rpc=${seed.rpc} console.error=${logged.mock.calls.length}`,
+    );
+    expect(seed.rpc).toBe(1);
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(logged).toHaveBeenCalledWith(seed.rpcError);
+    expect(container.textContent).toContain('Save');
+    expect(container.textContent).not.toContain('seed failed');
+    logged.mockRestore();
+    act(() => { root.unmount(); });
+    container.remove();
+  });
+
+  it('clears the delete-failure copy on the next successful save', async () => {
+    const { container, root } = await render(
+      <MemoryRouter initialEntries={['/templates/tmpl-1']}>
+        <Routes>
+          <Route path="/templates/:id" element={<TemplateEditorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitForText(container, 'Delete');
+    const del = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Delete'));
+    await act(async () => { del!.click(); });
+    await waitForText(container, TEMPLATE_DELETE_FAILED);
+    write.result = { data: [{ id: 'tmpl-1' }], error: null };
+    const save = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Save'));
+    await act(async () => { save!.click(); });
+    await waitFor(
+      () => !(container.textContent || '').includes(TEMPLATE_DELETE_FAILED),
+      () => `delete copy still visible: ${(container.textContent || '').slice(0, 400)}`,
+    );
+    expect(container.textContent).not.toContain(TEMPLATE_DELETE_FAILED);
+    act(() => { root.unmount(); });
+    container.remove();
+  });
+
+  it('clears the delete-failure copy on a later successful delete', async () => {
+    const { container, root } = await render(
+      <MemoryRouter initialEntries={['/templates/tmpl-1']}>
+        <Routes>
+          <Route path="/templates/:id" element={<TemplateEditorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitForText(container, 'Delete');
+    const del = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Delete'));
+    await act(async () => { del!.click(); });
+    await waitForText(container, TEMPLATE_DELETE_FAILED);
+    write.result = { data: [{ id: 'tmpl-1' }], error: null };
+    await act(async () => { del!.click(); });
+    await waitFor(
+      () => !(container.textContent || '').includes(TEMPLATE_DELETE_FAILED),
+      () => `delete copy still visible: ${(container.textContent || '').slice(0, 400)}`,
+    );
+    expect(container.textContent).not.toContain(TEMPLATE_DELETE_FAILED);
+    expect(navigate).toHaveBeenCalledWith('/templates');
     act(() => { root.unmount(); });
     container.remove();
   });
