@@ -234,7 +234,10 @@ export function InspectionFillPage() {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     setSaveStatus('saving');
     pendingSaveRef.current = payload;
-    saveTimerRef.current = setTimeout(() => { void saveInspection(payload); }, 600);
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = undefined;
+      void saveInspection(payload);
+    }, 600);
   }, [saveInspection]);
 
   function persist(nextResponses = responses, nextMeta = meta, nextJobId = jobId) {
