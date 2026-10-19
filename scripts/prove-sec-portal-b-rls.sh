@@ -60,6 +60,16 @@ FROM (
   WHERE table_schema = 'public'
     AND table_name IN ('client_portal_tokens', 'inspection_report_shares')
     AND grantee IN ('anon', 'authenticated', 'PUBLIC')
+  UNION ALL
+  SELECT format(
+    'fn %s %s %s',
+    p.oid::regprocedure,
+    md5(pg_get_functiondef(p.oid)),
+    coalesce(array_to_string(p.proacl, ','), '')
+  )
+  FROM pg_proc p
+  WHERE p.pronamespace = 'public'::regnamespace
+    AND p.proname = 'inspection_inspector_company_id'
 ) s;
 SQL
 }

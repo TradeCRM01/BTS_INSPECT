@@ -183,6 +183,7 @@ INSERT INTO public.companies (id, name) VALUES
 
 INSERT INTO public.profiles (id, company_id, email, name) VALUES
   ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'a@example.test', 'Member A'),
+  ('33333333-3333-3333-3333-333333333333', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'y@example.test', 'Member Y'),
   ('22222222-2222-2222-2222-222222222222', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'b@example.test', 'Member B');
 
 INSERT INTO public.clients (id, company_id, name) VALUES
@@ -191,6 +192,7 @@ INSERT INTO public.clients (id, company_id, name) VALUES
 
 INSERT INTO public.inspections (id, inspector_id) VALUES
   ('daaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111'),
+  ('deaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '33333333-3333-3333-3333-333333333333'),
   ('dbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '22222222-2222-2222-2222-222222222222');
 
 COMMIT;
@@ -356,6 +358,49 @@ BEGIN
   FROM public.inspection_report_shares
   WHERE id = 'eb000000-0000-4000-8000-000000000001';
   RETURN v_state || '|' || v_msg || '|' || v_left::text;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.sec_portal_test_shares_teammate_write()
+RETURNS text
+LANGUAGE plpgsql AS $$
+DECLARE
+  v_ins text;
+  v_upd text;
+  v_id uuid;
+  v_revoked boolean;
+BEGIN
+  DELETE FROM public.inspection_report_shares
+  WHERE token = 'shares-teammate-write';
+  PERFORM public.proof_as_authenticated('11111111-1111-1111-1111-111111111111');
+  SET LOCAL ROLE authenticated;
+  BEGIN
+    INSERT INTO public.inspection_report_shares (company_id, inspection_id, token, created_by)
+    VALUES (
+      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      'deaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      'shares-teammate-write',
+      '11111111-1111-1111-1111-111111111111'
+    )
+    RETURNING id INTO v_id;
+    v_ins := '00000';
+  EXCEPTION WHEN OTHERS THEN
+    v_ins := SQLSTATE;
+  END;
+  BEGIN
+    UPDATE public.inspection_report_shares
+    SET revoked = true
+    WHERE token = 'shares-teammate-write';
+    v_upd := '00000';
+  EXCEPTION WHEN OTHERS THEN
+    v_upd := SQLSTATE;
+  END;
+  RESET ROLE;
+  SELECT revoked INTO v_revoked
+  FROM public.inspection_report_shares
+  WHERE token = 'shares-teammate-write';
+  RETURN v_ins || '|' || v_upd || '|' || coalesce(v_id::text, 'null')
+    || '|revoked=' || coalesce(v_revoked::text, 'null');
 END;
 $$;
 
@@ -560,6 +605,21 @@ END $$;
 DO $$
 DECLARE
   r text;
+BEGIN
+  r := public.sec_portal_test_shares_teammate_write();
+  INSERT INTO proof_result VALUES (
+    'shares_teammate_write',
+    split_part(r, '|', 1) = '00000'
+      AND split_part(r, '|', 2) = '00000'
+      AND split_part(r, '|', 3) <> 'null'
+      AND r LIKE '%revoked=true',
+    r
+  );
+END $$;
+
+DO $$
+DECLARE
+  r text;
   v_auth_trunc boolean;
   v_auth_trig boolean;
   v_auth_ref boolean;
@@ -714,6 +774,50 @@ END $$;
 
 \ir ../migrations/20261019120000_sec_portal_b_share_fk_rls.sql
 
+DROP POLICY IF EXISTS "inspection_report_shares_insert" ON public.inspection_report_shares;
+CREATE POLICY "inspection_report_shares_insert"
+  ON public.inspection_report_shares FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    company_id = (select company_id from public.profiles where id = auth.uid())
+    AND EXISTS (select 1 from public.inspections i join public.profiles p on p.id = i.inspector_id where i.id = inspection_report_shares.inspection_id and p.company_id = inspection_report_shares.company_id)
+  );
+DROP POLICY IF EXISTS "inspection_report_shares_update" ON public.inspection_report_shares;
+CREATE POLICY "inspection_report_shares_update"
+  ON public.inspection_report_shares FOR UPDATE
+  TO authenticated
+  USING (
+    company_id = (select company_id from public.profiles where id = auth.uid())
+  )
+  WITH CHECK (
+    company_id = (select company_id from public.profiles where id = auth.uid())
+    AND EXISTS (select 1 from public.inspections i join public.profiles p on p.id = i.inspector_id where i.id = inspection_report_shares.inspection_id and p.company_id = inspection_report_shares.company_id)
+  );
+
+DO $$
+DECLARE
+  r text;
+  uses_helper boolean;
+BEGIN
+  SELECT pg_get_expr(polwithcheck, polrelid) LIKE '%inspection_inspector_company_id%'
+  INTO uses_helper
+  FROM pg_policy
+  WHERE polname = 'inspection_report_shares_insert';
+  r := public.sec_portal_test_shares_teammate_write();
+  INSERT INTO proof_result VALUES (
+    'mutant_join_profiles_teammate_applied',
+    uses_helper IS NOT TRUE AND split_part(r, '|', 1) = '42501',
+    'helper=' || coalesce(uses_helper::text, 'null') || ' ' || r
+  );
+  INSERT INTO proof_result VALUES (
+    'mutant_join_profiles_teammate_killed',
+    split_part(r, '|', 1) <> '00000',
+    'killed by sec_portal_test_shares_teammate_write ' || r
+  );
+END $$;
+
+\ir ../migrations/20261019120000_sec_portal_b_share_fk_rls.sql
+
 GRANT ALL ON public.client_portal_tokens TO anon;
 GRANT ALL ON public.inspection_report_shares TO anon;
 
@@ -749,6 +853,12 @@ BEGIN
   INSERT INTO proof_result VALUES (
     'restore_portal_cross_insert_42501',
     split_part(r, '|', 1) = '42501',
+    r
+  );
+  r := public.sec_portal_test_shares_teammate_write();
+  INSERT INTO proof_result VALUES (
+    'restore_shares_teammate_write',
+    split_part(r, '|', 1) = '00000' AND split_part(r, '|', 2) = '00000',
     r
   );
   r := public.sec_portal_test_anon_no_access();

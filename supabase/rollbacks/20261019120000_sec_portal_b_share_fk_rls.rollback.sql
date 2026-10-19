@@ -35,3 +35,5 @@ GRANT ALL ON public.client_portal_tokens TO anon;
 GRANT ALL ON public.inspection_report_shares TO anon;
 GRANT TRUNCATE, TRIGGER, REFERENCES ON public.client_portal_tokens TO authenticated;
 GRANT TRUNCATE, TRIGGER, REFERENCES ON public.inspection_report_shares TO authenticated;
+
+DROP FUNCTION IF EXISTS public.inspection_inspector_company_id(uuid);
