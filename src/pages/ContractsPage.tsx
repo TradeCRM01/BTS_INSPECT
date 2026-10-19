@@ -7,7 +7,7 @@ import { listPendingCount, listPendingNounCount, listQueryBusy, listSectionLoadE
 import { getAuditContracts } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
 import { DateFieldInput, EmptyState, SearchBar, ContextMenu, ConfirmDialog, SummaryCard, useToast, ViewToggle, useViewMode } from '../components/ui';
-import { DATE_INVALID_MESSAGE, DATE_REQUIRED_MESSAGE, dateRangeOrderError } from '../lib/dateTimeIntegrity';
+import { DATE_INVALID_MESSAGE, DATE_REQUIRED_MESSAGE, dateRangeOrderError, parseAuDate } from '../lib/dateTimeIntegrity';
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import type { MenuEntry } from '../components/ui';
 import { format } from 'date-fns';
@@ -450,6 +450,7 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
   const [err, setErr] = useState<string | null>(null);
   const [startInvalid, setStartInvalid] = useState(false);
   const [endInvalid, setEndInvalid] = useState(false);
+  const [nextInvalid, setNextInvalid] = useState(false);
   const [rangeErr, setRangeErr] = useState<string | null>(null);
   const [startDateError, setStartDateError] = useState<string | null>(null);
   const [endDateError, setEndDateError] = useState<string | null>(null);
@@ -500,6 +501,12 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
       setErr(nextYearError);
       return;
     }
+    const nextComplete = parseAuDate(nextRaw, { requireFourDigitYear: true });
+    if (nextRaw.trim() && !nextComplete) {
+      setNextServiceError(DATE_INVALID_MESSAGE);
+      setErr(DATE_INVALID_MESSAGE);
+      return;
+    }
     if (nextTitleErr || nextClientErr || nextStartRequired) {
       setErr(nextTitleErr || nextClientErr || nextStartRequired);
       return;
@@ -517,7 +524,7 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
     }
     setSaving(true);
     setErr(null);
-    const next = requireNextServiceDate(nextRaw);
+    const next = requireNextServiceDate(nextComplete ?? nextRaw);
     if (!next.ok) {
       setNextServiceError(next.message);
       setErr(next.message);
@@ -642,18 +649,20 @@ export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob
             </Field>
           </div>
           <Field label="Next Service Date *">
-            <input
+            <DateFieldInput
               id="contract-next-service-date"
-              required
-              type="date"
               value={form.next_service_date}
-              onChange={e => { setNextServiceError(null); setForm(f => ({ ...f, next_service_date: e.target.value })); }}
+              onChange={next_service_date => {
+                setNextServiceError(null);
+                setForm(f => ({ ...f, next_service_date }));
+              }}
+              onValidityChange={setNextInvalid}
               className="form-input"
-              aria-invalid={nextServiceError ? true : undefined}
-              aria-describedby={nextServiceError ? 'contract-next-service-date-error' : undefined}
             />
             {nextServiceError ? (
               <p id="contract-next-service-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{nextServiceError}</p>
+            ) : nextInvalid ? (
+              <p className="text-sm text-[#B42318] mt-1" role="alert">{DATE_INVALID_MESSAGE}</p>
             ) : null}
           </Field>
           <label className="flex items-center gap-2 text-sm text-[#1A1A1A]">

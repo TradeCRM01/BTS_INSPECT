@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContractForm } from '../pages/ContractsPage';
 import { ComplianceForm } from '../pages/CompliancePage';
 import { DATE_INVALID_MESSAGE, DATE_RANGE_ORDER_MESSAGE, DATE_REQUIRED_MESSAGE } from './dateTimeIntegrity';
+import { DATE_YEAR_RANGE_MESSAGE } from './safeDate';
 import { ToastProvider } from '../components/ui/Toast';
 
 const insertContract = vi.fn();
@@ -158,7 +159,7 @@ describe('ContractForm date range', () => {
       }
     });
     const dates = document.querySelectorAll<HTMLInputElement>('[data-date-field="au"]');
-    const nextService = document.querySelector<HTMLInputElement>('input[type="date"]');
+    const nextService = document.querySelector<HTMLInputElement>('#contract-next-service-date');
     await act(async () => {
       setInput(dates[0], '31/02/2026');
       if (nextService) setInput(nextService, '2026-11-01');
@@ -169,6 +170,76 @@ describe('ContractForm date range', () => {
     expect(insertContract).not.toHaveBeenCalled();
     expect(onSaved).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain(DATE_INVALID_MESSAGE);
+  });
+});
+
+describe('ContractForm next service DateFieldInput', () => {
+  async function fillTitleClient() {
+    await act(async () => { await Promise.resolve(); });
+    const title = document.querySelector<HTMLInputElement>('input[placeholder="e.g. Annual Maintenance Agreement"]');
+    const client = document.querySelector<HTMLSelectElement>('select');
+    await act(async () => {
+      if (title) setInput(title, 'Annual service');
+      if (client) {
+        client.value = 'cl-1';
+        client.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+  }
+
+  async function mountForm() {
+    const onSaved = vi.fn();
+    await act(async () => {
+      root.render(providers(
+        <ContractForm contract={null} creating={false} onClose={() => {}} onSaved={onSaved} />,
+      ));
+    });
+    await fillTitleClient();
+    return onSaved;
+  }
+
+  it('saves 21/10/2026 as 2026-10-21', async () => {
+    const onSaved = await mountForm();
+    const next = document.querySelector<HTMLInputElement>('#contract-next-service-date');
+    expect(next?.getAttribute('data-date-field')).toBe('au');
+    await act(async () => {
+      if (next) setInput(next, '21/10/2026');
+    });
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+    });
+    expect(insertContract).toHaveBeenCalledTimes(1);
+    expect((insertContract.mock.calls[0][0] as { next_service_date: string }).next_service_date).toBe('2026-10-21');
+    expect(onSaved).toHaveBeenCalled();
+  });
+
+  it('blocks 21/10/2101 with the year-range message and writes nothing', async () => {
+    const onSaved = await mountForm();
+    const next = document.querySelector<HTMLInputElement>('#contract-next-service-date');
+    await act(async () => {
+      if (next) setInput(next, '21/10/2101');
+    });
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+    });
+    expect(insertContract).not.toHaveBeenCalled();
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(DATE_YEAR_RANGE_MESSAGE);
+  });
+
+  it('emits nothing for a partial 21/10/20 and does not save', async () => {
+    const onSaved = await mountForm();
+    const next = document.querySelector<HTMLInputElement>('#contract-next-service-date');
+    await act(async () => {
+      if (next) setInput(next, '21/10/20');
+    });
+    expect(next?.value).toBe('21/10/20');
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+    });
+    expect(insertContract).not.toHaveBeenCalled();
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(document.body.textContent).not.toContain('2020-10-21');
   });
 });
 
