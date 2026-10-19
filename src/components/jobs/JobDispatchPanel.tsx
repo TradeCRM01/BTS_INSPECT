@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { DateFieldInput } from '../ui/DateFieldInput';
 import { TimeFieldInput } from '../ui/TimeFieldInput';
 import { isValidCompleteTimeValue, type TimeFieldHintKind } from '../../lib/timeFieldInput';
+import { DATE_INVALID_MESSAGE, jobClockOrderError } from '../../lib/dateTimeIntegrity';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Calendar, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -88,6 +90,9 @@ export function JobDispatchPanel({
   const crewHelper = crewAssignmentHelper(assigned, teamMembers);
   const [startDraft, setStartDraft] = useState(() => toTimeInput(job.start_time));
   const [endDraft, setEndDraft] = useState(() => toTimeInput(job.end_time));
+  const [timeErr, setTimeErr] = useState<string | null>(null);
+  const [dateDraft, setDateDraft] = useState(() => job.scheduled_date ?? '');
+  const dateInvalidRef = useRef(false);
   const startTimeHintRef = useRef<TimeFieldHintKind>('none');
   const endTimeHintRef = useRef<TimeFieldHintKind>('none');
   const startInputRef = useRef<HTMLInputElement | null>(null);
@@ -96,7 +101,8 @@ export function JobDispatchPanel({
   useEffect(() => {
     setStartDraft(toTimeInput(job.start_time));
     setEndDraft(toTimeInput(job.end_time));
-  }, [job.id, job.start_time, job.end_time]);
+    setDateDraft(job.scheduled_date ?? '');
+  }, [job.id, job.start_time, job.end_time, job.scheduled_date]);
 
   const commitJobTime = (field: 'start_time' | 'end_time', raw: string) => {
     if (field === 'start_time' && startTimeHintRef.current !== 'none') {
@@ -112,6 +118,14 @@ export function JobDispatchPanel({
       else setEndDraft(server);
       return;
     }
+    const nextStart = field === 'start_time' ? raw : startDraft;
+    const nextEnd = field === 'end_time' ? raw : endDraft;
+    const order = jobClockOrderError(nextStart, nextEnd);
+    if (order) {
+      setTimeErr(order);
+      return;
+    }
+    setTimeErr(null);
     if (import.meta.env.DEV) {
       try {
         const w = window as Window & { __fix5aDispatchTimeSaves?: number };
@@ -120,7 +134,11 @@ export function JobDispatchPanel({
         // ignore
       }
     }
-    save.mutate({ [field]: raw || null });
+    const patch: Record<string, unknown> = {};
+    if (nextStart !== toTimeInput(job.start_time)) patch.start_time = nextStart || null;
+    if (nextEnd !== toTimeInput(job.end_time)) patch.end_time = nextEnd || null;
+    if (Object.keys(patch).length === 0) return;
+    save.mutate(patch);
   };
 
   return (
@@ -141,10 +159,20 @@ export function JobDispatchPanel({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
           <label className="block">
             <span className="ops-field-label">Date</span>
-            <input
-              type="date"
-              value={job.scheduled_date ?? ''}
-              onChange={e => save.mutate({ scheduled_date: e.target.value || null })}
+            <DateFieldInput
+              id="job-dispatch-date"
+              value={dateDraft}
+              onChange={setDateDraft}
+              onValidityChange={invalid => {
+                dateInvalidRef.current = invalid;
+                if (invalid) setTimeErr(DATE_INVALID_MESSAGE);
+                else if (timeErr === DATE_INVALID_MESSAGE) setTimeErr(null);
+              }}
+              onBlurCommit={iso => {
+                if (dateInvalidRef.current) return;
+                if (iso === (job.scheduled_date ?? '')) return;
+                save.mutate({ scheduled_date: iso || null });
+              }}
               className="form-input"
             />
           </label>
@@ -171,6 +199,7 @@ export function JobDispatchPanel({
             />
           </label>
         </div>
+        {timeErr ? <p className="text-sm text-fail mb-3" role="alert">{timeErr}</p> : null}
         <p className="ops-meta mb-3">
           Set a date to book this job on the board. Tap a name below to assign crew.
         </p>

@@ -21335,8 +21335,8 @@
     }
 
     .hub-timesheets-days {
-      overflow-x: auto;
-      flex-wrap: nowrap;
+      overflow-x: hidden;
+      flex-wrap: wrap;
     }
 
     .hub-timesheets-day {

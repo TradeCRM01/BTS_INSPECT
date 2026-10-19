@@ -139,7 +139,6 @@ describe('FIX-5c C6 ScheduleJobSheet behaviour', () => {
         <ScheduleJobSheet
           job={auditJob}
           teamMembers={[{ id: '1', name: 'Sam' }]}
-          viewedDate="2026-08-25"
           prefill={{ startTime: '07:30' }}
           onClose={() => {}}
           onSave={onSave}
@@ -161,7 +160,6 @@ describe('FIX-5c C6 ScheduleJobSheet behaviour', () => {
         <ScheduleJobSheet
           job={auditJob}
           teamMembers={[{ id: '1', name: 'Sam' }]}
-          viewedDate="2026-08-25"
           prefill={{ startTime: '07:30' }}
           onClose={() => {}}
           onSave={onSave}
@@ -182,7 +180,6 @@ describe('FIX-5c C6 ScheduleJobSheet behaviour', () => {
         <ScheduleJobSheet
           job={auditJob}
           teamMembers={[{ id: '1', name: 'Sam' }]}
-          viewedDate="2026-08-25"
           prefill={{ startTime: '09:30', endTime: '16:00' }}
           onClose={() => {}}
           onSave={onSave}

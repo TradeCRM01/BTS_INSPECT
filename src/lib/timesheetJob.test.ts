@@ -275,6 +275,7 @@ describe('timeEntryDefaultsForAddHours', () => {
     expect(chipped.end_time).toMatch(/^\d{2}:\d{2}$/);
     const overnight = applyTimeEntryDurationChip({ start_time: '23:00', end_time: '' }, 2);
     expect(overnight.end_time).toBe('01:00');
+    expect(overnight.ends_next_day).toBe(true);
     expect(entryMinutes('2026-10-06T23:00:00.000Z', '2026-10-06T01:00:00.000Z')).toBe(120);
     const form = readFileSync(resolve(process.cwd(), 'src/components/timesheets/TimeEntryForm.tsx'), 'utf8');
     expect(form).toContain('TIME_ENTRY_DURATION_CHIP_HOURS');

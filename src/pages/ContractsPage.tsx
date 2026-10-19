@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
@@ -6,7 +6,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { listPendingCount, listPendingNounCount, listQueryBusy, listSectionLoadError, listShowEmpty } from '../lib/listQueryReady';
 import { getAuditContracts } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
-import { EmptyState, SearchBar, ContextMenu, ConfirmDialog, SummaryCard, useToast, ViewToggle, useViewMode } from '../components/ui';
+import { DateFieldInput, EmptyState, SearchBar, ContextMenu, ConfirmDialog, SummaryCard, useToast, ViewToggle, useViewMode } from '../components/ui';
+import { DATE_INVALID_MESSAGE, DATE_REQUIRED_MESSAGE, dateRangeOrderError, parseAuDate } from '../lib/dateTimeIntegrity';
 import { SkeletonRow, SkeletonSummaryCards } from '../components/ui/Skeletons';
 import type { MenuEntry } from '../components/ui';
 import { format } from 'date-fns';
@@ -38,6 +39,14 @@ const STATUS_TABS: { key: 'all' | ContractStatus; label: string }[] = [
 function formatContractDay(ymd: string, pattern: string): string {
   const day = (ymd ?? '').trim().slice(0, 10);
   return /^\d{4}-\d{2}-\d{2}$/.test(day) ? safeFormatDate(day, pattern) : SAFE_DATE_FALLBACK;
+}
+
+const CONTRACT_TITLE_REQUIRED = 'Title is required.';
+const CONTRACT_CLIENT_REQUIRED = 'Client is required.';
+
+function namedDateRaw(id: string, fallback: string): string {
+  const el = document.getElementById(id);
+  return el instanceof HTMLInputElement ? el.value : fallback;
 }
 
 export function ContractsPage() {
@@ -411,7 +420,7 @@ function ContractRow({ contract, creating, onEdit, onCreateJob, onRemind, onDele
   );
 }
 
-function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRemind }: {
+export function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRemind }: {
   contract: ServiceContract | null;
   creating: boolean;
   onClose: () => void;
@@ -438,9 +447,17 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
   const [clients, setClients] = useState<Client[]>([]);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [startInvalid, setStartInvalid] = useState(false);
+  const [endInvalid, setEndInvalid] = useState(false);
+  const [nextInvalid, setNextInvalid] = useState(false);
+  const [rangeErr, setRangeErr] = useState<string | null>(null);
   const [startDateError, setStartDateError] = useState<string | null>(null);
   const [endDateError, setEndDateError] = useState<string | null>(null);
   const [nextServiceError, setNextServiceError] = useState<string | null>(null);
+  const [titleErr, setTitleErr] = useState<string | null>(null);
+  const [clientErr, setClientErr] = useState<string | null>(null);
+  const [startRequiredErr, setStartRequiredErr] = useState<string | null>(null);
+  const nextTypedRef = useRef<string | null>(null);
 
   useEffect(() => {
     supabase.from('clients').select('*').eq('company_id', profile!.company_id).eq('archived', false).order('name')
@@ -449,39 +466,74 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    setSaving(true);
-    setErr(null);
+    const startRaw = namedDateRaw('contract-start-date', form.start_date);
+    const endRaw = namedDateRaw('contract-end-date', form.end_date);
+    const nextRaw = namedDateRaw('contract-next-service-date', nextTypedRef.current ?? form.next_service_date);
     setStartDateError(null);
     setEndDateError(null);
     setNextServiceError(null);
-    const startYearError = dateFieldYearError(form.start_date, false);
+    setRangeErr(null);
+    const nextTitleErr = form.title.trim() ? null : CONTRACT_TITLE_REQUIRED;
+    const nextClientErr = form.client_id ? null : CONTRACT_CLIENT_REQUIRED;
+    const nextStartRequired = !startRaw.trim() && !startInvalid ? DATE_REQUIRED_MESSAGE : null;
+    setTitleErr(nextTitleErr);
+    setClientErr(nextClientErr);
+    setStartRequiredErr(nextStartRequired);
+    const startYearError = dateFieldYearError(startRaw, false);
     if (startYearError) {
       setStartDateError(startYearError);
       setErr(startYearError);
-      setSaving(false);
       return;
     }
-    const endYearError = dateFieldYearError(form.end_date, false);
+    const startDate = parseAuDate(startRaw, { requireFourDigitYear: true }) ?? '';
+    if (startRaw.trim() && !startDate) {
+      setStartDateError(DATE_INVALID_MESSAGE);
+      setErr(DATE_INVALID_MESSAGE);
+      return;
+    }
+    const endYearError = dateFieldYearError(endRaw, false);
     if (endYearError) {
       setEndDateError(endYearError);
       setErr(endYearError);
-      setSaving(false);
       return;
     }
-    const nextYearError = dateFieldYearError(form.next_service_date, true);
+    const nextYearError = nextRaw.trim() ? dateFieldYearError(nextRaw, true) : null;
     if (nextYearError) {
       setNextServiceError(nextYearError);
       setErr(nextYearError);
-      setSaving(false);
       return;
     }
-    const next = requireNextServiceDate(form.next_service_date);
-    if (!next.ok) {
+    const nextComplete = parseAuDate(nextRaw, { requireFourDigitYear: true });
+    if (nextRaw.trim() && !nextComplete) {
+      setNextServiceError(DATE_INVALID_MESSAGE);
+      setErr(DATE_INVALID_MESSAGE);
+      return;
+    }
+    if (nextTitleErr || nextClientErr || nextStartRequired) {
+      setErr(nextTitleErr || nextClientErr || nextStartRequired);
+      return;
+    }
+    const endDate = endRaw.trim() ? (parseAuDate(endRaw, { requireFourDigitYear: true }) ?? '') : '';
+    if (endRaw.trim() && !endDate) {
+      setEndDateError(DATE_INVALID_MESSAGE);
+      setErr(DATE_INVALID_MESSAGE);
+      return;
+    }
+    const order = dateRangeOrderError(startDate, endDate);
+    if (order) {
+      setRangeErr(order);
+      return;
+    }
+    setSaving(true);
+    setErr(null);
+    const next = requireNextServiceDate(nextComplete ?? nextRaw);
+    if (next.ok === false) {
       setNextServiceError(next.message);
       setErr(next.message);
       setSaving(false);
       return;
     }
+    const nextServiceDate = next.nextServiceDate;
     try {
       const payload = {
         company_id: profile!.company_id,
@@ -489,12 +541,12 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
         client_id: form.client_id || null,
         contract_number: form.contract_number || null,
         status: form.status,
-        start_date: form.start_date || null,
-        end_date: form.end_date || null,
+        start_date: startDate || null,
+        end_date: endDate || null,
         billing_cycle: form.billing_cycle,
         contract_value: parseFloat(form.contract_value) || 0,
         service_frequency: form.service_frequency,
-        next_service_date: next.nextServiceDate,
+        next_service_date: nextServiceDate,
         auto_generate_jobs: form.auto_generate_jobs,
         description: form.description || null,
         notes: form.notes || null,
@@ -522,14 +574,18 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
           <h2 className="text-lg font-semibold text-[#1A1A1A]">{contract ? 'Edit Contract' : 'New Service Contract'}</h2>
           <button onClick={onClose} className="text-[#6B7280] hover:text-[#1A1A1A]"><X size={20} /></button>
         </div>
-        <form onSubmit={handleSave} className="overlay-body">
-          <Field label="Title *"><input required value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="form-input" placeholder="e.g. Annual Maintenance Agreement" /></Field>
+        <form onSubmit={handleSave} noValidate className="overlay-body">
+          <Field label="Title *">
+            <input required value={form.title} onChange={e => { setForm(f => ({ ...f, title: e.target.value })); setTitleErr(null); }} className="form-input" placeholder="e.g. Annual Maintenance Agreement" aria-invalid={titleErr ? true : undefined} aria-describedby={titleErr ? 'contract-title-error' : undefined} />
+            {titleErr ? <p id="contract-title-error" className="text-sm text-[#B42318] mt-1" role="alert">{titleErr}</p> : null}
+          </Field>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Client *">
-              <select required value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value }))} className="form-input cursor-pointer">
+              <select required value={form.client_id} onChange={e => { setForm(f => ({ ...f, client_id: e.target.value })); setClientErr(null); }} className="form-input cursor-pointer">
                 <option value="">Select client...</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+              {clientErr ? <p className="text-sm text-[#B42318] mt-1" role="alert">{clientErr}</p> : null}
             </Field>
             <Field label="Contract #"><input value={form.contract_number} onChange={e => setForm(f => ({ ...f, contract_number: e.target.value }))} className="form-input" placeholder="CON-001" /></Field>
           </div>
@@ -544,32 +600,45 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Start Date">
-              <input
+              <DateFieldInput
                 id="contract-start-date"
-                type="date"
                 value={form.start_date}
-                onChange={e => { setStartDateError(null); setForm(f => ({ ...f, start_date: e.target.value })); }}
+                onChange={start_date => {
+                  setStartDateError(null);
+                  setForm(f => ({ ...f, start_date }));
+                  setRangeErr(null);
+                }}
+                onValidityChange={setStartInvalid}
+                hideAlert={Boolean(startDateError || startRequiredErr)}
+                ariaInvalid={Boolean(startDateError || startRequiredErr || startInvalid)}
+                ariaDescribedBy={startDateError || startRequiredErr ? 'contract-start-date-error' : undefined}
                 className="form-input"
-                aria-invalid={startDateError ? true : undefined}
-                aria-describedby={startDateError ? 'contract-start-date-error' : undefined}
               />
               {startDateError ? (
                 <p id="contract-start-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{startDateError}</p>
+              ) : startRequiredErr ? (
+                <p id="contract-start-date-error" className="text-sm text-[#B42318] mt-1" role="alert">{startRequiredErr}</p>
               ) : null}
             </Field>
             <Field label="End Date">
-              <input
+              <DateFieldInput
                 id="contract-end-date"
-                type="date"
                 value={form.end_date}
-                onChange={e => { setEndDateError(null); setForm(f => ({ ...f, end_date: e.target.value })); }}
+                onChange={end_date => {
+                  setEndDateError(null);
+                  setForm(f => ({ ...f, end_date }));
+                  setRangeErr(null);
+                }}
+                onValidityChange={setEndInvalid}
+                hideAlert={Boolean(endDateError || rangeErr)}
+                ariaInvalid={Boolean(endDateError || endInvalid || rangeErr)}
+                ariaDescribedBy={endDateError ? 'contract-end-date-error' : rangeErr ? 'contract-date-range-error' : undefined}
                 className="form-input"
-                aria-invalid={endDateError ? true : undefined}
-                aria-describedby={endDateError ? 'contract-end-date-error' : undefined}
               />
               {endDateError ? (
                 <p id="contract-end-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{endDateError}</p>
               ) : null}
+              {rangeErr ? <p id="contract-date-range-error" className="text-sm text-[#B42318] mt-1" role="alert">{rangeErr}</p> : null}
             </Field>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -585,15 +654,20 @@ function ContractForm({ contract, creating, onClose, onSaved, onCreateJob, onRem
             </Field>
           </div>
           <Field label="Next Service Date *">
-            <input
+            <DateFieldInput
               id="contract-next-service-date"
-              required
-              type="date"
               value={form.next_service_date}
-              onChange={e => { setNextServiceError(null); setForm(f => ({ ...f, next_service_date: e.target.value })); }}
+              onChange={next_service_date => {
+                setNextServiceError(null);
+                setForm(f => ({ ...f, next_service_date }));
+              }}
+              onTextChange={raw => { nextTypedRef.current = raw; }}
+              onValidityChange={setNextInvalid}
+              requireFourDigitYear
+              hideAlert={Boolean(nextServiceError)}
+              ariaInvalid={Boolean(nextServiceError || nextInvalid)}
+              ariaDescribedBy={nextServiceError ? 'contract-next-service-date-error' : undefined}
               className="form-input"
-              aria-invalid={nextServiceError ? true : undefined}
-              aria-describedby={nextServiceError ? 'contract-next-service-date-error' : undefined}
             />
             {nextServiceError ? (
               <p id="contract-next-service-date-error" role="alert" className="text-sm text-[#B42318] mt-1">{nextServiceError}</p>

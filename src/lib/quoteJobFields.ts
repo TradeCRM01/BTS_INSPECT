@@ -233,7 +233,7 @@ export function focusQuoteConvertField(
   scrollQuoteConvertIntoView(section);
   const focus = quoteConvertFocusField(field);
   const selector = focus === 'date'
-    ? '#quote-convert-date, input[type="date"]'
+    ? '#quote-convert-date, [data-date-field="au"]'
     : focus === 'crew'
       ? '#quote-convert-crew'
       : focus === 'end'

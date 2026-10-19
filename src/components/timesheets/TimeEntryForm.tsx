@@ -6,7 +6,10 @@ import { isDevFieldAuditAuth } from '../../lib/devFieldAuditAuth';
 import { appendAuditTimesheetEntry, AUDIT_TIMESHEET_ID } from '../../lib/timesheetsList';
 import { OverlayPortal } from '../ui/OverlayPortal';
 import { ManagedSelect } from '../ui/ManagedSelect';
+import { DateFieldInput } from '../ui/DateFieldInput';
 import { TimeFieldInput } from '../ui/TimeFieldInput';
+import { shiftEndForNextDay, timeEntrySaveError } from '../../lib/dateTimeIntegrity';
+import { loadPersonTimeEntries, type PersonTimeEntryLoader } from '../../lib/timesheetOverlapQuery';
 import {
   applyTimeFieldsSaveBlock,
   focusTimeFieldInput,
@@ -35,6 +38,7 @@ export function TimeEntryForm({
   presetEndTime,
   lockJob,
   blankTimesOnOpen,
+  loadSiblings = loadPersonTimeEntries,
   onClose,
   onSaved,
 }: {
@@ -47,18 +51,20 @@ export function TimeEntryForm({
   presetEndTime?: string | null;
   lockJob?: boolean;
   blankTimesOnOpen?: boolean;
+  loadSiblings?: PersonTimeEntryLoader;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { profile } = useAuth();
   const [form, setForm] = useState(() => ({
     ...(blankTimesOnOpen
-      ? timeEntryDefaultsForAddHours()
+      ? timeEntryDefaultsForAddHours(new Date(), presetDate)
       : timeEntryDefaultsFromBooking({
         scheduled_date: presetDate,
         start_time: presetStartTime,
         end_time: presetEndTime,
       })),
+    ends_next_day: false,
     work_type: blankTimesOnOpen ? 'Labour' : '',
     billable: true,
     notes: '',
@@ -66,11 +72,21 @@ export function TimeEntryForm({
   }));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [dateInvalid, setDateInvalid] = useState(false);
   const [startTimeHint, setStartTimeHint] = useState<TimeFieldHintKind>('none');
   const [endTimeHint, setEndTimeHint] = useState<TimeFieldHintKind>('none');
   const startFieldRef = useRef<HTMLDivElement>(null);
   const endFieldRef = useRef<HTMLDivElement>(null);
+  const errRef = useRef<HTMLParagraphElement>(null);
   const saveLock = useRef(false);
+
+  const showErr = (message: string) => {
+    setErr(message);
+    requestAnimationFrame(() => {
+      errRef.current?.scrollIntoView?.({ block: 'center' });
+      focusTimeFieldInput(endFieldRef.current);
+    });
+  };
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -90,23 +106,36 @@ export function TimeEntryForm({
       });
       return;
     }
+    const loaded = await loadSiblings({
+      employeeId,
+      date: form.date,
+      endsNextDay: form.ends_next_day,
+    });
+    const uniqueSiblings = loaded;
+    const rangeErr = timeEntrySaveError({
+      date: form.date,
+      start: form.start_time,
+      end: form.end_time,
+      endsNextDay: form.ends_next_day,
+      invalid: dateInvalid,
+      existing: uniqueSiblings,
+    });
+    if (rangeErr) {
+      setErr(rangeErr);
+      showErr(rangeErr);
+      return;
+    }
     if (!profile?.company_id) return;
     saveLock.current = true;
     setSaving(true);
     setErr(null);
     try {
       const startDateTime = new Date(`${form.date}T${form.start_time}`);
-      let endDateTime = form.end_time ? new Date(`${form.date}T${form.end_time}`) : null;
-      if (endDateTime && endDateTime <= startDateTime) {
-        endDateTime = new Date(endDateTime.getTime() + 86400000);
-      }
+      const endDateTime = form.end_time ? new Date(`${form.date}T${form.end_time}`) : null;
+
+      const writtenEnd = shiftEndForNextDay(endDateTime, form.ends_next_day);
 
       if (isDevFieldAuditAuth()) {
-        const startDateTime = new Date(`${form.date}T${form.start_time}`);
-        let endDateTime = form.end_time ? new Date(`${form.date}T${form.end_time}`) : null;
-        if (endDateTime && endDateTime <= startDateTime) {
-          endDateTime = new Date(endDateTime.getTime() + 86400000);
-        }
         const auditId = `audit-time-add-${Date.now()}`;
         appendAuditTimesheetEntry({
           id: auditId,
@@ -114,7 +143,7 @@ export function TimeEntryForm({
           company_id: profile.company_id,
           job_id: form.job_id || null,
           start_time: startDateTime.toISOString(),
-          end_time: endDateTime?.toISOString() ?? null,
+          end_time: writtenEnd?.toISOString() ?? null,
           work_type: form.work_type,
           billable: form.billable,
           notes: form.notes,
@@ -143,15 +172,15 @@ export function TimeEntryForm({
         companyId: profile.company_id,
         jobId: form.job_id || null,
         start: startDateTime,
-        end: endDateTime,
+        end: writtenEnd,
         workType: form.work_type,
         billable: form.billable,
         notes: form.notes,
       }));
       if (error) throw error;
 
-      if (endDateTime) {
-        const addedMin = entryMinutes(startDateTime.toISOString(), endDateTime.toISOString());
+      if (writtenEnd) {
+        const addedMin = entryMinutes(startDateTime.toISOString(), writtenEnd.toISOString());
         const existingMin = existing?.total_minutes ?? 0;
         await supabase.from('timesheets').update({ total_minutes: existingMin + addedMin }).eq('id', tsId);
       }
@@ -177,14 +206,12 @@ export function TimeEntryForm({
           </div>
           <form onSubmit={handleSave} noValidate className="overlay-body flex flex-col gap-4">
             <Field label="Date">
-              <input
-                type="date"
-                lang="en-AU"
+              <DateFieldInput
                 value={form.date}
-                onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                className="form-input hub-date-input-en-au"
+                onChange={date => setForm(f => ({ ...f, date }))}
+                onValidityChange={setDateInvalid}
+                className="form-input"
               />
-              <p className="ops-meta mt-1">dd/mm/yyyy</p>
             </Field>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Start Time">
@@ -201,13 +228,21 @@ export function TimeEntryForm({
                 <div ref={endFieldRef}>
                   <TimeFieldInput
                     value={form.end_time}
-                    onChange={end_time => setForm(f => ({ ...f, end_time }))}
+                    onChange={end_time => setForm(f => ({ ...f, end_time, ends_next_day: false }))}
                     onTimeFieldHintChange={setEndTimeHint}
                     className="form-input"
                   />
                 </div>
               </Field>
             </div>
+            <label className="hub-ops-form-check">
+              <input
+                type="checkbox"
+                checked={form.ends_next_day}
+                onChange={e => setForm(f => ({ ...f, ends_next_day: e.target.checked }))}
+              />
+              Ends next day{form.ends_next_day ? ' (+1)' : ''}
+            </label>
             {blankTimesOnOpen ? (
               <div className="hub-time-entry-chips">
                 {TIME_ENTRY_DURATION_CHIP_HOURS.map(h => (
@@ -265,12 +300,14 @@ export function TimeEntryForm({
               />
               Billable time
             </label>
-            {err && <p className="text-sm text-fail">{err}</p>}
-            <div className="hub-ops-form-footer flex justify-end gap-2 pt-2 border-t border-[#E2D9CC]">
-              <button type="button" onClick={onClose} className="btn-secondary min-h-[44px]">Cancel</button>
-              <button type="submit" disabled={saving} className="btn-primary min-h-[44px] disabled:opacity-50">
-                {saving ? 'Saving...' : 'Save'}
-              </button>
+            <div className="hub-ops-form-footer flex flex-col gap-2 pt-2 border-t border-[#E2D9CC]">
+              {err ? <p ref={errRef} className="text-sm text-fail" role="alert">{err}</p> : null}
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={onClose} className="btn-secondary min-h-[44px]">Cancel</button>
+                <button type="submit" disabled={saving} className="btn-primary min-h-[44px] disabled:opacity-50">
+                  {saving ? 'Saving...' : 'Save'}
+                </button>
+              </div>
             </div>
           </form>
         </div>
