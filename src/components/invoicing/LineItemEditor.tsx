@@ -60,6 +60,21 @@ export function growDescriptionField(field: HTMLTextAreaElement | null): void {
   field.style.height = `${field.scrollHeight + (Number.isFinite(borderY) ? borderY : 0)}px`;
 }
 
+export function watchDescriptionFieldWidth(field: HTMLTextAreaElement | null): () => void {
+  if (!field) return () => {};
+  growDescriptionField(field);
+  if (typeof ResizeObserver === 'undefined') return () => {};
+  let lastWidth = field.getBoundingClientRect().width;
+  const ro = new ResizeObserver(() => {
+    const next = field.getBoundingClientRect().width;
+    if (Math.abs(next - lastWidth) < 0.5) return;
+    lastWidth = next;
+    growDescriptionField(field);
+  });
+  ro.observe(field);
+  return () => ro.disconnect();
+}
+
 function LineDescriptionInput({
   value,
   onChange,
@@ -68,9 +83,7 @@ function LineDescriptionInput({
   onChange: (next: string) => void;
 }) {
   const fieldRef = useRef<HTMLTextAreaElement>(null);
-  useLayoutEffect(() => {
-    growDescriptionField(fieldRef.current);
-  }, [value]);
+  useLayoutEffect(() => watchDescriptionFieldWidth(fieldRef.current), []);
   return (
     <textarea
       ref={fieldRef}
