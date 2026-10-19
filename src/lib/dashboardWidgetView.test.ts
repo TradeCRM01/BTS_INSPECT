@@ -40,6 +40,22 @@ describe('dashboardWidgetView', () => {
     expect(page).toContain('dashboard-home-widget-card');
   });
 
+  it('phone reorder persists only phone_order and never writes desktop x/y', () => {
+    const helper = readFileSync(resolve(process.cwd(), 'src/lib/dashboardWidgetView.ts'), 'utf8');
+    const page = readFileSync(resolve(process.cwd(), 'src/pages/DashboardPage.tsx'), 'utf8');
+    const move = page.slice(page.indexOf('const movePhoneWidget'), page.indexOf('const updateWidgetConfig'));
+    expect(helper).toContain('phone_order');
+    expect(helper).toContain('Never copies grid_x / grid_y / grid_w / grid_h');
+    expect(helper).not.toMatch(/grid_x:\s*[ab]\.grid_x/);
+    expect(helper).not.toMatch(/grid_y:\s*[ab]\.grid_y/);
+    expect(move).toContain('swapAdjacentDashboardWidgetPhoneOrder');
+    expect(move).toContain('persistWidget(row.id, { config: row.config })');
+    expect(move).not.toMatch(/persistWidget\([^)]*grid_x/);
+    expect(move).not.toMatch(/persistWidget\([^)]*grid_y/);
+    expect(move).not.toContain('grid_x: row.grid_x');
+    expect(move).not.toContain('grid_y: row.grid_y');
+  });
+
   it('MONEY-3: sent unpaid invoices count in outstanding widget query', () => {
     const widgets = readFileSync(resolve(process.cwd(), 'src/widgets/WidgetComponents.tsx'), 'utf8');
     expect(widgets).toContain(".in('status', ['sent', 'overdue', 'part_paid'])");

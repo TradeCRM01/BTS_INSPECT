@@ -156,7 +156,14 @@ describe('PR377 probe: phone Customize persists to dashboard_widgets', () => {
       'w-jobs': { config: { phone_order: COMPLIANCE_PHONE_ORDER } },
       'w-compliance': { config: { phone_order: JOBS_PHONE_ORDER } },
     });
-    expect(JSON.stringify(byId)).not.toMatch(/grid_x|grid_y|grid_w|grid_h/);
+    for (const call of up) {
+      const rest = strip(call.payload);
+      expect(Object.keys(rest).sort()).toEqual(['config']);
+      expect(rest).not.toHaveProperty('grid_x');
+      expect(rest).not.toHaveProperty('grid_y');
+      expect(rest).not.toHaveProperty('grid_w');
+      expect(rest).not.toHaveProperty('grid_h');
+    }
     expect(writes('delete')).toHaveLength(0);
     expect(canvasRect('w-jobs')).toEqual(before.jobs);
     expect(canvasRect('w-weather1')).toEqual(before.weather1);
@@ -168,12 +175,16 @@ describe('PR377 probe: phone Customize persists to dashboard_widgets', () => {
     await mountCustomize();
     await act(async () => { btn('w-jobs', 'Move Upcoming Jobs up').click(); }); await tick();
     expect(ids()).toEqual(['w-jobs', 'w-invoices', 'w-compliance', 'w-weather1', 'w-weather2']);
-    const byId = Object.fromEntries(writes('update').map(c => [String(c.filters.find(f => f[0] === 'id')?.[1]), strip(c.payload)]));
+    const up = writes('update');
+    expect(up).toHaveLength(2);
+    const byId = Object.fromEntries(up.map(c => [String(c.filters.find(f => f[0] === 'id')?.[1]), strip(c.payload)]));
     expect(byId).toEqual({
       'w-jobs': { config: { phone_order: INVOICES_PHONE_ORDER } },
       'w-invoices': { config: { phone_order: JOBS_PHONE_ORDER } },
     });
-    expect(writes('update')).toHaveLength(2);
+    for (const call of up) {
+      expect(Object.keys(strip(call.payload)).sort()).toEqual(['config']);
+    }
   });
 
   it('Remove DELETEs the row by id and drops it from the stack (M4b)', async () => {
