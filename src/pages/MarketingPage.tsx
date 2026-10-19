@@ -68,7 +68,7 @@ export function MarketingPage() {
               Build the quote with GST, send the PDF, they Accept on their phone. Accepting doesn't book the job. You book it with one more tap.
             </p>
           </article>
-          <article>
+          <article className="mt-6 md:mt-8">
             <h2 className="hub-marketing-subhead">Invoice the same job.</h2>
             <p>
               GST invoice, how to pay, send it, mark it paid, chase what is overdue. Same job as the quote.
@@ -99,7 +99,7 @@ export function MarketingPage() {
               Arriving shortly, then Clock In. Clock off writes real timesheet hours. One sheet, not a second app.
             </p>
           </article>
-          <article>
+          <article className="mt-6 md:mt-8">
             <h2 className="hub-marketing-subhead">Paperwork stays with the work.</h2>
             <p>
               Custom templates, JHA and Take 5, with your SWMS attached, all filed on the job.
@@ -252,7 +252,7 @@ function ScheduleFrame() {
           {LANDING_SEED_JOB.crew}
         </span>
         <div className="hub-marketing-lane">
-          <span className="hub-marketing-block hub-marketing-block-long">{LANDING_SEED_JOB.ref} · {LANDING_SEED_JOB.title} · {LANDING_SEED_JOB.time}</span>
+          <span className="hub-marketing-block hub-marketing-block-long !text-[11px] truncate">{LANDING_SEED_JOB.ref} · {LANDING_SEED_JOB.title} · {LANDING_SEED_JOB.time}</span>
         </div>
       </div>
       <div className="hub-marketing-board-row mt-2">
@@ -261,7 +261,7 @@ function ScheduleFrame() {
           {LANDING_SEED_TOM.crew}
         </span>
         <div className="hub-marketing-lane">
-          <span className="hub-marketing-block hub-marketing-block-part !bg-zebra !border-l-warning">{LANDING_SEED_TOM.ref} · {LANDING_SEED_TOM.title} · {LANDING_SEED_TOM.time}</span>
+          <span className="hub-marketing-block hub-marketing-block-long !bg-zebra !border-l-warning !text-[11px] truncate">{LANDING_SEED_TOM.ref} · {LANDING_SEED_TOM.title} · {LANDING_SEED_TOM.time}</span>
         </div>
       </div>
     </div>

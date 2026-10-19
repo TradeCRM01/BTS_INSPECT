@@ -160,8 +160,12 @@ describe('public landing seed frames', () => {
     expect(page).toContain('hub-marketing-board-row mt-2');
     expect(page).toContain('ops-crew-mark bg-navy');
     expect(page).toContain('ops-crew-mark bg-warning');
-    expect(page).toContain('hub-marketing-block-part !bg-zebra !border-l-warning');
-    expect(page).not.toContain('hub-marketing-block-long !bg-zebra');
+    expect(page).toContain('hub-marketing-block-long !bg-zebra !border-l-warning !text-[11px] truncate');
+    expect(page).toContain('hub-marketing-block-long !text-[11px] truncate');
+    expect(page).not.toContain('hub-marketing-block-part');
+    expect(page).toContain('mt-6 md:mt-8');
+    expect(page).toContain('Invoice the same job.');
+    expect(page).toContain('Paperwork stays with the work.');
   });
 });
 
