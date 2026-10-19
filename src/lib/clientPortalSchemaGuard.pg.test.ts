@@ -11,12 +11,10 @@ import {
 } from './clientPortalSchemaGuard';
 
 /**
- * Stub PostgREST (portalAdminStub.project) copies whatever column name the
- * select string asks for. A missing column becomes undefined and the handler
- * still returns 200 with empty report cards. Real PostgREST returns 400
- * "column reports.created_at does not exist". This guard applies every file
- * in supabase/migrations on real Postgres and asserts each selected column
- * exists in information_schema.columns.
+ * Stub PostgREST (portalAdminStub.project) used to copy whatever column name the
+ * select string asked for. A missing column became undefined and the handler
+ * still returned 200 with empty report cards. Real PostgREST returns 400
+ * "column reports.created_at does not exist".
  */
 
 function findPgBin(version: string, name: string): string {

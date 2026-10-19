@@ -1,9 +1,5 @@
 /**
- * Public columns on tables client-portal reads, taken from information_schema
- * after every supabase/migrations file on real Postgres. The PG16/PG17 guard
- * asserts this object matches the catalog. The admin stub uses the same object
- * and throws on any other column name.
- *
+ * Taken from information_schema after every supabase/migrations file on real Postgres.
  * Regenerate with: scripts/dump-portal-columns.sh
  */
 export const CLIENT_PORTAL_TABLE_COLUMNS: Record<string, readonly string[]> = {
