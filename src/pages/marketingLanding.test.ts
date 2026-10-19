@@ -1,9 +1,17 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
+import { LANDING_PRICE, MarketingPage } from './MarketingPage';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
+}
+
+function renderLanding(): string {
+  return renderToStaticMarkup(createElement(MemoryRouter, null, createElement(MarketingPage)));
 }
 
 describe('public Grafter landing', () => {
@@ -62,21 +70,65 @@ describe('public Grafter landing', () => {
     expect(page).not.toMatch(/Accept books the job/i);
     expect(page).not.toMatch(/Accept schedules the job/i);
 
+    const weekly = LANDING_PRICE.weekly;
+    const monthly = Math.round(weekly * 52 / 12);
+    const html = renderLanding();
+    expect(page).toContain('export const LANDING_PRICE');
+    expect(page).toContain('Math.round(landingWeekly * 52 / 12)');
+    expect(page).toContain('founderWeekly');
+    expect(html).toContain(`$${weekly}`);
+    expect(html).toContain(`2 months free. Then $${weekly} a week.`);
+    expect(html).toContain(`Billed monthly, about $${monthly}/month.`);
+    expect(html).toContain(`${weekly} per week`);
+    expect(html).toContain('a week');
+    expect(page).toContain('aria-hidden="true">a week');
+    expect(page).toContain('className="sr-only">');
+    expect(page).toContain('per week');
     expect(page).toContain('data-price-slot');
-    expect(page).toContain('$59');
-    expect(page).toContain('$119');
-    expect(page).toContain('$199');
+    expect(page).toContain('Crew 11+');
+    expect(page).toContain('Talk to us');
+    expect(page).toContain('No job caps.');
+    expect(page).toContain('Texts included.');
+    expect(page).toContain('Your price is locked for good.');
+    expect(page).toContain('We move your data over from your old system, free.');
+    expect(page).toContain('Leave any time. Export all your data in one click.');
+    expect(html).toContain('No job caps.');
+    expect(html).toContain('Texts included.');
+    expect(html).toContain('Your price is locked for good.');
+    expect(html).toContain('We move your data over from your old system, free.');
+    expect(html).toContain('Leave any time. Export all your data in one click.');
+    expect(html).toContain('Crew 11+');
+    expect(html).toContain('Talk to us');
+    expect(html).toContain('2 months free');
+    expect(page).toContain('One plan up to 10 seats. Bigger crews talk to us.');
+    expect(page).not.toContain('3 months');
+    expect(html).not.toContain('3 months');
+    expect(page).not.toContain('$59');
+    expect(page).not.toContain('$119');
+    expect(page).not.toContain('$199');
+    expect(html).not.toContain('$59');
+    expect(html).not.toContain('$119');
+    expect(html).not.toContain('$199');
     expect(page).not.toContain('$79');
     expect(page).not.toContain('$149');
     expect(page).not.toContain('$249');
-    expect(page).toContain('aria-hidden="true">mo');
-    expect(page).toContain('className="sr-only">per month');
-    expect(page).toContain('3 months free');
-    expect(page).toContain('Then you pay for seats. Every plan is the same Grafter.');
-    expect(page).toContain('Crew');
-    expect(page).toContain('Company');
-    expect(page).toContain('Plant');
+    expect(page).not.toContain('1–5 seats');
+    expect(page).not.toContain('1-5 seats');
+    expect(page).not.toContain('aria-hidden="true">mo');
+    expect(page).not.toContain('className="sr-only">per month');
+    expect(page).not.toContain('Then you pay for seats. Every plan is the same Grafter.');
+    expect(page).not.toContain('data-price-slot="crew"');
+    expect(page).not.toContain('data-price-slot="company"');
+    expect(page).not.toContain('data-price-slot="plant"');
+    expect(page).not.toContain('hub-marketing-kicker">Crew');
+    expect(page).not.toContain('hub-marketing-kicker">Company');
+    expect(page).not.toContain('hub-marketing-kicker">Plant');
     expect(page).toContain('GST included');
+    if (LANDING_PRICE.founderWeekly == null) {
+      expect(html).not.toContain('Founder price');
+    } else {
+      expect(html).toContain(`Founder price $${LANDING_PRICE.founderWeekly} a week.`);
+    }
     expect(page).not.toContain('$\u2014');
     expect(page).not.toContain('TBA');
     expect(page).not.toContain('SUPERNINTENDO_PRICE_FILL');
