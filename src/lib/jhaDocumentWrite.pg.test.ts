@@ -3,12 +3,15 @@ import { mkdtempSync, writeFileSync, rmSync, existsSync, mkdirSync, readFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { planJhaDocumentWrite } from './jhaDocumentWrite';
+import { jhaPersistStatus, planJhaDocumentWrite } from './jhaDocumentWrite';
+import { take5SignatureForSave } from './take5NextAction';
+import { trimSafetySite } from './safetySite';
 
 const COMPANY = '00000000-0000-4000-8000-0000000000aa';
 const USER = '00000000-0000-4000-8000-0000000000bb';
 const TEMPLATE = '00000000-0000-4000-8000-0000000000cc';
 const DOC = '00000000-0000-4000-8000-0000000000dd';
+const TAKE5 = '00000000-0000-4000-8000-0000000000ee';
 
 function findBin(name: string): string | null {
   const look = spawnSync('sh', ['-c', `command -v ${name}`], { encoding: 'utf8' });
@@ -88,11 +91,14 @@ unix_socket_directories = '${sockDir}'
     `);
     const companies = readFileSync('supabase/migrations/20260426023532_001_companies_and_profiles.sql', 'utf8');
     const tables = readFileSync('supabase/migrations/20260803092510_020_jha_templates_and_documents_tables.sql', 'utf8');
+    const take5Sql = readFileSync('supabase/migrations/20260813111445_jha_p3_ecosystem.sql', 'utf8');
     runSql(companies.replace(/REFERENCES auth\.users\(id\)[^,]*/g, ''));
     runSql(tables);
+    runSql(take5Sql.split('alter table')[0]);
     runSql(`
       ALTER TABLE jha_documents DISABLE ROW LEVEL SECURITY;
       ALTER TABLE jha_templates DISABLE ROW LEVEL SECURITY;
+      ALTER TABLE jha_take5 DISABLE ROW LEVEL SECURITY;
       INSERT INTO companies (id, name) VALUES ('${COMPANY}', 'QA Co');
       INSERT INTO profiles (id, email, name, company_id) VALUES ('${USER}', 'qa@example.com', 'QA', '${COMPANY}');
       INSERT INTO jha_templates (id, company_id, created_by, name) VALUES ('${TEMPLATE}', '${COMPANY}', '${USER}', 'Iso');
@@ -177,5 +183,65 @@ unix_socket_directories = '${sockDir}'
     expect(`${upsertFails.stderr}${upsertFails.stdout}`).toMatch(/template_id/);
     const stillOne = runSql(`SELECT count(*) FROM jha_documents WHERE id = '${DOC}'`);
     expect(stillOne).toMatch(/1/);
+  });
+
+  it('draft save on an existing Take 5 keeps one row and persists signature, location, and signer', () => {
+    const jhaPlan = planJhaDocumentWrite({
+      persistedId: null,
+      clientDraftId: DOC,
+      templateId: TEMPLATE,
+      templateName: 'Iso',
+      schema: { meta: {} },
+      companyId: COMPANY,
+      createdBy: USER,
+      payload: {
+        meta: { siteName: 'Board face' },
+        steps: [],
+        ppe: [],
+        sign_offs: [],
+        status: 'draft',
+        client_id: null,
+        job_id: null,
+        doc_version: 1,
+        amended_from_id: null,
+        amendment_reason: null,
+      },
+    });
+    if (jhaPlan.op === 'insert') {
+      const insertCols = ['id', 'template_id', 'template_snapshot', 'company_id', 'created_by', 'status', 'meta', 'steps', 'ppe', 'sign_offs'];
+      try {
+        runSql(`INSERT INTO jha_documents (${insertCols.join(',')}) VALUES (${insertCols.map(col => sqlLiteral(jhaPlan.row[col])).join(',')})`);
+      } catch (err) {
+        if (!String(err).includes('duplicate key')) throw err;
+      }
+    }
+
+    runSql(`
+      INSERT INTO jha_take5 (id, company_id, jha_document_id, created_by, status, meta)
+      VALUES ('${TAKE5}', '${COMPANY}', '${DOC}', '${USER}', 'draft', '{}'::jsonb)
+    `);
+
+    const location = trimSafetySite('  Cupboard face  ');
+    const signature = take5SignatureForSave({
+      canvasDataUrl: 'data:image/png;base64,take5sig',
+      existingSignature: null,
+    });
+    const persistAs = jhaPersistStatus('draft', 'draft');
+    const signedName = 'Jane Spark';
+    runSql(`
+      UPDATE jha_take5
+      SET status = ${sqlLiteral(persistAs)},
+          meta = ${sqlLiteral({ location })},
+          signature = ${sqlLiteral(signature)},
+          signed_name = ${sqlLiteral(signedName)}
+      WHERE id = '${TAKE5}'
+    `);
+
+    const count = runSql(`SELECT count(*) FROM jha_take5 WHERE jha_document_id = '${DOC}'`);
+    expect(count).toMatch(/\b1\b/);
+    const row = runSql(`SELECT signature, signed_name, meta->>'location' AS location FROM jha_take5 WHERE id = '${TAKE5}'`);
+    expect(row).toContain('data:image/png;base64,take5sig');
+    expect(row).toContain('Jane Spark');
+    expect(row).toContain('Cupboard face');
   });
 });
