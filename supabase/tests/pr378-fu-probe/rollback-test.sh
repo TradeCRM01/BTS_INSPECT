@@ -1,6 +1,4 @@
 #!/bin/bash
-# usage: rollback-test.sh PGVER
-# Catalog snapshot after 089 (before 090), apply 090, rollback, diff vs pre-090 must be empty.
 set -euo pipefail
 V=$1
 P="$(cd "$(dirname "$0")" && pwd)"

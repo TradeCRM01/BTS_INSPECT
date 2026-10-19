@@ -1,8 +1,3 @@
--- Local proof for public.ensure_builtin_renderers and the 090 INSERT policy.
--- Throwaway Postgres only. Never against production.
---
---   psql -v ON_ERROR_STOP=1 -f supabase/tests/ensure_builtin_renderers.sql
-
 BEGIN;
 
 DO $roles$

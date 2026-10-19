@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Apply 090 mutants and confirm named proofs fail. PGHOST/PGPORT required."""
 import os, subprocess, sys, json, tempfile, shutil
 
 REPO = os.environ.get('REPO') or os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))

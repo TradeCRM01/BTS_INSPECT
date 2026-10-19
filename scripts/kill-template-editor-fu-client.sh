@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Apply named client mutants; each must fail the named vitest.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PAGE="$ROOT/src/pages/TemplateEditorPage.tsx"

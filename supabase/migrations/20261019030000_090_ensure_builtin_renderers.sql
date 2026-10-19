@@ -1,7 +1,3 @@
--- Built-in renderer seed RPC. INSERT of built_in=true is no longer a client path.
--- Unique (company_id, key) WHERE built_in IS TRUE plus ON CONFLICT DO NOTHING
--- so two concurrent calls cannot duplicate. Never UPDATE existing built-ins.
-
 CREATE UNIQUE INDEX IF NOT EXISTS inspection_renderers_company_builtin_key_uidx
   ON public.inspection_renderers (company_id, key)
   WHERE built_in IS TRUE;

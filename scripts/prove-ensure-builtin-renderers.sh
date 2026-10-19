@@ -59,7 +59,6 @@ echo "== PR proof PG${PGV} =="
 echo "DB proofs passed"
 
 echo "== concurrency: two parallel ensure_builtin_renderers =="
-# Fresh company E in the same cluster/session DB (postgres).
 "${PSQL[@]}" <<'SQL'
 INSERT INTO public.companies (id, created_by, name) VALUES
   ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '90000000-0000-0000-0000-000000000001', 'Company E')

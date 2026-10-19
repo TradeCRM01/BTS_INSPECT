@@ -1,8 +1,3 @@
--- Rollback 090_ensure_builtin_renderers.
--- Restores the 089 INSERT policy (owner-or-admin, no built_in term).
--- Drops ensure_builtin_renderers and the built-in unique index.
--- Re-runnable. Does not run on production without approval.
-
 DROP FUNCTION IF EXISTS public.ensure_builtin_renderers();
 DROP INDEX IF EXISTS public.inspection_renderers_company_builtin_key_uidx;
 

@@ -143,7 +143,6 @@ export function resolveDevAuditProfile(): Profile {
       profile.template_access = 'edit';
     }
   } catch {
-    return profile;
   }
   return profile;
 }
