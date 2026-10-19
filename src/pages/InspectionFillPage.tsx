@@ -189,11 +189,11 @@ export function InspectionFillPage() {
   const allowLeaveRef = useRef(false);
 
   const saveInspection = useCallback(async (payload: PendingSave, opts?: { keepalive?: boolean }) => {
-    if (!id) return;
+    if (!id) return false;
     if (isDevFieldAuditAuth()) {
       setSaveStatus('saved');
       pendingSaveRef.current = null;
-      return;
+      return true;
     }
     const body = {
       responses: payload.responses as unknown as Record<string, unknown>,
@@ -208,7 +208,7 @@ export function InspectionFillPage() {
         method: 'PATCH',
         body,
       });
-      return;
+      return false;
     }
     setSaveStatus('saving');
     try {
@@ -221,10 +221,12 @@ export function InspectionFillPage() {
       if (!saveConfirmedByRows(data)) throw new Error('Save wrote 0 rows');
       setSaveStatus('saved');
       pendingSaveRef.current = null;
+      return true;
     } catch {
       setSaveStatus('error');
       pendingSaveRef.current = payload;
       localStorage.setItem(`insp_${id}_responses`, JSON.stringify(payload.responses));
+      return false;
     }
   }, [id]);
 
@@ -257,7 +259,7 @@ export function InspectionFillPage() {
   async function flushAndNavigate(path: string) {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     const job = jobs.find(j => j.id === jobId);
-    await saveInspection({
+    const ok = await saveInspection({
       responses,
       meta,
       crm_job_id: jobId || null,
@@ -265,6 +267,7 @@ export function InspectionFillPage() {
         ? (job.client_id ?? null)
         : ((inspection as { client_id?: string | null } | null)?.client_id ?? null),
     });
+    if (!ok) return;
     allowLeaveRef.current = true;
     navigate(path);
   }

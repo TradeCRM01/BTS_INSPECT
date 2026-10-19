@@ -156,6 +156,17 @@ vi.mock('../lib/supabase', () => {
         return query.upsert(payload);
       },
       upsert(payload: Record<string, unknown>) {
+        if (table === 'jha_documents') {
+          for (const col of ['template_id', 'template_snapshot', 'company_id', 'created_by']) {
+            if (payload[col] == null) {
+              promise = Promise.resolve({
+                data: null,
+                error: { message: `null value in column "${col}" of relation "jha_documents"` },
+              });
+              return query;
+            }
+          }
+        }
         const id = typeof payload.id === 'string' && payload.id
           ? payload.id
           : `new-${table}-${harness.ins + 1}`;
@@ -370,6 +381,30 @@ describe('Take 5 and JHA save guards', () => {
     await typeInput('input[placeholder="Where is the work?"]', 'Plant B');
     await blur(document.querySelector('input[placeholder="Where is the work?"]')!);
     await sleep(120);
+    const st = w('jha_documents').map(s => s.payload.status);
+    expect(st.length).toBeGreaterThan(0);
+    expect(st.every(s => s === 'completed')).toBe(true);
+  });
+
+  it('list-opened JHA blur updates the existing row and does not insert', async () => {
+    await renderRoutes(`/jha/new?docId=${harness.jhaId}`, jhaRoutes());
+    await waitForText('Hazards, steps & controls');
+    const sel = 'input[placeholder="Where is the work?"]';
+    await typeInput(sel, 'Plant D');
+    await blur(document.querySelector(sel)!);
+    await sleep(200);
+    const rows = w('jha_documents');
+    expect(rows.filter(s => s.op === 'insert')).toHaveLength(0);
+    expect(rows.some(s => s.op === 'update' && (s.payload.meta as { siteName?: string } | undefined)?.siteName === 'Plant D')).toBe(true);
+    expect(rows.every(s => String(s.payload.id ?? harness.jhaId) === harness.jhaId)).toBe(true);
+  });
+
+  it('completed JHA debounce stays completed', async () => {
+    harness.jhaStatus = 'completed';
+    await renderRoutes(`/jha/new?docId=${harness.jhaId}`, jhaRoutes());
+    await waitForText('Hazards, steps & controls');
+    await typeInput('input[placeholder="Where is the work?"]', 'Plant debounce');
+    await sleep(2200);
     const st = w('jha_documents').map(s => s.payload.status);
     expect(st.length).toBeGreaterThan(0);
     expect(st.every(s => s === 'completed')).toBe(true);

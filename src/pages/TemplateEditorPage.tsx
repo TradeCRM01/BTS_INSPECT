@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
@@ -214,6 +214,10 @@ export function TemplateEditorPage() {
   });
 
   const persistTemplate = saveMutation.mutate;
+  const flushTemplate = useCallback(() => {
+    if (!templateId || getAuditTemplate(templateId)) return;
+    persistTemplate();
+  }, [templateId, persistTemplate]);
 
   useEffect(() => {
     if (!canEdit || saveState !== 'unsaved' || !templateId) return;
@@ -227,10 +231,7 @@ export function TemplateEditorPage() {
 
   const unsaved = useUnsavedChangesGuard({
     status: saveState,
-    flush: () => {
-      if (!templateId || getAuditTemplate(templateId)) return;
-      saveMutation.mutate();
-    },
+    flush: flushTemplate,
     allowLeaveRef,
   });
 
@@ -547,6 +548,7 @@ export function TemplateEditorPage() {
 
           <div className="hidden md:flex items-center gap-1.5 text-xs text-[#4A5568] shrink-0">
             {isLoading && <><LoadingSpinner size="sm" /> Loading...</>}
+            {!isLoading && saveState === 'saved' && <CheckCircle size={13} className="text-[#1B7F3A]" />}
             {!isLoading && (
               <span data-save-status={saveState}>{unsaved.hint}</span>
             )}

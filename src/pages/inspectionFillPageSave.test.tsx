@@ -348,6 +348,25 @@ describe('inspection fill page flush', () => {
     }
   });
 
+  it('a failed Review save stays on the fill page and shows the error', async () => {
+    await renderPage();
+    await waitForNotes();
+    harness.emptyUpdate = true;
+    const review = Array.from(document.body.querySelectorAll('button')).find(btn => (
+      /Review/.test(btn.textContent || '') && !/Cancel|Leave/.test(btn.textContent || '')
+    ));
+    if (!review) throw new Error('missing Review');
+    await act(async () => {
+      review.click();
+    });
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    });
+    expect(harness.updates.length).toBeGreaterThan(0);
+    expect(document.body.textContent).not.toContain('REVIEW PAGE');
+    expect(container.querySelector('[data-save-status]')?.getAttribute('data-save-status')).toBe('error');
+  });
+
   it('R2: after Saved, Review navigates with no leave dialog', async () => {
     await renderPage();
     const notes = await waitForNotes();
