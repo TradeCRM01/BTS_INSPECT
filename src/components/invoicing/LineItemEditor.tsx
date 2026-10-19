@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Package, Plus, Trash2, Search, X, BookOpen } from 'lucide-react';
 import { formatMoney, type ExpenseCostModel, type StockItem, type PriceBookItem, EXPENSE_MODEL_TIME_UNIT_HOURS, type ExpenseModelTimeUnit } from '../../types/fsm';
@@ -50,6 +50,39 @@ export function emptyLineItem(defaultMarkup = 0): EditLineItem {
     gst_rate: null,
     check_price: false,
   };
+}
+
+export function growDescriptionField(field: HTMLTextAreaElement | null): void {
+  if (!field) return;
+  field.style.height = 'auto';
+  const style = getComputedStyle(field);
+  const borderY = Number.parseFloat(style.borderTopWidth) + Number.parseFloat(style.borderBottomWidth);
+  field.style.height = `${field.scrollHeight + (Number.isFinite(borderY) ? borderY : 0)}px`;
+}
+
+function LineDescriptionInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const fieldRef = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    growDescriptionField(fieldRef.current);
+  }, [value]);
+  return (
+    <textarea
+      ref={fieldRef}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      onInput={e => growDescriptionField(e.currentTarget)}
+      className="form-input-sm min-w-0 w-full min-h-[36px] resize-none whitespace-pre-wrap break-words overflow-hidden [field-sizing:content]"
+      placeholder="Description"
+      aria-label="Description"
+      rows={1}
+    />
+  );
 }
 
 export function toEditLine(li: {
@@ -452,13 +485,9 @@ export function LineItemEditor({
                       {li.description}
                     </p>
                   ) : (
-                    <textarea
+                    <LineDescriptionInput
                       value={li.description}
-                      onChange={e => updateLine(idx, { description: e.target.value })}
-                      className="form-input-sm min-w-0 w-full h-auto min-h-[36px] resize-y whitespace-pre-wrap break-words overflow-visible"
-                      placeholder="Description"
-                      aria-label="Description"
-                      rows={1}
+                      onChange={next => updateLine(idx, { description: next })}
                     />
                   )}
                 </div>

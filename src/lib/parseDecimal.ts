@@ -39,9 +39,12 @@ function prepareText(
   if (/\s/.test(text)) return { status: 'invalid', message: DECIMAL_INVALID };
   let sign: 1 | -1 = 1;
   if (text.startsWith('-')) {
+    const rest = text.slice(1);
+    const numberLike = rest === '' || /^[0-9.,]+$/.test(rest);
+    if (!numberLike) return { status: 'invalid', message: DECIMAL_INVALID };
     if (!opts.allowNegative) return { status: 'invalid', message: DECIMAL_NEGATIVE };
     sign = -1;
-    text = text.slice(1);
+    text = rest;
     if (text === '') return { status: 'incomplete', raw, partial: null };
     if (text.startsWith('-')) return { status: 'invalid', message: DECIMAL_NEGATIVE };
   }

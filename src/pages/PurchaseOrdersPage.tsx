@@ -20,11 +20,8 @@ import {
   Package, ArrowRight,
 } from 'lucide-react';
 import { safeFormatDate } from '../lib/safeDate';
-import { format, parseISO } from 'date-fns';
 import { commitDocumentLine, commitNumberField, DECIMAL_NEGATIVE, moneyDraftAllowed, moneyFieldMessage, numberDraftAllowed } from '../lib/parseDecimal';
 import { lineExGstAmount, moneyRound } from '../lib/gst';
-
-export { format as formatPoDate, parseISO as parsePoDate };
 
 /** List chrome only. Same week-board / #145 quiet elevation. Not a new kit. */
 const PO_LIST_LOOK_CSS = `
