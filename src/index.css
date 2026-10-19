@@ -5015,6 +5015,32 @@
     white-space: nowrap;
   }
 
+  .hub-invoice-send .job-client-phone:has(.field-inline-error),
+  .hub-invoice-send .job-client-email:has(.field-inline-error) {
+    display: flex;
+    flex-wrap: wrap;
+    flex-shrink: 1;
+    white-space: normal;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .hub-invoice-send .job-client-phone:has(.field-inline-error) .form-input-sm,
+  .hub-invoice-send .job-client-email:has(.field-inline-error) .form-input-sm {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    flex: 1 1 100%;
+    field-sizing: fixed;
+  }
+
+  .hub-invoice-send .job-client-phone:has(.field-inline-error) .field-inline-error,
+  .hub-invoice-send .job-client-email:has(.field-inline-error) .field-inline-error {
+    flex: 1 0 100%;
+    white-space: normal;
+  }
+
   .hub-invoice-send a.job-client-phone-num {
     color: #0A2540;
     text-decoration: none;
@@ -8384,6 +8410,32 @@
   .job-cal-host a.job-client-phone-num {
     flex-shrink: 0;
     white-space: nowrap;
+  }
+
+  .job-cal-host .job-client-phone:has(.field-inline-error),
+  .job-cal-host .job-client-email:has(.field-inline-error) {
+    display: flex;
+    flex-wrap: wrap;
+    flex-shrink: 1;
+    white-space: normal;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .job-cal-host .job-client-phone:has(.field-inline-error) .form-input-sm,
+  .job-cal-host .job-client-email:has(.field-inline-error) .form-input-sm {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    flex: 1 1 100%;
+    field-sizing: fixed;
+  }
+
+  .job-cal-host .job-client-phone:has(.field-inline-error) .field-inline-error,
+  .job-cal-host .job-client-email:has(.field-inline-error) .field-inline-error {
+    flex: 1 0 100%;
+    white-space: normal;
   }
 
   .job-cal-host a.job-client-phone-num {

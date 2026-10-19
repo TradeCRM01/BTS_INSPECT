@@ -714,6 +714,7 @@ export function CompanySettingsPage() {
 
   // Email / SMTP settings
   const [emailSettings, setEmailSettings] = useState<EmailSettings>(defaultEmailSettings);
+  const [smtpOriginal, setSmtpOriginal] = useState<{ from_email: string; smtp_port: string } | undefined>();
   const [loadingEmail, setLoadingEmail] = useState(false);
   const [savingEmail, setSavingEmail] = useState(false);
   const [emailSaved, setEmailSaved] = useState(false);
@@ -827,7 +828,7 @@ export function CompanySettingsPage() {
       .eq('company_id', company.id)
       .maybeSingle();
     if (data) {
-      setEmailSettings({
+      const next = {
         smtp_host: data.smtp_host ?? '',
         smtp_port: String(data.smtp_port ?? 587),
         smtp_secure: data.smtp_secure ?? false,
@@ -835,6 +836,13 @@ export function CompanySettingsPage() {
         smtp_pass: data.smtp_pass ?? '',
         from_name: data.from_name ?? '',
         from_email: data.from_email ?? '',
+      };
+      setEmailSettings(next);
+      setSmtpOriginal({ from_email: next.from_email, smtp_port: next.smtp_port });
+    } else {
+      setSmtpOriginal({
+        from_email: defaultEmailSettings.from_email,
+        smtp_port: defaultEmailSettings.smtp_port,
       });
     }
     setLoadingEmail(false);
@@ -1040,7 +1048,7 @@ export function CompanySettingsPage() {
   async function handleSaveEmailSettings(e: React.FormEvent) {
     e.preventDefault();
     if (!company) return;
-    const nextSmtp = smtpFieldErrors(emailSettings);
+    const nextSmtp = smtpFieldErrors(emailSettings, smtpOriginal);
     setSmtpErrors(nextSmtp);
     if (nextSmtp.from_email || nextSmtp.smtp_port) {
       revealInvalidField(nextSmtp.from_email ? 'smtp-from' : 'smtp-port');
@@ -1056,8 +1064,12 @@ export function CompanySettingsPage() {
       .upsert(payload, { onConflict: 'company_id' });
 
     if (error) {
-      setEmailError(error.message);
+      setEmailError(fieldSaveMiss(error));
     } else {
+      setSmtpOriginal({
+        from_email: emailSettings.from_email,
+        smtp_port: String(Number(emailSettings.smtp_port) || 587),
+      });
       setEmailSaved(true);
       setTimeout(() => setEmailSaved(false), 2000);
     }

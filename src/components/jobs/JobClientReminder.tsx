@@ -413,7 +413,7 @@ export const JobClientReminder = forwardRef<JobClientReminderHandle, {
                   }}
                   placeholder="Email"
                   className={clientEmailError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
-                  aria-label="Client email"
+                  aria-label="Reminder client email"
                   autoComplete="email"
                   aria-invalid={clientEmailError ? true : undefined}
                   aria-describedby={clientEmailError ? 'job-reminder-client-email-error' : undefined}

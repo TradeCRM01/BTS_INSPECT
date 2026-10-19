@@ -33,6 +33,9 @@ function hasAllowedPhoneChars(value: string): boolean {
   if (!PHONE_CHAR_RE.test(raw)) return false;
   if ((raw.match(/\+/g) ?? []).length > 1) return false;
   if (raw.includes('+') && !raw.startsWith('+')) return false;
+  const opens = (raw.match(/\(/g) ?? []).length;
+  const closes = (raw.match(/\)/g) ?? []).length;
+  if (opens !== closes) return false;
   return true;
 }
 
@@ -201,13 +204,20 @@ export function paymentMethodFieldErrors(method: {
   return errors;
 }
 
-export function smtpFieldErrors(form: {
-  from_email: string;
-  smtp_port: string;
-}): FieldErrors {
+export function smtpFieldErrors(
+  form: {
+    from_email: string;
+    smtp_port: string;
+  },
+  original?: { from_email?: string; smtp_port?: string },
+): FieldErrors {
   const errors: FieldErrors = {};
-  if (!optionalBlank(form.from_email, isEmail)) errors.from_email = FIELD_EMAIL;
-  if (!optionalBlank(form.smtp_port, isPort)) errors.smtp_port = FIELD_PORT;
+  if (fieldChanged(form.from_email, original?.from_email) && !optionalBlank(form.from_email, isEmail)) {
+    errors.from_email = FIELD_EMAIL;
+  }
+  if (fieldChanged(form.smtp_port, original?.smtp_port) && !optionalBlank(form.smtp_port, isPort)) {
+    errors.smtp_port = FIELD_PORT;
+  }
   return errors;
 }
 

@@ -3469,6 +3469,7 @@ export function JobDetailPage() {
               {!contactHeld && emailRow.kind === 'edit' && (
                 <form
                   className="job-client-email"
+                  noValidate
                   onSubmit={e => {
                     e.preventDefault();
                     const emailDecision = decideJobClientEmailSave({
@@ -3485,7 +3486,8 @@ export function JobDetailPage() {
                 >
                   <Mail size={13} />
                   <input
-                    type="email"
+                    type="text"
+                    inputMode="email"
                     value={clientEmailDraft}
                     onChange={e => {
                       setClientEmailDraft(e.target.value);

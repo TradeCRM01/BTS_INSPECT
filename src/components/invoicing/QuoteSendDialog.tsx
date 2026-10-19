@@ -441,6 +441,7 @@ export function QuoteSendDialog({
                   {showEmailEditor && emailRow.kind === 'edit' ? (
                     <form
                       className="job-client-email"
+                      noValidate
                       onSubmit={e => {
                         e.preventDefault();
                         void handleSaveEmail();
@@ -449,7 +450,8 @@ export function QuoteSendDialog({
                       <Mail size={13} />
                       <input
                         ref={emailInputRef}
-                        type="email"
+                        type="text"
+                        inputMode="email"
                         value={clientEmailDraft}
                         onChange={e => {
                           setClientEmailDraft(e.target.value);
@@ -582,6 +584,7 @@ export function QuoteSendDialog({
               {showEmailEditor && emailRow.kind === 'edit' && (
                 <form
                   className="job-client-email"
+                  noValidate
                   onSubmit={e => {
                     e.preventDefault();
                     void handleSaveEmail();
@@ -590,7 +593,8 @@ export function QuoteSendDialog({
                   <Mail size={13} />
                   <input
                     ref={emailInputRef}
-                    type="email"
+                    type="text"
+                    inputMode="email"
                     value={clientEmailDraft}
                     onChange={e => {
                       setClientEmailDraft(e.target.value);
