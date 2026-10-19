@@ -56,7 +56,7 @@ import {
 import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel, lineExGstAmount, moneyRound } from '../lib/gst';
 import { commitDocumentLine, committedTaxRate } from '../lib/parseDecimal';
 import { commitCommercialLines } from '../lib/commitCommercialLines';
-import { issuedDocumentLocksLines, persistDocumentMoney, persistIssuedClientId, persistIssuedLines } from '../lib/documentPersist';
+import { issuedDocumentLocksLines, issuedLinesLockCopy, persistDocumentMoney, persistIssuedClientId, persistIssuedLines } from '../lib/documentPersist';
 import { LineItemEditor, emptyLineItem, toEditLine, type EditLineItem } from '../components/invoicing/LineItemEditor';
 import { DocumentVariationsEditor } from '../components/invoicing/DocumentVariationsEditor';
 import { DocumentGstTotals } from '../components/invoicing/DocumentGstTotals';
@@ -2142,6 +2142,7 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
             priceBookItems={priceBookItems}
             defaultMarkup={company?.default_material_markup ?? 0}
             readOnly={linesLocked}
+            lockCopy={issuedLinesLockCopy('quote', issuedStatus)}
             onChange={lines => setForm(f => ({ ...f, line_items: lines }))}
           />
 

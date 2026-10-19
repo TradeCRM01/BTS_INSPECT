@@ -26,7 +26,7 @@ import { listQueryBusy } from '../lib/listQueryReady';
 import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel, lineExGstAmount, moneyRound } from '../lib/gst';
 import { commitDocumentLine, committedTaxRate } from '../lib/parseDecimal';
 import { commercialLinesForPreview, commitCommercialLines } from '../lib/commitCommercialLines';
-import { issuedDocumentLocksLines, persistDocumentMoney, persistIssuedClientId, persistIssuedLines } from '../lib/documentPersist';
+import { issuedDocumentLocksLines, issuedLinesLockCopy, persistDocumentMoney, persistIssuedClientId, persistIssuedLines } from '../lib/documentPersist';
 import { lineNeedsLabourRate } from '../lib/hoursToJobBill';
 import {
   effectiveInvoiceStatus,
@@ -1909,6 +1909,7 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
             priceBookItems={priceBookItems}
             defaultMarkup={company?.default_material_markup ?? 0}
             readOnly={linesLocked}
+            lockCopy={issuedLinesLockCopy('invoice', issuedStatus)}
             onChange={lines => setForm(f => ({ ...f, line_items: lines }))}
           />
 

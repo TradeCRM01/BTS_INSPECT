@@ -576,6 +576,48 @@ describe('Budget, price book, stock, PO, PDF import', () => {
     expect(harness.inserts.filter(row => row.table === 'stock_items')).toEqual([]);
   });
 
+  it('PO quantity 1,5 saves 1.5, not 15 or 1', async () => {
+    await renderNode(
+      <POEditorModal
+        po={{
+          id: 'po-1',
+          company_id: 'co-1',
+          po_number: 1,
+          supplier_id: 'sup-1',
+          job_id: null,
+          status: 'draft',
+          line_items: [{ description: 'Conduit', quantity: 1, unit_cost: 10, received_quantity: 0 }],
+          subtotal: 10,
+          tax_rate: 10,
+          tax_amount: 1,
+          total: 11,
+          expected_delivery_date: null,
+          notes: null,
+          created_by: 'user-1',
+          created_at: '2026-10-01T00:00:00.000Z',
+          updated_at: '2026-10-01T00:00:00.000Z',
+        } as never}
+        onClose={() => {}}
+        onSaved={() => {}}
+        onRequestSend={() => {}}
+      />,
+    );
+    const qty = container.querySelector('[aria-label="Quantity"]') as HTMLInputElement;
+    await typeKeys(qty, '1,5');
+    expect(qty.value).toBe('1,5');
+    expect(container.textContent).not.toContain(MONEY_COMMA_HINT);
+    const save = Array.from(container.querySelectorAll('button')).find(b => /Save Changes|Create PO/i.test(b.textContent || '')) as HTMLButtonElement;
+    expect(save.disabled).toBe(false);
+    await act(async () => { save.click(); });
+    await flush();
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+    const updates = harness.updates.filter(row => row.table === 'purchase_orders');
+    expect(updates.length).toBeGreaterThan(0);
+    expect((updates[0]?.payload.line_items as { quantity: number }[])[0]?.quantity).toBe(1.5);
+    expect((updates[0]?.payload.line_items as { quantity: number }[])[0]?.quantity).not.toBe(15);
+    expect((updates[0]?.payload.line_items as { quantity: number }[])[0]?.quantity).not.toBe(1);
+  });
+
   it('PO unit cost 1,5 blocks Save', async () => {
     await renderNode(
       <POEditorModal
@@ -1120,7 +1162,10 @@ describe('Issued invoice locks lines and shows stored totals', () => {
     expect(edit).toBeTruthy();
     await act(async () => { edit.click(); });
     await flush();
-    expect(pageRoot().textContent).toContain('Issued document — lines are locked');
+    expect(pageRoot().textContent).toContain(
+      'This invoice has been sent, so its lines and totals are locked. To change it, create a new invoice.',
+    );
+    expect(pageRoot().textContent).not.toMatch(/void|re-issue|credit note/i);
     expect(pageRoot().textContent).toContain('$342.66');
     expect(pageRoot().textContent).not.toContain('$342.67');
     const price = pageRoot().querySelector('[aria-label="Unit price"]') as HTMLInputElement;
@@ -1369,6 +1414,12 @@ describe('Issued quote shows stored totals and locks lines', () => {
     await flush();
     expect(pageRoot().textContent).toContain('$342.66');
     expect(pageRoot().textContent).not.toContain('$342.67');
+    expect(pageRoot().textContent).toContain(
+      status === 'accepted'
+        ? 'This quote has been accepted, so its lines and totals are locked. To change it, create a new quote.'
+        : 'This quote has been sent, so its lines and totals are locked. To change it, create a new quote.',
+    );
+    expect(pageRoot().textContent).not.toMatch(/void|re-issue|credit note/i);
     const price = pageRoot().querySelector('[aria-label="Unit price"]') as HTMLInputElement;
     expect(price.disabled).toBe(true);
     const remove = pageRoot().querySelector('[aria-label="Remove line"]') as HTMLButtonElement;
@@ -1394,7 +1445,7 @@ describe('Issued quote shows stored totals and locks lines', () => {
   });
 });
 
-describe('Quote sheet and PDF pin 1.5 × 87.35 at $131.03', () => {
+describe('Quote and invoice UI pin 1.5 × 87.35 at $131.03', () => {
   it('renders $131.03 on a draft quote sheet, not $131.02', async () => {
     await renderNode(
       <QuoteEditorModal
@@ -1414,6 +1465,48 @@ describe('Quote sheet and PDF pin 1.5 × 87.35 at $131.03', () => {
     );
     expect(pageRoot().textContent).toContain('$131.03');
     expect(pageRoot().textContent).not.toContain('$131.02');
+  });
+
+  it('renders $131.03 on a draft invoice sheet, not $131.02', async () => {
+    await renderNode(
+      <InvoiceEditorModal
+        invoice={{
+          id: 'inv-131',
+          company_id: 'co-1',
+          invoice_number: 37,
+          client_id: 'cl-1',
+          job_id: null,
+          quote_id: null,
+          status: 'draft',
+          line_items: [{ description: 'Labour', quantity: 1.5, unit_price: 87.35 }],
+          subtotal: 131.03,
+          tax_rate: 10,
+          tax_amount: 13.1,
+          total: 144.13,
+          amount_paid: 0,
+          payment_terms: null,
+          due_date: null,
+          notes: null,
+          inclusions: [],
+          exclusions: [],
+          created_by: 'user-1',
+          created_at: '2026-10-01T00:00:00.000Z',
+          updated_at: '2026-10-01T00:00:00.000Z',
+        } as never}
+        defaultTaxRate={10}
+        smtpReady={false}
+        onClose={() => {}}
+        onSaved={() => {}}
+        onRequestSend={() => {}}
+      />,
+    );
+    expect(pageRoot().textContent).toContain('$131.03');
+    expect(pageRoot().textContent).not.toContain('$131.02');
+  });
+});
+
+describe('Commercial PDF pins 1.5 × 87.35 at $131.03', () => {
+  it('formats the PDF line amount as $131.03, not $131.02', () => {
     expect(formatCommercialPdfLineAmount({ quantity: 1.5, unit_price: 87.35 })).toBe('$131.03');
     expect(formatCommercialPdfLineAmount({ quantity: 1.5, unit_price: 87.35 })).not.toBe('$131.02');
   });

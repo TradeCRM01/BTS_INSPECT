@@ -87,6 +87,7 @@ interface LineItemEditorProps {
   defaultMarkup: number;
   onChange: (lines: EditLineItem[]) => void;
   readOnly?: boolean;
+  lockCopy?: string;
 }
 
 type PickerMode = 'stock' | 'pricebook' | null;
@@ -101,6 +102,7 @@ export function LineItemEditor({
   defaultMarkup,
   onChange,
   readOnly = false,
+  lockCopy,
 }: LineItemEditorProps) {
   const [picker, setPicker] = useState<PickerMode>(null);
   const [search, setSearch] = useState('');
@@ -265,11 +267,11 @@ export function LineItemEditor({
 
   return (
     <div className="hub-line-editor">
-      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+      <div className={`flex mb-2 gap-2 ${readOnly ? 'flex-col items-start' : 'items-center justify-between flex-wrap'}`}>
         <label className="text-xs font-medium text-[#4A5568]">Line Items</label>
         {readOnly ? (
-          <span className="text-xs text-[#6B7280] max-w-full">
-            Issued document — lines are locked. Need to correct this? Void and re-issue or raise a credit note — coming.
+          <span className="text-xs text-[#6B7280] max-w-full whitespace-normal">
+            {lockCopy}
           </span>
         ) : (
         <div className="flex gap-2 flex-wrap">

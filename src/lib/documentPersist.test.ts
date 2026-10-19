@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { persistDocumentMoney, persistIssuedLines } from './documentPersist';
+import { issuedLinesLockCopy, persistDocumentMoney, persistIssuedLines } from './documentPersist';
 
 const live = { subtotal: 311.52, tax_amount: 31.15, total: 342.67, tax_rate: 0 };
 const stored = { subtotal: 311.51, tax_amount: 31.15, total: 342.66, tax_rate: 10 };
@@ -34,5 +34,24 @@ describe('persistDocumentMoney locks issued totals', () => {
   it('keeps stored tax_rate 10 when the live GST field is 0 on a sent invoice', () => {
     expect(persistDocumentMoney('sent', { ...live, tax_rate: 0 }, stored).tax_rate).toBe(10);
     expect(persistDocumentMoney('draft', { ...live, tax_rate: 0 }, stored).tax_rate).toBe(0);
+  });
+});
+
+describe('issuedLinesLockCopy does not promise void or re-issue', () => {
+  it('names a sent invoice and a sent or accepted quote', () => {
+    expect(issuedLinesLockCopy('invoice', 'sent')).toBe(
+      'This invoice has been sent, so its lines and totals are locked. To change it, create a new invoice.',
+    );
+    expect(issuedLinesLockCopy('invoice', 'paid')).toBe(
+      'This invoice has been sent, so its lines and totals are locked. To change it, create a new invoice.',
+    );
+    expect(issuedLinesLockCopy('quote', 'sent')).toBe(
+      'This quote has been sent, so its lines and totals are locked. To change it, create a new quote.',
+    );
+    expect(issuedLinesLockCopy('quote', 'accepted')).toBe(
+      'This quote has been accepted, so its lines and totals are locked. To change it, create a new quote.',
+    );
+    expect(issuedLinesLockCopy('invoice', 'sent')).not.toMatch(/void|re-issue|credit note/i);
+    expect(issuedLinesLockCopy('quote', 'accepted')).not.toMatch(/void|re-issue|credit note/i);
   });
 });

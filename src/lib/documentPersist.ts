@@ -46,3 +46,14 @@ export function persistIssuedClientId(
   if (issuedDocumentLocksLines(status) && storedClientId) return storedClientId;
   return liveClientId || null;
 }
+
+export function issuedLinesLockCopy(
+  kind: 'invoice' | 'quote',
+  status: string | null | undefined,
+): string {
+  if (kind === 'invoice') {
+    return 'This invoice has been sent, so its lines and totals are locked. To change it, create a new invoice.';
+  }
+  const verb = status === 'accepted' ? 'accepted' : 'sent';
+  return `This quote has been ${verb}, so its lines and totals are locked. To change it, create a new quote.`;
+}

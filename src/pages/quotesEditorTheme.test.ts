@@ -36,6 +36,7 @@ describe('quote editor Looplet document look', () => {
     expect(editor).not.toMatch(/Grafter|Relovi|Littleloop/);
 
     expect(editor).toContain('data-quote-lines="1"');
+    expect(css).toContain('.hub-quote-lines thead {\n      display: none;');
     expect(css).toContain('.hub-quote-lines td:nth-child(2)::before { content: \'Qty\'; }');
     expect(css).toContain('.hub-quote-lines td:nth-child(3)::before { content: \'Unit\'; }');
     expect(css).toContain('.hub-quote-lines td:nth-child(4)::before { content: \'Total\'; }');
@@ -47,6 +48,12 @@ describe('quote editor Looplet document look', () => {
     expect(css).toContain('border-radius: 16px');
     expect(css).toContain('.hub-quote-display-total');
     expect(css).not.toMatch(/\.hub-quote-editor \.btn-primary[\s\S]{0,120}#111|#000\b/);
+  });
+
+  it('hides .hub-quote-lines thead at phone so the quote dialog has no clipped header', () => {
+    const css = src('src/index.css');
+    expect(css).toContain('.hub-quote-lines thead {\n      display: none;');
+    expect(css).not.toMatch(/\.hub-quote-lines thead \{[^}]*clip:\s*rect/);
   });
 
   it('keeps Send and Accept writes on the existing persist path', () => {
