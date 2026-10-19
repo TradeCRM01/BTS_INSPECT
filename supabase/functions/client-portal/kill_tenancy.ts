@@ -204,12 +204,16 @@ const MUTANTS: Mutant[] = [
         }
       }
 
-      const { data: report } = await admin
+      const { data: report, error: reportErr } = await admin
         .from("reports")
         .select("id, report_number, pdf_storage_path, generated_at")
         .eq("inspection_id", share.inspection_id)
         .eq("company_id", share.company_id)
         .maybeSingle();
+      if (reportErr) {
+        console.error("client-portal share reports", reportErr);
+        return json({ error: reportErr.message ?? "Portal error" }, 500);
+      }
 
       if (!inspection?.inspector_id && !report) {
         return json({ error: "Invalid link" }, 403);
@@ -222,12 +226,16 @@ const MUTANTS: Mutant[] = [
         .maybeSingle();`,
     replace: `      }
 
-      const { data: report } = await admin
+      const { data: report, error: reportErr } = await admin
         .from("reports")
         .select("id, report_number, pdf_storage_path, generated_at")
         .eq("inspection_id", share.inspection_id)
         .eq("company_id", share.company_id)
         .maybeSingle();
+      if (reportErr) {
+        console.error("client-portal share reports", reportErr);
+        return json({ error: reportErr.message ?? "Portal error" }, 500);
+      }
 
       if (!inspection?.inspector_id && !report) {
         return json({ error: "Invalid link" }, 403);
@@ -251,12 +259,16 @@ const MUTANTS: Mutant[] = [
         }
       }
 
-      const { data: report } = await admin
+      const { data: report, error: reportErr } = await admin
         .from("reports")
         .select("id, report_number, pdf_storage_path, generated_at")
         .eq("inspection_id", share.inspection_id)
         .eq("company_id", share.company_id)
         .maybeSingle();
+      if (reportErr) {
+        console.error("client-portal share reports", reportErr);
+        return json({ error: reportErr.message ?? "Portal error" }, 500);
+      }
 
       if (!inspection?.inspector_id && !report) {
         return json({ error: "Invalid link" }, 403);
@@ -277,12 +289,16 @@ const MUTANTS: Mutant[] = [
       }`,
     replace: `      }
 
-      const { data: report } = await admin
+      const { data: report, error: reportErr } = await admin
         .from("reports")
         .select("id, report_number, pdf_storage_path, generated_at")
         .eq("inspection_id", share.inspection_id)
         .eq("company_id", share.company_id)
         .maybeSingle();
+      if (reportErr) {
+        console.error("client-portal share reports", reportErr);
+        return json({ error: reportErr.message ?? "Portal error" }, 500);
+      }
 
       if (!inspection?.inspector_id && !report) {
         return json({ error: "Invalid link" }, 403);
@@ -314,12 +330,16 @@ const MUTANTS: Mutant[] = [
         }
       }
 
-      const { data: report } = await admin
+      const { data: report, error: reportErr } = await admin
         .from("reports")
         .select("id, report_number, pdf_storage_path, generated_at")
         .eq("inspection_id", share.inspection_id)
         .eq("company_id", share.company_id)
         .maybeSingle();
+      if (reportErr) {
+        console.error("client-portal share reports", reportErr);
+        return json({ error: reportErr.message ?? "Portal error" }, 500);
+      }
 
       if (!inspection?.inspector_id && !report) {
         return json({ error: "Invalid link" }, 403);
@@ -340,11 +360,15 @@ const MUTANTS: Mutant[] = [
       }`,
     replace: `      }
 
-      const { data: report } = await admin
+      const { data: report, error: reportErr } = await admin
         .from("reports")
         .select("id, report_number, pdf_storage_path, generated_at")
         .eq("inspection_id", share.inspection_id)
         .maybeSingle();
+      if (reportErr) {
+        console.error("client-portal share reports", reportErr);
+        return json({ error: reportErr.message ?? "Portal error" }, 500);
+      }
 
       if (!inspection?.inspector_id && !report) {
         return json({ error: "Invalid link" }, 403);
@@ -454,6 +478,12 @@ const MUTANTS: Mutant[] = [
     file: "index.ts",
     find: `.select("id, inspection_id, report_number, pdf_storage_path, generated_at")`,
     replace: `.select("id, inspection_id, report_number, pdf_storage_path, created_at")`,
+  },
+  {
+    name: "PX jobs.priority renamed to priorityx",
+    file: "index.ts",
+    find: `    priority: "medium" as const,`,
+    replace: `    priorityx: "medium" as const,`,
   },
   {
     name: "S1 drop stub unknown-column check + reports.created_at",

@@ -7,6 +7,7 @@ export type QueryCall = {
   op: "select" | "update" | "insert" | "delete";
   select?: string;
   filters: FilterCall[];
+  payload?: unknown;
 };
 
 export type SignedUrlCall = {
@@ -352,6 +353,26 @@ class QueryBuilder {
   private filters: FilterCall[] = [];
   private payload: unknown = null;
   private pending: Promise<{ data: unknown; error: unknown }> | null = null;
+  private schemaError: { code: string; message: string } | null = null;
+
+  private noteColumn(column: string) {
+    try {
+      assertPortalColumn(this.table, column);
+    } catch {
+      this.schemaError ??= {
+        code: "42703",
+        message: `column ${this.table}.${column} does not exist`,
+      };
+    }
+  }
+
+  private notePayload(payload: unknown) {
+    const rows = Array.isArray(payload) ? payload : [payload];
+    for (const row of rows) {
+      if (!row || typeof row !== "object") continue;
+      for (const key of Object.keys(row as StubRow)) this.noteColumn(key);
+    }
+  }
 
   constructor(
     private table: string,
@@ -363,38 +384,38 @@ class QueryBuilder {
     this.selectCols = cols;
     if (cols && cols.trim() !== "*") {
       for (const col of cols.split(",").map((part) => part.trim()).filter(Boolean)) {
-        assertPortalColumn(this.table, col);
+        this.noteColumn(col);
       }
     }
     return this;
   }
 
   eq(col: string, val: unknown) {
-    assertPortalColumn(this.table, col);
+    this.noteColumn(col);
     this.filters.push({ method: "eq", args: [col, val] });
     return this;
   }
 
   neq(col: string, val: unknown) {
-    assertPortalColumn(this.table, col);
+    this.noteColumn(col);
     this.filters.push({ method: "neq", args: [col, val] });
     return this;
   }
 
   in(col: string, val: unknown) {
-    assertPortalColumn(this.table, col);
+    this.noteColumn(col);
     this.filters.push({ method: "in", args: [col, val] });
     return this;
   }
 
   is(col: string, val: unknown) {
-    assertPortalColumn(this.table, col);
+    this.noteColumn(col);
     this.filters.push({ method: "is", args: [col, val] });
     return this;
   }
 
   order(col: string, _opts?: unknown) {
-    assertPortalColumn(this.table, col);
+    this.noteColumn(col);
     return this;
   }
 
@@ -405,12 +426,14 @@ class QueryBuilder {
   update(payload: unknown) {
     this.op = "update";
     this.payload = payload;
+    this.notePayload(payload);
     return this;
   }
 
   insert(payload: unknown) {
     this.op = "insert";
     this.payload = payload;
+    this.notePayload(payload);
     return this;
   }
 
@@ -447,7 +470,9 @@ class QueryBuilder {
       op: this.op,
       select: this.selectCols,
       filters: [...this.filters],
+      payload: this.payload,
     });
+    if (this.schemaError) return { data: null, error: this.schemaError };
     if (this.op === "insert") {
       const incoming = Array.isArray(this.payload) ? this.payload : [this.payload];
       const rows = incoming.map((row, index) => {

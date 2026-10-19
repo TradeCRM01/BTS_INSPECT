@@ -40,6 +40,8 @@ describe('client-portal select columns stay in the migrated schema', () => {
     expect(portalReports).toContain('generated_at');
     expect(portalReports).not.toContain('created_at');
     expect(portalReports).toContain('issuedAt: report?.generated_at');
+    expect(edge).toContain('error: reportErr');
+    expect(edge).toContain('reportLoad.error');
   });
 
   it('lists every select/eq/order/in column the function uses on the tables it reads', () => {
@@ -107,6 +109,7 @@ describe('client-portal select columns stay in the migrated schema', () => {
     const stub = src('supabase/functions/client-portal/portalAdminStub.ts');
     const columns = src('supabase/functions/client-portal/portalColumns.ts');
     expect(stub).toContain('assertPortalColumn');
+    expect(stub).toContain('notePayload');
     expect(stub).toContain('from "./portalColumns.ts"');
     expect(columns).toContain('column ${table}.${column} does not exist');
     expect(CLIENT_PORTAL_TABLE_COLUMNS.reports).toContain('generated_at');

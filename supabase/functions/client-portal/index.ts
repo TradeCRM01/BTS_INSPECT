@@ -312,12 +312,16 @@ export async function handleClientPortalRequest(req: Request) {
         }
       }
 
-      const { data: report } = await admin
+      const { data: report, error: reportErr } = await admin
         .from("reports")
         .select("id, report_number, pdf_storage_path, generated_at")
         .eq("inspection_id", share.inspection_id)
         .eq("company_id", share.company_id)
         .maybeSingle();
+      if (reportErr) {
+        console.error("client-portal share reports", reportErr);
+        return json({ error: reportErr.message ?? "Portal error" }, 500);
+      }
 
       if (!inspection?.inspector_id && !report) {
         return json({ error: "Invalid link" }, 403);
@@ -500,7 +504,7 @@ export async function handleClientPortalRequest(req: Request) {
     );
 
     const inspectionIds = scopedInspections.map((i) => i.id);
-    const { data: reports } = inspectionIds.length
+    const reportLoad = inspectionIds.length
       ? await admin
         .from("reports")
         .select("id, inspection_id, report_number, pdf_storage_path, generated_at")
@@ -512,7 +516,12 @@ export async function handleClientPortalRequest(req: Request) {
         report_number: string;
         pdf_storage_path: string;
         generated_at: string;
-      }> };
+      }>, error: null };
+    if (reportLoad.error) {
+      console.error("client-portal portal reports", reportLoad.error);
+      return json({ error: reportLoad.error.message ?? "Portal error" }, 500);
+    }
+    const { data: reports } = reportLoad;
 
     const reportByInspection = new Map((reports ?? []).map((r) => [r.inspection_id, r]));
 

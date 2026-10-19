@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { createServer } from 'node:net';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -17,12 +18,33 @@ import {
  * "column reports.created_at does not exist".
  */
 
+const PG16_INITDB = '/usr/lib/postgresql/16/bin/initdb';
+const PG17_INITDB = '/usr/lib/postgresql/17/bin/initdb';
+const missingInitdb = !existsSync(PG16_INITDB) || !existsSync(PG17_INITDB);
+
 function findPgBin(version: string, name: string): string {
   const dir = `/usr/lib/postgresql/${version}/bin/${name}`;
-  if (existsSync(dir)) return dir;
-  const look = spawnSync('sh', ['-c', `command -v ${name}`], { encoding: 'utf8' });
-  if (look.stdout.trim()) return look.stdout.trim();
-  throw new Error(`Need PostgreSQL ${version} ${name} at /usr/lib/postgresql/${version}/bin`);
+  if (!existsSync(dir)) {
+    throw new Error(`Need PostgreSQL ${version} ${name} at /usr/lib/postgresql/${version}/bin`);
+  }
+  return dir;
+}
+
+function allocatePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.listen(0, '127.0.0.1', () => {
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') {
+        server.close();
+        reject(new Error('could not allocate a TCP port'));
+        return;
+      }
+      const { port } = addr;
+      server.close((err) => (err ? reject(err) : resolve(port)));
+    });
+    server.on('error', reject);
+  });
 }
 
 function rewriteMigration(sql: string, version: string): string {
@@ -84,10 +106,25 @@ function columnsInCatalog(
   return result.stdout.split('\n').map((line) => line.trim()).filter(Boolean);
 }
 
-function proveOnPostgres(version: string, port: string) {
+function assertServerMajor(psql: string, sockDir: string, port: string, expected: string) {
+  const result = spawnSync(psql, [
+    '-h', sockDir, '-p', port, '-U', 'grafter', '-d', 'postgres',
+    '-At', '-v', 'ON_ERROR_STOP=1',
+    '-c', 'SHOW server_version_num',
+  ], { encoding: 'utf8', env: { ...process.env, PGHOST: sockDir } });
+  if (result.status !== 0) {
+    throw new Error(result.stderr || result.stdout || 'SHOW server_version_num failed');
+  }
+  const num = Number(result.stdout.trim());
+  const major = Math.floor(num / 10000);
+  expect(major, `PG${expected} binary must not start PG${major}`).toBe(Number(expected));
+}
+
+async function proveOnPostgres(version: string) {
   const initdb = findPgBin(version, 'initdb');
   const pgCtl = findPgBin(version, 'pg_ctl');
   const psql = findPgBin(version, 'psql');
+  const port = String(await allocatePort());
   const root = mkdtempSync(join(tmpdir(), `grafter-portal-pg${version}-`));
   const dataDir = join(root, 'pgdata');
   const sockDir = join(root, 'sock');
@@ -105,6 +142,7 @@ unix_socket_directories = '${sockDir}'
     throw new Error(start.stderr || start.stdout || readFileSync(join(dataDir, 'pg.log'), 'utf8'));
   }
   try {
+    assertServerMajor(psql, sockDir, port, version);
     const createdb = spawnSync(psql, [
       '-h', sockDir, '-p', port, '-U', 'grafter', '-d', 'postgres',
       '-c', 'CREATE DATABASE grafter',
@@ -140,16 +178,21 @@ unix_socket_directories = '${sockDir}'
   }
 }
 
-describe('client-portal schema guard on real Postgres', () => {
-  it('PG16: every client-portal column exists after all supabase/migrations', () => {
-    const result = proveOnPostgres('16', '55452');
-    expect(result.byTable.get('reports')).toContain('generated_at');
-    expect(result.fileCount).toBeGreaterThan(100);
-  }, 180_000);
+describe.skipIf(missingInitdb)(
+  missingInitdb
+    ? 'initdb for PG16/17 not found'
+    : 'client-portal schema guard on real Postgres',
+  () => {
+    it('PG16: every client-portal column exists after all supabase/migrations', async () => {
+      const result = await proveOnPostgres('16');
+      expect(result.byTable.get('reports')).toContain('generated_at');
+      expect(result.fileCount).toBeGreaterThan(100);
+    }, 180_000);
 
-  it('PG17: every client-portal column exists after all supabase/migrations', () => {
-    const result = proveOnPostgres('17', '55453');
-    expect(result.byTable.get('reports')).toContain('generated_at');
-    expect(result.fileCount).toBeGreaterThan(100);
-  }, 180_000);
-});
+    it('PG17: every client-portal column exists after all supabase/migrations', async () => {
+      const result = await proveOnPostgres('17');
+      expect(result.byTable.get('reports')).toContain('generated_at');
+      expect(result.fileCount).toBeGreaterThan(100);
+    }, 180_000);
+  },
+);
