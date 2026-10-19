@@ -31,9 +31,12 @@ import {
   inspectionInspectorLine,
   resolveInspectorIdentity,
 } from '../lib/inspectorSnapshot';
+import { isFinalisedInspection } from '../lib/isFinalisedInspection';
 
 const LOOK_SNAPSHOT_VIEW = 'inspection-snapshot-view';
 const LOOK_SNAPSHOT_EDIT = 'inspection-snapshot-edit';
+const LOOK_ISSUED_VIEW = 'inspection-issued-view';
+const LOOK_ISSUED_EDIT = 'inspection-issued-edit';
 const LOOK_SNAPSHOT_INSPECTION_ID = 'look-insp-pat';
 const LOOK_SNAPSHOT_JOB_ID = 'look-job-pat';
 
@@ -48,39 +51,51 @@ const LOOK_SNAPSHOT_SCHEMA: TemplateSchema = {
 };
 
 function inspectionSnapshotLookDoc(look: string | null) {
-  if (look !== LOOK_SNAPSHOT_VIEW && look !== LOOK_SNAPSHOT_EDIT) return null;
+  const issued = look === LOOK_ISSUED_VIEW || look === LOOK_ISSUED_EDIT;
+  if (look !== LOOK_SNAPSHOT_VIEW && look !== LOOK_SNAPSHOT_EDIT && !issued) return null;
   return {
     id: LOOK_SNAPSHOT_INSPECTION_ID,
-    status: 'draft',
+    status: issued ? 'issued' : 'draft',
     inspector_id: null,
     inspector_name_snapshot: 'Pat Snapshot',
     inspector_licence_snapshot: 'EC-4411',
-    meta: {
-      siteName: 'Snapshot Yard',
-      siteAddress: '9 Harbour Rd, Fremantle WA 6160',
-      clientName: 'Harbour Co',
-    },
+    archived: false,
+    meta: issued
+      ? {
+          siteName: 'Old St',
+          siteAddress: 'Old St',
+          clientName: 'Old Client',
+        }
+      : {
+          siteName: 'Snapshot Yard',
+          siteAddress: '9 Harbour Rd, Fremantle WA 6160',
+          clientName: 'Harbour Co',
+        },
     responses: {},
     template_snapshot: { name: 'Inspection', schema: LOOK_SNAPSHOT_SCHEMA },
     started_at: '2026-09-03T00:00:00.000Z',
-    completed_at: null,
-    crm_job_id: look === LOOK_SNAPSHOT_VIEW ? LOOK_SNAPSHOT_JOB_ID : null,
-    client_id: look === LOOK_SNAPSHOT_VIEW ? 'look-client-pat' : null,
+    completed_at: issued ? '2026-09-03T00:00:00.000Z' : null,
+    crm_job_id: look === LOOK_SNAPSHOT_VIEW || issued ? LOOK_SNAPSHOT_JOB_ID : null,
+    client_id: look === LOOK_SNAPSHOT_VIEW || issued ? 'look-client-pat' : null,
   };
 }
 
 function inspectionSnapshotLookJobs(look: string | null) {
-  if (look !== LOOK_SNAPSHOT_VIEW) return null;
+  if (look !== LOOK_SNAPSHOT_VIEW && look !== LOOK_ISSUED_VIEW && look !== LOOK_ISSUED_EDIT) return null;
   return [{
     id: LOOK_SNAPSHOT_JOB_ID,
-    title: 'Snapshot job',
+    title: look === LOOK_SNAPSHOT_VIEW ? 'Snapshot job' : 'New job',
     client_id: 'look-client-pat',
-    address: '9 Harbour Rd, Fremantle WA 6160',
+    address: look === LOOK_SNAPSHOT_VIEW ? '9 Harbour Rd, Fremantle WA 6160' : 'New St',
     job_number: 41,
     scheduled_date: '2026-09-03',
     company_id: '00000000-0000-0000-0000-000000000001',
     start_time: null,
   }];
+}
+
+function inspectionArchivedFlag(row: { archived?: boolean | null } | null | undefined): boolean {
+  return Boolean(row?.archived);
 }
 
 type SaveStatus = UnsavedChangesStatus;
@@ -119,7 +134,7 @@ export function InspectionFillPage() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [photos, setPhotos] = useState<PhotoRecord[]>([]);
   const [attachmentUploading, setAttachmentUploading] = useState<Record<string, boolean>>({});
-  const [showMoreIdentity, setShowMoreIdentity] = useState(false);
+  const [showMoreIdentity, setShowMoreIdentity] = useState(lookParam === LOOK_ISSUED_EDIT);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const pendingSaveRef = useRef<PendingSave | null>(null);
   const metaRef = useRef<Record<string, string>>({});
@@ -201,7 +216,7 @@ export function InspectionFillPage() {
   });
 
   useEffect(() => {
-    if (!id || lookParam === LOOK_SNAPSHOT_VIEW || lookParam === LOOK_SNAPSHOT_EDIT) return;
+    if (!id || lookParam === LOOK_SNAPSHOT_VIEW || lookParam === LOOK_SNAPSHOT_EDIT || lookParam === LOOK_ISSUED_VIEW || lookParam === LOOK_ISSUED_EDIT) return;
     supabase.from('photos').select('*').eq('inspection_id', id).then(({ data, error }) => {
       if (error) { console.error('Photo fetch error:', error); return; }
       if (!data?.length) return;
@@ -251,6 +266,11 @@ export function InspectionFillPage() {
 
   const saveInspection = useCallback(async (payload: PendingSave, opts?: { keepalive?: boolean }) => {
     if (!id) return false;
+    if (isFinalisedInspection(inspection?.status, inspectionArchivedFlag(inspection as { archived?: boolean | null } | null))) {
+      pendingSaveRef.current = null;
+      setSaveStatus('saved');
+      return true;
+    }
     if (isDevFieldAuditAuth()) {
       setSaveStatus('saved');
       pendingSaveRef.current = null;
@@ -289,7 +309,7 @@ export function InspectionFillPage() {
       localStorage.setItem(`insp_${id}_responses`, JSON.stringify(payload.responses));
       return false;
     }
-  }, [id]);
+  }, [id, inspection]);
 
   const debouncedSave = useCallback((payload: PendingSave) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -302,6 +322,7 @@ export function InspectionFillPage() {
   }, [saveInspection]);
 
   function persist(nextResponses = responses, nextMeta = meta, nextJobId = jobId) {
+    if (isFinalisedInspection(inspection?.status, inspectionArchivedFlag(inspection as { archived?: boolean | null } | null))) return;
     const job = jobs.find(j => j.id === (nextJobId || ''));
     debouncedSave({
       responses: nextResponses,
@@ -314,34 +335,34 @@ export function InspectionFillPage() {
   }
 
   const flushPending = useCallback((opts?: { keepalive?: boolean }) => {
+    if (isFinalisedInspection(inspection?.status, inspectionArchivedFlag(inspection as { archived?: boolean | null } | null))) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = undefined;
     const pending = pendingSaveRef.current;
     if (pending) void saveInspection(pending, opts);
-  }, [saveInspection]);
+  }, [inspection, saveInspection]);
 
   async function flushAndNavigate(path: string) {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    const job = jobs.find(j => j.id === jobId);
-    const ok = await saveInspection({
-      responses,
-      meta,
-      crm_job_id: jobId || null,
-      client_id: job
-        ? (job.client_id ?? null)
-        : ((inspection as { client_id?: string | null } | null)?.client_id ?? null),
-    });
-    if (!ok) return;
+    saveTimerRef.current = undefined;
+    if (
+      !isFinalisedInspection(inspection?.status, inspectionArchivedFlag(inspection as { archived?: boolean | null } | null))
+      && pendingSaveRef.current
+    ) {
+      const ok = await saveInspection(pendingSaveRef.current);
+      if (!ok) return;
+    }
     allowLeaveRef.current = true;
     navigate(path);
   }
 
   useEffect(() => {
     const interval = setInterval(() => {
+      if (isFinalisedInspection(inspection?.status, inspectionArchivedFlag(inspection as { archived?: boolean | null } | null))) return;
       if (pendingSaveRef.current) void saveInspection(pendingSaveRef.current);
     }, 30000);
     return () => clearInterval(interval);
-  }, [saveInspection]);
+  }, [inspection, saveInspection]);
 
   const saveStatusRef = useRef<SaveStatus>(saveStatus);
   saveStatusRef.current = saveStatus;
@@ -368,14 +389,13 @@ export function InspectionFillPage() {
 
   useEffect(() => {
     if (!livingJob) return;
+    if (isFinalisedInspection(inspection?.status, inspectionArchivedFlag(inspection as { archived?: boolean | null } | null))) return;
     const skipClient = !!livingJob.client_id && !livingJob.client_name;
     const applied = applyLivingJobToInspection(metaRef.current, livingJob, { skipClient });
     if (!applied.changed) return;
     setMeta(applied.meta);
     persist(responsesRef.current, applied.meta, livingJob.id);
-  // persist reads latest refs; key is the live job identity.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [livingJobKey]);
+  }, [livingJobKey, inspection?.status]);
 
   function updateResponse(key: string, value: unknown) {
     const newResponses = { ...responses, [key]: value };
@@ -437,9 +457,11 @@ export function InspectionFillPage() {
   const currentSection = visibleSections[currentSectionIdx] ?? null;
   const isLastSection = visibleSections.length === 0 || currentSectionIdx === visibleSections.length - 1;
   const selectedJob = selectedJobForLiving ?? jobs.find(j => j.id === jobId);
+  const statusKey = inspection.status || 'draft';
+  const finalised = isFinalisedInspection(statusKey, inspectionArchivedFlag(inspection as { archived?: boolean | null }));
   const living = applyLivingJobToInspection(
     meta,
-    selectedJob
+    selectedJob && !finalised
       ? {
           id: selectedJob.id,
           title: selectedJob.title,
@@ -450,21 +472,22 @@ export function InspectionFillPage() {
       : null,
     { skipClient: !!selectedJob?.client_id && dueClient?.id !== selectedJob.client_id },
   );
-  const siteLabel = selectedJob
+  const siteLabel = selectedJob && !finalised
     ? opsSiteLabel(living.siteName, living.siteAddress)
     : opsSiteLabel(meta.siteName, meta.siteAddress);
-  const statusKey = inspection.status || 'draft';
   const next = recommendInspectionFillAction(inspectionFillContext({
     status: statusKey,
     saveNeeded: saveStatus === 'error',
-    siteParts: selectedJob
+    siteParts: selectedJob && !finalised
       ? [living.siteName, living.siteAddress]
       : [meta.siteName, meta.siteAddress],
     isLastSection,
   }));
   const nextBusy = saveStatus === 'saving';
-  const jobNumber = meta.jobNumber
-    || (selectedJob?.job_number != null ? String(selectedJob.job_number).padStart(4, '0') : '');
+  const jobNumber = finalised
+    ? (meta.jobNumber ?? '')
+    : (meta.jobNumber
+      || (selectedJob?.job_number != null ? String(selectedJob.job_number).padStart(4, '0') : ''));
   const when = inspection.started_at ? format(new Date(inspection.started_at), 'd MMM yyyy') : null;
   const jobBound = !!jobId;
   const fillInspectorId = (inspection as { inspector_id?: string | null } | null)?.inspector_id ?? null;
@@ -479,10 +502,13 @@ export function InspectionFillPage() {
       : fillSnapshot,
     snapshot: fillSnapshot,
   }));
-  const jobLine = [jobNumber ? `#${jobNumber}` : null, selectedJob?.title || templateName || null]
-    .filter(Boolean)
-    .join(' ');
-  const clientLine = living.clientName || dueClient?.name || meta.clientName || '';
+  const jobLine = [
+    jobNumber ? `#${jobNumber}` : null,
+    finalised ? (templateName || null) : (selectedJob?.title || templateName || null),
+  ].filter(Boolean).join(' ');
+  const clientLine = finalised
+    ? (meta.clientName || '')
+    : (living.clientName || dueClient?.name || meta.clientName || '');
   const sheetPill = statusKey === 'completed'
     ? 'is-ready'
     : (statusKey === 'issued' || statusKey === 'sent')
@@ -758,6 +784,11 @@ export function InspectionFillPage() {
           <div className="hub-inspections-sheet-body">
             <h1 className="hub-inspections-hero">{siteLabel}</h1>
             {jobLine ? <p className="hub-inspections-jobline">{jobLine}</p> : null}
+            {finalised ? (
+              <p className="hub-inspections-issued-lock" data-issued-lock="1">
+                Issued. Contact the office to amend.
+              </p>
+            ) : null}
 
             <div className="hub-inspections-tools">
               <button
@@ -806,7 +837,9 @@ export function InspectionFillPage() {
                 </label>
                 {jobBound ? (
                   <p className="hub-inspections-field-value">
-                    {living.siteName || 'No site address on this job yet'}
+                    {finalised
+                      ? (meta.siteName || 'No site address on this job yet')
+                      : (living.siteName || 'No site address on this job yet')}
                     <span className="hub-inspections-muted"> Site follows this job.</span>
                   </p>
                 ) : (
@@ -816,6 +849,7 @@ export function InspectionFillPage() {
                     onChange={e => updateMeta('siteName', e.target.value)}
                     placeholder="Where is this inspection?"
                     className="hub-inspections-input"
+                    disabled={finalised}
                   />
                 )}
               </div>
@@ -823,6 +857,7 @@ export function InspectionFillPage() {
                 <label className="hub-inspections-muted">Job</label>
                 <select
                   value={jobId}
+                  disabled={finalised}
                   onChange={e => {
                     const nextJob = e.target.value;
                     setJobId(nextJob);
@@ -867,21 +902,23 @@ export function InspectionFillPage() {
                     <>
                       <div className="hub-inspections-ledger-row hub-inspections-field">
                         <label className="hub-inspections-muted">Site address</label>
-                        <input
-                          type="text"
-                          value={meta.siteAddress ?? ''}
-                          onChange={e => updateMeta('siteAddress', e.target.value)}
-                          className="hub-inspections-input"
-                        />
-                      </div>
-                      <div className="hub-inspections-ledger-row hub-inspections-field">
-                        <label className="hub-inspections-muted">Client</label>
-                        <input
-                          type="text"
-                          value={meta.clientName ?? ''}
-                          onChange={e => updateMeta('clientName', e.target.value)}
-                          className="hub-inspections-input"
-                        />
+                      <input
+                        type="text"
+                        value={meta.siteAddress ?? ''}
+                        onChange={e => updateMeta('siteAddress', e.target.value)}
+                        className="hub-inspections-input"
+                        disabled={finalised}
+                      />
+                    </div>
+                    <div className="hub-inspections-ledger-row hub-inspections-field">
+                      <label className="hub-inspections-muted">Client</label>
+                      <input
+                        type="text"
+                        value={meta.clientName ?? ''}
+                        onChange={e => updateMeta('clientName', e.target.value)}
+                        className="hub-inspections-input"
+                        disabled={finalised}
+                      />
                       </div>
                     </>
                   )}
@@ -892,6 +929,7 @@ export function InspectionFillPage() {
                       value={meta.jobNumber ?? ''}
                       onChange={e => updateMeta('jobNumber', e.target.value)}
                       className="hub-inspections-input"
+                      disabled={finalised}
                     />
                   </div>
                   <div className="hub-inspections-ledger-row hub-inspections-field">
@@ -901,6 +939,7 @@ export function InspectionFillPage() {
                       onChange={e => updateMeta('jobDescription', e.target.value)}
                       rows={2}
                       className="hub-inspections-input hub-inspections-textarea"
+                      disabled={finalised}
                     />
                   </div>
                 </>
@@ -929,6 +968,7 @@ export function InspectionFillPage() {
 
             {currentSection && (
               <section className="hub-inspections-fill">
+                <fieldset disabled={finalised} className="hub-inspections-fill-lock">
                 <div className="hub-inspections-fill-head">
                   <div className="min-w-0">
                     <h2 className="hub-inspections-fill-title">
@@ -990,6 +1030,7 @@ export function InspectionFillPage() {
                     {currentSection.questions.map(q => renderQuestion(q))}
                   </div>
                 )}
+                </fieldset>
               </section>
             )}
 
