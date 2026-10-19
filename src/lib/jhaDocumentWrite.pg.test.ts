@@ -29,8 +29,11 @@ function sqlLiteral(value: unknown): string {
 }
 
 const HAS_LOCAL_POSTGRES = Boolean(findBin('initdb') && findBin('pg_ctl') && findBin('psql'));
+const PG_SUITE = HAS_LOCAL_POSTGRES
+  ? 'jha_documents writes on real Postgres (migration 020)'
+  : 'skipped: initdb not found';
 
-describe.skipIf(!HAS_LOCAL_POSTGRES)('jha_documents writes on real Postgres (migration 020)', () => {
+describe.skipIf(!HAS_LOCAL_POSTGRES)(PG_SUITE, () => {
   let dataDir = '';
   let sockDir = '';
   let psql = '';
