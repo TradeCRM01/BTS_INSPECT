@@ -344,15 +344,15 @@ export function AppShell({ children }: AppShellProps) {
             })}
           </nav>
 
-          <div className="hidden md:block w-9 shrink-0 lg:w-64 lg:min-w-0 lg:shrink">
+          <div className="hidden md:block w-11 shrink-0 xl:w-64 xl:min-w-0 xl:shrink">
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
               aria-label="Search"
-              className="flex items-center justify-center lg:justify-start gap-2 w-full min-w-0 rounded-lg border border-white/15 bg-white/[0.04] px-1.5 lg:px-3 py-1.5 text-[13px] tracking-tight text-white/60 transition-colors hover:border-white/25 hover:text-white"
+              className="flex items-center justify-center xl:justify-start gap-2 w-full h-11 min-h-11 min-w-0 rounded-lg border border-white/15 bg-white/[0.04] px-1.5 xl:px-3 py-0 text-[13px] tracking-tight text-white/60 transition-colors hover:border-white/25 hover:text-white"
             >
               <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span className="hidden lg:block text-left">Search…</span>
+              <span className="hidden xl:block min-w-0 text-left">Search…</span>
             </button>
           </div>
 
@@ -360,7 +360,7 @@ export function AppShell({ children }: AppShellProps) {
             <div className="relative min-w-0">
               <button
                 onClick={() => setAvatarOpen(!avatarOpen)}
-                className="hidden md:flex items-center gap-2 px-2 py-1.5 hover:bg-white/5 transition-colors min-w-0 max-w-full"
+                className="hidden md:flex items-center gap-2 px-2 py-1.5 min-h-11 hover:bg-white/5 transition-colors min-w-0 max-w-full"
                 title={switcherName}
                 aria-label={switcherName}
               >
@@ -372,7 +372,7 @@ export function AppShell({ children }: AppShellProps) {
                 </div>
                 <span
                   data-shell-switcher-name
-                  className="hidden lg:block text-sm tracking-tight text-white/80 max-w-[6rem] truncate"
+                  className="hidden lg:line-clamp-2 w-[7.5rem] max-w-[7.5rem] xl:w-auto xl:max-w-[14rem] shrink-0 text-sm tracking-tight text-white/80 leading-4 break-words text-left"
                   title={switcherName}
                 >
                   {switcherName}

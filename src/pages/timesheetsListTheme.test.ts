@@ -52,8 +52,8 @@ describe('Timesheets list cream paper look', () => {
     expect(css).toContain('--ts-look-line: var(--g-line)');
     expect(css).toContain('#2E75B6');
     expect(css).toContain('font-size: 56px !important');
-    expect(css).toContain("font-family: Rajdhani, sans-serif");
-    expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(css).toContain("font-family: var(--g-font-title)");
+    expect(css).toContain("font-family: var(--g-font-ui)");
     expect(css).toContain('font-variant-numeric: tabular-nums');
     expect(list).toContain('hub-timesheets-tile-copy');
     expect(css).toContain('.hub-timesheets-tiles .hub-timesheets-hours');

@@ -62,13 +62,13 @@ describe('person tickets LOOK — same paper, hairline ledger, one Save ticket',
     expect(look).toContain('.hub-team-sheet {\n  max-width: 1100px;');
     expect(look).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(look).toContain('inset 0 1px 0 #fff');
-    expect(look).toContain("font-family: Rajdhani, sans-serif");
-    expect(look).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(look).toContain("font-family: var(--g-font-title)");
+    expect(look).toContain("font-family: var(--g-font-ui)");
     expect(look).toContain('.hub-team-hairline');
     expect(look).toContain('font-size: 12px');
     expect(look).toContain('border-radius: 12px');
     expect(look).toContain('height: 44px');
-    expect(look).toContain('.hub-team-hero {\n  font-family: Rajdhani, sans-serif;\n  font-weight: 700;\n  font-size: 40px;');
+    expect(look).toContain('.hub-team-hero {\n  font-family: var(--g-font-title);\n  font-weight: 700;\n  font-size: 40px;');
     expect(look).not.toContain('font-size: 56px');
     expect(look).toContain('.hub-team-add-foot { justify-content: space-between; }');
     expect(src('src/lib/devFieldAuditAuth.ts')).toContain("params.get('look') === 'person-tickets'");

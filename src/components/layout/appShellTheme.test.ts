@@ -108,8 +108,8 @@ describe('AppShell header/nav report_theme', () => {
 
     const icon = src('public/icon.svg');
     expect(icon).not.toContain('report_theme');
-    expect(icon).toContain('#0A2540');
-    expect(icon).toContain('#2E75B6');
+    expect(icon).toContain('#0A0A0B');
+    expect(icon).toContain('#FFFFFF');
 
     const theme = src('src/components/layout/appShellTheme.ts');
     expect(theme).not.toMatch(/from ['"].*reports\//);

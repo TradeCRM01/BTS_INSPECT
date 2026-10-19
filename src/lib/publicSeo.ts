@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { BRAND_NAME } from './brand';
 
 /** Public origin already named on the landing footer. Not a DNS change. */
 export const GRAFTER_PUBLIC_ORIGIN = 'https://grafter.com.au';
@@ -23,46 +24,46 @@ export type PublicSeoEntry = {
 
 export const PUBLIC_SEO: Record<PublicSeoKey, PublicSeoEntry> = {
   landing: {
-    title: 'Grafter — Trade job software for Australian crews',
+    title: `${BRAND_NAME} — Trade job software for Australian crews`,
     description:
       'Quote, schedule, invoice, get paid. Australian trade job software for crews — templates, JHA, Take 5, and SWMS stay on the job.',
     path: '/',
     robots: 'index,follow',
   },
   login: {
-    title: 'Sign in to Grafter — Trade job software',
+    title: `Sign in to ${BRAND_NAME} — Trade job software`,
     description:
-      'Sign in to Grafter to run jobs, quotes, invoices, and field paperwork for your Australian trade crew.',
+      `Sign in to ${BRAND_NAME} to run jobs, quotes, invoices, and field paperwork for your Australian trade crew.`,
     path: '/login',
     robots: 'index,follow',
   },
   signup: {
-    title: 'Create a Grafter workspace — Trade job software',
+    title: `Create your ${BRAND_NAME} account`,
     description:
-      'Open a Grafter workspace for your trade crew. Jobs, quotes, invoices, and SWMS in one Australian trade CRM.',
+      `Open a ${BRAND_NAME} workspace for your trade crew. Jobs, quotes, invoices, and SWMS in one Australian trade CRM.`,
     path: '/signup',
     robots: 'index,follow',
   },
   forgotPassword: {
-    title: 'Reset your Grafter password',
-    description: 'Request a password reset for your Grafter trade workspace.',
+    title: `Reset your ${BRAND_NAME} password`,
+    description: `Request a password reset for your ${BRAND_NAME} trade workspace.`,
     path: '/forgot-password',
     robots: 'noindex,nofollow',
   },
   resetPassword: {
-    title: 'Set your Grafter password',
-    description: 'Choose a password for your Grafter trade workspace.',
+    title: `Set your ${BRAND_NAME} password`,
+    description: `Choose a password for your ${BRAND_NAME} trade workspace.`,
     path: '/reset-password',
     robots: 'noindex,nofollow',
   },
   authConfirm: {
-    title: 'Accept your Grafter invitation',
-    description: 'Accept an invitation to a Grafter trade workspace.',
+    title: `Accept your ${BRAND_NAME} invitation`,
+    description: `Accept an invitation to a ${BRAND_NAME} trade workspace.`,
     path: '/auth/confirm',
     robots: 'noindex,nofollow',
   },
   portal: {
-    title: 'Grafter client portal',
+    title: `${BRAND_NAME} client portal`,
     description: 'Open the secure link you were sent to view quotes, invoices, and reports.',
     path: '/p',
     robots: 'noindex,nofollow',
@@ -70,14 +71,14 @@ export const PUBLIC_SEO: Record<PublicSeoKey, PublicSeoEntry> = {
   privacy: {
     title: 'Privacy Policy',
     description:
-      'Privacy Policy for Grafter, Australian trade job software operated by Building Technology Solutions Pty Ltd.',
+      `Privacy Policy for ${BRAND_NAME}, Australian trade job software operated by Building Technology Solutions Pty Ltd.`,
     path: '/privacy',
     robots: 'index,follow',
   },
   terms: {
     title: 'Terms of Use',
     description:
-      'Terms of Use for Grafter, Australian trade job software operated by Building Technology Solutions Pty Ltd.',
+      `Terms of Use for ${BRAND_NAME}, Australian trade job software operated by Building Technology Solutions Pty Ltd.`,
     path: '/terms',
     robots: 'index,follow',
   },
@@ -180,7 +181,7 @@ const META_TAGS: Array<{ attr: 'name' | 'property'; key: string; content: (entry
   { attr: 'name', key: 'description', content: (entry) => entry.description },
   { attr: 'name', key: 'robots', content: (entry) => entry.robots },
   { attr: 'property', key: 'og:type', content: () => 'website' },
-  { attr: 'property', key: 'og:site_name', content: () => 'Grafter' },
+  { attr: 'property', key: 'og:site_name', content: () => BRAND_NAME },
   { attr: 'property', key: 'og:locale', content: () => 'en_AU' },
   { attr: 'property', key: 'og:title', content: (entry) => entry.title },
   { attr: 'property', key: 'og:description', content: (entry) => entry.description },

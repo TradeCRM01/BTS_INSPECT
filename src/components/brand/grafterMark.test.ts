@@ -1,22 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import {
-  GRAFTER_BAR_SLANT,
-  GRAFTER_BLUE,
-  GRAFTER_CREAM,
-  GRAFTER_NAVY,
-  grafterBarPath,
-  grafterBars,
-  grafterIconSvg,
-} from './grafterMark';
+import { MITRE_PATH, MITRE_VIEWBOX } from './grafterMark';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
-}
-
-function collapse(svg: string): string {
-  return svg.replace(/\s+/g, ' ').trim();
 }
 
 const DOCUMENT_PDF_HELPERS = [
@@ -34,112 +22,84 @@ const DOCUMENT_PDF_HELPERS = [
 function importsGrafterMark(body: string): boolean {
   return /from ['"][^'"]*components\/brand/.test(body)
     || /from ['"][^'"]*grafterMark['"]/.test(body)
-    || /import\s*\{[^}]*\b(BtsMark|BrandLockup|grafterBars|grafterBarPath|grafterIconSvg)\b/.test(body);
+    || /import\s*\{[^}]*\b(BtsMark|BrandLockup|MITRE_PATH|grafterBars|grafterBarPath|grafterIconSvg)\b/.test(body);
 }
 
-describe('signed Grafter speed-bar mark', () => {
-  it('has three left-aligned capsules: navy, longer blue, navy, with cut right ends', () => {
-    const bars = grafterBars('light');
-    expect(bars.map((bar) => bar.id)).toEqual(['top', 'middle', 'bottom']);
-    expect(bars[0].fill).toBe(GRAFTER_NAVY);
-    expect(bars[1].fill).toBe(GRAFTER_BLUE);
-    expect(bars[2].fill).toBe(GRAFTER_NAVY);
-    expect(GRAFTER_NAVY).toBe('#0A2540');
-    expect(GRAFTER_BLUE).toBe('#2E75B6');
-
-    expect(bars[0].x).toBe(bars[1].x);
-    expect(bars[2].x).toBe(bars[1].x);
-    expect(bars[1].width).toBeGreaterThan(bars[0].width);
-    expect(bars[1].width).toBeGreaterThan(bars[2].width);
-    expect(bars[0].width).toBe(bars[2].width);
-    expect(bars[0].slant).toBe(GRAFTER_BAR_SLANT);
-    expect(GRAFTER_BAR_SLANT).toBeGreaterThan(0);
-
-    for (const bar of bars) {
-      const rightTop = bar.x + bar.width - bar.slant;
-      const rightBot = bar.x + bar.width;
-      expect(rightTop).toBeLessThan(rightBot);
-      const path = grafterBarPath(bar);
-      expect(path).toContain(`L${rightTop} ${bar.y}`);
-      expect(path).toContain(`L${rightBot} ${bar.y + bar.height}`);
-      expect(path).toMatch(/A[\d.]+ [\d.]+ 0 0 1/);
-    }
+describe('Mitre mark geometry', () => {
+  it('exports the 48 viewBox and currentColor path from the handoff mark', () => {
+    expect(MITRE_VIEWBOX).toBe('0 0 48 48');
+    expect(MITRE_PATH).toBe(
+      'M3 3L45 3L45 12L12 12L12 36L3 45ZM18 36L36 36L36 30L24 30L24 21L45 21L45 45L9 45Z',
+    );
+    expect(src('src/components/brand/grafterMark.ts')).not.toContain('grafterBars');
+    expect(src('src/components/brand/grafterMark.ts')).not.toContain('grafterBarPath');
+    expect(src('src/components/brand/grafterMark.ts')).not.toContain('GRAFTER_BAR_SLANT');
   });
 
-  it('uses cream + blue bars on the navy icon surface', () => {
-    const bars = grafterBars('icon');
-    expect(bars[0].fill).toBe(GRAFTER_CREAM);
-    expect(bars[1].fill).toBe(GRAFTER_BLUE);
-    expect(bars[2].fill).toBe(GRAFTER_CREAM);
-    expect(GRAFTER_CREAM).toBe('#F5F0E6');
-    expect(bars[1].width).toBeGreaterThan(bars[0].width);
+  it('BrandMark paints the Mitre path with currentColor and no word', () => {
+    const mark = src('src/components/brand/BrandMark.tsx');
+    expect(mark).toContain('MITRE_PATH');
+    expect(mark).toContain('currentColor');
+    expect(mark).toContain('data-grafter-mark="mitre"');
+    expect(mark).not.toContain('BtsMark');
+    expect(mark).not.toContain('BRAND_NAME');
+    expect(mark).not.toContain("'Grafter'");
+    expect(existsSync(resolve(process.cwd(), 'src/components/brand/BtsMark.tsx'))).toBe(false);
   });
 
-  it('BtsMark and BrandLockup render the signed bars + condensed Grafter lockup', () => {
-    const mark = src('src/components/brand/BtsMark.tsx');
+  it('BrandLockup composes BrandMark plus Wordmark for header, auth, and marketing', () => {
     const lockup = src('src/components/brand/BrandLockup.tsx');
-    const login = src('src/pages/LoginPage.tsx');
+    const wordmark = src('src/components/brand/Wordmark.tsx');
     const shell = src('src/components/layout/AppShell.tsx');
-
-    expect(mark).toContain('grafterBars');
-    expect(mark).toContain('grafterBarPath');
-    expect(mark).toContain('data-grafter-bar');
-    expect(mark).not.toContain('folded field document');
-    expect(mark).not.toContain('M10 8.25');
-    expect(mark).not.toContain('M13.1 17.15');
-
-    expect(lockup).toContain('Wordmark');
-    expect(lockup).toContain('BrandMark');
-    expect(src('src/components/brand/Wordmark.tsx')).toContain('tracking-tighter');
-    expect(lockup).toContain('bg-cream');
-    expect(src('src/components/brand/BrandMark.tsx')).toContain('BtsMark');
-    expect(lockup).toContain('framed={false}');
-    expect(lockup).not.toContain('BTS Inspect');
-
-    expect(login).toContain('AuthShell');
-    expect(login).not.toContain("size=\"auth\"");
-    expect(src('src/components/auth/AuthShell.tsx')).toContain('BrandLockup');
+    expect(lockup).toContain('<BrandMark');
+    expect(lockup).toContain('<Wordmark');
+    expect(lockup).toContain('tone="onDark"');
+    expect(lockup).toContain('tone="ink"');
+    expect(lockup).toContain('data-grafter-lockup="header"');
+    expect(lockup).toContain('data-grafter-lockup="auth"');
+    expect(lockup).toContain('data-grafter-lockup="marketing"');
+    expect(wordmark).toContain('{BRAND_NAME}');
+    expect(wordmark).toContain('uppercase');
+    expect(wordmark).toContain('tracking-[0.16em]');
+    expect(wordmark).toContain('aria-label={BRAND_NAME}');
+    expect(wordmark).not.toContain("letterSpacing: '-0.02em'");
+    expect(wordmark).toContain('fontWeight: 600');
+    expect(wordmark).not.toContain("'Grafter'");
     expect(src('src/components/auth/AuthShell.tsx')).toContain("size=\"marketing\"");
     expect(shell).toContain("size=\"header\"");
     expect(shell).toContain('aria-label={BRAND_NAME}');
-    expect(shell).toContain('BrandLockup');
-
-    const marketing = src('src/pages/MarketingPage.tsx');
-    expect(lockup).toContain("size === 'marketing'");
-    expect(lockup).toContain('data-grafter-lockup="marketing"');
-    expect(marketing).toContain("size=\"marketing\"");
-    expect(marketing).toContain('Create a workspace');
-    expect(marketing).not.toContain('Relovi');
-    expect(marketing).not.toContain('BTS Inspect');
+    expect(lockup).toContain('size={16}');
+    expect(lockup).toContain('size={32}');
+    expect(lockup).toContain('size={48}');
+    expect(lockup).not.toContain('size={18}');
+    expect(lockup).not.toContain('size={28}');
+    expect(lockup).not.toContain('size={40}');
+    expect(src('src/components/brand/BrandMark.tsx')).toContain('size ?? 24');
   });
 
-  it('PWA icons are cream + blue bars on a navy squircle', () => {
-    const icon = src('public/icon.svg');
-    const icon192 = src('public/icon-192.svg');
-    const icon512 = src('public/icon-512.svg');
+  it('PWA icons are the Mitre PNGs plus a maskable tile', () => {
+    expect(existsSync(resolve(process.cwd(), 'public/favicon.svg'))).toBe(true);
+    expect(existsSync(resolve(process.cwd(), 'public/icon-192.png'))).toBe(true);
+    expect(existsSync(resolve(process.cwd(), 'public/icon-512.png'))).toBe(true);
+    expect(existsSync(resolve(process.cwd(), 'public/icon-maskable-512.png'))).toBe(true);
+    expect(existsSync(resolve(process.cwd(), 'public/apple-touch-icon.png'))).toBe(true);
+    expect(existsSync(resolve(process.cwd(), 'public/icon-192.svg'))).toBe(false);
+    expect(existsSync(resolve(process.cwd(), 'public/icon-512.svg'))).toBe(false);
 
-    expect(collapse(icon)).toBe(collapse(grafterIconSvg(192)));
-    expect(collapse(icon192)).toBe(collapse(grafterIconSvg(192)));
-    expect(collapse(icon512)).toBe(collapse(grafterIconSvg(512)));
-
-    for (const body of [icon, icon192, icon512]) {
-      expect(body).toContain(`fill="${GRAFTER_NAVY}"`);
-      expect(body).toContain(`fill="${GRAFTER_CREAM}"`);
-      expect(body).toContain(`fill="${GRAFTER_BLUE}"`);
-      expect(body).toContain('rx="7"');
-      expect(body).not.toContain('folded');
-      expect(body).not.toContain('M66 62');
-    }
+    const favicon = src('public/favicon.svg');
+    expect(favicon).toContain(MITRE_PATH);
+    expect(favicon).toContain('prefers-color-scheme');
 
     const manifest = src('vite.config.ts');
-    expect(manifest).toContain("name: 'Grafter'");
-    expect(manifest).toContain("short_name: 'Grafter'");
-    expect(manifest).toContain('icon-192.svg');
-    expect(manifest).toContain('icon-512.svg');
-
-    expect(src('tailwind.config.js')).toContain("cream: '#F5F0E6'");
-    expect(src('src/index.css')).toContain('--ops-cream: var(--g-bg)');
-    expect(src('src/styles/tokens.css')).toContain('--g-bg: #F5F0E6');
+    expect(manifest).toContain('...brandPwaManifest()');
+    expect(src('src/lib/brandVite.ts')).toContain('brandManifestFields(runtimeBrandName())');
+    expect(src('src/lib/brand.ts')).toContain('short_name: name');
+    expect(manifest).toContain('icon-192.png');
+    expect(manifest).toContain('icon-maskable-512.png');
+    expect(manifest).toContain("purpose: 'maskable'");
+    expect(manifest).toContain("theme_color: '#0A0A0B'");
+    expect(manifest).toContain("background_color: '#F5F5F7'");
+    expect(manifest).not.toContain("'Grafter'");
   });
 
   it('LOOK frames cover login lockup, header mark, and PWA icon only', () => {

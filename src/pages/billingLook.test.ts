@@ -38,8 +38,8 @@ describe('Settings billing cream paper look', () => {
     expect(page).toContain('--billing-look-muted: #5B6B7C');
     expect(page).toContain('--billing-look-line: #E2D9CC');
     expect(page).toContain('--billing-look-action: #2E75B6');
-    expect(page).toContain("font-family: Rajdhani, sans-serif");
-    expect(page).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(page).toContain("font-family: var(--g-font-title)");
+    expect(page).toContain("font-family: var(--g-font-ui)");
     expect(page).toContain('font-variant-numeric: tabular-nums');
     expect(page).toContain('inset 0 1px 0 #fff');
     expect(page).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');

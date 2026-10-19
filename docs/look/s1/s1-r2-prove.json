@@ -1,0 +1,3518 @@
+{
+  "parent": null,
+  "table": [
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "light",
+      "width": 375,
+      "innerWidth": 375,
+      "scrollWidth": 375,
+      "maxRight": 464,
+      "maxRightTag": "BUTTON.hub-jobs-list-filter",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": false,
+      "clips": [
+        "text off screen: Cancelled"
+      ],
+      "headerRight": 375,
+      "headerHeight": 69,
+      "headerChildMax": 375,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "light",
+      "width": 390,
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "maxRight": 464,
+      "maxRightTag": "BUTTON.hub-jobs-list-filter",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": false,
+      "clips": [
+        "text off screen: Cancelled"
+      ],
+      "headerRight": 390,
+      "headerHeight": 69,
+      "headerChildMax": 390,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "light",
+      "width": 1024,
+      "innerWidth": 1024,
+      "scrollWidth": 1024,
+      "maxRight": 1024,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1024,
+      "headerHeight": 69,
+      "headerChildMax": 1024,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 82,
+          "clientWidth": 81,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      }
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "light",
+      "width": 1280,
+      "innerWidth": 1280,
+      "scrollWidth": 1280,
+      "maxRight": 1280,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1280,
+      "headerHeight": 69,
+      "headerChildMax": 1280,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 254,
+          "clientWidth": 254,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      }
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "dark",
+      "width": 375,
+      "innerWidth": 375,
+      "scrollWidth": 375,
+      "maxRight": 464,
+      "maxRightTag": "BUTTON.hub-jobs-list-filter",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": false,
+      "clips": [
+        "text off screen: Cancelled"
+      ],
+      "headerRight": 375,
+      "headerHeight": 69,
+      "headerChildMax": 375,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "dark",
+      "width": 390,
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "maxRight": 464,
+      "maxRightTag": "BUTTON.hub-jobs-list-filter",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": false,
+      "clips": [
+        "text off screen: Cancelled"
+      ],
+      "headerRight": 390,
+      "headerHeight": 69,
+      "headerChildMax": 390,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "dark",
+      "width": 1024,
+      "innerWidth": 1024,
+      "scrollWidth": 1024,
+      "maxRight": 1024,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1024,
+      "headerHeight": 69,
+      "headerChildMax": 1024,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 82,
+          "clientWidth": 81,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      }
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "dark",
+      "width": 1280,
+      "innerWidth": 1280,
+      "scrollWidth": 1280,
+      "maxRight": 1280,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1280,
+      "headerHeight": 69,
+      "headerChildMax": 1280,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 254,
+          "clientWidth": 254,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      }
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "width": 375,
+      "innerWidth": 375,
+      "scrollWidth": 375,
+      "maxRight": 464,
+      "maxRightTag": "BUTTON.hub-jobs-list-filter",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": false,
+      "clips": [
+        "text off screen: Cancelled"
+      ],
+      "headerRight": 375,
+      "headerHeight": 69,
+      "headerChildMax": 375,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "width": 390,
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "maxRight": 464,
+      "maxRightTag": "BUTTON.hub-jobs-list-filter",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": false,
+      "clips": [
+        "text off screen: Cancelled"
+      ],
+      "headerRight": 390,
+      "headerHeight": 69,
+      "headerChildMax": 390,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "width": 1024,
+      "innerWidth": 1024,
+      "scrollWidth": 1024,
+      "maxRight": 1024,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1024,
+      "headerHeight": 69,
+      "headerChildMax": 1024,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 82,
+          "clientWidth": 81,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      }
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "width": 1280,
+      "innerWidth": 1280,
+      "scrollWidth": 1280,
+      "maxRight": 1280,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1280,
+      "headerHeight": 69,
+      "headerChildMax": 1280,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 254,
+          "clientWidth": 254,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      }
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "dark",
+      "width": 375,
+      "innerWidth": 375,
+      "scrollWidth": 375,
+      "maxRight": 464,
+      "maxRightTag": "BUTTON.hub-jobs-list-filter",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": false,
+      "clips": [
+        "text off screen: Cancelled"
+      ],
+      "headerRight": 375,
+      "headerHeight": 69,
+      "headerChildMax": 375,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "dark",
+      "width": 390,
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "maxRight": 464,
+      "maxRightTag": "BUTTON.hub-jobs-list-filter",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": false,
+      "clips": [
+        "text off screen: Cancelled"
+      ],
+      "headerRight": 390,
+      "headerHeight": 69,
+      "headerChildMax": 390,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "dark",
+      "width": 1024,
+      "innerWidth": 1024,
+      "scrollWidth": 1024,
+      "maxRight": 1024,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1024,
+      "headerHeight": 69,
+      "headerChildMax": 1024,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 82,
+          "clientWidth": 81,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      }
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "dark",
+      "width": 1280,
+      "innerWidth": 1280,
+      "scrollWidth": 1280,
+      "maxRight": 1280,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1280,
+      "headerHeight": 69,
+      "headerChildMax": 1280,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 254,
+          "clientWidth": 254,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      }
+    },
+    {
+      "page": "jobs",
+      "state": "edit",
+      "theme": "light",
+      "width": 375,
+      "innerWidth": 375,
+      "scrollWidth": 375,
+      "maxRight": 464,
+      "maxRightTag": "BUTTON.hub-jobs-list-filter",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": false,
+      "clips": [
+        "text off screen: Cancelled"
+      ],
+      "headerRight": 375,
+      "headerHeight": 69,
+      "headerChildMax": 375,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "jobs",
+      "state": "edit",
+      "theme": "light",
+      "width": 390,
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "maxRight": 464,
+      "maxRightTag": "BUTTON.hub-jobs-list-filter",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": false,
+      "clips": [
+        "text off screen: Cancelled"
+      ],
+      "headerRight": 390,
+      "headerHeight": 69,
+      "headerChildMax": 390,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "jobs",
+      "state": "edit",
+      "theme": "light",
+      "width": 1024,
+      "innerWidth": 1024,
+      "scrollWidth": 1024,
+      "maxRight": 1024,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1024,
+      "headerHeight": 69,
+      "headerChildMax": 1024,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 82,
+          "clientWidth": 81,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      }
+    },
+    {
+      "page": "jobs",
+      "state": "edit",
+      "theme": "light",
+      "width": 1280,
+      "innerWidth": 1280,
+      "scrollWidth": 1280,
+      "maxRight": 1280,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1280,
+      "headerHeight": 69,
+      "headerChildMax": 1280,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 254,
+          "clientWidth": 254,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      }
+    },
+    {
+      "page": "jobs",
+      "state": "edit",
+      "theme": "dark",
+      "width": 375,
+      "innerWidth": 375,
+      "scrollWidth": 375,
+      "maxRight": 464,
+      "maxRightTag": "BUTTON.hub-jobs-list-filter",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": false,
+      "clips": [
+        "text off screen: Cancelled"
+      ],
+      "headerRight": 375,
+      "headerHeight": 69,
+      "headerChildMax": 375,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "jobs",
+      "state": "edit",
+      "theme": "dark",
+      "width": 390,
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "maxRight": 464,
+      "maxRightTag": "BUTTON.hub-jobs-list-filter",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": false,
+      "clips": [
+        "text off screen: Cancelled"
+      ],
+      "headerRight": 390,
+      "headerHeight": 69,
+      "headerChildMax": 390,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "jobs",
+      "state": "edit",
+      "theme": "dark",
+      "width": 1024,
+      "innerWidth": 1024,
+      "scrollWidth": 1024,
+      "maxRight": 1024,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1024,
+      "headerHeight": 69,
+      "headerChildMax": 1024,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 82,
+          "clientWidth": 81,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      }
+    },
+    {
+      "page": "jobs",
+      "state": "edit",
+      "theme": "dark",
+      "width": 1280,
+      "innerWidth": 1280,
+      "scrollWidth": 1280,
+      "maxRight": 1280,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1280,
+      "headerHeight": 69,
+      "headerChildMax": 1280,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 254,
+          "clientWidth": 254,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      }
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "light",
+      "width": 375,
+      "innerWidth": 375,
+      "scrollWidth": 375,
+      "maxRight": 375,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 0,
+      "headerHeight": 0,
+      "headerChildMax": 0,
+      "headerContains": true,
+      "headerButtons": [],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": null,
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "light",
+      "width": 390,
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "maxRight": 390,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 0,
+      "headerHeight": 0,
+      "headerChildMax": 0,
+      "headerContains": true,
+      "headerButtons": [],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": null,
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "light",
+      "width": 1024,
+      "innerWidth": 1024,
+      "scrollWidth": 1024,
+      "maxRight": 1024,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 0,
+      "headerHeight": 0,
+      "headerChildMax": 0,
+      "headerContains": true,
+      "headerButtons": [],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": null,
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "light",
+      "width": 1280,
+      "innerWidth": 1280,
+      "scrollWidth": 1280,
+      "maxRight": 1280,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 0,
+      "headerHeight": 0,
+      "headerChildMax": 0,
+      "headerContains": true,
+      "headerButtons": [],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": null,
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "dark",
+      "width": 375,
+      "innerWidth": 375,
+      "scrollWidth": 375,
+      "maxRight": 375,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 0,
+      "headerHeight": 0,
+      "headerChildMax": 0,
+      "headerContains": true,
+      "headerButtons": [],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": null,
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "dark",
+      "width": 390,
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "maxRight": 390,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 0,
+      "headerHeight": 0,
+      "headerChildMax": 0,
+      "headerContains": true,
+      "headerButtons": [],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": null,
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "dark",
+      "width": 1024,
+      "innerWidth": 1024,
+      "scrollWidth": 1024,
+      "maxRight": 1024,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 0,
+      "headerHeight": 0,
+      "headerChildMax": 0,
+      "headerContains": true,
+      "headerButtons": [],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": null,
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "dark",
+      "width": 1280,
+      "innerWidth": 1280,
+      "scrollWidth": 1280,
+      "maxRight": 1280,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 0,
+      "headerHeight": 0,
+      "headerChildMax": 0,
+      "headerContains": true,
+      "headerButtons": [],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": null,
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "quotes",
+      "state": "view",
+      "theme": "light",
+      "width": 375,
+      "innerWidth": 375,
+      "scrollWidth": 375,
+      "maxRight": 616.95,
+      "maxRightTag": "IMG.hub-letterhead-mark",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 375,
+      "headerHeight": 69,
+      "headerChildMax": 375,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "quotes",
+      "state": "view",
+      "theme": "light",
+      "width": 390,
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "maxRight": 647.72,
+      "maxRightTag": "IMG.hub-letterhead-mark",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 390,
+      "headerHeight": 69,
+      "headerChildMax": 390,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "quotes",
+      "state": "view",
+      "theme": "light",
+      "width": 1024,
+      "innerWidth": 1024,
+      "scrollWidth": 1024,
+      "maxRight": 1024,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1024,
+      "headerHeight": 69,
+      "headerChildMax": 1024,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 82,
+          "clientWidth": 81,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      }
+    },
+    {
+      "page": "quotes",
+      "state": "view",
+      "theme": "light",
+      "width": 1280,
+      "innerWidth": 1280,
+      "scrollWidth": 1280,
+      "maxRight": 1280,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1280,
+      "headerHeight": 69,
+      "headerChildMax": 1280,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 254,
+          "clientWidth": 254,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      }
+    },
+    {
+      "page": "quotes",
+      "state": "view",
+      "theme": "dark",
+      "width": 375,
+      "innerWidth": 375,
+      "scrollWidth": 375,
+      "maxRight": 616.95,
+      "maxRightTag": "IMG.hub-letterhead-mark",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 375,
+      "headerHeight": 69,
+      "headerChildMax": 375,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "quotes",
+      "state": "view",
+      "theme": "dark",
+      "width": 390,
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "maxRight": 647.72,
+      "maxRightTag": "IMG.hub-letterhead-mark",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 390,
+      "headerHeight": 69,
+      "headerChildMax": 390,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "quotes",
+      "state": "view",
+      "theme": "dark",
+      "width": 1024,
+      "innerWidth": 1024,
+      "scrollWidth": 1024,
+      "maxRight": 1024,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1024,
+      "headerHeight": 69,
+      "headerChildMax": 1024,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 82,
+          "clientWidth": 81,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      }
+    },
+    {
+      "page": "quotes",
+      "state": "view",
+      "theme": "dark",
+      "width": 1280,
+      "innerWidth": 1280,
+      "scrollWidth": 1280,
+      "maxRight": 1280,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1280,
+      "headerHeight": 69,
+      "headerChildMax": 1280,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 254,
+          "clientWidth": 254,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      }
+    },
+    {
+      "page": "quotes",
+      "state": "edit",
+      "theme": "light",
+      "width": 375,
+      "innerWidth": 375,
+      "scrollWidth": 375,
+      "maxRight": 616.95,
+      "maxRightTag": "IMG.hub-letterhead-mark",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 375,
+      "headerHeight": 69,
+      "headerChildMax": 375,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "quotes",
+      "state": "edit",
+      "theme": "light",
+      "width": 390,
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "maxRight": 647.72,
+      "maxRightTag": "IMG.hub-letterhead-mark",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 390,
+      "headerHeight": 69,
+      "headerChildMax": 390,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "quotes",
+      "state": "edit",
+      "theme": "light",
+      "width": 1024,
+      "innerWidth": 1024,
+      "scrollWidth": 1024,
+      "maxRight": 1024,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1024,
+      "headerHeight": 69,
+      "headerChildMax": 1024,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 82,
+          "clientWidth": 81,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      }
+    },
+    {
+      "page": "quotes",
+      "state": "edit",
+      "theme": "light",
+      "width": 1280,
+      "innerWidth": 1280,
+      "scrollWidth": 1280,
+      "maxRight": 1280,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1280,
+      "headerHeight": 69,
+      "headerChildMax": 1280,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 254,
+          "clientWidth": 254,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      }
+    },
+    {
+      "page": "quotes",
+      "state": "edit",
+      "theme": "dark",
+      "width": 375,
+      "innerWidth": 375,
+      "scrollWidth": 375,
+      "maxRight": 616.95,
+      "maxRightTag": "IMG.hub-letterhead-mark",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 375,
+      "headerHeight": 69,
+      "headerChildMax": 375,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "quotes",
+      "state": "edit",
+      "theme": "dark",
+      "width": 390,
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "maxRight": 647.72,
+      "maxRightTag": "IMG.hub-letterhead-mark",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 390,
+      "headerHeight": 69,
+      "headerChildMax": 390,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "page": "quotes",
+      "state": "edit",
+      "theme": "dark",
+      "width": 1024,
+      "innerWidth": 1024,
+      "scrollWidth": 1024,
+      "maxRight": 1024,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1024,
+      "headerHeight": 69,
+      "headerChildMax": 1024,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 82,
+          "clientWidth": 81,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      }
+    },
+    {
+      "page": "quotes",
+      "state": "edit",
+      "theme": "dark",
+      "width": 1280,
+      "innerWidth": 1280,
+      "scrollWidth": 1280,
+      "maxRight": 1280,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1280,
+      "headerHeight": 69,
+      "headerChildMax": 1280,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 254,
+          "clientWidth": 254,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      }
+    }
+  ],
+  "header": [
+    {
+      "width": 375,
+      "innerWidth": 375,
+      "scrollWidth": 375,
+      "maxRight": 464,
+      "maxRightTag": "BUTTON.hub-jobs-list-filter",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": false,
+      "clips": [
+        "text off screen: Cancelled"
+      ],
+      "headerRight": 375,
+      "headerHeight": 69,
+      "headerChildMax": 375,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      },
+      "file": "/workspace/docs/look/s1/s1-header-guard-view-light-after-375.png"
+    },
+    {
+      "width": 390,
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "maxRight": 464,
+      "maxRightTag": "BUTTON.hub-jobs-list-filter",
+      "overflowDocOk": true,
+      "overflowMaxOk": false,
+      "snippetA": false,
+      "snippetB": false,
+      "clips": [
+        "text off screen: Cancelled"
+      ],
+      "headerRight": 390,
+      "headerHeight": 69,
+      "headerChildMax": 390,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 71,
+          "clientWidth": 71,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      },
+      "file": "/workspace/docs/look/s1/s1-header-guard-view-light-after-390.png"
+    },
+    {
+      "width": 768,
+      "innerWidth": 768,
+      "scrollWidth": 768,
+      "maxRight": 768,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 768,
+      "headerHeight": 69,
+      "headerChildMax": 768,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 55,
+          "clientWidth": 55,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 55,
+          "clientWidth": 55,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 55,
+          "clientWidth": 55,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 55,
+          "clientWidth": 55,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 55,
+          "clientWidth": 55,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 34,
+          "clientWidth": 34,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 65,
+          "clientWidth": 65,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      },
+      "file": "/workspace/docs/look/s1/s1-header-guard-view-light-after-768.png"
+    },
+    {
+      "width": 800,
+      "innerWidth": 800,
+      "scrollWidth": 800,
+      "maxRight": 800,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 800,
+      "headerHeight": 69,
+      "headerChildMax": 800,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 55,
+          "clientWidth": 55,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 55,
+          "clientWidth": 55,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 55,
+          "clientWidth": 55,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 55,
+          "clientWidth": 55,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 55,
+          "clientWidth": 55,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 34,
+          "clientWidth": 34,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 65,
+          "clientWidth": 65,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      },
+      "file": "/workspace/docs/look/s1/s1-header-guard-view-light-after-800.png"
+    },
+    {
+      "width": 900,
+      "innerWidth": 900,
+      "scrollWidth": 900,
+      "maxRight": 900,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 900,
+      "headerHeight": 69,
+      "headerChildMax": 900,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 55,
+          "clientWidth": 55,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 55,
+          "clientWidth": 55,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 55,
+          "clientWidth": 55,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 55,
+          "clientWidth": 55,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 55,
+          "clientWidth": 55,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 34,
+          "clientWidth": 34,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 65,
+          "clientWidth": 65,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      },
+      "file": "/workspace/docs/look/s1/s1-header-guard-view-light-after-900.png"
+    },
+    {
+      "width": 1000,
+      "innerWidth": 1000,
+      "scrollWidth": 1000,
+      "maxRight": 1000,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1000,
+      "headerHeight": 69,
+      "headerChildMax": 1000,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 55,
+          "clientWidth": 55,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 55,
+          "clientWidth": 55,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 55,
+          "clientWidth": 55,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 55,
+          "clientWidth": 55,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 55,
+          "clientWidth": 55,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 34,
+          "clientWidth": 34,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 65,
+          "clientWidth": 65,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      },
+      "file": "/workspace/docs/look/s1/s1-header-guard-view-light-after-1000.png"
+    },
+    {
+      "width": 1024,
+      "innerWidth": 1024,
+      "scrollWidth": 1024,
+      "maxRight": 1024,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1024,
+      "headerHeight": 69,
+      "headerChildMax": 1024,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 82,
+          "clientWidth": 81,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      },
+      "file": "/workspace/docs/look/s1/s1-header-guard-view-light-after-1024.png"
+    },
+    {
+      "width": 1280,
+      "innerWidth": 1280,
+      "scrollWidth": 1280,
+      "maxRight": 1280,
+      "maxRightTag": "DIV.",
+      "overflowDocOk": true,
+      "overflowMaxOk": true,
+      "snippetA": true,
+      "snippetB": true,
+      "clips": [],
+      "headerRight": 1280,
+      "headerHeight": 69,
+      "headerChildMax": 1280,
+      "headerContains": true,
+      "headerButtons": [
+        {
+          "label": "Grafter",
+          "scrollWidth": 73,
+          "clientWidth": 73,
+          "ok": true
+        },
+        {
+          "label": "Dashboard",
+          "scrollWidth": 131,
+          "clientWidth": 131,
+          "ok": true
+        },
+        {
+          "label": "CRM",
+          "scrollWidth": 92,
+          "clientWidth": 92,
+          "ok": true
+        },
+        {
+          "label": "Field Work",
+          "scrollWidth": 130,
+          "clientWidth": 130,
+          "ok": true
+        },
+        {
+          "label": "Financials",
+          "scrollWidth": 126,
+          "clientWidth": 126,
+          "ok": true
+        },
+        {
+          "label": "Inventory",
+          "scrollWidth": 121,
+          "clientWidth": 121,
+          "ok": true
+        },
+        {
+          "label": "Search",
+          "scrollWidth": 254,
+          "clientWidth": 254,
+          "ok": true
+        },
+        {
+          "label": "Northside Plumbing & Gas Maintenance Pty Ltd",
+          "scrollWidth": 193,
+          "clientWidth": 193,
+          "ok": true
+        }
+      ],
+      "headerButtonsOk": true,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 120,
+        "clientWidth": 120,
+        "ok": true,
+        "hidden": false
+      },
+      "file": "/workspace/docs/look/s1/s1-header-guard-view-light-after-1280.png"
+    }
+  ],
+  "frames": [
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "light",
+      "side": "after",
+      "width": 375,
+      "file": "/workspace/docs/look/s1/s1-header-view-light-after-375.png"
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "light",
+      "side": "after",
+      "width": 390,
+      "file": "/workspace/docs/look/s1/s1-header-view-light-after-390.png"
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "light",
+      "side": "after",
+      "width": 1024,
+      "file": "/workspace/docs/look/s1/s1-header-view-light-after-1024.png"
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "light",
+      "side": "after",
+      "width": 1280,
+      "file": "/workspace/docs/look/s1/s1-header-view-light-after-1280.png"
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "dark",
+      "side": "after",
+      "width": 375,
+      "file": "/workspace/docs/look/s1/s1-header-view-dark-after-375.png"
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "dark",
+      "side": "after",
+      "width": 390,
+      "file": "/workspace/docs/look/s1/s1-header-view-dark-after-390.png"
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "dark",
+      "side": "after",
+      "width": 1024,
+      "file": "/workspace/docs/look/s1/s1-header-view-dark-after-1024.png"
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "dark",
+      "side": "after",
+      "width": 1280,
+      "file": "/workspace/docs/look/s1/s1-header-view-dark-after-1280.png"
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "after",
+      "width": 375,
+      "file": "/workspace/docs/look/s1/s1-jobs-view-light-after-375.png"
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "after",
+      "width": 390,
+      "file": "/workspace/docs/look/s1/s1-jobs-view-light-after-390.png"
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "after",
+      "width": 1024,
+      "file": "/workspace/docs/look/s1/s1-jobs-view-light-after-1024.png"
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "after",
+      "width": 1280,
+      "file": "/workspace/docs/look/s1/s1-jobs-view-light-after-1280.png"
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "dark",
+      "side": "after",
+      "width": 375,
+      "file": "/workspace/docs/look/s1/s1-jobs-view-dark-after-375.png"
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "dark",
+      "side": "after",
+      "width": 390,
+      "file": "/workspace/docs/look/s1/s1-jobs-view-dark-after-390.png"
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "dark",
+      "side": "after",
+      "width": 1024,
+      "file": "/workspace/docs/look/s1/s1-jobs-view-dark-after-1024.png"
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "dark",
+      "side": "after",
+      "width": 1280,
+      "file": "/workspace/docs/look/s1/s1-jobs-view-dark-after-1280.png"
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "light",
+      "side": "after",
+      "width": 375,
+      "file": "/workspace/docs/look/s1/s1-signin-view-light-after-375.png"
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "light",
+      "side": "after",
+      "width": 390,
+      "file": "/workspace/docs/look/s1/s1-signin-view-light-after-390.png"
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "light",
+      "side": "after",
+      "width": 1024,
+      "file": "/workspace/docs/look/s1/s1-signin-view-light-after-1024.png"
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "light",
+      "side": "after",
+      "width": 1280,
+      "file": "/workspace/docs/look/s1/s1-signin-view-light-after-1280.png"
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "dark",
+      "side": "after",
+      "width": 375,
+      "file": "/workspace/docs/look/s1/s1-signin-view-dark-after-375.png"
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "dark",
+      "side": "after",
+      "width": 390,
+      "file": "/workspace/docs/look/s1/s1-signin-view-dark-after-390.png"
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "dark",
+      "side": "after",
+      "width": 1024,
+      "file": "/workspace/docs/look/s1/s1-signin-view-dark-after-1024.png"
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "dark",
+      "side": "after",
+      "width": 1280,
+      "file": "/workspace/docs/look/s1/s1-signin-view-dark-after-1280.png"
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "light",
+      "side": "before",
+      "width": 375,
+      "file": "/workspace/docs/look/s1/s1-header-view-light-before-375.png",
+      "headerHeight": 69
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "light",
+      "side": "before",
+      "width": 390,
+      "file": "/workspace/docs/look/s1/s1-header-view-light-before-390.png",
+      "headerHeight": 69
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "light",
+      "side": "before",
+      "width": 1024,
+      "file": "/workspace/docs/look/s1/s1-header-view-light-before-1024.png",
+      "headerHeight": 69
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "light",
+      "side": "before",
+      "width": 1280,
+      "file": "/workspace/docs/look/s1/s1-header-view-light-before-1280.png",
+      "headerHeight": 69
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "dark",
+      "side": "before",
+      "width": 375,
+      "file": "/workspace/docs/look/s1/s1-header-view-dark-before-375.png",
+      "headerHeight": 69
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "dark",
+      "side": "before",
+      "width": 390,
+      "file": "/workspace/docs/look/s1/s1-header-view-dark-before-390.png",
+      "headerHeight": 69
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "dark",
+      "side": "before",
+      "width": 1024,
+      "file": "/workspace/docs/look/s1/s1-header-view-dark-before-1024.png",
+      "headerHeight": 69
+    },
+    {
+      "page": "header",
+      "state": "view",
+      "theme": "dark",
+      "side": "before",
+      "width": 1280,
+      "file": "/workspace/docs/look/s1/s1-header-view-dark-before-1280.png",
+      "headerHeight": 69
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "before",
+      "width": 375,
+      "file": "/workspace/docs/look/s1/s1-jobs-view-light-before-375.png",
+      "headerHeight": 69
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "before",
+      "width": 390,
+      "file": "/workspace/docs/look/s1/s1-jobs-view-light-before-390.png",
+      "headerHeight": 69
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "before",
+      "width": 1024,
+      "file": "/workspace/docs/look/s1/s1-jobs-view-light-before-1024.png",
+      "headerHeight": 69
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "light",
+      "side": "before",
+      "width": 1280,
+      "file": "/workspace/docs/look/s1/s1-jobs-view-light-before-1280.png",
+      "headerHeight": 69
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "dark",
+      "side": "before",
+      "width": 375,
+      "file": "/workspace/docs/look/s1/s1-jobs-view-dark-before-375.png",
+      "headerHeight": 69
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "dark",
+      "side": "before",
+      "width": 390,
+      "file": "/workspace/docs/look/s1/s1-jobs-view-dark-before-390.png",
+      "headerHeight": 69
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "dark",
+      "side": "before",
+      "width": 1024,
+      "file": "/workspace/docs/look/s1/s1-jobs-view-dark-before-1024.png",
+      "headerHeight": 69
+    },
+    {
+      "page": "jobs",
+      "state": "view",
+      "theme": "dark",
+      "side": "before",
+      "width": 1280,
+      "file": "/workspace/docs/look/s1/s1-jobs-view-dark-before-1280.png",
+      "headerHeight": 69
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "light",
+      "side": "before",
+      "width": 375,
+      "file": "/workspace/docs/look/s1/s1-signin-view-light-before-375.png",
+      "headerHeight": 0
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "light",
+      "side": "before",
+      "width": 390,
+      "file": "/workspace/docs/look/s1/s1-signin-view-light-before-390.png",
+      "headerHeight": 0
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "light",
+      "side": "before",
+      "width": 1024,
+      "file": "/workspace/docs/look/s1/s1-signin-view-light-before-1024.png",
+      "headerHeight": 0
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "light",
+      "side": "before",
+      "width": 1280,
+      "file": "/workspace/docs/look/s1/s1-signin-view-light-before-1280.png",
+      "headerHeight": 0
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "dark",
+      "side": "before",
+      "width": 375,
+      "file": "/workspace/docs/look/s1/s1-signin-view-dark-before-375.png",
+      "headerHeight": 0
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "dark",
+      "side": "before",
+      "width": 390,
+      "file": "/workspace/docs/look/s1/s1-signin-view-dark-before-390.png",
+      "headerHeight": 0
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "dark",
+      "side": "before",
+      "width": 1024,
+      "file": "/workspace/docs/look/s1/s1-signin-view-dark-before-1024.png",
+      "headerHeight": 0
+    },
+    {
+      "page": "signin",
+      "state": "view",
+      "theme": "dark",
+      "side": "before",
+      "width": 1280,
+      "file": "/workspace/docs/look/s1/s1-signin-view-dark-before-1280.png",
+      "headerHeight": 0
+    }
+  ],
+  "allowDark": {
+    "light": {
+      "allowDark": "false",
+      "theme": "light",
+      "root": {
+        "--g-bg": "#F5F0E6",
+        "--g-ink": "#0A2540",
+        "--g-accent": "#2E75B6",
+        "--g-font-sans": "'Geist', 'Geist Fallback', system-ui, sans-serif",
+        "--g-font-ui": "'Geist', 'Geist Fallback', system-ui, sans-serif",
+        "--g-font-title": "'Geist', 'Geist Fallback', system-ui, sans-serif",
+        "--g-font-mono": "'Geist', 'Geist Fallback', system-ui, sans-serif",
+        "background-color": "rgba(0, 0, 0, 0)",
+        "color": "rgb(0, 0, 0)",
+        "font-family": "Geist, \"Geist Fallback\", system-ui, sans-serif"
+      },
+      "bodyBg": "rgb(249, 250, 251)",
+      "paperBg": "rgba(0, 0, 0, 0)",
+      "paperColor": "rgb(26, 26, 26)",
+      "paperFont": "Geist, \"Geist Fallback\", system-ui, sans-serif"
+    },
+    "forced": {
+      "allowDark": "false",
+      "theme": "dark",
+      "root": {
+        "--g-bg": "#F5F0E6",
+        "--g-ink": "#0A2540",
+        "--g-accent": "#2E75B6",
+        "--g-font-sans": "'Geist', 'Geist Fallback', system-ui, sans-serif",
+        "--g-font-ui": "'Geist', 'Geist Fallback', system-ui, sans-serif",
+        "--g-font-title": "'Geist', 'Geist Fallback', system-ui, sans-serif",
+        "--g-font-mono": "'Geist', 'Geist Fallback', system-ui, sans-serif",
+        "background-color": "rgba(0, 0, 0, 0)",
+        "color": "rgb(0, 0, 0)",
+        "font-family": "Geist, \"Geist Fallback\", system-ui, sans-serif"
+      },
+      "bodyBg": "rgb(249, 250, 251)",
+      "paperBg": "rgba(0, 0, 0, 0)",
+      "paperColor": "rgb(26, 26, 26)",
+      "paperFont": "Geist, \"Geist Fallback\", system-ui, sans-serif"
+    },
+    "sameComputed": false,
+    "samePixels": true,
+    "pixelDiff": 0,
+    "equalFonts": true,
+    "equalColors": true
+  },
+  "headerBefore": [
+    {
+      "width": 375,
+      "headerHeight": 69,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "width": 390,
+      "headerHeight": 69,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "hidden": true,
+        "ok": true,
+        "scrollWidth": 0,
+        "clientWidth": 0
+      }
+    },
+    {
+      "width": 1024,
+      "headerHeight": 69,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 297,
+        "clientWidth": 96,
+        "ok": false,
+        "hidden": false
+      }
+    },
+    {
+      "width": 1280,
+      "headerHeight": 69,
+      "companyName": {
+        "text": "Northside Plumbing & Gas Maintenance Pty Ltd",
+        "scrollWidth": 297,
+        "clientWidth": 96,
+        "ok": false,
+        "hidden": false
+      }
+    }
+  ]
+}

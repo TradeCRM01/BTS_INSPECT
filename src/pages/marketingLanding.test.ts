@@ -148,8 +148,8 @@ describe('public Grafter landing', () => {
     const lookStart = css.indexOf('/* Public landing look only.');
     const lookEnd = css.indexOf('/* Public legal paper + auth/marketing legal-link chrome only.');
     const look = css.slice(lookStart, lookEnd);
-    expect(look).toContain("font-family: Rajdhani, sans-serif");
-    expect(look).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(look).toContain("font-family: var(--g-font-title)");
+    expect(look).toContain("font-family: var(--g-font-ui)");
     expect(look).toContain('--mkt-page: var(--g-bg)');
     expect(look).toContain('--mkt-sheet: var(--g-surface)');
     expect(look).toContain('--mkt-ink: var(--g-ink)');
@@ -164,7 +164,7 @@ describe('public Grafter landing', () => {
     expect(look).toContain('#pricing.hub-marketing-band');
     expect(look).toContain('.hub-marketing-hero .hub-marketing-frame');
     expect(look).not.toMatch(/\.hub-marketing-hero[^{]*\{[^}]*background: var\(--mkt-sheet\)/);
-    expect(look).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex|Fraunces|Geist/);
+    expect(look).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex|Fraunces/);
     expect(look).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow|lacquer|gloss|glow/);
     expect(look).not.toMatch(/#16A34A|#15803D|#1B7F3A/);
   });

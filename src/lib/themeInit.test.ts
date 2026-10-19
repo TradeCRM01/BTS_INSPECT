@@ -42,6 +42,7 @@ describe('themeInit resolution table', () => {
     expect(html).toContain('/^\\/p(\\/|$)/');
     const sheetIdx = html.search(/<link\b[^>]*rel=["']stylesheet["']/i);
     expect(sheetIdx).toBeGreaterThan(scriptIdx);
+    expect(html).toContain("root.setAttribute('data-allow-dark', allowDark ? 'true' : 'false')");
     expect(html).toContain('window.grafterTheme');
     expect(src('src/App.tsx')).toContain('grafterTheme?.reapply()');
     expect(src('src/pages/ClientPortalPublicPage.tsx')).toContain('id="client-portal" data-theme="light"');

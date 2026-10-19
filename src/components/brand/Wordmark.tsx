@@ -1,19 +1,37 @@
 import { BRAND_NAME } from '../../lib/brand';
 
 export type WordmarkSize = 'header' | 'auth' | 'marketing';
+export type WordmarkTone = 'ink' | 'onDark';
 
-const WORDMARK_BASE = 'font-semibold tracking-tighter';
 const WORDMARK_SIZE: Record<WordmarkSize, string> = {
-  marketing: 'text-navy text-[15px]',
-  header: 'text-white text-[13px] sm:text-sm truncate',
-  auth: 'text-navy text-2xl',
+  marketing: 'text-[15px]',
+  header: 'text-[13px] sm:text-sm truncate',
+  auth: 'text-2xl',
 };
 
-export function Wordmark(props: { size?: WordmarkSize; className?: string }) {
+const WORDMARK_TONE: Record<WordmarkTone, string> = {
+  ink: 'text-navy',
+  onDark: 'text-white',
+};
+
+export function Wordmark(props: {
+  size?: WordmarkSize;
+  tone?: WordmarkTone;
+  className?: string;
+}) {
   const size = props.size ?? 'header';
-  const cls = [WORDMARK_BASE, WORDMARK_SIZE[size], props.className].filter(Boolean).join(' ');
+  const tone = props.tone ?? (size === 'header' ? 'onDark' : 'ink');
+  const cls = ['font-semibold', 'uppercase', 'tracking-[0.16em]', WORDMARK_SIZE[size], WORDMARK_TONE[tone], props.className]
+    .filter(Boolean)
+    .join(' ');
   return (
-    <span className={cls} data-grafter-wordmark={size}>
+    <span
+      className={cls}
+      data-grafter-wordmark={size}
+      data-grafter-tone={tone}
+      aria-label={BRAND_NAME}
+      style={{ fontFamily: 'var(--g-font-sans)', fontWeight: 600 }}
+    >
       {BRAND_NAME}
     </span>
   );

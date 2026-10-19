@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { brandHtmlPlugin, brandPwaManifest } from './src/lib/brandVite';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 
@@ -26,34 +27,49 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    brandHtmlPlugin,
     VitePWA({
       // Unregister broken SWs that were causing Chrome ERR_FAILED on navigations.
       // Re-enable offline caching later once clients have recovered.
       selfDestroying: true,
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg', 'icon-192.svg', 'icon-512.svg'],
+      includeAssets: [
+        'favicon.svg',
+        'icon.svg',
+        'icon-192.png',
+        'icon-512.png',
+        'icon-maskable-512.png',
+        'apple-touch-icon.png',
+        'fonts/Geist-Variable.woff2',
+        'fonts/OFL.txt',
+      ],
       manifest: {
-        name: 'Grafter',
-        short_name: 'Grafter',
+        ...brandPwaManifest(),
         description: 'Field inspection and reporting platform',
-        theme_color: '#0A2540',
-        background_color: '#F9FAFB',
+        theme_color: '#0A0A0B',
+        background_color: '#F5F5F7',
         display: 'standalone',
         orientation: 'any',
         scope: '/',
         start_url: '/',
         icons: [
           {
-            src: 'icon-192.svg',
+            src: 'icon-192.png',
             sizes: '192x192',
-            type: 'image/svg+xml',
-            purpose: 'any maskable',
+            type: 'image/png',
+            purpose: 'any',
           },
           {
-            src: 'icon-512.svg',
+            src: 'icon-512.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
-            purpose: 'any maskable',
+            type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            src: 'icon-maskable-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
           },
         ],
       },

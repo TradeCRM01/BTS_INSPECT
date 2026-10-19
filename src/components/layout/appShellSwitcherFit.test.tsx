@@ -70,19 +70,33 @@ afterEach(() => {
 });
 
 describe('AppShell desktop switcher fits the header row', () => {
-  it('renders the company name with a 6rem cap, truncate, and matching title (A4)', async () => {
+  it('renders the full company name wrapped, without truncate, and matching title', async () => {
     await renderShell();
     const name = container.querySelector('[data-shell-switcher-name]');
     expect(name).not.toBeNull();
     expect(name?.textContent).toBe(LONG_NAME);
-    expect(name?.className).toMatch(/max-w-\[6rem\]/);
-    expect(name?.className).toMatch(/\btruncate\b/);
+    expect(name?.className).not.toMatch(/max-w-\[6rem\]/);
+    expect(name?.className).not.toMatch(/\btruncate\b/);
     expect(name?.className).not.toMatch(/min-w-0/);
+    expect(name?.className).toMatch(/hidden lg:line-clamp-2/);
+    expect(name?.className).toMatch(/max-w-\[7\.5rem\]/);
+    expect(name?.className).toMatch(/lg:line-clamp-2/);
+    expect(name?.className).toMatch(/\bleading-4\b/);
+    expect(name?.className).toMatch(/\bbreak-words\b/);
+    expect(name?.className).not.toMatch(/\bwhitespace-normal\b/);
+    expect(name?.className).not.toMatch(/\bleading-none\b/);
+    expect(name?.className).not.toMatch(/\blg:block\b/);
+    expect(name?.className).toMatch(/\btext-left\b/);
     const btn = name?.closest('button');
+    expect(btn?.className).toMatch(/\bmin-h-11\b/);
     expect(btn?.getAttribute('title')).toBe(LONG_NAME);
     expect(btn?.getAttribute('aria-label')).toBe(LONG_NAME);
     const cluster = btn?.parentElement?.parentElement;
     expect(cluster?.className).toMatch(/\bshrink-0\b/);
+    const search = container.querySelector('button[aria-label="Search"]');
+    expect(search?.className).toMatch(/\bh-11\b/);
+    expect(search?.className).toMatch(/\bmin-h-11\b/);
+    expect(search?.getAttribute('aria-label')).toBe('Search');
     expect(cluster?.className).not.toMatch(/min-w-0/);
     const avatar = btn?.querySelector('[data-shell-switcher-avatar]');
     const chevron = btn?.querySelector('[data-shell-switcher-chevron]');
@@ -96,6 +110,7 @@ describe('AppShell desktop switcher fits the header row', () => {
     const name = container.querySelector('[data-shell-switcher-name]');
     expect(name?.textContent).toBe(ONE_WORD);
     const btn = name?.closest('button');
+    expect(btn?.className).toMatch(/\bmin-h-11\b/);
     expect(btn?.getAttribute('title')).toBe(ONE_WORD);
     expect(btn?.getAttribute('aria-label')).toBe(ONE_WORD);
   });

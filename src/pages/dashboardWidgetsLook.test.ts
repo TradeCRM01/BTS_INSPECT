@@ -57,8 +57,8 @@ describe('dashboard widgets LOOK — ink on the signed paper', () => {
     expect(css).toContain('background: #FFFDF8');
     expect(css).toContain('color: #0A2540');
     expect(css).toContain('#2E75B6');
-    expect(css).toContain("font-family: Rajdhani, sans-serif");
-    expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(css).toContain("font-family: var(--g-font-title)");
+    expect(css).toContain("font-family: var(--g-font-ui)");
     expect(css).not.toContain('max-width: 1100px');
     expect(css).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow/);
     expect(css).not.toMatch(/#16A34A|#15803D|#1B7F3A/);

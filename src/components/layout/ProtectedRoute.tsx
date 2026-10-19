@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { RotateCw } from 'lucide-react';
 import { companyAccessBlocked } from '../../lib/platformOperator';
+import { BRAND_NAME } from '../../lib/brand';
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, profile, company, loading, refreshProfile, signOut, isPlatformOperator } = useAuth();
@@ -85,7 +86,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
           <h2 className="text-base font-semibold text-[#1A1A1A] mb-2">This workspace is paused</h2>
           <p className="text-sm text-[#4A5568] mb-6">
             {company?.name ? `${company.name} ` : 'Your company '}
-            cannot use Grafter right now. Ask the person who invited you, or email billing if you think this is a mistake.
+            cannot use {BRAND_NAME} right now. Ask the person who invited you, or email billing if you think this is a mistake.
           </p>
           <button
             onClick={() => { void signOut(); }}

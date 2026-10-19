@@ -275,8 +275,8 @@ describe('form fields fit their type', () => {
     expect(src('src/pages/MarketingPage.tsx')).toContain('hub-marketing');
     expect(src('src/pages/MarketingPage.tsx')).toContain('#0036.01');
     expect(src('src/index.css')).toContain('.hub-marketing');
-    expect(src('src/index.css')).toContain('Newsreader');
-    expect(src('index.html')).toContain('Newsreader');
+    expect(src('src/styles/tokens.css')).toContain("font-family: 'Geist'");
+    expect(src('index.html')).toContain('Geist-Variable.woff2');
     expect(src('src/App.tsx')).toContain('RootPage');
     expect(src('src/pages/LoginPage.tsx')).toContain('AuthShell');
     expect(src('src/pages/SignupPage.tsx')).toContain('AuthShell');

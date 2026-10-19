@@ -65,7 +65,7 @@ const TEAM_LOOK_CSS = `
   --team-look-action: #2E75B6;
   --team-look-r-ctl: 12px;
   --team-look-r-sheet: 16px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
 }
 .hub-team.ops-page {
   max-width: none;
@@ -92,7 +92,7 @@ const TEAM_LOOK_CSS = `
   display: none;
 }
 .hub-team-label {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0;
@@ -123,7 +123,7 @@ const TEAM_LOOK_CSS = `
   color: #fff;
 }
 .hub-team-sheet-bar-meta {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 16px;
   font-weight: 500;
   color: #fff;
@@ -136,7 +136,7 @@ const TEAM_LOOK_CSS = `
   padding: 0 12px;
   border: 1px solid transparent;
   border-radius: 999px;
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -153,7 +153,7 @@ const TEAM_LOOK_CSS = `
   box-shadow: inset 0 1px 0 #fff;
 }
 .hub-team-hero {
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-weight: 700;
   font-size: 40px;
   letter-spacing: 0.02em;
@@ -188,7 +188,7 @@ const TEAM_LOOK_CSS = `
   border: none;
   border-radius: 12px;
   box-shadow: none;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 14px;
   font-weight: 600;
   display: inline-flex;
@@ -211,7 +211,7 @@ const TEAM_LOOK_CSS = `
   border: none;
   border-radius: 12px;
   color: #2E75B6;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 14px;
   font-weight: 500;
   box-shadow: none;
@@ -227,7 +227,7 @@ const TEAM_LOOK_CSS = `
   border-radius: 12px;
   background: var(--team-look-sheet);
   color: var(--team-look-ink);
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 12px;
   box-shadow: none;
 }
@@ -278,7 +278,7 @@ const TEAM_LOOK_CSS = `
   box-shadow: none;
   min-height: 0;
   font-size: 14px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   color: var(--team-look-ink);
 }
 .hub-team-ledger-row > span:first-child {
@@ -288,7 +288,7 @@ const TEAM_LOOK_CSS = `
   white-space: nowrap;
 }
 .hub-team-ledger-kicker {
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -341,7 +341,7 @@ const TEAM_LOOK_CSS = `
   border-radius: 0;
   background: transparent;
   color: var(--team-look-ink);
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 12px;
   box-shadow: none;
 }
@@ -359,7 +359,7 @@ const TEAM_LOOK_CSS = `
   max-width: 140px;
   padding: 0 4px;
   color: var(--team-look-muted);
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -374,7 +374,7 @@ const TEAM_LOOK_CSS = `
 }
 .hub-team-hours {
   margin: 0;
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-weight: 700;
   font-size: 16px;
   font-variant-numeric: tabular-nums;

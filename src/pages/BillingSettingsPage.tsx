@@ -27,7 +27,7 @@ const BILLING_LOOK_CSS = `
   --billing-look-r-ctl: 12px;
   --billing-look-r-sheet: 16px;
   --billing-look-fail: #B42318;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
 }
 .hub-billing.ops-page {
   max-width: none;
@@ -43,7 +43,7 @@ const BILLING_LOOK_CSS = `
   max-width: 1100px;
   margin: 0 auto 16px;
   padding-top: 8px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0;
@@ -73,7 +73,7 @@ const BILLING_LOOK_CSS = `
   color: #fff;
 }
 .hub-billing-sheet-bar-meta {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 16px;
   font-weight: 500;
   color: #fff;
@@ -86,7 +86,7 @@ const BILLING_LOOK_CSS = `
   padding: 0 12px;
   border: 1px solid transparent;
   border-radius: 999px;
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -103,7 +103,7 @@ const BILLING_LOOK_CSS = `
   box-shadow: inset 0 1px 0 #fff;
 }
 .hub-billing-hero {
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-weight: 700;
   font-size: 56px;
   letter-spacing: 0.02em;
@@ -140,7 +140,7 @@ const BILLING_LOOK_CSS = `
   border: none;
   border-radius: 12px;
   color: #2E75B6;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 14px;
   font-weight: 500;
   box-shadow: none;
@@ -166,7 +166,7 @@ const BILLING_LOOK_CSS = `
   font-size: 14px;
 }
 .hub-billing-kicker {
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -188,7 +188,7 @@ const BILLING_LOOK_CSS = `
   box-shadow: none;
   min-height: 44px;
   font-size: 14px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   color: var(--billing-look-ink);
 }
 .hub-billing-row-copy {
@@ -197,7 +197,7 @@ const BILLING_LOOK_CSS = `
 }
 .hub-billing-row-label {
   margin: 0;
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-weight: 700;
   font-size: 14px;
   letter-spacing: 0.02em;
@@ -211,7 +211,7 @@ const BILLING_LOOK_CSS = `
 }
 .hub-billing-price {
   margin: 0;
-  font-family: Rajdhani, sans-serif;
+  font-family: var(--g-font-title);
   font-weight: 700;
   font-size: 24px;
   letter-spacing: 0.02em;
@@ -221,7 +221,7 @@ const BILLING_LOOK_CSS = `
   white-space: nowrap;
 }
 .hub-billing-price span {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 14px;
   font-weight: 500;
   letter-spacing: 0;
@@ -239,7 +239,7 @@ const BILLING_LOOK_CSS = `
   border: none;
   border-radius: 12px;
   box-shadow: none;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--g-font-ui);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;

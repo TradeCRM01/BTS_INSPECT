@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { BrandLockup } from '../brand/BrandLockup';
-import { BRAND_NAME } from '../../lib/brand';
+import { BRAND_DOMAIN, BRAND_NAME } from '../../lib/brand';
 import { usePublicDocumentHead, type PublicSeoKey } from '../../lib/publicSeo';
 import { PublicLegalLinks } from './PublicLegalLinks';
 
@@ -33,7 +33,7 @@ export function LegalShell({
       <footer className="hub-marketing-footer">
         <BrandLockup size="marketing" />
         <p>
-          Australian-built. grafter.com.au
+          Australian-built. {BRAND_DOMAIN}
           {' · '}
           <PublicLegalLinks as="span" />
         </p>

@@ -38,8 +38,8 @@ describe('invoice list cream document look', () => {
     expect(css).toContain('--invoice-muted: var(--g-ink-muted)');
     expect(css).toContain('--invoice-line: var(--g-line)');
     expect(css).toContain('#2E75B6');
-    expect(css).toContain("font-family: Rajdhani, sans-serif");
-    expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(css).toContain("font-family: var(--g-font-title)");
+    expect(css).toContain("font-family: var(--g-font-ui)");
     expect(css).not.toMatch(/\.hub-invoices \.ops-page-title[\s\S]{0,160}Newsreader|Syne|Space Grotesk|IBM Plex/);
     expect(css).toContain('letter-spacing: 0.12em');
     expect(css).not.toContain('indigo-500');
@@ -49,7 +49,7 @@ describe('invoice list cream document look', () => {
     expect(sheet).toContain('inset 0 1px 0 #fff');
     expect(sheet).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(sheet).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow|lacquer|gloss|glow|shine/);
-    expect(tabs).toContain('font-family: Rajdhani, sans-serif');
+    expect(tabs).toContain('font-family: var(--g-font-title)');
     expect(tabs).toContain('font-weight: 700');
     expect(tabs).toContain('#2E75B6');
   });

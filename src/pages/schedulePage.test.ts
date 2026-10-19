@@ -241,8 +241,8 @@ describe('schedule board cream paper look', () => {
     expect(css).toContain('--schedule-muted: var(--g-ink-muted)');
     expect(css).toContain('--schedule-line: var(--g-line)');
     expect(css).toContain('#2E75B6');
-    expect(css).toContain("font-family: Rajdhani, sans-serif");
-    expect(css).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(css).toContain("font-family: var(--g-font-title)");
+    expect(css).toContain("font-family: var(--g-font-ui)");
     expect(css).not.toMatch(/\.hub-board-cal \.ops-page-title[\s\S]{0,160}Newsreader|Syne|Space Grotesk|IBM Plex/);
     expect(css).toContain('letter-spacing: 0.12em');
     expect(css).toContain('.hub-week-board');

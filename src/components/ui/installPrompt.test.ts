@@ -12,7 +12,7 @@ describe('Install Grafter overlay vs signup', () => {
     const css = src('src/index.css');
     const auth = css.slice(css.indexOf('.hub-auth {'), css.indexOf('#client-portal'));
     expect(signup).toContain('Create account');
-    expect(signup).toContain('Create a Grafter workspace');
+    expect(signup).toContain('Create your ${BRAND_NAME} workspace');
     expect(signup).toContain('hub-auth-submit');
     expect(signup).toContain('hub-auth-agree');
     expect(signup).toContain('By creating a workspace you agree to our');
@@ -60,8 +60,8 @@ describe('Install Grafter overlay vs signup', () => {
     expect(prompt).toContain('--install-look-muted: #5B6B7C');
     expect(prompt).toContain('--install-look-line: #E2D9CC');
     expect(prompt).toContain('#2E75B6');
-    expect(prompt).toContain("font-family: Rajdhani, sans-serif");
-    expect(prompt).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(prompt).toContain("font-family: var(--g-font-title)");
+    expect(prompt).toContain("font-family: var(--g-font-ui)");
     expect(prompt).toContain('box-shadow:\n    inset 0 1px 0 #fff,\n    0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(prompt).toContain('min-height: 44px');
     expect(prompt).toMatch(/Install\s*<\/button>/);

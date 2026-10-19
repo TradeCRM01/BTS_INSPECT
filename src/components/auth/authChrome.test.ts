@@ -39,15 +39,14 @@ describe('auth chrome', () => {
     expect(auth).toContain('background: var(--legal-page)');
     expect(auth).toContain('.hub-auth-legal');
     expect(auth).toContain('.hub-auth-agree');
-    expect(auth).toContain("font-family: Rajdhani, sans-serif");
-    expect(auth).toContain("font-family: 'Source Sans 3', system-ui, sans-serif");
+    expect(auth).toContain("font-family: var(--g-font-title)");
+    expect(auth).toContain("font-family: var(--g-font-ui)");
     expect(auth).toContain('border-radius: 16px');
     expect(auth).toContain('inset 0 1px 0 #fff');
     expect(auth).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(auth).toContain('min-height: 44px');
     expect(auth).toContain('background: #2E75B6');
     expect(auth).not.toContain('background: #fff');
-    expect(auth).not.toContain('font-family: Newsreader, Georgia, serif');
     expect(auth).not.toContain('Newsreader');
     expect(auth).not.toContain('min-height: 48px');
     expect(auth).not.toContain('background: var(--ops-navy)');
