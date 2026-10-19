@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:sms-db": "node scripts/test-missed-call-sms.mjs"
+    "test:sms-db": "node scripts/test-missed-call-sms.mjs",
+    "measure:tu05": "node scripts/measure-tu05-topbar.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
