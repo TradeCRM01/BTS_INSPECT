@@ -1,7 +1,3 @@
--- SEC-PORTAL-b: INSERT/UPDATE WITH CHECK must also prove the referenced
--- client or inspection belongs to the same company. Revoke leftover table
--- privileges on the share tables. Do not run supabase db push from this file.
-
 DROP POLICY IF EXISTS "insert_company_portal_tokens" ON client_portal_tokens;
 CREATE POLICY "insert_company_portal_tokens" ON client_portal_tokens FOR INSERT
   TO authenticated WITH CHECK (

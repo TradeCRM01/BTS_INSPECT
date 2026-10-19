@@ -1,11 +1,3 @@
--- Real-PG proof for SEC-PORTAL-b. Run via scripts/prove-sec-portal-b-rls.sh
--- against throwaway Postgres. Never against production.
---
---   psql "$PROOF_URL" -v ON_ERROR_STOP=1 -f supabase/tests/sec_portal_b_share_fk_rls.sql
---
--- Fixture-only (rollback catalog trip):
---   psql -v ON_ERROR_STOP=1 -v sec_portal_b_fixture_only=1 -f ...
-
 BEGIN;
 
 DO $roles$

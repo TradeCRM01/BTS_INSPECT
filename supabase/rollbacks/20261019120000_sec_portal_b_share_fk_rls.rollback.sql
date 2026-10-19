@@ -1,9 +1,3 @@
--- Rollback 20261019120000_sec_portal_b_share_fk_rls.
--- Restores INSERT/UPDATE policies and table grants from
--- 20260805010554_036_projects_accounting_portal_barcode_kpi and
--- 20260813193952_inspection_p3_ecosystem. Do not run on production
--- without approval.
-
 DROP POLICY IF EXISTS "insert_company_portal_tokens" ON client_portal_tokens;
 CREATE POLICY "insert_company_portal_tokens" ON client_portal_tokens FOR INSERT
   TO authenticated WITH CHECK (
