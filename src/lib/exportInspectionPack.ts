@@ -111,6 +111,9 @@ async function ensurePdfBlob(args: {
       completed_at: inspection.completed_at,
       doc_version: (inspection as { doc_version?: number | null }).doc_version ?? 1,
       amendment_reason: (inspection as { amendment_reason?: string | null }).amendment_reason ?? null,
+      inspector_id: (inspection as { inspector_id?: string | null }).inspector_id ?? null,
+      inspector_name_snapshot: (inspection as { inspector_name_snapshot?: string | null }).inspector_name_snapshot ?? null,
+      inspector_licence_snapshot: (inspection as { inspector_licence_snapshot?: string | null }).inspector_licence_snapshot ?? null,
     },
     template: {
       name: snapshot.name ?? 'Inspection',

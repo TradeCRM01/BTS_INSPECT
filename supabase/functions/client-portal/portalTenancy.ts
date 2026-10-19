@@ -27,3 +27,15 @@ export function inspectionsForTokenCompany<
     return companyByInspector.get(inspection.inspector_id) === tokenCompanyId;
   });
 }
+
+export function inspectorSnapshotFields(row: {
+  inspector_id?: string | null;
+  inspector_name_snapshot?: string | null;
+  inspector_licence_snapshot?: string | null;
+}): { inspectorName: string | null; inspectorLicence: string | null } | Record<string, never> {
+  if (row.inspector_id) return {};
+  return {
+    inspectorName: row.inspector_name_snapshot ?? null,
+    inspectorLicence: row.inspector_licence_snapshot ?? null,
+  };
+}

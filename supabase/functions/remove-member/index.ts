@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { publicRemoveMemberError } from "./publicError.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -120,14 +121,14 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Delete profile row (FKs are SET NULL so data is preserved)
     const { error: deleteError } = await adminClient
       .from("profiles")
       .delete()
       .eq("id", memberId);
 
     if (deleteError) {
-      return new Response(JSON.stringify({ error: deleteError.message }), {
+      console.error("remove-member profile delete failed", deleteError);
+      return new Response(JSON.stringify({ error: publicRemoveMemberError(deleteError) }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -145,7 +146,8 @@ Deno.serve(async (req: Request) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }), {
+    console.error("remove-member failed", err);
+    return new Response(JSON.stringify({ error: publicRemoveMemberError(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -14,6 +14,7 @@ import {
 } from '../shared/inspectionCompose';
 import type { PdfThemeTokens } from '../shared/styles';
 import { companyDocumentLogoUrl } from '../../lib/companyLogo';
+import { resolveInspectorIdentity } from '../../lib/inspectorSnapshot';
 import { inspectionReportTheme } from './theme';
 
 interface ComposeInput {
@@ -24,6 +25,9 @@ interface ComposeInput {
     completed_at?: string | null;
     doc_version?: number | null;
     amendment_reason?: string | null;
+    inspector_id?: string | null;
+    inspector_name_snapshot?: string | null;
+    inspector_licence_snapshot?: string | null;
   };
   template: {
     name: string;
@@ -50,9 +54,17 @@ export function composeGenericReport(input: ComposeInput): GenericReportData {
   const { inspection, template, profile, company, photos, reportNumber } = input;
   const { responses, meta } = inspection;
 
+  const inspector = resolveInspectorIdentity({
+    inspectorId: inspection.inspector_id,
+    live: { name: profile.name, licence: profile.licence_number },
+    snapshot: {
+      name: inspection.inspector_name_snapshot,
+      licence: inspection.inspector_licence_snapshot,
+    },
+  });
   const sections = composeInspectionSections(template.schema, responses, photos);
   const overallVerdict = computeOverallVerdict(sections);
-  const signatures = collectSignatures(sections, profile.name);
+  const signatures = collectSignatures(sections, inspector.name);
   const photoAppendix = collectPhotoAppendix(sections);
   const customFields = composeCustomFields(template.schema, meta);
   const defects = collectDefects(sections);
@@ -73,8 +85,8 @@ export function composeGenericReport(input: ComposeInput): GenericReportData {
     jobNumber: meta.jobNumber,
     jobDescription: meta.jobDescription,
     customFields,
-    inspectorName: profile.name,
-    inspectorLicence: profile.licence_number ?? undefined,
+    inspectorName: inspector.name,
+    inspectorLicence: inspector.licence ?? undefined,
     companyName: company.name,
     companyAbn: company.abn ?? undefined,
     companyPhone: company.phone ?? undefined,

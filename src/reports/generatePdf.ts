@@ -14,6 +14,9 @@ interface GenerateInput {
     completed_at?: string | null;
     doc_version?: number | null;
     amendment_reason?: string | null;
+    inspector_id?: string | null;
+    inspector_name_snapshot?: string | null;
+    inspector_licence_snapshot?: string | null;
   };
   template: {
     name: string;
