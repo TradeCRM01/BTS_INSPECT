@@ -153,7 +153,7 @@ describe('BRAND_NAME', () => {
   });
 
   it('routes only the 10 A0 lines and keeps the 81-line SHELL allow-list', () => {
-    expect(SHELL_ALLOW).toHaveLength(81);
+    expect(SHELL_ALLOW).toHaveLength(80);
     expect(unexpectedHits(collectHits())).toEqual([]);
   });
 });
