@@ -18,8 +18,7 @@ function extractInlineScript(): string {
   return match[1];
 }
 
-function boot(path: string, stored: string | null, prefersDark: boolean) {
-  const script = extractInlineScript();
+function boot(path: string, stored: string | null, prefersDark: boolean, script = extractInlineScript()) {
   const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', {
     url: `https://grafter.test${path}`,
     runScripts: 'outside-only',
@@ -43,31 +42,63 @@ function boot(path: string, stored: string | null, prefersDark: boolean) {
   return { theme: root.getAttribute('data-theme'), api, root };
 }
 
+function harnessAllowDark(script: string): string {
+  return script.replace('var allowDark = false', 'var allowDark = true');
+}
+
+function harnessAllowDarkAndFollowSystem(script: string): string {
+  return harnessAllowDark(script).replace('var followSystem = false', 'var followSystem = true');
+}
+
 describe('inline theme-init (index.html) behaviour', () => {
-  it('kills M1b and M3: stored dark keeps data-theme light', () => {
+  it('exact script, stored dark: data-theme is light', () => {
     const b = boot('/', 'dark', true);
     expect(b.root.getAttribute('data-theme')).toBe('light');
-    expect(b.api.get()).toBe('dark');
+  });
+
+  it('exact script, stored light: data-theme is light under a dark system preference', () => {
+    const b = boot('/', 'light', true);
+    expect(b.root.getAttribute('data-theme')).toBe('light');
+  });
+
+  it('exact script, nothing stored: data-theme is light under a dark system preference', () => {
+    const b = boot('/', null, true);
+    expect(b.root.getAttribute('data-theme')).toBe('light');
+  });
+
+  it('exact script, forced light on /p: data-theme is light', () => {
+    const b = boot('/p/tok', 'dark', true);
+    expect(b.root.getAttribute('data-theme')).toBe('light');
+  });
+
+  it('kills M1b: exact script, stored dark stays light because allowDark is false', () => {
+    const b = boot('/', 'dark', true);
+    expect(b.root.getAttribute('data-theme')).toBe('light');
     expect(extractInlineScript()).toMatch(/var allowDark = false/);
   });
 
-  it('stored light keeps data-theme light under a dark system preference', () => {
-    const b = boot('/', 'light', true);
-    expect(b.root.getAttribute('data-theme')).toBe('light');
-    expect(b.api.get()).toBe('light');
+  it('kills M3: harness allowDark=true only, stored dark resolves dark', () => {
+    const script = harnessAllowDark(extractInlineScript());
+    const b = boot('/', 'dark', true, script);
+    expect(b.root.getAttribute('data-theme')).toBe('dark');
+    expect(b.api.get()).toBe('dark');
   });
 
-  it('kills M2b: nothing stored with dark system preference keeps data-theme light', () => {
-    const b = boot('/', null, true);
+  it('kills M2b: harness allowDark=true only, nothing stored stays light (followSystem from extracted script)', () => {
+    const script = harnessAllowDark(extractInlineScript());
+    const b = boot('/', null, true, script);
     expect(b.root.getAttribute('data-theme')).toBe('light');
-    expect(extractInlineScript()).toMatch(/var followSystem = false/);
   });
 
-  it('kills M9: forced light on /p keeps data-theme light', () => {
-    const script = extractInlineScript();
-    expect(script).toContain("forcedLight() ? 'light'");
-    expect(script).toContain('/^\\/p(\\/|$)/');
-    const b = boot('/p/tok', 'dark', true);
+  it('harness allowDark=true and followSystem=true: nothing stored, dark system preference resolves dark', () => {
+    const script = harnessAllowDarkAndFollowSystem(extractInlineScript());
+    const b = boot('/', null, true, script);
+    expect(b.root.getAttribute('data-theme')).toBe('dark');
+  });
+
+  it('kills M9: harness allowDark=true only, /p stays light', () => {
+    const script = harnessAllowDark(extractInlineScript());
+    const b = boot('/p/tok', 'dark', true, script);
     expect(b.root.getAttribute('data-theme')).toBe('light');
   });
 });
