@@ -130,8 +130,6 @@ const queryClient = new QueryClient({
   },
 });
 
-// Splat still renders App so real deep links, auth, and /p stay on their
-// routes. Unknown paths are the App catch-all 404, not a redirect home.
 const appRouter = createBrowserRouter([
   grafterRootRoute(
     <QueryClientProvider client={queryClient}>
