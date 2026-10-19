@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BrandLockup } from '../components/brand/BrandLockup';
 import { usePublicDocumentHead } from '../lib/publicSeo';
@@ -26,6 +27,13 @@ const landingWeekly = LANDING_PRICE.weekly;
 const landingMonthly = Math.round(landingWeekly * 52 / 12);
 const landingThenWeekly = `2 months free. Then $${landingWeekly} a week.`;
 const landingAboutMonthly = `Billed monthly, about $${landingMonthly}/month.`;
+const landingSellingPoints = [
+  'No job caps.',
+  'Texts included.',
+  'Your price is locked for good.',
+  'We move your data over from your old system, free.',
+  'Leave any time. Export all your data in one click.',
+] as const;
 
 export function MarketingPage() {
   usePublicDocumentHead('landing');
@@ -123,27 +131,31 @@ export function MarketingPage() {
           </p>
           <div className="hub-marketing-grid md:!grid-cols-2">
             <article>
-              <p className="hub-marketing-subhead" data-price-slot="lead">${landingWeekly}</p>
-              <p>
-                <span aria-hidden="true">a week</span>
+              <p className="flex items-baseline gap-2" data-price-slot="lead">
+                <span className="hub-marketing-display !text-5xl md:!text-6xl !leading-none !whitespace-nowrap">
+                  ${landingWeekly}
+                </span>
+                <span aria-hidden="true" className="text-sm font-semibold">a week</span>
                 <span className="sr-only">${landingWeekly} per week</span>
               </p>
               <p>{landingAboutMonthly}</p>
               {founderWeekly != null ? (
                 <p className="text-xs">Founder price ${founderWeekly} a week.</p>
               ) : null}
-              <p>{landingThenWeekly} Up to 10 seats. GST included.</p>
-              <p>No job caps.</p>
-              <p>Texts included.</p>
-              <p>Your price is locked for good.</p>
-              <p>We move your data over from your old system, free.</p>
-              <p>Leave any time. Export all your data in one click.</p>
+              <p>Up to 10 seats. GST included.</p>
+              <ul className="mt-4 space-y-2">
+                {landingSellingPoints.map((point) => (
+                  <li key={point} className="flex items-start gap-2">
+                    <Check size={16} className="shrink-0 mt-1 text-accent" aria-hidden />
+                    <span>{point}</span>
+                  </li>
+                ))}
+              </ul>
               <Link to="/signup" className="hub-marketing-btn mt-4">Create a workspace</Link>
             </article>
             <article>
               <p className="hub-marketing-subhead">Crew 11+</p>
-              <p>Talk to us</p>
-              <Link to="/signup" className="hub-marketing-btn mt-4">Talk to us</Link>
+              <p>More than 10 seats? Talk to us.</p>
             </article>
           </div>
         </section>
