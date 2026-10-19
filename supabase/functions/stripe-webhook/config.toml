@@ -1,0 +1,2 @@
+# Matches prod: Stripe calls without a user JWT. The signature is verified in code.
+verify_jwt = false
