@@ -3,6 +3,23 @@ import { BrandLockup } from '../components/brand/BrandLockup';
 import { usePublicDocumentHead } from '../lib/publicSeo';
 import { PublicLegalLinks } from '../components/legal/PublicLegalLinks';
 
+/** Demo-seed job on the public home frames. One time string for the card and the board. */
+const LANDING_SEED_JOB = {
+  ref: '#0036',
+  title: 'Blocked sewer, CCTV inspection',
+  site: '12 Grange Rd, Stafford',
+  time: '07:00–10:30',
+  crew: 'Dean Moretti',
+  company: 'Northside Plumbing & Gas',
+} as const;
+
+const LANDING_SEED_TOM = {
+  ref: '#0040',
+  title: 'Toilet cistern replacement',
+  time: '07:30–09:30',
+  crew: 'Tom Nguyen',
+} as const;
+
 export function MarketingPage() {
   usePublicDocumentHead('landing');
 
@@ -199,19 +216,19 @@ function JobFrame() {
   return (
     <div className="hub-marketing-job">
       <div className="hub-marketing-stamp">
-        <span>12 Grange Rd, Stafford</span>
+        <span>{LANDING_SEED_JOB.site}</span>
       </div>
       <div className="hub-marketing-job-body">
         <div className="hub-marketing-job-row">
-          <p className="hub-marketing-job-id">#0036 · 12 Grange Rd, Stafford</p>
+          <p className="hub-marketing-job-id">{LANDING_SEED_JOB.ref} · {LANDING_SEED_JOB.site}</p>
           <span className="hub-marketing-pill">Scheduled</span>
         </div>
-        <p className="hub-marketing-job-title">Workshop fit-out</p>
-        <p className="hub-marketing-job-meta">Northside Plumbing & Gas · Mon 19 Oct · 07:00–10:30</p>
+        <p className="hub-marketing-job-title">{LANDING_SEED_JOB.title}</p>
+        <p className="hub-marketing-job-meta">{LANDING_SEED_JOB.company} · Today · {LANDING_SEED_JOB.time}</p>
         <span className="hub-marketing-next">Open job</span>
         <div className="hub-marketing-stage">
-          <p className="hub-marketing-job-id">#0036.01 Fit-out labour</p>
-          <p className="hub-marketing-job-meta">09:00–11:00 · Dean Moretti</p>
+          <p className="hub-marketing-job-id">{LANDING_SEED_JOB.ref} {LANDING_SEED_JOB.title}</p>
+          <p className="hub-marketing-job-meta">{LANDING_SEED_JOB.time} · {LANDING_SEED_JOB.crew}</p>
         </div>
       </div>
     </div>
@@ -230,17 +247,21 @@ function ScheduleFrame() {
         <span>11</span>
       </div>
       <div className="hub-marketing-board-row">
-        <span className="hub-marketing-person">Dean Moretti</span>
+        <span className="hub-marketing-person flex items-center gap-1">
+          <span className="ops-crew-mark bg-navy" />
+          {LANDING_SEED_JOB.crew}
+        </span>
         <div className="hub-marketing-lane">
-          <span className="hub-marketing-block hub-marketing-block-long">#0036 · 07:30–16:00</span>
-          <span className="hub-marketing-block hub-marketing-block-part">#0036.01 · 09:00–11:00</span>
+          <span className="hub-marketing-block hub-marketing-block-long">{LANDING_SEED_JOB.ref} · {LANDING_SEED_JOB.title} · {LANDING_SEED_JOB.time}</span>
         </div>
       </div>
-      <div className="hub-marketing-board-row">
-        <span className="hub-marketing-person">Tom Nguyen</span>
+      <div className="hub-marketing-board-row mt-2">
+        <span className="hub-marketing-person flex items-center gap-1">
+          <span className="ops-crew-mark bg-warning" />
+          {LANDING_SEED_TOM.crew}
+        </span>
         <div className="hub-marketing-lane">
-          <span className="hub-marketing-block hub-marketing-block-long">#0036 · 07:30–16:00</span>
-          <span className="hub-marketing-block hub-marketing-block-part">#0036.01 · 09:00–11:00</span>
+          <span className="hub-marketing-block hub-marketing-block-part !bg-zebra !border-l-warning">{LANDING_SEED_TOM.ref} · {LANDING_SEED_TOM.title} · {LANDING_SEED_TOM.time}</span>
         </div>
       </div>
     </div>
