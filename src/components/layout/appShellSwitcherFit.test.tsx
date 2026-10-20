@@ -69,7 +69,7 @@ afterEach(() => {
   container.remove();
 });
 
-describe('AppShell desktop switcher fits the header row', () => {
+describe('AppShell desktop switcher className probe (not a kill; S4 measures the 8px gap)', () => {
   it('renders the full company name wrapped, without truncate, and matching title', async () => {
     await renderShell();
     const name = container.querySelector('[data-shell-switcher-name]');

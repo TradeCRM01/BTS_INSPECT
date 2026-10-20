@@ -96,8 +96,8 @@ afterEach(() => {
   cleanup();
 });
 
-describe('tablet top nav shows short labels, not tooltips', () => {
-  it('renders visible short labels Jobs, Today, Field, Money, Stock at 800px', () => {
+describe('tablet nav jsdom probe (not a kill; S3 is the Chromium layout kill)', () => {
+  it('jsdom still sees short-label text at 800px (not a kill)', () => {
     renderShell();
     const shorts = [...document.querySelectorAll('.shell-nav-label-short')].map((el) => el.textContent);
     expect(shorts).toEqual(['Today', 'Jobs', 'Field', 'Money', 'Stock']);

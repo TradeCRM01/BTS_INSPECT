@@ -1,0 +1,51 @@
+/** Browser-side stubs for the S2 Chromium shell harness. Not imported by the app. */
+
+export type S2ShellCfg = {
+  companyName?: string;
+  reportTheme?: Record<string, string> | null;
+};
+
+function cfg(): S2ShellCfg {
+  return (globalThis as unknown as { __S2_SHELL__?: S2ShellCfg }).__S2_SHELL__ ?? {};
+}
+
+export function useAuth() {
+  return {
+    profile: { name: 'Field Audit', role: 'admin', company_id: 'c1' },
+    company: {
+      name: cfg().companyName || 'Northside Plumbing & Gas Maintenance Services Pty Ltd',
+      report_theme: cfg().reportTheme ?? null,
+    },
+    signOut: async () => {},
+    isPlatformOperator: false,
+  };
+}
+
+export function useCompanyAiKey() {
+  return { ready: true, hasKey: false };
+}
+
+export function DevConsole() {
+  return null;
+}
+
+export function GlobalSearch() {
+  return null;
+}
+
+let chain: unknown;
+chain = new Proxy(function chainFn() { return chain; }, {
+  get: (_target, key) => (key === 'then'
+    ? (resolveThen: (v: unknown) => void) => resolveThen({ data: [], error: null, count: 0 })
+    : chain),
+  apply: () => chain,
+});
+
+export const supabase = {
+  from: () => chain,
+  rpc: async () => ({ data: [], error: null }),
+  auth: {
+    getSession: async () => ({ data: { session: null } }),
+    onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+  },
+};

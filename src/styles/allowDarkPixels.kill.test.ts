@@ -90,8 +90,8 @@ async function shoot(html: string): Promise<{ png: Buffer; bg: string; ink: stri
   return { png, ...vars };
 }
 
-describe('allowDark gate: hand-set dark changes 0px', () => {
-  it('kills hand-setting data-theme=dark while allowDark is false: Light pixels unchanged', async () => {
+describe('allowDark tokens-only probe (not a kill; S1 loads built CSS on the real shell)', () => {
+  it('tokens.css alone: hand-set data-theme=dark while allowDark is false leaves Light tokens (not a kill)', async () => {
     const light = await shoot(fixture(' data-theme="light"'));
     const forced = await shoot(fixture(' data-theme="dark"'));
     const allowed = await shoot(fixture(' data-allow-dark="true" data-theme="dark"'));

@@ -21,7 +21,6 @@ const N53 = 'Northside Plumbing & Gas Maintenance Services Pty Ltd';
 const CLOCK = '2026-10-19T09:41:00+10:00';
 const WIDTHS = [375, 390, 768, 800, 900, 1000, 1024, 1280];
 const FRAME_WIDTHS = WIDTHS;
-const DARK_WIDTHS = [375, 390, 1024, 1280];
 const HEIGHT = 844;
 const DPR = 2;
 
@@ -275,8 +274,8 @@ const sides = BEFORE ? ['before', 'after'] : ['after'];
 
 for (const side of sides) {
   const base = side === 'before' ? BEFORE : AFTER;
-  for (const theme of ['light', 'dark']) {
-    const widths = theme === 'dark' ? DARK_WIDTHS : FRAME_WIDTHS;
+  for (const theme of ['light']) {
+    const widths = FRAME_WIDTHS;
     for (const width of widths) {
       const row = await shoot({
         browser,

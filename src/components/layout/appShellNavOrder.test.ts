@@ -6,8 +6,8 @@ function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
-describe('AppShell nav follows the job', () => {
-  it('puts Dashboard, CRM, Field Work, Financials, Inventory in that order on desktop and phone', () => {
+describe('AppShell nav follows the job (source reads, not kills)', () => {
+  it('puts Dashboard, CRM, Field Work, Financials, Inventory in that order on desktop and phone (not a kill)', () => {
     const shell = src('src/components/layout/AppShell.tsx');
     expect(shell).toContain(`const NAV_GROUPS: NavGroup[] = [
   OFFICE_GROUPS[0], // Dashboard

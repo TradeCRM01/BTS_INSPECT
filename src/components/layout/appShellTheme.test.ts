@@ -34,8 +34,8 @@ const DOCUMENT_FILES = [
   'src/reports/shared/styles.ts',
 ] as const;
 
-describe('AppShell header/nav report_theme', () => {
-  it('keeps resolveAppShellColors for documents and stops AppShell reading it', () => {
+describe('AppShell header/nav report_theme (source reads, not kills)', () => {
+  it('keeps resolveAppShellColors for documents and stops AppShell reading it (not a kill)', () => {
     expect(APP_SHELL_REPORT_THEME_KEYS).toEqual(['navy', 'accent', 'accentLight', 'navyLight']);
     expect(resolveAppShellColors(savedTheme)).toMatchObject(savedTheme);
     expect(resolveAppShellColors(savedTheme).navy).toBe('#1B3A4B');

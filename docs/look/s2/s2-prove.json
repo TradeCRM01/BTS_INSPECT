@@ -65,38 +65,6 @@
       "width": 1280
     },
     {
-      "file": "docs/look/s2/s2-jobs-view-dark-before-375.png",
-      "page": "jobs",
-      "state": "view",
-      "theme": "dark",
-      "side": "before",
-      "width": 375
-    },
-    {
-      "file": "docs/look/s2/s2-jobs-view-dark-before-390.png",
-      "page": "jobs",
-      "state": "view",
-      "theme": "dark",
-      "side": "before",
-      "width": 390
-    },
-    {
-      "file": "docs/look/s2/s2-jobs-view-dark-before-1024.png",
-      "page": "jobs",
-      "state": "view",
-      "theme": "dark",
-      "side": "before",
-      "width": 1024
-    },
-    {
-      "file": "docs/look/s2/s2-jobs-view-dark-before-1280.png",
-      "page": "jobs",
-      "state": "view",
-      "theme": "dark",
-      "side": "before",
-      "width": 1280
-    },
-    {
       "file": "docs/look/s2/s2-jobs-view-light-after-375.png",
       "page": "jobs",
       "state": "view",
@@ -157,38 +125,6 @@
       "page": "jobs",
       "state": "view",
       "theme": "light",
-      "side": "after",
-      "width": 1280
-    },
-    {
-      "file": "docs/look/s2/s2-jobs-view-dark-after-375.png",
-      "page": "jobs",
-      "state": "view",
-      "theme": "dark",
-      "side": "after",
-      "width": 375
-    },
-    {
-      "file": "docs/look/s2/s2-jobs-view-dark-after-390.png",
-      "page": "jobs",
-      "state": "view",
-      "theme": "dark",
-      "side": "after",
-      "width": 390
-    },
-    {
-      "file": "docs/look/s2/s2-jobs-view-dark-after-1024.png",
-      "page": "jobs",
-      "state": "view",
-      "theme": "dark",
-      "side": "after",
-      "width": 1024
-    },
-    {
-      "file": "docs/look/s2/s2-jobs-view-dark-after-1280.png",
-      "page": "jobs",
-      "state": "view",
-      "theme": "dark",
       "side": "after",
       "width": 1280
     }
@@ -353,7 +289,7 @@
         "ellipsis: Hot water swap",
         "ellipsis: Deck repair",
         "ellipsis: Rooftop unit service",
-        "ellipsis: 290 data prove A — delete ok",
+        "ellipsis: 290 data prove A \u2014 delete ok",
         "ellipsis: 291 prove switchboard and after-hours commissionin"
       ],
       "shorts": [
@@ -439,7 +375,7 @@
         "ellipsis: Switchboard upgrade",
         "ellipsis: Hot water swap",
         "ellipsis: Rooftop unit service",
-        "ellipsis: 290 data prove A — delete ok",
+        "ellipsis: 290 data prove A \u2014 delete ok",
         "ellipsis: 291 prove switchboard and after-hours commissionin"
       ],
       "shorts": [
@@ -521,7 +457,7 @@
       "headerButtonsOk": true,
       "clipsOk": false,
       "clips": [
-        "ellipsis: 290 data prove A — delete ok",
+        "ellipsis: 290 data prove A \u2014 delete ok",
         "ellipsis: 291 prove switchboard and after-hours commissionin"
       ],
       "shorts": [
