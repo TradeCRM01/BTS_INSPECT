@@ -21,9 +21,11 @@ const esbuild = require('esbuild') as {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const N53 = 'Northside Plumbing & Gas Maintenance Services Pty Ltd';
+const MID = 'Northside Gas';
 const SHORT = 'Acme';
 const LOUD = { navy: '#FF0000', accent: '#00FF00', accentLight: '#00FF00', navyLight: '#FF0000' };
 const SHORTS = ['Today', 'Jobs', 'Field', 'Money', 'Stock'];
+const LABEL_WIDTHS = [768, 800, 900, 1000, 1023] as const;
 
 type KillPage = {
   goto: (url: string) => Promise<unknown>;
@@ -262,8 +264,8 @@ describe('S2 shell chromium kills (built dist CSS, painted values only)', () => 
     await darkMq.page.close();
   }, 60000);
 
-  it('S3: short labels are visible and full labels hidden at 768, 900 and 1023', async () => {
-    for (const width of [768, 900, 1023]) {
+  it('S3: short labels are visible and full labels hidden at 768, 800, 900, 1000 and 1023', async () => {
+    for (const width of LABEL_WIDTHS) {
       const { page } = await openPage({ reportTheme: null, width });
       const labels = await page.evaluate(() => {
         const vis = (el: Element) => {
@@ -288,33 +290,44 @@ describe('S2 shell chromium kills (built dist CSS, painted values only)', () => 
     }
   }, 60000);
 
-  it('S4: 53-char name to chevron gap is 8px at 768 and 1280', async () => {
+  it('S4: 53-char name box is 120px at 768 and 224px at 1280; text-right to chevron is 8px', async () => {
+    const measure = () => {
+      const name = document.querySelector('[data-shell-switcher-name]') as HTMLElement | null;
+      const chev = document.querySelector('[data-shell-switcher-chevron]') as HTMLElement | null;
+      if (!name || !chev) return null;
+      const range = document.createRange();
+      range.selectNodeContents(name);
+      const rects = [...range.getClientRects()].filter((r) => r.width > 0 && r.height > 0);
+      if (!rects.length) return null;
+      const textRight = Math.max(...rects.map((r) => r.right));
+      const cr = chev.getBoundingClientRect();
+      const nr = name.getBoundingClientRect();
+      return {
+        boxW: +nr.width.toFixed(2),
+        textGap: +(cr.left - textRight).toFixed(2),
+      };
+    };
     for (const width of [768, 1280]) {
       const longPage = await openPage({ reportTheme: null, width, companyName: N53 });
-      const longBox = await longPage.page.evaluate(() => {
-        const name = document.querySelector('[data-shell-switcher-name]') as HTMLElement | null;
-        const chev = document.querySelector('[data-shell-switcher-chevron]') as HTMLElement | null;
-        if (!name || !chev) return null;
-        const nr = name.getBoundingClientRect();
-        const cr = chev.getBoundingClientRect();
-        return {
-          gap: +(cr.left - nr.right).toFixed(2),
-          nameW: +nr.width.toFixed(2),
-        };
-      });
-      expect(longBox, `switcher at ${width}`).not.toBeNull();
-      expect(Math.abs(longBox!.gap - 8), `gap at ${width}`).toBeLessThanOrEqual(1);
+      const longBox = await longPage.page.evaluate(measure);
+      expect(longBox, `53-char switcher at ${width}`).not.toBeNull();
+      const cap = width === 768 ? 120 : 224;
+      expect(Math.abs(longBox!.boxW - cap), `53-char box at ${width}`).toBeLessThanOrEqual(1);
       await longPage.page.close();
 
+      const midPage = await openPage({ reportTheme: null, width, companyName: MID });
+      const midBox = await midPage.page.evaluate(measure);
+      expect(midBox, `mid name at ${width}`).not.toBeNull();
+      expect(Math.abs(midBox!.textGap - 8), `mid text-gap at ${width}`).toBeLessThanOrEqual(1);
+      expect(midBox!.boxW, `mid box under cap at ${width}`).toBeLessThan(cap - 8);
+      expect(midBox!.boxW, `mid box has content at ${width}`).toBeGreaterThan(40);
+      await midPage.page.close();
+
       const shortPage = await openPage({ reportTheme: null, width, companyName: SHORT });
-      const shortBox = await shortPage.page.evaluate(() => {
-        const name = document.querySelector('[data-shell-switcher-name]') as HTMLElement | null;
-        if (!name) return null;
-        return { nameW: +name.getBoundingClientRect().width.toFixed(2) };
-      });
+      const shortBox = await shortPage.page.evaluate(measure);
       expect(shortBox, `short name at ${width}`).not.toBeNull();
-      expect(shortBox!.nameW, `w-fit short name at ${width}`).toBeLessThan(80);
-      expect(shortBox!.nameW, `short name has a box at ${width}`).toBeGreaterThan(8);
+      expect(Math.abs(shortBox!.textGap - 8), `short text-gap at ${width}`).toBeLessThanOrEqual(1);
+      expect(shortBox!.boxW, `short box under mid at ${width}`).toBeLessThan(midBox!.boxW);
       await shortPage.page.close();
     }
   }, 60000);
