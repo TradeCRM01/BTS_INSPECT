@@ -37,9 +37,10 @@ const SHARED = [
 const MAIN_SHA = '7e5394dfedf263abdc835f89c8bdb9c70e4449b3';
 const PROD_REMINDER_TITLES = [
   'Call Mia about quote p2b-3mxz — delete ok',
-  '#0137 · Replace kitchen mixer and check the taps',
   'Ring Megan re valve Tue 3pm — delete ok 375',
 ] as const;
+const PROD_REMINDER_META = '#0137 · Replace kitchen mixer tap · Overdue · Wed 21 Oct · Company';
+const PROD_REMINDER_TEXTS = [...PROD_REMINDER_TITLES, PROD_REMINDER_META] as const;
 
 type KillPage = {
   goto: (url: string) => Promise<unknown>;
@@ -47,7 +48,12 @@ type KillPage = {
   emulateMedia: (opts: { colorScheme?: 'dark' | 'light' | 'no-preference' }) => Promise<void>;
   waitForSelector: (sel: string, opts?: { timeout?: number }) => Promise<unknown>;
   setViewportSize: (size: { width: number; height: number }) => Promise<void>;
-  screenshot: (opts?: { type?: 'png'; fullPage?: boolean }) => Promise<Buffer>;
+  screenshot: (opts?: {
+    type?: 'png';
+    fullPage?: boolean;
+    animations?: 'disabled' | 'allow';
+    clip?: { x: number; y: number; width: number; height: number };
+  }) => Promise<Buffer>;
   close: () => Promise<void>;
 };
 
@@ -225,18 +231,21 @@ async function openPage(args: {
   return page;
 }
 
-async function applyProdTitles(page: KillPage) {
-  await page.evaluate(async (titles: string[]) => {
+async function applyProdReminderCopy(page: KillPage) {
+  await page.evaluate(async (copy: { titles: string[]; meta: string }) => {
     await document.fonts.ready;
-    const nodes = [...document.querySelectorAll('.reminders-title')];
-    titles.forEach((title, i) => {
-      if (nodes[i]) nodes[i].textContent = title;
-    });
+    const titles = [...document.querySelectorAll('.reminders-title')];
+    const metas = [...document.querySelectorAll('.reminders-meta')];
+    if (titles[0]) titles[0].textContent = copy.titles[0];
+    if (titles[1]) titles[1].textContent = 'On site';
+    if (titles[2]) titles[2].textContent = copy.titles[1];
+    if (metas[1]) metas[1].textContent = copy.meta;
+    else if (metas[0]) metas[0].textContent = copy.meta;
     await document.fonts.ready;
     await new Promise<void>((resolve) => {
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
     });
-  }, [...PROD_REMINDER_TITLES]);
+  }, { titles: [...PROD_REMINDER_TITLES], meta: PROD_REMINDER_META });
 }
 
 type DashMeasure = {
@@ -506,6 +515,134 @@ function measureScript() {
     scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
     maxRight: rights.length ? Math.max(...rights) : 0,
   };
+}
+
+type PalettePixels = {
+  navy: number;
+  minNavyDe: number;
+  creamExact: number;
+  creamDe: number;
+  minCreamDe: number;
+};
+
+async function scanPalettePixels(page: KillPage): Promise<PalettePixels> {
+  const clip = await page.evaluate(() => {
+    const el = (document.querySelector('[data-dashboard-home="1"]')
+      || document.querySelector('.dashboard-home')) as HTMLElement | null;
+    if (!el) throw new Error('dashboard missing');
+    const r = el.getBoundingClientRect();
+    const x = Math.max(0, Math.floor(r.x));
+    const y = Math.max(0, Math.floor(r.y));
+    const right = Math.min(window.innerWidth, Math.ceil(r.right));
+    const bottom = Math.min(window.innerHeight, Math.ceil(r.bottom));
+    return { x, y, width: Math.max(1, right - x), height: Math.max(1, bottom - y) };
+  });
+  const buf = await page.screenshot({ type: 'png', clip, animations: 'disabled' });
+  return page.evaluate(async (b64: string) => {
+    const srgbToLinear = (c: number) => {
+      c /= 255;
+      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    const rgbToLab = (r: number, g: number, b: number) => {
+      r = srgbToLinear(r);
+      g = srgbToLinear(g);
+      b = srgbToLinear(b);
+      const x = r * 0.4124564 + g * 0.3575761 + b * 0.1804375;
+      const y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
+      const z = r * 0.0193339 + g * 0.1191920 + b * 0.9503041;
+      const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : (841 / 108) * t + 4 / 29);
+      const fx = f(x / 0.95047);
+      const fy = f(y / 1);
+      const fz = f(z / 1.08883);
+      return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+    };
+    const deg2rad = (d: number) => d * Math.PI / 180;
+    const rad2deg = (r: number) => r * 180 / Math.PI;
+    const deltaE2000 = (
+      l1: { L: number; a: number; b: number },
+      l2: { L: number; a: number; b: number },
+    ) => {
+      const { L: L1, a: a1, b: b1 } = l1;
+      const { L: L2, a: a2, b: b2 } = l2;
+      const C1 = Math.hypot(a1, b1);
+      const C2 = Math.hypot(a2, b2);
+      const Cab = (C1 + C2) / 2;
+      const G = 0.5 * (1 - Math.sqrt(Cab ** 7 / (Cab ** 7 + 25 ** 7)));
+      const a1p = a1 * (1 + G);
+      const a2p = a2 * (1 + G);
+      const C1p = Math.hypot(a1p, b1);
+      const C2p = Math.hypot(a2p, b2);
+      let h1 = Math.atan2(b1, a1p);
+      if (h1 < 0) h1 += 2 * Math.PI;
+      let h2 = Math.atan2(b2, a2p);
+      if (h2 < 0) h2 += 2 * Math.PI;
+      const dLp = L2 - L1;
+      const dCp = C2p - C1p;
+      let dhp = h2 - h1;
+      if (C1p * C2p === 0) dhp = 0;
+      else if (dhp > Math.PI) dhp -= 2 * Math.PI;
+      else if (dhp < -Math.PI) dhp += 2 * Math.PI;
+      const dHp = 2 * Math.sqrt(C1p * C2p) * Math.sin(dhp / 2);
+      const Lbp = (L1 + L2) / 2;
+      const Cbp = (C1p + C2p) / 2;
+      let hbp = h1 + h2;
+      if (C1p * C2p !== 0) {
+        if (Math.abs(h1 - h2) > Math.PI) hbp += (h1 + h2 < 2 * Math.PI) ? 2 * Math.PI : -2 * Math.PI;
+        hbp /= 2;
+      }
+      const T = 1 - 0.17 * Math.cos(hbp - deg2rad(30)) + 0.24 * Math.cos(2 * hbp)
+        + 0.32 * Math.cos(3 * hbp + deg2rad(6)) - 0.20 * Math.cos(4 * hbp - deg2rad(63));
+      const dRo = deg2rad(30) * Math.exp(-(((rad2deg(hbp) - 275) / 25) ** 2));
+      const RC = 2 * Math.sqrt(Cbp ** 7 / (Cbp ** 7 + 25 ** 7));
+      const SL = 1 + (0.015 * (Lbp - 50) ** 2) / Math.sqrt(20 + (Lbp - 50) ** 2);
+      const SC = 1 + 0.045 * Cbp;
+      const SH = 1 + 0.015 * Cbp * T;
+      const RT = -Math.sin(2 * dRo) * RC;
+      return Math.sqrt((dLp / SL) ** 2 + (dCp / SC) ** 2 + (dHp / SH) ** 2 + RT * (dCp / SC) * (dHp / SH));
+    };
+    const navyLabs = [rgbToLab(10, 37, 64), rgbToLab(46, 117, 182)];
+    const creamLabs = [rgbToLab(245, 240, 230), rgbToLab(255, 253, 248)];
+    const img = new Image();
+    img.src = `data:image/png;base64,${b64}`;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.width;
+    c.height = img.height;
+    const ctx = c.getContext('2d');
+    if (!ctx) throw new Error('canvas');
+    ctx.drawImage(img, 0, 0);
+    const data = ctx.getImageData(0, 0, img.width, img.height).data;
+    let navy = 0;
+    let creamExact = 0;
+    let creamDe = 0;
+    let minNavyDe = 99;
+    let minCreamDe = 99;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] < 8) continue;
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const nearNavy = (Math.abs(r - 10) < 40 && Math.abs(g - 37) < 40 && Math.abs(b - 64) < 50)
+        || (Math.abs(r - 46) < 40 && Math.abs(g - 117) < 50 && Math.abs(b - 182) < 50);
+      if (nearNavy) {
+        const lab = rgbToLab(r, g, b);
+        const de = Math.min(deltaE2000(lab, navyLabs[0]), deltaE2000(lab, navyLabs[1]));
+        if (de < minNavyDe) minNavyDe = de;
+        if (de < 10) navy += 1;
+      }
+      const exactCream = (Math.abs(r - 245) < 2 && Math.abs(g - 240) < 2 && Math.abs(b - 230) < 2)
+        || (Math.abs(r - 255) < 2 && Math.abs(g - 253) < 2 && Math.abs(b - 248) < 2);
+      if (exactCream) creamExact += 1;
+      const nearCream = r > 220 && g > 220 && b > 210;
+      if (nearCream) {
+        const lab = rgbToLab(r, g, b);
+        const de = Math.min(deltaE2000(lab, creamLabs[0]), deltaE2000(lab, creamLabs[1]));
+        if (de < minCreamDe) minCreamDe = de;
+        if (de < 10) creamDe += 1;
+      }
+    }
+    return { navy, minNavyDe, creamExact, creamDe, minCreamDe };
+  }, buf.toString('base64'));
 }
 
 function overflowScript() {
@@ -828,6 +965,9 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
         const paint = await page.evaluate(measureScript) as DashMeasure;
         expect(paint.navyHits, `no navy paint at ${width} ${mode}`).toEqual([]);
         expect(paint.creamHits, `no cream paint at ${width} ${mode}`).toEqual([]);
+        const pix = await scanPalettePixels(page);
+        expect(pix.navy, `navy ΔE<10 pixels at ${width} ${mode}`).toBe(0);
+        expect(pix.creamExact, `exact cream pixels at ${width} ${mode}`).toBe(0);
       }
       if (width === 1280) {
         await openPicker(page);
@@ -835,39 +975,43 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
         const withAi = await page.evaluate(measureScript) as DashMeasure;
         expect(withAi.navyHits, 'no navy paint after adding AI').toEqual([]);
         expect(withAi.creamHits, 'no cream paint after adding AI').toEqual([]);
+        const pixAi = await scanPalettePixels(page);
+        expect(pixAi.navy, 'navy ΔE<10 pixels after adding AI').toBe(0);
+        expect(pixAi.creamExact, 'exact cream pixels after adding AI').toBe(0);
       }
       await page.close();
     }
-  }, 240000);
+  }, 300000);
 
   it('P1-reminder-lines: reminder text line counts at 375 and 390 equal the main wrap', async () => {
     const derived: Record<number, Record<string, number>> = {};
+    const wanted = PROD_REMINDER_TEXTS as readonly string[];
     for (const width of [375, 390] as const) {
       const mainPage = await openPage({ width, css: mainCss });
       await mainPage.waitForSelector('.reminders-title', { timeout: 20000 });
-      await applyProdTitles(mainPage);
+      await applyProdReminderCopy(mainPage);
       const mainPaint = await mainPage.evaluate(measureScript) as DashMeasure;
       const expected: Record<string, number> = {};
       for (const node of mainPaint.reminderLines) {
-        if ((PROD_REMINDER_TITLES as readonly string[]).includes(node.text)) expected[node.text] = node.lines;
+        if (wanted.includes(node.text)) expected[node.text] = node.lines;
       }
-      expect(Object.keys(expected).length, `main reminder titles at ${width}`).toBe(PROD_REMINDER_TITLES.length);
+      expect(Object.keys(expected).length, `main reminder title+meta at ${width}`).toBe(wanted.length);
       derived[width] = expected;
       await mainPage.close();
 
       const page = await openPage({ width });
       await page.waitForSelector('.reminders-title', { timeout: 20000 });
-      await applyProdTitles(page);
+      await applyProdReminderCopy(page);
       const paint = await page.evaluate(measureScript) as DashMeasure;
-      const titles = paint.reminderLines.filter((n) => expected[n.text] != null);
-      expect(titles.length, `reminder titles at ${width}`).toBe(PROD_REMINDER_TITLES.length);
-      for (const title of PROD_REMINDER_TITLES) {
-        const node = titles.find((n) => n.text === title);
-        expect(node, `painted title "${title}" at ${width}`).toBeTruthy();
-        expect(node!.lines, `lines for "${title}" at ${width}`).toBe(expected[title]);
+      const nodes = paint.reminderLines.filter((n) => expected[n.text] != null);
+      expect(nodes.length, `reminder title+meta at ${width}`).toBe(wanted.length);
+      for (const text of wanted) {
+        const node = nodes.find((n) => n.text === text);
+        expect(node, `painted "${text}" at ${width}`).toBeTruthy();
+        expect(node!.lines, `lines for "${text}" at ${width}`).toBe(expected[text]);
       }
       await page.close();
     }
-    writeFileSync('/tmp/p1-r4-main-lines.json', JSON.stringify(derived, null, 2));
+    writeFileSync('/tmp/p1-r5-main-lines.json', JSON.stringify(derived, null, 2));
   }, 90000);
 });
