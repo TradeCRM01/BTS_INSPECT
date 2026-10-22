@@ -208,8 +208,8 @@ type DashMeasure = {
   tokenWarnBg: string;
   tokenBad: string;
   tokenBadBg: string;
-  secondary: Array<{ text: string; cls: string; ratio: number; color: string }>;
-  floor: Array<{ text: string; cls: string; ratio: number }>;
+  secondary: Array<{ text: string; cls: string; ratio: number; color: string; primary: boolean }>;
+  floor: Array<{ text: string; cls: string; ratio: number; color: string; primary: boolean }>;
   minSecondary: number;
   minFloor: number;
   cta: number;
@@ -217,6 +217,9 @@ type DashMeasure = {
   greenOutsidePill: number;
   hits: Array<{ name: string; w: number; h: number }>;
   minHit: number;
+  navyHits: Array<{ name: string; prop: string; val: string }>;
+  creamHits: Array<{ name: string; prop: string; val: string }>;
+  reminderLines: Array<{ text: string; lines: number }>;
   innerWidth: number;
   scrollWidth: number;
   maxRight: number;
@@ -290,7 +293,9 @@ function measureScript() {
     return Math.abs(pa.r - pb.r) < 2 && Math.abs(pa.g - pb.g) < 2 && Math.abs(pa.b - pb.b) < 2;
   };
   const tokenMuted = token('--g-ink-muted');
-  const tokenDashMuted = token('--dashboard-home-muted');
+  const tokenInk = token('--g-ink');
+  const tokenDashInk = token('--dashboard-home-ink');
+  const tokenInverseInk = token('--g-inverse-ink');
   const pageEl = document.querySelector('.dashboard-home.ops-page') as HTMLElement | null;
   const sheetEl = document.querySelector('.dashboard-home-sheet') as HTMLElement | null;
   const cta = document.querySelector('.dashboard-home.ops-page .dashboard-home-primary') as HTMLElement | null;
@@ -309,27 +314,22 @@ function measureScript() {
     if ((el as HTMLButtonElement).disabled) return false;
     return true;
   }) as HTMLElement[];
-  const secondarySel = /dashboard-home-label|dashboard-home-whisper|dashboard-home-ref|dashboard-home-place|dashboard-home-thead|dashboard-home-meta|dashboard-home-cell|reminders-meta/;
-  const secondary = textEls.filter((el) => {
-    if (el.closest('.dashboard-home-sheet-bar, .dashboard-home-pill, .reminders-chip')) return false;
-    const cls = typeof el.className === 'string' ? el.className : '';
-    const color = getComputedStyle(el).color;
-    return secondarySel.test(cls) || sameRgb(color, tokenMuted) || sameRgb(color, tokenDashMuted);
-  }).map((el) => ({
-    text: (el.textContent || '').trim().slice(0, 48),
-    cls: (typeof el.className === 'string' ? el.className : '').slice(0, 80),
-    ratio: ratio(el),
-    color: getComputedStyle(el).color,
-  }));
+  const chrome = '.dashboard-home-sheet-bar, .dashboard-home-pill, .reminders-chip, .dashboard-home-primary, .btn-primary';
   const floor = textEls.filter((el) => {
-    if (el.closest('.dashboard-home-sheet-bar, .reminders-chip, .dashboard-home-primary, .btn-primary')) return false;
+    if (el.closest(chrome)) return false;
     if (el.tagName === 'SVG' || el.closest('svg')) return false;
     return true;
-  }).map((el) => ({
-    text: (el.textContent || '').trim().slice(0, 48),
-    cls: (typeof el.className === 'string' ? el.className : '').slice(0, 80),
-    ratio: ratio(el),
-  }));
+  }).map((el) => {
+    const color = getComputedStyle(el).color;
+    return {
+      text: (el.textContent || '').trim().slice(0, 48),
+      cls: (typeof el.className === 'string' ? el.className : '').slice(0, 80),
+      ratio: ratio(el),
+      color,
+      primary: sameRgb(color, tokenInk) || sameRgb(color, tokenDashInk) || sameRgb(color, tokenInverseInk),
+    };
+  });
+  const secondary = floor.filter((n) => !n.primary);
   const pills = [...document.querySelectorAll('.dashboard-home.ops-page .dashboard-home-pill')]
     .filter(vis)
     .map((el) => ({
@@ -373,6 +373,25 @@ function measureScript() {
     };
   });
   const rights = [...document.querySelectorAll('body *')].filter(vis).map((el) => el.getBoundingClientRect().right);
+  const NAVY = /rgba?\(\s*10,\s*37,\s*64(?:\s*[,/]\s*1(?:\.0+)?)?\s*\)|rgba?\(\s*46,\s*117,\s*182(?:\s*[,/]\s*1(?:\.0+)?)?\s*\)|#0a2540|#2e75b6/i;
+  const CREAM_PAINT = /rgba?\(\s*245,\s*240,\s*230(?:\s*[,/]\s*1(?:\.0+)?)?\s*\)|rgba?\(\s*255,\s*253,\s*248(?:\s*[,/]\s*1(?:\.0+)?)?\s*\)|#f5f0e6|#fffdf8/i;
+  const paintHits = (re: RegExp) => [...document.querySelectorAll('.dashboard-home.ops-page, .dashboard-home.ops-page *')]
+    .filter(vis)
+    .flatMap((node) => {
+      const el = node as HTMLElement;
+      const s = getComputedStyle(el);
+      const name = (el.getAttribute('aria-label') || el.textContent || el.className || '').toString().trim().slice(0, 48);
+      return ([['color', s.color], ['background', s.backgroundColor], ['border', s.borderColor]] as const)
+        .filter(([, val]) => re.test(val))
+        .map(([prop, val]) => ({ name, prop, val }));
+    });
+  const reminderLines = [...document.querySelectorAll('.reminders-title, .reminders-meta')].filter(vis).map((node) => {
+    const el = node as HTMLElement;
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const lines = [...range.getClientRects()].filter((r) => r.width > 1 && r.height > 1).length;
+    return { text: (el.textContent || '').trim(), lines };
+  });
   return {
     pageBg: pageEl ? getComputedStyle(pageEl).backgroundColor : '',
     sheetBg: sheetEl ? getComputedStyle(sheetEl).backgroundColor : '',
@@ -396,6 +415,9 @@ function measureScript() {
     greenOutsidePill,
     hits,
     minHit: hits.length ? Math.min(...hits.map((h) => Math.min(h.w, h.h))) : 0,
+    navyHits: paintHits(NAVY),
+    creamHits: paintHits(CREAM_PAINT),
+    reminderLines,
     innerWidth: window.innerWidth,
     scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
     maxRight: rights.length ? Math.max(...rights) : 0,
@@ -571,10 +593,13 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       for (const mode of ['view', 'edit'] as const) {
         if (mode === 'edit') await enterEdit(page);
         const paint = await page.evaluate(measureScript) as DashMeasure;
-        expect(paint.secondary.length, `secondary nodes at ${width} ${mode}`).toBeGreaterThan(0);
-        expect(paint.minSecondary, `secondary-text ≥7:1 at ${width} ${mode}`).toBeGreaterThanOrEqual(7);
+        expect(paint.floor.length, `text nodes at ${width} ${mode}`).toBeGreaterThan(0);
+        expect(paint.secondary.length, `non-primary text nodes at ${width} ${mode}`).toBeGreaterThan(0);
+        expect(paint.minSecondary, `non-primary text ≥7:1 at ${width} ${mode}`).toBeGreaterThanOrEqual(7);
         const weak = paint.floor.filter((n) => n.ratio > 0 && n.ratio < 4.5);
         expect(weak, `no text below 4.5:1 at ${width} ${mode}`).toEqual([]);
+        const soft = paint.secondary.filter((n) => n.ratio > 0 && n.ratio < 7);
+        expect(soft, `no non-primary text below 7:1 at ${width} ${mode}`).toEqual([]);
         expect(paint.cta, `CTA contrast at ${width} ${mode}`).toBeGreaterThanOrEqual(4.5);
         expect(paint.pills.length, `real compliance/status pills at ${width} ${mode}`).toBeGreaterThan(0);
         expect(paint.greenOutsidePill, `no plain green compliance text at ${width} ${mode}`).toBe(0);
@@ -694,6 +719,10 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
         if (mode === 'edit') await enterEdit(page);
         const paint = await page.evaluate(measureScript) as DashMeasure;
         expect(paint.hits.length, `interactive nodes at ${width} ${mode}`).toBeGreaterThan(0);
+        const tick = paint.hits.filter((h) => /Mark as done|reminders-tick/i.test(h.name));
+        const rows = paint.hits.filter((h) => /Call Mia|Replace kitchen|Ring Megan/i.test(h.name));
+        expect(tick.length, `reminder ticks at ${width} ${mode}`).toBeGreaterThan(0);
+        expect(rows.length, `reminder row links at ${width} ${mode}`).toBeGreaterThan(0);
         const small = paint.hits.filter((h) => h.w < 44 - 0.5 || h.h < 44 - 0.5);
         expect(small, `all hits ≥44×44 at ${width} ${mode}`).toEqual([]);
         expect(paint.minHit, `min hit at ${width} ${mode}`).toBeGreaterThanOrEqual(43.5);
@@ -705,4 +734,51 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       await page.close();
     }
   }, 240000);
+
+  it('P1-palette: no rendered dashboard node paints navy or cream as color, background or border', async () => {
+    for (const width of WIDTHS) {
+      const page = await openPage({ width });
+      await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
+      for (const mode of ['view', 'edit'] as const) {
+        if (mode === 'edit') await enterEdit(page);
+        const paint = await page.evaluate(measureScript) as DashMeasure;
+        expect(paint.navyHits, `no navy paint at ${width} ${mode}`).toEqual([]);
+        expect(paint.creamHits, `no cream paint at ${width} ${mode}`).toEqual([]);
+      }
+      if (width === 1280) {
+        await openPicker(page);
+        await addPickerWidget(page, 'Intelligence', 'AI Agent');
+        const withAi = await page.evaluate(measureScript) as DashMeasure;
+        expect(withAi.navyHits, 'no navy paint after adding AI').toEqual([]);
+        expect(withAi.creamHits, 'no cream paint after adding AI').toEqual([]);
+      }
+      await page.close();
+    }
+  }, 240000);
+
+  it('P1-reminder-lines: reminder text line counts at 375 and 390 equal the r1 wrap', async () => {
+    const expected: Record<number, Record<string, number>> = {
+      375: {
+        'Call Mia about quote follow-up before Friday': 2,
+        '#0137 · Replace kitchen mixer today': 2,
+        'Ring Megan re valve Tuesday morning on site': 2,
+      },
+      390: {
+        'Call Mia about quote follow-up before Friday': 2,
+        '#0137 · Replace kitchen mixer today': 2,
+        'Ring Megan re valve Tuesday morning on site': 2,
+      },
+    };
+    for (const width of [375, 390] as const) {
+      const page = await openPage({ width });
+      await page.waitForSelector('.reminders-title', { timeout: 20000 });
+      const paint = await page.evaluate(measureScript) as DashMeasure;
+      const titles = paint.reminderLines.filter((n) => expected[width][n.text] != null);
+      expect(titles.length, `reminder titles at ${width}`).toBe(3);
+      for (const node of titles) {
+        expect(node.lines, `lines for "${node.text}" at ${width}`).toBe(expected[width][node.text]);
+      }
+      await page.close();
+    }
+  }, 60000);
 });

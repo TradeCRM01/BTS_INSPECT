@@ -23,13 +23,19 @@ export function useAuth() {
       report_theme: cfg().reportTheme ?? null,
     },
     signOut: async () => {},
-    isPlatformOperator: false,
+    isPlatformOperator: true,
   };
 }
 
 export function useCompanyAiKey() {
-  return { ready: true, hasKey: false };
+  return { ready: true, hasKey: true };
 }
+
+export const LOOK_DASHBOARD_REMINDERS = [
+  { id: 'look-rem-mia', title: 'Call Mia about quote follow-up before Friday' },
+  { id: 'look-rem-0137', title: '#0137 · Replace kitchen mixer today' },
+  { id: 'look-rem-megan', title: 'Ring Megan re valve Tuesday morning on site' },
+];
 
 export function DevConsole() {
   return null;

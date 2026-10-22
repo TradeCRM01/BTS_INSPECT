@@ -13592,7 +13592,9 @@
     display: flex;
     flex: 1 1 auto;
     min-width: 0;
+    min-height: 44px;
     flex-direction: column;
+    justify-content: center;
     gap: 2px;
     color: var(--dashboard-home-ink);
     text-decoration: none;
@@ -13665,6 +13667,7 @@
 
   .reminders-clock {
     list-style: none;
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -13672,9 +13675,21 @@
     height: 44px;
     min-width: 44px;
     min-height: 44px;
-    border-radius: 10px;
+    margin-right: -12px;
+    padding: 0;
+    border: none;
+    background: none;
     color: var(--dashboard-home-muted);
     cursor: pointer;
+  }
+
+  .reminders-clock::before {
+    content: '';
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    pointer-events: none;
   }
 
   .reminders-clock::-webkit-details-marker {
@@ -13683,8 +13698,16 @@
 
   .reminders-clock:hover,
   .reminders-postpone[open] > .reminders-clock {
-    background: var(--dashboard-home-page);
     color: var(--dashboard-home-ink);
+  }
+
+  .reminders-clock:hover::before,
+  .reminders-postpone[open] > .reminders-clock::before {
+    background: var(--dashboard-home-page);
+  }
+
+  .reminders-clock > svg {
+    position: relative;
   }
 
   .reminders-postpone-menu {

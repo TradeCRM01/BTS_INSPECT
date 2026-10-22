@@ -21,6 +21,7 @@ import {
   splitReminderLists,
   todayReminders,
   type PostponeChoice,
+  type Reminder,
 } from '../lib/reminders';
 import { getAuditClients, getAuditDashboardWidgets, getAuditJobs, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
@@ -190,6 +191,31 @@ const DASHBOARD_LOOK_DAY = '2026-09-03';
 
 function dashboardLookNow(): Date {
   return new Date(2026, 8, 3);
+}
+
+const DASHBOARD_LOOK_OWNER = '00000000-0000-0000-0000-000000000002';
+
+function dashboardLookReminders(ownerId: string): Reminder[] {
+  const dueAt = new Date(2026, 8, 3, 8, 0, 0).toISOString();
+  const row = (id: string, title: string): Reminder => ({
+    id,
+    ownerId,
+    title,
+    details: '',
+    dueAt,
+    jobId: null,
+    relatedHref: null,
+    completed: false,
+    completedAt: null,
+    visibility: 'private',
+    taggedUserIds: [],
+    createdAt: dueAt,
+  });
+  return [
+    row('look-rem-mia', 'Call Mia about quote follow-up before Friday'),
+    row('look-rem-0137', '#0137 · Replace kitchen mixer today'),
+    row('look-rem-megan', 'Ring Megan re valve Tuesday morning on site'),
+  ];
 }
 
 function dashboardLookWidgets(): DashboardWidget[] {
@@ -673,7 +699,10 @@ export function DashboardPage() {
     queryFn: () => listReminders(companyId),
     enabled: liveCompany,
   });
-  const stripRows = todayReminders(splitReminderLists(reminders ?? []).upcoming, now);
+  const lookNow = lookDashboard ? dashboardLookNow() : now;
+  const stripRows = lookDashboard
+    ? dashboardLookReminders(profile?.id ?? DASHBOARD_LOOK_OWNER)
+    : todayReminders(splitReminderLists(reminders ?? []).upcoming, now);
   const linkedJobIds = [...new Set(stripRows.map(r => r.jobId).filter(Boolean))] as string[];
   const { data: linkedJobs } = useQuery({
     queryKey: ['reminders-linked-jobs', linkedJobIds],
@@ -1007,7 +1036,7 @@ export function DashboardPage() {
                       crewNames={crewNames}
                       isMine={reminder.ownerId === profile?.id}
                       canTick={canTickReminder(reminder, profile?.id ?? '')}
-                      now={now}
+                      now={lookNow}
                       onToggleDone={toggleReminderDone}
                       onPostpone={postponeReminderTo}
                     />
