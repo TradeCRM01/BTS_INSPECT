@@ -119,7 +119,7 @@ describe('Expenses scan-receipt cream paper look', () => {
 
     const shell = src('src/components/layout/AppShell.tsx');
     expect(shell).not.toContain('hub-expenses');
-    expect(shell).toContain('resolveAppShellColors');
+    expect(shell).not.toContain('resolveAppShellColors');
 
     const extract = src('src/lib/expenseReceiptExtract.ts');
     expect(extract).not.toContain('hub-expenses');

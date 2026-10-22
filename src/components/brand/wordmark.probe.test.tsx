@@ -26,7 +26,7 @@ describe('rendered wordmark', () => {
       .map((size) => renderToStaticMarkup(<BrandLockup size={size as 'header' | 'auth' | 'marketing'} />))
       .join('');
     const sizes = [...div.querySelectorAll('[data-grafter-mark="mitre"]')].map((el) => el.getAttribute('width'));
-    expect(sizes.sort()).toEqual(['16', '32', '48']);
+    expect(sizes.sort()).toEqual(['24', '32', '48']);
   });
 
   it('pins computed header letter-spacing to 0.16em (2.08px at 13px) and kills inline -0.02em', () => {

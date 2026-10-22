@@ -117,7 +117,7 @@ describe('Timesheets list cream paper look', () => {
 
     const shell = src('src/components/layout/AppShell.tsx');
     expect(shell).not.toContain('hub-timesheets');
-    expect(shell).toContain('resolveAppShellColors');
+    expect(shell).not.toContain('resolveAppShellColors');
   });
 
   it('LOOK frames cover list hours and status after clock off, desktop and phone', () => {

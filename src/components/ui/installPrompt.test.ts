@@ -40,7 +40,7 @@ describe('Install Grafter overlay vs signup', () => {
 
   it('still keeps Install Grafter in the signed-in app, not on a new page', () => {
     const prompt = src('src/components/ui/InstallPrompt.tsx');
-    expect(prompt).toContain('Install Grafter');
+    expect(prompt).toContain('Install {BRAND_NAME}');
     expect(prompt).toContain('beforeinstallprompt');
     expect(src('src/main.tsx')).toContain('<InstallPrompt />');
     expect(src('src/App.tsx')).not.toMatch(/path="\/install"/);
@@ -54,15 +54,15 @@ describe('Install Grafter overlay vs signup', () => {
     expect(prompt).toContain('hub-install-sheet');
     expect(prompt).toContain('hub-install-title');
     expect(prompt).toContain('hub-install-action');
-    expect(prompt).toContain('--install-look-page: #F5F0E6');
-    expect(prompt).toContain('--install-look-sheet: #FFFDF8');
-    expect(prompt).toContain('--install-look-ink: #0A2540');
-    expect(prompt).toContain('--install-look-muted: #5B6B7C');
-    expect(prompt).toContain('--install-look-line: #E2D9CC');
-    expect(prompt).toContain('#2E75B6');
+    expect(prompt).toContain('--install-look-page: var(--g-bg)');
+    expect(prompt).toContain('--install-look-sheet: var(--g-surface)');
+    expect(prompt).toContain('--install-look-ink: var(--g-ink)');
+    expect(prompt).toContain('--install-look-muted: var(--g-ink-muted)');
+    expect(prompt).toContain('--install-look-line: var(--g-line)');
+    expect(prompt).toContain('--install-look-action: var(--g-accent)');
     expect(prompt).toContain("font-family: var(--g-font-title)");
     expect(prompt).toContain("font-family: var(--g-font-ui)");
-    expect(prompt).toContain('box-shadow:\n    inset 0 1px 0 #fff,\n    0 10px 28px rgba(10, 37, 64, 0.08)');
+    expect(prompt).toContain('box-shadow: var(--g-sh-2)');
     expect(prompt).toContain('min-height: 44px');
     expect(prompt).toMatch(/Install\s*<\/button>/);
     expect(prompt).not.toContain('bg-[#0A2540]');

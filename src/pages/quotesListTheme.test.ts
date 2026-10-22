@@ -57,7 +57,7 @@ describe('quote list Looplet document look', () => {
 
     const shell = src('src/components/layout/AppShell.tsx');
     expect(shell).not.toContain('hub-quotes');
-    expect(shell).toContain('resolveAppShellColors');
+    expect(shell).not.toContain('resolveAppShellColors');
   });
 
   it('LOOK frames cover quote list desktop and phone only', () => {

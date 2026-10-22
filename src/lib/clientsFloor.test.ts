@@ -389,7 +389,7 @@ describe('clients look — open record is the document sheet', () => {
     expect(login).not.toContain('hub-clients');
     expect(landing).not.toContain('hub-clients');
     expect(shell).not.toContain('hub-clients');
-    expect(shell).toContain('resolveAppShellColors');
+    expect(shell).not.toContain('resolveAppShellColors');
 
     const formChunk = list.slice(list.indexOf('export function ClientForm'));
     expect(formChunk).not.toContain('hub-clients-document');

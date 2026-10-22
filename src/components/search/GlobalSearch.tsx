@@ -247,15 +247,19 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
   return (
     <div
       className="overlay-backdrop"
+      style={{ background: 'var(--g-scrim)' }}
       onClick={dismiss}
     >
       <div
         className="overlay-panel-xl animate-slide-up"
+        style={{ background: 'var(--g-surface)', color: 'var(--g-ink)', boxShadow: 'var(--g-sh-2)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Search input */}
-        <div className="flex items-center gap-3 border-b border-[#E5E7EB] px-4 py-3 shrink-0">
-          <Search className="h-5 w-5 shrink-0 text-[#4A5568]" />
+        <div
+          className="flex items-center gap-3 px-4 py-3 shrink-0"
+          style={{ borderBottom: '1px solid var(--g-line)' }}
+        >
+          <Search className="h-5 w-5 shrink-0" style={{ color: 'var(--g-ink-muted)' }} />
           <input
             ref={inputRef}
             type="search"
@@ -263,26 +267,27 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onInputKeyDown}
             placeholder="Search…"
-            className="min-h-[44px] h-auto py-2 w-full min-w-0 bg-transparent text-base text-[#0A2540] placeholder:text-[#4A5568]/60 focus:outline-none"
+            className="min-h-[44px] h-auto py-2 w-full min-w-0 bg-transparent text-base focus:outline-none placeholder:text-[var(--g-ink-muted)]"
+            style={{ color: 'var(--g-ink)' }}
           />
           <button
             type="button"
             onClick={dismiss}
-            className="rounded-md p-1 text-[#4A5568] hover:bg-gray-100"
+            className="rounded-md min-h-11 min-w-11 flex items-center justify-center"
+            style={{ color: 'var(--g-ink-muted)' }}
             aria-label="Close search"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Results */}
         <div ref={listRef} className="max-h-[60vh] overflow-y-auto p-2">
           {loading && groups.length === 0 ? (
-            <div className="px-3 py-8 text-center text-sm text-[#4A5568]">Searching…</div>
+            <div className="px-3 py-8 text-center text-sm" style={{ color: 'var(--g-ink-muted)' }}>Searching…</div>
           ) : groups.length === 0 && normalize(query) ? (
-            <div className="px-3 py-8 text-center text-sm text-[#4A5568]">No results</div>
+            <div className="px-3 py-8 text-center text-sm" style={{ color: 'var(--g-ink-muted)' }}>No results</div>
           ) : groups.length === 0 ? (
-            <div className="px-3 py-8 text-center text-sm text-[#4A5568]/70">
+            <div className="px-3 py-8 text-center text-sm" style={{ color: 'var(--g-ink-subtle)' }}>
               Start typing to search across everything…
             </div>
           ) : (
@@ -290,7 +295,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
               const Icon = group.icon;
               return (
                 <div key={group.category} className="mb-1">
-                  <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-[#4A5568]/70">
+                  <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--g-ink-subtle)' }}>
                     {group.category}
                   </div>
                   {group.results.map((r) => {
@@ -302,17 +307,16 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
                         data-idx={idx}
                         onMouseEnter={() => setActiveIndex(idx)}
                         onClick={() => go(r.to)}
-                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left ${
-                          active ? 'bg-gray-50' : ''
-                        }`}
+                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left"
+                        style={{ background: active ? 'var(--g-selected)' : 'transparent' }}
                       >
-                        <Icon className="h-4 w-4 shrink-0 text-[#2E75B6]" />
+                        <Icon className="h-4 w-4 shrink-0" style={{ color: 'var(--g-link)' }} />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium text-[#0A2540]">
+                          <span className="block truncate text-sm font-medium" style={{ color: 'var(--g-ink)' }}>
                             {r.label}
                           </span>
                           {r.subtitle && (
-                            <span className="block truncate text-xs text-[#4A5568]">
+                            <span className="block truncate text-xs" style={{ color: 'var(--g-ink-muted)' }}>
                               {r.subtitle}
                             </span>
                           )}
@@ -352,7 +356,7 @@ export function GlobalSearchTrigger() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 w-full rounded-lg border border-white/15 bg-white/[0.04] px-3 py-1.5 text-[13px] tracking-tight text-white/60 transition-colors hover:border-white/25 hover:text-white"
+        className="shell-search-btn flex items-center gap-2 w-full rounded-lg px-3 py-1.5 text-[13px] tracking-tight"
       >
         <Search className="h-4 w-4 shrink-0" />
         <span className="flex-1 text-left hidden sm:inline">Search…</span>

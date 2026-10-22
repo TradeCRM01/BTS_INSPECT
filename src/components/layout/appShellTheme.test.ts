@@ -34,20 +34,20 @@ const DOCUMENT_FILES = [
   'src/reports/shared/styles.ts',
 ] as const;
 
-describe('AppShell header/nav report_theme', () => {
-  it('paints navy and accent from the saved companies.report_theme palette', () => {
+describe('AppShell header/nav report_theme (source reads, not kills)', () => {
+  it('keeps resolveAppShellColors for documents and stops AppShell reading it (not a kill)', () => {
     expect(APP_SHELL_REPORT_THEME_KEYS).toEqual(['navy', 'accent', 'accentLight', 'navyLight']);
     expect(resolveAppShellColors(savedTheme)).toMatchObject(savedTheme);
     expect(resolveAppShellColors(savedTheme).navy).toBe('#1B3A4B');
     expect(resolveAppShellColors(savedTheme).accent).toBe('#C45C26');
 
     const shell = src('src/components/layout/AppShell.tsx');
-    expect(shell).toContain('resolveAppShellColors');
-    expect(shell).toContain('report_theme');
-    expect(shell).toContain('--shell-navy');
-    expect(shell).toContain('--shell-accent');
-    expect(shell).toContain('chrome.navy');
-    expect(shell).toContain('chrome.accent');
+    expect(shell).not.toContain('resolveAppShellColors');
+    expect(shell).not.toContain('report_theme');
+    expect(shell).not.toContain('--shell-navy');
+    expect(shell).not.toContain('--shell-accent');
+    expect(shell).not.toContain('chrome.navy');
+    expect(shell).not.toContain('chrome.accent');
     expect(shell).toContain('BrandLockup');
     expect(shell).toContain("size=\"header\"");
     expect(shell).toContain('aria-label={BRAND_NAME}');
@@ -56,11 +56,9 @@ describe('AppShell header/nav report_theme', () => {
 
     const css = src('src/index.css');
     expect(css).toContain('.shell-header');
-    expect(css).toContain('--shell-navy: #0A2540');
-    expect(css).toContain('--shell-accent: #2E75B6');
-    expect(css).toContain('background-color: var(--shell-navy)');
-    expect(css).toContain('border-color: var(--shell-accent)');
-    expect(css).toContain('Signed-in header / nav only');
+    expect(css).toContain('background-color: var(--g-nav-bg)');
+    expect(css).toContain('color: var(--g-nav-ink)');
+    expect(css).toContain('report_theme does not paint the shell');
   });
 
   it('keeps the document navy / blue defaults when the palette is blank or unset', () => {

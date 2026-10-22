@@ -69,7 +69,7 @@ afterEach(() => {
   container.remove();
 });
 
-describe('AppShell desktop switcher fits the header row', () => {
+describe('AppShell desktop switcher className probe (not a kill; S4 measures the 8px gap)', () => {
   it('renders the full company name wrapped, without truncate, and matching title', async () => {
     await renderShell();
     const name = container.querySelector('[data-shell-switcher-name]');
@@ -78,9 +78,10 @@ describe('AppShell desktop switcher fits the header row', () => {
     expect(name?.className).not.toMatch(/max-w-\[6rem\]/);
     expect(name?.className).not.toMatch(/\btruncate\b/);
     expect(name?.className).not.toMatch(/min-w-0/);
-    expect(name?.className).toMatch(/hidden lg:line-clamp-2/);
+    expect(name?.className).toMatch(/hidden md:line-clamp-2/);
     expect(name?.className).toMatch(/max-w-\[7\.5rem\]/);
-    expect(name?.className).toMatch(/lg:line-clamp-2/);
+    expect(name?.className).toMatch(/\bw-fit\b/);
+    expect(name?.className).toMatch(/md:line-clamp-2/);
     expect(name?.className).toMatch(/\bleading-4\b/);
     expect(name?.className).toMatch(/\bbreak-words\b/);
     expect(name?.className).not.toMatch(/\bwhitespace-normal\b/);

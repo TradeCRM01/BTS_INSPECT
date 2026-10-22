@@ -72,7 +72,7 @@ describe('job list cream paper look', () => {
 
     const shell = src('src/components/layout/AppShell.tsx');
     expect(shell).not.toContain('hub-jobs');
-    expect(shell).toContain('resolveAppShellColors');
+    expect(shell).not.toContain('resolveAppShellColors');
   });
 
   it('LOOK frames cover job list desktop and phone only', () => {

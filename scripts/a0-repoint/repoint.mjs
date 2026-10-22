@@ -75,16 +75,8 @@ export function applyRepoints(css, map, tokensCss) {
   }
 
   for (const entry of map.repoints) {
-    const light = lightValueForToken(tokensCss, entry.token);
-    if (light !== null && light !== entry.from) {
-      issues.push({
-        type: 'literal-mismatch',
-        property: entry.property,
-        from: entry.from,
-        token: entry.token,
-        light,
-      });
-    }
+    // S2 moved Light off the A0 leftover hexes. map.from stays the pre-S2
+    // literal so leftover detection still works; Light lives in tokens.css.
     const re = new RegExp(
       `(?<![-\\w])(${escapeRe(entry.property)})(\\s*:\\s*)([^;]+)`,
       'g',

@@ -6,8 +6,8 @@ function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
-describe('AppShell nav follows the job', () => {
-  it('puts Dashboard, CRM, Field Work, Financials, Inventory in that order on desktop and phone', () => {
+describe('AppShell nav follows the job (source reads, not kills)', () => {
+  it('puts Dashboard, CRM, Field Work, Financials, Inventory in that order on desktop and phone (not a kill)', () => {
     const shell = src('src/components/layout/AppShell.tsx');
     expect(shell).toContain(`const NAV_GROUPS: NavGroup[] = [
   OFFICE_GROUPS[0], // Dashboard
@@ -19,7 +19,7 @@ describe('AppShell nav follows the job', () => {
     expect(shell).not.toContain('[FIELD_GROUP, ...OFFICE_GROUPS]');
     expect(shell).not.toContain('FIELD_SHORTCUTS');
     expect(shell).not.toContain('aria-label="Field Work"');
-    const desktop = shell.slice(shell.indexOf('hidden md:flex items-center'), shell.indexOf('md:block w-48'));
+    const desktop = shell.slice(shell.indexOf('hidden md:flex items-center'), shell.indexOf('md:block w-11'));
     expect(desktop).toContain('{NAV_GROUPS.map((group) => {');
     const phone = shell.slice(shell.indexOf('{menuOpen &&'), shell.indexOf('Settings</p>'));
     expect(phone).toContain('{NAV_GROUPS.map((group) => {');

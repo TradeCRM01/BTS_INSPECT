@@ -216,7 +216,7 @@ describe('appoint developers', () => {
     const css = src('src/index.css');
     const scoped = css.slice(
       css.indexOf('/* Developers page only.'),
-      css.indexOf('/* ── App chrome (navy Looplet craft: hairlines, no mega-menu shadow) ─ */'),
+      css.indexOf('/* ── App chrome. Tokens only. report_theme does not paint the shell. */'),
     );
 
     expect(page).toContain('id="operator-developers"');

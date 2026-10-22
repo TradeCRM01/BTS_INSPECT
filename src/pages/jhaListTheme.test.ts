@@ -78,7 +78,7 @@ describe('JHA list cream paper look', () => {
 
     const shell = src('src/components/layout/AppShell.tsx');
     expect(shell).not.toContain('hub-jha');
-    expect(shell).toContain('resolveAppShellColors');
+    expect(shell).not.toContain('resolveAppShellColors');
   });
 
   it('LOOK frames cover open and All, desktop and phone only', () => {
