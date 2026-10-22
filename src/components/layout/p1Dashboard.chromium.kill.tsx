@@ -452,31 +452,38 @@ function measureScript() {
     return out;
   };
   const isNavy = (c: { r: number; g: number; b: number; a: number }) =>
-    c.a > 0.01 && (closeRgb(c, 10, 37, 64) || closeRgb(c, 46, 117, 182));
+    c.a > 0 && (closeRgb(c, 10, 37, 64) || closeRgb(c, 46, 117, 182));
   const isCream = (c: { r: number; g: number; b: number; a: number }) =>
-    c.a > 0.01 && (closeRgb(c, 245, 240, 230) || closeRgb(c, 255, 253, 248));
+    c.a > 0 && (closeRgb(c, 245, 240, 230) || closeRgb(c, 255, 253, 248));
+  const styleProps = (s: CSSStyleDeclaration): Array<[string, string]> => {
+    const props: Array<[string, string]> = [
+      ['color', s.color],
+      ['background', s.backgroundColor],
+      ['border', s.borderColor],
+      ['outline', s.outlineColor || s.outline],
+      ['box-shadow', s.boxShadow],
+      ['background-image', s.backgroundImage],
+    ];
+    if (s.fill && s.fill !== 'none') props.push(['fill', s.fill]);
+    if (s.stroke && s.stroke !== 'none') props.push(['stroke', s.stroke]);
+    return props;
+  };
   const paintHits = (want: 'navy' | 'cream') => [...document.querySelectorAll('.dashboard-home.ops-page, .dashboard-home.ops-page *')]
     .filter(vis)
     .flatMap((node) => {
       const el = node as HTMLElement;
-      const s = getComputedStyle(el);
       const name = (el.getAttribute('aria-label') || el.textContent || el.className || '').toString().trim().slice(0, 48);
-      const props: Array<[string, string]> = [
-        ['color', s.color],
-        ['background', s.backgroundColor],
-        ['border', s.borderColor],
-      ];
-      if (s.boxShadow && s.boxShadow !== 'none') props.push(['box-shadow', s.boxShadow]);
-      if (s.outlineStyle && s.outlineStyle !== 'none' && parseFloat(s.outlineWidth || '0') > 0) {
-        props.push(['outline', s.outlineColor || s.outline]);
+      const styles: CSSStyleDeclaration[] = [getComputedStyle(el)];
+      for (const pseudo of ['::before', '::after'] as const) {
+        const ps = getComputedStyle(el, pseudo);
+        const content = (ps.content || '').trim();
+        if (content === 'none' || content === 'normal') continue;
+        styles.push(ps);
       }
-      if (s.backgroundImage && s.backgroundImage !== 'none') props.push(['background-image', s.backgroundImage]);
-      if (s.fill && s.fill !== 'none') props.push(['fill', s.fill]);
-      if (s.stroke && s.stroke !== 'none') props.push(['stroke', s.stroke]);
       const match = want === 'navy' ? isNavy : isCream;
-      return props
+      return styles.flatMap((s) => styleProps(s)
         .filter(([, val]) => colorsIn(val).some(match))
-        .map(([prop, val]) => ({ name, prop, val }));
+        .map(([prop, val]) => ({ name, prop, val })));
     });
   const reminderLines = [...document.querySelectorAll('.reminders-title, .reminders-meta')].filter(vis).map((node) => {
     const el = node as HTMLElement;
@@ -645,8 +652,18 @@ async function scanPalettePixels(page: KillPage): Promise<PalettePixels> {
   }, buf.toString('base64'));
 }
 
-const SHEET_B = 2.3;
-const CREAM_FALLBACK_GAP = 0.8;
+// Token-derived cream b* fail — not from head frames.
+// Light surfaces: --g-surface #FFFFFF b*=0, --g-bg #F5F5F7 b*=-0.96, --g-line #E4E4E7 b*=-1.46.
+// #FFFDF8 sheet is b*=2.62 (not 2.3). Midpoint 1.31 lets #FDFCFA (b*=1.07) through.
+// 0.50 sits just above the Light ceiling and below #FDFCFA / every cream token.
+const SHEET_B = 2.62;
+const CREAM_B_THRESHOLD = 0.5;
+// Token-derived navy C* fail in hue 220–280° — not from head frames.
+// Light tokens outside that band have C* ≤ 5.08. Navy #0A2540 is C*=20.1 h=273.
+// F5b (navy .5 over white) is C*=9.1. Fail at C*>6.
+const NAVY_C_THRESHOLD = 6;
+const NAVY_HUE_MIN = 220;
+const NAVY_HUE_MAX = 280;
 
 type CreamMask = { x: number; y: number; w: number; h: number };
 type CreamClip = { x: number; y: number; width: number; height: number };
@@ -861,6 +878,154 @@ async function captureCreamFrame(page: KillPage, width: number): Promise<{
     fallback: false,
   });
   return { ...meta, b64, maxB: stats.maxB, creamDe3: stats.creamDe3, at: stats.at };
+}
+
+type TokenLch = {
+  name: string;
+  r: number;
+  g: number;
+  b: number;
+  L: number;
+  C: number;
+  h: number;
+  inBand: boolean;
+};
+
+function collectTokenBand(args: { cMin: number; hMin: number; hMax: number }): TokenLch[] {
+  const srgbToLinear = (c: number) => {
+    c /= 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const rgbToLab = (r: number, g: number, b: number) => {
+    r = srgbToLinear(r);
+    g = srgbToLinear(g);
+    b = srgbToLinear(b);
+    const x = r * 0.4124564 + g * 0.3575761 + b * 0.1804375;
+    const y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
+    const z = r * 0.0193339 + g * 0.1191920 + b * 0.9503041;
+    const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : (841 / 108) * t + 4 / 29);
+    const fx = f(x / 0.95047);
+    const fy = f(y / 1);
+    const fz = f(z / 1.08883);
+    return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+  };
+  const parse = (c: string) => {
+    const m = c.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+    return m ? { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]) } : null;
+  };
+  const tokenRgb = (prop: string) => {
+    const probe = document.createElement('span');
+    probe.style.backgroundColor = `var(${prop})`;
+    document.body.appendChild(probe);
+    const rgb = parse(getComputedStyle(probe).backgroundColor);
+    probe.remove();
+    return rgb;
+  };
+  const names = [
+    '--g-accent', '--g-ink', '--g-ink-muted', '--g-ink-subtle', '--g-focus', '--g-link',
+    '--g-bg', '--g-surface', '--g-line', '--g-inverse',
+    '--ops-muted', '--ops-ink', '--ops-navy', '--ops-accent',
+    '--dashboard-home-action', '--dashboard-home-ink', '--dashboard-home-muted',
+  ];
+  return names.flatMap((name) => {
+    const rgb = tokenRgb(name);
+    if (!rgb) return [];
+    const lab = rgbToLab(rgb.r, rgb.g, rgb.b);
+    const C = Math.hypot(lab.a, lab.b);
+    let h = Math.atan2(lab.b, lab.a) * 180 / Math.PI;
+    if (h < 0) h += 360;
+    return [{
+      name,
+      r: rgb.r,
+      g: rgb.g,
+      b: rgb.b,
+      L: lab.L,
+      C,
+      h,
+      inBand: C > args.cMin && h >= args.hMin && h <= args.hMax,
+    }];
+  });
+}
+
+async function analyzeNavyPixels(args: {
+  b64: string;
+  masks: CreamMask[];
+  dpr: number;
+  exclude: Array<{ r: number; g: number; b: number }>;
+  cMin: number;
+  hMin: number;
+  hMax: number;
+}): Promise<{
+  hits: number;
+  tokenPx: number;
+  at: { x: number; y: number; r: number; g: number; b: number; C: number; h: number };
+}> {
+  const srgbToLinear = (c: number) => {
+    c /= 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const rgbToLab = (r: number, g: number, b: number) => {
+    r = srgbToLinear(r);
+    g = srgbToLinear(g);
+    b = srgbToLinear(b);
+    const x = r * 0.4124564 + g * 0.3575761 + b * 0.1804375;
+    const y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
+    const z = r * 0.0193339 + g * 0.1191920 + b * 0.9503041;
+    const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : (841 / 108) * t + 4 / 29);
+    const fx = f(x / 0.95047);
+    const fy = f(y / 1);
+    const fz = f(z / 1.08883);
+    return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+  };
+  const img = new Image();
+  img.src = `data:image/png;base64,${args.b64}`;
+  await img.decode();
+  const c = document.createElement('canvas');
+  c.width = img.width;
+  c.height = img.height;
+  const ctx = c.getContext('2d');
+  if (!ctx) throw new Error('canvas');
+  ctx.drawImage(img, 0, 0);
+  const data = ctx.getImageData(0, 0, img.width, img.height).data;
+  const dpr = args.dpr || 1;
+  const masked = (px: number, py: number) => {
+    const x = px / dpr;
+    const y = py / dpr;
+    for (const m of args.masks) {
+      if (x >= m.x && x < m.x + m.w && y >= m.y && y < m.y + m.h) return true;
+    }
+    return false;
+  };
+  const exactToken = (r: number, g: number, b: number) =>
+    args.exclude.some((t) => Math.abs(r - t.r) < 1 && Math.abs(g - t.g) < 1 && Math.abs(b - t.b) < 1);
+  let hits = 0;
+  let tokenPx = 0;
+  let at = { x: 0, y: 0, r: 0, g: 0, b: 0, C: 0, h: 0 };
+  let maxC = -1;
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] < 8) continue;
+    const px = (i / 4) % img.width;
+    const py = Math.floor((i / 4) / img.width);
+    if (masked(px, py)) continue;
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const lab = rgbToLab(r, g, b);
+    const C = Math.hypot(lab.a, lab.b);
+    let h = Math.atan2(lab.b, lab.a) * 180 / Math.PI;
+    if (h < 0) h += 360;
+    if (!(C > args.cMin && h >= args.hMin && h <= args.hMax)) continue;
+    if (exactToken(r, g, b)) {
+      tokenPx += 1;
+      continue;
+    }
+    hits += 1;
+    if (C > maxC) {
+      maxC = C;
+      at = { x: px, y: py, r, g, b, C, h };
+    }
+  }
+  return { hits, tokenPx, at };
 }
 
 function overflowScript() {
@@ -1175,8 +1340,10 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
   }, 240000);
 
   it('P1-palette: no rendered dashboard node paints navy or cream as color, background or border', async () => {
+    const mutantCss = process.env.P1_DASH_MUTANT_CSS || '';
+    const css = distCss + mutantCss;
     for (const width of WIDTHS) {
-      const page = await openPage({ width });
+      const page = await openPage({ width, css });
       await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
       for (const mode of ['view', 'edit'] as const) {
         if (mode === 'edit') await enterEdit(page);
@@ -1234,11 +1401,11 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
   }, 90000);
 
   it('P1-cream-chroma: no unmasked light pixel exceeds the derived b* threshold', async () => {
-    const mutantCss = process.env.P1_CREAM_MUTANT_CSS || '';
+    const mutantCss = process.env.P1_DASH_MUTANT_CSS || process.env.P1_CREAM_MUTANT_CSS || '';
     const css = distCss + mutantCss;
     const frames: Array<{
       width: number;
-      mode: 'view' | 'edit';
+      mode: string;
       masks: CreamMask[];
       dpr: number;
       b64: string;
@@ -1254,17 +1421,33 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
         const frame = await captureCreamFrame(page, width);
         frames.push({ width, mode, ...frame });
       }
+      if (width === 390 || width === 1280) {
+        await openPicker(page);
+        await addPickerWidget(page, 'Intelligence', 'AI Agent');
+        const aiNodes = await page.evaluate(() => {
+          const vis = (node: Element) => {
+            const s = getComputedStyle(node as HTMLElement);
+            const r = node.getBoundingClientRect();
+            return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+          };
+          return [...document.querySelectorAll('.dashboard-home-ai-avatar, .bg-gradient-to-br, .dashboard-home img')]
+            .filter(vis).length;
+        });
+        expect(aiNodes, `AI avatar/image nodes at ${width} edit`).toBeGreaterThan(0);
+        const ai = await captureCreamFrame(page, width);
+        frames.push({ width, mode: 'edit-ai', ...ai });
+      }
       await page.close();
     }
     const maxB = frames.reduce((n, f) => Math.max(n, f.maxB), -99);
     const peak = frames.find((f) => f.maxB === maxB);
-    const gap = SHEET_B - maxB;
-    const fallback = gap < CREAM_FALLBACK_GAP;
-    const threshold = (maxB + SHEET_B) / 2;
-    writeFileSync('/tmp/p1-r6-chroma.json', JSON.stringify({
+    const threshold = CREAM_B_THRESHOLD;
+    const fallback = false;
+    writeFileSync('/tmp/p1-r7-chroma.json', JSON.stringify({
       maxB,
       threshold,
-      gap,
+      thresholdSource: 'Light tokens: --g-surface/#FFFFFF b*=0 ceiling + 0.50; #FFFDF8 measured b*=2.62',
+      gap: SHEET_B - maxB,
       fallback,
       sheetB: SHEET_B,
       at: peak?.at,
@@ -1289,5 +1472,55 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       expect(pix.hits, `cream chroma L*>85 b*>${threshold.toFixed(3)} at ${frame.width} ${frame.mode}`).toBe(0);
     }
     await probe.close();
+  }, 300000);
+
+  it('P1-navy-chroma: no unmasked pixel sits in the navy hue band above the token C* floor', async () => {
+    const mutantCss = process.env.P1_DASH_MUTANT_CSS || '';
+    const css = distCss + mutantCss;
+    const tokenPage = await openPage({ width: 1280, css });
+    await tokenPage.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
+    const tokens = await tokenPage.evaluate(collectTokenBand, {
+      cMin: NAVY_C_THRESHOLD,
+      hMin: NAVY_HUE_MIN,
+      hMax: NAVY_HUE_MAX,
+    }) as TokenLch[];
+    await tokenPage.close();
+    const band = tokens.filter((t) => t.inBand);
+    const exclude = band.map((t) => ({ r: t.r, g: t.g, b: t.b }));
+    const frames: Array<{ width: number; mode: string; masks: CreamMask[]; dpr: number; b64: string }> = [];
+    for (const width of WIDTHS) {
+      const page = await openPage({ width, css });
+      await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
+      for (const mode of ['view', 'edit'] as const) {
+        if (mode === 'edit') await enterEdit(page);
+        const frame = await captureCreamFrame(page, width);
+        frames.push({ width, mode, masks: frame.masks, dpr: frame.dpr, b64: frame.b64 });
+      }
+      await page.close();
+    }
+    const probe = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    const rows: Array<{ width: number; mode: string; hits: number; tokenPx: number }> = [];
+    for (const frame of frames) {
+      const pix = await probe.evaluate(analyzeNavyPixels, {
+        b64: frame.b64,
+        masks: frame.masks,
+        dpr: frame.dpr,
+        exclude,
+        cMin: NAVY_C_THRESHOLD,
+        hMin: NAVY_HUE_MIN,
+        hMax: NAVY_HUE_MAX,
+      });
+      rows.push({ width: frame.width, mode: frame.mode, hits: pix.hits, tokenPx: pix.tokenPx });
+      expect(pix.hits, `navy C*>${NAVY_C_THRESHOLD} h ${NAVY_HUE_MIN}–${NAVY_HUE_MAX} at ${frame.width} ${frame.mode}`).toBe(0);
+    }
+    await probe.close();
+    writeFileSync('/tmp/p1-r7-navy.json', JSON.stringify({
+      threshold: NAVY_C_THRESHOLD,
+      thresholdSource: 'Light token C* floor: above --g-ink-subtle 5.08, below navy 20.1 / F5b composite 9.1',
+      hue: [NAVY_HUE_MIN, NAVY_HUE_MAX],
+      tokens,
+      band,
+      rows,
+    }, null, 2));
   }, 300000);
 });
