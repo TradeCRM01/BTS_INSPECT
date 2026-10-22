@@ -645,6 +645,224 @@ async function scanPalettePixels(page: KillPage): Promise<PalettePixels> {
   }, buf.toString('base64'));
 }
 
+const SHEET_B = 2.3;
+const CREAM_FALLBACK_GAP = 0.8;
+
+type CreamMask = { x: number; y: number; w: number; h: number };
+type CreamClip = { x: number; y: number; width: number; height: number };
+type CreamScan = {
+  maxB: number;
+  light: number;
+  chromaHits: number;
+  creamDe3: number;
+  hits: number;
+  masks: number;
+  at: { x: number; y: number; r: number; g: number; b: number };
+};
+
+function collectCreamMeta() {
+  const el = (document.querySelector('.dashboard-home')
+    || document.querySelector('[data-dashboard-home="1"]')) as HTMLElement | null;
+  if (!el) throw new Error('dashboard missing');
+  const sheet = (document.querySelector('.dashboard-home-sheet') || el) as HTMLElement;
+  const pageBox = el.getBoundingClientRect();
+  const sheetBox = sheet.getBoundingClientRect();
+  const clip = {
+    x: Math.max(0, Math.floor(pageBox.x)),
+    y: Math.max(0, Math.floor(pageBox.y)),
+    width: Math.max(1, Math.ceil(pageBox.width)),
+    height: Math.max(1, Math.ceil(Math.max(sheetBox.bottom, pageBox.top + 1) - pageBox.y + 24)),
+  };
+  const vis = (node: Element) => {
+    const s = getComputedStyle(node as HTMLElement);
+    const r = node.getBoundingClientRect();
+    return s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0
+      && r.width > 0 && r.height > 0;
+  };
+  const parse = (c: string) => {
+    const m = c.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+    return m ? { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]) } : null;
+  };
+  const isGreen = (c: { r: number; g: number; b: number } | null) =>
+    !!c && c.g > c.r + 20 && c.g > c.b + 10 && c.g > 80;
+  const isAmber = (c: { r: number; g: number; b: number } | null) =>
+    !!c && c.r > 160 && c.g > 70 && c.r >= c.g - 10 && c.b < 100 && (c.r - c.b) > 60;
+  const isRed = (c: { r: number; g: number; b: number } | null) =>
+    !!c && c.r > 160 && c.r > c.g + 30 && c.r > c.b + 30;
+  const masks: CreamMask[] = [];
+  const add = (node: Element, pad = 2) => {
+    const r = node.getBoundingClientRect();
+    masks.push({
+      x: Math.floor(r.x - clip.x - pad),
+      y: Math.floor(r.y - clip.y - pad),
+      w: Math.ceil(r.width + pad * 2),
+      h: Math.ceil(r.height + pad * 2),
+    });
+  };
+  for (const node of el.querySelectorAll('.dashboard-home-pill, img, .dashboard-home-ai-avatar, .bg-gradient-to-br')) {
+    if (vis(node)) add(node);
+  }
+  for (const svg of el.querySelectorAll('svg')) {
+    if (vis(svg)) add(svg, 3);
+  }
+  for (const node of el.querySelectorAll('[class*="bg-green"], [class*="bg-amber"], [class*="rounded-full"]')) {
+    if (!vis(node)) continue;
+    const bg = parse(getComputedStyle(node as HTMLElement).backgroundColor);
+    if (isGreen(bg) || isAmber(bg) || isRed(bg)) add(node);
+  }
+  return { clip, masks, dpr: window.devicePixelRatio || 1 };
+}
+
+async function analyzeCreamPixels(args: {
+  b64: string;
+  masks: CreamMask[];
+  dpr: number;
+  threshold: number | null;
+  fallback: boolean;
+}): Promise<CreamScan> {
+  const srgbToLinear = (c: number) => {
+    c /= 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const rgbToLab = (r: number, g: number, b: number) => {
+    r = srgbToLinear(r);
+    g = srgbToLinear(g);
+    b = srgbToLinear(b);
+    const x = r * 0.4124564 + g * 0.3575761 + b * 0.1804375;
+    const y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
+    const z = r * 0.0193339 + g * 0.1191920 + b * 0.9503041;
+    const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : (841 / 108) * t + 4 / 29);
+    const fx = f(x / 0.95047);
+    const fy = f(y / 1);
+    const fz = f(z / 1.08883);
+    return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+  };
+  const deg2rad = (d: number) => d * Math.PI / 180;
+  const rad2deg = (r: number) => r * 180 / Math.PI;
+  const deltaE2000 = (
+    l1: { L: number; a: number; b: number },
+    l2: { L: number; a: number; b: number },
+  ) => {
+    const { L: L1, a: a1, b: b1 } = l1;
+    const { L: L2, a: a2, b: b2 } = l2;
+    const C1 = Math.hypot(a1, b1);
+    const C2 = Math.hypot(a2, b2);
+    const Cab = (C1 + C2) / 2;
+    const G = 0.5 * (1 - Math.sqrt(Cab ** 7 / (Cab ** 7 + 25 ** 7)));
+    const a1p = a1 * (1 + G);
+    const a2p = a2 * (1 + G);
+    const C1p = Math.hypot(a1p, b1);
+    const C2p = Math.hypot(a2p, b2);
+    let h1 = Math.atan2(b1, a1p);
+    if (h1 < 0) h1 += 2 * Math.PI;
+    let h2 = Math.atan2(b2, a2p);
+    if (h2 < 0) h2 += 2 * Math.PI;
+    const dLp = L2 - L1;
+    const dCp = C2p - C1p;
+    let dhp = h2 - h1;
+    if (C1p * C2p === 0) dhp = 0;
+    else if (dhp > Math.PI) dhp -= 2 * Math.PI;
+    else if (dhp < -Math.PI) dhp += 2 * Math.PI;
+    const dHp = 2 * Math.sqrt(C1p * C2p) * Math.sin(dhp / 2);
+    const Lbp = (L1 + L2) / 2;
+    const Cbp = (C1p + C2p) / 2;
+    let hbp = h1 + h2;
+    if (C1p * C2p !== 0) {
+      if (Math.abs(h1 - h2) > Math.PI) hbp += (h1 + h2 < 2 * Math.PI) ? 2 * Math.PI : -2 * Math.PI;
+      hbp /= 2;
+    }
+    const T = 1 - 0.17 * Math.cos(hbp - deg2rad(30)) + 0.24 * Math.cos(2 * hbp)
+      + 0.32 * Math.cos(3 * hbp + deg2rad(6)) - 0.20 * Math.cos(4 * hbp - deg2rad(63));
+    const dRo = deg2rad(30) * Math.exp(-(((rad2deg(hbp) - 275) / 25) ** 2));
+    const RC = 2 * Math.sqrt(Cbp ** 7 / (Cbp ** 7 + 25 ** 7));
+    const SL = 1 + (0.015 * (Lbp - 50) ** 2) / Math.sqrt(20 + (Lbp - 50) ** 2);
+    const SC = 1 + 0.045 * Cbp;
+    const SH = 1 + 0.015 * Cbp * T;
+    const RT = -Math.sin(2 * dRo) * RC;
+    return Math.sqrt((dLp / SL) ** 2 + (dCp / SC) ** 2 + (dHp / SH) ** 2 + RT * (dCp / SC) * (dHp / SH));
+  };
+  const creamLabs = [rgbToLab(245, 240, 230), rgbToLab(255, 253, 248)];
+  const img = new Image();
+  img.src = `data:image/png;base64,${args.b64}`;
+  await img.decode();
+  const c = document.createElement('canvas');
+  c.width = img.width;
+  c.height = img.height;
+  const ctx = c.getContext('2d');
+  if (!ctx) throw new Error('canvas');
+  ctx.drawImage(img, 0, 0);
+  const data = ctx.getImageData(0, 0, img.width, img.height).data;
+  const dpr = args.dpr || 1;
+  const masked = (px: number, py: number) => {
+    const x = px / dpr;
+    const y = py / dpr;
+    for (const m of args.masks) {
+      if (x >= m.x && x < m.x + m.w && y >= m.y && y < m.y + m.h) return true;
+    }
+    return false;
+  };
+  let maxB = -99;
+  let light = 0;
+  let chromaHits = 0;
+  let creamDe3 = 0;
+  let at = { x: 0, y: 0, r: 0, g: 0, b: 0 };
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] < 8) continue;
+    const px = (i / 4) % img.width;
+    const py = Math.floor((i / 4) / img.width);
+    if (masked(px, py)) continue;
+    const lab = rgbToLab(data[i], data[i + 1], data[i + 2]);
+    if (lab.L <= 85) continue;
+    light += 1;
+    if (lab.b > maxB) {
+      maxB = lab.b;
+      at = { x: px, y: py, r: data[i], g: data[i + 1], b: data[i + 2] };
+    }
+    if (args.threshold != null && lab.b > args.threshold) chromaHits += 1;
+    const de = Math.min(deltaE2000(lab, creamLabs[0]), deltaE2000(lab, creamLabs[1]));
+    if (de < 3) creamDe3 += 1;
+  }
+  const hits = args.threshold == null
+    ? 0
+    : chromaHits + (args.fallback ? creamDe3 : 0);
+  return {
+    maxB: light ? maxB : 0,
+    light,
+    chromaHits,
+    creamDe3,
+    hits,
+    masks: args.masks.length,
+    at,
+  };
+}
+
+async function captureCreamFrame(page: KillPage, width: number): Promise<{
+  clip: CreamClip;
+  masks: CreamMask[];
+  dpr: number;
+  b64: string;
+  maxB: number;
+  creamDe3: number;
+  at: { x: number; y: number; r: number; g: number; b: number };
+}> {
+  await page.setViewportSize({ width, height: width <= 430 ? 5000 : 4000 });
+  const meta = await page.evaluate(collectCreamMeta) as {
+    clip: CreamClip;
+    masks: CreamMask[];
+    dpr: number;
+  };
+  const buf = await page.screenshot({ type: 'png', clip: meta.clip, animations: 'disabled' });
+  const b64 = buf.toString('base64');
+  const stats = await page.evaluate(analyzeCreamPixels, {
+    b64,
+    masks: meta.masks,
+    dpr: meta.dpr,
+    threshold: null,
+    fallback: false,
+  });
+  return { ...meta, b64, maxB: stats.maxB, creamDe3: stats.creamDe3, at: stats.at };
+}
+
 function overflowScript() {
   const vis = (el: Element) => {
     const s = getComputedStyle(el);
@@ -1014,4 +1232,62 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     }
     writeFileSync('/tmp/p1-r5-main-lines.json', JSON.stringify(derived, null, 2));
   }, 90000);
+
+  it('P1-cream-chroma: no unmasked light pixel exceeds the derived b* threshold', async () => {
+    const mutantCss = process.env.P1_CREAM_MUTANT_CSS || '';
+    const css = distCss + mutantCss;
+    const frames: Array<{
+      width: number;
+      mode: 'view' | 'edit';
+      masks: CreamMask[];
+      dpr: number;
+      b64: string;
+      maxB: number;
+      creamDe3: number;
+      at: { x: number; y: number; r: number; g: number; b: number };
+    }> = [];
+    for (const width of WIDTHS) {
+      const page = await openPage({ width, css });
+      await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
+      for (const mode of ['view', 'edit'] as const) {
+        if (mode === 'edit') await enterEdit(page);
+        const frame = await captureCreamFrame(page, width);
+        frames.push({ width, mode, ...frame });
+      }
+      await page.close();
+    }
+    const maxB = frames.reduce((n, f) => Math.max(n, f.maxB), -99);
+    const peak = frames.find((f) => f.maxB === maxB);
+    const gap = SHEET_B - maxB;
+    const fallback = gap < CREAM_FALLBACK_GAP;
+    const threshold = (maxB + SHEET_B) / 2;
+    writeFileSync('/tmp/p1-r6-chroma.json', JSON.stringify({
+      maxB,
+      threshold,
+      gap,
+      fallback,
+      sheetB: SHEET_B,
+      at: peak?.at,
+      frames: frames.map((f) => ({
+        width: f.width,
+        mode: f.mode,
+        maxB: f.maxB,
+        creamDe3: f.creamDe3,
+        masks: f.masks.length,
+        at: f.at,
+      })),
+    }, null, 2));
+    const probe = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    for (const frame of frames) {
+      const pix = await probe.evaluate(analyzeCreamPixels, {
+        b64: frame.b64,
+        masks: frame.masks,
+        dpr: frame.dpr,
+        threshold,
+        fallback,
+      });
+      expect(pix.hits, `cream chroma L*>85 b*>${threshold.toFixed(3)} at ${frame.width} ${frame.mode}`).toBe(0);
+    }
+    await probe.close();
+  }, 300000);
 });
