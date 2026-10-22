@@ -17020,6 +17020,10 @@
     min-height: 44px;
   }
 
+  .shell-phone-link.shell-menu-danger {
+    color: var(--g-danger);
+  }
+
   .shell-phone-link.is-active {
     color: var(--g-nav-ink);
   }

@@ -267,7 +267,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onInputKeyDown}
             placeholder="Search…"
-            className="min-h-[44px] h-auto py-2 w-full min-w-0 bg-transparent text-base focus:outline-none"
+            className="min-h-[44px] h-auto py-2 w-full min-w-0 bg-transparent text-base focus:outline-none placeholder:text-[var(--g-ink-muted)]"
             style={{ color: 'var(--g-ink)' }}
           />
           <button

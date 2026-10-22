@@ -29,7 +29,7 @@ const LABEL_WIDTHS = [768, 800, 900, 1000, 1023] as const;
 
 type KillPage = {
   goto: (url: string) => Promise<unknown>;
-  evaluate: <T>(fn: () => T) => Promise<T>;
+  evaluate: <T>(fn: () => T | Promise<T>) => Promise<T>;
   emulateMedia: (opts: { colorScheme?: 'dark' | 'light' | 'no-preference' }) => Promise<void>;
   waitForSelector: (sel: string, opts?: { timeout?: number }) => Promise<unknown>;
   close: () => Promise<void>;
@@ -103,12 +103,11 @@ async function bundleShell(): Promise<string> {
           cb: (args: { path: string }) => { path: string; namespace: string } | null,
         ) => void;
       }) {
-        build.onResolve({ filter: /(?:AuthContext|useCompanyAiKey|DevConsole|GlobalSearch|\/lib\/supabase)$/ }, (args) => {
+        build.onResolve({ filter: /(?:AuthContext|useCompanyAiKey|DevConsole|\/lib\/supabase)$/ }, (args) => {
           const spec = args.path.replace(/\\/g, '/');
           if (/AuthContext$/.test(spec)) return { path: mocks, namespace: 'file' };
           if (/useCompanyAiKey$/.test(spec)) return { path: mocks, namespace: 'file' };
           if (/DevConsole$/.test(spec)) return { path: mocks, namespace: 'file' };
-          if (/GlobalSearch$/.test(spec)) return { path: mocks, namespace: 'file' };
           if (/\/lib\/supabase$/.test(spec)) return { path: mocks, namespace: 'file' };
           return null;
         });
@@ -330,5 +329,84 @@ describe('S2 shell chromium kills (built dist CSS, painted values only)', () => 
       expect(shortBox!.boxW, `short box under mid at ${width}`).toBeLessThan(midBox!.boxW);
       await shortPage.page.close();
     }
+  }, 60000);
+
+  it('S5: search placeholder at 1024 is ≥4.5:1 against the input background', async () => {
+    const { page } = await openPage({ reportTheme: null, width: 1024 });
+    await page.evaluate(() => {
+      (document.querySelector('.shell-header button[aria-label="Search"]') as HTMLButtonElement | null)?.click();
+    });
+    await page.waitForSelector('.overlay-backdrop input[type="search"]', { timeout: 15000 });
+    await page.evaluate(() => new Promise<void>((resolve) => { window.setTimeout(resolve, 300); }));
+    const contrast = await page.evaluate(() => {
+      const input = document.querySelector('.overlay-backdrop input[type="search"]') as HTMLElement | null;
+      if (!input) return 0;
+      const parse = (c: string) => {
+        const m = c.match(/rgba?\(([^)]+)\)/);
+        if (!m) return null;
+        const p = m[1].split(/[ ,/]+/).filter(Boolean).map(Number);
+        return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+      };
+      const lum = (c: { r: number; g: number; b: number }) => {
+        const f = (v: number) => {
+          v /= 255;
+          return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+        };
+        return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+      };
+      const blend = (
+        top: { r: number; g: number; b: number; a: number },
+        bot: { r: number; g: number; b: number },
+      ) => ({
+        r: top.r * top.a + bot.r * (1 - top.a),
+        g: top.g * top.a + bot.g * (1 - top.a),
+        b: top.b * top.a + bot.b * (1 - top.a),
+      });
+      const usedBg = (el: HTMLElement) => {
+        let node: HTMLElement | null = el;
+        const stack: Array<{ r: number; g: number; b: number; a: number }> = [];
+        while (node) {
+          const c = parse(getComputedStyle(node).backgroundColor);
+          if (c && c.a > 0) {
+            stack.push(c);
+            if (c.a >= 1) break;
+          }
+          node = node.parentElement;
+        }
+        let out = { r: 255, g: 255, b: 255 };
+        while (stack.length) out = blend(stack.pop()!, out);
+        return out;
+      };
+      const fg = parse(getComputedStyle(input, '::placeholder').color);
+      if (!fg) return 0;
+      const bg = usedBg(input);
+      const fgb = fg.a < 1 ? blend(fg, bg) : fg;
+      const x = lum(fgb);
+      const y = lum(bg);
+      return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+    });
+    expect(contrast, 'search placeholder contrast at 1024').toBeGreaterThanOrEqual(4.5);
+    await page.close();
+  }, 60000);
+
+  it('S6: More sheet Sign out at 390 uses the danger token', async () => {
+    const { page } = await openPage({ reportTheme: null, width: 390 });
+    await page.evaluate(() => {
+      (document.querySelector('[data-phone-tab="more"]') as HTMLButtonElement | null)?.click();
+    });
+    await page.waitForSelector('.shell-phone-menu', { timeout: 15000 });
+    const colours = await page.evaluate(() => {
+      const btn = [...document.querySelectorAll('.shell-phone-menu button')].find((el) =>
+        (el.textContent || '').includes('Sign out'),
+      ) as HTMLElement | undefined;
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--g-danger)';
+      document.body.appendChild(probe);
+      const danger = getComputedStyle(probe).color;
+      probe.remove();
+      return { signOut: btn ? getComputedStyle(btn).color : '', danger };
+    });
+    expect(colours.signOut, 'Sign out colour at 390').toBe(colours.danger);
+    await page.close();
   }, 60000);
 });
