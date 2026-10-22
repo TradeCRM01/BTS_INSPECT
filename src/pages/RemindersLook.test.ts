@@ -97,18 +97,18 @@ describe('reminders LOOK — same paper as the signed-in home', () => {
     expect(css).toContain('.reminders-capture-input,\n  .reminders-field {');
     const field = rule(css, '.reminders-capture-input,\n  .reminders-field');
     expect(field).toContain('min-height: 44px');
-    expect(field).toContain('background: #FFFDF8');
-    expect(field).toContain('border: 1px solid #E2D9CC');
+    expect(field).toContain('background: var(--dashboard-home-sheet)');
+    expect(field).toContain('border: 1px solid var(--dashboard-home-line)');
     expect(field).toContain('border-radius: 12px');
     expect(field).toContain('padding: 10px 12px');
     expect(field).toContain('font-size: 16px');
-    expect(field).toContain('color: #0A2540');
+    expect(field).toContain('color: var(--dashboard-home-ink)');
     expect(field).toContain("font-family: var(--g-font-ui)");
 
-    expect(rule(css, '.reminders-capture-input:focus,\n  .reminders-field:focus')).toContain('0 0 0 3px rgba(46, 117, 182, .25)');
-    expect(rule(css, '.reminders-secondary')).toContain('border: 1px solid #0A2540');
+    expect(rule(css, '.reminders-capture-input:focus,\n  .reminders-field:focus')).toContain('color-mix(in srgb, var(--g-accent) 25%, transparent)');
+    expect(rule(css, '.reminders-secondary')).toContain('border: 1px solid var(--dashboard-home-ink)');
     expect(rule(css, '.reminders-secondary')).toContain('min-height: 44px');
-    expect(rule(css, '.reminders-tick[aria-pressed="true"]')).toContain('background: #2E75B6');
+    expect(rule(css, '.reminders-tick[aria-pressed="true"]')).toContain('background: var(--g-inverse)');
     expect(rule(css, '.dashboard-nudge')).toContain('grid-template-columns: minmax(0, 1fr) auto');
     expect(rule(css, '.dashboard-nudge')).toContain('min-height: 44px');
     expect(rule(css, '.dashboard-home-all')).toContain('min-height: 44px');
@@ -117,7 +117,7 @@ describe('reminders LOOK — same paper as the signed-in home', () => {
     expect(css).toContain('@media (max-width: 640px)');
 
     const hexes = [...new Set(css.match(/#[0-9A-Fa-f]{3,6}\b/g) ?? [])].map(h => h.toUpperCase());
-    expect(hexes.sort()).toEqual(['#0A2540', '#2E75B6', '#5B6B7C', '#E2D9CC', '#F5F0E6', '#FFF', '#FFFDF8']);
+    expect(hexes.sort()).toEqual(['#FFF']);
     expect(css).not.toMatch(/#F97316|#EA580C|#16A34A|#15803D|#1B7F3A|#22C55E|orange|green/i);
     expect(css).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow/);
     expect(css).not.toMatch(/text-transform:\s*uppercase/);

@@ -299,10 +299,19 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     for (const width of [375, 390] as const) {
       const page = await openPage({ width });
       await page.waitForSelector('[data-phone-tab="schedule"]', { timeout: 15000 });
-      await page.evaluate(() => {
+      const href = await page.evaluate(() =>
+        (document.querySelector('[data-phone-tab="schedule"]') as HTMLAnchorElement | null)?.getAttribute('href') || '',
+      );
+      expect(href, `Schedule tab href at ${width}`).toBe('/schedule');
+      const path = await page.evaluate(async () => {
         (document.querySelector('[data-phone-tab="schedule"]') as HTMLAnchorElement | null)?.click();
+        for (let i = 0; i < 40; i += 1) {
+          const now = document.querySelector('[data-p1-path]')?.getAttribute('data-p1-path') || '';
+          if (now === '/schedule') return now;
+          await new Promise((resolve) => window.setTimeout(resolve, 50));
+        }
+        return document.querySelector('[data-p1-path]')?.getAttribute('data-p1-path') || '';
       });
-      const path = await page.evaluate(() => document.querySelector('[data-p1-path]')?.getAttribute('data-p1-path') || '');
       expect(path, `Schedule tab path at ${width}`).toBe('/schedule');
       await page.close();
     }
