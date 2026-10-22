@@ -1378,7 +1378,7 @@ function FreeWidget({
             <button
               {...attributes}
               {...listeners}
-              className="w-7 h-7 flex items-center justify-center rounded-md bg-white border border-gray-200 shadow-sm text-gray-400 cursor-grab active:cursor-grabbing hover:text-gray-600 hover:bg-gray-50 transition-colors touch-none"
+              className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-md bg-white border border-gray-200 shadow-sm text-gray-400 cursor-grab active:cursor-grabbing hover:text-gray-600 hover:bg-gray-50 transition-colors touch-none"
               title="Drag to move"
             >
               <GripVertical size={14} />
@@ -1390,7 +1390,7 @@ function FreeWidget({
           <div className="absolute top-1.5 right-1.5 z-20">
             <button
               onClick={onRemove}
-              className="w-7 h-7 flex items-center justify-center rounded-md bg-white border border-gray-200 shadow-sm text-red-500 hover:bg-red-50 transition-colors"
+              className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-md bg-white border border-gray-200 shadow-sm text-red-500 hover:bg-red-50 transition-colors"
               title="Remove widget"
             >
               <Trash2 size={13} />
@@ -1410,7 +1410,7 @@ function FreeWidget({
         {editMode && (
           <div
             onPointerDown={onResizeStart}
-            className="absolute bottom-0 right-0 z-20 w-5 h-5 cursor-se-resize touch-none flex items-end justify-end"
+            className="dashboard-home-widget-resize absolute bottom-0 right-0 z-20 min-w-[44px] min-h-[44px] w-11 h-11 cursor-se-resize touch-none flex items-end justify-end"
             title="Drag to resize"
           >
             <svg width="10" height="10" viewBox="0 0 10 10" className="text-gray-400">
@@ -1437,7 +1437,7 @@ function WidgetPicker({
   const filtered = pickerDashboardWidgets(category);
 
   return (
-    <div className="overlay-backdrop">
+    <div className="overlay-backdrop dashboard-home-picker">
       <div
         className="overlay-panel-xl"
         onClick={e => e.stopPropagation()}
@@ -1448,7 +1448,7 @@ function WidgetPicker({
             <Sparkles size={18} className="text-blue-500" />
             <h2 className="text-base font-semibold text-[#1A1A1A]">Add a Widget</h2>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600">
             <X size={18} />
           </button>
         </div>

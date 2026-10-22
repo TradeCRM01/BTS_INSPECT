@@ -40,6 +40,7 @@ type KillPage = {
   emulateMedia: (opts: { colorScheme?: 'dark' | 'light' | 'no-preference' }) => Promise<void>;
   waitForSelector: (sel: string, opts?: { timeout?: number }) => Promise<unknown>;
   setViewportSize: (size: { width: number; height: number }) => Promise<void>;
+  screenshot: (opts?: { type?: 'png'; fullPage?: boolean }) => Promise<Buffer>;
   close: () => Promise<void>;
 };
 
@@ -193,7 +194,35 @@ async function openPage(args: {
   return page;
 }
 
-function contrastScript() {
+type DashMeasure = {
+  pageBg: string;
+  sheetBg: string;
+  cardBgs: string[];
+  widgetBgs: string[];
+  tokenBg: string;
+  tokenSurface: string;
+  tokenMuted: string;
+  tokenOk: string;
+  tokenOkBg: string;
+  tokenWarn: string;
+  tokenWarnBg: string;
+  tokenBad: string;
+  tokenBadBg: string;
+  secondary: Array<{ text: string; cls: string; ratio: number; color: string }>;
+  floor: Array<{ text: string; cls: string; ratio: number }>;
+  minSecondary: number;
+  minFloor: number;
+  cta: number;
+  pills: Array<{ cls: string; text: string; fg: string; bg: string }>;
+  greenOutsidePill: number;
+  hits: Array<{ name: string; w: number; h: number }>;
+  minHit: number;
+  innerWidth: number;
+  scrollWidth: number;
+  maxRight: number;
+};
+
+function measureScript() {
   const parse = (c: string) => {
     const m = c.match(/rgba?\(([^)]+)\)/);
     if (!m) return null;
@@ -248,22 +277,128 @@ function contrastScript() {
     probe.remove();
     return bg;
   };
+  const vis = (el: Element) => {
+    const s = getComputedStyle(el as HTMLElement);
+    const r = el.getBoundingClientRect();
+    return s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0
+      && r.width > 0 && r.height > 0;
+  };
+  const sameRgb = (a: string, b: string) => {
+    const pa = parse(a);
+    const pb = parse(b);
+    if (!pa || !pb) return false;
+    return Math.abs(pa.r - pb.r) < 2 && Math.abs(pa.g - pb.g) < 2 && Math.abs(pa.b - pb.b) < 2;
+  };
+  const tokenMuted = token('--g-ink-muted');
+  const tokenDashMuted = token('--dashboard-home-muted');
   const pageEl = document.querySelector('.dashboard-home.ops-page') as HTMLElement | null;
-  const cardEl = document.querySelector('[data-dashboard-home="1"]') as HTMLElement | null;
-  const secondary = document.querySelector('.dashboard-home.ops-page .dashboard-home-whisper, .dashboard-home.ops-page .dashboard-home-label') as HTMLElement | null;
+  const sheetEl = document.querySelector('.dashboard-home-sheet') as HTMLElement | null;
   const cta = document.querySelector('.dashboard-home.ops-page .dashboard-home-primary') as HTMLElement | null;
-  const pill = document.querySelector('.dashboard-home.ops-page .dashboard-home-pill-ok, [data-p1-probe] .dashboard-home-pill-ok') as HTMLElement | null;
+  const cardBgs = [...document.querySelectorAll('.dashboard-home-widget-card')]
+    .filter(vis)
+    .map((el) => getComputedStyle(el as HTMLElement).backgroundColor);
+  const widgetBgs = [...document.querySelectorAll('.dashboard-home-widget')]
+    .filter(vis)
+    .map((el) => getComputedStyle(el as HTMLElement).backgroundColor);
+  const ownText = (el: HTMLElement) =>
+    [...el.childNodes].some((n) => n.nodeType === 3 && (n.textContent || '').trim());
+  const textEls = [...document.querySelectorAll('.dashboard-home.ops-page *')].filter((node) => {
+    const el = node as HTMLElement;
+    if (!vis(el) || !ownText(el)) return false;
+    if (el.closest('.shell-header, .shell-bottom-nav')) return false;
+    if ((el as HTMLButtonElement).disabled) return false;
+    return true;
+  }) as HTMLElement[];
+  const secondarySel = /dashboard-home-label|dashboard-home-whisper|dashboard-home-ref|dashboard-home-place|dashboard-home-thead|dashboard-home-meta|dashboard-home-cell|reminders-meta/;
+  const secondary = textEls.filter((el) => {
+    if (el.closest('.dashboard-home-sheet-bar, .dashboard-home-pill, .reminders-chip')) return false;
+    const cls = typeof el.className === 'string' ? el.className : '';
+    const color = getComputedStyle(el).color;
+    return secondarySel.test(cls) || sameRgb(color, tokenMuted) || sameRgb(color, tokenDashMuted);
+  }).map((el) => ({
+    text: (el.textContent || '').trim().slice(0, 48),
+    cls: (typeof el.className === 'string' ? el.className : '').slice(0, 80),
+    ratio: ratio(el),
+    color: getComputedStyle(el).color,
+  }));
+  const floor = textEls.filter((el) => {
+    if (el.closest('.dashboard-home-sheet-bar, .reminders-chip, .dashboard-home-primary, .btn-primary')) return false;
+    if (el.tagName === 'SVG' || el.closest('svg')) return false;
+    return true;
+  }).map((el) => ({
+    text: (el.textContent || '').trim().slice(0, 48),
+    cls: (typeof el.className === 'string' ? el.className : '').slice(0, 80),
+    ratio: ratio(el),
+  }));
+  const pills = [...document.querySelectorAll('.dashboard-home.ops-page .dashboard-home-pill')]
+    .filter(vis)
+    .map((el) => ({
+      cls: (typeof (el as HTMLElement).className === 'string' ? (el as HTMLElement).className : ''),
+      text: (el.textContent || '').trim(),
+      fg: getComputedStyle(el as HTMLElement).color,
+      bg: getComputedStyle(el as HTMLElement).backgroundColor,
+    }));
+  const isGreen = (c: string) => {
+    const p = parse(c);
+    return !!p && p.g > p.r + 25 && p.g > p.b + 10 && p.g > 80;
+  };
+  const greenOutsidePill = [...document.querySelectorAll('[data-dashboard-widget-id*="compliance"] *')]
+    .filter((node) => {
+      const el = node as HTMLElement;
+      if (!vis(el) || !ownText(el)) return false;
+      if (el.closest('.dashboard-home-pill, svg')) return false;
+      return isGreen(getComputedStyle(el).color);
+    }).length;
+  const hitSel = [
+    '.dashboard-home.ops-page a',
+    '.dashboard-home.ops-page button',
+    '.dashboard-home.ops-page summary',
+    '.dashboard-home.ops-page input',
+    '.dashboard-home.ops-page [role="button"]',
+    '.dashboard-home.ops-page [role="menuitem"]',
+    '.dashboard-home.ops-page .dashboard-home-row',
+    '.dashboard-home-picker button',
+    '.dashboard-home-picker a',
+    '.reminders-tick',
+    '.reminders-clock',
+    '.dashboard-home-widget-resize',
+  ].join(', ');
+  const hits = [...document.querySelectorAll(hitSel)].filter(vis).map((node) => {
+    const el = node as HTMLElement;
+    const r = el.getBoundingClientRect();
+    return {
+      name: (el.getAttribute('aria-label') || el.textContent || el.className || '').toString().trim().slice(0, 48),
+      w: r.width,
+      h: r.height,
+    };
+  });
+  const rights = [...document.querySelectorAll('body *')].filter(vis).map((el) => el.getBoundingClientRect().right);
   return {
     pageBg: pageEl ? getComputedStyle(pageEl).backgroundColor : '',
-    cardBg: cardEl ? getComputedStyle(cardEl).backgroundColor : '',
+    sheetBg: sheetEl ? getComputedStyle(sheetEl).backgroundColor : '',
+    cardBgs,
+    widgetBgs,
     tokenBg: token('--g-bg'),
     tokenSurface: token('--g-surface'),
+    tokenMuted,
     tokenOk: token('--g-ok'),
     tokenOkBg: token('--g-ok-bg'),
-    secondary: ratio(secondary),
+    tokenWarn: token('--g-warn'),
+    tokenWarnBg: token('--g-warn-bg'),
+    tokenBad: token('--g-bad'),
+    tokenBadBg: token('--g-bad-bg'),
+    secondary,
+    floor,
+    minSecondary: secondary.length ? Math.min(...secondary.map((s) => s.ratio)) : 0,
+    minFloor: floor.length ? Math.min(...floor.map((s) => s.ratio)) : 0,
     cta: ratio(cta),
-    pillFg: pill ? getComputedStyle(pill).color : '',
-    pillBg: pill ? getComputedStyle(pill).backgroundColor : '',
+    pills,
+    greenOutsidePill,
+    hits,
+    minHit: hits.length ? Math.min(...hits.map((h) => Math.min(h.w, h.h))) : 0,
+    innerWidth: window.innerWidth,
+    scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+    maxRight: rights.length ? Math.max(...rights) : 0,
   };
 }
 
@@ -279,6 +414,60 @@ function overflowScript() {
     scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
     maxRight: rights.length ? Math.max(...rights) : 0,
   };
+}
+
+async function enterEdit(page: KillPage) {
+  await page.evaluate(async () => {
+    const more = document.querySelector('.dashboard-home-more') as HTMLDetailsElement | null;
+    if (!more) throw new Error('more menu missing');
+    more.open = true;
+    const btn = [...more.querySelectorAll('button')].find((el) => /Customize|Done editing/.test(el.textContent || ''));
+    if (!btn) throw new Error('Customize missing');
+    if (!/Done editing/.test(btn.textContent || '')) (btn as HTMLButtonElement).click();
+    for (let i = 0; i < 50; i += 1) {
+      const add = [...document.querySelectorAll('button, a')].some((el) => /Add widget/.test(el.textContent || ''));
+      if (add) return;
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+    }
+    throw new Error('edit mode Add widget missing');
+  });
+}
+
+async function openPicker(page: KillPage) {
+  await page.evaluate(() => {
+    const add = [...document.querySelectorAll('button, a')].find((el) => /Add widget/.test(el.textContent || ''));
+    if (!add) throw new Error('Add widget missing');
+    (add as HTMLElement).click();
+  });
+  await page.waitForSelector('.dashboard-home-picker', { timeout: 10000 });
+}
+
+async function addPickerWidget(page: KillPage, category: string, label: string) {
+  await page.evaluate((cat: string) => {
+    const tab = [...document.querySelectorAll('.dashboard-home-picker button')].find((el) => (el.textContent || '').trim() === cat);
+    if (!tab) throw new Error(`picker tab ${cat} missing`);
+    (tab as HTMLElement).click();
+  }, category);
+  await page.evaluate(async (want: string) => {
+    for (let i = 0; i < 50; i += 1) {
+      const card = [...document.querySelectorAll('.dashboard-home-picker button')].find((el) => {
+        const text = el.textContent || '';
+        return text.includes(want) && !text.includes('Added');
+      });
+      if (card) {
+        (card as HTMLElement).click();
+        return;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+    }
+    throw new Error(`picker widget ${want} missing`);
+  }, label);
+  await page.evaluate(async () => {
+    for (let i = 0; i < 40; i += 1) {
+      if (!document.querySelector('.dashboard-home-picker')) return;
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+    }
+  });
 }
 
 function navLabelsScript() {
@@ -353,50 +542,167 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     }
   }, 90000);
 
-  it('P1-paint: page bg and card bg match tokens, with no cream', async () => {
-    const page = await openPage({ width: 1280 });
-    await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
-    const paint = await page.evaluate(contrastScript);
-    expect(paint.pageBg, 'page bg matches --g-bg').toBe(paint.tokenBg);
-    expect(paint.cardBg, 'card bg matches --g-surface').toBe(paint.tokenSurface);
-    expect(CREAM.test(paint.pageBg), 'page bg is not cream').toBe(false);
-    expect(CREAM.test(paint.cardBg), 'card bg is not cream').toBe(false);
-    await page.close();
-  }, 60000);
+  it('P1-paint: every card plus the sheet match tokens, with no cream, at every width in view and edit', async () => {
+    for (const width of WIDTHS) {
+      const page = await openPage({ width });
+      await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
+      for (const mode of ['view', 'edit'] as const) {
+        if (mode === 'edit') await enterEdit(page);
+        const paint = await page.evaluate(measureScript) as DashMeasure;
+        expect(paint.pageBg, `page bg matches --g-bg at ${width} ${mode}`).toBe(paint.tokenBg);
+        expect(paint.sheetBg, `sheet bg matches --g-surface at ${width} ${mode}`).toBe(paint.tokenSurface);
+        expect(CREAM.test(paint.pageBg), `page bg is not cream at ${width} ${mode}`).toBe(false);
+        expect(CREAM.test(paint.sheetBg), `sheet bg is not cream at ${width} ${mode}`).toBe(false);
+        const surfaces = mode === 'view' ? paint.cardBgs : [...paint.cardBgs, ...paint.widgetBgs];
+        expect(surfaces.length, `widget surfaces present at ${width} ${mode}`).toBeGreaterThan(0);
+        for (const bg of paint.cardBgs) {
+          expect(CREAM.test(bg), `widget card is not cream at ${width} ${mode}`).toBe(false);
+          expect(bg, `widget card matches --g-surface at ${width} ${mode}`).toBe(paint.tokenSurface);
+        }
+      }
+      await page.close();
+    }
+  }, 180000);
 
-  it('P1-contrast: secondary-text ≥7:1, CTA ≥4.5:1, pill colours match ok tokens', async () => {
-    const page = await openPage({ width: 1280 });
-    await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
-    const paint = await page.evaluate(contrastScript);
-    expect(paint.secondary, 'secondary-text contrast').toBeGreaterThanOrEqual(7);
-    expect(paint.cta, 'CTA contrast').toBeGreaterThanOrEqual(4.5);
-    expect(paint.pillFg, 'pill ink is --g-ok').toBe(paint.tokenOk);
-    expect(paint.pillBg, 'pill fill is --g-ok-bg').toBe(paint.tokenOkBg);
-    await page.close();
-  }, 60000);
+  it('P1-contrast: every muted and secondary node ≥7:1, none below 4.5, real pills match tokens', async () => {
+    for (const width of WIDTHS) {
+      const page = await openPage({ width });
+      await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
+      for (const mode of ['view', 'edit'] as const) {
+        if (mode === 'edit') await enterEdit(page);
+        const paint = await page.evaluate(measureScript) as DashMeasure;
+        expect(paint.secondary.length, `secondary nodes at ${width} ${mode}`).toBeGreaterThan(0);
+        expect(paint.minSecondary, `secondary-text ≥7:1 at ${width} ${mode}`).toBeGreaterThanOrEqual(7);
+        const weak = paint.floor.filter((n) => n.ratio > 0 && n.ratio < 4.5);
+        expect(weak, `no text below 4.5:1 at ${width} ${mode}`).toEqual([]);
+        expect(paint.cta, `CTA contrast at ${width} ${mode}`).toBeGreaterThanOrEqual(4.5);
+        expect(paint.pills.length, `real compliance/status pills at ${width} ${mode}`).toBeGreaterThan(0);
+        expect(paint.greenOutsidePill, `no plain green compliance text at ${width} ${mode}`).toBe(0);
+        for (const pill of paint.pills) {
+          if (/\bpill-ok\b/.test(pill.cls)) {
+            expect(pill.fg, `ok pill ink at ${width} ${mode}`).toBe(paint.tokenOk);
+            expect(pill.bg, `ok pill fill at ${width} ${mode}`).toBe(paint.tokenOkBg);
+          }
+          if (/\bpill-warn\b/.test(pill.cls)) {
+            expect(pill.fg, `warn pill ink at ${width} ${mode}`).toBe(paint.tokenWarn);
+            expect(pill.bg, `warn pill fill at ${width} ${mode}`).toBe(paint.tokenWarnBg);
+          }
+          if (/\bpill-bad\b/.test(pill.cls)) {
+            expect(pill.fg, `bad pill ink at ${width} ${mode}`).toBe(paint.tokenBad);
+            expect(pill.bg, `bad pill fill at ${width} ${mode}`).toBe(paint.tokenBadBg);
+          }
+        }
+      }
+      if (width === 1280) {
+        const remove = await page.evaluate(() => {
+          const host = document.querySelector('[data-dashboard-widget-id="look-widget-compliance"]');
+          const btn = host?.querySelector('[title="Remove widget"], [aria-label^="Remove"]') as HTMLElement | null;
+          btn?.click();
+          return !!btn;
+        });
+        expect(remove, 'remove real compliance widget').toBe(true);
+        await page.evaluate(async () => {
+          for (let i = 0; i < 40; i += 1) {
+            if (!document.querySelector('[data-dashboard-widget-id="look-widget-compliance"]')) return;
+            await new Promise((resolve) => window.setTimeout(resolve, 50));
+          }
+        });
+        await openPicker(page);
+        await addPickerWidget(page, 'Intelligence', 'Compliance Deadlines');
+        await page.evaluate(async () => {
+          for (let i = 0; i < 50; i += 1) {
+            const visible = [...document.querySelectorAll('.dashboard-home-pill-ok')].some((el) => {
+              const s = getComputedStyle(el as HTMLElement);
+              const r = el.getBoundingClientRect();
+              return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+            });
+            if (visible) return;
+            await new Promise((resolve) => window.setTimeout(resolve, 50));
+          }
+          throw new Error('visible OK pill missing after adding empty compliance');
+        });
+        const empty = await page.evaluate(measureScript) as DashMeasure;
+        const ok = empty.pills.find((p) => /\bpill-ok\b/.test(p.cls));
+        expect(ok, 'empty compliance paints a real OK pill').toBeTruthy();
+        expect(ok?.fg, 'empty OK pill ink is --g-ok').toBe(empty.tokenOk);
+        expect(ok?.bg, 'empty OK pill fill is --g-ok-bg').toBe(empty.tokenOkBg);
+        expect(empty.greenOutsidePill, 'empty compliance is not plain green text').toBe(0);
+      }
+      await page.close();
+    }
+  }, 240000);
 
-  it('P1-dark: forced dark with allowDark false gives 0px on page and card', async () => {
-    const light = await openPage({ width: 390, theme: 'light', allowDark: false });
-    await light.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
-    const lightPaint = await light.evaluate(contrastScript);
-    await light.close();
+  it('P1-dark: forced dark with allowDark false gives 0px at 375/390/768/1024/1280', async () => {
+    for (const width of WIDTHS) {
+      const light = await openPage({ width, theme: 'light', allowDark: false });
+      await light.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
+      const lightShot = await light.evaluate(measureScript) as DashMeasure;
+      const lightDump = await light.evaluate(() => {
+        const vis = (el: Element) => {
+          const s = getComputedStyle(el as HTMLElement);
+          const r = el.getBoundingClientRect();
+          return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+        };
+        return [...document.querySelectorAll('body *')].filter(vis).map((el) => {
+          const s = getComputedStyle(el as HTMLElement);
+          return `${s.backgroundColor}|${s.color}|${s.borderColor}|${s.boxShadow}`;
+        }).join('\n');
+      });
+      await light.close();
 
-    const forced = await openPage({ width: 390, theme: 'dark', allowDark: false });
-    await forced.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
-    const forcedPaint = await forced.evaluate(contrastScript);
-    expect(forcedPaint.pageBg, 'forced-dark page bg').toBe(lightPaint.pageBg);
-    expect(forcedPaint.cardBg, 'forced-dark card bg').toBe(lightPaint.cardBg);
-    await forced.close();
-  }, 60000);
+      const forced = await openPage({ width, theme: 'dark', allowDark: false });
+      await forced.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
+      const forcedShot = await forced.evaluate(measureScript) as DashMeasure;
+      const forcedDump = await forced.evaluate(() => {
+        const vis = (el: Element) => {
+          const s = getComputedStyle(el as HTMLElement);
+          const r = el.getBoundingClientRect();
+          return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+        };
+        return [...document.querySelectorAll('body *')].filter(vis).map((el) => {
+          const s = getComputedStyle(el as HTMLElement);
+          return `${s.backgroundColor}|${s.color}|${s.borderColor}|${s.boxShadow}`;
+        }).join('\n');
+      });
+      expect(forcedDump, `forced-dark 0px at ${width}`).toBe(lightDump);
+      expect(forcedShot.pageBg, `forced-dark page bg at ${width}`).toBe(lightShot.pageBg);
+      expect(forcedShot.sheetBg, `forced-dark sheet bg at ${width}`).toBe(lightShot.sheetBg);
+      expect(forcedShot.cardBgs, `forced-dark cards at ${width}`).toEqual(lightShot.cardBgs);
+      await forced.close();
+    }
+  }, 180000);
 
   it('P1-overflow: scrollWidth plus max rect.right is 0 overflow at 375/390/768/1024/1280, including header', async () => {
     for (const width of WIDTHS) {
       const page = await openPage({ width });
       await page.waitForSelector('.shell-header', { timeout: 20000 });
-      const box = await page.evaluate(overflowScript);
-      expect(box.scrollWidth, `scrollWidth at ${width}`).toBeLessThanOrEqual(width);
-      expect(box.maxRight, `max rect.right at ${width}`).toBeLessThanOrEqual(width + 0.5);
+      for (const mode of ['view', 'edit'] as const) {
+        if (mode === 'edit') await enterEdit(page);
+        const box = await page.evaluate(overflowScript);
+        expect(box.scrollWidth, `scrollWidth at ${width} ${mode}`).toBeLessThanOrEqual(width);
+        expect(box.maxRight, `max rect.right at ${width} ${mode}`).toBeLessThanOrEqual(width + 0.5);
+      }
       await page.close();
     }
-  }, 90000);
+  }, 180000);
+
+  it('P1-hit: every interactive dashboard control is ≥44×44 at every width in view and edit', async () => {
+    for (const width of WIDTHS) {
+      const page = await openPage({ width });
+      await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
+      for (const mode of ['view', 'edit'] as const) {
+        if (mode === 'edit') await enterEdit(page);
+        const paint = await page.evaluate(measureScript) as DashMeasure;
+        expect(paint.hits.length, `interactive nodes at ${width} ${mode}`).toBeGreaterThan(0);
+        const small = paint.hits.filter((h) => h.w < 44 - 0.5 || h.h < 44 - 0.5);
+        expect(small, `all hits ≥44×44 at ${width} ${mode}`).toEqual([]);
+        expect(paint.minHit, `min hit at ${width} ${mode}`).toBeGreaterThanOrEqual(43.5);
+      }
+      await openPicker(page);
+      const picker = await page.evaluate(measureScript) as DashMeasure;
+      const pickerSmall = picker.hits.filter((h) => h.w < 44 - 0.5 || h.h < 44 - 0.5);
+      expect(pickerSmall, `picker hits ≥44×44 at ${width}`).toEqual([]);
+      await page.close();
+    }
+  }, 240000);
 });

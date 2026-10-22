@@ -103,7 +103,7 @@ export function WeatherWidget({ config, onConfigChange }: WidgetProps) {
         </div>
         <button
           onClick={() => setEditing(e => !e)}
-          className="text-[10px] text-blue-500 hover:underline"
+          className="min-h-[44px] min-w-[44px] px-1 text-[10px] text-blue-500 hover:underline"
         >
           {city}
         </button>
@@ -138,7 +138,7 @@ export function WeatherWidget({ config, onConfigChange }: WidgetProps) {
           <div className="text-4xl mb-1">{cond?.icon}</div>
           <div className="text-2xl font-bold text-[#1A1A1A]">{Math.round(weather.current.temperature_2m)}°C</div>
           <div className="text-xs text-gray-500">{cond?.label}</div>
-          <div className="flex gap-3 mt-2 text-[10px] text-gray-400">
+          <div className="flex gap-3 mt-2 text-[10px] text-[var(--g-ink-muted)]">
             <span>💨 {Math.round(weather.current.wind_speed_10m)} km/h</span>
             <span>💧 {weather.current.relative_humidity_2m}%</span>
           </div>
@@ -644,7 +644,7 @@ export function UpcomingJobsWidget({ config }: WidgetProps) {
           <CalIcon size={14} className="text-blue-500" />
           <span className="text-xs font-semibold text-[#4A5568]">Upcoming Jobs</span>
         </div>
-        <Link to="/schedule" className="text-[10px] text-blue-500 hover:underline">View all</Link>
+        <Link to="/schedule" className="min-h-[44px] min-w-[44px] inline-flex items-center text-[10px] text-blue-500 hover:underline">View all</Link>
       </div>
       {loading ? (
         <div className="flex-1 flex items-center justify-center text-xs text-gray-400">Loading…</div>
@@ -654,9 +654,9 @@ export function UpcomingJobsWidget({ config }: WidgetProps) {
         <div className="flex-1 overflow-auto space-y-1 -mx-1 px-1">
           {rows.map((job: any) => (
             <Link key={job.id} to="/schedule"
-              className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
+              className="flex items-center gap-2 min-h-[44px] px-1.5 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
               <div className="text-center shrink-0 w-9">
-                <div className="text-[10px] text-gray-400 uppercase">
+                <div className="text-[10px] text-[var(--g-ink-muted)] uppercase">
                   {job.scheduled_date ? safeFormatDate(job.scheduled_date, 'MMM') : '?'}
                 </div>
                 <div className="text-sm font-bold text-[#1A1A1A] leading-none">
@@ -665,7 +665,7 @@ export function UpcomingJobsWidget({ config }: WidgetProps) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium text-[#1A1A1A] truncate">{job.title}</p>
-                <p className="text-[10px] text-gray-400 truncate">
+                <p className="text-[10px] text-[var(--g-ink-muted)] truncate">
                   {job.start_time ? job.start_time.slice(0, 5) : ''}
                   {job.client_id && clientMap.get(job.client_id) ? ` · ${clientMap.get(job.client_id)}` : ''}
                 </p>
@@ -884,7 +884,7 @@ export function OutstandingInvoicesWidget({ config }: WidgetProps) {
           <Receipt size={14} className="text-blue-500" />
           <span className="text-xs font-semibold text-[#4A5568]">Invoices</span>
         </div>
-        <Link to="/invoices" className="text-[10px] text-blue-500 hover:underline">View all</Link>
+        <Link to="/invoices" className="min-h-[44px] min-w-[44px] inline-flex items-center text-[10px] text-blue-500 hover:underline">View all</Link>
       </div>
       {loading ? (
         <div className="flex-1 flex items-center justify-center text-xs text-gray-400">Loading…</div>

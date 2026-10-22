@@ -22,9 +22,6 @@ createRoot(rootEl).render(
     <ToastProvider>
       <MemoryRouter initialEntries={[cfg.path || '/?look=dashboard']}>
         <PathProbe />
-        <div className="dashboard-home" data-p1-probe="1" hidden>
-          <span className="dashboard-home-pill dashboard-home-pill-ok">OK</span>
-        </div>
         <DashboardPage />
       </MemoryRouter>
     </ToastProvider>

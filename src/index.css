@@ -12560,7 +12560,6 @@
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    color: var(--dashboard-home-muted);
     margin: 8px 0 0;
   }
 
@@ -12824,9 +12823,13 @@
 
   .dashboard-home-more > summary {
     list-style: none;
-    width: 32px;
-    height: 32px;
-    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
     padding: 0;
     border: none;
     border-radius: 12px;
@@ -12867,7 +12870,8 @@
     display: flex;
     align-items: center;
     width: 100%;
-    min-height: 32px;
+    min-height: 44px;
+    min-width: 44px;
     text-align: left;
     padding: 0 12px;
     border: none;
@@ -12933,7 +12937,6 @@
   }
 
   .dashboard-home-widget-card {
-    background: var(--dashboard-home-sheet);
     border: 1px solid var(--dashboard-home-line);
     border-radius: 16px;
     padding: 16px;
@@ -13021,6 +13024,10 @@
     font-family: var(--g-font-ui);
   }
 
+  .dashboard-home-widget-card {
+    background: var(--dashboard-home-sheet);
+  }
+
   .dashboard-home-widget-stack .dashboard-home-widget {
     padding: 12px 0;
     border-bottom: 1px solid var(--dashboard-home-line);
@@ -13071,15 +13078,32 @@
 
   .dashboard-home-widget .text-blue-500,
   .dashboard-home-widget .text-blue-600,
-  .dashboard-home-widget .text-\[\#2E75B6\] {
+  .dashboard-home-widget .text-\[\#2E75B6\],
+  .dashboard-home-widget .text-\[var\(--g-accent\)\] {
     color: var(--g-accent) !important;
   }
 
   .dashboard-home-widget a.text-\[10px\],
   .dashboard-home-widget a.text-blue-500,
-  .dashboard-home-widget a.text-\[\#2E75B6\] {
+  .dashboard-home-widget a.text-\[\#2E75B6\],
+  .dashboard-home-widget a.text-\[var\(--g-accent\)\] {
     color: var(--g-accent) !important;
     text-decoration: none;
+  }
+
+  .dashboard-home-widget .text-gray-400,
+  .dashboard-home-widget .text-gray-500 {
+    color: var(--dashboard-home-muted) !important;
+  }
+
+  .dashboard-home-widget a,
+  .dashboard-home-widget button,
+  .dashboard-home-widget summary,
+  .dashboard-home-widget input,
+  .dashboard-home-widget [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+    box-sizing: border-box;
   }
 
   .dashboard-home-widget .text-green-600,
@@ -13167,6 +13191,19 @@
   .dashboard-home-widget.is-dragging {
     box-shadow: none;
     outline: 1px solid var(--g-accent);
+  }
+
+  .dashboard-home-widget.is-editing button,
+  .dashboard-home-widget-resize {
+    min-width: 44px;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+
+  .dashboard-home-picker button {
+    min-height: 44px;
+    min-width: 44px;
+    box-sizing: border-box;
   }
 
   .dashboard-home-widget-empty-icon {
@@ -13276,6 +13313,7 @@
     display: inline-flex;
     align-items: center;
     min-height: 44px;
+    min-width: 44px;
     padding: 0 4px;
     color: var(--g-accent);
     font-family: var(--g-font-ui);
@@ -13503,15 +13541,31 @@
     align-items: center;
     justify-content: center;
     flex: 0 0 auto;
-    width: 24px;
-    height: 24px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    margin-left: -10px;
     margin-right: 2px;
     padding: 0;
-    background: var(--dashboard-home-sheet);
-    border: 2px solid var(--dashboard-home-muted);
+    background: none;
+    border: none;
     border-radius: 999px;
     color: #fff;
     cursor: pointer;
+  }
+
+  .reminders-tick::before {
+    content: '';
+    position: absolute;
+    inset: 10px;
+    border: 2px solid var(--dashboard-home-muted);
+    border-radius: 999px;
+    background: var(--dashboard-home-sheet);
+  }
+
+  .reminders-tick > svg {
+    position: relative;
   }
 
   .reminders-tick:hover,
@@ -13524,38 +13578,14 @@
     border-color: var(--g-inverse);
   }
 
-  /* The phone 44px touch rule grows the button; keep the ring itself at 24px inside it. */
-  @media (max-width: 768px) {
-    .reminders-tick {
-      width: 44px;
-      height: 44px;
-      margin-left: -10px;
-      border: none;
-      background: none;
-    }
+  .dashboard-home .reminders-tick[aria-pressed="true"] {
+    background: none;
+    border: none;
+  }
 
-    .reminders-tick::before {
-      content: '';
-      position: absolute;
-      inset: 10px;
-      border: 2px solid var(--dashboard-home-muted);
-      border-radius: 999px;
-      background: var(--dashboard-home-sheet);
-    }
-
-    .reminders-tick > svg {
-      position: relative;
-    }
-
-    .reminders-tick[aria-pressed="true"] {
-      background: none;
-      border: none;
-    }
-
-    .reminders-tick[aria-pressed="true"]::before {
-      background: var(--g-accent);
-      border-color: var(--g-accent);
-    }
+  .reminders-tick[aria-pressed="true"]::before {
+    background: var(--g-inverse);
+    border-color: var(--g-inverse);
   }
 
   .reminders-body {
@@ -13638,8 +13668,10 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
     border-radius: 10px;
     color: var(--dashboard-home-muted);
     cursor: pointer;
@@ -13671,7 +13703,8 @@
   .reminders-postpone-menu button {
     display: block;
     width: 100%;
-    min-height: 40px;
+    min-height: 44px;
+    min-width: 44px;
     padding: 0 12px;
     background: none;
     border: none;
@@ -22703,9 +22736,12 @@
   letter-spacing: 0;
   text-transform: none;
   font-variant: normal;
-  color: var(--g-ink-muted);
   margin: 0 0 8px;
   text-decoration: none;
+}
+
+.dashboard-home-label {
+  color: var(--dashboard-home-muted, var(--g-ink-muted));
 }
 
 .hub-inspections-group,
