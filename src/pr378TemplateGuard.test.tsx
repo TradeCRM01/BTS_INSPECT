@@ -60,7 +60,7 @@ import App from './App';
 import { AppShell } from './components/layout/AppShell';
 
 async function openField(container: HTMLElement) {
-  const btn = [...container.querySelectorAll('button')].find(b => (b.textContent || '').includes('Field Work'));
+  const btn = [...container.querySelectorAll('[data-shell-nav-group="Field"]')][0] as HTMLButtonElement | undefined;
   await act(async () => {
     btn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   });

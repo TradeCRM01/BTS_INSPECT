@@ -309,8 +309,10 @@ export function ComplianceDeadlinesWidget({ config }: WidgetProps) {
       ) : kind === 'loading' ? (
         <div className="flex-1 flex items-center justify-center text-xs text-gray-400">{copy}</div>
       ) : kind === 'empty' ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-xs text-green-600">
-          <CheckCircle size={18} className="mb-1" /> {copy}
+        <div className="flex-1 flex flex-col items-center justify-center gap-1.5 text-xs text-[var(--g-ink)]">
+          <CheckCircle size={18} className="mb-1 text-[var(--g-ok)]" />
+          <span>{copy}</span>
+          <span className="dashboard-home-pill dashboard-home-pill-ok">OK</span>
         </div>
       ) : (
         <div className="flex-1 overflow-auto -mx-1 px-1 space-y-1 min-h-0" data-compliance-deadlines="1">
@@ -322,8 +324,9 @@ export function ComplianceDeadlinesWidget({ config }: WidgetProps) {
               <AlertCircle size={14} className="text-[#EF4444] shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] font-medium text-[#1A1A1A] truncate">{item.title as string}</p>
-                <p className="text-[9px] text-[#EF4444] font-medium">
-                  Overdue · {due ? complianceDueDayLabel(due) : ''}
+                <p className="text-[9px] font-medium text-[var(--g-ink-muted)]">
+                  <span className="dashboard-home-pill dashboard-home-pill-bad">Overdue</span>
+                  {due ? ` · ${complianceDueDayLabel(due)}` : ''}
                 </p>
               </div>
             </Link>
@@ -338,8 +341,9 @@ export function ComplianceDeadlinesWidget({ config }: WidgetProps) {
               <Clock size={14} className="text-[#D97706] shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] font-medium text-[#1A1A1A] truncate">{item.title as string}</p>
-                <p className="text-[9px] text-[#D97706]">
-                  Due {due ? complianceDueDayLabel(due) : ''}{hint ? ` · ${hint}` : ''}
+                <p className="text-[9px] text-[var(--g-ink-muted)]">
+                  <span className="dashboard-home-pill dashboard-home-pill-warn">Due</span>
+                  {due ? ` ${complianceDueDayLabel(due)}` : ''}{hint ? ` · ${hint}` : ''}
                 </p>
               </div>
             </Link>

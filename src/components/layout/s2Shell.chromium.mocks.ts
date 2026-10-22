@@ -11,8 +11,14 @@ function cfg(): S2ShellCfg {
 
 export function useAuth() {
   return {
-    profile: { name: 'Field Audit', role: 'admin', company_id: 'c1' },
+    profile: {
+      id: '00000000-0000-0000-0000-000000000002',
+      name: 'Field Audit',
+      role: 'admin',
+      company_id: 'c1',
+    },
     company: {
+      id: '00000000-0000-0000-0000-000000000001',
       name: cfg().companyName || 'Northside Plumbing & Gas Maintenance Services Pty Ltd',
       report_theme: cfg().reportTheme ?? null,
     },

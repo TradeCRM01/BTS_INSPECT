@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { NAV_WORDS } from '../lib/brand';
 import { AppShell } from '../components/layout/AppShell';
 import { EmptyState, LoadingSpinner, PageError, useToast } from '../components/ui';
 import { ReminderRow } from '../components/reminders/ReminderRow';
@@ -941,7 +942,7 @@ export function DashboardPage() {
             <span className="dashboard-home-mark">Today</span>
           </header>
           <div className="dashboard-home-sheet-body">
-            <h1 className="ops-page-title dashboard-home-hero">Dashboard</h1>
+            <h1 className="ops-page-title dashboard-home-hero">{NAV_WORDS.today}</h1>
             <p className="hub-look-eyebrow dashboard-home-label dashboard-home-whisper">{whisper}</p>
 
             <div className="dashboard-home-tools">
