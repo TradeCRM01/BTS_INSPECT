@@ -7,6 +7,7 @@
  *
  * Painted values only. Reading a CSS variable never counts as a pass.
  */
+import { execSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
@@ -33,6 +34,12 @@ const SHARED = [
   NAV_WORDS.schedule,
   NAV_WORDS.more,
 ];
+const MAIN_SHA = '7e5394dfedf263abdc835f89c8bdb9c70e4449b3';
+const PROD_REMINDER_TITLES = [
+  'Call Mia about quote p2b-3mxz — delete ok',
+  '#0137 · Replace kitchen mixer and check the taps',
+  'Ring Megan re valve Tue 3pm — delete ok 375',
+] as const;
 
 type KillPage = {
   goto: (url: string) => Promise<unknown>;
@@ -76,12 +83,30 @@ async function launchBrowser() {
   throw new Error(`chromium launch failed: ${errors.join('; ')}`);
 }
 
+function readCssDir(dir: string): string {
+  const files = readdirSync(dir).filter((name) => name.endsWith('.css'));
+  if (!files.length) throw new Error(`no CSS in ${dir}`);
+  return files.map((name) => readFileSync(join(dir, name), 'utf8')).join('\n');
+}
+
 function readDistCss(): string {
   const dir = join(process.cwd(), 'dist/assets');
   if (!existsSync(dir)) throw new Error('dist/assets missing; run npm run build');
-  const files = readdirSync(dir).filter((name) => name.endsWith('.css'));
-  if (!files.length) throw new Error('no dist CSS; run npm run build');
-  return files.map((name) => readFileSync(join(dir, name), 'utf8')).join('\n');
+  return readCssDir(dir);
+}
+
+function ensureMainDistCss(): string {
+  const cached = process.env.P1_MAIN_DIST || join(tmpdir(), 'p1-main-7e5394df/dist/assets');
+  if (existsSync(cached) && readdirSync(cached).some((name) => name.endsWith('.css'))) {
+    return readCssDir(cached);
+  }
+  const wt = join(tmpdir(), 'p1-main-7e5394df');
+  if (!existsSync(join(wt, 'package.json'))) {
+    execSync(`git worktree add --detach ${wt} ${MAIN_SHA}`, { cwd: process.cwd(), stdio: 'pipe' });
+    execSync(`ln -sfn ${join(process.cwd(), 'node_modules')} ${join(wt, 'node_modules')}`);
+  }
+  execSync('npm run build', { cwd: wt, stdio: 'pipe' });
+  return readCssDir(join(wt, 'dist/assets'));
 }
 
 async function bundleDashboard(): Promise<string> {
@@ -137,11 +162,13 @@ function fixtureHtml(args: {
 }): string {
   const allow = args.allowDark ? 'true' : 'false';
   const cfg = JSON.stringify({ path: args.path });
+  const geist = pathToFileURL(join(process.cwd(), 'public/fonts/Geist-Variable.woff2')).href;
   return `<!doctype html>
 <html data-theme="${args.theme}" data-allow-dark="${allow}">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>@font-face{font-family:'Geist';src:url('${geist}') format('woff2');font-weight:100 900;font-style:normal;font-display:block}</style>
 <style>${args.css}</style>
 </head>
 <body>
@@ -154,11 +181,13 @@ function fixtureHtml(args: {
 
 let browser: Awaited<ReturnType<typeof launchBrowser>>;
 let distCss = '';
+let mainCss = '';
 let dashJs = '';
 const temps: string[] = [];
 
 beforeAll(async () => {
   distCss = readDistCss();
+  mainCss = ensureMainDistCss();
   dashJs = await bundleDashboard();
   browser = await launchBrowser();
 }, 180000);
@@ -173,10 +202,11 @@ async function openPage(args: {
   theme?: 'light' | 'dark';
   allowDark?: boolean;
   path?: string;
+  css?: string;
 }): Promise<KillPage> {
   const html = fixtureHtml({
     js: dashJs,
-    css: distCss,
+    css: args.css ?? distCss,
     theme: args.theme ?? 'light',
     allowDark: args.allowDark ?? false,
     path: args.path ?? '/?look=dashboard',
@@ -191,7 +221,22 @@ async function openPage(args: {
   });
   await page.goto(pathToFileURL(file).href);
   await page.waitForSelector('.shell-header', { timeout: 20000 });
+  await page.evaluate(async () => { await document.fonts.ready; });
   return page;
+}
+
+async function applyProdTitles(page: KillPage) {
+  await page.evaluate(async (titles: string[]) => {
+    await document.fonts.ready;
+    const nodes = [...document.querySelectorAll('.reminders-title')];
+    titles.forEach((title, i) => {
+      if (nodes[i]) nodes[i].textContent = title;
+    });
+    await document.fonts.ready;
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+  }, [...PROD_REMINDER_TITLES]);
 }
 
 type DashMeasure = {
@@ -314,7 +359,7 @@ function measureScript() {
     if ((el as HTMLButtonElement).disabled) return false;
     return true;
   }) as HTMLElement[];
-  const chrome = '.dashboard-home-sheet-bar, .dashboard-home-pill, .reminders-chip, .dashboard-home-primary, .btn-primary';
+  const chrome = '.dashboard-home-pill, .reminders-chip, .dashboard-home-primary, .btn-primary';
   const floor = textEls.filter((el) => {
     if (el.closest(chrome)) return false;
     if (el.tagName === 'SVG' || el.closest('svg')) return false;
@@ -373,16 +418,55 @@ function measureScript() {
     };
   });
   const rights = [...document.querySelectorAll('body *')].filter(vis).map((el) => el.getBoundingClientRect().right);
-  const NAVY = /rgba?\(\s*10,\s*37,\s*64(?:\s*[,/]\s*1(?:\.0+)?)?\s*\)|rgba?\(\s*46,\s*117,\s*182(?:\s*[,/]\s*1(?:\.0+)?)?\s*\)|#0a2540|#2e75b6/i;
-  const CREAM_PAINT = /rgba?\(\s*245,\s*240,\s*230(?:\s*[,/]\s*1(?:\.0+)?)?\s*\)|rgba?\(\s*255,\s*253,\s*248(?:\s*[,/]\s*1(?:\.0+)?)?\s*\)|#f5f0e6|#fffdf8/i;
-  const paintHits = (re: RegExp) => [...document.querySelectorAll('.dashboard-home.ops-page, .dashboard-home.ops-page *')]
+  const closeRgb = (c: { r: number; g: number; b: number }, r: number, g: number, b: number) =>
+    Math.abs(c.r - r) < 2 && Math.abs(c.g - g) < 2 && Math.abs(c.b - b) < 2;
+  const colorsIn = (val: string) => {
+    const out: Array<{ r: number; g: number; b: number; a: number }> = [];
+    if (!val) return out;
+    const rgbRe = /rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*[,/]\s*([\d.]+%?))?\s*\)/gi;
+    let m: RegExpExecArray | null;
+    while ((m = rgbRe.exec(val))) {
+      const rawA = m[4];
+      const a = rawA == null ? 1 : (String(rawA).endsWith('%') ? parseFloat(rawA) / 100 : Number(rawA));
+      out.push({ r: Number(m[1]), g: Number(m[2]), b: Number(m[3]), a: Number.isFinite(a) ? a : 1 });
+    }
+    const hexRe = /#([0-9a-f]{3,8})\b/gi;
+    while ((m = hexRe.exec(val))) {
+      let h = m[1];
+      if (h.length === 3 || h.length === 4) h = h.split('').map((ch) => ch + ch).join('');
+      const r = parseInt(h.slice(0, 2), 16);
+      const g = parseInt(h.slice(2, 4), 16);
+      const b = parseInt(h.slice(4, 6), 16);
+      const a = h.length >= 8 ? parseInt(h.slice(6, 8), 16) / 255 : 1;
+      out.push({ r, g, b, a });
+    }
+    return out;
+  };
+  const isNavy = (c: { r: number; g: number; b: number; a: number }) =>
+    c.a > 0.01 && (closeRgb(c, 10, 37, 64) || closeRgb(c, 46, 117, 182));
+  const isCream = (c: { r: number; g: number; b: number; a: number }) =>
+    c.a > 0.01 && (closeRgb(c, 245, 240, 230) || closeRgb(c, 255, 253, 248));
+  const paintHits = (want: 'navy' | 'cream') => [...document.querySelectorAll('.dashboard-home.ops-page, .dashboard-home.ops-page *')]
     .filter(vis)
     .flatMap((node) => {
       const el = node as HTMLElement;
       const s = getComputedStyle(el);
       const name = (el.getAttribute('aria-label') || el.textContent || el.className || '').toString().trim().slice(0, 48);
-      return ([['color', s.color], ['background', s.backgroundColor], ['border', s.borderColor]] as const)
-        .filter(([, val]) => re.test(val))
+      const props: Array<[string, string]> = [
+        ['color', s.color],
+        ['background', s.backgroundColor],
+        ['border', s.borderColor],
+      ];
+      if (s.boxShadow && s.boxShadow !== 'none') props.push(['box-shadow', s.boxShadow]);
+      if (s.outlineStyle && s.outlineStyle !== 'none' && parseFloat(s.outlineWidth || '0') > 0) {
+        props.push(['outline', s.outlineColor || s.outline]);
+      }
+      if (s.backgroundImage && s.backgroundImage !== 'none') props.push(['background-image', s.backgroundImage]);
+      if (s.fill && s.fill !== 'none') props.push(['fill', s.fill]);
+      if (s.stroke && s.stroke !== 'none') props.push(['stroke', s.stroke]);
+      const match = want === 'navy' ? isNavy : isCream;
+      return props
+        .filter(([, val]) => colorsIn(val).some(match))
         .map(([prop, val]) => ({ name, prop, val }));
     });
   const reminderLines = [...document.querySelectorAll('.reminders-title, .reminders-meta')].filter(vis).map((node) => {
@@ -415,8 +499,8 @@ function measureScript() {
     greenOutsidePill,
     hits,
     minHit: hits.length ? Math.min(...hits.map((h) => Math.min(h.w, h.h))) : 0,
-    navyHits: paintHits(NAVY),
-    creamHits: paintHits(CREAM_PAINT),
+    navyHits: paintHits('navy'),
+    creamHits: paintHits('cream'),
     reminderLines,
     innerWidth: window.innerWidth,
     scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
@@ -756,29 +840,34 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     }
   }, 240000);
 
-  it('P1-reminder-lines: reminder text line counts at 375 and 390 equal the r1 wrap', async () => {
-    const expected: Record<number, Record<string, number>> = {
-      375: {
-        'Call Mia about quote follow-up before Friday': 2,
-        '#0137 · Replace kitchen mixer today': 2,
-        'Ring Megan re valve Tuesday morning on site': 2,
-      },
-      390: {
-        'Call Mia about quote follow-up before Friday': 2,
-        '#0137 · Replace kitchen mixer today': 2,
-        'Ring Megan re valve Tuesday morning on site': 2,
-      },
-    };
+  it('P1-reminder-lines: reminder text line counts at 375 and 390 equal the main wrap', async () => {
+    const derived: Record<number, Record<string, number>> = {};
     for (const width of [375, 390] as const) {
+      const mainPage = await openPage({ width, css: mainCss });
+      await mainPage.waitForSelector('.reminders-title', { timeout: 20000 });
+      await applyProdTitles(mainPage);
+      const mainPaint = await mainPage.evaluate(measureScript) as DashMeasure;
+      const expected: Record<string, number> = {};
+      for (const node of mainPaint.reminderLines) {
+        if ((PROD_REMINDER_TITLES as readonly string[]).includes(node.text)) expected[node.text] = node.lines;
+      }
+      expect(Object.keys(expected).length, `main reminder titles at ${width}`).toBe(PROD_REMINDER_TITLES.length);
+      derived[width] = expected;
+      await mainPage.close();
+
       const page = await openPage({ width });
       await page.waitForSelector('.reminders-title', { timeout: 20000 });
+      await applyProdTitles(page);
       const paint = await page.evaluate(measureScript) as DashMeasure;
-      const titles = paint.reminderLines.filter((n) => expected[width][n.text] != null);
-      expect(titles.length, `reminder titles at ${width}`).toBe(3);
-      for (const node of titles) {
-        expect(node.lines, `lines for "${node.text}" at ${width}`).toBe(expected[width][node.text]);
+      const titles = paint.reminderLines.filter((n) => expected[n.text] != null);
+      expect(titles.length, `reminder titles at ${width}`).toBe(PROD_REMINDER_TITLES.length);
+      for (const title of PROD_REMINDER_TITLES) {
+        const node = titles.find((n) => n.text === title);
+        expect(node, `painted title "${title}" at ${width}`).toBeTruthy();
+        expect(node!.lines, `lines for "${title}" at ${width}`).toBe(expected[title]);
       }
       await page.close();
     }
-  }, 60000);
+    writeFileSync('/tmp/p1-r4-main-lines.json', JSON.stringify(derived, null, 2));
+  }, 90000);
 });
