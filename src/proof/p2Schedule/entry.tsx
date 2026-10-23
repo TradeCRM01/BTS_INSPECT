@@ -395,6 +395,8 @@ function chips(): ChipProbe[] {
     const ref = chip.querySelector('.hub-week-chip-ref');
     const desc = chip.querySelector('.hub-week-chip-desc');
     const refBox = ref ? textBox(ref) : null;
+    // The text range is the font's content area, taller than a tight line box, so only the run across is compared.
+    const clip = ref ? chipClip(ref, chip) : null;
     const walker = document.createTreeWalker(chip, NodeFilter.SHOW_TEXT);
     let textNodes = 0;
     for (let node = walker.nextNode(); node; node = walker.nextNode()) if ((node.textContent ?? '').trim()) textNodes += 1;
@@ -403,7 +405,7 @@ function chips(): ChipProbe[] {
       ref: (ref?.textContent ?? '').replace(/\s+/g, ' ').trim(),
       refLines: ref ? lines(ref).length : 0,
       refEllipsis: !!ref && getComputedStyle(ref).textOverflow === 'ellipsis',
-      refFits: !!ref && !!refBox && within(refBox, chipClip(ref, chip)),
+      refFits: !!refBox && !!clip && refBox.left >= clip.left - 0.5 && refBox.right <= clip.right + 0.5,
       desc: desc ? {
         ellipsis: getComputedStyle(desc).textOverflow === 'ellipsis',
         truncated: desc.scrollWidth > desc.clientWidth || desc.scrollHeight > desc.clientHeight,
