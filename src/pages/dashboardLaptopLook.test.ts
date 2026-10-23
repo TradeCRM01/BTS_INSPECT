@@ -20,8 +20,9 @@ describe('dashboard laptop LOOK — quote paper, overflow on the sheet', () => {
 
     expect(page).toContain('dashboard-home');
     expect(page).toContain('dashboard-home-sheet');
-    expect(page).toContain('dashboard-home-sheet-bar');
-    expect(page).toContain('dashboard-home-mark">{NAV_WORDS.today}');
+    expect(page).not.toContain('<header className="dashboard-home-sheet-bar">');
+    expect(page).not.toContain('dashboard-home-mark">{NAV_WORDS.today}');
+    expect(src('src/pages/TodayBoardView.tsx')).toContain('ops-page-title dashboard-home-hero today-title">{NAV_WORDS.today}');
     expect(page).toContain('dashboard-home-sheet-body');
     expect(page).toContain('dashboard-home-whisper');
     expect(page).toContain('dashboard-home-tools');

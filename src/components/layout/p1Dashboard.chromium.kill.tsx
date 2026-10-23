@@ -2052,7 +2052,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     }
   }, 180000);
 
-  it('P1-today-mark: changing NAV_WORDS.today changes the black bar text', async () => {
+  it('P1-today-mark: changing NAV_WORDS.today changes the h1 text', async () => {
     const brandPath = join(process.cwd(), 'src/lib/brand.ts');
     const orig = readFileSync(brandPath, 'utf8');
     try {
@@ -2061,12 +2061,14 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       const js = await bundleDashboard();
       writeFileSync(brandPath, orig);
       const page = await openPage({ width: 375, js });
-      await page.waitForSelector('.dashboard-home-mark', { timeout: 20000 });
+      await page.waitForSelector('h1.today-title, h1.dashboard-home-hero', { timeout: 20000 });
       const mark = await page.evaluate(() =>
-        (document.querySelector('.dashboard-home-mark')?.textContent || '').trim(),
+        (document.querySelector('h1.today-title, h1.dashboard-home-hero')?.textContent || '').trim(),
       );
+      const bar = await page.evaluate(() => document.querySelector('.dashboard-home-sheet-bar'));
       await page.close();
-      expect(mark, 'black bar follows NAV_WORDS.today').toBe('Tonight');
+      expect(mark, 'h1 follows NAV_WORDS.today').toBe('Tonight');
+      expect(bar, 'Today has no black bar').toBeNull();
     } finally {
       writeFileSync(brandPath, orig);
     }

@@ -1052,9 +1052,6 @@ export function DashboardPage() {
     <AppShell>
       <div className="ops-page dashboard-home is-day-open is-today-board">
         <article className="dashboard-home-sheet" data-dashboard-home="1">
-          <header className="dashboard-home-sheet-bar">
-            <span className="dashboard-home-mark">{NAV_WORDS.today}</span>
-          </header>
           <div className="dashboard-home-sheet-body">
             <div data-need-crew-count={needCrewCount} className="hub-look-eyebrow dashboard-home-label dashboard-home-whisper today-sr">
               {NAV_WORDS.today}

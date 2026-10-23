@@ -152,7 +152,8 @@ describe('signed-in dashboard document sheet look', () => {
     expect(page).toContain('dashboard-home');
     expect(page).toContain('is-day-open');
     expect(page).toContain('dashboard-home-sheet');
-    expect(page).toContain('dashboard-home-sheet-bar');
+    expect(page).not.toContain('<header className="dashboard-home-sheet-bar">');
+    expect(page).not.toContain('dashboard-home-mark">{NAV_WORDS.today}');
     expect(page).toContain('dashboard-home-sheet-body');
     expect(src('src/pages/TodayBoardView.tsx')).toContain('dashboard-home-hero');
     expect(page).toContain('dashboard-home-label');
