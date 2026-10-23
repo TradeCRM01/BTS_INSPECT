@@ -13049,6 +13049,16 @@
     font-family: var(--g-font-ui);
   }
 
+  .agent-ask-input {
+    color: var(--g-ink);
+    background: var(--g-surface);
+  }
+
+  .agent-ask-input::placeholder {
+    color: var(--g-ink-muted);
+    opacity: 1;
+  }
+
   .dashboard-home-widget-ink.is-editing {
     padding-top: 28px;
   }

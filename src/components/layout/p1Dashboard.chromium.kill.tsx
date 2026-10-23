@@ -2246,4 +2246,61 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     expect(box.cards, 'mutant still paints widgets').toBeGreaterThan(0);
     expect(box.maxOverlap, 'reverted padding overlaps card text').toBeGreaterThan(0);
   }, 120000);
+
+  it('C11 Ask the agent placeholder is >=4.5:1', async () => {
+    const page = await openPage({ width: 1024, path: '/?look=dashboard' });
+    const box = await page.evaluate(() => {
+      const input = document.createElement('input');
+      input.placeholder = 'Ask the agent…';
+      input.className = 'agent-ask-input';
+      document.body.appendChild(input);
+      const fg = getComputedStyle(input, '::placeholder').color;
+      const bg = getComputedStyle(input).backgroundColor;
+      const parse = (value: string) => {
+        const m = value.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+        if (!m) return null;
+        const lin = (c: number) => {
+          const x = c / 255;
+          return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+        };
+        return 0.2126 * lin(Number(m[1])) + 0.7152 * lin(Number(m[2])) + 0.0722 * lin(Number(m[3]));
+      };
+      const a = parse(fg);
+      const b = parse(bg);
+      const ratio = a == null || b == null ? 0 : (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+      return { fg, bg, ratio };
+    });
+    await page.close();
+    expect(box.ratio, `placeholder ${box.fg} on ${box.bg}`).toBeGreaterThanOrEqual(4.5);
+  }, 120000);
+
+  it('C11 mutant: the old placeholder colour drops under 4.5:1', async () => {
+    const page = await openPage({
+      width: 1024,
+      path: '/?look=dashboard',
+      css: `${distCss}.agent-ask-input::placeholder{color:#9CA3AF!important}`,
+    });
+    const ratio = await page.evaluate(() => {
+      const input = document.createElement('input');
+      input.placeholder = 'Ask the agent…';
+      input.className = 'agent-ask-input';
+      document.body.appendChild(input);
+      const fg = getComputedStyle(input, '::placeholder').color;
+      const bg = getComputedStyle(input).backgroundColor;
+      const parse = (value: string) => {
+        const m = value.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+        if (!m) return null;
+        const lin = (c: number) => {
+          const x = c / 255;
+          return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+        };
+        return 0.2126 * lin(Number(m[1])) + 0.7152 * lin(Number(m[2])) + 0.0722 * lin(Number(m[3]));
+      };
+      const a = parse(fg);
+      const b = parse(bg);
+      return a == null || b == null ? 0 : (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    });
+    await page.close();
+    expect(ratio, 'old #9CA3AF placeholder stays under 4.5:1').toBeLessThan(4.5);
+  }, 120000);
 });
