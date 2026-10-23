@@ -72,6 +72,31 @@ describe('jobStatusPill D1', () => {
       scheduled_date: '2026-10-19',
       assigned_team: [],
     }).label).not.toBe('Booked');
+    expect(jobStatusPill({
+      status: 'on_hold',
+      scheduled_date: '2026-10-19',
+      assigned_team: [],
+    })).toMatchObject({ kind: 'needs_crew', label: JOB_PILL_NEEDS_CREW });
+    expect(jobStatusPill({
+      status: 'awaiting_parts',
+      scheduled_date: '2026-10-19',
+      assigned_team: ['a'],
+    })).toMatchObject({ kind: 'unknown', label: 'Awaiting parts' });
+    expect(jobStatusPill({
+      status: 'awaiting_parts',
+      scheduled_date: '2026-10-19',
+      assigned_team: ['a'],
+    }).label).not.toBe('Scheduled');
+    expect(jobStatusPill({
+      status: 'awaiting_parts',
+      scheduled_date: '2026-10-19',
+      assigned_team: ['a'],
+    }).label).not.toBe('Booked');
+    expect(jobStatusPill({
+      status: 'on_hold',
+      scheduled_date: null,
+      assigned_team: [],
+    })).toMatchObject({ kind: 'unknown', label: 'On hold' });
     expect(JOB_PILL_SET_A_DATE).toBe('Set a date');
   });
 
