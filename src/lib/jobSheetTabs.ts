@@ -17,6 +17,28 @@ export type JobSheetTab = (typeof JOB_SHEET_TABS)[number]['id'];
 
 export const JOB_SHEET_DEFAULT_TAB: JobSheetTab = 'overview';
 export const JOB_SHEET_TAB_PARAM = 'tab';
+export const JOB_SHEET_PEOPLE_LABEL = 'People';
+
+export function jobSheetPaperworkCount(input: {
+  jhaCount: number;
+  take5Count: number;
+  inspectionCount: number;
+  quoteCount: number;
+  invoiceCount: number;
+}): number {
+  return input.jhaCount + input.take5Count + input.inspectionCount + input.quoteCount + input.invoiceCount;
+}
+
+/** Hidden at 0. Hidden while the query is still held. Visit notes never count. */
+export function jobSheetTabCountText(count: number, held = false): string | null {
+  if (held || count <= 0) return null;
+  return String(count);
+}
+
+export function jobSheetTabLabel(base: string, count: number, held = false): string {
+  const n = jobSheetTabCountText(count, held);
+  return n ? `${base} ${n}` : base;
+}
 
 /** Section id (the DOM id or pane key) -> the tab that shows it. One table, no scattered conditionals. */
 export const JOB_SHEET_SECTION_TAB = {

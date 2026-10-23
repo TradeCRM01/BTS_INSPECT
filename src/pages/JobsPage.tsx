@@ -16,6 +16,7 @@ import { formatJobRef, withParentJobNumbers } from '../lib/jobRef';
 import { jobsListCustomer, jobsListPhoneNextLabel, jobsListPhoneRow, jobsListTitle } from '../lib/jobsListRow';
 import { jobCrewScheduleNeedsCrewClass, jobCrewScheduleStatus } from '../lib/jobCrewScheduleStatus';
 import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
+import { chunkIds } from '../lib/jobIdBatch';
 import { listCountWhisper, listQueryBusy } from '../lib/listQueryReady';
 import { Plus, Briefcase, MoreHorizontal, MessageSquare } from 'lucide-react';
 import {
@@ -49,6 +50,7 @@ import { resolveTenantTimeZone } from '../lib/tenantTimeZone';
 type JobRowModel = JobWithClient & {
   cover_photo_url: string | null;
   docs: JobDocChip[];
+  extrasError?: boolean;
 };
 
 type StatusFilter = 'all' | JobStatus;
@@ -474,12 +476,15 @@ export function JobsPage() {
       const clientIds = [...new Set(jobs.map(j => j.client_id).filter(Boolean))] as string[];
       const clientMap = new Map<string, Client>();
       if (clientIds.length > 0) {
-        const { data: clientsData } = await supabase
-          .from('clients')
-          .select('*')
-          .in('id', clientIds);
-        for (const c of clientsData ?? []) {
-          clientMap.set(c.id, c as Client);
+        for (const batch of chunkIds(clientIds)) {
+          const { data: clientsData, error: clientsError } = await supabase
+            .from('clients')
+            .select('*')
+            .in('id', batch);
+          if (clientsError) throw clientsError;
+          for (const c of clientsData ?? []) {
+            clientMap.set(c.id, c as Client);
+          }
         }
       }
 
@@ -489,19 +494,19 @@ export function JobsPage() {
         client_phone: j.client_id ? clientMap.get(j.client_id)?.phone ?? null : null,
         client_address: j.client_id ? clientMap.get(j.client_id)?.address ?? null : null,
       })));
-      let photoByJob = new Map<string, string>();
       let docsByJob = new Map<string, JobDocChip[]>();
+      let extrasError = false;
       try {
         const extras = await loadJobCardExtras(withClients);
-        photoByJob = extras.photoByJob;
         docsByJob = extras.docsByJob;
       } catch {
-        // Evidence photos / attached docs stay optional. The list is rows, not posters.
+        extrasError = true;
       }
       return withClients.map(j => ({
         ...j,
-        cover_photo_url: photoByJob.get(j.id) ?? null,
-        docs: docsByJob.get(j.id) ?? [],
+        cover_photo_url: null,
+        docs: extrasError ? [] : docsByJob.get(j.id) ?? [],
+        extrasError,
       }));
     },
     enabled: !!profile && !lookJobsList && !lookP307 && !lookCrewS8dSeed && !lookEnquirySeed,

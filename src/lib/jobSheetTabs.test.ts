@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   JOB_SHEET_PAPERWORK_GROUPS,
+  JOB_SHEET_PEOPLE_LABEL,
   JOB_SHEET_SECTION_TAB,
   JOB_SHEET_TABS,
   isJobSheetTab,
   jobSheetGroupLabel,
   jobSheetOverviewRows,
+  jobSheetPaperworkCount,
+  jobSheetTabCountText,
   jobSheetTabFor,
+  jobSheetTabLabel,
   readJobSheetTab,
   writeJobSheetTab,
 } from './jobSheetTabs';
@@ -306,5 +310,23 @@ describe('jobSheetOverviewRows', () => {
     ]);
     expect(rows[0].meta).toBe('Sat 12 Sep · A, B');
     expect(rows[2].status).toBe('3 notes');
+  });
+});
+
+describe('job sheet tab counts D5', () => {
+  it('counts paperwork without visit notes and hides 0 or held numbers', () => {
+    expect(JOB_SHEET_PEOPLE_LABEL).toBe('People');
+    expect(jobSheetPaperworkCount({
+      jhaCount: 1,
+      take5Count: 0,
+      inspectionCount: 0,
+      quoteCount: 1,
+      invoiceCount: 0,
+    })).toBe(2);
+    expect(jobSheetTabCountText(0)).toBeNull();
+    expect(jobSheetTabCountText(4, true)).toBeNull();
+    expect(jobSheetTabLabel('Paperwork', 4)).toBe('Paperwork 4');
+    expect(jobSheetTabLabel('Materials', 4)).toBe('Materials 4');
+    expect(jobSheetTabLabel('Materials', 0)).toBe('Materials');
   });
 });
