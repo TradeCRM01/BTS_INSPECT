@@ -74,7 +74,7 @@ function payload(overrides: Partial<Record<string, string>> = {}): Record<string
   return {
     AccountSid: 'AC111',
     MessageSid: 'SM111',
-    From: '+61400000000',
+    From: '+61418893602',
     To: '+15555550101',
     Body: 'Can somebody call me?',
     ...overrides,
@@ -188,8 +188,8 @@ describe('Twilio inbound webhook', () => {
 
     expect(response.status).toBe(200);
     expect(store.messages.get('SM222')?.companyId).toBe('company-b');
-    expect(store.preferences.get('company-b:+61400000000')).toBe('opted_out');
-    expect(store.preferences.has('company-a:+61400000000')).toBe(false);
+    expect(store.preferences.get('company-b:+61418893602')).toBe('opted_out');
+    expect(store.preferences.has('company-a:+61418893602')).toBe(false);
   });
 
   it('applies STOP synchronously before a queued message can be claimed', async () => {
@@ -198,7 +198,7 @@ describe('Twilio inbound webhook', () => {
     store.outbox.push({
       id: 'out-1',
       companyId: 'company-a',
-      to: '+61400000000',
+      to: '+61418893602',
       state: 'queued',
     });
 
@@ -212,7 +212,7 @@ describe('Twilio inbound webhook', () => {
       dependencies,
     );
 
-    expect(store.preferences.get('company-a:+61400000000')).toBe('opted_out');
+    expect(store.preferences.get('company-a:+61418893602')).toBe('opted_out');
     expect(store.preferenceTransitions).toBe(1);
     expect(store.outbox[0]?.state).toBe('cancelled');
     expect(store.claim()).toBeUndefined();
