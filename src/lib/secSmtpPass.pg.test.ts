@@ -366,6 +366,87 @@ unix_socket_directories = '${sockDir}'
     runSql(`UPDATE public.email_settings SET smtp_pass = '${SECRET_A}' WHERE company_id = '${COMPANY_A}'`);
   });
 
+  it('denies a crew member calling email_smtp_set_pass', () => {
+    const crew = asRole('authenticated', CREW_A, `SELECT public.email_smtp_set_pass('sec-smtp-crew-wipe-5a106e2d')`);
+    expect(crew).toMatch(/^42501\|/);
+    expect(runSql(`SELECT smtp_pass FROM public.email_settings WHERE company_id = '${COMPANY_A}'`)).toBe(SECRET_A);
+  });
+
+  it('email_smtp_set_pass takes only p_pass', () => {
+    const args = runSql(`
+      SELECT string_agg(pronargs::text, ',' ORDER BY pronargs)
+        FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname = 'public'
+         AND p.proname = 'email_smtp_set_pass'
+    `);
+    expect(args).toBe('1');
+  });
+
+  it('email_smtp_set_pass writes only the caller company', () => {
+    expect(runSql(`SELECT smtp_pass FROM public.email_settings WHERE company_id = '${COMPANY_B}'`)).toBe(SECRET_B);
+    const admin = asRole('authenticated', ADMIN_A, `SELECT public.email_smtp_set_pass('sec-smtp-a-only-5a106e2d')`);
+    expect(admin).toMatch(/^00000\|/);
+    expect(runSql(`SELECT smtp_pass FROM public.email_settings WHERE company_id = '${COMPANY_A}'`)).toBe('sec-smtp-a-only-5a106e2d');
+    expect(runSql(`SELECT smtp_pass FROM public.email_settings WHERE company_id = '${COMPANY_B}'`)).toBe(SECRET_B);
+    runSql(`UPDATE public.email_settings SET smtp_pass = '${SECRET_A}' WHERE company_id = '${COMPANY_A}'`);
+  });
+
+  it('pins SECURITY DEFINER on email_smtp_set_pass', () => {
+    const definer = runSql(`
+      SELECT prosecdef::text
+        FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname = 'public'
+         AND p.proname = 'email_smtp_set_pass'
+    `);
+    expect(definer).toMatch(/^(t|true)$/);
+  });
+
+  it('pins search_path on email_smtp_set_pass', () => {
+    const config = runSql(`
+      SELECT array_to_string(proconfig, ',')
+        FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname = 'public'
+         AND p.proname = 'email_smtp_set_pass'
+    `);
+    expect(config).toContain('search_path=public, pg_temp');
+  });
+
+  it('revokes PUBLIC and anon execute on email_smtp_set_pass', () => {
+    const anonPriv = runSql(`SELECT has_function_privilege('anon', 'public.email_smtp_set_pass(text)', 'EXECUTE')`);
+    const publicPriv = runSql(`
+      SELECT EXISTS (
+        SELECT 1
+          FROM pg_proc p
+          JOIN pg_namespace n ON n.oid = p.pronamespace
+          CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) a
+         WHERE n.nspname = 'public'
+           AND p.proname = 'email_smtp_set_pass'
+           AND a.privilege_type = 'EXECUTE'
+           AND a.grantee = 0
+      )::text
+    `);
+    const authPriv = runSql(`SELECT has_function_privilege('authenticated', 'public.email_smtp_set_pass(text)', 'EXECUTE')`);
+    expect(anonPriv).toMatch(/^(f|false)$/);
+    expect(publicPriv).toMatch(/^(f|false)$/);
+    expect(authPriv).toMatch(/^(t|true)$/);
+    const anon = asRole('anon', null, `SELECT public.email_smtp_set_pass('anon-exec')`);
+    expect(anon).toMatch(/^42501\|/);
+    expect(runSql(`SELECT smtp_pass FROM public.email_settings WHERE company_id = '${COMPANY_A}'`)).toBe(SECRET_A);
+  });
+
+  it('rejects empty or null email_smtp_set_pass and does not wipe', () => {
+    const empty = asRole('authenticated', ADMIN_A, `SELECT public.email_smtp_set_pass('')`);
+    expect(empty).toMatch(/^22023\|/);
+    expect(runSql(`SELECT smtp_pass FROM public.email_settings WHERE company_id = '${COMPANY_A}'`)).toBe(SECRET_A);
+    const nulled = asRole('authenticated', ADMIN_A, `SELECT public.email_smtp_set_pass(NULL)`);
+    expect(nulled).toMatch(/^22023\|/);
+    expect(runSql(`SELECT smtp_pass FROM public.email_settings WHERE company_id = '${COMPANY_A}'`)).toBe(SECRET_A);
+    expect(runSql(`SELECT smtp_pass FROM public.email_settings WHERE company_id = '${COMPANY_B}'`)).toBe(SECRET_B);
+  });
+
   it('matches intended CRUD by role on email_settings', () => {
     const adminInsert = asRole(
       'authenticated',

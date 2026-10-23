@@ -160,6 +160,107 @@ BEGIN
     replace: '  if (secret === undefined) return true;',
   },
   {
+    name: 'setter drops the admin check',
+    file: 'migration',
+    testFile: 'src/lib/secSmtpPass.pg.test.ts',
+    testSrc: resolve('src/lib/secSmtpPass.pg.test.ts'),
+    vitest: ['src/lib/secSmtpPass.pg.test.ts', '-t', 'denies a crew member calling email_smtp_set_pass'],
+    find: '  IF v_company IS NULL OR NOT COALESCE(v_admin, false) THEN',
+    replace: '  IF v_company IS NULL THEN',
+  },
+  {
+    name: 'setter takes a company argument',
+    file: 'migration',
+    testFile: 'src/lib/secSmtpPass.pg.test.ts',
+    testSrc: resolve('src/lib/secSmtpPass.pg.test.ts'),
+    vitest: ['src/lib/secSmtpPass.pg.test.ts', '-t', 'email_smtp_set_pass takes only p_pass'],
+    edits: [
+      {
+        find: 'CREATE OR REPLACE FUNCTION public.email_smtp_set_pass(p_pass text)',
+        replace: 'CREATE OR REPLACE FUNCTION public.email_smtp_set_pass(p_pass text, p_company uuid DEFAULT NULL)',
+      },
+      {
+        find: 'ON FUNCTION public.email_smtp_set_pass(text)',
+        replace: 'ON FUNCTION public.email_smtp_set_pass(text, uuid)',
+        all: true,
+      },
+    ],
+  },
+  {
+    name: 'setter drops the auth.uid company lookup',
+    file: 'migration',
+    testFile: 'src/lib/secSmtpPass.pg.test.ts',
+    testSrc: resolve('src/lib/secSmtpPass.pg.test.ts'),
+    vitest: ['src/lib/secSmtpPass.pg.test.ts', '-t', 'email_smtp_set_pass writes only the caller company'],
+    find: `  SELECT p.company_id, (p.role = 'admin')
+    INTO v_company, v_admin
+    FROM public.profiles p
+   WHERE p.id = auth.uid();`,
+    replace: `  SELECT p.company_id, (p.role = 'admin')
+    INTO v_company, v_admin
+    FROM public.profiles p
+   WHERE p.role = 'admin'
+   ORDER BY p.company_id DESC
+   LIMIT 1;`,
+  },
+  {
+    name: 'setter drops SECURITY DEFINER',
+    file: 'migration',
+    testFile: 'src/lib/secSmtpPass.pg.test.ts',
+    testSrc: resolve('src/lib/secSmtpPass.pg.test.ts'),
+    vitest: ['src/lib/secSmtpPass.pg.test.ts', '-t', 'pins SECURITY DEFINER on email_smtp_set_pass'],
+    find: `CREATE OR REPLACE FUNCTION public.email_smtp_set_pass(p_pass text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp`,
+    replace: `CREATE OR REPLACE FUNCTION public.email_smtp_set_pass(p_pass text)
+RETURNS void
+LANGUAGE plpgsql
+SET search_path = public, pg_temp`,
+  },
+  {
+    name: 'setter drops search_path',
+    file: 'migration',
+    testFile: 'src/lib/secSmtpPass.pg.test.ts',
+    testSrc: resolve('src/lib/secSmtpPass.pg.test.ts'),
+    vitest: ['src/lib/secSmtpPass.pg.test.ts', '-t', 'pins search_path on email_smtp_set_pass'],
+    find: `CREATE OR REPLACE FUNCTION public.email_smtp_set_pass(p_pass text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$`,
+    replace: `CREATE OR REPLACE FUNCTION public.email_smtp_set_pass(p_pass text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$`,
+  },
+  {
+    name: 'setter grants EXECUTE to anon',
+    file: 'migration',
+    testFile: 'src/lib/secSmtpPass.pg.test.ts',
+    testSrc: resolve('src/lib/secSmtpPass.pg.test.ts'),
+    vitest: ['src/lib/secSmtpPass.pg.test.ts', '-t', 'revokes PUBLIC and anon execute on email_smtp_set_pass'],
+    find: 'GRANT EXECUTE ON FUNCTION public.email_smtp_set_pass(text) TO authenticated;',
+    replace: `GRANT EXECUTE ON FUNCTION public.email_smtp_set_pass(text) TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION public.email_smtp_set_pass(text) TO PUBLIC;`,
+  },
+  {
+    name: 'setter wipes on empty password',
+    file: 'migration',
+    testFile: 'src/lib/secSmtpPass.pg.test.ts',
+    testSrc: resolve('src/lib/secSmtpPass.pg.test.ts'),
+    vitest: ['src/lib/secSmtpPass.pg.test.ts', '-t', 'rejects empty or null email_smtp_set_pass'],
+    find: `  IF btrim(coalesce(p_pass, '')) = '' THEN
+    RAISE EXCEPTION 'password required'
+      USING ERRCODE = '22023';
+  END IF;
+`,
+    replace: '',
+  },
+  {
     name: 'Settings set indicator follows row existence',
     file: 'settings',
     testFile: 'src/lib/secSmtpPass.network.kill.test.ts',
