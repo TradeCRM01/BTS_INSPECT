@@ -39,7 +39,10 @@ export function snapshotTree(o: { treeish: string; dir: string; edit?: (root: st
   const tmp = `${o.dir}.tmp-${process.pid}`;
   rmSync(tmp, { recursive: true, force: true });
   mkdirSync(tmp, { recursive: true });
-  execFileSync('bash', ['-c', `git archive --format=tar ${o.treeish} -- . ':!docs' ':!grafter-proofs' | tar -x -C "${tmp}"`], { cwd: REPO_ROOT, stdio: 'pipe' });
+  execFileSync('bash', ['-c', [
+    `git archive --format=tar ${o.treeish} -- . ':!docs' ':!grafter-proofs' | tar -x -C "${tmp}"`,
+    `if git cat-file -e ${o.treeish}:docs/schema/p2-columns.json; then git archive --format=tar ${o.treeish} -- docs/schema | tar -x -C "${tmp}"; fi`,
+  ].join(' && ')], { cwd: REPO_ROOT, stdio: 'pipe' });
   symlinkSync(join(REPO_ROOT, 'node_modules'), join(tmp, 'node_modules'));
   o.edit?.(tmp);
   run('npx', ['vite', 'build', '--logLevel', 'error'], tmp);
