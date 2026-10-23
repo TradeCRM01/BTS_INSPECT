@@ -377,6 +377,9 @@ async function shoot(page: Page, what: string): Promise<Buffer> {
     await page.waitForTimeout(150);
     const next = await page.screenshot({ animations: 'disabled', caret: 'hide' });
     if (next.equals(prev)) return next;
+    // A fractional fade edge re-rasters a handful of AA pixels every frame.
+    const n = await page.evaluate(([a, b]) => window.__p2.changedPx(a, b), [prev.toString('base64'), next.toString('base64')]);
+    if (n <= 16) return next;
     prev = next;
   }
   throw new Error(`${what} frame never settled`);

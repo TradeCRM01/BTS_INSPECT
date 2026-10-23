@@ -899,6 +899,10 @@ function inView(x: number, y: number) {
   return x >= 0 && y >= 0 && x < window.innerWidth && y < window.innerHeight;
 }
 
+function chromeCovers(x: number, y: number) {
+  return document.elementsFromPoint(x, y).some(el => el.closest('.shell-bottom-nav, .shell-header'));
+}
+
 function layoutProbe(): LayoutProbe {
   const css = (el: Element | null, prop: string) => (el ? getComputedStyle(el).getPropertyValue(prop).trim() : '');
   const cards = [...document.querySelectorAll<HTMLElement>('[data-schedule-job].hub-week-chip')].filter(visible).map(el => {
@@ -1227,7 +1231,7 @@ window.__p2 = {
       const grid = line.closest('[data-day-grid]');
       // A clean run needs lane paper on both sides of the line, so skip heights where a chip sits under it.
       for (let y = Math.round(r.top + 8); y < r.bottom - 8; y += 6) {
-        if (!inView(r.left, y) || document.elementsFromPoint(r.left + 1, y).some(el => el.closest('.hub-week-chip, .hub-day-resize'))) continue;
+        if (!inView(r.left, y) || chromeCovers(r.left + 1, y) || document.elementsFromPoint(r.left + 1, y).some(el => el.closest('.hub-week-chip, .hub-day-resize'))) continue;
         lines.push({ x: Math.floor(r.left) - 3, y, dx: 1, dy: 0, n: 8, bg: hex(usedBg(grid)) });
         break;
       }
@@ -1235,7 +1239,7 @@ window.__p2 = {
     const dots = [...document.querySelectorAll('.hub-day-now')].filter(visible).map(el => {
       const r = el.getBoundingClientRect();
       return { x: r.left + r.width / 2, y: r.top + 6 };
-    }).filter(p => inView(p.x, p.y) && !document.elementsFromPoint(p.x, p.y).some(el => el.closest('.hub-week-chip')));
+    }).filter(p => inView(p.x, p.y) && !chromeCovers(p.x, p.y) && !document.elementsFromPoint(p.x, p.y).some(el => el.closest('.hub-week-chip')));
     const heads = [...document.querySelectorAll<HTMLElement>('[data-week-day]')].filter(visible).map(el => {
       const r = el.getBoundingClientRect();
       return { date: el.dataset.weekDay ?? '', x: Math.round(r.left + r.width * 0.15), y: Math.ceil(r.bottom) - 1, dx: 0, dy: -1, n: 8, bg: hex(usedBg(el)) };
