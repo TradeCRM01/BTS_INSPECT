@@ -793,8 +793,9 @@ window.__p2 = {
   nowPoints() {
     const lines: Run[] = [];
     for (const line of document.querySelectorAll('.hub-day-now-line')) {
-      if (!visible(line)) continue;
       const r = line.getBoundingClientRect();
+      // visible() drops boxes 1px wide, and a thin now-line is exactly what this run has to measure.
+      if (r.width <= 0 || r.height <= 1 || opacityChain(line) === 0) continue;
       const grid = line.closest('[data-day-grid]');
       // A clean run needs lane paper on both sides of the line, so skip heights where a chip sits under it.
       for (let y = Math.round(r.top + 8); y < r.bottom - 8; y += 6) {
