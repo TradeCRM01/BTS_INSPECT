@@ -1077,6 +1077,69 @@ describe('P3 overview people form bar', () => {
     expect(red.message).toMatch(/560|480|expected/i);
   }, 120000);
 
+  killIt('K12b 768 JobFormModal is 560 with 16px gutters and no inner sideways scroll', async () => {
+    const page = await openPage({ width: 768, path: '/jobs' });
+    await waitList(page);
+    await openForm(page);
+    const box = await page.evaluate(() => {
+      const sheet = document.querySelector('.job-form-sheet') as HTMLElement;
+      const r = sheet.getBoundingClientRect();
+      return {
+        width: r.width,
+        left: r.left,
+        right: r.right,
+        innerWidth: window.innerWidth,
+        scrollWidth: sheet.scrollWidth,
+        clientWidth: sheet.clientWidth,
+      };
+    });
+    await page.close();
+    expect(Math.abs(box.width - 560)).toBeLessThanOrEqual(1);
+    expect(box.left).toBeGreaterThanOrEqual(16);
+    expect(box.right).toBeLessThanOrEqual(box.innerWidth - 16);
+    expect(box.scrollWidth).toBeLessThanOrEqual(box.clientWidth);
+  });
+
+  killIt('K12b mutant widens the 768 modal to 800', async () => {
+    const red = await captureMutantRed({
+      path: 'src/index.css',
+      mutant: 'src/index.css .job-form-sheet 560px → 800px',
+      mutate: (src) => src.replace(
+        '    .job-form-sheet {\n      width: 560px !important;\n      max-width: 560px !important;',
+        '    .job-form-sheet {\n      width: 800px !important;\n      max-width: 800px !important;',
+      ),
+      run: async () => {
+        const css = distCss
+          .replace('width:560px!important', 'width:800px!important')
+          .replace('max-width:560px!important', 'max-width:800px!important')
+          .replace('width: 560px !important', 'width: 800px !important')
+          .replace('max-width: 560px !important', 'max-width: 800px !important');
+        const page = await openPage({ width: 768, path: '/jobs', css });
+        await waitList(page);
+        await openForm(page);
+        const box = await page.evaluate(() => {
+          const sheet = document.querySelector('.job-form-sheet') as HTMLElement;
+          const r = sheet.getBoundingClientRect();
+          return {
+            width: r.width,
+            left: r.left,
+            right: r.right,
+            innerWidth: window.innerWidth,
+            scrollWidth: sheet.scrollWidth,
+            clientWidth: sheet.clientWidth,
+          };
+        });
+        await page.close();
+        expect(Math.abs(box.width - 560)).toBeLessThanOrEqual(1);
+        expect(box.left).toBeGreaterThanOrEqual(16);
+        expect(box.right).toBeLessThanOrEqual(box.innerWidth - 16);
+        expect(box.scrollWidth).toBeLessThanOrEqual(box.clientWidth);
+      },
+    });
+    expect(red.line).toBeGreaterThan(0);
+    expect(red.message).toMatch(/560|800|16|expected/i);
+  }, 120000);
+
   killIt('K13 clients throw; extrasError marks Ready off', async () => {
     const page = await openPage({ width: 390, path: '/jobs', clientsError: true });
     await page.waitForSelector('.ops-page, .hub-jobs, p', { timeout: 20000, state: 'attached' });
