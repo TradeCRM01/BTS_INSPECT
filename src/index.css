@@ -6877,13 +6877,47 @@
     .hub-board-cal.is-week-doc .ops-page-head,
     .hub-board-cal.is-week-doc .hub-week-identity-row,
     .hub-board-cal.is-week-doc .hub-week-track,
-    .hub-board-cal.is-week-doc .hub-week-search,
     .hub-board-cal.is-week-doc .hub-week-agenda {
       margin-left: 16px;
       margin-right: 16px;
       width: auto;
       max-width: calc(100% - 32px);
       box-sizing: border-box;
+    }
+
+    .hub-board-cal.is-week-doc .ops-page-head {
+      padding-top: 16px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .hub-board-cal.is-week-doc .hub-week-document {
+      border: none;
+      box-shadow: none;
+      border-radius: 0;
+      max-width: none;
+      width: 100%;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-track {
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-search,
+    .hub-board-cal.is-week-doc .hub-week-search > .relative.min-w-0,
+    .hub-board-cal.is-week-doc .hub-week-search .form-input {
+      flex: 1 1 100%;
+      width: 100%;
+      max-width: none;
+      margin-left: 0;
+      margin-right: 0;
+      box-sizing: border-box;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-agenda {
+      padding-left: 0;
+      padding-right: 0;
     }
   }
 
@@ -7350,7 +7384,7 @@
     }
   }
 
-  @media (max-width: 767px) {
+  @media (max-width: 768px) {
     .hub-week-track .hub-week-range-row {
       order: 1;
       flex: 1 1 0;
@@ -8689,7 +8723,11 @@
 
     .hub-board-cal.is-week-doc .hub-week-search {
       padding: 0 0 4px;
-      flex: 0 0 auto;
+      flex: 1 1 100%;
+      width: 100%;
+      max-width: none;
+      margin-left: 0;
+      margin-right: 0;
     }
 
     .hub-board-cal.is-week-doc .hub-week-sheet-body {
