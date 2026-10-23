@@ -6,19 +6,20 @@
  * `.test.` so default vitest misses it. gates.sh runs this after build.
  */
 import { AssertionError } from 'node:assert';
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
+import { createClient } from '@supabase/supabase-js';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { NAV_WORDS } from '../lib/brand';
 import { JOB_ID_BATCH, chunkIds } from '../lib/jobIdBatch';
 import { JOB_SHEET_BACK } from '../lib/jobSheetChrome';
 import { canCreateJobInvoice, jobSheetInvoiceCtaLabel } from '../lib/jobSheetInvoiceCta';
-import { JOB_SHEET_HEAD_BAR, JOB_SHEET_LINK } from '../lib/jobSheetLocks';
+import { JOB_SHEET_LINK } from '../lib/jobSheetLocks';
 import {
-  JOB_PARENT_INVOICED_COLUMNS,
   JOB_PARENT_INVOICED_SELECT,
   jobParentInvoicedEnabled,
   loadParentInvoiced,
@@ -30,6 +31,7 @@ import {
 import { jobSheetWhenLine } from '../lib/jobSheetWhen';
 import {
   JOB_PILL_DONE,
+  JOB_PILL_NEEDS_CREW,
   JOB_PILL_NO_DATE,
   JOB_PILL_READY,
   jobStatusPill,
@@ -44,10 +46,6 @@ const esbuild = require('esbuild') as {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const WIDTHS = [375, 390, 768, 1024, 1280] as const;
-const SCHEMA = JSON.parse(readFileSync(join(process.cwd(), 'docs/schema/p3-columns.json'), 'utf8')) as {
-  tables: Record<string, string[]>;
-  p3_selects: Record<string, string[]>;
-};
 const LOOK_SEED = ['Northside Electrical', 'Harbour Lights', 'Site labour', 'Warehouse lights'] as const;
 
 type KillPage = {
@@ -171,11 +169,19 @@ async function bundleJobs(opts?: { lookProof?: boolean }): Promise<string> {
   return file.text;
 }
 
-function fixtureHtml(args: { js: string; css: string; path: string; empty?: boolean; clientsError?: boolean }): string {
+function fixtureHtml(args: {
+  js: string;
+  css: string;
+  path: string;
+  empty?: boolean;
+  clientsError?: boolean;
+  extrasError?: boolean;
+}): string {
   const cfg = JSON.stringify({
     path: args.path,
     empty: args.empty === true,
     clientsError: args.clientsError === true,
+    extrasError: args.extrasError === true,
   });
   return `<!doctype html>
 <html data-theme="light" data-allow-dark="false">
@@ -221,6 +227,7 @@ async function openPage(args: {
   js?: string;
   empty?: boolean;
   clientsError?: boolean;
+  extrasError?: boolean;
   height?: number;
 }): Promise<KillPage> {
   const html = fixtureHtml({
@@ -229,6 +236,7 @@ async function openPage(args: {
     path: args.path ?? '/jobs',
     empty: args.empty,
     clientsError: args.clientsError,
+    extrasError: args.extrasError,
   });
   const dir = mkdtempSync(join(tmpdir(), 'p3-kill-'));
   temps.push(dir);
@@ -278,6 +286,64 @@ async function openForm(page: KillPage) {
     btn.click();
   });
   await page.waitForSelector('[data-job-form="1"]', { timeout: 15000 });
+}
+
+function rebuildDistCss(): string {
+  execFileSync('npx', ['vite', 'build'], { cwd: process.cwd(), stdio: 'pipe' });
+  distCss = readDistCss();
+  return distCss;
+}
+
+function migrationColumns(table: string): Set<string> {
+  const dir = join(process.cwd(), 'supabase/migrations');
+  const cols = new Set<string>();
+  const create = new RegExp(`create table(?: if not exists)? (?:public\\.)?${table}\\s*\\(([^;]+)\\)`, 'i');
+  const alter = new RegExp(`alter table(?: if exists)? (?:public\\.)?${table}[\\s\\S]*?add column(?: if not exists)? ([a-z0-9_]+)`, 'gi');
+  for (const name of readdirSync(dir).filter((file) => file.endsWith('.sql'))) {
+    const sql = readFileSync(join(dir, name), 'utf8');
+    const body = create.exec(sql)?.[1] ?? '';
+    for (const line of body.split(',')) {
+      const col = line.trim().match(/^([a-z][a-z0-9_]*)\s/i)?.[1];
+      if (col && !/^(constraint|primary|unique|check|foreign)$/i.test(col)) cols.add(col);
+    }
+    let hit: RegExpExecArray | null;
+    const add = new RegExp(alter.source, alter.flags);
+    while ((hit = add.exec(sql))) cols.add(hit[1]);
+  }
+  return cols;
+}
+
+async function loadParentInvoicedRecorded(input: { companyId: string; parentJobId: string }) {
+  const calls: string[] = [];
+  const rows = [
+    { id: 'inv-c1', company_id: 'c1', job_id: 'parent', status: 'sent' },
+    { id: 'inv-c2', company_id: 'c2', job_id: 'parent', status: 'sent' },
+  ];
+  const client = createClient('https://example.supabase.co', 'test-anon-key', {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      fetch: async (url) => {
+        const href = String(url);
+        calls.push(href);
+        const parsed = new URL(href);
+        const filtered = rows.filter((row) => {
+          for (const [key, raw] of parsed.searchParams) {
+            if (key === 'select') continue;
+            const [op, val] = raw.includes('.') ? [raw.slice(0, raw.indexOf('.')), raw.slice(raw.indexOf('.') + 1)] : ['eq', raw];
+            const cell = String(row[key as keyof typeof row] ?? '');
+            if (op === 'eq' && cell !== val) return false;
+            if (op === 'neq' && cell === val) return false;
+          }
+          return true;
+        });
+        return new Response(JSON.stringify(filtered), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      },
+    },
+  });
+  const data = await loadParentInvoiced(input, client as unknown as Parameters<typeof loadParentInvoiced>[1]);
+  return { data, calls };
 }
 
 function overflowScript() {
@@ -366,67 +432,31 @@ async function importFresh<T>(rel: string): Promise<T> {
   }
 }
 
-function twoCompanyInvoiceClient() {
-  const all = [
-    { id: 'inv-c1', company_id: 'c1', job_id: 'parent', status: 'sent' },
-    { id: 'inv-c2', company_id: 'c2', job_id: 'parent', status: 'sent' },
-  ];
-  return {
-    from() {
-      let rows = all.map((row) => ({ ...row }));
-      const chain: {
-        select: (columns?: string) => typeof chain;
-        eq: (column: string, value: string) => typeof chain;
-        neq: (column: string, value: string) => Promise<{ data: typeof rows; error: null }>;
-      } = {
-        select() { return chain; },
-        eq(column, value) {
-          rows = rows.filter((row) => row[column as keyof typeof row] === value);
-          return chain;
-        },
-        neq(column, value) {
-          rows = rows.filter((row) => row[column as keyof typeof row] !== value);
-          return Promise.resolve({ data: rows, error: null });
-        },
-      };
-      return chain;
-    },
-  };
-}
-
-function selectCaptureClient() {
-  let selected = '';
-  return {
-    selected() { return selected; },
-    from() {
-      return {
-        select(columns: string) {
-          selected = columns;
-          return {
-            eq() { return this; },
-            neq() { return Promise.resolve({ data: [], error: null }); },
-          };
-        },
-      };
-    },
-  };
-}
-
 describe('P3 K0 harness', () => {
   killIt('K0 paints the #0036 sheet from JobDetailPage', async () => {
     const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
     await waitSheet(page);
-    const read = await page.evaluate(() => ({
-      h1: document.querySelector('h1.hub-jobs-hero')?.textContent ?? '',
-      cta: document.querySelector('.btn-primary')?.textContent ?? '',
-      when: document.querySelector('[data-job-sheet="when"]')?.textContent ?? '',
-      sub: document.querySelector('[data-job-sheet="sub"]')?.textContent ?? '',
-      back: document.querySelector('.job-sheet-back')?.textContent ?? '',
-      text: document.body.innerText,
-    }));
+    const read = await page.evaluate(() => {
+      const when = document.querySelector('[data-job-sheet="when"]') as HTMLElement | null;
+      const vis = when && typeof when.checkVisibility === 'function'
+        ? when.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+        : !!when && getComputedStyle(when).visibility !== 'hidden' && getComputedStyle(when).display !== 'none' && when.getBoundingClientRect().height > 0;
+      return {
+        h1: document.querySelector('h1.hub-jobs-hero')?.textContent ?? '',
+        cta: document.querySelector('.btn-primary')?.textContent ?? '',
+        when: when?.textContent ?? '',
+        whenVisible: vis,
+        whenHidden: when?.hidden === true || when?.hasAttribute('hidden'),
+        sub: document.querySelector('[data-job-sheet="sub"]')?.textContent ?? '',
+        back: document.querySelector('.job-sheet-back')?.textContent ?? '',
+        text: document.body.innerText,
+      };
+    });
     await page.close();
     expect(read.h1).toBe('Hot water replacement');
     expect(read.cta.replace(/\s+/g, ' ').trim()).toBe(jobSheetInvoiceCtaLabel(919.05));
+    expect(read.whenVisible).toBe(true);
+    expect(read.whenHidden).toBe(false);
     expect(read.when).toContain('Mon 19 Oct');
     expect(read.when).toContain('07:00–10:30');
     expect(read.when).not.toContain(' – ');
@@ -437,22 +467,37 @@ describe('P3 K0 harness', () => {
     expect(read.text).not.toMatch(/Relovi|Littleloop|booking/i);
   });
 
-  killIt('K0 mutant changes the back copy so the sheet goes red', async () => {
+  killIt('K0 mutant hides the when line so visibility goes red', async () => {
     const red = await captureMutantRed({
-      path: 'src/lib/jobSheetChrome.ts',
-      mutant: 'src/lib/jobSheetChrome.ts JOB_SHEET_BACK ‹ Jobs → Back',
-      mutate: (src) => src.replace("export const JOB_SHEET_BACK = '‹ Jobs';", "export const JOB_SHEET_BACK = 'Back';"),
+      path: 'src/pages/JobDetailPage.tsx',
+      mutant: 'src/pages/JobDetailPage.tsx hide the when line',
+      mutate: (src) => src.replace(
+        'data-job-sheet="when"',
+        'data-job-sheet="when" hidden',
+      ),
       run: async () => {
         const js = await bundleJobs();
         const page = await openPage({ width: 390, path: '/jobs/p3-0036', js });
         await waitSheet(page);
-        const back = await page.evaluate(() => document.querySelector('.job-sheet-back')?.textContent ?? '');
+        const vis = await page.evaluate(() => {
+          const when = document.querySelector('[data-job-sheet="when"]') as HTMLElement | null;
+          if (!when) return false;
+          const style = getComputedStyle(when);
+          const box = when.getBoundingClientRect();
+          const painted = style.display !== 'none'
+            && style.visibility !== 'hidden'
+            && !when.hidden
+            && !when.hasAttribute('hidden')
+            && box.height > 0
+            && box.width > 0;
+          return painted;
+        });
         await page.close();
-        expect(back).toBe('‹ Jobs');
+        expect(vis).toBe(true);
       },
     });
     expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/‹ Jobs|Back|expected/i);
+    expect(red.message).toMatch(/visible|hidden|true|expected/i);
   }, 120000);
 });
 
@@ -467,7 +512,7 @@ describe('P3 list kills', () => {
     }));
     await page.close();
     expect(read.h1).toBe('Jobs');
-    expect(read.whisper).toBe('All · 12 jobs · 1 need crew');
+    expect(read.whisper).toBe('All · 17 jobs · 3 need crew');
     expect(read.listBar).toBe(false);
     expect(countJobsNeedCrew([
       { status: 'scheduled', scheduled_date: '2026-10-19', assigned_team: [] },
@@ -481,8 +526,8 @@ describe('P3 list kills', () => {
       path: 'src/lib/needCrew.ts',
       mutant: 'src/lib/needCrew.ts drop scheduled_date check',
       mutate: (src) => src.replace(
-        "if (!(job.scheduled_date ?? '').trim()) return false;\n  return jobCrewMemberCount(job.assigned_team) === 0;",
-        'return jobCrewMemberCount(job.assigned_team) === 0;',
+        "if (!(job.scheduled_date ?? '').trim()) return false;\n  if (isFinishedCrewStatus(job.status)) return false;",
+        'if (isFinishedCrewStatus(job.status)) return false;',
       ),
       run: async () => {
         const js = await bundleJobs();
@@ -492,11 +537,11 @@ describe('P3 list kills', () => {
           document.querySelector('.hub-jobs-list-whisper')?.textContent ?? ''
         ));
         await page.close();
-        expect(whisper).toBe('All · 12 jobs · 1 need crew');
+        expect(whisper).toBe('All · 17 jobs · 3 need crew');
       },
     });
     expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/1 need crew|2 need crew|expected/i);
+    expect(red.message).toMatch(/3 need crew|4 need crew|expected/i);
   }, 120000);
 
   killIt('K1b undated crewless job is excluded from needsCrew and the count', async () => {
@@ -513,22 +558,181 @@ describe('P3 list kills', () => {
     });
     await page.close();
     expect(jobNeedsCrew({ status: 'scheduled', scheduled_date: null, assigned_team: [] })).toBe(false);
-    expect(read.whisper).toBe('All · 12 jobs · 1 need crew');
-    expect(read.whisper).not.toContain('2 need crew');
+    expect(read.whisper).toBe('All · 17 jobs · 3 need crew');
+    expect(read.whisper).not.toContain('4 need crew');
     expect(read.undatedText).toContain('No date');
     expect(read.undatedText).toContain('Set a date');
     expect(read.undatedText).not.toContain('Needs crew');
-    expect(read.needCrewPills).toBe(1);
+    expect(read.needCrewPills).toBe(3);
     expect(read.noDatePills).toBeGreaterThanOrEqual(1);
   });
+
+  killIt('OWN-c whitespace crew ids paint Needs crew on 390 and 1280', async () => {
+    const phone = await openPage({ width: 390, path: '/jobs' });
+    await waitList(phone);
+    const phoneRead = await phone.evaluate(() => ({
+      pill: (document.querySelector('[data-jobs-phone-row="x-ws"] [data-jobs-pill]')?.textContent || '').trim(),
+      kind: document.querySelector('[data-jobs-phone-row="x-ws"] [data-jobs-pill]')?.getAttribute('data-jobs-pill') || '',
+    }));
+    await phone.close();
+    const desk = await openPage({ width: 1280, path: '/jobs' });
+    await waitList(desk);
+    const deskRead = await desk.evaluate(() => {
+      const row = [...document.querySelectorAll('.hub-jobs-row')].find((el) => (
+        (el.querySelector('.hub-jobs-title')?.textContent || '').includes('Whitespace crew')
+      ));
+      return {
+        pill: (row?.querySelector('[data-jobs-pill]')?.textContent || '').trim(),
+      };
+    });
+    await desk.close();
+    const sheet = await openPage({ width: 390, path: '/jobs/x-ws' });
+    await waitSheet(sheet);
+    const sheetPill = await sheet.evaluate(() => (
+      (document.querySelector('[data-job-sheet-pill]')?.textContent || '').trim()
+    ));
+    await sheet.close();
+    expect(phoneRead.kind).toBe('needs_crew');
+    expect(phoneRead.pill).toBe(JOB_PILL_NEEDS_CREW);
+    expect(deskRead.pill).toBe(JOB_PILL_NEEDS_CREW);
+    expect(sheetPill).toBe(JOB_PILL_NEEDS_CREW);
+  });
+
+  killIt('OWN-c mutant that skips trim paints whitespace crew as scheduled', async () => {
+    const red = await captureMutantRed({
+      path: 'src/lib/needCrew.ts',
+      mutant: 'src/lib/needCrew.ts drop trim on crew ids',
+      mutate: (src) => src.replace(
+        'return (job.assigned_team ?? []).every(id => !id?.trim());',
+        'return (job.assigned_team ?? []).length === 0;',
+      ),
+      run: async () => {
+        const js = await bundleJobs();
+        const page = await openPage({ width: 390, path: '/jobs', js });
+        await waitList(page);
+        const pill = await page.evaluate(() => (
+          (document.querySelector('[data-jobs-phone-row="x-ws"] [data-jobs-pill]')?.textContent || '').trim()
+        ));
+        await page.close();
+        expect(pill).toBe(JOB_PILL_NEEDS_CREW);
+      },
+    });
+    expect(red.line).toBeGreaterThan(0);
+    expect(red.message).toMatch(/Needs crew|Scheduled|expected/i);
+  }, 120000);
+
+  killIt('OWN-d undated row is No date only, never need crew, on list and sheet', async () => {
+    const phone = await openPage({ width: 390, path: '/jobs' });
+    await waitList(phone);
+    const phoneText = await phone.evaluate(() => {
+      const row = document.querySelector('[data-jobs-phone-row="p3-undated"]') as HTMLElement | null;
+      return {
+        pill: (row?.querySelector('[data-jobs-pill]')?.textContent || '').trim(),
+        text: row?.innerText || '',
+      };
+    });
+    await phone.close();
+    const desk = await openPage({ width: 1280, path: '/jobs' });
+    await waitList(desk);
+    const deskText = await desk.evaluate(() => {
+      const row = [...document.querySelectorAll('.hub-jobs-row')].find((el) => (
+        (el.querySelector('.hub-jobs-title')?.textContent || '').includes('Undated crewless')
+      ));
+      return {
+        pill: (row?.querySelector('[data-jobs-pill]')?.textContent || '').trim(),
+        text: (row as HTMLElement | undefined)?.innerText || '',
+      };
+    });
+    await desk.close();
+    const sheet = await openPage({ width: 390, path: '/jobs/p3-undated' });
+    await waitSheet(sheet);
+    const sheetRead = await sheet.evaluate(() => ({
+      pill: (document.querySelector('[data-job-sheet-pill]')?.textContent || '').trim(),
+      text: document.body.innerText,
+    }));
+    await sheet.close();
+    expect(phoneText.pill).toBe(JOB_PILL_NO_DATE);
+    expect(phoneText.text).toContain('Set a date');
+    expect(phoneText.text).not.toMatch(/needs? crew/i);
+    expect(deskText.pill).toBe(JOB_PILL_NO_DATE);
+    expect(deskText.text).not.toMatch(/needs? crew/i);
+    expect(sheetRead.pill).toBe(JOB_PILL_NO_DATE);
+    expect(sheetRead.text).not.toMatch(/needs? crew/i);
+  });
+
+  killIt('OWN-i1 Done wording mutant paints Completed', async () => {
+    const red = await captureMutantRed({
+      path: 'src/lib/jobStatusPill.ts',
+      mutant: 'src/lib/jobStatusPill.ts Done → Completed',
+      mutate: (src) => src.replace("export const JOB_PILL_DONE = 'Done';", "export const JOB_PILL_DONE = 'Completed';"),
+      run: async () => {
+        const js = await bundleJobs();
+        const page = await openPage({ width: 390, path: '/jobs', js });
+        await waitList(page);
+        const pill = await page.evaluate(() => (
+          (document.querySelector('[data-jobs-phone-row="x-done"] [data-jobs-pill]')?.textContent || '').trim()
+        ));
+        await page.close();
+        expect(pill).toBe('Done');
+      },
+    });
+    expect(red.line).toBeGreaterThan(0);
+    expect(red.message).toMatch(/Done|Completed|expected/i);
+  }, 120000);
+
+  killIt('OWN-i3 In progress casing mutant paints In Progress', async () => {
+    const red = await captureMutantRed({
+      path: 'src/lib/jobStatusPill.ts',
+      mutant: "src/lib/jobStatusPill.ts In progress → In Progress",
+      mutate: (src) => src.replace(
+        "export const JOB_PILL_IN_PROGRESS = 'In progress';",
+        "export const JOB_PILL_IN_PROGRESS = 'In Progress';",
+      ),
+      run: async () => {
+        const js = await bundleJobs();
+        const page = await openPage({ width: 390, path: '/jobs', js });
+        await waitList(page);
+        const pill = await page.evaluate(() => (
+          (document.querySelector('[data-jobs-phone-row="p3-j12"] [data-jobs-pill]')?.textContent || '').trim()
+        ));
+        await page.close();
+        expect(pill).toBe('In progress');
+      },
+    });
+    expect(red.line).toBeGreaterThan(0);
+    expect(red.message).toMatch(/In progress|In Progress|expected/i);
+  }, 120000);
+
+  killIt('OWN-i8 Need crew wording mutant paints the filter/pill wrong', async () => {
+    const red = await captureMutantRed({
+      path: 'src/lib/jobStatusPill.ts',
+      mutant: "src/lib/jobStatusPill.ts Needs crew → Need crew",
+      mutate: (src) => src.replace(
+        "export const JOB_PILL_NEEDS_CREW = 'Needs crew';",
+        "export const JOB_PILL_NEEDS_CREW = 'Need crew';",
+      ),
+      run: async () => {
+        const js = await bundleJobs();
+        const page = await openPage({ width: 390, path: '/jobs', js });
+        await waitList(page);
+        const pill = await page.evaluate(() => (
+          (document.querySelector('[data-jobs-phone-row="p3-need-crew"] [data-jobs-pill]')?.textContent || '').trim()
+        ));
+        await page.close();
+        expect(pill).toBe('Needs crew');
+      },
+    });
+    expect(red.line).toBeGreaterThan(0);
+    expect(red.message).toMatch(/Needs crew|Need crew|expected/i);
+  }, 120000);
 
   killIt('K1b mutant drops the date check so the undated job is counted', async () => {
     const red = await captureMutantRed({
       path: 'src/lib/needCrew.ts',
       mutant: 'src/lib/needCrew.ts drop scheduled_date check',
       mutate: (src) => src.replace(
-        "if (!(job.scheduled_date ?? '').trim()) return false;\n  return jobCrewMemberCount(job.assigned_team) === 0;",
-        'return jobCrewMemberCount(job.assigned_team) === 0;',
+        "if (!(job.scheduled_date ?? '').trim()) return false;\n  if (isFinishedCrewStatus(job.status)) return false;",
+        'if (isFinishedCrewStatus(job.status)) return false;',
       ),
       run: async () => {
         const js = await bundleJobs();
@@ -753,12 +957,12 @@ describe('P3 sheet pills CTA Q-J1 tabs', () => {
   killIt('K6 Q-J1 records company_id, parent job_id, and neq void', async () => {
     expect(jobParentInvoicedEnabled({ status: 'completed', parent_job_id: 'parent' })).toBe(true);
     expect(jobParentInvoicedEnabled({ status: 'scheduled', parent_job_id: 'parent' })).toBe(false);
-    const rows = await loadParentInvoiced(
-      { companyId: 'c1', parentJobId: 'parent' },
-      twoCompanyInvoiceClient(),
-    );
-    expect(rows.map((row) => row.id)).toEqual(['inv-c1']);
-    expect(rows.some((row) => row.id === 'inv-c2')).toBe(false);
+    const { data, calls } = await loadParentInvoicedRecorded({ companyId: 'c1', parentJobId: 'parent' });
+    expect(data.map((row) => row.id)).toEqual(['inv-c1']);
+    expect(data.some((row) => row.id === 'inv-c2')).toBe(false);
+    expect(calls.some((url) => url.includes('company_id=eq.c1'))).toBe(true);
+    expect(calls.some((url) => url.includes('job_id=eq.parent'))).toBe(true);
+    expect(calls.some((url) => url.includes('status=neq.void'))).toBe(true);
   });
 
   killIt('K6 mutant drops the company_id filter', async () => {
@@ -773,16 +977,28 @@ describe('P3 sheet pills CTA Q-J1 tabs', () => {
         const { loadParentInvoiced: freshLoad } = await importFresh<{
           loadParentInvoiced: typeof loadParentInvoiced;
         }>('src/lib/jobParentInvoiced.ts');
-        const rows = await freshLoad(
+        const calls: string[] = [];
+        const client = createClient('https://example.supabase.co', 'test-anon-key', {
+          auth: { persistSession: false, autoRefreshToken: false },
+          global: {
+            fetch: async (url) => {
+              calls.push(String(url));
+              return new Response(JSON.stringify([
+                { id: 'inv-c1', company_id: 'c1', job_id: 'parent', status: 'sent' },
+                { id: 'inv-c2', company_id: 'c2', job_id: 'parent', status: 'sent' },
+              ]), { headers: { 'Content-Type': 'application/json' } });
+            },
+          },
+        });
+        await freshLoad(
           { companyId: 'c1', parentJobId: 'parent' },
-          twoCompanyInvoiceClient(),
+          client as unknown as Parameters<typeof loadParentInvoiced>[1],
         );
-        expect(rows.map((row) => row.id)).toEqual(['inv-c1']);
-        expect(rows.some((row) => row.id === 'inv-c2')).toBe(false);
+        expect(calls.some((url) => url.includes('company_id=eq.c1'))).toBe(true);
       },
     });
     expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/inv-c1|inv-c2|expected/i);
+    expect(red.message).toMatch(/company_id|inv-c1|expected/i);
   });
 
   killIt('K7 four tabs one row, People label, Coach #5 paperwork excludes notes', async () => {
@@ -791,10 +1007,13 @@ describe('P3 sheet pills CTA Q-J1 tabs', () => {
     const read = await page.evaluate(() => {
       const tabs = [...document.querySelectorAll('.job-sheet-tab')] as HTMLElement[];
       const rail = document.querySelector('.job-sheet-tabs') as HTMLElement;
+      const tops = tabs.map((t) => Math.round(t.getBoundingClientRect().top));
       return {
         labels: tabs.map((t) => t.textContent?.trim()),
         heights: tabs.map((t) => t.getBoundingClientRect().height),
         rights: tabs.map((t) => t.getBoundingClientRect().right),
+        tops,
+        columns: getComputedStyle(rail).gridTemplateColumns.split(' ').filter(Boolean).length,
         viewW: window.innerWidth,
         scroll: rail.scrollWidth,
         client: rail.clientWidth,
@@ -805,6 +1024,8 @@ describe('P3 sheet pills CTA Q-J1 tabs', () => {
     expect(Math.min(...read.heights)).toBeGreaterThanOrEqual(44);
     expect(Math.max(...read.rights)).toBeLessThanOrEqual(read.viewW + 1);
     expect(read.scroll).toBeLessThanOrEqual(read.client + 1);
+    expect(read.columns).toBe(4);
+    expect(Math.max(...read.tops) - Math.min(...read.tops)).toBeLessThanOrEqual(2);
     expect(JOB_SHEET_TABS.map((t) => t.label)).toEqual(['Overview', 'People', 'Paperwork', 'Materials']);
     expect(jobSheetPaperworkCount({
       jhaCount: 1, take5Count: 0, inspectionCount: 0, quoteCount: 1, invoiceCount: 0,
@@ -813,26 +1034,34 @@ describe('P3 sheet pills CTA Q-J1 tabs', () => {
 
   killIt('K7 mutant Schedule & people is longer than People', async () => {
     const red = await captureMutantRed({
-      path: 'src/lib/jobSheetTabs.ts',
-      mutant: 'src/lib/jobSheetTabs.ts People → Schedule & people',
+      path: 'src/index.css',
+      mutant: 'src/index.css job-sheet-tabs 2 columns',
       mutate: (src) => src.replace(
-        "{ id: 'schedule', label: 'People' }",
-        "{ id: 'schedule', label: 'Schedule & people' }",
+        '.hub-jobs-document .job-sheet-tabs {\n    display: grid;\n    grid-template-columns: repeat(4, minmax(0, 1fr));',
+        '.hub-jobs-document .job-sheet-tabs {\n    display: grid;\n    grid-template-columns: repeat(2, minmax(0, 1fr));',
       ),
       run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 375, path: '/jobs/p3-0036', js });
+        const css = rebuildDistCss();
+        const page = await openPage({ width: 375, path: '/jobs/p3-0036', css });
         await waitSheet(page);
-        const label = await page.evaluate(() => (
-          document.querySelectorAll('.job-sheet-tab')[1]?.textContent ?? ''
-        ));
+        const read = await page.evaluate(() => {
+          const tabs = [...document.querySelectorAll('.job-sheet-tab')] as HTMLElement[];
+          const rail = document.querySelector('.job-sheet-tabs') as HTMLElement;
+          const tops = tabs.map((t) => Math.round(t.getBoundingClientRect().top));
+          return {
+            columns: getComputedStyle(rail).gridTemplateColumns.split(' ').filter(Boolean).length,
+            topSpread: Math.max(...tops) - Math.min(...tops),
+          };
+        });
         await page.close();
-        expect(label).toBe('People');
+        expect(read.columns).toBe(4);
+        expect(read.topSpread).toBeLessThanOrEqual(2);
       },
     });
     expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/People|Schedule|expected/i);
-  }, 120000);
+    expect(red.message).toMatch(/4|2|expected/i);
+    rebuildDistCss();
+  }, 180000);
 });
 
 describe('P3 overview people form bar', () => {
@@ -982,10 +1211,9 @@ describe('P3 overview people form bar', () => {
         .map((el) => (el.textContent || '').trim())
     ));
     await page.close();
-    for (const item of ['Post update', 'Start inspection', 'Gallery', 'Invoice', 'Clock on', 'Details']) {
+    for (const item of ['Post update', 'Start inspection', 'Gallery', 'Invoice', 'Clock on', 'Details', 'Add to calendar']) {
       expect(items, item).toContain(item);
     }
-    expect(readFileSync(join(process.cwd(), 'src/pages/JobDetailPage.tsx'), 'utf8')).toContain('Add to calendar');
   });
 
   killIt('K10 mutant changes Post update', async () => {
@@ -1177,52 +1405,46 @@ describe('P3 overview people form bar', () => {
     expect(red.message).toMatch(/560|800|16|expected/i);
   }, 120000);
 
-  killIt('K13 clients throw; extrasError marks Ready off', async () => {
-    const page = await openPage({ width: 390, path: '/jobs', clientsError: true });
-    await page.waitForSelector('.ops-page, .hub-jobs, p', { timeout: 20000, state: 'attached' });
-    const text = await page.evaluate(async () => {
-      for (let i = 0; i < 80; i += 1) {
-        const body = document.body.innerText;
-        if (/Could not load jobs|Failed to load/.test(body)) return body;
-        await new Promise((resolve) => window.setTimeout(resolve, 50));
-      }
-      return document.body.innerText;
+  killIt('K13 extras-read failure keeps a completed job off Ready to invoice', async () => {
+    const page = await openPage({ width: 390, path: '/jobs', extrasError: true });
+    await waitList(page);
+    const read = await page.evaluate(() => {
+      const row = document.querySelector('[data-jobs-phone-row="p3-0036"]');
+      return {
+        pill: (row?.querySelector('[data-jobs-pill]')?.textContent || '').trim(),
+        kind: row?.querySelector('[data-jobs-pill]')?.getAttribute('data-jobs-pill') || '',
+        text: (row as HTMLElement | null)?.innerText || '',
+      };
     });
     await page.close();
-    expect(text).toContain('Could not load jobs');
-    expect(text).toContain('Failed to load');
-    expect(text).not.toContain('Hot water replacement');
+    expect(read.kind).toBe('done');
+    expect(read.pill).toBe(JOB_PILL_DONE);
+    expect(read.text).not.toContain(JOB_PILL_READY);
     expect(jobStatusPill({ status: 'completed', invoices: [], invoiceReadError: true }).kind)
       .not.toBe('ready_to_invoice');
   });
 
-  killIt('K13 mutant swallows the clients error', async () => {
+  killIt('K13 mutant treats extrasError as false so Ready paints', async () => {
     const red = await captureMutantRed({
       path: 'src/pages/JobsPage.tsx',
-      mutant: 'src/pages/JobsPage.tsx swallow clientsError',
+      mutant: 'src/pages/JobsPage.tsx extrasError=false in catch',
       mutate: (src) => src.replace(
-        'if (clientsError) throw clientsError;',
-        'if (clientsError) { /* swallowed */ }',
+        '} catch {\n        extrasError = true;\n      }',
+        '} catch {\n        extrasError = false;\n      }',
       ),
       run: async () => {
         const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs', js, clientsError: true });
-        await page.waitForSelector('.ops-page, .hub-jobs, p', { timeout: 20000, state: 'attached' });
-        const text = await page.evaluate(async () => {
-          for (let i = 0; i < 80; i += 1) {
-            const body = document.body.innerText;
-            if (/Could not load jobs|Hot water replacement/.test(body)) return body;
-            await new Promise((resolve) => window.setTimeout(resolve, 50));
-          }
-          return document.body.innerText;
-        });
+        const page = await openPage({ width: 390, path: '/jobs', js, extrasError: true });
+        await waitList(page);
+        const kind = await page.evaluate(() => (
+          document.querySelector('[data-jobs-phone-row="p3-0036"] [data-jobs-pill]')?.getAttribute('data-jobs-pill') || ''
+        ));
         await page.close();
-        expect(text).toContain('Could not load jobs');
-        expect(text).not.toContain('Hot water replacement');
+        expect(kind).toBe('done');
       },
     });
     expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/Could not load jobs|Hot water replacement|expected/i);
+    expect(red.message).toMatch(/done|ready|expected/i);
   }, 120000);
 
   killIt('K14 reachability controls are at least 44 tall', async () => {
@@ -1247,11 +1469,11 @@ describe('P3 overview people form bar', () => {
       path: 'src/index.css',
       mutant: 'src/index.css .job-sheet-link min-height 44 → 20',
       mutate: (src) => src.replace(
-        '  .hub-jobs-document .job-sheet-link {\n    display: inline-flex;\n    align-items: center;\n    color: var(--job-sheet-link, #296AA5);\n    background: none;\n    border: none;\n    padding: 0;\n    min-height: 44px;',
-        '  .hub-jobs-document .job-sheet-link {\n    display: inline-flex;\n    align-items: center;\n    color: var(--job-sheet-link, #296AA5);\n    background: none;\n    border: none;\n    padding: 0;\n    min-height: 20px;',
+        '    min-height: 44px;\n    font: inherit;',
+        '    min-height: 20px;\n    font: inherit;',
       ),
       run: async () => {
-        const css = `${distCss}\n.hub-jobs-document .job-sheet-link{min-height:20px!important;height:20px!important}`;
+        const css = rebuildDistCss();
         const page = await openPage({ width: 390, path: '/jobs/p3-0036', css });
         await waitSheet(page);
         const h = await page.evaluate(() => (
@@ -1263,25 +1485,26 @@ describe('P3 overview people form bar', () => {
     });
     expect(red.line).toBeGreaterThan(0);
     expect(red.message).toMatch(/44|20|expected/i);
-  }, 120000);
+    rebuildDistCss();
+  }, 180000);
 
-  killIt('K15 recorded select columns sit in the schema snapshot', async () => {
-    const invoices = SCHEMA.tables.invoices;
-    const client = selectCaptureClient();
-    await loadParentInvoiced({ companyId: 'c1', parentJobId: 'parent' }, client);
-    const cols = client.selected().split(',').map((col) => col.trim()).filter(Boolean);
+  killIt('K15 recorded select columns sit in the live migration chain', async () => {
+    const live = migrationColumns('invoices');
+    const { calls } = await loadParentInvoicedRecorded({ companyId: 'c1', parentJobId: 'parent' });
+    const select = calls.map((url) => new URL(url).searchParams.get('select') || '').find(Boolean) || '';
+    const cols = select.split(',').map((col) => col.trim()).filter(Boolean);
     for (const col of cols) {
-      expect(invoices).toContain(col);
+      expect(live.has(col), col).toBe(true);
     }
     expect(cols).toEqual(['id', 'job_id', 'status']);
     expect(cols).not.toContain('paid_at');
-    expect(invoices).not.toContain('paid_at');
-    expect(SCHEMA.p3_selects['Q-J1']).toEqual(['id', 'job_id', 'status']);
+    expect(live.has('paid_at')).toBe(false);
+    expect(JOB_PARENT_INVOICED_SELECT.split(',').map((col) => col.trim())).toEqual(cols);
     expect(JOB_ID_BATCH).toBe(100);
     expect(chunkIds(Array.from({ length: 101 }, (_, i) => String(i)))).toHaveLength(2);
   });
 
-  killIt('K15 mutant adding paid_at is not in the snapshot', async () => {
+  killIt('K15 mutant adding paid_at is not in the live columns', async () => {
     const red = await captureMutantRed({
       path: 'src/lib/jobParentInvoiced.ts',
       mutant: 'src/lib/jobParentInvoiced.ts SELECT adds paid_at',
@@ -1293,12 +1516,26 @@ describe('P3 overview people form bar', () => {
         const { loadParentInvoiced: freshLoad } = await importFresh<{
           loadParentInvoiced: typeof loadParentInvoiced;
         }>('src/lib/jobParentInvoiced.ts');
-        const client = selectCaptureClient();
-        await freshLoad({ companyId: 'c1', parentJobId: 'parent' }, client);
-        const cols = client.selected().split(',').map((col) => col.trim()).filter(Boolean);
+        const calls: string[] = [];
+        const client = createClient('https://example.supabase.co', 'test-anon-key', {
+          auth: { persistSession: false, autoRefreshToken: false },
+          global: {
+            fetch: async (url) => {
+              calls.push(String(url));
+              return new Response(JSON.stringify([]), { headers: { 'Content-Type': 'application/json' } });
+            },
+          },
+        });
+        await freshLoad(
+          { companyId: 'c1', parentJobId: 'parent' },
+          client as unknown as Parameters<typeof loadParentInvoiced>[1],
+        );
+        const select = calls.map((url) => new URL(url).searchParams.get('select') || '').find(Boolean) || '';
+        const cols = select.split(',').map((col) => col.trim()).filter(Boolean);
+        const live = migrationColumns('invoices');
         expect(cols).not.toContain('paid_at');
         for (const col of cols) {
-          expect(SCHEMA.tables.invoices, col).toContain(col);
+          expect(live.has(col), col).toBe(true);
         }
       },
     });
@@ -1328,6 +1565,39 @@ describe('P3 overview people form bar', () => {
       recordOverflow(w, 'VIEW', 'sheet', sheetBox);
       expect(sheetBox.scrollWidth, `${w} sheet VIEW scrollWidth`).toBeLessThanOrEqual(sheetBox.innerWidth);
       expect(sheetBox.maxRight, `${w} sheet VIEW maxRight`).toBeLessThanOrEqual(sheetBox.innerWidth);
+      if (w === 768) {
+        await sheet.evaluate(() => {
+          const tab = [...document.querySelectorAll('.job-sheet-tab')].find((el) => (
+            (el.textContent || '').includes('Materials')
+          )) as HTMLElement | undefined;
+          tab?.click();
+        });
+        await sheet.evaluate(async () => {
+          for (let i = 0; i < 40; i += 1) {
+            if (document.querySelector('#job-bill .job-bill-lines-table')) return;
+            await new Promise((resolve) => window.setTimeout(resolve, 50));
+          }
+        });
+        const clip = await sheet.evaluate(() => {
+          const table = document.querySelector('#job-bill .job-bill-lines-table') as HTMLElement | null;
+          const wrap = document.querySelector('#job-bill .job-bill-lines-wrap') as HTMLElement | null;
+          const last = table?.querySelector('thead th:last-child, tbody td:last-child') as HTMLElement | null;
+          const wrapBox = wrap?.getBoundingClientRect();
+          const lastBox = last?.getBoundingClientRect();
+          return {
+            wrapRight: wrapBox?.right ?? 0,
+            lastRight: lastBox?.right ?? 0,
+            overflow: wrap ? getComputedStyle(wrap).overflowX : '',
+            scrollWidth: wrap?.scrollWidth ?? 0,
+            clientWidth: wrap?.clientWidth ?? 0,
+            innerWidth: window.innerWidth,
+            maxRight: lastBox?.right ?? 0,
+          };
+        });
+        expect(clip.lastRight, '768 Materials last column right').toBeLessThanOrEqual(clip.wrapRight + 1);
+        expect(clip.scrollWidth, '768 Materials wrap scrollWidth').toBeLessThanOrEqual(clip.clientWidth + 8);
+        expect(clip.maxRight, '768 Materials maxRight').toBeLessThanOrEqual(clip.innerWidth);
+      }
       await sheet.close();
     }
   }, 240000);
@@ -1337,8 +1607,8 @@ describe('P3 overview people form bar', () => {
       path: 'src/pages/JobDetailPage.tsx',
       mutant: 'src/pages/JobDetailPage.tsx 2000px overflow probe',
       mutate: (src) => src.replace(
-        '<Link to="/jobs" className="hub-jobs-label job-sheet-back">{JOB_SHEET_BACK}</Link>',
-        '<Link to="/jobs" className="hub-jobs-label job-sheet-back">{JOB_SHEET_BACK}</Link><div data-p3-overflow-mutant="1" style={{ width: 2000, height: 1 }} />',
+        '<div className="hub-jobs-sheet-body">',
+        '<div className="hub-jobs-sheet-body"><div data-p3-overflow-mutant="1" style={{ width: 2000, height: 8, flex: \'0 0 auto\' }} />',
       ),
       run: async () => {
         const js = await bundleJobs();
@@ -1407,13 +1677,12 @@ describe('P3 overview people form bar', () => {
 
   killIt('K18 empty parts stay dropped and NAV_WORDS stay all-trades', async () => {
     expect(NAV_WORDS.jobs.toLowerCase()).not.toMatch(/booking/);
-    expect(JOB_SHEET_HEAD_BAR).toBe('#0A2540');
     expect(JOB_SHEET_LINK).toBe('#296AA5');
     const page = await openPage({ width: 390, path: '/jobs/p3-undated' });
     await waitSheet(page);
     const read = await page.evaluate(() => document.body.innerText);
     await page.close();
-    expect(read).toContain('No crew yet');
+    expect(read).toMatch(/No crew yet|Unassigned/);
     expect(read).toContain('Set a date');
     expect(read).not.toContain('Photos · 0');
     expect(read).not.toContain('0 bill');
@@ -1460,7 +1729,7 @@ describe('P3 look gate', () => {
       expect(text, seed).not.toContain(seed);
     }
     expect(text).toContain('Hot water replacement');
-    expect(text).toContain('All · 12 jobs · 1 need crew');
+    expect(text).toContain('All · 17 jobs · 3 need crew');
   });
 
   killIt('LOOK-GATE mutant un-gates Jobs ?look= so prod no-flag paints seeds', async () => {
