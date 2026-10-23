@@ -604,7 +604,12 @@ export const DayBoardView = memo(function DayBoardView({
         if (!(bar instanceof HTMLElement)) continue;
         const left = Number.parseFloat(bar.style.left) || 0;
         const width = Number.parseFloat(bar.style.width) || 0;
-        const inset = dayChipPinInset(scrollLeft, left, width);
+        pinEl.style.transform = '';
+        const chip = pinEl.closest('.hub-week-chip');
+        const chipR = chip?.getBoundingClientRect();
+        const pinR = pinEl.getBoundingClientRect();
+        const room = chipR && pinR ? chipR.right - pinR.right : 0;
+        const inset = Math.min(dayChipPinInset(scrollLeft, left, width), Math.max(0, room));
         pinEl.style.transform = inset > 0 ? `translateX(${Math.round(inset)}px)` : '';
       }
     };
@@ -833,7 +838,7 @@ export const DayBoardView = memo(function DayBoardView({
                         <JobBlock
                           job={job}
                           teamMembers={teamMembers}
-                          compact
+                          compact={false}
                           dragging={dragJobId === job.id}
                           laneColor={painted.color}
                           invoicedJobIds={invoicedJobIds}
