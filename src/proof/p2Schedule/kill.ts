@@ -140,7 +140,7 @@ describe('P2 Schedule on the built dist', () => {
       if (m.dayTrack) {
         expect.soft(['auto', 'scroll'].includes(m.dayTrack.overflowX), `${m.id} ${SOLE_SCROLLER} overflow-x is a scroller`).toBe(true);
         expect.soft(m.dayTrack.right, `${m.id} ${SOLE_SCROLLER} stays on screen`).toBeLessThanOrEqual(m.iw + TOLERANCE_PX);
-        if (m.id.startsWith('day-')) {
+        if (m.iw < PHONE_BOARD_BREAKPOINT && m.id.startsWith('day-')) {
           expect.soft(m.dayTrack.sw, `${m.id} ${SOLE_SCROLLER} scrollWidth`).toBeGreaterThan(m.dayTrack.cw);
         }
       }

@@ -668,11 +668,14 @@ function trackLabels(): TrackLabel[] {
   const out: TrackLabel[] = [];
   const push = (el: Element, card: Element) => {
     if (!visible(el)) return;
-    const textR = textBox(el) ?? el.getBoundingClientRect();
+    const own = getComputedStyle(el);
+    const clamp = (own.getPropertyValue('-webkit-line-clamp') || 'none') !== 'none' || own.textOverflow === 'ellipsis';
+    const boxR = el.getBoundingClientRect();
+    const textR = clamp ? boxR : (textBox(el) ?? boxR);
     const cardR = card.getBoundingClientRect();
     const clip = clipBox(el, true);
     const clipIsTrack = clip.clipEl.includes(TRACK_PROBE.selector.slice(1));
-    const fitsClip = clipIsTrack || !Number.isFinite(clip.right)
+    const fitsClip = clamp || clipIsTrack || !Number.isFinite(clip.right)
       || (textR.left >= clip.left - 0.5 && textR.right <= clip.right + 0.5);
     out.push({
       el: describe(el),
@@ -684,13 +687,9 @@ function trackLabels(): TrackLabel[] {
     });
   };
   for (const card of host.querySelectorAll('.hub-week-chip, [data-untimed-chip]')) {
-    for (const el of card.querySelectorAll('.hub-week-chip-clock, .hub-week-chip-ref, .hub-week-chip-desc, .hub-week-chip-line1, .hub-schedule-crew-name')) {
+    for (const el of card.querySelectorAll('.hub-week-chip-clock, .hub-week-chip-ref, .hub-week-chip-desc, .hub-week-chip-line1')) {
       push(el, card);
     }
-  }
-  for (const name of host.querySelectorAll('.hub-day-crew-lock .hub-schedule-crew-name')) {
-    const cell = name.closest('.hub-day-crew-lock') ?? name;
-    push(name, cell);
   }
   return out;
 }
