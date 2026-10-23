@@ -3693,8 +3693,8 @@ export function JobDetailPage() {
                         onClick={() => openJobPhotoLightbox(photo.key)}
                       >
                         <span className="job-sheet-photo-ph" aria-hidden="true">
-                          <Camera size={18} />
-                          {photo.caption ? <span>{photo.caption}</span> : null}
+                          <Camera className="job-sheet-photo-ic" size={18} />
+                          {photo.caption ? <span className="job-sheet-photo-cap">{photo.caption}</span> : null}
                         </span>
                         {url && !url.includes('example.test') ? (
                           <img
