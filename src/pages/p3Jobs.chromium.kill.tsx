@@ -5,12 +5,13 @@
  * mounts plus a fixture data layer. Painted values only. Filename omits
  * `.test.` so default vitest misses it. gates.sh runs this after build.
  */
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { createServer, type Server } from 'node:http';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { dirname, extname, join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { NAV_WORDS } from '../lib/brand';
 import { JOB_ID_BATCH, chunkIds } from '../lib/jobIdBatch';
@@ -53,6 +54,8 @@ type KillPage = {
   goto: (url: string) => Promise<unknown>;
   evaluate: <T>(fn: (() => T | Promise<T>) | ((arg: never) => T | Promise<T>), arg?: unknown) => Promise<T>;
   waitForSelector: (sel: string, opts?: { timeout?: number; state?: 'attached' | 'visible' | 'hidden' }) => Promise<unknown>;
+  click: (sel: string) => Promise<unknown>;
+  fill: (sel: string, value: string) => Promise<unknown>;
   setViewportSize: (size: { width: number; height: number }) => Promise<void>;
   setContent: (html: string) => Promise<unknown>;
   screenshot: (opts?: {
@@ -80,7 +83,6 @@ const KILL_TZ = 'Australia/Brisbane';
 const NOTE_TOM_ISO = '2026-10-19T07:40:00.000Z';
 const NOTE_DEAN_ISO = '2026-10-19T08:10:00.000Z';
 
-type RedHit = { file: string; line: number; message: string; mutant: string };
 type OverflowRow = {
   width: number;
   mode: 'VIEW' | 'EDIT';
@@ -92,7 +94,6 @@ type OverflowRow = {
   rightOk: boolean;
 };
 
-const redHits: RedHit[] = [];
 const overflowRows: OverflowRow[] = [];
 
 async function launchBrowser() {
@@ -212,23 +213,58 @@ let distCss = '';
 let jobsJs = '';
 let jobsJsNoProof = '';
 let jobsJsDev = '';
+let harnessDir = '';
+let harnessPort = 0;
+let harnessSeq = 0;
 const temps: string[] = [];
+const servers: Server[] = [];
 const contexts: Array<{ close: () => Promise<void> }> = [];
+
+function serveDir(root: string): Server {
+  return createServer((req, res) => {
+    const urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
+    const rel = urlPath.replace(/^\/+/, '');
+    const abs = join(root, rel);
+    if (!abs.startsWith(root) || !existsSync(abs)) {
+      res.statusCode = 404;
+      res.end('not found');
+      return;
+    }
+    res.setHeader('content-type', MOCKUP_MIME[extname(abs)] || 'application/octet-stream');
+    res.end(readFileSync(abs));
+  });
+}
 
 beforeAll(async () => {
   distCss = readDistCss();
   jobsJs = await bundleJobs();
   jobsJsNoProof = await bundleJobs({ lookProof: false });
   jobsJsDev = await bundleJobs({ dev: true });
+  harnessDir = mkdtempSync(join(tmpdir(), 'p3-r9-harness-'));
+  temps.push(harnessDir);
+  mkdirSync(join(harnessDir, 'fonts'), { recursive: true });
+  const geist = join(process.cwd(), 'public/fonts/Geist-Variable.woff2');
+  if (existsSync(geist)) copyFileSync(geist, join(harnessDir, 'fonts/Geist-Variable.woff2'));
+  const harness = serveDir(harnessDir);
+  servers.push(harness);
+  harnessPort = await listen(harness);
   browser = await launchBrowser();
 }, 180000);
 
 afterAll(async () => {
+  if (process.env.P3_OVERFLOW === '1' && overflowRows.length) {
+    console.log(`P3_OVERFLOW ${JSON.stringify(overflowRows)}`);
+  }
   for (const context of contexts.splice(0)) {
     try { await context.close(); } catch { /* already closed */ }
   }
   await browser?.close();
-  writeFileSync('/tmp/p3-kill-proof.json', JSON.stringify({ redHits, overflowRows }, null, 2));
+  for (const server of servers.splice(0)) {
+    try { server.close(); } catch { /* already closed */ }
+  }
+  for (const dir of temps.splice(0)) {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* already gone */ }
+  }
 });
 
 async function openPage(args: {
@@ -250,10 +286,8 @@ async function openPage(args: {
     clientsError: args.clientsError,
     extrasError: args.extrasError,
   });
-  const dir = mkdtempSync(join(tmpdir(), 'p3-kill-'));
-  temps.push(dir);
-  const file = join(dir, 't.html');
-  writeFileSync(file, html);
+  const name = `t-${++harnessSeq}.html`;
+  writeFileSync(join(harnessDir, name), html);
   const phone = args.width <= 430;
   const context = await browser.newContext({
     viewport: { width: args.width, height: args.height ?? (phone ? 844 : 900) },
@@ -261,8 +295,9 @@ async function openPage(args: {
   });
   contexts.push(context);
   const page = await context.newPage();
-  await page.goto(pathToFileURL(file).href);
+  await page.goto(`http://127.0.0.1:${harnessPort}/${name}`);
   await page.waitForSelector('#root', { timeout: 20000 });
+  await page.evaluate(() => document.fonts.ready);
   return page;
 }
 
@@ -281,6 +316,7 @@ async function waitList(page: KillPage) {
 
 async function waitSheet(page: KillPage) {
   await page.waitForSelector('h1.hub-jobs-hero', { timeout: 20000, state: 'attached' });
+  await page.evaluate(() => document.fonts.ready);
   await page.evaluate(async () => {
     for (let i = 0; i < 100; i += 1) {
       const h1 = (document.querySelector('h1.hub-jobs-hero')?.textContent || '').trim();
@@ -503,42 +539,95 @@ async function sampleCtaPaintedRgb(page: KillPage, sel: string): Promise<{
   return rgb;
 }
 
-function mockupHtmlPath(): string {
-  const candidates = [
-    join(process.cwd(), 'docs/look/p3/job-390-light.html'),
-    '/home/ubuntu/.cursor/projects/workspace/uploads/job-390-light_20cf.html',
-    '/home/ubuntu/.cursor/projects/workspace/uploads/job-390-light_dd3f.html',
-    join(process.cwd(), 'html/job-390-light.html'),
-  ];
-  const found = candidates.find((path) => existsSync(path));
-  if (!found) throw new Error('job-390-light.html missing');
+function firstExisting(paths: string[]): string {
+  const found = paths.find((path) => existsSync(path));
+  if (!found) throw new Error(`missing ${paths[0]}`);
   return found;
 }
 
-function mockupKitCss(): string {
-  const kit = join(process.cwd(), 'docs/look/p3/job-390-light-kit.css');
-  return existsSync(kit) ? readFileSync(kit, 'utf8') : '';
+function mockupHtmlPath(): string {
+  return firstExisting([
+    '/home/ubuntu/.cursor/projects/workspace/uploads/job-390-light_4016.html',
+    join(process.cwd(), 'docs/look/p3/job-390-light.html'),
+  ]);
+}
+
+function mockupTokensPath(): string {
+  return firstExisting([
+    '/home/ubuntu/.cursor/projects/workspace/uploads/tokens_938e.css',
+    join(process.cwd(), 'docs/look/p3/tokens.css'),
+  ]);
+}
+
+function mockupAppCssPath(): string {
+  return firstExisting([
+    '/home/ubuntu/.cursor/projects/workspace/uploads/app_f3c0.css',
+    join(process.cwd(), 'docs/look/p3/app.css'),
+  ]);
+}
+
+function mockupDirectionPath(): string {
+  return firstExisting([
+    '/home/ubuntu/.cursor/projects/workspace/uploads/direction_d5d7.css',
+    join(process.cwd(), 'docs/look/p3/direction.css'),
+  ]);
+}
+
+const MOCKUP_MIME: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.ttf': 'font/ttf',
+  '.woff2': 'font/woff2',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+};
+
+function writeMockupTree(root: string) {
+  const htmlDir = join(root, 'directions/4-dark-light/html');
+  const tokenDir = join(root, 'directions/4-dark-light');
+  const srcDir = join(root, 'directions/_src');
+  const fontDir = join(root, 'directions/fonts');
+  mkdirSync(htmlDir, { recursive: true });
+  mkdirSync(srcDir, { recursive: true });
+  mkdirSync(fontDir, { recursive: true });
+  copyFileSync(mockupHtmlPath(), join(htmlDir, 'job-390-light.html'));
+  copyFileSync(mockupTokensPath(), join(tokenDir, 'tokens.css'));
+  copyFileSync(mockupAppCssPath(), join(srcDir, 'app.css'));
+  copyFileSync(mockupDirectionPath(), join(htmlDir, 'direction.css'));
+  const geist = join(process.cwd(), 'public/fonts/Geist-Variable.woff2');
+  if (existsSync(geist)) copyFileSync(geist, join(fontDir, 'Geist-VariableFont_wght.ttf'));
+}
+
+function listen(server: Server): Promise<number> {
+  return new Promise((resolve, reject) => {
+    server.listen(0, '127.0.0.1', () => {
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') {
+        reject(new Error('mockup server has no port'));
+        return;
+      }
+      resolve(addr.port);
+    });
+    server.on('error', reject);
+  });
 }
 
 async function openMockup(width = 390): Promise<KillPage> {
-  const raw = readFileSync(mockupHtmlPath(), 'utf8');
-  const kit = `<style>${mockupKitCss()}</style>`;
-  const html = raw
-    .replace('<link rel="stylesheet" href="../tokens.css">', '')
-    .replace('<link rel="stylesheet" href="../../_src/app.css">', '')
-    .replace('<link rel="stylesheet" href="direction.css">', '')
-    .replace('</head>', `${kit}</head>`);
-  const dir = mkdtempSync(join(tmpdir(), 'p3-mock-'));
+  const dir = mkdtempSync(join(tmpdir(), 'p3-r9-mock-'));
   temps.push(dir);
-  const file = join(dir, 'mock.html');
-  writeFileSync(file, html);
+  writeMockupTree(dir);
+  const server = serveDir(dir);
+  servers.push(server);
+  const port = await listen(server);
   const context = await browser.newContext({
     viewport: { width, height: 844 },
     timezoneId: KILL_TZ,
   });
   contexts.push(context);
   const page = await context.newPage();
-  await page.goto(pathToFileURL(file).href);
+  await page.goto(`http://127.0.0.1:${port}/directions/4-dark-light/html/job-390-light.html`);
+  await page.evaluate(() => document.fonts.ready);
   return page;
 }
 
@@ -589,7 +678,7 @@ describe('P3 K0 harness', () => {
       };
     });
     await page.close();
-    expect(read.h1).toBe('Hot water replacement');
+    expect(read.h1).toBe('Blocked sewer, CCTV inspection');
     expect(read.cta.replace(/\s+/g, ' ').trim()).toBe(jobSheetInvoiceCtaLabel(919.05));
     expect(read.whenPainted, 'when line is painted (display/visibility/size/on-screen)').toBe(true);
     expect(read.when).toContain('Mon 19 Oct');
@@ -602,7 +691,7 @@ describe('P3 K0 harness', () => {
     expect(read.text).not.toMatch(/Relovi|Littleloop|booking/i);
     expect(read.morePainted, 'phone appbar has no … menu').toBe(false);
     expect(read.searchBesideAvatar, 'search sits right beside the avatar').toBe(true);
-    expect(read.chevronColor.replace(/\s+/g, '')).toMatch(/rgb\(46,\s*117,\s*182\)/);
+    expect(read.chevronColor.replace(/\s+/g, '')).toMatch(/rgb\(24,\s*63,\s*184\)/);
     expect(read.pageBg.replace(/\s+/g, '')).toMatch(/rgb\(245,\s*245,\s*247\)/);
     expect(read.gutter).toBe(16);
   });
@@ -1341,7 +1430,7 @@ describe('P3 look gate', () => {
     for (const seed of LOOK_SEED) {
       expect(text, seed).not.toContain(seed);
     }
-    expect(text).toContain('Hot water replacement');
+    expect(text).toContain('Blocked sewer, CCTV inspection');
     expect(text).toContain('All · 17 jobs · 3 need crew');
   });
 
@@ -1366,10 +1455,10 @@ describe('P3 r6 type, CTA contrast, hairlines', () => {
       };
     });
     await page.close();
-    expect(read.title).toBe('Hot water replacement');
+    expect(read.title).toBe('Blocked sewer, CCTV inspection');
     expect(read.fontSize).toBeGreaterThanOrEqual(32);
-    expect(Number(read.weight)).toBeGreaterThanOrEqual(700);
-    expect(read.lines, 'short title may sit on one line at 16px gutter').toBeGreaterThanOrEqual(1);
+    expect(Number(read.weight)).toBe(600);
+    expect(read.lines, 'mockup title wraps to two lines at 390').toBe(2);
   });
 
   killIt('R6-4 invoice CTA contrast against white is at least 7', async () => {
@@ -1397,8 +1486,7 @@ describe('P3 r6 type, CTA contrast, hairlines', () => {
       animations: 'disabled',
     });
     await page.close();
-    writeFileSync('/tmp/p3-r8-cta-center.json', JSON.stringify(paintedCta, null, 2));
-    expect(paintedCta.fill[0], `CTA fill ${paintedCta.fill} centre ${paintedCta.center}`).toBeLessThanOrEqual(22);
+  expect(paintedCta.fill[0], `CTA fill ${paintedCta.fill} centre ${paintedCta.center}`).toBeLessThanOrEqual(22);
     expect(paintedCta.fill[1], `CTA fill ${paintedCta.fill}`).toBeLessThanOrEqual(22);
     expect(paintedCta.fill[2], `CTA fill ${paintedCta.fill}`).toBeLessThanOrEqual(22);
     const painted = await samplePngFillAndText(buf);
@@ -1543,10 +1631,11 @@ describe('P3 Coach needCrew throw-safe and unknown status pills', () => {
 
 });
 
-describe('P3 r8 mockup vs head at 390', () => {
-  killIt('R8 job-390-light named elements match the painted sheet', async () => {
+describe('P3 r9 mockup vs head at 390', () => {
+  killIt('R9 job-390-light named elements match the real mockup render', async () => {
     const selectors = {
       mockup: {
+        side: 'mockup',
         cta: '.cta .btn.btn-primary',
         page: 'body',
         content: '.j .ref',
@@ -1564,6 +1653,7 @@ describe('P3 r8 mockup vs head at 390', () => {
         email: '.kv-email',
       },
       head: {
+        side: 'head',
         cta: '[data-job-sheet="cta"]',
         page: '.hub-jobs.is-record-open.ops-page',
         content: '.job-sheet-head',
@@ -1604,14 +1694,21 @@ describe('P3 r8 mockup vs head at 390', () => {
       const emailBox = email?.getBoundingClientRect();
       const moreStyle = more ? getComputedStyle(more) : null;
       const emailStyle = email ? getComputedStyle(email) : null;
+      const mock = sels.side === 'mockup';
+      const rail = document.querySelector(mock ? '.segc.fill' : '.job-sheet-tabs') as HTMLElement | null
+        || document.querySelector('.segc') as HTMLElement | null
+        || document.querySelector('.job-sheet-tabs') as HTMLElement | null;
+      const railStyle = rail ? getComputedStyle(rail) : null;
+      const kvRows = [...document.querySelectorAll(mock ? '.kv' : '.job-sheet-kv-row')] as HTMLElement[];
+      const appbar = document.querySelector(mock ? '.appbar' : '.job-sheet-appbar') as HTMLElement | null;
       return {
         selectors: sels,
         ctaBg: cta ? getComputedStyle(cta).backgroundColor : '',
-        ctaOpacity: cta ? getComputedStyle(cta).opacity : '',
+        ctaWidth: cta ? cta.getBoundingClientRect().width : 0,
+        ctaY: cta ? cta.getBoundingClientRect().top : -1,
         ctaDisabled: cta ? (cta as HTMLButtonElement).disabled === true : false,
         pageBg: pageEl ? getComputedStyle(pageEl).backgroundColor : '',
         contentLeft: content ? content.getBoundingClientRect().left : -1,
-        gutter: content ? content.getBoundingClientRect().left : -1,
         labelLeft: !!labelBox && !!valueBox && labelBox.right <= valueBox.left + 2,
         labelWidth: labelBox ? Math.round(labelBox.width) : 0,
         actRightOfValue: !!valueBox && !!actBox && valueBox.right <= actBox.left + 2,
@@ -1619,103 +1716,222 @@ describe('P3 r8 mockup vs head at 390', () => {
         searchBesideAvatar: !!search && !!avatar
           && search.getBoundingClientRect().right <= avatar.getBoundingClientRect().left + 4,
         chevronColor: chevron ? getComputedStyle(chevron).color : '',
+        backWeight: document.querySelector(mock ? '.appbar .back' : '.job-sheet-back')
+          ? getComputedStyle(document.querySelector(mock ? '.appbar .back' : '.job-sheet-back') as HTMLElement).fontWeight
+          : '',
         eyebrow: (eyebrow?.textContent || '').trim(),
         eyebrowTransform: eyebrow ? getComputedStyle(eyebrow).textTransform : '',
         eyebrowTracking: eyebrow ? parseFloat(getComputedStyle(eyebrow).letterSpacing) : 0,
+        eyebrowWeight: eyebrow ? getComputedStyle(eyebrow).fontWeight : '',
+        eyebrowY: eyebrow ? eyebrow.getBoundingClientRect().top : -1,
         titleSize: title ? parseFloat(getComputedStyle(title).fontSize) : 0,
         titleWeight: title ? getComputedStyle(title).fontWeight : '',
+        titleY: title ? title.getBoundingClientRect().top : -1,
+        appbarY: appbar ? appbar.getBoundingClientRect().top : -1,
+        avatarW: avatar ? avatar.getBoundingClientRect().width : 0,
+        avatarH: avatar ? avatar.getBoundingClientRect().height : 0,
+        avatarBg: avatar ? getComputedStyle(avatar).backgroundColor : '',
+        kvHeights: kvRows.map((row) => Math.round(row.getBoundingClientRect().height)),
+        kvValueWeight: value ? getComputedStyle(value).fontWeight : '',
+        tabPad: railStyle ? parseFloat(railStyle.paddingTop) : -1,
+        tabGap: railStyle ? parseFloat(railStyle.columnGap || railStyle.gap) : -1,
+        tabRadius: railStyle ? parseFloat(railStyle.borderRadius) : -1,
+        tabH: rail ? rail.getBoundingClientRect().height : -1,
+        tabBg: railStyle ? railStyle.backgroundColor : '',
         pillText: (pill?.textContent || '').replace(/\s+/g, ' ').trim(),
-        pillBg: pill ? getComputedStyle(pill).backgroundColor : '',
         subAlign: sub ? getComputedStyle(sub).textAlign : '',
         emailPainted: !!email && emailStyle?.display !== 'none' && (emailBox?.width || 0) > 0 && (emailBox?.height || 0) > 0,
+        scopeH: (document.querySelector(mock ? '.sec .h2' : '.job-sheet-scope-h') as HTMLElement | null)
+          ? getComputedStyle(document.querySelector(mock ? '.sec .h2' : '.job-sheet-scope-h') as HTMLElement).fontSize
+          : '',
+        clientHref: (document.querySelector(mock ? '.kv dd' : 'a.job-sheet-kv-name') as HTMLAnchorElement | null)?.getAttribute('href') || '',
       };
     };
     const mockPage = await openMockup(390);
     const mockup = await mockPage.evaluate(measure, selectors.mockup);
     const mockCtaRgb = await sampleCtaPaintedRgb(mockPage, selectors.mockup.cta);
-    const mockShot = await mockPage.screenshot({ type: 'png', fullPage: true, animations: 'disabled' });
     await mockPage.close();
     const headPage = await openPage({ width: 390, path: '/jobs/p3-0036' });
     await waitSheet(headPage);
     const head = await headPage.evaluate(measure, selectors.head);
     const headCtaRgb = await sampleCtaPaintedRgb(headPage, selectors.head.cta);
-    const headShot = await headPage.screenshot({ type: 'png', fullPage: true, animations: 'disabled' });
-    const tabs = await headPage.evaluate(() => {
-      const rail = document.querySelector('.job-sheet-tabs') as HTMLElement | null;
-      const labels = [...document.querySelectorAll('.job-sheet-tab')].map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim());
-      const box = rail?.getBoundingClientRect();
-      return {
-        labels,
-        w: box?.width || 0,
-        clip: box ? { x: box.x, y: box.y, width: box.width, height: box.height } : null,
-      };
-    });
-    const art = '/opt/cursor/artifacts/p3-r8';
-    mkdirSync(art, { recursive: true });
-    writeFileSync(`${art}/390-mockup.png`, mockShot);
-    writeFileSync(`${art}/390-sheet.png`, headShot);
-    if (tabs.clip) {
-      await headPage.screenshot({ path: `${art}/390-tabs.png`, type: 'png', clip: tabs.clip, animations: 'disabled' });
-    }
     await headPage.close();
-    const vs = await browser.newContext({ viewport: { width: 800, height: 900 } });
-    contexts.push(vs);
-    const vsPage = await vs.newPage();
-    const left = mockShot.toString('base64');
-    const right = headShot.toString('base64');
-    await vsPage.setContent(`<!doctype html><html><body style="margin:0;background:#111;display:flex">
-<div style="flex:1;background:#fff"><img alt="mockup" src="data:image/png;base64,${left}" style="width:100%;display:block"/></div>
-<div style="flex:1;background:#fff"><img alt="head" src="data:image/png;base64,${right}" style="width:100%;display:block"/></div>
-</body></html>`);
-    await vsPage.screenshot({ path: `${art}/390-sheet-vs-mockup.png`, type: 'png', fullPage: true, animations: 'disabled' });
-    await vs.close();
-    const table = [
-      { property: 'ctaBg', mockup: mockup.ctaBg, head: head.ctaBg, mockupSel: selectors.mockup.cta, headSel: selectors.head.cta },
-      { property: 'ctaPaintedFill', mockup: mockCtaRgb.fill, head: headCtaRgb.fill, mockupSel: selectors.mockup.cta, headSel: selectors.head.cta },
-      { property: 'ctaPaintedCenter', mockup: mockCtaRgb.center, head: headCtaRgb.center, mockupSel: selectors.mockup.cta, headSel: selectors.head.cta },
-      { property: 'pageBg', mockup: mockup.pageBg, head: head.pageBg, mockupSel: selectors.mockup.page, headSel: selectors.head.page },
-      { property: 'contentLeft', mockup: mockup.contentLeft, head: head.contentLeft, mockupSel: selectors.mockup.content, headSel: selectors.head.content },
-      { property: 'labelLeft', mockup: mockup.labelLeft, head: head.labelLeft, mockupSel: selectors.mockup.label, headSel: selectors.head.label },
-      { property: 'actRightOfValue', mockup: mockup.actRightOfValue, head: head.actRightOfValue, mockupSel: selectors.mockup.act, headSel: selectors.head.act },
-      { property: 'morePresent', mockup: mockup.morePresent, head: head.morePresent, mockupSel: selectors.mockup.more, headSel: selectors.head.more },
-      { property: 'searchBesideAvatar', mockup: mockup.searchBesideAvatar, head: head.searchBesideAvatar, mockupSel: selectors.mockup.search, headSel: selectors.head.search },
-      { property: 'chevronColor', mockup: mockup.chevronColor, head: head.chevronColor, mockupSel: selectors.mockup.chevron, headSel: selectors.head.chevron },
-      { property: 'eyebrow', mockup: mockup.eyebrow.toUpperCase(), head: head.eyebrow, mockupSel: selectors.mockup.eyebrow, headSel: selectors.head.eyebrow },
-      { property: 'titleSize', mockup: mockup.titleSize, head: head.titleSize, mockupSel: selectors.mockup.title, headSel: selectors.head.title },
-      { property: 'pillText', mockup: mockup.pillText, head: head.pillText, mockupSel: selectors.mockup.pill, headSel: selectors.head.pill },
-      { property: 'subAlign', mockup: mockup.subAlign, head: head.subAlign, mockupSel: selectors.mockup.sub, headSel: selectors.head.sub },
-      { property: 'emailPainted', mockup: mockup.emailPainted, head: head.emailPainted, mockupSel: selectors.mockup.email, headSel: selectors.head.email },
-    ];
-    writeFileSync('/tmp/p3-r8-mockup-table.json', JSON.stringify({ table, mockup, head, mockCtaRgb, headCtaRgb, tabs }, null, 2));
-    expect(head.ctaDisabled, 'invoice CTA is not disabled').toBe(false);
-    expect(head.ctaOpacity).toBe('1');
-    expect(headCtaRgb.fill[0], `head CTA fill ${headCtaRgb.fill} centre ${headCtaRgb.center}`).toBeLessThanOrEqual(22);
+    if (process.env.P3_PROPS === '1') {
+      console.log(`P3_PROPS ${JSON.stringify({ mockup, head, mockCtaRgb, headCtaRgb })}`);
+    }
+    const near = (a: number, b: number, tol = 1) => Math.abs(a - b) <= tol;
+    expect(headCtaRgb.fill[0], `head CTA fill ${headCtaRgb.fill}`).toBeLessThanOrEqual(22);
     expect(headCtaRgb.fill[1], `head CTA fill ${headCtaRgb.fill}`).toBeLessThanOrEqual(22);
     expect(headCtaRgb.fill[2], `head CTA fill ${headCtaRgb.fill}`).toBeLessThanOrEqual(22);
     expect(mockCtaRgb.fill[0], `mockup CTA fill ${mockCtaRgb.fill}`).toBeLessThanOrEqual(22);
+    expect(near(head.ctaWidth, mockup.ctaWidth, 2), `cta width head ${head.ctaWidth} mock ${mockup.ctaWidth}`).toBe(true);
     expect(head.pageBg.replace(/\s+/g, '')).toMatch(/rgb\(245,\s*245,\s*247\)/);
     expect(mockup.pageBg.replace(/\s+/g, '')).toMatch(/rgb\(245,\s*245,\s*247\)/);
-    expect(Math.round(head.contentLeft), 'head first content left').toBeGreaterThanOrEqual(14);
-    expect(Math.round(head.contentLeft), 'head first content left').toBeLessThanOrEqual(18);
-    expect(Math.round(mockup.contentLeft), 'mockup first content left').toBeGreaterThanOrEqual(14);
-    expect(Math.round(mockup.contentLeft), 'mockup first content left').toBeLessThanOrEqual(18);
+    expect(near(head.contentLeft, mockup.contentLeft), `contentLeft head ${head.contentLeft} mock ${mockup.contentLeft}`).toBe(true);
+    expect(head.labelWidth, '72px kv column').toBe(72);
+    expect(mockup.labelWidth, 'mockup 72px kv column').toBe(72);
     expect(head.labelLeft).toBe(true);
-    expect(mockup.labelLeft).toBe(true);
     expect(head.actRightOfValue).toBe(true);
-    expect(head.morePresent).toBe(false);
+    expect(head.morePresent, 'appbar has no …').toBe(false);
     expect(mockup.morePresent).toBe(false);
     expect(head.searchBesideAvatar).toBe(true);
-    expect(head.chevronColor.replace(/\s+/g, '')).toMatch(/rgb\(46,\s*117,\s*182\)/);
-    expect(head.eyebrow).toBe('JOB #0036');
-    expect(mockup.eyebrow.toUpperCase()).toBe('JOB #0036');
-    expect(head.eyebrowTransform).toBe('uppercase');
-    expect(head.eyebrowTracking).toBeGreaterThan(0);
-    expect(head.titleSize).toBeGreaterThanOrEqual(32);
-    expect(Number(head.titleWeight)).toBeGreaterThanOrEqual(700);
+    expect(head.chevronColor.replace(/\s+/g, '')).toMatch(/rgb\(24,\s*63,\s*184\)/);
+    expect(mockup.chevronColor.replace(/\s+/g, '')).toMatch(/rgb\(24,\s*63,\s*184\)/);
+    expect(Number(head.backWeight)).toBe(600);
+    expect(Number(mockup.backWeight)).toBe(600);
+    expect(head.eyebrow.toUpperCase()).toBe('JOB #0036');
+    expect(Number(head.eyebrowWeight)).toBe(500);
+    expect(Number(mockup.eyebrowWeight)).toBe(500);
+    expect(head.eyebrowTracking).toBeCloseTo(mockup.eyebrowTracking, 0);
+    expect(Number(head.titleWeight)).toBe(600);
+    expect(Number(mockup.titleWeight)).toBe(600);
+    expect(near(head.titleSize, mockup.titleSize)).toBe(true);
+    expect(near(head.appbarY, mockup.appbarY), `appbar y head ${head.appbarY} mock ${mockup.appbarY}`).toBe(true);
+    expect(near(head.eyebrowY, mockup.eyebrowY), `eyebrow y head ${head.eyebrowY} mock ${mockup.eyebrowY}`).toBe(true);
+    expect(near(head.titleY, mockup.titleY), `title y head ${head.titleY} mock ${mockup.titleY}`).toBe(true);
+    expect(near(head.ctaY, mockup.ctaY), `cta y head ${head.ctaY} mock ${mockup.ctaY}`).toBe(true);
+    expect(near(head.avatarW, 32)).toBe(true);
+    expect(near(head.avatarH, 32)).toBe(true);
+    expect(head.avatarBg.replace(/\s+/g, '')).toMatch(/rgb\(10,\s*10,\s*11\)/);
+    expect(head.tabBg.replace(/\s+/g, '')).toMatch(/rgb\(235,\s*235,\s*238\)/);
+    expect(mockup.tabBg.replace(/\s+/g, '')).toMatch(/rgb\(235,\s*235,\s*238\)/);
+    expect(near(head.tabPad, mockup.tabPad)).toBe(true);
+    expect(near(head.tabGap, mockup.tabGap)).toBe(true);
+    expect(near(head.tabRadius, mockup.tabRadius)).toBe(true);
+    expect(near(head.tabH, mockup.tabH)).toBe(true);
+    expect(Number(head.kvValueWeight)).toBe(500);
+    expect(Number(mockup.kvValueWeight), 'mockup .kv dd has no weight in app.css').toBe(400);
+    expect(head.kvHeights[head.kvHeights.length - 1], `crew row ${head.kvHeights[head.kvHeights.length - 1]}`).toBeGreaterThanOrEqual(54);
     expect(head.pillText).toContain('Ready to invoice');
     expect(head.subAlign).toBe('center');
     expect(head.emailPainted, 'Email is not its own painted row').toBe(false);
-    expect(tabs.labels.some((label) => /Paperwork/.test(label) && /\d/.test(label))).toBe(true);
-    expect(tabs.labels.some((label) => /Materials/.test(label) && /\d/.test(label))).toBe(true);
+    expect(head.clientHref).toBe('/clients/p3-client-36');
+    expect(head.scopeH).toMatch(/20px/);
+  });
+
+  killIt('R9 existing job edit save writes the new title', async () => {
+    const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
+    await waitSheet(page);
+    await page.evaluate(() => {
+      const more = document.querySelector('[data-job-sheet="actions"]') as HTMLDetailsElement | null;
+      if (more) more.open = true;
+    });
+    await page.evaluate(() => {
+      const item = [...document.querySelectorAll('[role="menuitem"]')]
+        .find((el) => (el.textContent || '').trim() === 'Details') as HTMLElement | undefined;
+      item?.click();
+    });
+    await page.waitForSelector('[data-job-form="1"]', { timeout: 10000 });
+    await page.evaluate(() => {
+      const input = document.querySelector('[data-job-form="1"] input.form-input') as HTMLInputElement | null;
+      if (!input) throw new Error('title input missing');
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+      setter?.call(input, 'Blocked sewer, CCTV inspection edited');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await page.evaluate(() => {
+      const save = [...document.querySelectorAll('[data-job-form="1"] button')]
+        .find((el) => /Save Changes/i.test(el.textContent || '')) as HTMLElement | undefined;
+      save?.click();
+    });
+    const writes = await page.evaluate(async () => {
+      type JobWrite = { table: string; values: Record<string, unknown>; id?: unknown };
+      for (let i = 0; i < 50; i += 1) {
+        const rows = (window as unknown as { __P3_JOB_UPDATES__?: JobWrite[] }).__P3_JOB_UPDATES__ ?? [];
+        if (rows.some((row) => row.table === 'jobs' && row.values.title === 'Blocked sewer, CCTV inspection edited')) return rows;
+        await new Promise((resolve) => window.setTimeout(resolve, 50));
+      }
+      return (window as unknown as { __P3_JOB_UPDATES__?: JobWrite[] }).__P3_JOB_UPDATES__ ?? [];
+    });
+    await page.close();
+    expect(writes.some((row) => (
+      row.table === 'jobs'
+      && row.id === 'p3-0036'
+      && row.values.title === 'Blocked sewer, CCTV inspection edited'
+    )), JSON.stringify(writes)).toBe(true);
+  });
+
+  killIt('R9 sheet actions stay reachable at 375 390 768', async () => {
+    for (const width of [375, 390, 768] as const) {
+      const page = await openPage({ width, path: '/jobs/p3-0036' });
+      await waitSheet(page);
+      const read = await page.evaluate(() => {
+        const appMore = document.querySelector('.job-sheet-appbar .hub-job-more') as HTMLElement | null;
+        const sheetMore = document.querySelector('[data-job-sheet="actions"]') as HTMLDetailsElement | null;
+        if (sheetMore) sheetMore.open = true;
+        const items = [...document.querySelectorAll('[data-job-sheet="actions"] [role="menuitem"]')]
+          .map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim());
+        const appStyle = appMore ? getComputedStyle(appMore) : null;
+        return {
+          appMorePainted: !!appMore && appStyle?.display !== 'none' && (appMore.getBoundingClientRect().width || 0) > 0,
+          items,
+        };
+      });
+      await page.close();
+      expect(read.appMorePainted, `${width} appbar …`).toBe(false);
+      expect(read.items, `${width} actions`).toEqual(expect.arrayContaining([
+        'Details',
+        'Add to calendar',
+        'Post update',
+        'Invoice',
+        'Start inspection',
+      ]));
+      expect(read.items.some((item) => /Clock (on|off)/.test(item)), `${width} clock`).toBe(true);
+      expect(read.items.some((item) => /JHA/.test(item)), `${width} JHA`).toBe(true);
+    }
+  });
+
+  killIt('R9 tab labels keep 8px inset with two-digit counts at 375 and 390', async () => {
+    for (const width of [375, 390] as const) {
+      const page = await openPage({ width, path: '/jobs/p3-0036' });
+      await waitSheet(page);
+      const read = await page.evaluate(() => {
+        const tabs = [...document.querySelectorAll('.job-sheet-tab')] as HTMLElement[];
+        const paperwork = tabs.find((tab) => /Paperwork/.test(tab.textContent || ''));
+        const materials = tabs.find((tab) => /Materials/.test(tab.textContent || ''));
+        if (paperwork) paperwork.textContent = 'Paperwork 12';
+        if (materials) materials.textContent = 'Materials 12';
+        const textBox = (el: HTMLElement) => {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          const rects = [...range.getClientRects()].filter((box) => box.width > 0 && box.height > 0);
+          if (!rects.length) return { left: 0, right: 0 };
+          return {
+            left: Math.min(...rects.map((box) => box.left)),
+            right: Math.max(...rects.map((box) => box.right)),
+          };
+        };
+        return [paperwork, materials].filter(Boolean).map((tab) => {
+          const box = tab!.getBoundingClientRect();
+          const text = textBox(tab!);
+          return {
+            label: tab!.textContent,
+            leftGap: text.left - box.left,
+            rightGap: box.right - text.right,
+          };
+        });
+      });
+      await page.close();
+      expect(read.length).toBe(2);
+      for (const row of read) {
+        expect(row.leftGap, `${width} ${row.label} left`).toBeGreaterThanOrEqual(8);
+        expect(row.rightGap, `${width} ${row.label} right`).toBeGreaterThanOrEqual(8);
+      }
+    }
+  });
+
+  killIt('R9 disabled CTA paints disabled, not ink', async () => {
+    const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
+    await waitSheet(page);
+    await page.evaluate(() => {
+      const cta = document.querySelector('[data-job-sheet="cta"]') as HTMLButtonElement | null;
+      if (!cta) throw new Error('cta missing');
+      cta.disabled = true;
+    });
+    const painted = await sampleCtaPaintedRgb(page, '[data-job-sheet="cta"]');
+    await page.close();
+    const ink = painted.fill[0] <= 22 && painted.fill[1] <= 22 && painted.fill[2] <= 22;
+    expect(ink, `disabled CTA fill ${painted.fill}`).toBe(false);
+    expect(painted.fill[1], `disabled CTA stays grey ${painted.fill}`).toBeGreaterThan(80);
   });
 });

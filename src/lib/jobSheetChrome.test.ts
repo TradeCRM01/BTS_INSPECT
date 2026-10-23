@@ -49,7 +49,7 @@ describe('job sheet chrome', () => {
       total: '$919.05',
     });
     expect(jobSheetBillTotals(null)).toBeNull();
-    expect(JOB_SHEET_BACK).toBe('‹ Jobs');
+    expect(JOB_SHEET_BACK).toBe('Jobs');
     expect(JOB_SHEET_SET_A_DATE).toBe('Set a date');
     expect(JOB_SHEET_ALL_NOTES).toBe('All notes');
     expect(JOB_SHEET_ALL_PHOTOS).toBe('All photos');
