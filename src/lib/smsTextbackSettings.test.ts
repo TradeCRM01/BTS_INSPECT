@@ -76,7 +76,8 @@ describe('sms text-back settings', () => {
     expect(shouldQueryLiveSmsTextback(SMS_SETTINGS_LOOK)).toBe(false);
     expect(lookSmsTextbackSettings(SMS_SETTINGS_LOOK)?.businessName).toBe('Field Audit Co');
     expect(lookSmsTextbackSettings(SMS_SETTINGS_INVALID_LOOK)?.businessName).toBe('Twenty Character Name!');
-    expect(ALLOWED_ENQUIRY_PHONE).toBe('+61418893602');
+    expect(ALLOWED_ENQUIRY_PHONE.startsWith('+61')).toBe(true);
+    expect(ALLOWED_ENQUIRY_PHONE).toHaveLength(12);
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ALLOWED_ENQUIRY_PHONE, ENQUIRY_SURFACE_LIVE } from './missedCallEnquiry';
+import { ALLOWED_ENQUIRY_PHONE, ENQUIRY_SURFACE_LIVE, formatAuMobileDisplay } from './missedCallEnquiry';
 import { renderMissedCallAck } from './missedCallSmsCopy';
 import {
   CONVERSATION_EMPTY_LOOK,
@@ -43,22 +43,25 @@ describe('enquiry conversation', () => {
 
   it('matches a client number only as an AU mobile, allowlisted in fixtures', () => {
     expect(enquiryPhoneE164(ALLOWED_ENQUIRY_PHONE)).toBe(ALLOWED_ENQUIRY_PHONE);
-    expect(enquiryPhoneE164('0418 893 602')).toBe(ALLOWED_ENQUIRY_PHONE);
-    expect(conversationPhonesMatch(ALLOWED_ENQUIRY_PHONE, '0418893602')).toBe(true);
+    expect(enquiryPhoneE164('0400 000 000')).toBe('+61400000000');
+    expect(enquiryPhoneE164('0400000000')).toBe('+61400000000');
+    expect(conversationPhonesMatch('+61400000000', '0400000000')).toBe(true);
+    expect(conversationPhonesMatch(ALLOWED_ENQUIRY_PHONE, ALLOWED_ENQUIRY_PHONE)).toBe(true);
     expect(conversationPhonesMatch(ALLOWED_ENQUIRY_PHONE, '')).toBe(false);
     expect(conversationPhonesMatch(null, ALLOWED_ENQUIRY_PHONE)).toBe(false);
     expect(conversationLookPhone()).toBe(ALLOWED_ENQUIRY_PHONE);
-    expect(conversationLookPhoneLabel()).toBe('0418 893 602');
+    expect(conversationLookPhoneLabel()).toBe(formatAuMobileDisplay(ALLOWED_ENQUIRY_PHONE));
     expect(lookConversationMessages()[0].body).toBe(renderMissedCallAck('Field Audit Co'));
     expect(lookConversationMessages()[0].body).toBe(
       'Hi, this is Field Audit Co. Sorry we missed your call. Reply with what you need done and your suburb and we will get back to you. Reply STOP to opt out.',
     );
-    expect(conversationLookClientPhone(CONVERSATION_LOOK, '0400 111 222')).toBe('0418 893 602');
+    expect(conversationLookClientPhone(CONVERSATION_LOOK, '0400 111 222'))
+      .toBe(formatAuMobileDisplay(ALLOWED_ENQUIRY_PHONE));
     expect(conversationLookClientPhone(CONVERSATION_EMPTY_LOOK, '0400 111 222')).toBe('0400 111 222');
     expect(conversationMessagesForLook(CONVERSATION_LOOK, '0400 111 222')).toEqual([]);
     expect(conversationMessagesForLook(CONVERSATION_LOOK, ALLOWED_ENQUIRY_PHONE)?.[0]?.body)
       .toBe(renderMissedCallAck('Field Audit Co'));
-    expect(conversationMessagesForLook(CONVERSATION_LOOK, '0418 893 602')?.length).toBeGreaterThan(0);
+    expect(conversationMessagesForLook(CONVERSATION_LOOK, ALLOWED_ENQUIRY_PHONE)?.length).toBeGreaterThan(0);
   });
 
   it('keeps live conversation off until the enquiry schema is live', () => {
