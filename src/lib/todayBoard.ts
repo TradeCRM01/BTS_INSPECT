@@ -162,6 +162,10 @@ export function isWageExpense(row: Pick<TodayExpenseRow, 'employee_cost_type'>):
   return row.employee_cost_type === 'wages';
 }
 
+export function isSuperExpense(row: Pick<TodayExpenseRow, 'employee_cost_type'>): boolean {
+  return row.employee_cost_type === 'super';
+}
+
 export function outstandingFloor(inv: Pick<TodayOutstandingRow, 'total' | 'amount_paid'>): number {
   const raw = Number(inv.total ?? 0) - Number(inv.amount_paid ?? 0);
   return raw < 0 ? 0 : raw;
@@ -282,7 +286,7 @@ export function sumCashIn(payments: readonly TodayPaymentRow[], from: string, to
 export function sumCashOut(expenses: readonly TodayExpenseRow[], from: string, to: string): number {
   return expenses.reduce((sum, expense) => {
     if (expense.status !== 'recorded' && expense.status !== 'paid') return sum;
-    if (isWageExpense(expense)) return sum;
+    if (isWageExpense(expense) || isSuperExpense(expense)) return sum;
     const date = (expense.expense_date ?? '').slice(0, 10);
     if (!date || date < from || date > to) return sum;
     return sum + Number(expense.total ?? 0);
