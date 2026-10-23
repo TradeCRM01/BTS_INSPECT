@@ -89,4 +89,10 @@ describe('needsCrew', () => {
       assigned_team: 'dave',
     })).not.toThrow();
   });
+
+  it('treats a non-string scheduled_date as no date and never throws', () => {
+    expect(needsCrew({ status: 'scheduled', scheduled_date: 20261019, assigned_team: [] })).toBe(false);
+    expect(needsCrew({ status: 'scheduled', scheduled_date: { d: '2026-10-19' }, assigned_team: [] })).toBe(false);
+    expect(() => needsCrew({ status: 'scheduled', scheduled_date: 20261019, assigned_team: [] })).not.toThrow();
+  });
 });

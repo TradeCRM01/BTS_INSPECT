@@ -184,6 +184,21 @@ function fixtureHtml(args: {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<script>
+(function(){
+  var Real = Date;
+  var ms = Date.parse('2026-10-19T03:40:00.000Z');
+  function FrozenDate() {
+    if (arguments.length === 0) return new Real(ms);
+    return new (Function.prototype.bind.apply(Real, [null].concat([].slice.call(arguments))))();
+  }
+  FrozenDate.now = function(){ return ms; };
+  FrozenDate.parse = Real.parse;
+  FrozenDate.UTC = Real.UTC;
+  FrozenDate.prototype = Real.prototype;
+  window.Date = FrozenDate;
+})();
+</script>
 <style>@font-face{font-family:'Geist';src:url('${geist}') format('woff2');font-weight:100 900;font-style:normal;font-display:block}</style>
 <style>${args.css}</style>
 </head>
@@ -504,6 +519,7 @@ const LOOK_SEED_WIDGETS = [
   'seed-quick_actions',
   'seed-pending_reports',
   'seed-agent_reminders',
+  'seed-ai_agent',
   'seed-kpi_scorecard',
 ] as const;
 const LOOK_REPRO_WIDGETS = [
@@ -2505,12 +2521,12 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
   }, 120000);
 
   it('C11 Ask the agent placeholder is >=4.5:1', async () => {
-    const page = await openPage({ width: 1024, path: '/?look=dashboard' });
+    const page = await openPage({ width: 1024, path: '/?look=dashboard-seed' });
+    await page.waitForSelector('.agent-ask-input', { timeout: 20000 });
     const box = await page.evaluate(() => {
-      const input = document.createElement('input');
-      input.placeholder = 'Ask the agent…';
-      input.className = 'agent-ask-input';
-      document.body.appendChild(input);
+      const input = document.querySelector('.agent-ask-input') as HTMLInputElement | null;
+      if (!input) throw new Error('real Ask the agent input missing');
+      input.scrollIntoView({ block: 'center' });
       const fg = getComputedStyle(input, '::placeholder').color;
       const bg = getComputedStyle(input).backgroundColor;
       const parse = (value: string) => {
@@ -2534,14 +2550,13 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
   it('C11 mutant: the old placeholder colour drops under 4.5:1', async () => {
     const page = await openPage({
       width: 1024,
-      path: '/?look=dashboard',
+      path: '/?look=dashboard-seed',
       css: `${distCss}.agent-ask-input::placeholder{color:#9CA3AF!important}`,
     });
+    await page.waitForSelector('.agent-ask-input', { timeout: 20000 });
     const ratio = await page.evaluate(() => {
-      const input = document.createElement('input');
-      input.placeholder = 'Ask the agent…';
-      input.className = 'agent-ask-input';
-      document.body.appendChild(input);
+      const input = document.querySelector('.agent-ask-input') as HTMLInputElement | null;
+      if (!input) throw new Error('real Ask the agent input missing');
       const fg = getComputedStyle(input, '::placeholder').color;
       const bg = getComputedStyle(input).backgroundColor;
       const parse = (value: string) => {
@@ -2619,27 +2634,39 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     }
   }, 180000);
 
-  it('P1b-need-crew: look seed paints 1 need crew plus No date / Set a date on the undated job', async () => {
-    const page = await openLookDist(lookOrigin, 390);
+  it('P1b-need-crew: look seed paints the visible count, No date without Set a date, and Awaiting parts', async () => {
+    const page = await openLookDist(lookOrigin, 1280);
     await page.waitForSelector('[data-dashboard-job="look-dash-no-date"]', { timeout: 20000 });
     const box = await page.evaluate(() => {
-      const count = document.querySelector('[data-need-crew-count]') as HTMLElement | null;
+      const count = [...document.querySelectorAll('[data-need-crew-count]')].find((el) => {
+        const s = getComputedStyle(el as HTMLElement);
+        return s.display !== 'none' && s.visibility !== 'hidden';
+      }) as HTMLElement | undefined;
       const undated = document.querySelector('[data-dashboard-job="look-dash-no-date"]') as HTMLElement | null;
       const dated = document.querySelector('[data-dashboard-job="look-dash-need-crew"]') as HTMLElement | null;
+      const awaiting = document.querySelector('[data-dashboard-job="look-dash-awaiting"]') as HTMLElement | null;
+      const hold = document.querySelector('[data-dashboard-job="look-dash-on-hold"]') as HTMLElement | null;
       return {
         count: (count?.textContent || '').trim(),
         attr: count?.getAttribute('data-need-crew-count') || '',
         undated: (undated?.textContent || '').replace(/\s+/g, ' '),
         dated: (dated?.textContent || '').replace(/\s+/g, ' '),
+        awaiting: (awaiting?.textContent || '').replace(/\s+/g, ' '),
+        hold: (hold?.textContent || '').replace(/\s+/g, ' '),
+        visible: !!(count && (count.getBoundingClientRect().height > 0)),
       };
     });
     await page.close();
-    expect(box.attr, 'undated job must not increment the count').toBe('1');
-    expect(box.count).toBe('1 need crew');
+    expect(box.visible, 'need-crew count is painted').toBe(true);
+    expect(box.attr).toBe('4');
+    expect(box.count).toBe('4 need crew');
     expect(box.undated).toMatch(/No date/);
-    expect(box.undated).toMatch(/Set a date/);
+    expect(box.undated).not.toMatch(/Set a date/);
     expect(box.dated).toMatch(/Needs crew/);
     expect(box.dated).not.toMatch(/No date/);
+    expect(box.awaiting).toMatch(/Awaiting parts/);
+    expect(box.awaiting).not.toMatch(/Booked/);
+    expect(box.hold).toMatch(/Needs crew/);
   }, 120000);
 
   it('C10 painted Out/In bars are ≥3:1 on the look board', async () => {
@@ -2848,40 +2875,31 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     expect(box.hits.length, '24px height clips card text').toBeGreaterThan(0);
   }, 120000);
 
-  it('C7 painted: overdue copy sits in a warn pill rect, and the pill fill is not page grey', async () => {
+  it('C7 painted: overdue is plain warn text, and the Needs crew pill fill is not page grey', async () => {
     const page = await openLookDist(lookOrigin, 1280);
-    await page.waitForSelector('.today-out-list .today-pill.is-warn', { timeout: 20000 });
+    await page.waitForSelector('.today-overdue', { timeout: 20000 });
+    await page.waitForSelector('.today-pill.is-warn', { timeout: 20000 });
     const box = await page.evaluate(() => {
-      const pill = document.querySelector('.today-out-list .today-pill.is-warn') as HTMLElement | null;
-      if (!pill) throw new Error('warn pill missing');
+      const overdue = document.querySelector('.today-overdue') as HTMLElement | null;
+      const pill = document.querySelector('.today-jobs-table .today-pill.is-warn') as HTMLElement | null;
+      if (!overdue || !pill) throw new Error('overdue text or warn pill missing');
+      overdue.scrollIntoView({ block: 'center' });
+      const or = overdue.getBoundingClientRect();
       const pr = pill.getBoundingClientRect();
-      const walker = document.createTreeWalker(pill, NodeFilter.SHOW_TEXT);
-      let overdueInPill = false;
-      let node = walker.nextNode();
-      while (node) {
-        if (/overdue/i.test(node.textContent || '')) {
-          const range = document.createRange();
-          range.selectNodeContents(node);
-          overdueInPill = [...range.getClientRects()].every((r) => (
-            r.width < 0.5
-            || (
-              r.left >= pr.left - 1
-              && r.top >= pr.top - 1
-              && r.right <= pr.right + 1
-              && r.bottom <= pr.bottom + 1
-            )
-          ));
-          break;
-        }
-        node = walker.nextNode();
-      }
       return {
+        inPill: !!overdue.closest('.today-pill'),
+        overdue: { x: or.x, y: or.y, width: or.width, height: or.height, color: getComputedStyle(overdue).color },
         pill: { x: pr.x, y: pr.y, width: pr.width, height: pr.height },
-        overdueInPill,
-        label: (pill.textContent || '').replace(/\s+/g, ' ').trim(),
       };
     });
-    expect(box.overdueInPill, 'overdue copy sits inside the warn pill rect').toBe(true);
+    expect(box.inPill, 'overdue is not a filled pill').toBe(false);
+    const parseRgb = (value: string) => {
+      const m = value.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+      if (!m) return { r: 0, g: 0, b: 0 };
+      return { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]) };
+    };
+    const overdueColor = parseRgb(box.overdue.color);
+    expect(overdueColor.r, 'overdue text is warn').toBeGreaterThan(overdueColor.b);
     const pix = await sampleClipCenter(page, {
       x: Math.max(0, box.pill.x + 2),
       y: Math.max(0, box.pill.y + 2),
@@ -2890,7 +2908,149 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     });
     await page.close();
     const grey = pix.r > 80 && Math.abs(pix.r - pix.g) < 12 && Math.abs(pix.g - pix.b) < 12;
-    expect(grey, `warn pill fill is not page grey (${pix.r},${pix.g},${pix.b})`).toBe(false);
-    expect(pix.r, 'warn pill is warm').toBeGreaterThan(pix.b);
+    expect(grey, `Needs crew pill fill is not page grey (${pix.r},${pix.g},${pix.b})`).toBe(false);
+    expect(pix.r, 'Needs crew pill is warm').toBeGreaterThan(pix.b);
+  }, 120000);
+
+  it('C7a mutant: a neutralised warn pill fill goes grey', async () => {
+    const page = await openPage({
+      width: 1280,
+      path: '/?look=dashboard',
+      css: `${distCss}\n.today-pill.is-warn{background:var(--g-line)!important;color:var(--g-ink-muted)!important}`,
+    });
+    await page.waitForSelector('.today-jobs-table .today-pill.is-warn', { timeout: 20000 });
+    const box = await page.evaluate(() => {
+      const pill = document.querySelector('.today-jobs-table .today-pill.is-warn') as HTMLElement | null;
+      if (!pill) return null;
+      pill.scrollIntoView({ block: 'center' });
+      const r = pill.getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    });
+    expect(box, 'warn pill painted').toBeTruthy();
+    const pix = await sampleClipCenter(page, {
+      x: Math.max(0, (box?.x ?? 0) + 2),
+      y: Math.max(0, (box?.y ?? 0) + 2),
+      width: 4,
+      height: 4,
+    });
+    await page.close();
+    const grey = Math.abs(pix.r - pix.g) < 16 && Math.abs(pix.g - pix.b) < 16;
+    expect(grey, `neutralised warn pill is grey (${pix.r},${pix.g},${pix.b})`).toBe(true);
+  }, 120000);
+
+  it('P1b-table-rects: 1280 row height, column x, and Needs you chevron share a line', async () => {
+    const page = await openLookDist(lookOrigin, 1280);
+    await page.waitForSelector('.today-job-row', { timeout: 20000 });
+    const box = await page.evaluate(() => {
+      const row = document.querySelector('.today-jobs[data-today-band="d"] .today-job-row') as HTMLElement | null;
+      const time = row?.querySelector('.today-time') as HTMLElement | null;
+      const job = row?.querySelector('.today-job-cell') as HTMLElement | null;
+      const place = row?.querySelector('.today-job-place') as HTMLElement | null;
+      const status = row?.querySelector('td.is-status') as HTMLElement | null;
+      const pill = status?.querySelector('.today-pill') as HTMLElement | null;
+      const thead = document.querySelector('.today-jobs-thead') as HTMLElement | null;
+      const need = document.querySelector('.today-need-row') as HTMLElement | null;
+      const title = need?.querySelector('.today-need-title') as HTMLElement | null;
+      const caret = need?.querySelector('.today-need-caret') as HTMLElement | null;
+      const rr = row?.getBoundingClientRect();
+      const tr = thead?.getBoundingClientRect();
+      return {
+        rowH: rr?.height ?? 0,
+        headW: tr?.width ?? 0,
+        timeX: time?.getBoundingClientRect().left ?? 0,
+        jobX: job?.getBoundingClientRect().left ?? 0,
+        placeX: place?.getBoundingClientRect().left ?? 0,
+        statusX: status?.getBoundingClientRect().left ?? 0,
+        pillX: pill?.getBoundingClientRect().left ?? 0,
+        titleTop: title?.getBoundingClientRect().top ?? 0,
+        caretTop: caret?.getBoundingClientRect().top ?? 0,
+        titleRight: title?.getBoundingClientRect().right ?? 0,
+        caretLeft: caret?.getBoundingClientRect().left ?? 0,
+        meta: (job?.querySelector('.today-job-meta')?.textContent || '').replace(/\s+/g, ' '),
+      };
+    });
+    await page.close();
+    expect(box.headW, 'thead is not squashed').toBeGreaterThan(600);
+    expect(box.rowH, 'row ~58px').toBeGreaterThanOrEqual(48);
+    expect(box.rowH, 'row ~58px').toBeLessThanOrEqual(72);
+    expect(box.timeX).toBeLessThan(box.jobX - 8);
+    expect(box.jobX).toBeLessThan(box.placeX - 8);
+    expect(box.placeX).toBeLessThan(box.statusX - 8);
+    expect(box.pillX).toBeGreaterThan(box.statusX - 4);
+    expect(Math.abs(box.titleTop - box.caretTop), 'chevron on the same line').toBeLessThanOrEqual(8);
+    expect(box.caretLeft, 'chevron after copy').toBeGreaterThan(box.titleRight);
+    expect(box.meta).not.toMatch(/·Brooke/);
+  }, 120000);
+
+  it('P1b-table-rects mutant: stacking the status cell under the job restores a tall row', async () => {
+    const page = await openPage({
+      width: 1280,
+      path: '/?look=dashboard',
+      css: `${distCss}\n.today-jobs[data-today-band="d"] .today-job-row{display:flex!important;flex-wrap:wrap!important;height:auto!important}\n.today-jobs[data-today-band="d"] .today-job-row>td{display:block!important;width:100%!important}`,
+    });
+    await page.waitForSelector('.today-job-row', { timeout: 20000 });
+    const h = await page.evaluate(() => {
+      const row = document.querySelector('.today-jobs[data-today-band="d"] .today-job-row') as HTMLElement | null;
+      return row?.getBoundingClientRect().height ?? 0;
+    });
+    await page.close();
+    expect(h, 'stacked mutant row is taller than 90').toBeGreaterThan(90);
+  }, 120000);
+
+  it('P1b-phone-meta: 390 meta sits under the title, not in the time column', async () => {
+    const page = await openLookDist(lookOrigin, 390);
+    await page.waitForSelector('.today-job-row', { timeout: 20000 });
+    const box = await page.evaluate(() => {
+      const row = document.querySelector('.today-job-row') as HTMLElement | null;
+      const time = row?.querySelector('.today-time') as HTMLElement | null;
+      const meta = row?.querySelector('.today-job-meta') as HTMLElement | null;
+      const title = row?.querySelector('.today-job-title') as HTMLElement | null;
+      return {
+        timeRight: time?.getBoundingClientRect().right ?? 0,
+        metaLeft: meta?.getBoundingClientRect().left ?? 0,
+        titleLeft: title?.getBoundingClientRect().left ?? 0,
+        metaText: (meta?.textContent || '').replace(/\s+/g, ' '),
+      };
+    });
+    await page.close();
+    expect(box.metaLeft, 'meta under title').toBeGreaterThan(box.timeRight - 2);
+    expect(Math.abs(box.metaLeft - box.titleLeft), 'meta aligned with title').toBeLessThanOrEqual(8);
+    expect(box.metaText.length).toBeGreaterThan(4);
+  }, 120000);
+
+  it('P1b-malformed-crew: string and object assigned_team still paint Today', async () => {
+    const page = await openLookDist(lookOrigin, 1280);
+    await page.waitForSelector('[data-today-board]', { timeout: 20000 });
+    const box = await page.evaluate(() => {
+      return {
+        board: !!document.querySelector('[data-today-board]'),
+        stringJob: !!document.querySelector('[data-dashboard-job="look-dash-malformed-string"]'),
+        objectJob: !!document.querySelector('[data-dashboard-job="look-dash-malformed-object"]'),
+        count: document.querySelector('[data-need-crew-count]')?.getAttribute('data-need-crew-count') || '',
+      };
+    });
+    await page.close();
+    expect(box.board).toBe(true);
+    expect(box.stringJob).toBe(true);
+    expect(box.objectJob).toBe(true);
+    expect(Number(box.count)).toBeGreaterThanOrEqual(4);
+  }, 120000);
+
+  it('P1b-cash-bars: painted In/Out pair is about 10px and side by side', async () => {
+    const page = await openLookDist(lookOrigin, 1280);
+    await page.waitForSelector('.today-cash-chart rect', { timeout: 20000 });
+    const bars = await page.evaluate(() => {
+      return [...document.querySelectorAll('.today-cash-chart rect')].map((el) => {
+        const r = el.getBoundingClientRect();
+        return { x: r.x, width: r.width, height: r.height };
+      });
+    });
+    await page.close();
+    const pair = bars.filter(bar => bar.height > 8).slice(0, 2);
+    expect(pair.length).toBe(2);
+    expect(pair[0].width).toBeGreaterThanOrEqual(8);
+    expect(pair[1].width).toBeGreaterThanOrEqual(8);
+    expect(pair[1].x).toBeGreaterThan(pair[0].x);
+    expect(pair[1].x - (pair[0].x + pair[0].width)).toBeLessThan(16);
   }, 120000);
 });

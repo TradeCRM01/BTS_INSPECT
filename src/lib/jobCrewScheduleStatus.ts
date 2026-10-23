@@ -1,4 +1,4 @@
-import { assignedTeamIds, needsCrew } from './needCrew';
+import { assignedTeamIds, needsCrew, scheduledDateText } from './needCrew';
 
 export const JOB_CREW_SCHEDULE_NEEDS_CREW = 'Needs crew';
 export const JOB_CREW_SCHEDULE_BOOKED = 'Booked';
@@ -22,7 +22,7 @@ export type JobCrewScheduleStatus = {
 };
 
 export function sentenceCaseStatus(status: string): string {
-  const raw = status.trim();
+  const raw = status.trim().replace(/_/g, ' ');
   if (!raw) return raw;
   return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
 }
@@ -42,7 +42,7 @@ export function jobCrewScheduleStatus(
   if (status === 'cancelled') {
     return { label: JOB_CREW_SCHEDULE_CANCELLED, kind: 'cancelled' };
   }
-  const hasDate = !!(scheduledDate ?? '').trim();
+  const hasDate = !!scheduledDateText(scheduledDate);
   if (!hasDate) {
     return { label: JOB_CREW_SCHEDULE_NO_DATE, kind: 'no_date' };
   }

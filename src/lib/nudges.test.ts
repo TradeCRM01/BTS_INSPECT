@@ -330,6 +330,29 @@ describe('deriveNudges', () => {
     expect(derive({ userId: null, jobs: [job({ id: 'mine' }), job({ id: 'open', assigned_team: null })] }).map(n => n.key))
       .toEqual(['leave_soon:open']);
   });
+
+  it('never throws when assigned_team or scheduled_date is malformed', () => {
+    expect(() => derive({
+      jobs: [
+        job({ id: 'string-crew', assigned_team: 'dave' }),
+        job({ id: 'object-crew', assigned_team: { a: 1 } }),
+        job({ id: 'number-crew', assigned_team: 42 }),
+        job({ id: 'bad-date', scheduled_date: 20260911, assigned_team: [] }),
+      ],
+    })).not.toThrow();
+    const keys = derive({
+      jobs: [
+        job({ id: 'string-crew', assigned_team: 'dave' }),
+        job({ id: 'object-crew', assigned_team: { a: 1 } }),
+        job({ id: 'number-crew', assigned_team: 42 }),
+        job({ id: 'bad-date', scheduled_date: 20260911, assigned_team: [] }),
+      ],
+    }).map(nudge => nudge.key);
+    expect(keys).toContain('leave_soon:string-crew');
+    expect(keys).toContain('leave_soon:object-crew');
+    expect(keys).toContain('leave_soon:number-crew');
+    expect(keys).not.toContain('leave_soon:bad-date');
+  });
 });
 
 describe('job copy helpers', () => {

@@ -445,6 +445,9 @@ describe('K13 schema', () => {
     expect(SCHEMA.invoices.includes('paid_at')).toBe(false);
     expect(SCHEMA.jobs.includes('client_reminder_sent_at')).toBe(false);
     expect(SCHEMA.jobs.includes('client_reminder_sent_for_date')).toBe(false);
+    expect(SCHEMA.jobs.includes('required_crew_count')).toBe(true);
+    expect(SCHEMA.jobs.includes('last_dispatch_override_at')).toBe(true);
+    expect(SCHEMA.jobs.includes('last_dispatch_override_reason')).toBe(true);
     expect(SCHEMA.invoices.includes('chased_at')).toBe(true);
   });
 

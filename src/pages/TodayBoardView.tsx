@@ -25,6 +25,7 @@ import {
   pickTodayNowJob,
   todayClockLabel,
   todayClockLines,
+  todayCrewFirstNames,
   todayCrewOut,
   todayDirectionsHref,
   todayDueLabel,
@@ -38,7 +39,6 @@ import {
   todayWhisperCrew,
   todayWhisperJobs,
   todayWhisperNeedCrew,
-  TODAY_PILL_SET_DATE,
   type TodayBand,
 } from '../lib/todayLayout';
 import { formatMoney } from '../types/fsm';
@@ -158,7 +158,6 @@ export function TodayBoardView({
             <Plus size={20} aria-hidden />
             New job
           </button>
-          {band !== 'p' ? more : null}
         </div>
       </header>
 
@@ -315,10 +314,7 @@ function PhoneMoney({ outstanding }: { outstanding: Load<TodayOutstandingTotals>
         <p className="today-money-fig">{formatMoney(totals?.outstanding ?? 0)}</p>
       </div>
       {overdue > 0 ? (
-        <span className="today-pill is-warn">
-          <span className="today-pill-dot" aria-hidden />
-          {formatMoney(overdue)} overdue
-        </span>
+        <span className="today-overdue">{formatMoney(overdue)} overdue</span>
       ) : null}
     </Link>
   );
@@ -350,10 +346,7 @@ function KpiStrip({
           fig={outstanding.error ? 'Not available' : formatMoney(outstanding.data?.outstanding ?? 0)}
           note={outstanding.error ? null : outstanding.data?.overdue ? (
             <>
-              <span className="today-pill is-warn">
-                <span className="today-pill-dot" aria-hidden />
-                {formatMoney(outstanding.data.overdue)} overdue
-              </span>
+              <span className="today-overdue">{formatMoney(outstanding.data.overdue)} overdue</span>
               {outstanding.data.count > 0 ? ` · ${outstanding.data.count} ${outstanding.data.count === 1 ? 'invoice' : 'invoices'}` : ''}
             </>
           ) : outNote}
@@ -461,12 +454,18 @@ function JobsSection({
       ) : (
         <table className="today-jobs-table" data-today-band={band} role={band === 'p' ? 'table' : undefined}>
           <caption className="today-sr">Today's jobs</caption>
+          <colgroup>
+            <col className="today-col-time" />
+            <col className="today-col-job" />
+            {showPlace ? <col className="today-col-place" /> : null}
+            {band !== 'p' ? <col className="today-col-status" /> : null}
+          </colgroup>
           <thead className="today-jobs-thead">
             <tr>
               <th scope="col">Time</th>
               <th scope="col">Job</th>
-              {showPlace || band === 'p' ? <th scope="col">Place</th> : null}
-              <th scope="col" className="is-status">Status</th>
+              {showPlace ? <th scope="col">Place</th> : null}
+              {band !== 'p' ? <th scope="col" className="is-status">Status</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -500,17 +499,10 @@ function JobsSection({
                       ))}
                     </p>
                     {band === 'p' ? (
-                      <>
-                        <span className={`today-pill is-${pill.tone}`} data-crew-schedule={pill.kind}>
-                          <span className="today-pill-dot" aria-hidden />
-                          {pill.label}
-                        </span>
-                        {pill.kind === 'no_date' ? (
-                          <Link className="today-set-date" to={`${dashboardJobHref(job.id)}#job-schedule`}>
-                            {TODAY_PILL_SET_DATE}
-                          </Link>
-                        ) : null}
-                      </>
+                      <span className={`today-pill is-${pill.tone}`} data-crew-schedule={pill.kind}>
+                        <span className="today-pill-dot" aria-hidden />
+                        {pill.label}
+                      </span>
                     ) : null}
                   </td>
                   {showPlace ? (
@@ -522,13 +514,6 @@ function JobsSection({
                         <span className="today-pill-dot" aria-hidden />
                         {pill.label}
                       </span>
-                      {pill.kind === 'no_date' ? (
-                        <div>
-                          <Link className="today-set-date" to={`${dashboardJobHref(job.id)}#job-schedule`}>
-                            {TODAY_PILL_SET_DATE}
-                          </Link>
-                        </div>
-                      ) : null}
                     </td>
                   ) : null}
                 </tr>
@@ -620,10 +605,7 @@ function OutstandingRow({ row, now }: { row: TodayOutstandingRow; now: Date }) {
         <span>
           <span className="today-out-client">{row.client_id ? clientName(row) : 'Invoice'}</span>
           {overdue ? (
-            <span className="today-pill is-warn" style={{ marginTop: 4 }}>
-              <span className="today-pill-dot" aria-hidden />
-              {due}
-            </span>
+            <span className="today-overdue" style={{ display: 'block', marginTop: 4 }}>{due}</span>
           ) : (
             <span className="today-out-due" style={{ display: 'block' }}>{due}</span>
           )}
@@ -680,13 +662,15 @@ function CashSection({ cash }: { cash: Load<TodayCashTotals> }) {
             <line x1="0" y1="95" x2="700" y2="95" stroke="var(--g-line)" strokeWidth="1" />
             {days.map((day, i) => {
               const slot = 100;
-              const x = i * slot + 38;
+              const x = i * slot + 32;
+              const barW = 18;
+              const gap = 6;
               const inH = (day.moneyIn / max) * 80;
               const outH = (day.moneyOut / max) * 80;
               return (
                 <g key={day.date}>
-                  <rect x={x} y={95 - inH} width="10" height={inH} rx="2" fill="var(--g-chart-1)" />
-                  <rect x={x + 13} y={95 - outH} width="10" height={outH} rx="2" fill="var(--today-out-bar)" />
+                  <rect x={x} y={95 - inH} width={barW} height={inH} rx="2" fill="var(--g-chart-1)" />
+                  <rect x={x + barW + gap} y={95 - outH} width={barW} height={outH} rx="2" fill="var(--today-out-bar)" />
                 </g>
               );
             })}
@@ -746,9 +730,7 @@ function ComingSection({
           {rows.map(job => {
             const date = (job.scheduled_date ?? '').slice(0, 10);
             const when = date ? isoDate(date) : null;
-            const crew = (job.assigned_team ?? []).length
-              ? todayJobMeta(job, team, 1280).slice(-1)[0]
-              : '';
+            const crew = todayCrewFirstNames(job.assigned_team, team);
             return (
               <li key={job.id}>
                 <Link className="today-coming-row" to={dashboardJobHref(job.id)}>

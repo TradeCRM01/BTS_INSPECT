@@ -23,6 +23,9 @@
     "cost_code",
     "dispatch_ready",
     "dispatch_version",
+    "required_crew_count",
+    "last_dispatch_override_at",
+    "last_dispatch_override_reason",
     "created_via",
     "automation_ref",
     "creator_name_snapshot"

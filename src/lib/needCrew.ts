@@ -2,7 +2,7 @@ export type CrewNeedStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancel
 
 export type CrewNeedJob = {
   status?: CrewNeedStatus | null;
-  scheduled_date?: string | null;
+  scheduled_date?: unknown;
   assigned_team?: unknown;
 };
 
@@ -12,12 +12,17 @@ export function assignedTeamIds(assigned: unknown): string[] {
   return assigned.filter((id): id is string => typeof id === 'string' && id.trim().length > 0);
 }
 
+/** A scheduled day is a non-empty trimmed string. Anything else is no date. */
+export function scheduledDateText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 export function isFinishedCrewStatus(status: string | null | undefined): boolean {
   return status === 'completed' || status === 'Done' || status === 'cancelled';
 }
 
 export function needsCrew(job: CrewNeedJob): boolean {
-  if (!(job.scheduled_date ?? '').trim()) return false;
+  if (!scheduledDateText(job.scheduled_date)) return false;
   if (isFinishedCrewStatus(job.status)) return false;
   return assignedTeamIds(job.assigned_team).length === 0;
 }

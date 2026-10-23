@@ -19,11 +19,13 @@ const emptyLoad = {
   onRetry: () => {},
 };
 
-const MALFORMED: Array<{ name: string; assigned_team: unknown }> = [
+const MALFORMED: Array<{ name: string; assigned_team: unknown; scheduled_date?: unknown }> = [
   { name: 'null', assigned_team: null },
   { name: 'non-array', assigned_team: 'dave' },
   { name: 'non-string entry', assigned_team: [1] },
   { name: 'whitespace only', assigned_team: ['   '] },
+  { name: 'object crew', assigned_team: { a: 1 } },
+  { name: 'number crew', assigned_team: 42 },
 ];
 
 function malformedJobs(): DashboardTodayJob[] {

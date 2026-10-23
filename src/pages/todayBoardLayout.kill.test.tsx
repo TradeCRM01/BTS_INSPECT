@@ -16,7 +16,9 @@ describe('P1b Today board layout', () => {
     expect(src).toContain('P1b-board-above-grid: board bottom sits before the widget grid top at 375/390/768/1024/1280');
     expect(src).toContain('P1b-grid-clip: no clipped text on any grid card in view and edit, no id filter');
     expect(src).toContain('P1b-edit-overlap: edit handles miss card text at 375/390/768/1024/1280');
-    expect(src).toContain('C7 painted: overdue copy sits in a warn pill rect');
+    expect(src).toContain('C7 painted: overdue is plain warn text');
+    expect(src).toContain('P1b-table-rects: 1280 row height, column x, and Needs you chevron share a line');
+    expect(src).toContain('P1b-phone-meta: 390 meta sits under the title, not in the time column');
     expect(src).not.toContain("expect(ids).toEqual(['s1', 's2', 's3', 's4', 's6', 's10', 's11', 's13', 's14', 's15', 's12'])");
   });
 });

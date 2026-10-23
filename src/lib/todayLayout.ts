@@ -102,6 +102,19 @@ export function todayCrewMeta(
   return label === 'Unassigned' ? TODAY_CREW_NONE : label;
 }
 
+export function todayCrewFirstNames(
+  assigned: unknown,
+  members: ScheduleCrewMember[] | null | undefined,
+): string {
+  const full = todayCrewMeta(assigned, members);
+  if (!full || full === TODAY_CREW_NONE) return '';
+  return full
+    .split(',')
+    .map(part => part.trim().split(/\s+/)[0])
+    .filter(Boolean)
+    .join(', ');
+}
+
 export function todayWhisperJobs(count: number): string {
   if (count === 0) return 'No jobs today';
   return count === 1 ? '1 job' : `${count} jobs`;

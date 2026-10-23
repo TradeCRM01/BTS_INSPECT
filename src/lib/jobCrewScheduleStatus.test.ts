@@ -61,6 +61,17 @@ describe('jobCrewScheduleStatus', () => {
     expect(status.label).not.toBe(JOB_CREW_SCHEDULE_BOOKED);
     expect(status.label).not.toBe('Scheduled');
   });
+
+  it('kills awaiting_parts + crew as Awaiting parts, and awaiting_parts crewless as Needs crew', () => {
+    expect(jobCrewScheduleStatus('awaiting_parts', '2026-10-19', ['dave'])).toEqual({
+      label: 'Awaiting parts',
+      kind: 'unknown',
+    });
+    expect(jobCrewScheduleStatus('awaiting_parts', '2026-10-19', [])).toEqual({
+      label: JOB_CREW_SCHEDULE_NEEDS_CREW,
+      kind: 'needs_crew',
+    });
+  });
 });
 
 describe('three surfaces use shared crew schedule copy', () => {

@@ -19,7 +19,9 @@ import {
   fetchTodayCash,
   todayCashRangeLabel,
   todayCashWindow,
+  type ReadyToInvoiceJob,
   type TodayCashTotals,
+  type TodayOutstandingRow,
   type TodayOutstandingTotals,
   readyToInvoiceDetail,
   visibleTodayNudges,
@@ -188,24 +190,31 @@ const CREW_S8D_DASHBOARD_NEEDS = 'crew-s8d-dashboard-needs';
 const DASHBOARD_LOOK_DAVE = 'look-dash-dave';
 const DASHBOARD_LOOK_JACK = 'look-dash-jack';
 
+const DASHBOARD_LOOK_TOM = 'look-dash-tom';
+const DASHBOARD_LOOK_JOSH = 'look-dash-josh';
+const DASHBOARD_LOOK_DEAN = 'look-dash-dean';
+
 function dashboardLookCrew(): ScheduleCrewMember[] {
   return [
     { id: DASHBOARD_LOOK_DAVE, name: 'Dave' },
     { id: DASHBOARD_LOOK_JACK, name: 'Jack' },
+    { id: DASHBOARD_LOOK_TOM, name: 'Tom Reid' },
+    { id: DASHBOARD_LOOK_JOSH, name: 'Josh Perm' },
+    { id: DASHBOARD_LOOK_DEAN, name: 'Dean Hollis' },
   ];
 }
 
 /** Same calendar day as the signed dashboard LOOK frames. */
-const DASHBOARD_LOOK_DAY = '2026-09-03';
+const DASHBOARD_LOOK_DAY = '2026-10-19';
 
 function dashboardLookNow(): Date {
-  return new Date(2026, 8, 3);
+  return new Date(2026, 9, 19, 13, 40, 0);
 }
 
 const DASHBOARD_LOOK_OWNER = '00000000-0000-0000-0000-000000000002';
 
 function dashboardLookReminders(ownerId: string): Reminder[] {
-  const dueAt = new Date(2026, 8, 3, 8, 0, 0).toISOString();
+  const dueAt = new Date(2026, 9, 19, 8, 0, 0).toISOString();
   const row = (id: string, title: string): Reminder => ({
     id,
     ownerId,
@@ -316,6 +325,7 @@ function dashboardSeedLookWidgets(): DashboardWidget[] {
     'quick_actions',
     'pending_reports',
     'agent_reminders',
+    'ai_agent',
     'kpi_scorecard',
   ] as const;
   for (const type of extra) {
@@ -399,7 +409,7 @@ function dashboardJackLookWidgets(): DashboardWidget[] {
 
 function dashboardLookJobs(needsCrewOnly = false): JobWithClient[] {
   const day = DASHBOARD_LOOK_DAY;
-  const stamp = '2026-09-03T00:00:00.000Z';
+  const stamp = '2026-10-19T03:40:00.000Z';
   const base = {
     company_id: 'look-dashboard',
     client_id: null as string | null,
@@ -482,6 +492,58 @@ function dashboardLookJobs(needsCrewOnly = false): JobWithClient[] {
       job_number: 45,
       client_name: 'Yard Services',
     },
+    {
+      ...base,
+      id: 'look-dash-on-hold',
+      title: 'Hold for parts',
+      status: 'on_hold' as Job['status'],
+      scheduled_date: day,
+      start_time: '16:00',
+      end_time: '17:00',
+      address: '2 Hold St, Perth WA 6000',
+      assigned_team: [' '],
+      job_number: 46,
+      client_name: 'Hold Mechanical',
+    },
+    {
+      ...base,
+      id: 'look-dash-awaiting',
+      title: 'Parts on order',
+      status: 'awaiting_parts' as Job['status'],
+      scheduled_date: day,
+      start_time: '15:00',
+      end_time: '16:00',
+      address: '47 Parts Rd, Perth WA 6000',
+      assigned_team: [DASHBOARD_LOOK_DAVE],
+      job_number: 47,
+      client_name: 'Parts Electrical',
+    },
+    {
+      ...base,
+      id: 'look-dash-malformed-string',
+      title: 'Malformed string crew',
+      status: 'scheduled',
+      scheduled_date: day,
+      start_time: '09:30',
+      end_time: '10:00',
+      address: '1 Bad St, Perth WA 6000',
+      assigned_team: 'dave' as unknown as string[],
+      job_number: 48,
+      client_name: 'Malformed Co',
+    },
+    {
+      ...base,
+      id: 'look-dash-malformed-object',
+      title: 'Malformed object crew',
+      status: 'scheduled',
+      scheduled_date: day,
+      start_time: '10:00',
+      end_time: '10:30',
+      address: '2 Bad St, Perth WA 6000',
+      assigned_team: { a: 1 } as unknown as string[],
+      job_number: 49,
+      client_name: 'Malformed Co',
+    },
   ];
 }
 
@@ -498,7 +560,7 @@ function dashboardLookCash(): TodayCashTotals {
     { moneyIn: 514.3, moneyOut: 812.75 },
   ];
   const days = amounts.map((row, i) => {
-    const date = new Date(2026, 7, 28 + i);
+    const date = new Date(2026, 9, 13 + i);
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     return { date: key, ...row };
   });
@@ -513,17 +575,81 @@ function dashboardLookCash(): TodayCashTotals {
   };
 }
 
-function dashboardLookOutstanding(): TodayOutstandingTotals {
+function dashboardLookOutstanding(): TodayOutstandingTotals & { display: Array<TodayOutstandingRow & { client_name?: string | null }> } {
   return {
-    outstanding: 3589.65,
+    outstanding: 3579.65,
     overdue: 462,
-    count: 4,
+    count: 3,
     display: [
-      { id: 'look-inv-1', invoice_number: 112, status: 'sent', total: 1929.65, amount_paid: 0, due_date: '2026-09-14', created_at: '2026-09-02', client_id: 'c1' },
-      { id: 'look-inv-2', invoice_number: 91, status: 'part_paid', total: 1688, amount_paid: 500, due_date: '2026-09-20', created_at: '2026-09-01', client_id: 'c2' },
-      { id: 'look-inv-3', invoice_number: 90, status: 'overdue', total: 462, amount_paid: 0, due_date: '2026-08-20', created_at: '2026-08-01', client_id: 'c3' },
+      { id: 'look-inv-1', invoice_number: 1112, status: 'sent', total: 1929.65, amount_paid: 0, due_date: '2026-10-30', created_at: '2026-10-02', client_id: 'c1', client_name: 'Sarah Whitfield' },
+      { id: 'look-inv-2', invoice_number: 1110, status: 'sent', total: 1188, amount_paid: 0, due_date: '2026-10-23', created_at: '2026-10-01', client_id: 'c2', client_name: 'Gympie Rd Dental' },
+      { id: 'look-inv-3', invoice_number: 108, status: 'overdue', total: 462, amount_paid: 0, due_date: '2026-10-09', created_at: '2026-09-01', client_id: 'c3', client_name: 'Stafford Bowls Club' },
     ],
   };
+}
+
+function dashboardLookReady(): ReadyToInvoiceJob[] {
+  return [
+    { id: 'look-ready-36', job_number: 36, title: 'Blocked sewer', scheduled_date: DASHBOARD_LOOK_DAY, client_id: null, kind: 'standalone' },
+    { id: 'look-ready-37', job_number: 37, title: 'Leaking mixer', scheduled_date: DASHBOARD_LOOK_DAY, client_id: null, kind: 'standalone' },
+  ];
+}
+
+function dashboardLookComingUp(): Array<JobWithClient> {
+  const stamp = '2026-10-19T03:40:00.000Z';
+  const base = {
+    company_id: 'look-dashboard',
+    client_id: null as string | null,
+    description: null as string | null,
+    priority: 'medium' as const,
+    inspection_id: null as string | null,
+    created_by: DASHBOARD_LOOK_DAVE,
+    created_at: stamp,
+    updated_at: stamp,
+    color: null as string | null,
+    budget: null as number | null,
+    parent_job_id: null as string | null,
+    cost_code: null as string | null,
+    status: 'scheduled' as const,
+  };
+  return [
+    {
+      ...base,
+      id: 'look-coming-cistern',
+      title: 'Toilet cistern replacement',
+      scheduled_date: '2026-10-20',
+      start_time: '07:30',
+      end_time: '09:00',
+      address: '12 Gwen St, Kedron QLD 4031',
+      assigned_team: [DASHBOARD_LOOK_TOM],
+      job_number: 40,
+      client_name: 'Gwen Albright',
+    },
+    {
+      ...base,
+      id: 'look-coming-drain',
+      title: 'Blocked kitchen drain',
+      scheduled_date: '2026-10-20',
+      start_time: '12:00',
+      end_time: '13:30',
+      address: '8 Luke St, Wavell Heights QLD 4012',
+      assigned_team: [DASHBOARD_LOOK_JOSH],
+      job_number: 41,
+      client_name: 'Luke Ferris',
+    },
+    {
+      ...base,
+      id: 'look-coming-gas',
+      title: 'Gas cooktop install',
+      scheduled_date: '2026-10-21',
+      start_time: '08:00',
+      end_time: '10:00',
+      address: '4 Priya St, Stafford QLD 4053',
+      assigned_team: [DASHBOARD_LOOK_DEAN],
+      job_number: 50,
+      client_name: 'Priya Shah',
+    },
+  ];
 }
 
 type DashboardNudgeData = { jobs: JobWithClient[]; quotes: NudgeQuote[]; invoices: NudgeInvoice[] };
@@ -791,7 +917,7 @@ export function DashboardPage() {
 
   const { data: readyJobs, isLoading: readyLoading, error: readyError, refetch: refetchReady } = useQuery({
     queryKey: ['today-ready', companyId, todayKey, lookDashboard],
-    queryFn: () => lookDashboard ? [] : fetchReadyToInvoice(supabase, companyId, todayKey),
+    queryFn: () => lookDashboard ? dashboardLookReady() : fetchReadyToInvoice(supabase, companyId, todayKey),
     enabled: liveCompany || lookDashboard,
   });
   const { data: outstanding, isLoading: outstandingLoading, error: outstandingError, refetch: refetchOutstanding } = useQuery({
@@ -801,11 +927,12 @@ export function DashboardPage() {
   });
   const outstandingClientIds = [...new Set((outstanding?.display ?? []).map(row => row.client_id).filter(Boolean))] as string[];
   const { data: outstandingClients } = useQuery({
-    queryKey: ['today-outstanding-clients', outstandingClientIds.join(',')],
+    queryKey: ['today-outstanding-clients', companyId, outstandingClientIds.join(',')],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('clients')
         .select('id, name')
+        .eq('company_id', companyId)
         .in('id', outstandingClientIds);
       if (error) throw error;
       return data ?? [];
@@ -817,7 +944,10 @@ export function DashboardPage() {
       ...outstanding,
       display: outstanding.display.map(row => ({
         ...row,
-        client_name: outstandingClients?.find(client => client.id === row.client_id)?.name ?? null,
+        client_name:
+          (row as TodayOutstandingRow & { client_name?: string | null }).client_name
+          ?? outstandingClients?.find(client => client.id === row.client_id)?.name
+          ?? null,
       })),
     }
     : outstanding;
@@ -828,7 +958,7 @@ export function DashboardPage() {
   });
   const { data: comingUp, isLoading: comingLoading, error: comingError, refetch: refetchComing } = useQuery({
     queryKey: ['today-coming-up', companyId, todayKey, lookDashboard],
-    queryFn: () => lookDashboard ? [] : fetchComingUp(supabase, companyId, todayKey),
+    queryFn: () => lookDashboard ? dashboardLookComingUp() : fetchComingUp(supabase, companyId, todayKey),
     enabled: liveCompany || lookDashboard,
   });
 
@@ -1212,7 +1342,10 @@ export function DashboardPage() {
               )}
             </section>
 
-            <h2 className="today-sec-h today-widgets-head ops-section-title">Your widgets</h2>
+            <h2 className="today-sec-h today-widgets-head ops-section-title">
+              Your widgets
+              {todayBand !== 'p' ? moreMenu : null}
+            </h2>
             {editMode && (
               <div className="dashboard-home-tools">
                 <button

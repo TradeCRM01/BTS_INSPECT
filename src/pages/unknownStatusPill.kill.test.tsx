@@ -135,6 +135,16 @@ describe('unknown status pill', () => {
     expect(pill.textContent).not.toContain(JOB_CREW_SCHEDULE_NEEDS_CREW);
   });
 
+  it('renders Awaiting parts for awaiting_parts + crew, and Needs crew when that status is crewless', () => {
+    mountBoard([
+      job({ id: 'await-crew', title: 'Parts on order', status: 'awaiting_parts', assigned_team: ['dave'] }),
+      job({ id: 'await-empty', title: 'Parts waiting', status: 'awaiting_parts', assigned_team: [] }),
+    ]);
+    expect(pillFor('await-crew').textContent).toContain('Awaiting parts');
+    expect(pillFor('await-crew').textContent).not.toContain(JOB_CREW_SCHEDULE_BOOKED);
+    expect(pillFor('await-empty').textContent).toContain(JOB_CREW_SCHEDULE_NEEDS_CREW);
+  });
+
   it('mutant: unknown dated+crew falling through to Booked goes red', () => {
     const mutant = bookedFallthrough('quoted', '2026-10-19', ['dave']);
     expect(mutant.label).toBe(JOB_CREW_SCHEDULE_BOOKED);

@@ -79,12 +79,11 @@
 }
 
 .today-seg {
-  display: inline-block;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  vertical-align: top;
+  display: inline;
+  max-width: none;
+  overflow: visible;
+  white-space: inherit;
+  vertical-align: baseline;
 }
 
 .today-seg.is-company {
@@ -302,6 +301,13 @@ button.today-btn-primary,
   height: 7px;
 }
 
+.today-overdue {
+  color: var(--g-warn);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
 .today-pill.is-ok { background: var(--g-ok-bg); color: var(--g-ok); }
 .today-pill.is-ok .today-pill-dot { background: var(--g-ok-dot); }
 .today-pill.is-warn { background: var(--g-warn-bg); color: var(--g-warn); }
@@ -440,7 +446,13 @@ button.today-btn-primary,
 .today-jobs-table th.is-status,
 .today-jobs-table td.is-status {
   text-align: right;
+  width: 168px;
 }
+
+.today-col-time { width: 64px; }
+.today-col-job { width: auto; }
+.today-col-place { width: 160px; }
+.today-col-status { width: 168px; }
 
 .today-jobs-table tbody tr,
 .today-jobs[data-today-band="p"] .today-jobs-table tbody tr {
@@ -519,6 +531,12 @@ button.today-btn-primary,
   overflow: hidden;
 }
 
+.today-jobs[data-today-band="t"] .today-job-title,
+.today-jobs[data-today-band="d"] .today-job-title {
+  min-height: 0;
+  -webkit-line-clamp: 1;
+}
+
 .today-job-meta,
 .today-need-meta,
 .today-out-due,
@@ -532,10 +550,15 @@ button.today-btn-primary,
 .today-job-meta {
   display: block;
   overflow: hidden;
-  overflow-x: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   max-width: 100%;
   width: 100%;
-  max-height: 40px;
+  max-height: none;
+}
+
+.today-job-cell .today-job-meta {
+  grid-column: 2;
 }
 
 .today-jobs-table .today-pill {
@@ -565,13 +588,15 @@ button.today-btn-primary,
 .today-out-row,
 .today-coming-row {
   display: flex;
-  align-items: flex-start;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: 12px;
   padding: 14px 0;
   min-height: 64px;
   border-bottom: 1px solid var(--g-line);
   text-decoration: none;
   color: inherit;
+  text-align: left;
 }
 
 .today-need-dot { margin-top: 7px; }
@@ -584,6 +609,7 @@ button.today-btn-primary,
 .today-coming-copy {
   flex: 1 1 auto;
   min-width: 0;
+  text-align: left;
 }
 
 .today-need-title,
@@ -611,6 +637,7 @@ button.today-btn-primary,
   align-self: center;
   color: var(--g-ink-muted);
   flex: none;
+  margin-left: auto;
 }
 
 .today-count {
@@ -809,15 +836,20 @@ button.today-btn-primary,
     min-height: 0;
   }
 
-  .today-jobs-table .today-time {
-    width: 88px;
+  .today-jobs-table .today-time,
+  .today-col-time {
+    width: 120px;
     max-width: none;
   }
 
   .today-jobs-table td {
-    padding: 14px 12px 14px 0;
+    padding: 8px 12px 8px 0;
     border-bottom: 1px solid var(--g-line);
-    vertical-align: top;
+    vertical-align: middle;
+  }
+
+  .today-jobs-table tbody tr {
+    height: 58px;
   }
 
   .today-jobs-table .today-pill {

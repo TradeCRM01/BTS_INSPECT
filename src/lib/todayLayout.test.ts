@@ -11,6 +11,7 @@ import {
   todayDirectionsHref,
   todayDueLabel,
   todayEyebrow,
+  todayCrewFirstNames,
   todayJobMeta,
   todayJobPill,
   todayNowEyebrow,
@@ -131,6 +132,11 @@ describe('D7 pills and wording', () => {
       assigned_team: [],
       client_name: 'Stafford Bowls',
     }), [], 390)).toEqual(['#0036', 'Stafford Bowls', TODAY_CREW_NONE]);
+    expect(todayCrewFirstNames(['dean'], [{ id: 'dean', name: 'Dean Hollis' }])).toBe('Dean');
+    expect(todayCrewFirstNames(['dean', 'tom'], [
+      { id: 'dean', name: 'Dean Hollis' },
+      { id: 'tom', name: 'Tom Reid' },
+    ])).toBe('Dean, Tom');
   });
 });
 

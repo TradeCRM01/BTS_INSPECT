@@ -96,30 +96,17 @@ function overdueTextParents(): HTMLElement[] {
   return hosts;
 }
 
-function parseRgb(value: string): [number, number, number] | null {
-  const m = value.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
-  if (!m) return null;
-  return [Number(m[1]), Number(m[2]), Number(m[3])];
-}
-
-function isAmberRgb([r, g, b]: [number, number, number]): boolean {
-  if (r < 140 || g < 40 || b > 80) return false;
-  return r > g && g > b;
-}
-
-describe('C7 warn pill', () => {
-  it('kills overdue copy that leaves the warn pill, and amber off pills and icons', () => {
+describe('C7 warn overdue text', () => {
+  it('kills overdue copy that sits in a filled pill instead of plain warn text', () => {
     mountBoard();
     const hosts = overdueTextParents();
     expect(hosts.length).toBeGreaterThan(0);
+    expect(hosts.some(host => host.closest('.today-overdue'))).toBe(true);
     for (const host of hosts) {
-      expect(host.closest('.today-pill.is-warn'), `"${host.textContent}" must sit in a warn pill`).not.toBeNull();
+      expect(host.closest('.today-pill'), `"${host.textContent}" must not be a filled pill`).toBeNull();
     }
-    const amber = [...container.querySelectorAll('*')].filter((el) => {
-      const color = parseRgb(getComputedStyle(el as HTMLElement).color);
-      if (!color || !isAmberRgb(color)) return false;
-      return !el.closest('.today-pill, .today-need-dot, svg');
-    });
-    expect(amber, 'amber stays on pills and icons').toEqual([]);
+    const overdue = container.querySelector('.today-overdue') as HTMLElement | null;
+    expect(overdue, 'plain warn overdue text').not.toBeNull();
+    expect(overdue?.textContent).toMatch(/overdue/i);
   });
 });
