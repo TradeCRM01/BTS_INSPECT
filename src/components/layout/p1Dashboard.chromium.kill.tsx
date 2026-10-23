@@ -1942,6 +1942,59 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     }
   }, 120000);
 
+  it('P1-schedule-meta-ellipsis: 768 #0141 last segment is clipped mid-text', async () => {
+    const page = await openPage({ width: 768, js: dashJsNoProof, path: '/?look=dashboard' });
+    await page.waitForSelector('.dashboard-home-ref-seg', { timeout: 20000 });
+    const box = await page.evaluate((want: string) => {
+      const ref = [...document.querySelectorAll('.dashboard-home-ref')]
+        .find((el) => (el.textContent || '').includes('#0141.A$')) as HTMLElement | undefined;
+      if (!ref) throw new Error('0141 meta missing');
+      const segs = [...ref.querySelectorAll('.dashboard-home-ref-seg')] as HTMLElement[];
+      const last = segs[segs.length - 1];
+      if (!last) throw new Error('last 0141 seg missing');
+      const clip = ref.getBoundingClientRect();
+      const walker = document.createTreeWalker(last, NodeFilter.SHOW_TEXT);
+      const firstText = walker.nextNode();
+      if (!firstText || !(firstText.textContent || '').length) throw new Error('last seg empty');
+      const start = document.createRange();
+      start.setStart(firstText, 0);
+      start.setEnd(firstText, 1);
+      const startRect = start.getClientRects()[0];
+      const y = clip.top + clip.height / 2;
+      const seen = new Set<string>();
+      let painted = '';
+      const caretAt = (document as Document & {
+        caretRangeFromPoint?: (x: number, y: number) => Range | null;
+      }).caretRangeFromPoint;
+      if (!caretAt) throw new Error('caretRangeFromPoint missing');
+      for (let x = Math.floor(clip.left); x < Math.ceil(clip.right); x += 1) {
+        const range = caretAt.call(document, x, y);
+        const el = document.elementFromPoint(x, y);
+        const lastHit = !!(el && (el === last || last.contains(el)));
+        if (!lastHit || !range || !last.contains(range.startContainer)) continue;
+        const t = range.startContainer.textContent || '';
+        const i = Math.min(range.startOffset, Math.max(0, t.length - 1));
+        const key = `${t}:${i}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        if (t[i]) painted += t[i];
+      }
+      return {
+        text: (ref.textContent || '').replace(/\s+/g, ' ').trim(),
+        want,
+        lastText: (last.textContent || '').trim(),
+        lastLeft: startRect?.left ?? 1e9,
+        clipRight: clip.right,
+        painted,
+      };
+    }, LIVE_JOB_META);
+    await page.close();
+    expect(box.text, '0141 meta at 768').toBe(LIVE_JOB_META);
+    expect(box.lastText, '0141 last seg at 768').toBe('CoS Invitee Test');
+    expect(box.lastLeft, 'last seg starts left of ref clip').toBeLessThan(box.clipRight);
+    expect(box.painted, 'visible last-seg text at 768').toContain('CoS Invitee');
+  }, 60000);
+
   it('P1-schedule-tracks: 768/1024/1280 header cell x equals row cell x', async () => {
     for (const width of [768, 1024, 1280] as const) {
       const page = await openPage({ width });

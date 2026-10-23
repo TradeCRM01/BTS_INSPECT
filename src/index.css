@@ -12812,11 +12812,6 @@
     font-size: 13px;
   }
 
-  .dashboard-home-ref-seg {
-    display: inline-block;
-    overflow-wrap: anywhere;
-  }
-
   .dashboard-home-place {
     font-family: var(--g-font-ui);
     font-size: 14px;
@@ -13285,6 +13280,11 @@
       overflow: visible;
       text-overflow: clip;
       white-space: normal;
+    }
+
+    .dashboard-home-ref-seg {
+      display: inline-block;
+      overflow-wrap: anywhere;
     }
 
     .dashboard-home-widgets {
