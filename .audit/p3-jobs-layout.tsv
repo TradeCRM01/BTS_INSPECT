@@ -1,0 +1,7 @@
+ts	phase	decision	why	evidence	result
+2026-10-23T10:16:00Z	start	resumed P3 on cursor/p3-jobs-layout-8567 from 30cb09d9	previous run died after the branch	branch cursor/p3-jobs-layout-8567	open
+2026-10-23T10:20:00Z	frame	brief sha256 matches Coach sign prefix 4b36740dc66f	Coach SIGN pinned that hash	uploads/P3-jobs-layout-brief_8020.md	verified
+2026-10-23T10:40:00Z	data	isolated need-crew in src/lib/needCrew.ts	P1b helper not here yet; swap stays one import	src/lib/needCrew.ts	unit tests written
+2026-10-23T10:40:00Z	data	dropped extras cover-photo signing	search: cover_photo_url only assigned, never rendered; photoByJob only fed that field	src/lib/jobCardExtras.test.ts	unused, dropped
+2026-10-23T10:40:00Z	data	extras and clients now throw on error; extras catch marks extrasError	K13 / Coach 12	src/pages/JobsPage.tsx	wired
+2026-10-23T10:40:00Z	data	chunk extras and clients at 100 ids	Coach 8	src/lib/jobIdBatch.ts	wired

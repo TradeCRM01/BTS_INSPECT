@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { padQuoteNumber } from './quoteJobFields';
 import { formatMoney } from '../types/fsm';
+import { chunkIds, JOB_ID_BATCH } from './jobIdBatch';
 
 export type JobDocChip = {
   kind: 'quote' | 'invoice';
@@ -12,82 +13,85 @@ export type JobDocChip = {
   due_date?: string | null;
 };
 
-export async function loadJobCardExtras(jobs: { id: string; inspection_id: string | null }[]): Promise<{
-  photoByJob: Map<string, string>;
-  docsByJob: Map<string, JobDocChip[]>;
-}> {
-  const photoByJob = new Map<string, string>();
+export { JOB_ID_BATCH };
+
+export const JOB_EXTRAS_QUOTE_SELECT = 'id, job_id, quote_number, status, total';
+export const JOB_EXTRAS_INVOICE_SELECT = 'id, job_id, invoice_number, status, total, due_date';
+export const JOB_EXTRAS_QUOTE_COLUMNS = ['id', 'job_id', 'quote_number', 'status', 'total'] as const;
+export const JOB_EXTRAS_INVOICE_COLUMNS = ['id', 'job_id', 'invoice_number', 'status', 'total', 'due_date'] as const;
+
+type ExtrasRow = Record<string, unknown> & { job_id?: string | null };
+
+type ExtrasInBuilder = {
+  in: (column: string, ids: string[]) => Promise<{
+    data: ExtrasRow[] | null;
+    error: { message: string } | null;
+  }>;
+};
+
+export type JobExtrasClient = {
+  from: (table: string) => {
+    select: (columns: string) => ExtrasInBuilder;
+  };
+};
+
+async function selectInBatches(
+  client: JobExtrasClient,
+  table: string,
+  columns: string,
+  filterCol: string,
+  ids: string[],
+): Promise<ExtrasRow[]> {
+  const rows: ExtrasRow[] = [];
+  for (const batch of chunkIds(ids)) {
+    const { data, error } = await client.from(table).select(columns).in(filterCol, batch);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+  }
+  return rows;
+}
+
+export async function loadJobCardExtras(
+  jobs: { id: string; inspection_id?: string | null }[],
+  client: JobExtrasClient = supabase as unknown as JobExtrasClient,
+): Promise<{ docsByJob: Map<string, JobDocChip[]> }> {
   const docsByJob = new Map<string, JobDocChip[]>();
-  if (jobs.length === 0) return { photoByJob, docsByJob };
+  if (jobs.length === 0) return { docsByJob };
 
-  const jobIds = jobs.map(j => j.id);
-  const inspectionToJob = new Map<string, string>();
-  for (const job of jobs) {
-    if (job.inspection_id) inspectionToJob.set(job.inspection_id, job.id);
-  }
-
-  const { data: inspections } = await supabase
-    .from('inspections')
-    .select('id, crm_job_id')
-    .in('crm_job_id', jobIds);
-  for (const row of inspections ?? []) {
-    if (row.crm_job_id) inspectionToJob.set(row.id, row.crm_job_id as string);
-  }
-
-  const inspectionIds = [...inspectionToJob.keys()];
-  if (inspectionIds.length > 0) {
-    const { data: photos } = await supabase
-      .from('photos')
-      .select('inspection_id, storage_path, uploaded_at')
-      .in('inspection_id', inspectionIds)
-      .order('uploaded_at', { ascending: false });
-    const seen = new Set<string>();
-    const toSign: { jobId: string; path: string }[] = [];
-    for (const photo of photos ?? []) {
-      const jobId = inspectionToJob.get(photo.inspection_id);
-      if (!jobId || seen.has(jobId)) continue;
-      seen.add(jobId);
-      toSign.push({ jobId, path: photo.storage_path });
-    }
-    await Promise.all(toSign.map(async ({ jobId, path }) => {
-      const { data } = await supabase.storage.from('photos').createSignedUrl(path, 3600);
-      if (data?.signedUrl) photoByJob.set(jobId, data.signedUrl);
-    }));
-  }
-
-  const [{ data: quotes }, { data: invoices }] = await Promise.all([
-    supabase.from('quotes').select('id, job_id, quote_number, status, total').in('job_id', jobIds),
-    supabase.from('invoices').select('id, job_id, invoice_number, status, total, due_date').in('job_id', jobIds),
+  const jobIds = jobs.map((job) => job.id);
+  const [quotes, invoices] = await Promise.all([
+    selectInBatches(client, 'quotes', JOB_EXTRAS_QUOTE_SELECT, 'job_id', jobIds),
+    selectInBatches(client, 'invoices', JOB_EXTRAS_INVOICE_SELECT, 'job_id', jobIds),
   ]);
 
-  const push = (jobId: string | null, chip: JobDocChip) => {
+  const push = (jobId: string | null | undefined, chip: JobDocChip) => {
     if (!jobId) return;
     const list = docsByJob.get(jobId) ?? [];
     list.push(chip);
     docsByJob.set(jobId, list);
   };
 
-  for (const q of quotes ?? []) {
-    push(q.job_id, {
+  for (const quote of quotes) {
+    push(quote.job_id as string | null, {
       kind: 'quote',
-      id: q.id,
-      href: `/quotes?id=${q.id}`,
-      label: `QT #${padQuoteNumber(q.quote_number)} · ${String(q.status)}`,
-      amount: formatMoney(Number(q.total)),
+      id: String(quote.id),
+      href: `/quotes?id=${quote.id}`,
+      label: `QT #${padQuoteNumber(quote.quote_number as number | null)} · ${String(quote.status)}`,
+      amount: formatMoney(Number(quote.total)),
     });
   }
-  for (const inv of invoices ?? []) {
+  for (const inv of invoices) {
     const num = String(inv.invoice_number ?? 0).padStart(4, '0');
-    push(inv.job_id, {
+    push(inv.job_id as string | null, {
       kind: 'invoice',
-      id: inv.id,
+      id: String(inv.id),
       href: `/invoices?id=${inv.id}`,
       label: `INV #${num} · ${String(inv.status)}`,
       amount: formatMoney(Number(inv.total)),
       status: String(inv.status),
-      due_date: inv.due_date ?? null,
+      due_date: (inv.due_date as string | null) ?? null,
     });
   }
 
-  return { photoByJob, docsByJob };
+  return { docsByJob };
 }
