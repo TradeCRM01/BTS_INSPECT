@@ -22,10 +22,14 @@ export function isFinishedCrewStatus(status: string | null | undefined): boolean
 }
 
 export function needsCrew(job: CrewNeedJob | null | undefined): boolean {
-  if (job == null) return false;
-  if (!scheduledDateText(job.scheduled_date)) return false;
-  if (isFinishedCrewStatus(job.status)) return false;
-  return assignedTeamIds(job.assigned_team).length === 0;
+  try {
+    if (job == null) return false;
+    if (!scheduledDateText(job.scheduled_date)) return false;
+    if (isFinishedCrewStatus(job.status)) return false;
+    return assignedTeamIds(job.assigned_team).length === 0;
+  } catch {
+    return false;
+  }
 }
 
 export function countNeedsCrew(

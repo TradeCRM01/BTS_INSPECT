@@ -604,8 +604,8 @@ describe('P3 list kills', () => {
       path: 'src/lib/needCrew.ts',
       mutant: 'src/lib/needCrew.ts drop trim on crew ids',
       mutate: (src) => src.replace(
-        'return (job.assigned_team ?? []).every(id => !id?.trim());',
-        'return (job.assigned_team ?? []).length === 0;',
+        'return team.every(id => typeof id !== \'string\' || !id.trim());',
+        'return team.length === 0;',
       ),
       run: async () => {
         const js = await bundleJobs();
@@ -2008,5 +2008,177 @@ describe('P3 r6 type, CTA contrast, hairlines', () => {
     });
     expect(red.line).toBeGreaterThan(0);
     expect(red.message).toMatch(/hairline|height|expected/i);
+  }, 120000);
+});
+
+describe('P3 Coach needCrew throw-safe and unknown status pills', () => {
+  killIt('needCrew never throws; malformed assigned_team is no crew', async () => {
+    const dated = { status: 'scheduled' as const, scheduled_date: '2026-10-19' };
+    const malformed = [{ bad: 1 }, 'dean', 12, [1], { 0: 'p3-dean' }];
+    for (const assigned_team of malformed) {
+      expect(() => jobNeedsCrew({ ...dated, assigned_team })).not.toThrow();
+      expect(jobNeedsCrew({ ...dated, assigned_team }), String(assigned_team)).toBe(true);
+    }
+  });
+
+  killIt('needCrew mutant every() on a non-array throws', async () => {
+    const red = await captureMutantRed({
+      path: 'src/lib/needCrew.ts',
+      mutant: 'src/lib/needCrew.ts drop array guard so malformed team throws',
+      mutate: (src) => src.replace(
+        'const team = job.assigned_team;\n  if (!Array.isArray(team)) return true;\n  return team.every(id => typeof id !== \'string\' || !id.trim());',
+        'return (job.assigned_team ?? []).every(id => !id?.trim());',
+      ),
+      run: async () => {
+        const { jobNeedsCrew: fresh } = await importFresh<{ jobNeedsCrew: typeof jobNeedsCrew }>('src/lib/needCrew.ts');
+        expect(() => fresh({
+          status: 'scheduled',
+          scheduled_date: '2026-10-19',
+          assigned_team: { bad: 1 },
+        })).not.toThrow();
+      },
+    });
+    expect(red.line).toBeGreaterThan(0);
+    expect(red.message).toMatch(/throw|every|trim|expected/i);
+  }, 120000);
+
+  killIt('unknown dated crewless is Needs crew on the list and sheet', async () => {
+    const phone = await openPage({ width: 390, path: '/jobs' });
+    await waitList(phone);
+    const listRead = await phone.evaluate(() => {
+      const pill = document.querySelector('[data-jobs-phone-row="x-unknown"] [data-jobs-pill]');
+      return {
+        label: (pill?.textContent || '').trim(),
+        kind: pill?.getAttribute('data-jobs-pill') || '',
+      };
+    });
+    await phone.close();
+    const desk = await openPage({ width: 1280, path: '/jobs' });
+    await waitList(desk);
+    const deskRead = await desk.evaluate(() => {
+      const row = [...document.querySelectorAll('.hub-jobs-row')].find((el) => (
+        (el.querySelector('.hub-jobs-title')?.textContent || '').includes('Unknown status dated crewless')
+      ));
+      const pill = row?.querySelector('[data-jobs-pill]');
+      return { label: (pill?.textContent || '').trim(), kind: pill?.getAttribute('data-jobs-pill') || '' };
+    });
+    await desk.close();
+    const sheet = await openPage({ width: 390, path: '/jobs/x-unknown' });
+    await waitSheet(sheet);
+    const sheetRead = await sheet.evaluate(() => {
+      const pill = document.querySelector('[data-job-sheet-pill]');
+      return { label: (pill?.textContent || '').trim(), kind: pill?.getAttribute('data-job-sheet-pill') || '' };
+    });
+    await sheet.close();
+    expect(listRead.kind).toBe('needs_crew');
+    expect(listRead.label).toBe(JOB_PILL_NEEDS_CREW);
+    expect(deskRead.label).toBe(JOB_PILL_NEEDS_CREW);
+    expect(sheetRead.kind).toBe('needs_crew');
+    expect(sheetRead.label).toBe(JOB_PILL_NEEDS_CREW);
+    expect(listRead.label).not.toBe('Scheduled');
+    expect(listRead.label).not.toBe('Booked');
+    expect(sheetRead.label).not.toBe('Scheduled');
+    expect(sheetRead.label).not.toBe('Booked');
+  });
+
+  killIt('unknown dated crewless mutant drops Needs crew on the list and sheet', async () => {
+    const red = await captureMutantRed({
+      path: 'src/lib/jobStatusPill.ts',
+      mutant: 'src/lib/jobStatusPill.ts skip needsCrew on unknown',
+      mutate: (src) => src.replace(
+        'if (!isKnownJobStatus(input.status)) {\n    if (jobNeedsCrew(input)) {\n      return { kind: \'needs_crew\', label: JOB_PILL_NEEDS_CREW, tone: \'warn\' };\n    }',
+        'if (!isKnownJobStatus(input.status)) {\n    if (false && jobNeedsCrew(input)) {\n      return { kind: \'needs_crew\', label: JOB_PILL_NEEDS_CREW, tone: \'warn\' };\n    }',
+      ),
+      run: async () => {
+        const js = await bundleJobs();
+        const list = await openPage({ width: 390, path: '/jobs', js });
+        await waitList(list);
+        const listLabel = await list.evaluate(() => (
+          (document.querySelector('[data-jobs-phone-row="x-unknown"] [data-jobs-pill]')?.textContent || '').trim()
+        ));
+        await list.close();
+        const sheet = await openPage({ width: 390, path: '/jobs/x-unknown', js });
+        await waitSheet(sheet);
+        const sheetLabel = await sheet.evaluate(() => (
+          (document.querySelector('[data-job-sheet-pill]')?.textContent || '').trim()
+        ));
+        await sheet.close();
+        expect(listLabel).toBe(JOB_PILL_NEEDS_CREW);
+        expect(sheetLabel).toBe(JOB_PILL_NEEDS_CREW);
+      },
+    });
+    expect(red.line).toBeGreaterThan(0);
+    expect(red.message).toMatch(/Needs crew|On hold|expected/i);
+  }, 120000);
+
+  killIt('unknown otherwise is raw sentence-case on the list and sheet', async () => {
+    const phone = await openPage({ width: 390, path: '/jobs' });
+    await waitList(phone);
+    const listRead = await phone.evaluate(() => {
+      const pill = document.querySelector('[data-jobs-phone-row="x-unknown-crew"] [data-jobs-pill]');
+      return {
+        label: (pill?.textContent || '').trim(),
+        kind: pill?.getAttribute('data-jobs-pill') || '',
+      };
+    });
+    await phone.close();
+    const desk = await openPage({ width: 1280, path: '/jobs' });
+    await waitList(desk);
+    const deskRead = await desk.evaluate(() => {
+      const row = [...document.querySelectorAll('.hub-jobs-row')].find((el) => (
+        (el.querySelector('.hub-jobs-title')?.textContent || '').includes('Unknown status dated with crew')
+      ));
+      const pill = row?.querySelector('[data-jobs-pill]');
+      return { label: (pill?.textContent || '').trim(), kind: pill?.getAttribute('data-jobs-pill') || '' };
+    });
+    await desk.close();
+    const sheet = await openPage({ width: 390, path: '/jobs/x-unknown-crew' });
+    await waitSheet(sheet);
+    const sheetRead = await sheet.evaluate(() => {
+      const pill = document.querySelector('[data-job-sheet-pill]');
+      return { label: (pill?.textContent || '').trim(), kind: pill?.getAttribute('data-job-sheet-pill') || '' };
+    });
+    await sheet.close();
+    expect(listRead.kind).toBe('unknown');
+    expect(listRead.label).toBe('Awaiting parts');
+    expect(deskRead.label).toBe('Awaiting parts');
+    expect(sheetRead.kind).toBe('unknown');
+    expect(sheetRead.label).toBe('Awaiting parts');
+    expect(listRead.label).not.toBe('Scheduled');
+    expect(listRead.label).not.toBe('Booked');
+    expect(sheetRead.label).not.toBe('Scheduled');
+    expect(sheetRead.label).not.toBe('Booked');
+  });
+
+  killIt('unknown otherwise mutant paints Scheduled on the list and sheet', async () => {
+    const red = await captureMutantRed({
+      path: 'src/lib/jobStatusPill.ts',
+      mutant: 'src/lib/jobStatusPill.ts unknown fall-through to Scheduled',
+      mutate: (src) => src.replace(
+        "return { kind: 'unknown', label: sentenceCaseJobStatus(input.status), tone: 'draft' };",
+        "return { kind: 'scheduled', label: JOB_PILL_SCHEDULED, tone: 'sched' };",
+      ),
+      run: async () => {
+        const js = await bundleJobs();
+        const list = await openPage({ width: 390, path: '/jobs', js });
+        await waitList(list);
+        const listLabel = await list.evaluate(() => (
+          (document.querySelector('[data-jobs-phone-row="x-unknown-crew"] [data-jobs-pill]')?.textContent || '').trim()
+        ));
+        await list.close();
+        const sheet = await openPage({ width: 390, path: '/jobs/x-unknown-crew', js });
+        await waitSheet(sheet);
+        const sheetLabel = await sheet.evaluate(() => (
+          (document.querySelector('[data-job-sheet-pill]')?.textContent || '').trim()
+        ));
+        await sheet.close();
+        expect(listLabel).toBe('Awaiting parts');
+        expect(sheetLabel).toBe('Awaiting parts');
+        expect(listLabel).not.toBe('Scheduled');
+        expect(sheetLabel).not.toBe('Booked');
+      },
+    });
+    expect(red.line).toBeGreaterThan(0);
+    expect(red.message).toMatch(/Awaiting parts|Scheduled|expected/i);
   }, 120000);
 });

@@ -17,7 +17,8 @@ export type JobPillKind =
   | 'needs_crew'
   | 'scheduled'
   | 'no_date'
-  | 'cancelled';
+  | 'cancelled'
+  | 'unknown';
 
 export type JobPillTone = 'ok' | 'draft' | 'live' | 'warn' | 'sched' | 'bad';
 
@@ -50,6 +51,19 @@ function parentChildrenBlockReady(children: readonly { status?: string | null }[
   return children.some((child) => child.status !== 'completed');
 }
 
+const KNOWN_JOB_STATUS = new Set(['scheduled', 'in_progress', 'completed', 'cancelled']);
+
+export function sentenceCaseJobStatus(raw: string | null | undefined): string {
+  const words = String(raw ?? '').trim().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+  if (!words) return 'Unknown';
+  const lower = words.toLowerCase();
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
+}
+
+function isKnownJobStatus(status: string | null | undefined): boolean {
+  return KNOWN_JOB_STATUS.has(String(status ?? ''));
+}
+
 function completedPill(input: JobStatusPillInput): JobStatusPill {
   if (input.invoiceReadError) {
     return { kind: 'done', label: JOB_PILL_DONE, tone: 'draft' };
@@ -71,6 +85,12 @@ export function jobStatusPill(input: JobStatusPillInput): JobStatusPill {
   if (input.status === 'completed') return completedPill(input);
   if (input.status === 'in_progress') {
     return { kind: 'in_progress', label: JOB_PILL_IN_PROGRESS, tone: 'live' };
+  }
+  if (!isKnownJobStatus(input.status)) {
+    if (jobNeedsCrew(input)) {
+      return { kind: 'needs_crew', label: JOB_PILL_NEEDS_CREW, tone: 'warn' };
+    }
+    return { kind: 'unknown', label: sentenceCaseJobStatus(input.status), tone: 'draft' };
   }
   const dated = !!(input.scheduled_date ?? '').trim();
   if (!dated) {
