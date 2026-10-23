@@ -445,8 +445,8 @@ export function JobsPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const lookParam = import.meta.env.DEV ? searchParams.get('look') : null;
-  const lookJobsList = import.meta.env.DEV && searchParams.get('look') === JOBS_LIST_LOOK;
+  const lookParam = (import.meta.env.DEV || import.meta.env.VITE_LOOK_PROOF === '1') ? searchParams.get('look') : null;
+  const lookJobsList = (import.meta.env.DEV || import.meta.env.VITE_LOOK_PROOF === '1') && searchParams.get('look') === JOBS_LIST_LOOK;
   const lookP307 = lookParam === JOBS_P307_LOOK;
   const lookCrewS8d = lookParam;
   const lookCrewS8dSeed = lookCrewS8d === CREW_S8D_LOOK_NEEDS

@@ -76,7 +76,7 @@ export function jobStatusPill(input: JobStatusPillInput): JobStatusPill {
   if (!dated) {
     return { kind: 'no_date', label: JOB_PILL_NO_DATE, tone: 'draft' };
   }
-  if (jobNeedsCrew({ status: 'scheduled', assigned_team: input.assigned_team })) {
+  if (jobNeedsCrew(input)) {
     return { kind: 'needs_crew', label: JOB_PILL_NEEDS_CREW, tone: 'warn' };
   }
   return { kind: 'scheduled', label: JOB_PILL_SCHEDULED, tone: 'sched' };

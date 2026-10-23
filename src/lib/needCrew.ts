@@ -6,16 +6,18 @@ export const NEED_CREW_COPY = 'need crew';
 export function jobNeedsCrew(job: {
   status?: string | null;
   assigned_team?: string[] | null;
+  scheduled_date?: string | null;
 }): boolean {
-  const status = (job.status ?? '').trim();
-  if (status === 'completed' || status === 'cancelled') return false;
-  if (status !== 'scheduled' && status !== 'in_progress') return false;
+  const status = (job.status ?? '').trim().toLowerCase();
+  if (status === 'completed' || status === 'cancelled' || status === 'done') return false;
+  if (!(job.scheduled_date ?? '').trim()) return false;
   return jobCrewMemberCount(job.assigned_team) === 0;
 }
 
 export function countJobsNeedCrew<T extends {
   status?: string | null;
   assigned_team?: string[] | null;
+  scheduled_date?: string | null;
 }>(jobs: readonly T[]): number {
   return jobs.reduce((n, job) => n + (jobNeedsCrew(job) ? 1 : 0), 0);
 }
