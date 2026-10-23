@@ -49,9 +49,6 @@ import {
   enquiryCallerLabel,
   enquiryExcerpt,
   enquiryJobPath,
-  ENQUIRY_EMPTY_LOOK,
-  ENQUIRY_LOOK,
-  ENQUIRY_ONE_LOOK,
   enquiryLookKind,
   enquiryState,
   enquirySurfaceOpen,
@@ -447,22 +444,14 @@ export function JobsPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const lookParam = (import.meta.env.DEV || import.meta.env.VITE_LOOK_PROOF === '1') ? searchParams.get('look') : null;
-  const lookJobsList = (import.meta.env.DEV || import.meta.env.VITE_LOOK_PROOF === '1') && searchParams.get('look') === JOBS_LIST_LOOK;
+  const lookParam = import.meta.env.DEV ? searchParams.get('look') : null;
+  const lookJobsList = import.meta.env.DEV && searchParams.get('look') === JOBS_LIST_LOOK;
   const lookP307 = lookParam === JOBS_P307_LOOK;
   const lookCrewS8d = lookParam;
   const lookCrewS8dSeed = lookCrewS8d === CREW_S8D_LOOK_NEEDS
     || lookCrewS8d === CREW_S8D_LOOK_BOOKED
     || lookCrewS8d === CREW_S8D_LOOK_NOT;
-  const enquiryLook = (import.meta.env.DEV || import.meta.env.VITE_LOOK_PROOF === '1')
-    ? (lookParam === ENQUIRY_LOOK
-      ? 'list'
-      : lookParam === ENQUIRY_EMPTY_LOOK
-        ? 'empty'
-        : lookParam === ENQUIRY_ONE_LOOK
-          ? 'one'
-          : null)
-    : enquiryLookKind(lookParam);
+  const enquiryLook = enquiryLookKind(lookParam);
   const lookEnquirySeed = enquiryLook != null;
   const enquirySurface = lookEnquirySeed || enquirySurfaceOpen(lookParam);
   const tenantTimeZone = resolveTenantTimeZone(

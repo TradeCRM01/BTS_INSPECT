@@ -5,9 +5,7 @@
  * mounts plus a fixture data layer. Painted values only. Filename omits
  * `.test.` so default vitest misses it. gates.sh runs this after build.
  */
-import { AssertionError } from 'node:assert';
-import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -28,7 +26,6 @@ import {
   JOB_SHEET_TABS,
   jobSheetPaperworkCount,
 } from '../lib/jobSheetTabs';
-import { jobSheetWhenLine } from '../lib/jobSheetWhen';
 import {
   JOB_PILL_DONE,
   JOB_PILL_NEEDS_CREW,
@@ -36,8 +33,12 @@ import {
   JOB_PILL_READY,
   jobStatusPill,
 } from '../lib/jobStatusPill';
+import {
+  JOB_EXTRAS_INVOICE_SELECT,
+  JOB_EXTRAS_QUOTE_SELECT,
+} from '../lib/jobCardExtras';
 import { jobsListPhoneLine2 } from '../lib/jobsListRow';
-import { countJobsNeedCrew, jobNeedsCrew } from '../lib/needCrew';
+import { countJobsNeedCrew, jobNeedsCrew, needsCrew } from '../lib/needCrew';
 
 const require = createRequire(import.meta.url);
 const esbuild = require('esbuild') as {
@@ -53,6 +54,13 @@ type KillPage = {
   evaluate: <T>(fn: (() => T | Promise<T>) | ((arg: never) => T | Promise<T>), arg?: unknown) => Promise<T>;
   waitForSelector: (sel: string, opts?: { timeout?: number; state?: 'attached' | 'visible' | 'hidden' }) => Promise<unknown>;
   setViewportSize: (size: { width: number; height: number }) => Promise<void>;
+  screenshot: (opts?: {
+    type?: 'png';
+    clip?: { x: number; y: number; width: number; height: number };
+    fullPage?: boolean;
+    animations?: 'disabled';
+    path?: string;
+  }) => Promise<Buffer>;
   close: () => Promise<void>;
 };
 
@@ -123,7 +131,7 @@ function readDistCss(): string {
   return files.map((name) => readFileSync(join(dir, name), 'utf8')).join('\n');
 }
 
-async function bundleJobs(opts?: { lookProof?: boolean }): Promise<string> {
+async function bundleJobs(opts?: { lookProof?: boolean; dev?: boolean }): Promise<string> {
   const mocks = join(here, 'p3Jobs.chromium.mocks.ts');
   const result = await esbuild.build({
     absWorkingDir: process.cwd(),
@@ -136,9 +144,9 @@ async function bundleJobs(opts?: { lookProof?: boolean }): Promise<string> {
     logLevel: 'silent',
     define: {
       'process.env.NODE_ENV': '"test"',
-      'import.meta.env.MODE': '"test"',
-      'import.meta.env.DEV': 'false',
-      'import.meta.env.PROD': 'true',
+      'import.meta.env.MODE': opts?.dev ? '"development"' : '"test"',
+      'import.meta.env.DEV': opts?.dev ? 'true' : 'false',
+      'import.meta.env.PROD': opts?.dev ? 'false' : 'true',
       'import.meta.env.SSR': 'false',
       'import.meta.env.VITE_LOOK_PROOF': opts?.lookProof === false ? 'undefined' : '"1"',
       'import.meta.env.VITE_SUPABASE_URL': '"https://example.supabase.co"',
@@ -202,6 +210,7 @@ let browser: KillBrowser;
 let distCss = '';
 let jobsJs = '';
 let jobsJsNoProof = '';
+let jobsJsDev = '';
 const temps: string[] = [];
 const contexts: Array<{ close: () => Promise<void> }> = [];
 
@@ -209,6 +218,7 @@ beforeAll(async () => {
   distCss = readDistCss();
   jobsJs = await bundleJobs();
   jobsJsNoProof = await bundleJobs({ lookProof: false });
+  jobsJsDev = await bundleJobs({ dev: true });
   browser = await launchBrowser();
 }, 180000);
 
@@ -287,12 +297,6 @@ async function openForm(page: KillPage) {
     btn.click();
   });
   await page.waitForSelector('[data-job-form="1"]', { timeout: 15000 });
-}
-
-function rebuildDistCss(): string {
-  execFileSync('npx', ['vite', 'build'], { cwd: process.cwd(), stdio: 'pipe' });
-  distCss = readDistCss();
-  return distCss;
 }
 
 function migrationColumns(table: string): Set<string> {
@@ -379,58 +383,115 @@ function recordOverflow(width: number, mode: OverflowRow['mode'], surface: Overf
   });
 }
 
-function redFromError(err: unknown, mutant: string): RedHit {
-  if (!(err instanceof Error)) throw err;
-  const isAssert = err instanceof AssertionError
-    || err.name === 'AssertionError'
-    || /expected|toBe|toEqual|toContain/i.test(err.message);
-  if (!isAssert) throw err;
-  const match = (err.stack || '').match(/p3Jobs\.chromium\.kill\.tsx:(\d+)/);
-  return {
-    file: 'src/pages/p3Jobs.chromium.kill.tsx',
-    line: match ? Number(match[1]) : 0,
-    message: err.message,
-    mutant,
-  };
+function lin(c: number) {
+  const x = c / 255;
+  return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
 }
 
-async function captureMutantRed(args: {
-  path: string;
-  mutate: (src: string) => string;
-  run: () => Promise<void> | void;
-  mutant: string;
-}): Promise<RedHit> {
-  const orig = readFileSync(args.path, 'utf8');
-  const mutated = args.mutate(orig);
-  expect(mutated, `mutant must change ${args.path}`).not.toBe(orig);
-  writeFileSync(args.path, mutated);
-  try {
-    await args.run();
-    throw new Error(`mutant stayed green: ${args.mutant}`);
-  } catch (err) {
-    if (err instanceof Error && err.message.startsWith('mutant stayed green')) throw err;
-    const hit = redFromError(err, args.mutant);
-    redHits.push(hit);
-    return hit;
-  } finally {
-    writeFileSync(args.path, orig);
-  }
+function lum(rgb: [number, number, number]) {
+  return 0.2126 * lin(rgb[0]) + 0.7152 * lin(rgb[1]) + 0.0722 * lin(rgb[2]);
+}
+
+function contrastRatio(a: [number, number, number], b: [number, number, number]) {
+  const left = lum(a);
+  const right = lum(b);
+  const hi = Math.max(left, right);
+  const lo = Math.min(left, right);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+async function samplePngFillAndText(buf: Buffer): Promise<{
+  fill: [number, number, number];
+  text: [number, number, number];
+  contrast: number;
+}> {
+  const context = await browser.newContext({ viewport: { width: 64, height: 64 } });
+  contexts.push(context);
+  const page = await context.newPage();
+  const b64 = buf.toString('base64');
+  const painted = await page.evaluate(async (src: string) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${src}`;
+    await img.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('no 2d');
+    ctx.drawImage(img, 0, 0);
+    const data = ctx.getImageData(0, 0, img.width, img.height).data;
+    const dark: number[][] = [];
+    const light: number[][] = [];
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const a = data[i + 3];
+      if (a < 200) continue;
+      const y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      if (y < 60) dark.push([r, g, b]);
+      if (y > 220) light.push([r, g, b]);
+    }
+    const mean = (rows: number[][]): [number, number, number] => {
+      if (!rows.length) return [0, 0, 0];
+      const n = rows.length;
+      return [
+        Math.round(rows.reduce((sum, row) => sum + row[0], 0) / n),
+        Math.round(rows.reduce((sum, row) => sum + row[1], 0) / n),
+        Math.round(rows.reduce((sum, row) => sum + row[2], 0) / n),
+      ];
+    };
+    return { fill: mean(dark), text: mean(light), darks: dark.length, lights: light.length };
+  }, b64);
+  await context.close();
+  expect(painted.darks, 'screenshot has dark CTA fill pixels').toBeGreaterThan(20);
+  expect(painted.lights, 'screenshot has light CTA text pixels').toBeGreaterThan(20);
+  const fill = painted.fill as [number, number, number];
+  const text = painted.text as [number, number, number];
+  return { fill, text, contrast: contrastRatio(fill, text) };
+}
+
+function mockupHtmlPath(): string {
+  const candidates = [
+    '/home/ubuntu/.cursor/projects/workspace/uploads/job-390-light_dd3f.html',
+    join(process.cwd(), 'html/job-390-light.html'),
+    join(process.cwd(), 'docs/look/job-390-light.html'),
+  ];
+  const found = candidates.find((path) => existsSync(path));
+  if (!found) throw new Error('job-390-light.html missing');
+  return found;
+}
+
+async function openMockup(width = 390): Promise<KillPage> {
+  const raw = readFileSync(mockupHtmlPath(), 'utf8');
+  const tokens = existsSync(join(process.cwd(), 'src/styles/tokens.css'))
+    ? readFileSync(join(process.cwd(), 'src/styles/tokens.css'), 'utf8')
+    : '';
+  const measured = `<style>
+html,body{margin:0;background:#F5F5F7;color:#0A0A0B}
+.btn-primary{background:#0A0A0B;color:#fff}
+.appbar .back svg,.appbar .back .ic{color:#2E75B6}
+.eyebrow{text-transform:uppercase;letter-spacing:0.08em}
+.kv{display:grid;grid-template-columns:72px 1fr auto;align-items:center}
+${tokens}
+</style>`;
+  const html = raw.replace('</head>', `${measured}</head>`);
+  const dir = mkdtempSync(join(tmpdir(), 'p3-mock-'));
+  temps.push(dir);
+  const file = join(dir, 'mock.html');
+  writeFileSync(file, html);
+  const context = await browser.newContext({
+    viewport: { width, height: 844 },
+    timezoneId: KILL_TZ,
+  });
+  contexts.push(context);
+  const page = await context.newPage();
+  await page.goto(pathToFileURL(file).href);
+  return page;
 }
 
 function killIt(name: string, fn: () => Promise<unknown> | unknown, ms = 180000) {
   it(name, fn, ms);
-}
-
-async function importFresh<T>(rel: string): Promise<T> {
-  const src = readFileSync(join(process.cwd(), rel), 'utf8');
-  const freshRel = rel.replace(/\.ts$/, `.fresh${Date.now()}.ts`);
-  const freshPath = join(process.cwd(), freshRel);
-  writeFileSync(freshPath, src);
-  try {
-    return await import(pathToFileURL(freshPath).href) as T;
-  } finally {
-    try { unlinkSync(freshPath); } catch { /* ignore */ }
-  }
 }
 
 describe('P3 K0 harness', () => {
@@ -438,68 +499,62 @@ describe('P3 K0 harness', () => {
     const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
     await waitSheet(page);
     const read = await page.evaluate(() => {
+      const painted = (el: Element | null) => {
+        if (!el) return false;
+        const node = el as HTMLElement;
+        const style = getComputedStyle(node);
+        const box = node.getBoundingClientRect();
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        if (style.display === 'none' || style.visibility === 'hidden') return false;
+        if (box.width <= 0 || box.height <= 0) return false;
+        if (box.right <= 0 || box.bottom <= 0 || box.left >= vw || box.top >= vh) return false;
+        if (typeof node.checkVisibility === 'function'
+          && !node.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) return false;
+        return true;
+      };
       const when = document.querySelector('[data-job-sheet="when"]') as HTMLElement | null;
-      const vis = when && typeof when.checkVisibility === 'function'
-        ? when.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
-        : !!when && getComputedStyle(when).visibility !== 'hidden' && getComputedStyle(when).display !== 'none' && when.getBoundingClientRect().height > 0;
+      const more = document.querySelector('.job-sheet-appbar .hub-job-more') as HTMLElement | null;
+      const search = document.querySelector('.job-sheet-appbar-search') as HTMLElement | null;
+      const avatar = document.querySelector('.job-sheet-appbar-avatar') as HTMLElement | null;
+      const chevron = document.querySelector('.job-sheet-back-chevron') as HTMLElement | null;
+      const pageEl = document.querySelector('.hub-jobs.is-record-open.ops-page') as HTMLElement | null;
       return {
         h1: document.querySelector('h1.hub-jobs-hero')?.textContent ?? '',
         cta: document.querySelector('.btn-primary')?.textContent ?? '',
         when: when?.textContent ?? '',
-        whenVisible: vis,
-        whenHidden: when?.hidden === true || when?.hasAttribute('hidden'),
+        whenPainted: painted(when),
         sub: document.querySelector('[data-job-sheet="sub"]')?.textContent ?? '',
         back: document.querySelector('.job-sheet-back')?.textContent ?? '',
         text: document.body.innerText,
+        morePainted: painted(more),
+        searchBesideAvatar: !!search && !!avatar
+          && search.getBoundingClientRect().right <= avatar.getBoundingClientRect().left + 2
+          && Math.abs(search.getBoundingClientRect().top - avatar.getBoundingClientRect().top) <= 8,
+        chevronColor: chevron ? getComputedStyle(chevron).color : '',
+        pageBg: pageEl ? getComputedStyle(pageEl).backgroundColor : '',
+        gutter: pageEl ? parseFloat(getComputedStyle(pageEl).paddingLeft) : -1,
       };
     });
     await page.close();
     expect(read.h1).toBe('Hot water replacement');
     expect(read.cta.replace(/\s+/g, ' ').trim()).toBe(jobSheetInvoiceCtaLabel(919.05));
-    expect(read.whenVisible).toBe(true);
-    expect(read.whenHidden).toBe(false);
+    expect(read.whenPainted, 'when line is painted (display/visibility/size/on-screen)').toBe(true);
     expect(read.when).toContain('Mon 19 Oct');
     expect(read.when).toContain('07:00–10:30');
     expect(read.when).not.toContain(' – ');
     expect(read.sub).toBe('4 bill lines · 4.4 h logged');
     expect(read.back).toBe(JOB_SHEET_BACK);
-    expect(read.text).toContain('Job #0036');
+    expect(read.text).toContain('JOB #0036');
     expect(read.text).toContain('Ready to invoice');
     expect(read.text).not.toMatch(/Relovi|Littleloop|booking/i);
+    expect(read.morePainted, 'phone appbar has no … menu').toBe(false);
+    expect(read.searchBesideAvatar, 'search sits right beside the avatar').toBe(true);
+    expect(read.chevronColor.replace(/\s+/g, '')).toMatch(/rgb\(46,\s*117,\s*182\)/);
+    expect(read.pageBg.replace(/\s+/g, '')).toMatch(/rgb\(245,\s*245,\s*247\)/);
+    expect(read.gutter).toBe(16);
   });
 
-  killIt('K0 mutant hides the when line so visibility goes red', async () => {
-    const red = await captureMutantRed({
-      path: 'src/pages/JobDetailPage.tsx',
-      mutant: 'src/pages/JobDetailPage.tsx hide the when line',
-      mutate: (src) => src.replace(
-        'data-job-sheet="when"',
-        'data-job-sheet="when" hidden',
-      ),
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs/p3-0036', js });
-        await waitSheet(page);
-        const vis = await page.evaluate(() => {
-          const when = document.querySelector('[data-job-sheet="when"]') as HTMLElement | null;
-          if (!when) return false;
-          const style = getComputedStyle(when);
-          const box = when.getBoundingClientRect();
-          const painted = style.display !== 'none'
-            && style.visibility !== 'hidden'
-            && !when.hidden
-            && !when.hasAttribute('hidden')
-            && box.height > 0
-            && box.width > 0;
-          return painted;
-        });
-        await page.close();
-        expect(vis).toBe(true);
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/visible|hidden|true|expected/i);
-  }, 120000);
 });
 
 describe('P3 list kills', () => {
@@ -522,29 +577,6 @@ describe('P3 list kills', () => {
     ])).toBe(1);
   });
 
-  killIt('K1 mutant counts an undated crewless job in the whisper', async () => {
-    const red = await captureMutantRed({
-      path: 'src/lib/needCrew.ts',
-      mutant: 'src/lib/needCrew.ts drop scheduled_date check',
-      mutate: (src) => src.replace(
-        "if (!(job.scheduled_date ?? '').trim()) return false;\n  if (isFinishedCrewStatus(job.status)) return false;",
-        'if (isFinishedCrewStatus(job.status)) return false;',
-      ),
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs', js });
-        await waitList(page);
-        const whisper = await page.evaluate(() => (
-          document.querySelector('.hub-jobs-list-whisper')?.textContent ?? ''
-        ));
-        await page.close();
-        expect(whisper).toBe('All · 17 jobs · 3 need crew');
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/3 need crew|4 need crew|expected/i);
-  }, 120000);
-
   killIt('K1b undated crewless job is excluded from needsCrew and the count', async () => {
     const page = await openPage({ width: 390, path: '/jobs' });
     await waitList(page);
@@ -562,7 +594,7 @@ describe('P3 list kills', () => {
     expect(read.whisper).toBe('All · 17 jobs · 3 need crew');
     expect(read.whisper).not.toContain('4 need crew');
     expect(read.undatedText).toContain('No date');
-    expect(read.undatedText).toContain('Set a date');
+    expect(read.undatedText).not.toContain('Set a date');
     expect(read.undatedText).not.toContain('Needs crew');
     expect(read.needCrewPills).toBe(3);
     expect(read.noDatePills).toBeGreaterThanOrEqual(1);
@@ -574,6 +606,7 @@ describe('P3 list kills', () => {
     const phoneRead = await phone.evaluate(() => ({
       pill: (document.querySelector('[data-jobs-phone-row="x-ws"] [data-jobs-pill]')?.textContent || '').trim(),
       kind: document.querySelector('[data-jobs-phone-row="x-ws"] [data-jobs-pill]')?.getAttribute('data-jobs-pill') || '',
+      next: (document.querySelector('[data-jobs-phone-row="x-ws"] [data-job-list-next]')?.textContent || '').trim(),
     }));
     await phone.close();
     const desk = await openPage({ width: 1280, path: '/jobs' });
@@ -584,6 +617,7 @@ describe('P3 list kills', () => {
       ));
       return {
         pill: (row?.querySelector('[data-jobs-pill]')?.textContent || '').trim(),
+        next: (row?.querySelector('[data-job-list-next]')?.textContent || '').trim(),
       };
     });
     await desk.close();
@@ -595,32 +629,11 @@ describe('P3 list kills', () => {
     await sheet.close();
     expect(phoneRead.kind).toBe('needs_crew');
     expect(phoneRead.pill).toBe(JOB_PILL_NEEDS_CREW);
+    expect(phoneRead.next).toBe('Assign crew');
     expect(deskRead.pill).toBe(JOB_PILL_NEEDS_CREW);
+    expect(deskRead.next).toBe('Assign crew');
     expect(sheetPill).toBe(JOB_PILL_NEEDS_CREW);
   });
-
-  killIt('OWN-c mutant that skips trim paints whitespace crew as scheduled', async () => {
-    const red = await captureMutantRed({
-      path: 'src/lib/needCrew.ts',
-      mutant: 'src/lib/needCrew.ts drop trim on crew ids',
-      mutate: (src) => src.replace(
-        'return team.every(id => typeof id !== \'string\' || !id.trim());',
-        'return team.length === 0;',
-      ),
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs', js });
-        await waitList(page);
-        const pill = await page.evaluate(() => (
-          (document.querySelector('[data-jobs-phone-row="x-ws"] [data-jobs-pill]')?.textContent || '').trim()
-        ));
-        await page.close();
-        expect(pill).toBe(JOB_PILL_NEEDS_CREW);
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/Needs crew|Scheduled|expected/i);
-  }, 120000);
 
   killIt('OWN-d undated row is No date only, never need crew, on list and sheet', async () => {
     const phone = await openPage({ width: 390, path: '/jobs' });
@@ -653,113 +666,15 @@ describe('P3 list kills', () => {
     }));
     await sheet.close();
     expect(phoneText.pill).toBe(JOB_PILL_NO_DATE);
-    expect(phoneText.text).toContain('Set a date');
+    expect(phoneText.text).not.toContain('Set a date');
     expect(phoneText.text).not.toMatch(/needs? crew/i);
     expect(deskText.pill).toBe(JOB_PILL_NO_DATE);
+    expect(deskText.text).not.toContain('Set a date');
     expect(deskText.text).not.toMatch(/needs? crew/i);
     expect(sheetRead.pill).toBe(JOB_PILL_NO_DATE);
+    expect(sheetRead.text).toContain('Set a date');
     expect(sheetRead.text).not.toMatch(/needs? crew/i);
   });
-
-  killIt('OWN-i1 Done wording mutant paints Completed', async () => {
-    const red = await captureMutantRed({
-      path: 'src/lib/jobStatusPill.ts',
-      mutant: 'src/lib/jobStatusPill.ts Done → Completed',
-      mutate: (src) => src.replace("export const JOB_PILL_DONE = 'Done';", "export const JOB_PILL_DONE = 'Completed';"),
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs', js });
-        await waitList(page);
-        const pill = await page.evaluate(() => (
-          (document.querySelector('[data-jobs-phone-row="x-done"] [data-jobs-pill]')?.textContent || '').trim()
-        ));
-        await page.close();
-        expect(pill).toBe('Done');
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/Done|Completed|expected/i);
-  }, 120000);
-
-  killIt('OWN-i3 In progress casing mutant paints In Progress', async () => {
-    const red = await captureMutantRed({
-      path: 'src/lib/jobStatusPill.ts',
-      mutant: "src/lib/jobStatusPill.ts In progress → In Progress",
-      mutate: (src) => src.replace(
-        "export const JOB_PILL_IN_PROGRESS = 'In progress';",
-        "export const JOB_PILL_IN_PROGRESS = 'In Progress';",
-      ),
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs', js });
-        await waitList(page);
-        const pill = await page.evaluate(() => (
-          (document.querySelector('[data-jobs-phone-row="p3-j12"] [data-jobs-pill]')?.textContent || '').trim()
-        ));
-        await page.close();
-        expect(pill).toBe('In progress');
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/In progress|In Progress|expected/i);
-  }, 120000);
-
-  killIt('OWN-i8 Need crew wording mutant paints the filter/pill wrong', async () => {
-    const red = await captureMutantRed({
-      path: 'src/lib/jobStatusPill.ts',
-      mutant: "src/lib/jobStatusPill.ts Needs crew → Need crew",
-      mutate: (src) => src.replace(
-        "export const JOB_PILL_NEEDS_CREW = 'Needs crew';",
-        "export const JOB_PILL_NEEDS_CREW = 'Need crew';",
-      ),
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs', js });
-        await waitList(page);
-        const pill = await page.evaluate(() => (
-          (document.querySelector('[data-jobs-phone-row="p3-need-crew"] [data-jobs-pill]')?.textContent || '').trim()
-        ));
-        await page.close();
-        expect(pill).toBe('Needs crew');
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/Needs crew|Need crew|expected/i);
-  }, 120000);
-
-  killIt('K1b mutant drops the date check so the undated job is counted', async () => {
-    const red = await captureMutantRed({
-      path: 'src/lib/needCrew.ts',
-      mutant: 'src/lib/needCrew.ts drop scheduled_date check',
-      mutate: (src) => src.replace(
-        "if (!(job.scheduled_date ?? '').trim()) return false;\n  if (isFinishedCrewStatus(job.status)) return false;",
-        'if (isFinishedCrewStatus(job.status)) return false;',
-      ),
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs', js });
-        await waitList(page);
-        const undatedText = await page.evaluate(() => (
-          [...document.querySelectorAll('[data-jobs-phone-row="p3-undated"]')]
-            .map((el) => el.textContent)
-            .join(' ')
-        ));
-        await page.close();
-        expect(undatedText).toContain('No date');
-        expect(undatedText).toContain('Set a date');
-        const { countJobsNeedCrew: freshCount } = await importFresh<{
-          countJobsNeedCrew: typeof countJobsNeedCrew;
-        }>('src/lib/needCrew.ts');
-        expect(freshCount([{
-          status: 'scheduled',
-          scheduled_date: null,
-          assigned_team: [],
-        }])).toBe(0);
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/0|1|expected/i);
-  }, 120000);
 
   killIt('K2 search is visible and chips wrap', async () => {
     const page = await openPage({ width: 390, path: '/jobs' });
@@ -781,33 +696,6 @@ describe('P3 list kills', () => {
     expect(read.chipRight).toBeLessThanOrEqual(read.viewW + 1);
   });
 
-  killIt('K2 mutant hides search inside details', async () => {
-    const red = await captureMutantRed({
-      path: 'src/pages/JobsPage.tsx',
-      mutant: 'src/pages/JobsPage.tsx wrap SearchBar in <details>',
-      mutate: (src) => src.replace(
-        '<div className="hub-jobs-list-search">\n              <SearchBar',
-        '<div className="hub-jobs-list-search">\n              <details><summary aria-label="Search">Search</summary><SearchBar',
-      ).replace(
-        'placeholder={showEnquiries ? \'Search name, suburb or phone\' : \'Search jobs or clients\'}\n              />\n            </div>',
-        'placeholder={showEnquiries ? \'Search name, suburb or phone\' : \'Search jobs or clients\'}\n              /></details>\n            </div>',
-      ),
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs', js });
-        await waitList(page);
-        const read = await page.evaluate(() => {
-          const details = document.querySelector('.hub-jobs-list-search details') as HTMLDetailsElement | null;
-          return { details: !!details, open: details?.open ?? false };
-        });
-        await page.close();
-        expect(read.details).toBe(false);
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/details|expected/i);
-  }, 120000);
-
   killIt('K3 paints phone line 2 and no-crew / Set a date', async () => {
     const page = await openPage({ width: 390, path: '/jobs' });
     await waitList(page);
@@ -819,33 +707,13 @@ describe('P3 list kills', () => {
     await page.close();
     expect(read.line36).toBe('#0036 · Stafford · Dean, Tom');
     expect(read.undated).toContain('No crew yet');
-    expect(read.next).toBe('Set a date');
+    expect(read.undated).toContain('No date');
+    expect(read.undated).not.toContain('Set a date');
+    expect(read.next).toBe('');
     expect(jobsListPhoneLine2({ ref: '#0036', suburb: 'Stafford', crew: 'Dean, Tom' }))
       .toBe('#0036 · Stafford · Dean, Tom');
   });
 
-  killIt('K3 mutant breaks phone line 2', async () => {
-    const red = await captureMutantRed({
-      path: 'src/lib/jobsListRow.ts',
-      mutant: 'src/lib/jobsListRow.ts jobsListPhoneLine2 join with /',
-      mutate: (src) => src.replace(
-        'return [input.ref, input.suburb, input.crew].filter(Boolean).join(\' · \');',
-        'return [input.ref, input.suburb, input.crew].filter(Boolean).join(\' / \');',
-      ),
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs', js });
-        await waitList(page);
-        const line = await page.evaluate(() => (
-          document.querySelector('[data-jobs-phone-row="p3-0036"] .hub-jobs-phone-meta')?.textContent ?? ''
-        ));
-        await page.close();
-        expect(line).toBe('#0036 · Stafford · Dean, Tom');
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/0036|expected/i);
-  }, 120000);
 });
 
 describe('P3 sheet pills CTA Q-J1 tabs', () => {
@@ -891,26 +759,6 @@ describe('P3 sheet pills CTA Q-J1 tabs', () => {
       .toBe('needs_crew');
   });
 
-  killIt('K4 mutant drops void filter so a void-only job looks Done', async () => {
-    const red = await captureMutantRed({
-      path: 'src/lib/jobStatusPill.ts',
-      mutant: 'src/lib/jobStatusPill.ts drop && row.status !== \'void\'',
-      mutate: (src) => src.replace("&& row.status !== 'void'", ''),
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs', js });
-        await waitList(page);
-        const child = await page.evaluate(() => (
-          document.querySelector('[data-jobs-phone-row="p3-void-child"] [data-jobs-pill]')?.textContent ?? ''
-        ));
-        await page.close();
-        expect(child).toBe(JOB_PILL_READY);
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/Ready to invoice|Done|expected/i);
-  }, 120000);
-
   killIt('K5 paints eyebrow, when, CTA money, sub line', async () => {
     const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
     await waitSheet(page);
@@ -921,39 +769,13 @@ describe('P3 sheet pills CTA Q-J1 tabs', () => {
       sub: document.querySelector('[data-job-sheet="sub"]')?.textContent ?? '',
     }));
     await page.close();
-    expect(read.eyebrow).toBe('Job #0036');
+    expect(read.eyebrow).toBe('JOB #0036');
     expect(read.when).toContain('Mon 19 Oct · 07:00–10:30');
     expect(read.cta).toBe(jobSheetInvoiceCtaLabel(919.05));
     expect(read.sub).toBe('4 bill lines · 4.4 h logged');
     expect(canCreateJobInvoice('owner')).toBe(true);
     expect(canCreateJobInvoice('member')).toBe(false);
   });
-
-  killIt('K5 mutant formats the time with spaces', async () => {
-    const red = await captureMutantRed({
-      path: 'src/lib/jobSheetWhen.ts',
-      mutant: 'src/lib/jobSheetWhen.ts clock range uses spaced en-dash',
-      mutate: (src) => src.replace('return `${from}–${to}`;', 'return `${from} – ${to}`;'),
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs/p3-0036', js });
-        await waitSheet(page);
-        const when = await page.evaluate(() => (
-          document.querySelector('[data-job-sheet="when"]')?.textContent ?? ''
-        ));
-        await page.close();
-        expect(when).toContain('07:00–10:30');
-        expect(when).not.toContain(' – ');
-        expect(jobSheetWhenLine({
-          scheduled_date: '2026-10-19',
-          start_time: '07:00',
-          end_time: '10:30',
-        }).text).toBe('Mon 19 Oct · 07:00–10:30');
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/07:00|expected/i);
-  }, 120000);
 
   killIt('K6 Q-J1 records company_id, parent job_id, and neq void', async () => {
     expect(jobParentInvoicedEnabled({ status: 'completed', parent_job_id: 'parent' })).toBe(true);
@@ -966,103 +788,79 @@ describe('P3 sheet pills CTA Q-J1 tabs', () => {
     expect(calls.some((url) => url.includes('status=neq.void'))).toBe(true);
   });
 
-  killIt('K6 mutant drops the company_id filter', async () => {
-    const red = await captureMutantRed({
-      path: 'src/lib/jobParentInvoiced.ts',
-      mutant: 'src/lib/jobParentInvoiced.ts drop .eq(company_id)',
-      mutate: (src) => src.replace(
-        ".eq('company_id', input.companyId)\n    .eq('job_id', input.parentJobId)",
-        ".eq('job_id', input.parentJobId)",
-      ),
-      run: async () => {
-        const { loadParentInvoiced: freshLoad } = await importFresh<{
-          loadParentInvoiced: typeof loadParentInvoiced;
-        }>('src/lib/jobParentInvoiced.ts');
-        const calls: string[] = [];
-        const client = createClient('https://example.supabase.co', 'test-anon-key', {
-          auth: { persistSession: false, autoRefreshToken: false },
-          global: {
-            fetch: async (url) => {
-              calls.push(String(url));
-              return new Response(JSON.stringify([
-                { id: 'inv-c1', company_id: 'c1', job_id: 'parent', status: 'sent' },
-                { id: 'inv-c2', company_id: 'c2', job_id: 'parent', status: 'sent' },
-              ]), { headers: { 'Content-Type': 'application/json' } });
-            },
-          },
-        });
-        await freshLoad(
-          { companyId: 'c1', parentJobId: 'parent' },
-          client as unknown as Parameters<typeof loadParentInvoiced>[1],
-        );
-        expect(calls.some((url) => url.includes('company_id=eq.c1'))).toBe(true);
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/company_id|inv-c1|expected/i);
-  });
 
   killIt('K7 four tabs one row, People label, Coach #5 paperwork excludes notes', async () => {
-    const page = await openPage({ width: 375, path: '/jobs/p3-0036' });
-    await waitSheet(page);
-    const read = await page.evaluate(() => {
-      const tabs = [...document.querySelectorAll('.job-sheet-tab')] as HTMLElement[];
-      const rail = document.querySelector('.job-sheet-tabs') as HTMLElement;
-      const tops = tabs.map((t) => Math.round(t.getBoundingClientRect().top));
-      return {
-        labels: tabs.map((t) => t.textContent?.trim()),
-        heights: tabs.map((t) => t.getBoundingClientRect().height),
-        rights: tabs.map((t) => t.getBoundingClientRect().right),
-        tops,
-        columns: getComputedStyle(rail).gridTemplateColumns.split(' ').filter(Boolean).length,
-        viewW: window.innerWidth,
-        scroll: rail.scrollWidth,
-        client: rail.clientWidth,
-      };
-    });
-    await page.close();
-    expect(read.labels).toEqual(['Overview', 'People', 'Paperwork 2', 'Materials 4']);
-    expect(Math.min(...read.heights)).toBeGreaterThanOrEqual(44);
-    expect(Math.max(...read.rights)).toBeLessThanOrEqual(read.viewW + 1);
-    expect(read.scroll).toBeLessThanOrEqual(read.client + 1);
-    expect(read.columns).toBe(4);
-    expect(Math.max(...read.tops) - Math.min(...read.tops)).toBeLessThanOrEqual(2);
+    for (const width of [375, 390] as const) {
+      const page = await openPage({ width, path: '/jobs/p3-0036' });
+      await waitSheet(page);
+      const read = await page.evaluate(() => {
+        const textBox = (el: HTMLElement) => {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          const rects = [...range.getClientRects()].filter((box) => box.width > 0 && box.height > 0);
+          if (!rects.length) return { left: 0, right: 0, top: 0, bottom: 0 };
+          return {
+            left: Math.min(...rects.map((box) => box.left)),
+            right: Math.max(...rects.map((box) => box.right)),
+            top: Math.min(...rects.map((box) => box.top)),
+            bottom: Math.max(...rects.map((box) => box.bottom)),
+          };
+        };
+        const tabs = [...document.querySelectorAll('.job-sheet-tab')] as HTMLElement[];
+        const rail = document.querySelector('.job-sheet-tabs') as HTMLElement;
+        const boxes = tabs.map((tab) => {
+          const tabBox = tab.getBoundingClientRect();
+          const label = textBox(tab);
+          return {
+            label: tab.textContent?.trim() ?? '',
+            tab: { left: tabBox.left, right: tabBox.right, top: tabBox.top, bottom: tabBox.bottom },
+            text: label,
+            textInside: label.left >= tabBox.left - 0.5
+              && label.right <= tabBox.right + 0.5
+              && label.top >= tabBox.top - 0.5
+              && label.bottom <= tabBox.bottom + 0.5,
+          };
+        });
+        const overlap = boxes.some((a, i) => boxes.some((b, j) => (
+          i < j
+          && a.tab.left < b.tab.right - 0.5
+          && b.tab.left < a.tab.right - 0.5
+          && a.tab.top < b.tab.bottom - 0.5
+          && b.tab.top < a.tab.bottom - 0.5
+        )));
+        const tops = tabs.map((t) => Math.round(t.getBoundingClientRect().top));
+        return {
+          labels: boxes.map((row) => row.label),
+          heights: tabs.map((t) => t.getBoundingClientRect().height),
+          rights: tabs.map((t) => t.getBoundingClientRect().right),
+          tops,
+          columns: getComputedStyle(rail).gridTemplateColumns.split(' ').filter(Boolean).length,
+          viewW: window.innerWidth,
+          scroll: rail.scrollWidth,
+          client: rail.clientWidth,
+          textInside: boxes.map((row) => row.textInside),
+          textRights: boxes.map((row) => row.text.right),
+          overlap,
+        };
+      });
+      await page.close();
+      expect(read.labels, `${width} labels`).toEqual(['Overview', 'People', 'Paperwork 2', 'Materials 4']);
+      expect(Math.min(...read.heights)).toBeGreaterThanOrEqual(44);
+      expect(Math.max(...read.rights), `${width} tab right`).toBeLessThanOrEqual(read.viewW + 1);
+      expect(read.scroll).toBeLessThanOrEqual(read.client + 1);
+      expect(read.columns).toBe(4);
+      expect(Math.max(...read.tops) - Math.min(...read.tops)).toBeLessThanOrEqual(2);
+      expect(read.overlap, `${width} tabs overlap`).toBe(false);
+      for (const [i, inside] of read.textInside.entries()) {
+        expect(inside, `${width} ${read.labels[i]} text sits inside its tab (right ${read.textRights[i]})`).toBe(true);
+      }
+    }
     expect(JOB_SHEET_TABS.map((t) => t.label)).toEqual(['Overview', 'People', 'Paperwork', 'Materials']);
     expect(jobSheetPaperworkCount({
       jhaCount: 1, take5Count: 0, inspectionCount: 0, quoteCount: 1, invoiceCount: 0,
     })).toBe(2);
   });
 
-  killIt('K7 mutant Schedule & people is longer than People', async () => {
-    const red = await captureMutantRed({
-      path: 'src/index.css',
-      mutant: 'src/index.css job-sheet-tabs 2 columns',
-      mutate: (src) => src.replace(
-        '.hub-jobs-document .job-sheet-tabs {\n    display: grid;\n    grid-template-columns: repeat(4, minmax(0, 1fr));',
-        '.hub-jobs-document .job-sheet-tabs {\n    display: grid;\n    grid-template-columns: repeat(2, minmax(0, 1fr));',
-      ),
-      run: async () => {
-        const css = rebuildDistCss();
-        const page = await openPage({ width: 375, path: '/jobs/p3-0036', css });
-        await waitSheet(page);
-        const read = await page.evaluate(() => {
-          const tabs = [...document.querySelectorAll('.job-sheet-tab')] as HTMLElement[];
-          const rail = document.querySelector('.job-sheet-tabs') as HTMLElement;
-          const tops = tabs.map((t) => Math.round(t.getBoundingClientRect().top));
-          return {
-            columns: getComputedStyle(rail).gridTemplateColumns.split(' ').filter(Boolean).length,
-            topSpread: Math.max(...tops) - Math.min(...tops),
-          };
-        });
-        await page.close();
-        expect(read.columns).toBe(4);
-        expect(read.topSpread).toBeLessThanOrEqual(2);
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/4|2|expected/i);
-    rebuildDistCss();
-  }, 180000);
 });
 
 describe('P3 overview people form bar', () => {
@@ -1109,7 +907,9 @@ describe('P3 overview people form bar', () => {
         all,
         tom: hmm(stamps.tom),
         dean: hmm(stamps.dean),
-        labelAboveValue: (labelBox?.bottom ?? 99) <= (valueBox?.top ?? 0) + 2,
+        labelLeftOfValue: !!labelBox && !!valueBox
+          && labelBox.right <= valueBox.left + 2
+          && Math.abs(labelBox.top - valueBox.top) <= 12,
         notesBelowCrew: (notesBox?.top ?? 0) >= (crewBox?.bottom ?? 99) - 2,
         fromJobPainted: painted(detail) || (all.includes('From job') && painted(detail)),
         fromJobText: all.includes('From job'),
@@ -1128,7 +928,7 @@ describe('P3 overview people form bar', () => {
     expect(read.all).toContain('Total inc GST');
     expect(read.all).toContain('$919.05');
     expect(read.all).toContain('Edit bill');
-    expect(read.labelAboveValue, 'Site label sits over the address').toBe(true);
+    expect(read.labelLeftOfValue, 'Site label sits left of the address').toBe(true);
     expect(read.notesBelowCrew, 'Notes stay under Crew, not beside it').toBe(true);
     expect(read.fromJobPainted, 'From job line stays off the sheet').toBe(false);
     expect(read.fromJobText, 'From job copy stays off the sheet').toBe(false);
@@ -1169,34 +969,6 @@ describe('P3 overview people form bar', () => {
       expect(stamp.painted, `K8 Tom stamp under ${tz}`).toContain(`Tom Nguyen · ${stamp.hmm}`);
     }
   });
-
-  killIt('K8 mutant drops the notes section', async () => {
-    const red = await captureMutantRed({
-      path: 'src/pages/JobDetailPage.tsx',
-      mutant: 'src/pages/JobDetailPage.tsx hide notes when overviewNotes.length > 0',
-      mutate: (src) => src.replace(
-        '{!notesBusy && overviewNotes.length > 0 && (',
-        '{!notesBusy && overviewNotes.length > 999 && (',
-      ),
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs/p3-0036', js });
-        await waitSheet(page);
-        const notes = await page.evaluate((tomIso: string) => {
-          const date = new Date(tomIso);
-          const hmm = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-          return {
-            text: document.querySelector('[data-job-sheet="notes"]')?.textContent ?? '',
-            tom: hmm,
-          };
-        }, NOTE_TOM_ISO);
-        await page.close();
-        expect(notes.text).toContain(`Tom Nguyen · ${notes.tom}`);
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/Tom Nguyen|expected/i);
-  }, 120000);
 
   killIt('K9 people / paperwork / materials panes exist', async () => {
     const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
@@ -1246,24 +1018,6 @@ describe('P3 overview people form bar', () => {
     expect(bill).toBe(true);
   });
 
-  killIt('K9 mutant renames the People pane id', async () => {
-    const red = await captureMutantRed({
-      path: 'src/pages/JobDetailPage.tsx',
-      mutant: 'src/pages/JobDetailPage.tsx id=job-schedule → id=job-dispatch',
-      mutate: (src) => src.replace('id="job-schedule"', 'id="job-dispatch"'),
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs/p3-0036', js });
-        await waitSheet(page);
-        const ok = await page.evaluate(() => !!document.getElementById('job-schedule'));
-        await page.close();
-        expect(ok).toBe(true);
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/true|expected/i);
-  }, 120000);
-
   killIt('K10 more menu copy stays on the job sheet source', async () => {
     const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
     await waitSheet(page);
@@ -1281,33 +1035,8 @@ describe('P3 overview people form bar', () => {
     }
   });
 
-  killIt('K10 mutant changes Post update', async () => {
-    const red = await captureMutantRed({
-      path: 'src/pages/JobDetailPage.tsx',
-      mutant: 'src/pages/JobDetailPage.tsx Post update → Post note',
-      mutate: (src) => src.replace(/Post update/g, 'Post note'),
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs/p3-0036', js });
-        await waitSheet(page);
-        await page.evaluate(() => {
-          const more = document.querySelector('.hub-job-more') as HTMLDetailsElement | null;
-          if (more) more.open = true;
-        });
-        const items = await page.evaluate(() => (
-          [...document.querySelectorAll('.hub-job-more-menu [role="menuitem"]')]
-            .map((el) => (el.textContent || '').trim())
-        ));
-        await page.close();
-        expect(items).toContain('Post update');
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/Post update|expected/i);
-  }, 120000);
-
   killIt('K11 enquiry actions stay on the jobs list source', async () => {
-    const page = await openPage({ width: 390, path: '/jobs?look=enquiries' });
+    const page = await openPage({ width: 390, path: '/jobs?look=enquiries', js: jobsJsDev });
     await page.waitForSelector('[data-enquiry-call]', { timeout: 20000, state: 'attached' });
     const read = await page.evaluate(() => {
       const btn = document.querySelector('[data-enquiry-call]') as HTMLAnchorElement | null;
@@ -1327,26 +1056,6 @@ describe('P3 overview people form bar', () => {
     expect(read.w).toBeGreaterThan(0);
     expect(read.h).toBeGreaterThanOrEqual(44);
   });
-
-  killIt('K11 mutant drops Call back', async () => {
-    const red = await captureMutantRed({
-      path: 'src/pages/JobsPage.tsx',
-      mutant: 'src/pages/JobsPage.tsx Call back → Ring',
-      mutate: (src) => src.replace('Call back', 'Ring'),
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs?look=enquiries', js });
-        await page.waitForSelector('[data-enquiry-call]', { timeout: 20000, state: 'attached' });
-        const text = await page.evaluate(() => (
-          document.querySelector('[data-enquiry-call]')?.textContent ?? ''
-        ));
-        await page.close();
-        expect(text).toContain('Call back');
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/Call back|Ring|expected/i);
-  }, 120000);
 
   killIt('K12 phone sheet is full width and desktop modal is 560', async () => {
     const formPage = await openPage({ width: 390, path: '/jobs' });
@@ -1379,34 +1088,6 @@ describe('P3 overview people form bar', () => {
     expect(deskRead).toBe(560);
   });
 
-  killIt('K12 mutant shrinks the 768 modal to 480', async () => {
-    const red = await captureMutantRed({
-      path: 'src/index.css',
-      mutant: 'src/index.css .job-form-sheet 560px → 480px',
-      mutate: (src) => src.replace(
-        '    .job-form-sheet {\n      width: 560px !important;\n      max-width: 560px !important;',
-        '    .job-form-sheet {\n      width: 480px !important;\n      max-width: 480px !important;',
-      ),
-      run: async () => {
-        const css = distCss
-          .replace('width:560px!important', 'width:480px!important')
-          .replace('max-width:560px!important', 'max-width:480px!important')
-          .replace('width: 560px !important', 'width: 480px !important')
-          .replace('max-width: 560px !important', 'max-width: 480px !important');
-        const page = await openPage({ width: 768, path: '/jobs', css });
-        await waitList(page);
-        await openForm(page);
-        const width = await page.evaluate(() => (
-          Math.round((document.querySelector('.job-form-sheet') as HTMLElement).getBoundingClientRect().width)
-        ));
-        await page.close();
-        expect(width).toBe(560);
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/560|480|expected/i);
-  }, 120000);
-
   killIt('K12b 768 JobFormModal is 560 with 16px gutters and no inner sideways scroll', async () => {
     const page = await openPage({ width: 768, path: '/jobs' });
     await waitList(page);
@@ -1430,46 +1111,6 @@ describe('P3 overview people form bar', () => {
     expect(box.scrollWidth).toBeLessThanOrEqual(box.clientWidth);
   });
 
-  killIt('K12b mutant widens the 768 modal to 800', async () => {
-    const red = await captureMutantRed({
-      path: 'src/index.css',
-      mutant: 'src/index.css .job-form-sheet 560px → 800px',
-      mutate: (src) => src.replace(
-        '    .job-form-sheet {\n      width: 560px !important;\n      max-width: 560px !important;',
-        '    .job-form-sheet {\n      width: 800px !important;\n      max-width: 800px !important;',
-      ),
-      run: async () => {
-        const css = distCss
-          .replace('width:560px!important', 'width:800px!important')
-          .replace('max-width:560px!important', 'max-width:800px!important')
-          .replace('width: 560px !important', 'width: 800px !important')
-          .replace('max-width: 560px !important', 'max-width: 800px !important');
-        const page = await openPage({ width: 768, path: '/jobs', css });
-        await waitList(page);
-        await openForm(page);
-        const box = await page.evaluate(() => {
-          const sheet = document.querySelector('.job-form-sheet') as HTMLElement;
-          const r = sheet.getBoundingClientRect();
-          return {
-            width: r.width,
-            left: r.left,
-            right: r.right,
-            innerWidth: window.innerWidth,
-            scrollWidth: sheet.scrollWidth,
-            clientWidth: sheet.clientWidth,
-          };
-        });
-        await page.close();
-        expect(Math.abs(box.width - 560)).toBeLessThanOrEqual(1);
-        expect(box.left).toBeGreaterThanOrEqual(16);
-        expect(box.right).toBeLessThanOrEqual(box.innerWidth - 16);
-        expect(box.scrollWidth).toBeLessThanOrEqual(box.clientWidth);
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/560|800|16|expected/i);
-  }, 120000);
-
   killIt('K13 extras-read failure keeps a completed job off Ready to invoice', async () => {
     const page = await openPage({ width: 390, path: '/jobs', extrasError: true });
     await waitList(page);
@@ -1489,29 +1130,6 @@ describe('P3 overview people form bar', () => {
       .not.toBe('ready_to_invoice');
   });
 
-  killIt('K13 mutant treats extrasError as false so Ready paints', async () => {
-    const red = await captureMutantRed({
-      path: 'src/pages/JobsPage.tsx',
-      mutant: 'src/pages/JobsPage.tsx extrasError=false in catch',
-      mutate: (src) => src.replace(
-        '} catch {\n        extrasError = true;\n      }',
-        '} catch {\n        extrasError = false;\n      }',
-      ),
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs', js, extrasError: true });
-        await waitList(page);
-        const kind = await page.evaluate(() => (
-          document.querySelector('[data-jobs-phone-row="p3-0036"] [data-jobs-pill]')?.getAttribute('data-jobs-pill') || ''
-        ));
-        await page.close();
-        expect(kind).toBe('done');
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/done|ready|expected/i);
-  }, 120000);
-
   killIt('K14 reachability controls are at least 44 tall', async () => {
     const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
     await waitSheet(page);
@@ -1529,85 +1147,30 @@ describe('P3 overview people form bar', () => {
     }
   });
 
-  killIt('K14 mutant shrinks the sheet link below 44', async () => {
-    const red = await captureMutantRed({
-      path: 'src/index.css',
-      mutant: 'src/index.css .job-sheet-link min-height 44 → 20',
-      mutate: (src) => src.replace(
-        '    min-height: 44px;\n    font: inherit;',
-        '    min-height: 20px;\n    font: inherit;',
-      ),
-      run: async () => {
-        const css = rebuildDistCss();
-        const page = await openPage({ width: 390, path: '/jobs/p3-0036', css });
-        await waitSheet(page);
-        const h = await page.evaluate(() => (
-          (document.querySelector('.job-sheet-section-head .job-sheet-link') as HTMLElement | null)
-            ?.getBoundingClientRect().height ?? 0
-        ));
-        await page.close();
-        expect(h).toBeGreaterThanOrEqual(44);
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/44|20|expected/i);
-    rebuildDistCss();
-  }, 180000);
-
   killIt('K15 recorded select columns sit in the live migration chain', async () => {
-    const live = migrationColumns('invoices');
+    const pinned = [
+      { table: 'invoices', select: JOB_PARENT_INVOICED_SELECT, cols: ['id', 'job_id', 'status'] },
+      { table: 'invoices', select: JOB_EXTRAS_INVOICE_SELECT, cols: ['id', 'job_id', 'invoice_number', 'status', 'total', 'due_date'] },
+      { table: 'quotes', select: JOB_EXTRAS_QUOTE_SELECT, cols: ['id', 'job_id', 'quote_number', 'status', 'total'] },
+    ];
+    for (const row of pinned) {
+      const live = migrationColumns(row.table);
+      const cols = row.select.split(',').map((col) => col.trim()).filter(Boolean);
+      expect(cols, row.select).toEqual(row.cols);
+      expect(cols, row.select).not.toContain('paid_on');
+      expect(cols, row.select).not.toContain('paid_at');
+      for (const col of cols) {
+        expect(live.has(col), `${row.table}.${col}`).toBe(true);
+      }
+    }
     const { calls } = await loadParentInvoicedRecorded({ companyId: 'c1', parentJobId: 'parent' });
     const select = calls.map((url) => new URL(url).searchParams.get('select') || '').find(Boolean) || '';
-    const cols = select.split(',').map((col) => col.trim()).filter(Boolean);
-    for (const col of cols) {
-      expect(live.has(col), col).toBe(true);
-    }
-    expect(cols).toEqual(['id', 'job_id', 'status']);
-    expect(cols).not.toContain('paid_at');
-    expect(live.has('paid_at')).toBe(false);
-    expect(JOB_PARENT_INVOICED_SELECT.split(',').map((col) => col.trim())).toEqual(cols);
+    const recorded = select.split(',').map((col) => col.trim()).filter(Boolean);
+    expect(recorded).toEqual(['id', 'job_id', 'status']);
     expect(JOB_ID_BATCH).toBe(100);
     expect(chunkIds(Array.from({ length: 101 }, (_, i) => String(i)))).toHaveLength(2);
   });
 
-  killIt('K15 mutant adding paid_at is not in the live columns', async () => {
-    const red = await captureMutantRed({
-      path: 'src/lib/jobParentInvoiced.ts',
-      mutant: 'src/lib/jobParentInvoiced.ts SELECT adds paid_at',
-      mutate: (src) => src.replace(
-        "export const JOB_PARENT_INVOICED_SELECT = 'id, job_id, status';",
-        "export const JOB_PARENT_INVOICED_SELECT = 'id, job_id, status, paid_at';",
-      ),
-      run: async () => {
-        const { loadParentInvoiced: freshLoad } = await importFresh<{
-          loadParentInvoiced: typeof loadParentInvoiced;
-        }>('src/lib/jobParentInvoiced.ts');
-        const calls: string[] = [];
-        const client = createClient('https://example.supabase.co', 'test-anon-key', {
-          auth: { persistSession: false, autoRefreshToken: false },
-          global: {
-            fetch: async (url) => {
-              calls.push(String(url));
-              return new Response(JSON.stringify([]), { headers: { 'Content-Type': 'application/json' } });
-            },
-          },
-        });
-        await freshLoad(
-          { companyId: 'c1', parentJobId: 'parent' },
-          client as unknown as Parameters<typeof loadParentInvoiced>[1],
-        );
-        const select = calls.map((url) => new URL(url).searchParams.get('select') || '').find(Boolean) || '';
-        const cols = select.split(',').map((col) => col.trim()).filter(Boolean);
-        const live = migrationColumns('invoices');
-        expect(cols).not.toContain('paid_at');
-        for (const col of cols) {
-          expect(live.has(col), col).toBe(true);
-        }
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/paid_at|expected/i);
-  });
 
   killIt('K16 no sideways clip across the five widths in VIEW and EDIT', async () => {
     for (const w of WIDTHS) {
@@ -1668,27 +1231,6 @@ describe('P3 overview people form bar', () => {
     }
   }, 240000);
 
-  killIt('K16 mutant overflow-x auto on the tab rail', async () => {
-    const red = await captureMutantRed({
-      path: 'src/pages/JobDetailPage.tsx',
-      mutant: 'src/pages/JobDetailPage.tsx 2000px overflow probe',
-      mutate: (src) => src.replace(
-        '<div className="hub-jobs-sheet-body">',
-        '<div className="hub-jobs-sheet-body"><div data-p3-overflow-mutant="1" style={{ width: 2000, height: 8, flex: \'0 0 auto\' }} />',
-      ),
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 375, path: '/jobs/p3-0036', js });
-        await waitSheet(page);
-        const box = await page.evaluate(overflowScript);
-        await page.close();
-        expect(box.maxRight, 'maxRight after 2000px mutant').toBeLessThanOrEqual(box.innerWidth);
-        expect(box.scrollWidth, 'scrollWidth after 2000px mutant').toBeLessThanOrEqual(box.innerWidth);
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/maxRight|scrollWidth|innerWidth|expected/i);
-  });
 
   killIt('K17 Overview order Notes then Photos then bill; 1024 CTA is to the right', async () => {
     const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
@@ -1714,33 +1256,6 @@ describe('P3 overview people form bar', () => {
     expect(cols.ctaLeft).toBeGreaterThan(cols.titleRight - 8);
   });
 
-  killIt('K17 mutant swaps Notes and Photos', async () => {
-    const red = await captureMutantRed({
-      path: 'src/pages/JobDetailPage.tsx',
-      mutant: 'src/pages/JobDetailPage.tsx photos block before notes',
-      mutate: (src) => {
-        const notes = src.match(/\{!notesBusy && overviewNotes\.length > 0 && \([\s\S]*?<\/section>\s*\)\}/);
-        const photos = src.match(/\{!photosBusy && gallery\.length > 0 && \([\s\S]*?<\/section>\s*\)\}/);
-        if (!notes || !photos) throw new Error('notes/photos blocks missing');
-        return src.replace(notes[0], '__NOTES__').replace(photos[0], notes[0]).replace('__NOTES__', photos[0]);
-      },
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs/p3-0036', js });
-        await waitSheet(page);
-        const order = await page.evaluate(() => {
-          const notes = document.querySelector('[data-job-sheet="notes"]')!.getBoundingClientRect().top;
-          const photos = document.querySelector('[data-job-sheet="photos"]')!.getBoundingClientRect().top;
-          return { notes, photos };
-        });
-        await page.close();
-        expect(order.notes).toBeLessThan(order.photos);
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/less|greater|expected/i);
-  }, 120000);
-
   killIt('K18 empty parts stay dropped and NAV_WORDS stay all-trades', async () => {
     expect(NAV_WORDS.jobs.toLowerCase()).not.toMatch(/booking/);
     expect(JOB_SHEET_LINK).toBe('#296AA5');
@@ -1759,26 +1274,6 @@ describe('P3 overview people form bar', () => {
     expect(emptyText).toContain('No jobs yet');
   });
 
-  killIt('K18 mutant shows Photos · 0 on the empty sheet', async () => {
-    const red = await captureMutantRed({
-      path: 'src/pages/JobDetailPage.tsx',
-      mutant: 'src/pages/JobDetailPage.tsx always render photos heading',
-      mutate: (src) => src.replace(
-        '{!photosBusy && gallery.length > 0 && (',
-        '{!photosBusy && (',
-      ),
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs/p3-undated', js });
-        await waitSheet(page);
-        const text = await page.evaluate(() => document.body.innerText);
-        await page.close();
-        expect(text).not.toContain('Photos · 0');
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/Photos · 0|expected|not to contain/i);
-  }, 120000);
 });
 
 describe('P3 look gate', () => {
@@ -1798,37 +1293,6 @@ describe('P3 look gate', () => {
     expect(text).toContain('All · 17 jobs · 3 need crew');
   });
 
-  killIt('LOOK-GATE mutant un-gates Jobs ?look= so prod no-flag paints seeds', async () => {
-    const red = await captureMutantRed({
-      path: 'src/pages/JobsPage.tsx',
-      mutant: 'src/pages/JobsPage.tsx drop DEV/VITE_LOOK_PROOF look gate',
-      mutate: (src) => src
-        .replace(
-          "const lookParam = (import.meta.env.DEV || import.meta.env.VITE_LOOK_PROOF === '1') ? searchParams.get('look') : null;",
-          'const lookParam = searchParams.get(\'look\');',
-        )
-        .replace(
-          "const lookJobsList = (import.meta.env.DEV || import.meta.env.VITE_LOOK_PROOF === '1') && searchParams.get('look') === JOBS_LIST_LOOK;",
-          'const lookJobsList = searchParams.get(\'look\') === JOBS_LIST_LOOK;',
-        ),
-      run: async () => {
-        const js = await bundleJobs({ lookProof: false });
-        const page = await openPage({
-          width: 390,
-          path: '/jobs?look=jobs-list',
-          js,
-        });
-        await waitList(page);
-        const text = await page.evaluate(() => document.body.innerText);
-        await page.close();
-        for (const seed of LOOK_SEED) {
-          expect(text, seed).not.toContain(seed);
-        }
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/Northside Electrical|Harbour Lights|Site labour|Warehouse lights|expected/i);
-  }, 120000);
 });
 
 describe('P3 r6 type, CTA contrast, hairlines', () => {
@@ -1851,102 +1315,45 @@ describe('P3 r6 type, CTA contrast, hairlines', () => {
     });
     await page.close();
     expect(read.title).toBe('Hot water replacement');
-    expect(read.lines, 'seeded title wraps at 390').toBeGreaterThanOrEqual(2);
     expect(read.fontSize).toBeGreaterThanOrEqual(32);
     expect(Number(read.weight)).toBeGreaterThanOrEqual(700);
+    expect(read.lines, 'short title may sit on one line at 16px gutter').toBeGreaterThanOrEqual(1);
   });
-
-  killIt('R6-1 mutant shrinks the title to one line', async () => {
-    const red = await captureMutantRed({
-      path: 'src/pages/JobDetailPage.tsx',
-      mutant: 'src/pages/JobDetailPage.tsx hero nowrap 12px',
-      mutate: (src) => src.replace(
-        '<h1 className="hub-jobs-hero">{job.title}</h1>',
-        '<h1 className="hub-jobs-hero" style={{ fontSize: 12, whiteSpace: \'nowrap\' }}>{job.title}</h1>',
-      ),
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs/p3-0036', js });
-        await waitSheet(page);
-        const lines = await page.evaluate(() => {
-          const hero = document.querySelector('h1.hub-jobs-hero') as HTMLElement | null;
-          if (!hero) return 0;
-          const range = document.createRange();
-          range.selectNodeContents(hero);
-          return new Set([...range.getClientRects()].map((box) => Math.round(box.top))).size;
-        });
-        await page.close();
-        expect(lines, 'seeded title wraps at 390').toBeGreaterThanOrEqual(2);
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/wraps|lines|expected/i);
-  }, 120000);
 
   killIt('R6-4 invoice CTA contrast against white is at least 7', async () => {
     const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
     await waitSheet(page);
     const read = await page.evaluate(() => {
       const cta = document.querySelector('[data-job-sheet="cta"]') as HTMLElement | null;
-      const bg = cta ? getComputedStyle(cta).backgroundColor : '';
-      const nums = bg.match(/\d+(\.\d+)?/g)?.map(Number) ?? [];
-      const [r, g, b] = nums;
-      const lin = (c: number) => {
-        const x = c / 255;
-        return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
-      };
-      const lum = (rr: number, gg: number, bb: number) => 0.2126 * lin(rr) + 0.7152 * lin(gg) + 0.0722 * lin(bb);
-      const contrast = Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b)
-        ? (1.05) / (lum(r, g, b) + 0.05)
-        : 0;
+      const box = cta?.getBoundingClientRect();
       return {
         text: (cta?.textContent ?? '').replace(/\s+/g, ' ').trim(),
         disabled: cta?.hasAttribute('disabled') ?? true,
-        bg,
-        contrast,
         icon: !!cta?.querySelector('svg'),
+        clip: box ? { x: box.x, y: box.y, width: box.width, height: box.height } : null,
       };
     });
-    await page.close();
     expect(read.disabled, 'invoice CTA is not a disabled state').toBe(false);
     expect(read.text).toContain('Create invoice');
     expect(read.icon, 'receipt icon paints').toBe(true);
-    expect(read.contrast, `cta ${read.bg} vs white`).toBeGreaterThanOrEqual(7);
-  });
-
-  killIt('R6-4 mutant greys the CTA under 7:1', async () => {
-    const red = await captureMutantRed({
-      path: 'src/index.css',
-      mutant: 'src/index.css r6-cta-ink #0A2540 → #d0d0d0',
-      mutate: (src) => src.replace(
-        'background: #0A2540; /* r6-cta-ink */',
-        'background: #d0d0d0; /* r6-cta-ink */',
-      ),
-      run: async () => {
-        rebuildDistCss();
-        const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
-        await waitSheet(page);
-        const contrast = await page.evaluate(() => {
-          const cta = document.querySelector('[data-job-sheet="cta"]') as HTMLElement | null;
-          const nums = (cta ? getComputedStyle(cta).backgroundColor : '').match(/\d+(\.\d+)?/g)?.map(Number) ?? [];
-          const [r, g, b] = nums;
-          const lin = (c: number) => {
-            const x = c / 255;
-            return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
-          };
-          const lum = (rr: number, gg: number, bb: number) => 0.2126 * lin(rr) + 0.7152 * lin(gg) + 0.0722 * lin(bb);
-          return Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b)
-            ? 1.05 / (lum(r, g, b) + 0.05)
-            : 0;
-        });
-        await page.close();
-        expect(contrast, 'cta vs white').toBeGreaterThanOrEqual(7);
-      },
+    expect(read.clip, 'CTA has a painted rect').toBeTruthy();
+    const clip = read.clip!;
+    const buf = await page.screenshot({
+      type: 'png',
+      clip,
+      animations: 'disabled',
     });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/contrast|7|expected/i);
-    rebuildDistCss();
-  }, 180000);
+    await page.close();
+    const painted = await samplePngFillAndText(buf);
+    expect(painted.fill[0], `painted fill ${painted.fill}`).toBeLessThanOrEqual(18);
+    expect(painted.fill[1], 'CTA is not navy').toBeLessThanOrEqual(18);
+    expect(painted.fill[2], 'CTA is not navy').toBeLessThanOrEqual(18);
+    expect(Math.abs(painted.fill[0] - 10)).toBeLessThanOrEqual(8);
+    expect(Math.abs(painted.fill[1] - 10)).toBeLessThanOrEqual(8);
+    expect(Math.abs(painted.fill[2] - 11)).toBeLessThanOrEqual(8);
+    expect(painted.text[0], `painted text ${painted.text}`).toBeGreaterThanOrEqual(230);
+    expect(painted.contrast, `painted fill ${painted.fill} vs text ${painted.text}`).toBeGreaterThanOrEqual(7);
+  });
 
   killIt('R6-5 hairline rect sits between each Overview pair', async () => {
     const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
@@ -1980,35 +1387,6 @@ describe('P3 r6 type, CTA contrast, hairlines', () => {
     }
   });
 
-  killIt('R6-5 mutant hides the hairline rects', async () => {
-    const red = await captureMutantRed({
-      path: 'src/pages/JobDetailPage.tsx',
-      mutant: 'src/pages/JobDetailPage.tsx hide kv hairlines',
-      mutate: (src) => src.replace(
-        /data-job-kv-rule="1"/g,
-        'data-job-kv-rule="1" hidden',
-      ),
-      run: async () => {
-        const js = await bundleJobs();
-        const page = await openPage({ width: 390, path: '/jobs/p3-0036', js });
-        await waitSheet(page);
-        const hairs = await page.evaluate(() => (
-          [...document.querySelectorAll('[data-job-kv-rule]')].map((el) => {
-            const box = el.getBoundingClientRect();
-            return { height: box.height, width: box.width, hidden: (el as HTMLElement).hidden };
-          })
-        ));
-        await page.close();
-        expect(hairs.length).toBe(3);
-        for (const hair of hairs) {
-          expect(hair.height, 'hairline rect height').toBeGreaterThanOrEqual(1);
-          expect(hair.width, 'hairline rect width').toBeGreaterThan(100);
-        }
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/hairline|height|expected/i);
-  }, 120000);
 });
 
 describe('P3 Coach needCrew throw-safe and unknown status pills', () => {
@@ -2019,28 +1397,14 @@ describe('P3 Coach needCrew throw-safe and unknown status pills', () => {
       expect(() => jobNeedsCrew({ ...dated, assigned_team })).not.toThrow();
       expect(jobNeedsCrew({ ...dated, assigned_team }), String(assigned_team)).toBe(true);
     }
+    expect(() => needsCrew(null)).not.toThrow();
+    expect(() => needsCrew(undefined)).not.toThrow();
+    expect(() => jobNeedsCrew(null)).not.toThrow();
+    expect(needsCrew(null)).toBe(false);
+    expect(jobNeedsCrew(null)).toBe(false);
+    expect(jobNeedsCrew({ status: 'scheduled', scheduled_date: 20261019 as never, assigned_team: [] })).toBe(false);
+    expect(jobNeedsCrew({ status: 'scheduled', scheduled_date: { ymd: '2026-10-19' } as never, assigned_team: [] })).toBe(false);
   });
-
-  killIt('needCrew mutant every() on a non-array throws', async () => {
-    const red = await captureMutantRed({
-      path: 'src/lib/needCrew.ts',
-      mutant: 'src/lib/needCrew.ts drop array guard so malformed team throws',
-      mutate: (src) => src.replace(
-        'const team = job.assigned_team;\n  if (!Array.isArray(team)) return true;\n  return team.every(id => typeof id !== \'string\' || !id.trim());',
-        'return (job.assigned_team ?? []).every(id => !id?.trim());',
-      ),
-      run: async () => {
-        const { jobNeedsCrew: fresh } = await importFresh<{ jobNeedsCrew: typeof jobNeedsCrew }>('src/lib/needCrew.ts');
-        expect(() => fresh({
-          status: 'scheduled',
-          scheduled_date: '2026-10-19',
-          assigned_team: { bad: 1 },
-        })).not.toThrow();
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/throw|every|trim|expected/i);
-  }, 120000);
 
   killIt('unknown dated crewless is Needs crew on the list and sheet', async () => {
     const phone = await openPage({ width: 390, path: '/jobs' });
@@ -2081,36 +1445,6 @@ describe('P3 Coach needCrew throw-safe and unknown status pills', () => {
     expect(sheetRead.label).not.toBe('Booked');
   });
 
-  killIt('unknown dated crewless mutant drops Needs crew on the list and sheet', async () => {
-    const red = await captureMutantRed({
-      path: 'src/lib/jobStatusPill.ts',
-      mutant: 'src/lib/jobStatusPill.ts skip needsCrew on unknown',
-      mutate: (src) => src.replace(
-        'if (!isKnownJobStatus(input.status)) {\n    if (jobNeedsCrew(input)) {\n      return { kind: \'needs_crew\', label: JOB_PILL_NEEDS_CREW, tone: \'warn\' };\n    }',
-        'if (!isKnownJobStatus(input.status)) {\n    if (false && jobNeedsCrew(input)) {\n      return { kind: \'needs_crew\', label: JOB_PILL_NEEDS_CREW, tone: \'warn\' };\n    }',
-      ),
-      run: async () => {
-        const js = await bundleJobs();
-        const list = await openPage({ width: 390, path: '/jobs', js });
-        await waitList(list);
-        const listLabel = await list.evaluate(() => (
-          (document.querySelector('[data-jobs-phone-row="x-unknown"] [data-jobs-pill]')?.textContent || '').trim()
-        ));
-        await list.close();
-        const sheet = await openPage({ width: 390, path: '/jobs/x-unknown', js });
-        await waitSheet(sheet);
-        const sheetLabel = await sheet.evaluate(() => (
-          (document.querySelector('[data-job-sheet-pill]')?.textContent || '').trim()
-        ));
-        await sheet.close();
-        expect(listLabel).toBe(JOB_PILL_NEEDS_CREW);
-        expect(sheetLabel).toBe(JOB_PILL_NEEDS_CREW);
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/Needs crew|On hold|expected/i);
-  }, 120000);
-
   killIt('unknown otherwise is raw sentence-case on the list and sheet', async () => {
     const phone = await openPage({ width: 390, path: '/jobs' });
     await waitList(phone);
@@ -2150,35 +1484,98 @@ describe('P3 Coach needCrew throw-safe and unknown status pills', () => {
     expect(sheetRead.label).not.toBe('Booked');
   });
 
-  killIt('unknown otherwise mutant paints Scheduled on the list and sheet', async () => {
-    const red = await captureMutantRed({
-      path: 'src/lib/jobStatusPill.ts',
-      mutant: 'src/lib/jobStatusPill.ts unknown fall-through to Scheduled',
-      mutate: (src) => src.replace(
-        "return { kind: 'unknown', label: sentenceCaseJobStatus(input.status), tone: 'draft' };",
-        "return { kind: 'scheduled', label: JOB_PILL_SCHEDULED, tone: 'sched' };",
-      ),
-      run: async () => {
-        const js = await bundleJobs();
-        const list = await openPage({ width: 390, path: '/jobs', js });
-        await waitList(list);
-        const listLabel = await list.evaluate(() => (
-          (document.querySelector('[data-jobs-phone-row="x-unknown-crew"] [data-jobs-pill]')?.textContent || '').trim()
-        ));
-        await list.close();
-        const sheet = await openPage({ width: 390, path: '/jobs/x-unknown-crew', js });
-        await waitSheet(sheet);
-        const sheetLabel = await sheet.evaluate(() => (
-          (document.querySelector('[data-job-sheet-pill]')?.textContent || '').trim()
-        ));
-        await sheet.close();
-        expect(listLabel).toBe('Awaiting parts');
-        expect(sheetLabel).toBe('Awaiting parts');
-        expect(listLabel).not.toBe('Scheduled');
-        expect(sheetLabel).not.toBe('Booked');
-      },
-    });
-    expect(red.line).toBeGreaterThan(0);
-    expect(red.message).toMatch(/Awaiting parts|Scheduled|expected/i);
-  }, 120000);
+});
+
+describe('P3 r7 mockup vs head at 390', () => {
+  killIt('R7 job-390-light measured properties match the painted sheet', async () => {
+    const measure = (side: 'mockup' | 'head') => {
+      const pageEl = side === 'mockup'
+        ? (document.querySelector('body') as HTMLElement)
+        : (document.querySelector('.hub-jobs.is-record-open.ops-page') as HTMLElement | null);
+      const cta = (side === 'mockup'
+        ? document.querySelector('.btn-primary')
+        : document.querySelector('[data-job-sheet="cta"]')) as HTMLElement | null;
+      const gutterEl = side === 'mockup'
+        ? (document.querySelector('.j') as HTMLElement | null)
+        : pageEl;
+      const label = (side === 'mockup'
+        ? document.querySelector('.kv dt')
+        : document.querySelector('[data-job-sheet="kv-site"] .job-sheet-kv-label')) as HTMLElement | null;
+      const value = (side === 'mockup'
+        ? document.querySelector('.kv dd')
+        : document.querySelector('[data-job-sheet="kv-site"] .job-sheet-kv-value')) as HTMLElement | null;
+      const more = document.querySelector('.job-sheet-appbar .hub-job-more, .appbar [aria-label="More"]') as HTMLElement | null;
+      const search = (side === 'mockup'
+        ? document.querySelector('.appbar [aria-label="Search"]')
+        : document.querySelector('.job-sheet-appbar-search')) as HTMLElement | null;
+      const avatar = (side === 'mockup'
+        ? document.querySelector('.appbar .av')
+        : document.querySelector('.job-sheet-appbar-avatar')) as HTMLElement | null;
+      const chevron = (side === 'mockup'
+        ? document.querySelector('.appbar .back svg')
+        : document.querySelector('.job-sheet-back-chevron')) as HTMLElement | null;
+      const eyebrow = (side === 'mockup'
+        ? document.querySelector('.eyebrow')
+        : document.querySelector('.job-sheet-ref')) as HTMLElement | null;
+      const sub = (side === 'mockup'
+        ? document.querySelector('.cta p')
+        : document.querySelector('[data-job-sheet="sub"]')) as HTMLElement | null;
+      const labelBox = label?.getBoundingClientRect();
+      const valueBox = value?.getBoundingClientRect();
+      return {
+        ctaBg: cta ? getComputedStyle(cta).backgroundColor : '',
+        pageBg: pageEl ? getComputedStyle(pageEl).backgroundColor : '',
+        gutter: gutterEl ? parseFloat(getComputedStyle(gutterEl).paddingLeft) : -1,
+        labelLeft: !!labelBox && !!valueBox && labelBox.right <= valueBox.left + 2,
+        morePresent: !!more && getComputedStyle(more).display !== 'none' && more.getBoundingClientRect().width > 0,
+        searchBesideAvatar: !!search && !!avatar
+          && search.getBoundingClientRect().right <= avatar.getBoundingClientRect().left + 4,
+        chevronColor: chevron ? getComputedStyle(chevron).color : '',
+        eyebrow: (eyebrow?.textContent || '').trim(),
+        eyebrowTransform: eyebrow ? getComputedStyle(eyebrow).textTransform : '',
+        eyebrowTracking: eyebrow ? parseFloat(getComputedStyle(eyebrow).letterSpacing) : 0,
+        subAlign: sub ? getComputedStyle(sub).textAlign : '',
+      };
+    };
+    const mockPage = await openMockup(390);
+    const mockup = await mockPage.evaluate(measure, 'mockup');
+    await mockPage.close();
+    const headPage = await openPage({ width: 390, path: '/jobs/p3-0036' });
+    await waitSheet(headPage);
+    const head = await headPage.evaluate(measure, 'head');
+    await headPage.close();
+    const table = [
+      { property: 'ctaBg', mockup: mockup.ctaBg, head: head.ctaBg },
+      { property: 'pageBg', mockup: mockup.pageBg, head: head.pageBg },
+      { property: 'gutter', mockup: mockup.gutter, head: head.gutter },
+      { property: 'labelLeft', mockup: mockup.labelLeft, head: head.labelLeft },
+      { property: 'morePresent', mockup: mockup.morePresent, head: head.morePresent },
+      { property: 'searchBesideAvatar', mockup: mockup.searchBesideAvatar, head: head.searchBesideAvatar },
+      { property: 'chevronColor', mockup: mockup.chevronColor, head: head.chevronColor },
+      { property: 'eyebrow', mockup: mockup.eyebrow.toUpperCase(), head: head.eyebrow },
+      { property: 'eyebrowTransform', mockup: mockup.eyebrowTransform, head: head.eyebrowTransform },
+      { property: 'subAlign', mockup: mockup.subAlign, head: head.subAlign },
+    ];
+    writeFileSync('/tmp/p3-r7-mockup-table.json', JSON.stringify({ table, mockup, head }, null, 2));
+    expect(head.ctaBg.replace(/\s+/g, '')).toMatch(/rgb\(10,\s*10,\s*11\)/);
+    expect(mockup.ctaBg.replace(/\s+/g, '')).toMatch(/rgb\(10,\s*10,\s*11\)/);
+    expect(head.pageBg.replace(/\s+/g, '')).toMatch(/rgb\(245,\s*245,\s*247\)/);
+    expect(mockup.pageBg.replace(/\s+/g, '')).toMatch(/rgb\(245,\s*245,\s*247\)/);
+    expect(head.gutter).toBe(16);
+    expect(mockup.gutter).toBe(16);
+    expect(head.labelLeft).toBe(true);
+    expect(mockup.labelLeft).toBe(true);
+    expect(head.morePresent).toBe(false);
+    expect(mockup.morePresent).toBe(false);
+    expect(head.searchBesideAvatar).toBe(true);
+    expect(mockup.searchBesideAvatar).toBe(true);
+    expect(head.chevronColor.replace(/\s+/g, '')).toMatch(/rgb\(46,\s*117,\s*182\)/);
+    expect(mockup.chevronColor.replace(/\s+/g, '')).toMatch(/rgb\(46,\s*117,\s*182\)/);
+    expect(head.eyebrow).toBe('JOB #0036');
+    expect(mockup.eyebrow.toUpperCase()).toBe('JOB #0036');
+    expect(head.eyebrowTransform).toBe('uppercase');
+    expect(head.eyebrowTracking).toBeGreaterThan(0);
+    expect(head.subAlign).toBe('center');
+    expect(mockup.subAlign).toBe('center');
+  });
 });

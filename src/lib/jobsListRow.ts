@@ -2,7 +2,6 @@ import type { JobStatus } from '../types/crm';
 import { formatJobRef } from './jobRef';
 import { jobCrewScheduleNeedsCrewClass, jobCrewScheduleStatus } from './jobCrewScheduleStatus';
 import {
-  JOB_PILL_SET_A_DATE,
   jobStatusPill,
   type JobStatusPill,
   type JobStatusPillInput,
@@ -135,6 +134,6 @@ export function jobsListPhoneNextLabel(next: { actionable: boolean; label: strin
 }
 
 export function jobsListUndatedNextLabel(pillKind: string, nextLabel: string | null): string | null {
-  if (pillKind === 'no_date') return JOB_PILL_SET_A_DATE;
+  if (pillKind === 'no_date') return null;
   return nextLabel;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countJobsNeedCrew, jobNeedsCrew, jobsNeedCrewWhisper, withNeedCrewWhisper } from './needCrew';
+import { countJobsNeedCrew, jobNeedsCrew, jobsNeedCrewWhisper, needsCrew, withNeedCrewWhisper } from './needCrew';
 
 describe('jobNeedsCrew', () => {
   it('needs a date, no crew, and a status that is not Done or cancelled', () => {
@@ -29,6 +29,17 @@ describe('jobNeedsCrew', () => {
     }
     expect(jobNeedsCrew({ ...dated, assigned_team: null })).toBe(true);
     expect(jobNeedsCrew({ status: 'scheduled', assigned_team: { foo: 1 } })).toBe(false);
+  });
+
+  it('never throws on a null job or a non-string scheduled_date', () => {
+    expect(() => needsCrew(null)).not.toThrow();
+    expect(() => needsCrew(undefined)).not.toThrow();
+    expect(() => jobNeedsCrew(null)).not.toThrow();
+    expect(needsCrew(null)).toBe(false);
+    expect(jobNeedsCrew(null)).toBe(false);
+    expect(jobNeedsCrew({ status: 'scheduled', scheduled_date: 20261019 as never, assigned_team: [] })).toBe(false);
+    expect(jobNeedsCrew({ status: 'scheduled', scheduled_date: { ymd: '2026-10-19' } as never, assigned_team: [] })).toBe(false);
+    expect(jobNeedsCrew({ status: 'scheduled', scheduled_date: '2026-10-19', assigned_team: [] })).toBe(true);
   });
 
   it('never counts an undated job, even when crewless', () => {
