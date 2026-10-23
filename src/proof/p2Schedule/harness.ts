@@ -594,10 +594,25 @@ const shares = (m: Measure, shot: 'top' | 'scrolled') => {
 };
 const low = (m: Measure) => m.texts.filter(t => t.ratio < CONTRAST[t.role]);
 
+const SOLE_SCROLLER_CLASS = 'hub-day-track';
+const OVERFLOW_TOLERANCE_PX = 0.5;
+function unexemptedMaxRight(m: Measure): number {
+  const outside = m.offenders.filter(o => !(
+    o.scroller !== null
+    && o.scroller.classes.includes(SOLE_SCROLLER_CLASS)
+    && o.scroller.right <= m.iw + OVERFLOW_TOLERANCE_PX
+  ));
+  if (!outside.length) return Math.min(m.maxRight, m.iw);
+  return outside.reduce((max, o) => Math.max(max, o.right), 0);
+}
+
 function row(m: Measure): Row {
   const [view, w] = m.id.split('-');
   return {
     view, w: Number(w) || m.iw, state: m.id, iw: m.iw, docSW: m.docSW, bodySW: m.bodySW, maxRight: m.maxRight, maxEl: m.maxEl,
+    unexemptedMaxRight: unexemptedMaxRight(m),
+    buttons: m.buttons,
+    buttonOverflow: m.buttons.filter(b => b.sw > b.cw),
     offenders: m.offenders,
     minContrast: m.texts.length ? Math.min(...m.texts.map(t => t.ratio)) : null,
     minByRole: Object.fromEntries((Object.keys(CONTRAST) as (keyof typeof CONTRAST)[]).map(role => {
@@ -686,11 +701,12 @@ export async function writeCapture(dir: string): Promise<{ written: string[] }> 
 function tables(after: Row[], before: Row[]): string {
   const b = (r: Row) => before.find(x => x.view === r.view && x.w === r.w);
   const out: string[] = [];
-  out.push('## Overflow (docSW and max rect.right, before then after)', '', '| state | iw | docSW | maxRight raw | offenders and their nearest scroller |', '|---|---|---|---|---|');
+  out.push('## Overflow (docSW / unexempted rect.right / chrome button sw≤cw)', '', '| state | iw | docSW | bodySW | maxRight raw | max unexempted right | buttons | sw>cw |', '|---|---:|---:|---:|---:|---:|---:|---|');
   for (const r of after) {
-    const old = b(r);
-    const offenders = (r.offenders as Measure['offenders']).slice(0, 3).map(o => `${o.el} ${o.right} in ${o.scroller ? `.${o.scroller.classes.slice(0, 2).join('.')} (right ${o.scroller.right})` : 'no scroller'}`).join('; ') || 'none';
-    out.push(`| ${r.state} | ${r.iw} | ${old ? `${old.docSW} → ` : ''}${r.docSW} | ${old ? `${old.maxRight} → ` : ''}${r.maxRight} | ${offenders} |`);
+    const buttons = (r.buttons as Measure['buttons']) ?? [];
+    const overflow = (r.buttonOverflow as Measure['buttons']) ?? buttons.filter(x => x.sw > x.cw);
+    const overflowLabel = overflow.length ? overflow.slice(0, 3).map(x => `${x.label} ${x.sw}>${x.cw}`).join('; ') : 'none';
+    out.push(`| ${r.state} | ${r.iw} | ${r.docSW} | ${r.bodySW} | ${r.maxRight} | ${r.unexemptedMaxRight} | ${buttons.length} | ${overflowLabel} |`);
   }
   out.push('', '## Contrast, lowest ratio per role (before overall min in brackets)', '', '| state | text | cta | chip | pill | link | below bar |', '|---|---|---|---|---|---|---|');
   for (const r of after) {
