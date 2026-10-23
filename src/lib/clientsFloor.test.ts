@@ -149,7 +149,7 @@ describe('open the client, see jobs, open a job', () => {
       title: null,
       job_number: 42,
       status: 'completed',
-    })).toBe('Completed');
+    })).toBe('Done');
   });
 
   it('floats live work above completed and cancelled jobs', () => {

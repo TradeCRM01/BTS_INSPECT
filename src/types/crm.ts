@@ -61,7 +61,7 @@ import { colors } from '../lib/colors';
 export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
   scheduled: 'Scheduled',
   in_progress: 'In Progress',
-  completed: 'Completed',
+  completed: 'Done',
   cancelled: 'Cancelled',
 };
 
