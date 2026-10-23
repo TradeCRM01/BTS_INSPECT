@@ -6646,6 +6646,10 @@
   }
 
   @media (min-width: 1024px) {
+    .hub-board-cal.is-week-doc.ops-page {
+      padding: 32px 32px 20px;
+    }
+
     .hub-board-cal.is-week-doc .hub-week-identity-row {
       align-items: flex-end;
       gap: 8px 16px;
@@ -6659,7 +6663,7 @@
       gap: 10px;
       margin-top: 0;
       margin-bottom: 0;
-      padding: 0 16px 18px;
+      padding: 0 0 18px;
       border: none;
       flex: 0 0 auto;
     }
@@ -7394,8 +7398,12 @@
   .hub-week-document .hub-day-board .hub-day-chip-pin {
     display: flex;
     flex-direction: column;
+    align-self: stretch;
     gap: 1px;
+    width: 100%;
+    max-width: 100%;
     min-width: 0;
+    overflow: hidden;
     text-align: left;
   }
 
@@ -7550,8 +7558,11 @@
     align-items: flex-start;
     gap: 2px;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     min-height: 44px;
     padding: 8px 0;
+    overflow: hidden;
     text-align: left;
     background: transparent;
     border: none;
@@ -7593,6 +7604,8 @@
     gap: 2px;
     min-width: 0;
     width: 100%;
+    max-width: 100%;
+    overflow: hidden;
   }
 
   .hub-week-agenda-title {
@@ -7791,7 +7804,8 @@
     gap: 2px;
     width: 100%;
     max-width: 100%;
-    overflow: visible;
+    min-width: 0;
+    overflow: hidden;
     background: var(--g-surface);
     color: var(--g-ink);
     border: 1px solid var(--g-line);
@@ -7830,8 +7844,9 @@
   .hub-week-chip-line1 .hub-week-chip-ref {
     display: inline;
     width: auto;
-    flex: 0 0 auto;
-    white-space: nowrap;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .hub-week-chip-track {
@@ -7899,11 +7914,13 @@
   }
 
   .hub-week-chip-clock {
-    flex: 0 0 auto;
-    white-space: nowrap;
-    overflow: visible;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow: hidden;
+    overflow-wrap: anywhere;
     text-overflow: clip;
-    max-width: none;
   }
 
   .hub-week-chip-desc {
@@ -8439,14 +8456,15 @@
 
     .hub-week-document .hub-day-board .hub-week-chip-line1 {
       flex-wrap: wrap;
-      overflow: visible;
+      overflow: hidden;
     }
 
     .hub-week-document .hub-day-board .hub-week-chip-clock {
       min-width: 0;
-      max-width: none;
-      overflow: visible;
-      text-overflow: clip;
+      max-width: 100%;
+      overflow: hidden;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
 
     .hub-week-document .hub-day-board .hub-day-chip-pin {
