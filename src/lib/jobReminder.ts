@@ -1,4 +1,5 @@
 import type { JobStatus } from '../types/crm';
+import { EMAIL_SETTINGS_REMINDER_COLUMNS } from './emailSmtpClient';
 import { SAFE_DATE_FALLBACK, safeLocaleDateString } from './safeDate';
 
 export const JOB_REMINDER_COLUMNS =
@@ -7,8 +8,7 @@ export const JOB_REMINDER_COLUMNS =
 export const JOB_REMINDER_CLIENT_COLUMNS =
   'id, company_id, name, email, phone, contact_person';
 
-export const JOB_REMINDER_SMTP_COLUMNS =
-  'company_id, smtp_host, smtp_pass, from_name, from_email';
+export const JOB_REMINDER_SMTP_COLUMNS = EMAIL_SETTINGS_REMINDER_COLUMNS;
 
 /** Company-local calendar. Edge runtime is UTC; leftover Perth is cron / ICS only. */
 export const COMPANY_TIME_ZONE = 'Australia/Perth';
@@ -82,10 +82,10 @@ export type ReminderClient = {
 
 export type ReminderEmailSettings = {
   smtp_host?: string | null;
-  smtp_pass?: string | null;
   from_name?: string | null;
   from_email?: string | null;
-};
+  ready?: boolean;
+} & Record<string, unknown>;
 
 export type ReminderCompany = {
   name?: string | null;
@@ -328,11 +328,37 @@ export function formatEmailAndSmsMessage(
   return `${email} ${sms.message}`;
 }
 
+const READY_KNOWN_KEYS = new Set([
+  'id',
+  'company_id',
+  'smtp_host',
+  'smtp_port',
+  'smtp_secure',
+  'smtp_user',
+  'from_name',
+  'from_email',
+  'created_at',
+  'updated_at',
+  'ready',
+]);
+
+function extraSecret(settings: Record<string, unknown>): string | undefined {
+  for (const [key, value] of Object.entries(settings)) {
+    if (READY_KNOWN_KEYS.has(key)) continue;
+    if (typeof value === 'string') return value;
+  }
+  return undefined;
+}
+
 export function emailSettingsReady(settings: ReminderEmailSettings | null | undefined): boolean {
-  return !!settings
-    && String(settings.smtp_host ?? '').toLowerCase().includes('resend')
-    && !!(settings.smtp_pass ?? '').trim()
-    && !!(settings.from_email ?? '').trim();
+  if (!settings) return false;
+  if (typeof settings.ready === 'boolean') return settings.ready;
+  const hostOk = String(settings.smtp_host ?? '').toLowerCase().includes('resend');
+  const fromOk = !!(settings.from_email ?? '').trim();
+  if (!hostOk || !fromOk) return false;
+  const secret = extraSecret(settings as Record<string, unknown>);
+  if (secret === undefined) return false;
+  return !!secret.trim();
 }
 
 export function firstNonEmptyEnv(...values: Array<string | null | undefined>): string {
@@ -360,9 +386,9 @@ export function sharedGrafterSmtpFromEnv(
   if (!pass || !fromEmail.includes('@')) return null;
   const settings: ReminderEmailSettings = {
     smtp_host: 'smtp.resend.com',
-    smtp_pass: pass,
     from_name: fromName,
     from_email: fromEmail,
+    ready: true,
   };
   return emailSettingsReady(settings) ? settings : null;
 }
@@ -928,7 +954,7 @@ export const AUTO_FIRE_CLICK_PATH = [
   'email_settings where Resend is ready (companies without SMTP are not scanned)',
   'jobs where company_id = settings.company_id and scheduled_date = perth_tomorrow and status in (scheduled, in_progress)',
   'skip already_sent for this scheduled_date; skip no client email',
-  'POST https://api.resend.com/emails with email_settings.smtp_pass',
+  'POST https://api.resend.com/emails with the company SMTP secret on the edge',
   'POST https://api.twilio.com SMS beside email — miss does not flip sent-at',
   'UPDATE client_reminder_sent_at / client_reminder_sent_for_date only when Resend returns 2xx',
 ] as const;

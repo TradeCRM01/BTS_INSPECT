@@ -37,7 +37,7 @@ export const TICKET_DUE_AUTO_FIRE_PATH = [
   'member_tickets where company_id = settings.company_id and expires_on <= van_today',
   'kind = expired when expires_on < van_today; kind = due_soon when expires_on = van_today',
   'skip already_sent for this expires_on + kind; skip no member email; skip no expiry',
-  'POST https://api.resend.com/emails with email_settings.smtp_pass',
+  'POST https://api.resend.com/emails with the company SMTP secret on the edge',
   'POST https://api.twilio.com SMS beside email — miss does not flip sent-at',
   'UPDATE reminder_sent_at / reminder_sent_for_date / reminder_kind only when Resend returns 2xx',
 ] as const;

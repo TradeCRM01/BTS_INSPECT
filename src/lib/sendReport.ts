@@ -118,7 +118,7 @@ export const REPORT_SEND_INSPECTION_COLUMNS =
   'id, client_id, crm_job_id, status, meta, template_snapshot';
 
 export const REPORT_SEND_CLIENT_COLUMNS = 'id, name, email, phone, address';
-export const REPORT_SEND_SMTP_COLUMNS = 'smtp_host, smtp_pass, from_name, from_email';
+export const REPORT_SEND_SMTP_COLUMNS = 'smtp_host, from_name, from_email';
 export const REPORT_SEND_JOB_COLUMNS = 'id, client_id, address, title, job_number';
 
 export const NO_REPORT_MESSAGE = 'No report yet. Generate the PDF before you send.';
@@ -137,7 +137,7 @@ export const REPORT_SEND_PIPE = [
   'email_settings where Resend is ready (companies without SMTP are not mailed)',
   'To = client.email on this inspection/job (never invented)',
   'attach existing report PDF (reports.pdf_storage_path in reports bucket)',
-  'POST https://api.resend.com/emails with email_settings.smtp_pass',
+  'POST https://api.resend.com/emails with the company SMTP secret on the edge',
   'SMS beside: clients.phone via Twilio edge secrets on job-reminder (email sent_at unchanged if SMS misses)',
   'UPDATE reports.sent_at only when Resend returns 2xx',
 ] as const;

@@ -34,7 +34,7 @@ export const CONTRACT_VISIT_REMINDER_PIPE = [
   'supabase.functions.invoke job-reminder contractId',
   'To = clients.email (never invented)',
   'SMS To = clients.phone beside email — miss does not stamp sent-at',
-  'POST https://api.resend.com/emails with email_settings.smtp_pass',
+  'POST https://api.resend.com/emails with the company SMTP secret on the edge',
   'UPDATE service_reminder_sent_at / service_reminder_sent_for_date only when Resend returns 2xx',
 ] as const;
 
@@ -52,7 +52,7 @@ export const CONTRACT_VISIT_AUTO_FIRE_PATH = [
   'email_settings where Resend is ready (companies without SMTP are not scanned for send)',
   'service_contracts where next_service_date = perth_today and status = active',
   'skip already_sent for this next_service_date; skip no client email; skip no due date',
-  'POST https://api.resend.com/emails with email_settings.smtp_pass',
+  'POST https://api.resend.com/emails with the company SMTP secret on the edge',
   'POST https://api.twilio.com SMS beside email — miss does not flip sent-at',
   'UPDATE service_reminder_sent_at / service_reminder_sent_for_date only when Resend returns 2xx',
   'then auto_generate_jobs where next_service_date = perth_today and status = active (SMTP not required)',
@@ -391,7 +391,7 @@ export function contractVisitReminderQueries(args: {
     contract: contractVisitByIdQuery(args)!,
     smtp: {
       table: 'email_settings',
-      columns: 'smtp_host, smtp_pass, from_name, from_email',
+      columns: 'smtp_host, from_name, from_email',
       eq: { company_id: args.companyId.trim() },
     },
   };

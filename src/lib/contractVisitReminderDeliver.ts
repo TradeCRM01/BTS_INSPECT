@@ -11,6 +11,7 @@ import {
   type ContractVisitReminderContract,
 } from './contractVisitReminder';
 import { type SmtpSettingsRow } from './sendInvoice';
+import { fetchEmailSmtpReady, withEmailSmtpReady } from './emailSmtpClient';
 import { formatEmailAndSmsMessage, type SmsSendResult } from './jobReminder';
 
 export type DeliverContractVisitReminderResult =
@@ -42,11 +43,12 @@ export async function loadContractVisitReminderBundle(
 
   const clientScope = contractVisitReminderClientQuery(contract?.client_id);
   const smtpScope = scopes.smtp;
-  const [clientRes, smtpRes] = await Promise.all([
+  const [clientRes, smtpRes, smtpReady] = await Promise.all([
     clientScope
       ? applyContractVisitReminderScope(supabase.from(clientScope.table), clientScope).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
     applyContractVisitReminderScope(supabase.from(smtpScope.table), smtpScope).maybeSingle(),
+    fetchEmailSmtpReady(supabase),
   ]);
   if (clientRes.error) throw clientRes.error;
   if (smtpRes.error) throw smtpRes.error;
@@ -54,7 +56,7 @@ export async function loadContractVisitReminderBundle(
   return {
     contract,
     client: (clientRes.data ?? null) as ContractVisitReminderClient | null,
-    smtp: (smtpRes.data ?? null) as SmtpSettingsRow | null,
+    smtp: withEmailSmtpReady((smtpRes.data ?? null) as SmtpSettingsRow | null, smtpReady),
     company,
   };
 }

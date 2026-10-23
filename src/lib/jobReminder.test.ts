@@ -257,14 +257,14 @@ describe('honest misses — no send', () => {
       { name: 'Building Technology Solutions', email: 'admin@bts.local' },
     )).toEqual({
       smtp_host: 'smtp.resend.com',
-      smtp_pass: 're_test',
       from_name: 'Building Technology Solutions',
       from_email: 'admin@bts.local',
+      ready: true,
     });
     expect(sharedGrafterSmtpFromEnv(
       { RESEND_API_KEY: '', SMTP_PASS: 're_shared' },
       { name: 'BTS', email: 'office@bts.example' },
-    )?.smtp_pass).toBe('re_shared');
+    )?.ready).toBe(true);
     expect(sharedGrafterSmtpFromEnv(
       { RESEND_API_KEY: '', SMTP_PASS: '' },
       { name: 'BTS', email: 'admin@bts.local' },

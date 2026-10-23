@@ -588,7 +588,7 @@ export const INSPECTION_DUE_AUTO_FIRE_PATH = [
   'email_settings where Resend is ready (companies without SMTP are not scanned)',
   'inspections where due_on = van_today and archived is not true, company via job / client / inspector',
   'skip already_sent for this due_on; skip no client email; skip no due date',
-  'POST https://api.resend.com/emails with email_settings.smtp_pass',
+  'POST https://api.resend.com/emails with the company SMTP secret on the edge',
   'POST https://api.twilio.com SMS beside email — miss does not flip sent-at',
   'UPDATE due_reminder_sent_at / due_reminder_sent_for_date only when Resend returns 2xx',
 ] as const;

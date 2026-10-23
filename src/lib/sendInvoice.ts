@@ -43,10 +43,10 @@ export type InvoiceSendQueryScope = {
 
 export type SmtpSettingsRow = {
   smtp_host?: string | null;
-  smtp_pass?: string | null;
   from_name?: string | null;
   from_email?: string | null;
-};
+  ready?: boolean;
+} & Record<string, unknown>;
 
 export type InvoiceSendDecision =
   | {
@@ -131,7 +131,7 @@ export const INVOICE_SEND_INVOICE_COLUMNS =
   'id, company_id, invoice_number, client_id, job_id, quote_id, source, status, line_items, subtotal, tax_rate, tax_amount, total, amount_paid, payment_terms, due_date, notes, inclusions, exclusions, chased_at, created_by, created_at, updated_at';
 
 export const INVOICE_SEND_CLIENT_COLUMNS = 'id, name, email, phone, address';
-export const INVOICE_SEND_SMTP_COLUMNS = 'smtp_host, smtp_pass, from_name, from_email';
+export const INVOICE_SEND_SMTP_COLUMNS = 'smtp_host, from_name, from_email';
 export const INVOICE_SEND_JOB_COLUMNS = 'id, address';
 
 export const NO_EMAIL_MESSAGE = 'This client has no email. Add one on the client record before you send.';
@@ -153,10 +153,10 @@ export const RECEIPT_NOT_PAID_MESSAGE = 'Receipt is for paid invoices.';
 export const INVOICE_SEND_PIPE = [
   'supabase.functions.invoke job-reminder',
   'invoiceId (one invoice, company_id scoped — not the ledger)',
-  'email_settings where Resend is ready, else shared Grafter Resend smtp_pass on job-reminder',
+  'email_settings where Resend is ready, else shared Grafter Resend on job-reminder',
   'To = client.email (never invented)',
   'attach existing invoice PDF (stored reports path or commercial generateCommercialPdf)',
-  'POST https://api.resend.com/emails with email_settings.smtp_pass',
+  'POST https://api.resend.com/emails with the company SMTP secret on the edge',
   'SMS beside: clients.phone via Twilio edge secrets on job-reminder (email status / chased_at unchanged if SMS misses)',
   'UPDATE invoices.status = sent only when Resend returns 2xx (never paid)',
   'UPDATE invoices.chased_at only when Resend returns 2xx on overdue / sent-again',
@@ -174,7 +174,7 @@ export const INVOICE_RECEIPT_ON_MARK_PAID_PATH = [
   'supabase.functions.invoke job-reminder invoiceId purpose=receipt (same deliverInvoiceSend)',
   'receipt copy (paid / thank you) — not overdue chase subject, not Send again chase copy',
   'attach existing invoice PDF (stored reports path or commercial generateCommercialPdf) — no new receipt PDF type',
-  'POST https://api.resend.com/emails with email_settings.smtp_pass',
+  'POST https://api.resend.com/emails with the company SMTP secret on the edge',
   'SMS beside: clients.phone via Twilio — miss does not write chased_at or unmark paid',
   'Receipt email success follows Resend 2xx only',
   'honest miss: no_email / no_smtp / no_phone / no_sms_credentials / no_pdf / no_invoice — paid stays paid',
@@ -261,7 +261,7 @@ export function isSmtpReady(settings: SmtpSettingsRow | ReminderEmailSettings | 
 
 /**
  * Company settings SMTP wins. Missing / incomplete company SMTP is not a hard no:
- * job-reminder may still send with the shared Grafter Resend smtp_pass.
+ * job-reminder may still send with the shared Grafter Resend secret.
  * Pass sharedSmtp: null only when that shared path is known to be absent.
  */
 export function resolveSendSmtp(
@@ -542,7 +542,7 @@ export const OVERDUE_INVOICE_AUTO_FIRE_PATH = [
   'invoices where company_id = settings.company_id and status in (sent, overdue) and due_date < perth_today and chased_at is null',
   'then invoices where company_id = settings.company_id and status in (sent, overdue) and due_date < perth_today and chased_at <= perth_today minus 7 days (last-7-day rows skip)',
   'skip already_chased in the last 7 Perth days; skip paid; skip draft; skip no client email; skip no stored PDF',
-  'POST https://api.resend.com/emails with email_settings.smtp_pass — same deliverInvoiceSend auto chase copy',
+  'POST https://api.resend.com/emails with the company SMTP secret on the edge — same deliverInvoiceSend auto chase copy',
   'POST https://api.twilio.com SMS beside email — miss does not flip chased_at',
   'UPDATE invoices.chased_at only when Resend returns 2xx',
 ] as const;

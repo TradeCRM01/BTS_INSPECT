@@ -42,7 +42,6 @@ const NOW = '2026-08-24T00:00:00.000Z';
 
 const AUDIT_SMTP = {
   smtp_host: 'smtp.resend.com',
-  smtp_pass: 're_audit',
   from_name: 'Field Audit Co',
   from_email: 'office@field-audit.example.com',
 };

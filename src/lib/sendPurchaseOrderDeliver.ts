@@ -15,6 +15,7 @@ import {
   type PurchaseOrderSendCompany,
 } from './sendPurchaseOrder';
 import { type SmtpSettingsRow } from './sendInvoice';
+import { fetchEmailSmtpReady, withEmailSmtpReady } from './emailSmtpClient';
 import { formatEmailAndSmsMessage, type SmsSendResult } from './jobReminder';
 import { generateCommercialPdf } from '../reports/commercial/generateCommercialPdf';
 import { getAuditPurchaseOrderSendBundle } from './devFieldAuditDocs';
@@ -46,7 +47,7 @@ export async function loadPurchaseOrderSendBundle(
   const jobScope = purchaseOrderSendJobQuery(po?.job_id);
   const smtpScope = scopes.smtp;
 
-  const [supplierRes, jobRes, smtpRes] = await Promise.all([
+  const [supplierRes, jobRes, smtpRes, smtpReady] = await Promise.all([
     supplierScope
       ? applyPurchaseOrderSendScope(supabase.from(supplierScope.table), supplierScope).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -54,6 +55,7 @@ export async function loadPurchaseOrderSendBundle(
       ? applyPurchaseOrderSendScope(supabase.from(jobScope.table), jobScope).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
     applyPurchaseOrderSendScope(supabase.from(smtpScope.table), smtpScope).maybeSingle(),
+    fetchEmailSmtpReady(supabase),
   ]);
   if (supplierRes.error) throw supplierRes.error;
   if (jobRes.error) throw jobRes.error;
@@ -63,7 +65,7 @@ export async function loadPurchaseOrderSendBundle(
     po,
     supplier: (supplierRes.data ?? null) as PurchaseOrderSendBundle['supplier'],
     jobAddress: (jobRes.data as { address?: string | null } | null)?.address ?? null,
-    smtp: (smtpRes.data ?? null) as SmtpSettingsRow | null,
+    smtp: withEmailSmtpReady((smtpRes.data ?? null) as SmtpSettingsRow | null, smtpReady),
     company,
   };
 }

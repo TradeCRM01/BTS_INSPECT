@@ -16,6 +16,7 @@ import {
   type ReportSendBundle,
   type ReportSendCompany,
 } from './sendReport';
+import { fetchEmailSmtpReady, withEmailSmtpReady } from './emailSmtpClient';
 import { blobToBase64, type SmtpSettingsRow } from './sendInvoice';
 import { getAuditReportSendBundle } from './devFieldAuditDocs';
 import { formatEmailAndSmsMessage, type SmsSendResult } from './jobReminder';
@@ -38,12 +39,13 @@ export async function loadReportSendBundle(
   const inspectionScope = reportSendInspectionQuery(report?.inspection_id);
   const smtpScope = scopes.smtp;
 
-  const [inspectionRes, smtpRes, existingPdf] = await Promise.all([
+  const [inspectionRes, smtpRes, existingPdf, smtpReady] = await Promise.all([
     inspectionScope
       ? applyReportSendScope(supabase.from(inspectionScope.table), inspectionScope).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
     applyReportSendScope(supabase.from(smtpScope.table), smtpScope).maybeSingle(),
     loadExistingReportPdf(report),
+    fetchEmailSmtpReady(supabase),
   ]);
   if (inspectionRes.error) throw inspectionRes.error;
   if (smtpRes.error) throw smtpRes.error;
@@ -67,7 +69,7 @@ export async function loadReportSendBundle(
     inspection,
     client: (clientRes.data ?? null) as ReportSendBundle['client'],
     job,
-    smtp: (smtpRes.data ?? null) as SmtpSettingsRow | null,
+    smtp: withEmailSmtpReady((smtpRes.data ?? null) as SmtpSettingsRow | null, smtpReady),
     company,
     existingPdf,
   };
