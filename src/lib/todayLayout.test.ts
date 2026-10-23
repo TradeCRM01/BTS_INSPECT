@@ -4,6 +4,7 @@ import {
   pickTodayNowJob,
   todayBandFromWidth,
   todayClockLabel,
+  todayClockLines,
   todayClockRange,
   todayCrewMeta,
   todayCrewOut,
@@ -43,6 +44,7 @@ describe('today type and clock', () => {
     expect(todayEyebrow(monday, true)).toBe('Monday 19 October · 13:40');
     expect(todayClockLabel('07:00:00', '10:30:00')).toBe('07:00–10:30');
     expect(todayClockRange('07:00:00', '10:30:00')).toBe('07:00–10:30');
+    expect(todayClockLines('07:00:00', '10:30:00')).toEqual(['07:00', '10:30']);
     expect(todayClockLabel(null, '10:30:00')).toBe('All day');
   });
 

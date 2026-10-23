@@ -69,6 +69,15 @@ export function todayClockRange(
   return `${padClock(startClock)}–${padClock(endClock)}`;
 }
 
+export function todayClockLines(
+  start: string | null | undefined,
+  end?: string | null,
+): string[] {
+  const startClock = clockMinutes(start);
+  if (startClock == null) return [TODAY_CLOCK_ALL_DAY];
+  return [padClock(startClock), padClock(jobEndMinutes(start, end))];
+}
+
 export function todayDirectionsHref(address: string): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
 }

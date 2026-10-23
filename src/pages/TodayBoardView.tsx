@@ -24,6 +24,7 @@ import {
 import {
   pickTodayNowJob,
   todayClockLabel,
+  todayClockLines,
   todayCrewOut,
   todayDirectionsHref,
   todayDueLabel,
@@ -470,7 +471,11 @@ function JobsSection({
                   role={band === 'p' ? 'row' : undefined}
                 >
                   <td className="today-time" role={band === 'p' ? 'cell' : undefined}>
-                    {todayClockLabel(job.start_time, job.end_time)}
+                    {band === 'p'
+                      ? todayClockLines(job.start_time, job.end_time).map((line, i) => (
+                        <span key={`${job.id}-t-${i}`} className="today-time-line">{line}</span>
+                      ))
+                      : todayClockLabel(job.start_time, job.end_time)}
                   </td>
                   <td role={band === 'p' ? 'cell' : undefined}>
                     <Link className="today-job-title" to={dashboardJobHref(job.id)} aria-label="Open">

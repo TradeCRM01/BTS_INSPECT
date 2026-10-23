@@ -2073,4 +2073,64 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       writeFileSync(brandPath, orig);
     }
   }, 120000);
+
+  it('C8: 64px time column at 375/390 does not enter the Job column', async () => {
+    for (const width of [375, 390] as const) {
+      const page = await openPage({ width, path: '/?look=dashboard' });
+      await page.waitForSelector('.today-time', { timeout: 20000 });
+      const box = await page.evaluate(() => {
+        const inter = (a: DOMRect, b: DOMRect) => {
+          const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+          const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+          if (w <= 0 || h <= 0) return 0;
+          return Math.min(w, h);
+        };
+        const rows = [...document.querySelectorAll('.today-jobs-table tbody tr')] as HTMLElement[];
+        return rows.map((row) => {
+          const time = row.querySelector('.today-time') as HTMLElement | null;
+          const job = row.querySelector('.today-job-title') as HTMLElement | null;
+          if (!time || !job) throw new Error('time or job cell missing');
+          const tr = time.getBoundingClientRect();
+          const jr = job.getBoundingClientRect();
+          return {
+            timeW: tr.width,
+            timeRight: tr.right,
+            jobLeft: jr.left,
+            overlap: inter(tr, jr),
+            lines: [...time.querySelectorAll('.today-time-line')].map((el) => (el.textContent || '').trim()),
+          };
+        });
+      });
+      await page.close();
+      expect(box.length, `jobs at ${width}`).toBeGreaterThan(0);
+      for (const row of box) {
+        expect(row.timeW, `time column ≤64 at ${width}`).toBeLessThanOrEqual(64.5);
+        expect(row.overlap, `0px into Job column at ${width}`).toBe(0);
+        expect(row.timeRight, `time stays left of job at ${width}`).toBeLessThanOrEqual(row.jobLeft + 0.5);
+      }
+    }
+  }, 180000);
+
+  it('C8 mutant: a wide time cell enters the Job column', async () => {
+    const page = await openPage({
+      width: 375,
+      path: '/?look=dashboard',
+      css: `${distCss}\n.today-time{width:auto!important;max-width:none!important;overflow:visible!important;font-size:28px!important}\n.today-jobs-table tbody tr{grid-template-columns:auto minmax(0,1fr)!important}`,
+    });
+    await page.waitForSelector('.today-time', { timeout: 20000 });
+    const overlap = await page.evaluate(() => {
+      const inter = (a: DOMRect, b: DOMRect) => {
+        const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        if (w <= 0 || h <= 0) return 0;
+        return Math.min(w, h);
+      };
+      const time = document.querySelector('.today-time') as HTMLElement | null;
+      const job = document.querySelector('.today-job-title') as HTMLElement | null;
+      if (!time || !job) throw new Error('time or job cell missing');
+      return inter(time.getBoundingClientRect(), job.getBoundingClientRect());
+    });
+    await page.close();
+    expect(overlap, 'wide time mutant overlaps the Job column').toBeGreaterThan(0);
+  }, 120000);
 });
