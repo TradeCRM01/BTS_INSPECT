@@ -45,3 +45,14 @@ export function lookWindowSearch(): URLSearchParams | null {
 export function lookWindowParam(key: LookProofKey | (string & {}) = 'look'): string | null {
   return lookParam(lookWindowSearch(), key);
 }
+
+/** Pathname look-job-* fixtures. Same DEV || VITE_LOOK_PROOF gate as lookParam. */
+export function lookPathJob(id: string): boolean {
+  if (!lookProofOn()) return false;
+  try {
+    if (typeof window === 'undefined') return false;
+    return window.location.pathname.endsWith(`/${id}`);
+  } catch {
+    return false;
+  }
+}

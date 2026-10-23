@@ -12,7 +12,7 @@ import { createRequire } from 'node:module';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { LOOK_FILL_KILLS, LOOK_PAGE_KILLS, LOOK_PARAM_SITE_KILLS, SEARCH_PARAM_ALLOWLIST } from './lookParam.chromium.catalog';
+import { LOOK_FILL_KILLS, LOOK_PAGE_KILLS, LOOK_PARAM_SITE_KILLS, LOOK_PATH_JOB_KILLS, SEARCH_PARAM_ALLOWLIST } from './lookParam.chromium.catalog';
 
 const require = createRequire(import.meta.url);
 const ts = require('typescript') as typeof import('typescript');
@@ -31,13 +31,17 @@ function ungateSource(src: string): string {
     ))
     .replace(/lookParam\(\s*([A-Za-z_][\w.]*)\s*(?:,\s*'([^']+)')?\s*\)/g, (_m, search, key) => (
       `${search}.get('${key || 'look'}')`
+    ))
+    .replace(/lookPathJob\(\s*(['"])([^'"]+)\1\s*\)/g, (_m, _q, id) => (
+      `window.location.pathname.endsWith('/${id}')`
     ));
 }
 
 function forceOffSource(src: string): string {
   return src
     .replace(/lookWindowParam\(\s*(?:'([^']+)'|"([^"]+)")?\s*\)/g, 'null')
-    .replace(/lookParam\(\s*[A-Za-z_][\w.]*\s*(?:,\s*'[^']+')?\s*\)/g, 'null');
+    .replace(/lookParam\(\s*[A-Za-z_][\w.]*\s*(?:,\s*'[^']+')?\s*\)/g, 'null')
+    .replace(/lookPathJob\(\s*(['"])([^'"]+)\1\s*\)/g, 'false');
 }
 
 type KillPage = {
@@ -325,7 +329,7 @@ function pushHit(
 function searchParamAllowlistHits(): Array<{ file: string; line: number; text: string }> {
   const allow = new Set<string>(SEARCH_PARAM_ALLOWLIST);
   const skip = /lookParam\.ts$|lookParam\.chromium\.|lookParam\.dist\.|\.test\.|\.chromium\.kill\./;
-  const allowedLookCallees = new Set(['lookParam', 'lookWindowParam', 'lookProofOn']);
+  const allowedLookCallees = new Set(['lookParam', 'lookWindowParam', 'lookProofOn', 'lookPathJob']);
   const stringParseMethods = new Set(['includes', 'indexOf', 'split', 'match']);
   const hits: Array<{ file: string; line: number; text: string }> = [];
   const walk = (dir: string) => {
@@ -517,6 +521,7 @@ let liveJs = '';
 let fillProofJs = '';
 let fillLiveJs = '';
 const temps: string[] = [];
+const httpServers: Array<{ close: () => Promise<void> }> = [];
 const fillEntry = join(here, 'lookParam.chromium.fill-entry.tsx');
 
 beforeAll(async () => {
@@ -530,6 +535,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await browser?.close();
+  for (const served of httpServers) await served.close();
   for (const dir of temps) rmSync(dir, { recursive: true, force: true });
 });
 
@@ -704,6 +710,50 @@ async function openDistTemplatesDenied(origin: string): Promise<KillPage> {
     await page.close();
     throw new Error(`${err instanceof Error ? err.message : String(err)}\nDIST:${dumped}`);
   }
+  return page;
+}
+
+async function openDistJobPath(origin: string, path: string): Promise<KillPage> {
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await page.goto(`${origin}${path}`);
+  try {
+    await page.waitForSelector('.hub-jobs, .shell-header', { timeout: 20000 });
+  } catch (err) {
+    const dumped = await page.evaluate(() => (
+      `${document.body?.innerText || ''}\n${document.documentElement.innerHTML.slice(0, 2500)}`
+    ));
+    await page.close();
+    throw new Error(`${err instanceof Error ? err.message : String(err)}\nDIST:${dumped}`);
+  }
+  return page;
+}
+
+/** file:// pathname is the html file; path fixtures need a real /jobs/look-job-* URL. */
+async function openLookHttp(args: {
+  path: string;
+  js: string;
+  wait?: string;
+}): Promise<KillPage> {
+  const html = fixtureHtml({ js: args.js, css: distCss, path: args.path });
+  const dir = mkdtempSync(join(tmpdir(), 'look-kill-http-'));
+  temps.push(dir);
+  writeFileSync(join(dir, 'index.html'), html);
+  const served = await serveDist(dir);
+  httpServers.push(served);
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await page.goto(`${served.origin}${args.path}`);
+  try {
+    await page.waitForSelector(args.wait || '.shell-header', { timeout: 20000 });
+  } catch (err) {
+    const dumped = await page.evaluate(() => (
+      `${document.body?.innerText || ''}\n${document.documentElement.innerHTML.slice(0, 2500)}`
+    ));
+    throw new Error(`${err instanceof Error ? err.message : String(err)}\nPAINTED:${dumped}`);
+  }
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  });
   return page;
 }
 
@@ -1144,6 +1194,87 @@ describe('lookParam chromium kills', () => {
         const painted = await pageText(page);
         await page.close();
         expect(painted.includes('Northside Electrical'), 'force-off flag dist still painted fixture').toBe(false);
+      } finally {
+        await served.close();
+      }
+    });
+  }, 180000);
+
+  for (const page of LOOK_PATH_JOB_KILLS) {
+    it(`prod no-flag ${page.id}: path fixture stays off`, async () => {
+      const tab = await openLookHttp({ path: page.path, js: liveJs, wait: page.wait });
+      const painted = await pageText(tab);
+      await tab.close();
+      for (const fixture of page.fixtures) {
+        expect(painted.includes(fixture), `${page.id} leaked ${fixture}`).toBe(false);
+      }
+    }, 180000);
+
+    it(`flag-on ${page.id}: path fixture paints`, async () => {
+      const tab = await openLookHttp({ path: page.path, js: proofJs, wait: page.wait });
+      const painted = await waitForAnyText(tab, page.fixtures);
+      await tab.close();
+      const hit = page.fixtures.some((fixture) => painted.includes(fixture));
+      expect(hit, `${page.id} missing ${page.fixtures.join(' | ')}`).toBe(true);
+    }, 180000);
+
+    it(`mutant un-gate ${page.id}: prod no-flag kill goes red`, async () => {
+      await withMutatedFile(join(ROOT, page.file), ungateSource, async () => {
+        const js = await bundleLook({ lookProof: false });
+        const tab = await openLookHttp({ path: page.path, js, wait: page.wait });
+        const painted = await waitForAnyText(tab, page.fixtures);
+        await tab.close();
+        const hit = page.fixtures.some((fixture) => painted.includes(fixture));
+        expect(hit, `${page.id} un-gate must leak ${page.fixtures.join(' | ')}`).toBe(true);
+      });
+    }, 180000);
+
+    it(`mutant force-off ${page.id}: flag-on kill goes red`, async () => {
+      await withMutatedFile(join(ROOT, page.file), forceOffSource, async () => {
+        const js = await bundleLook({ lookProof: true });
+        const tab = await openLookHttp({ path: page.path, js, wait: page.wait });
+        const painted = await pageText(tab);
+        await tab.close();
+        for (const fixture of page.fixtures) {
+          expect(painted.includes(fixture), `${page.id} force-off still painted ${fixture}`).toBe(false);
+        }
+      });
+    }, 180000);
+  }
+
+  it('dist vite build: unset /jobs/look-job-* never paints 400/545', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'look-dist-jobpath-off-'));
+    temps.push(dir);
+    viteLookDist(false, dir);
+    const served = await serveDist(dir);
+    try {
+      for (const spec of LOOK_PATH_JOB_KILLS) {
+        const page = await openDistJobPath(served.origin, spec.path);
+        const painted = await pageText(page);
+        await page.close();
+        for (const fixture of spec.fixtures) {
+          expect(painted.includes(fixture), `unset dist leaked ${spec.id} ${fixture}`).toBe(false);
+        }
+      }
+    } finally {
+      await served.close();
+    }
+  }, 180000);
+
+  it('dist mutant un-gate: unset /jobs/look-job-* paints 400/545', async () => {
+    await withMutatedFile(join(ROOT, 'src/pages/JobDetailPage.tsx'), ungateSource, async () => {
+      const dir = mkdtempSync(join(tmpdir(), 'look-dist-jobpath-ungate-'));
+      temps.push(dir);
+      viteLookDist(false, dir);
+      const served = await serveDist(dir);
+      try {
+        for (const spec of LOOK_PATH_JOB_KILLS) {
+          const page = await openDistJobPath(served.origin, spec.path);
+          const painted = await waitForAnyText(page, spec.fixtures);
+          await page.close();
+          const hit = spec.fixtures.some((fixture) => painted.includes(fixture));
+          expect(hit, `un-gate unset dist must leak ${spec.id}`).toBe(true);
+        }
       } finally {
         await served.close();
       }

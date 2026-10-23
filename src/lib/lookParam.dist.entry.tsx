@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../components/ui/Toast';
 import { TemplateAccessRoute } from '../components/layout/TemplateAccessRoute';
 import { ClientsPage } from '../pages/ClientsPage';
+import { JobDetailPage } from '../pages/JobDetailPage';
 import { TemplatesPage } from '../pages/TemplatesPage';
 
 type Cfg = { path?: string };
@@ -20,6 +21,7 @@ createRoot(rootEl).render(
       <MemoryRouter initialEntries={[cfg.path || '/clients']}>
         <Routes>
           <Route path="/clients" element={<ClientsPage />} />
+          <Route path="/jobs/:id" element={<JobDetailPage />} />
           <Route path="/templates" element={<TemplateAccessRoute><TemplatesPage /></TemplateAccessRoute>} />
         </Routes>
       </MemoryRouter>

@@ -32,5 +32,7 @@ describe('lookParam', () => {
   it('spells the env gate so esbuild can substitute it', () => {
     const src = readFileSync(new URL('./lookParam.ts', import.meta.url), 'utf8');
     expect(src).toContain("import.meta.env.DEV || import.meta.env.VITE_LOOK_PROOF === '1'");
+    expect(src).toContain('if (!lookProofOn()) return false;');
+    expect(src).toContain('window.location.pathname.endsWith(`/${id}`)');
   });
 });

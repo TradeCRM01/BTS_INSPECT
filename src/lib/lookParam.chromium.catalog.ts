@@ -299,6 +299,32 @@ export const LOOK_PARAM_SITE_KILLS: LookParamSiteKill[] = [
   },
 ];
 
+/** Pathname look-job-* fixtures on JobDetail. Not ?look= — do not fold into LOOK_PAGE_KILLS. */
+export type LookPathJobKill = {
+  id: string;
+  file: string;
+  path: string;
+  wait: string;
+  fixtures: string[];
+};
+
+export const LOOK_PATH_JOB_KILLS: LookPathJobKill[] = [
+  {
+    id: 'job-detail-p307',
+    file: 'src/pages/JobDetailPage.tsx',
+    path: '/jobs/look-job-p307',
+    wait: '.hub-jobs, .shell-header',
+    fixtures: ['Cost $400.00', 'Charge $545.00', '2 lines'],
+  },
+  {
+    id: 'job-detail-bayswater',
+    file: 'src/pages/JobDetailPage.tsx',
+    path: '/jobs/look-job-bayswater',
+    wait: '.hub-jobs, .shell-header',
+    fixtures: ['Cost $400.00', 'Charge $545.00', '2 lines'],
+  },
+];
+
 export const LOOK_FILL_KILLS: LookFillKill[] = [
   {
     id: 'inspection-fill',

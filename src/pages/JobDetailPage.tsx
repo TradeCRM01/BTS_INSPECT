@@ -8,7 +8,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, Breadcrumbs, useToast, OpsStatus, OpsSiteRow, OpsPhotoStamp } from '../components/ui';
 import { EnquiryConversation, useEnquiryConversation } from '../components/crm/EnquiryConversation';
 import { conversationLookClientPhone, conversationLookKind } from '../lib/enquiryConversation';
-import { lookParam, lookWindowParam } from '../lib/lookParam';
+import { lookParam, lookPathJob, lookWindowParam } from '../lib/lookParam';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import { resolveTenantTimeZone } from '../lib/tenantTimeZone';
 import { JobCostingPanel } from '../components/jobs/JobCostingPanel';
@@ -376,12 +376,8 @@ function p305LookKind(): 'bill' | 'empty' | null {
   const look = lookSearchParam();
   if (look === P305_LOOK) return 'bill';
   if (look === P305_EMPTY_LOOK) return 'empty';
-  try {
-    if (window.location.pathname.endsWith('/look-job-bayswater')) return 'bill';
-    if (window.location.pathname.endsWith('/look-job-p307')) return 'bill';
-  } catch {
-    return null;
-  }
+  if (lookPathJob('look-job-bayswater')) return 'bill';
+  if (lookPathJob('look-job-p307')) return 'bill';
   return null;
 }
 
@@ -404,11 +400,7 @@ function p307LookKind(): 'agree' | 'reuse' | 'quoted' | null {
   if (look === P307_LOOK) return 'agree';
   if (look === P307_REUSE_LOOK) return 'reuse';
   if (look === P307_QUOTED_LOOK || look === FIX2_QUOTED_LOOK || look === FIX2_QUOTED_OPTIN_LOOK) return 'quoted';
-  try {
-    if (window.location.pathname.endsWith('/look-job-p307')) return 'agree';
-  } catch {
-    return null;
-  }
+  if (lookPathJob('look-job-p307')) return 'agree';
   return null;
 }
 
