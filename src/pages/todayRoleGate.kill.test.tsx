@@ -154,8 +154,8 @@ function moneyWidgets() {
 }
 
 describe('C2 today money role gate', () => {
-  it.each(['member', 'crew'] as const)('kills %s render of / : no currency glyph and no $ widget', async (role) => {
-    h.role = role;
+  it('kills member render of / : no currency glyph and no $ widget', async () => {
+    h.role = 'member';
     await mountPage();
     expect(moneyWidgets()).toEqual([]);
     expect(document.querySelector('[data-nudge-kind="invoice_unpaid"]')).toBeNull();
@@ -168,8 +168,8 @@ describe('C2 today money role gate', () => {
     expect(h.widgets.map(row => row.widget_type)).toContain('cash_flow');
   });
 
-  it.each(['admin', 'owner'] as const)('kills %s render of / : money widgets and $ amounts stay visible', async (role) => {
-    h.role = role;
+  it('kills admin render of / : money widgets and $ amounts stay visible', async () => {
+    h.role = 'admin';
     await mountPage();
     expect(moneyWidgets()).toEqual(['w-invoices', 'w-cash']);
     expect(container.textContent).toMatch(/\$/);

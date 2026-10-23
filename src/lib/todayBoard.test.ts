@@ -408,11 +408,10 @@ describe('Q-E outstanding', () => {
 });
 
 describe('C2 money role gate', () => {
-  it('shows money to owner and admin, and hides $ widgets and $ nudges from crew', () => {
+  it('shows money to admin, hides it from member, and maps owner to admin', () => {
     expect(canSeeTodayMoney('admin')).toBe(true);
-    expect(canSeeTodayMoney('owner')).toBe(true);
     expect(canSeeTodayMoney('member')).toBe(false);
-    expect(canSeeTodayMoney('crew')).toBe(false);
+    expect(canSeeTodayMoney('owner')).toBe(canSeeTodayMoney('admin'));
     const widgets = [
       { id: 'jobs', widget_type: 'upcoming_jobs' },
       { id: 'inv', widget_type: 'outstanding_invoices' },
