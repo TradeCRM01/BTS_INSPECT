@@ -62,7 +62,7 @@ export type P2Probe = {
 };
 
 declare global {
-  interface Window { __P2_BOOT__: { path: string; empty?: boolean; jobsError?: boolean }; __p2: P2Probe }
+  interface Window { __P2_BOOT__: { path: string; empty?: boolean; jobsError?: boolean; needCrewPair?: boolean }; __p2: P2Probe }
 }
 
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -489,7 +489,7 @@ function sheet(): SheetProbe | null {
   };
 }
 
-function overflow(): Pick<DomMeasure, 'iw' | 'docSW' | 'bodySW' | 'maxRight' | 'maxEl' | 'offenders'> {
+function overflow(): Pick<DomMeasure, 'iw' | 'docSW' | 'bodySW' | 'maxRight' | 'maxEl' | 'offenders' | 'buttons'> {
   const iw = window.innerWidth;
   let maxRight = 0;
   let maxEl = '';
@@ -516,6 +516,16 @@ function overflow(): Pick<DomMeasure, 'iw' | 'docSW' | 'bodySW' | 'maxRight' | '
     offenders.push({ el: describe(el), right: Math.round(r.right * 10) / 10, scroller });
   }
   offenders.sort((a, b) => b.right - a.right);
+  const buttons = [...document.querySelectorAll<HTMLElement>('button, [role="button"]')]
+    .filter(el => {
+      const r = el.getBoundingClientRect();
+      return r.width > 1 && r.height > 1 && getComputedStyle(el).visibility !== 'hidden';
+    })
+    .map(el => ({
+      label: (el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 40),
+      sw: el.scrollWidth,
+      cw: el.clientWidth,
+    }));
   return {
     iw,
     docSW: document.documentElement.scrollWidth,
@@ -523,6 +533,7 @@ function overflow(): Pick<DomMeasure, 'iw' | 'docSW' | 'bodySW' | 'maxRight' | '
     maxRight: Math.round(maxRight * 10) / 10,
     maxEl,
     offenders: offenders.slice(0, 60),
+    buttons,
   };
 }
 

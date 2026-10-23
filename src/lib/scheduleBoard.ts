@@ -472,6 +472,7 @@ export function countNeedCrewJobs<T extends NeedCrewCountable>(jobs: T[]): numbe
 
 type NeedCrewCountable = {
   status?: string | null;
+  scheduled_date?: string | null;
   assigned_team?: unknown;
 };
 

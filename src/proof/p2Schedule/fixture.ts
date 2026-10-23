@@ -274,6 +274,27 @@ export const JOBS: readonly Row[] = [
     job_number: 52,
     title: 'Undated third',
     client_id: C.priya,
+    status: 'in_progress',
+  }),
+];
+
+export const NEED_CREW_PAIR: readonly Row[] = [
+  job({
+    id: JOB_IDS.need1,
+    job_number: 62,
+    title: 'Need crew scheduled',
+    client_id: C.luke,
+    scheduled_date: '2026-10-21',
+    start_time: '08:00:00',
+    end_time: '10:00:00',
+    address: WAVELL,
+  }),
+  job({
+    id: JOB_IDS.undated3,
+    job_number: 52,
+    title: 'Undated in progress',
+    client_id: C.priya,
+    status: 'in_progress',
   }),
 ];
 

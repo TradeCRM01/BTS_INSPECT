@@ -552,11 +552,12 @@ describe('schedule layout helpers', () => {
 
   it('drops cancelled and Done no-crew jobs from the need-crew count', () => {
     const jobs = [
-      { id: 'open', status: 'scheduled', assigned_team: [] },
-      { id: 'live', status: 'in_progress', assigned_team: [] },
-      { id: 'crewed', status: 'scheduled', assigned_team: ['emp-a'] },
-      { id: 'done', status: 'completed', assigned_team: [] },
-      { id: 'cancelled', status: 'cancelled', assigned_team: [] },
+      { id: 'open', status: 'scheduled', scheduled_date: '2026-10-19', assigned_team: [] },
+      { id: 'live', status: 'in_progress', scheduled_date: '2026-10-19', assigned_team: [] },
+      { id: 'undated-live', status: 'in_progress', scheduled_date: null, assigned_team: [] },
+      { id: 'crewed', status: 'scheduled', scheduled_date: '2026-10-19', assigned_team: ['emp-a'] },
+      { id: 'done', status: 'completed', scheduled_date: '2026-10-19', assigned_team: [] },
+      { id: 'cancelled', status: 'cancelled', scheduled_date: '2026-10-19', assigned_team: [] },
     ];
     expect(jobs.filter(isNeedCrewJob).map(job => job.id)).toEqual(['open', 'live']);
     expect(countNeedCrewJobs(jobs)).toBe(2);

@@ -10,17 +10,17 @@ export const BASELINE_VITEST_LOG = '/tmp/p2-baseline/vitest-built.log';
 export const WIDTHS = [375, 390, 768, 1024, 1280] as const;
 export type Width = (typeof WIDTHS)[number];
 export const PHONE_BOARD_BREAKPOINT = 1024;
-export const viewportHeight = (w: Width): number => (w < 768 ? 812 : 900);
-export const isTouch = (w: Width): boolean => w < 1024;
+export const viewportHeight = (w: number): number => (w < 768 ? 812 : 900);
+export const isTouch = (w: number): boolean => w < 1024;
 
 export type View = 'week' | 'day';
-export type Recipe = 'none' | 'lineprobe' | 'tray' | 'rail' | 'sheet' | 'prefill' | 'more' | 'save' | 'tab' | 'field' | 'empty' | 'jobserror' | 'search';
+export type Recipe = 'none' | 'lineprobe' | 'tray' | 'rail' | 'sheet' | 'prefill' | 'more' | 'save' | 'tab' | 'field' | 'empty' | 'jobserror' | 'search' | 'needcrew';
 export type Shot = 'top' | 'scrolled' | 'dark' | 'empty' | 'chips' | 'focus' | 'middle' | 'end';
 export type Frames = Readonly<Partial<Record<Shot, string>>>;
 
 export type StateSpec = {
   readonly path: string;
-  readonly w: Width;
+  readonly w: number;
   readonly recipe: Recipe;
   readonly frames: Frames;
 };
@@ -63,6 +63,14 @@ export const STATES = {
   'empty-1280': { path: '/schedule', w: 1280, recipe: 'empty', frames: {} },
   'error-1280': { path: '/schedule', w: 1280, recipe: 'jobserror', frames: {} },
   'search-1280': { path: '/schedule', w: 1280, recipe: 'search', frames: {} },
+  'needcrew-1280': { path: '/schedule', w: 1280, recipe: 'needcrew', frames: {} },
+  'edit-375': { path: '/schedule', w: 375, recipe: 'sheet', frames: {} },
+  'edit-768': { path: '/schedule', w: 768, recipe: 'sheet', frames: {} },
+  'edit-1024': { path: '/schedule', w: 1024, recipe: 'sheet', frames: {} },
+  'edit-1280': { path: '/schedule', w: 1280, recipe: 'sheet', frames: {} },
+  'shell-800': { path: '/schedule', w: 800, recipe: 'none', frames: {} },
+  'shell-900': { path: '/schedule', w: 900, recipe: 'none', frames: {} },
+  'shell-1000': { path: '/schedule', w: 1000, recipe: 'none', frames: {} },
 } as const satisfies Record<string, StateSpec>;
 export type StateId = keyof typeof STATES;
 export const STATE_IDS = Object.keys(STATES) as StateId[];
@@ -87,7 +95,7 @@ export type KillId =
   | 'P2-overflow' | 'P2-day-track' | 'P2-nav-phone' | 'P2-nav-desktop' | 'P2-mocks'
   | 'P2-tracker' | 'P2-chip' | 'P2-focus' | 'P2-now' | 'P2-day-board' | 'P2-scroller' | 'P2-sheet' | 'P2-tray' | 'P2-status'
   | 'K1' | 'K2' | 'K3' | 'K4' | 'K5' | 'K6' | 'K7' | 'K8' | 'K9' | 'K10'
-  | 'K11' | 'K12' | 'K13' | 'K14' | 'K15' | 'K16' | 'K17' | 'K18';
+  | 'K11' | 'K12' | 'K13' | 'K14' | 'K15' | 'K16' | 'K17' | 'K18' | 'K19';
 
 export const KILLS: Readonly<Record<KillId, { readonly title: string; readonly states: readonly StateId[] }>> = {
   'P2-palette': { title: 'no navy or cream pixels outside data colour', states: [...BOARD, 'sheet-390'] },
@@ -96,7 +104,9 @@ export const KILLS: Readonly<Record<KillId, { readonly title: string; readonly s
   'P2-lines': { title: 'agenda lines within main and meta breaks only after a dot', states: AGENDA },
   'P2-m2': { title: 'stacked rows below 640 and one shared track at 640 and up, the untimed Booked line leads in muted ink', states: AGENDA },
   'P2-dark': { title: 'forced dark changes 0 px', states: SCHEDULE },
-  'P2-overflow': { title: 'no overflow outside the sole allowlisted scroller', states: SCHEDULE },
+  'P2-overflow': { title: 'no overflow outside the sole allowlisted scroller', states: [
+    ...SCHEDULE, 'edit-375', 'edit-768', 'edit-1024', 'edit-1280', 'shell-800', 'shell-900', 'shell-1000',
+  ] },
   'P2-day-track': { title: 'a real wheel scrolls the day track sideways and never traps vertical scroll', states: PHONE_DAY },
   'P2-nav-phone': { title: 'phone tabs reach Schedule in one tap', states: ['tabs-375', 'tabs-390'] },
   'P2-nav-desktop': { title: 'Schedule is first in Field at 768 and up', states: ['nav-768', 'nav-1280'] },
@@ -128,6 +138,7 @@ export const KILLS: Readonly<Record<KillId, { readonly title: string; readonly s
   K16: { title: 'the colour bar still holds on the rebuilt layout', states: [...BOARD] },
   K17: { title: 'section order is header, tools, quickbook, board, tray', states: ['week-390', 'week-768', 'week-1280'] },
   K18: { title: 'empty company draws the board and a jobs error shows PageError', states: ['empty-1280', 'error-1280'] },
+  K19: { title: 'one dated crewless job plus one undated in_progress counts as 1 need crew', states: ['needcrew-1280'] },
 };
 export const killTitle = (id: KillId): string => `${id}: ${KILLS[id].title}`;
 
@@ -270,6 +281,7 @@ export type DomMeasure = {
   maxRight: number;
   maxEl: string;
   offenders: Offender[];
+  buttons: { label: string; sw: number; cw: number }[];
   texts: TextProbe[];
   taps: TapProbe[];
   rows: RowProbe[];
@@ -400,7 +412,8 @@ export const MUTANTS: readonly MutantSpec[] = [
   css('agenda-time-ink', 'P2-m2', '.hub-week-agenda-time {', 'color: var(--g-ink-muted);', 'color: var(--g-ink);', 'the agenda time line in full ink'),
   css('pill-amber', 'P2-status', '.hub-schedule-pill[data-kind="scheduled"] {', 'background: var(--g-sched-bg);', 'background: var(--g-warn-bg);', 'amber scheduled pills'),
   { id: 'hide-header', kill: 'K1', file: 'src/index.css', rule: '.hub-board-cal .ops-page-head {', find: 'max-width: 1400px;', replace: 'display: none;\n    max-width: 1400px;', brief: 'hide the live header (restore F1)' },
-  { id: 'need-crew-all', kill: 'K1', file: 'src/lib/scheduleNeedCrew.ts', find: 'if (asTeamIds(job.assigned_team).length > 0) return false;', replace: 'if (false && asTeamIds(job.assigned_team).length > 0) return false;', brief: 'count crewed jobs as need-crew' },
+  { id: 'need-crew-all', kill: 'K1', file: 'src/lib/scheduleNeedCrew.ts', find: 'return asTeamIds(job.assigned_team).filter(id => id.trim()).length === 0;', replace: 'return true;', brief: 'count crewed jobs as need-crew' },
+  { id: 'need-crew-undated', kill: 'K19', file: 'src/lib/scheduleNeedCrew.ts', find: "if (isFinishedCrewStatus(job.status)) return false;\n  return asTeamIds(job.assigned_team).filter(id => id.trim()).length === 0;", replace: "if (isFinishedCrewStatus(job.status)) return false;\n  if (asTeamIds(job.assigned_team).length > 0) return false;\n  return job.status === 'scheduled' || job.status === 'in_progress';", brief: 'restore || in_progress without a date gate' },
   { id: 'next-backwards', kill: 'K2', file: 'src/pages/SchedulePage.tsx', find: 'addWeeks(currentDate, 1)', replace: 'addWeeks(currentDate, -1)', brief: 'next week walks backwards' },
   { id: 'skip-empty-cells', kill: 'K3', file: 'src/lib/scheduleBoard.ts', find: 'cells: days.map(date => {', replace: 'cells: days.filter(date => jobsForCrewOnDay(visible, crew.id, date).length > 0).map(date => {', brief: 'skip cells with no jobs' },
   { id: 'count-days', kill: 'K4', file: 'src/lib/scheduleBoard.ts', find: "return count === 1 ? '1 job' : `${count} jobs`;", replace: "return count === 1 ? '1 booking' : `${count} bookings`;", brief: 'lane counts say bookings' },
