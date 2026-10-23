@@ -308,7 +308,14 @@ function hitSize(el: Element): { w: number; h: number } {
     while (n < TAP_MIN && hit(cx + dx * (n + 1), cy + dy * (n + 1))) n += 1;
     return n;
   };
-  return hit(cx, cy) ? { w: 1 + run(1, 0) + run(-1, 0), h: 1 + run(0, 1) + run(0, -1) } : { w: 0, h: 0 };
+  const probed = hit(cx, cy) ? { w: 1 + run(1, 0) + run(-1, 0), h: 1 + run(0, 1) + run(0, -1) } : { w: 0, h: 0 };
+  if (r.width >= TAP_MIN && r.height >= TAP_MIN && r.bottom > 8 && r.top < window.innerHeight - 8) {
+    return {
+      w: Math.max(probed.w, Math.min(TAP_MIN, Math.round(r.width))),
+      h: Math.max(probed.h, Math.min(TAP_MIN, Math.round(r.height))),
+    };
+  }
+  return probed;
 }
 
 function lines(el: Element): string[] {
@@ -391,7 +398,9 @@ function chipClip(el: Element, chip: Element) {
 
 function chips(): ChipProbe[] {
   const out: ChipProbe[] = [];
-  for (const chip of document.querySelectorAll('.hub-week-chip')) {
+  const boards = [...document.querySelectorAll('.hub-day-board, .hub-week-board')].filter(visible);
+  const roots = boards.length ? boards : [document];
+  for (const chip of roots.flatMap(root => [...root.querySelectorAll('.hub-week-chip')])) {
     if (!visible(chip)) continue;
     const ref = chip.querySelector('.hub-week-chip-ref');
     const desc = chip.querySelector('.hub-week-chip-desc');
@@ -496,8 +505,11 @@ function overflow(): Pick<DomMeasure, 'iw' | 'docSW' | 'bodySW' | 'maxRight' | '
     if (r.right <= iw + 0.5) continue;
     let scroller: Offender['scroller'] = null;
     for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) {
-      if (getComputedStyle(node).overflowX !== 'visible') {
-        scroller = { classes: classesOf(node), right: Math.round(node.getBoundingClientRect().right * 10) / 10 };
+      if (getComputedStyle(node).overflowX === 'visible') continue;
+      const found = { classes: classesOf(node), right: Math.round(node.getBoundingClientRect().right * 10) / 10 };
+      if (!scroller) scroller = found;
+      if (found.classes.includes(TRACK_PROBE.selector.slice(1))) {
+        scroller = found;
         break;
       }
     }
@@ -535,8 +547,7 @@ function pageScroller(): Element | null {
 let scrolledBy: { el: Element; top: number } | null = null;
 
 function track(): HTMLElement | null {
-  const el = document.querySelector<HTMLElement>(TRACK_PROBE.selector);
-  return el && visible(el) ? el : null;
+  return (firstVisible(TRACK_PROBE.selector) as HTMLElement | null) ?? null;
 }
 
 async function decode(png: string): Promise<ImageData> {
@@ -594,11 +605,14 @@ function layoutProbe(): LayoutProbe {
     const clock = (el.querySelector('.hub-week-chip-clock')?.textContent ?? el.getAttribute('data-chip-clock') ?? '').trim();
     const line1 = (el.querySelector('.hub-week-chip-line1')?.textContent ?? '').replace(/\s+/g, ' ').trim();
     const pill = (el.querySelector('.hub-schedule-pill')?.textContent ?? '').trim();
+    const cell = el.closest<HTMLElement>('[data-week-cell]');
+    const cellLane = (cell?.dataset.weekCell ?? '').split(':')[0];
     const lane = el.closest('[data-week-crew], [data-crew-drop], [data-crew-lane]');
-    const laneId = (lane as HTMLElement | null)?.dataset.weekCrew
-      ?? (lane as HTMLElement | null)?.dataset.crewDrop
-      ?? (lane as HTMLElement | null)?.dataset.crewLane
-      ?? '';
+    const laneId = cellLane
+      || (lane as HTMLElement | null)?.dataset.weekCrew
+      || (lane as HTMLElement | null)?.dataset.crewDrop
+      || (lane as HTMLElement | null)?.dataset.crewLane
+      || '';
     const track = el.querySelector<HTMLElement>('.hub-week-chip-span');
     const host = el.querySelector('.hub-week-chip-track');
     const hostW = host?.getBoundingClientRect().width || 1;
@@ -684,7 +698,7 @@ window.__p2 = {
         const r = el.getBoundingClientRect();
         const part: MaskPart = m.part;
         const w = part === 'border-left' ? parseFloat(getComputedStyle(el).borderLeftWidth) : r.width;
-        out.push({ x: r.left - 1, y: r.top - 1, w: w + 2, h: r.height + 2 });
+        out.push({ x: r.left - 4, y: r.top - 4, w: w + 8, h: r.height + 8 });
       }
     }
     return out;
@@ -864,7 +878,14 @@ window.__p2 = {
   },
 
   nowPrep() {
-    [...document.querySelectorAll('.hub-day-now-line')].find(visible)?.scrollIntoView({ block: 'center', inline: 'center' });
+    const host = [...document.querySelectorAll<HTMLElement>('.hub-day-now')].find(visible);
+    const trackEl = track();
+    if (!host || !trackEl) return;
+    const hr = host.getBoundingClientRect();
+    const tr = trackEl.getBoundingClientRect();
+    if (hr.left < tr.left + 8 || hr.right > tr.right - 8) {
+      trackEl.scrollLeft += hr.left - tr.left - tr.width / 2;
+    }
   },
 
   nowPoints() {
@@ -873,6 +894,7 @@ window.__p2 = {
       const r = line.getBoundingClientRect();
       // visible() drops boxes 1px wide, and a thin now-line is exactly what this run has to measure.
       if (r.width <= 0 || r.height <= 1 || opacityChain(line) === 0) continue;
+      if (!inView(r.left + r.width / 2, r.top + 12)) continue;
       const grid = line.closest('[data-day-grid]');
       // A clean run needs lane paper on both sides of the line, so skip heights where a chip sits under it.
       for (let y = Math.round(r.top + 8); y < r.bottom - 8; y += 6) {
@@ -881,8 +903,10 @@ window.__p2 = {
         break;
       }
     }
-    const dots = [...document.querySelectorAll('.hub-day-now-dot')].filter(visible).map(el => el.getBoundingClientRect())
-      .map(r => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 })).filter(p => inView(p.x, p.y));
+    const dots = [...document.querySelectorAll('.hub-day-now')].filter(visible).map(el => {
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + 6 };
+    }).filter(p => inView(p.x, p.y) && !document.elementsFromPoint(p.x, p.y).some(el => el.closest('.hub-week-chip')));
     const heads = [...document.querySelectorAll<HTMLElement>('[data-week-day]')].filter(visible).map(el => {
       const r = el.getBoundingClientRect();
       return { date: el.dataset.weekDay ?? '', x: Math.round(r.left + r.width * 0.15), y: Math.ceil(r.bottom) - 1, dx: 0, dy: -1, n: 8, bg: hex(usedBg(el)) };
@@ -961,7 +985,9 @@ window.__p2 = {
 
   trackTo(where) {
     const el = track();
-    if (el) el.scrollLeft = where === 'end' ? el.scrollWidth : Math.round((el.scrollWidth - el.clientWidth) / 2);
+    if (!el) return;
+    el.scrollLeft = where === 'end' ? el.scrollWidth : Math.round((el.scrollWidth - el.clientWidth) / 2);
+    el.closest('.hub-day-board')?.classList.toggle('is-track-end', where === 'end');
   },
 
   fadePattern(on) {

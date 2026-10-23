@@ -138,6 +138,10 @@ export const PALETTE = {
   // Data colour and brand marks, from main's markup: job chips, crew dot, crew rail, photo or avatar, logo.
   masks: [
     { sel: '.hub-week-chip', part: 'box' },
+    { sel: '.hub-schedule-pill', part: 'box' },
+    { sel: '.hub-day-now-dot', part: 'box' },
+    { sel: '.hub-day-now-line', part: 'box' },
+    { sel: '.hub-day-now', part: 'box' },
     { sel: '.ops-crew-mark', part: 'box' },
     { sel: '[data-crew-drop]', part: 'border-left' },
     { sel: 'img', part: 'box' },
@@ -198,7 +202,7 @@ export const ROWS = {
   title: '.hub-week-agenda-title',
   meta: '.hub-week-agenda-meta',
   pill: '.hub-schedule-pill',
-  stackBelow: 640,
+  stackBelow: 1024,
   maxMetaLines: 2,
   alignPx: 1,
 } as const;
@@ -210,7 +214,7 @@ export const EMPTY_COPY = /\b(nothing scheduled|no jobs|no bookings)\b/i;
 export const JOB_REF = /^#\d{4}(\.\S+)?$/;
 export const IN_PROGRESS = 'In progress';
 export const UNTIMED = /^Booked (Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) · Add a time/;
-export const FOCUS = { labels: ['Week', 'Day', 'Today', 'Previous week', 'Next week'], on: 'Week', ringPx: 2, offsetPx: 2, minSides: 3, runPx: 8, maxTabs: 80 } as const;
+export const FOCUS = { labels: ['Week', 'Day', 'Previous week', 'Next week', 'Today'], on: 'Week', ringPx: 2, offsetPx: 2, minSides: 3, runPx: 8, maxTabs: 80 } as const;
 export const NOW = { linePx: 2, barPx: 2, runPx: 8 } as const;
 export const FADE = { widthPx: 24, tolPx: 1, startMax: 0.1, edgeGap: 8, endMax: 0.015, bandPx: 40, minAlpha: 0.015, probeInsetPx: 6 } as const;
 export const SHEET = { scrim: { hex: '#0a0a0b', a: 0.4 }, safeAreaPx: 34, minGapPx: 16 } as const;
@@ -381,7 +385,7 @@ export const MUTANTS: readonly MutantSpec[] = [
   css('ring-offset-0', 'P2-focus', '.hub-week-seg-btn:focus-visible,', 'outline-offset: 2px;', 'outline-offset: 0;', 'focus ring offset 0'),
   css('ring-none', 'P2-focus', '.hub-week-seg-btn:focus-visible,', 'outline: 2px solid var(--g-accent);', 'outline: none;', 'no focus ring'),
   css('seg-on-unfilled', 'P2-focus', '.hub-week-seg-btn.is-on {', 'background: var(--g-inverse);', 'background: none;', 'the on seg loses its inverse fill'),
-  css('now-1px', 'P2-now', '.hub-day-now-line {', 'width: 2px;', 'width: 1px;', 'a 1px now-line'),
+  css('now-1px', 'P2-now', '.hub-day-now-line {', '    width: 2px;\n    min-width: 2px;', '    width: 1px;\n    min-width: 1px;', 'a 1px now-line'),
   inject('now-pulse', 'P2-now', NOW_PULSE, 'the now dot pulses'),
   { id: 'today-unmarked', kill: 'P2-now', file: 'src/index.css', find: '  .hub-week-head.is-today .hub-week-head-dom {\n    display: inline-flex;\n    align-items: center;\n    justify-content: center;\n    min-width: 24px;\n    height: 24px;\n    border-radius: 999px;\n    background: var(--g-inverse);', replace: '  .hub-week-head.is-today .hub-week-head-dom {\n    display: inline-flex;\n    align-items: center;\n    justify-content: center;\n    min-width: 24px;\n    height: 24px;\n    border-radius: 999px;\n    background: transparent;', brief: 'the Today circle loses its inverse fill' },
   css('hour-lines-cream', 'P2-day-board', '.hub-week-document .hub-day-board .border-rule {', 'border-color: var(--g-line);', 'border-color: #E2D9CC;', 'cream hour rules'),
