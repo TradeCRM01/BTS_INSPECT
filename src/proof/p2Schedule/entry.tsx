@@ -43,6 +43,7 @@ export type P2Probe = {
   runs(png: string, base: string | null, list: Run[], ink: string): Promise<(number[] | null)[]>;
   pixels(png: string, points: Point[]): Promise<string[]>;
   paintOf(el: Element): Paint;
+  chromePaint(png: string, chrome: ChromeProbe): Promise<ChromeProbe>;
   tray(): TrayState;
   nowPrep(): void;
   nowPoints(): NowPoints;
@@ -694,8 +695,21 @@ function trackLabels(): TrackLabel[] {
   return out;
 }
 
+function boxOf(el: Element | null): { x: number; y: number; w: number; h: number } | null {
+  if (!el || !visible(el)) return null;
+  const r = el.getBoundingClientRect();
+  return { x: r.x, y: r.y, w: r.width, h: r.height };
+}
+
+function lineCount(el: Element | null): number {
+  if (!el || !visible(el)) return 0;
+  const lh = parseFloat(getComputedStyle(el).lineHeight);
+  const h = el.getBoundingClientRect().height;
+  if (!lh) return 0;
+  return Math.round(h / lh);
+}
+
 function chrome(): ChromeProbe {
-  const px = (el: Element | null, prop: string) => (el ? parseFloat(getComputedStyle(el).getPropertyValue(prop)) || 0 : 0);
   const header = document.querySelector('.ops-page-head');
   const newJob = [...document.querySelectorAll('button')].find(el => visible(el) && (el.textContent ?? '').includes('New job')) ?? null;
   const seg = document.querySelector('.hub-week-seg');
@@ -705,7 +719,7 @@ function chrome(): ChromeProbe {
   const today = [...document.querySelectorAll('.hub-week-today')].find(visible) ?? null;
   const fulls = [...document.querySelectorAll('.hub-week-head-full')].filter(visible);
   const shorts = [...document.querySelectorAll('.hub-week-head-short')].filter(visible);
-  const head = document.querySelector('.hub-week-head');
+  const heads = [...document.querySelectorAll('.hub-week-head')].filter(visible);
   const two = [...document.querySelectorAll('[data-schedule-job].hub-week-chip')].find(el =>
     (el.querySelector('.hub-week-chip-ref')?.textContent ?? '').includes('#0036'),
   ) ?? null;
@@ -716,42 +730,58 @@ function chrome(): ChromeProbe {
   const cards = tray?.querySelector('.hub-schedule-tray-cards') ?? null;
   const untimed = [...document.querySelectorAll('[data-untimed-chip]')].find(visible) ?? null;
   const trackEl = track();
-  const dayCrew = document.querySelector('.hub-day-crew-lock .hub-schedule-crew-name');
-  const weekCrew = document.querySelector('.hub-week-crew .hub-schedule-crew-name');
+  const dayCrew = [...document.querySelectorAll('.hub-day-crew-lock .hub-schedule-crew-name')].find(visible) ?? null;
+  const weekCrew = [...document.querySelectorAll('.hub-week-crew .hub-schedule-crew-name')].find(visible) ?? null;
   const quick = [...document.querySelectorAll('[data-schedule-quickbook-toggle], [data-schedule-section="quickbook"]')].find(visible) ?? null;
   const tools = document.querySelector('.hub-week-tools');
-  const lh = fulls[0] ? parseFloat(getComputedStyle(fulls[0]).lineHeight) || 16 : 16;
+  const headLine = shorts[0] ?? fulls[0] ?? heads[0] ?? null;
+  const lh = headLine ? parseFloat(getComputedStyle(headLine).lineHeight) || 16 : 16;
   return {
     headerAlign: header ? getComputedStyle(header).textAlign : '',
     headerLeft: header?.getBoundingClientRect().left ?? -1,
     headerTop: header?.getBoundingClientRect().top ?? -1,
     newJobLeft: newJob?.getBoundingClientRect().left ?? -1,
     newJobRight: newJob?.getBoundingClientRect().right ?? -1,
-    segRadius: Math.max(px(seg, 'border-top-left-radius'), px(seg, 'border-radius')),
-    segBorder: px(seg, 'border-top-width'),
-    navBoxed: navs.filter(el => px(el, 'border-top-width') >= 1).length,
+    segPainted: 0,
+    segCornerCut: false,
+    navPainted: 0,
+    navCornerCut: false,
     range: (range?.textContent ?? '').replace(/\s+/g, ' ').trim(),
     searchWidth: search?.getBoundingClientRect().width ?? 0,
-    todayBorder: px(today, 'border-top-width'),
+    todayPainted: 0,
+    todayCornerCut: false,
     dayHeadFullShown: fulls.length,
     dayHeadShortShown: shorts.length,
-    dayHeadAlign: head ? getComputedStyle(head).textAlign : '',
-    dayHeadLines: fulls[0] ? Math.round(fulls[0].getBoundingClientRect().height / lh) : 0,
+    dayHeadAlign: heads[0] ? getComputedStyle(heads[0]).textAlign : '',
+    dayHeadLines: (() => {
+      if (!headLine) return 0;
+      const kids = [...headLine.children].map(el => el.getBoundingClientRect().height);
+      const unit = Math.max(lh, ...kids, 1);
+      return Math.round(headLine.getBoundingClientRect().height / unit);
+    })(),
+    dayHeadText: (shorts.length ? shorts : heads).map(el => {
+      const now = el.parentElement?.querySelector('.hub-week-now');
+      const bits = [el, now].filter((n): n is Element => !!n && visible(n)).map(n => (n.textContent ?? '').replace(/\s+/g, ' ').trim());
+      return bits.join(' ').replace(/\s+/g, ' ').trim();
+    }),
     line1_0036: (two?.querySelector('.hub-week-chip-line1')?.textContent ?? '').replace(/\s+/g, ' ').trim(),
-    titleClamp: desc ? parseInt(getComputedStyle(desc).getPropertyValue('-webkit-line-clamp') || '0', 10) || 0 : 0,
-    trayHeadingPx: px(kicker, 'font-size'),
-    trayHeadingTransform: kicker ? getComputedStyle(kicker).textTransform : '',
+    titleLines: lineCount(desc),
+    weekCrewLines: lineCount(weekCrew),
+    dayCrewLines: lineCount(dayCrew),
+    trayHeadingH: kicker?.getBoundingClientRect().height ?? 0,
+    trayHeadingText: (kicker?.textContent ?? '').replace(/\s+/g, ' ').trim(),
     trayCols: cards ? getComputedStyle(cards).gridTemplateColumns.split(' ').filter(Boolean).length : 0,
     dayUntimedWidth: untimed?.getBoundingClientRect().width ?? 0,
     dayTrackWidth: trackEl ? trackEl.clientWidth : 0,
-    dayCrewWrap: dayCrew ? getComputedStyle(dayCrew).whiteSpace : '',
-    weekCrewWrap: weekCrew ? getComputedStyle(weekCrew).whiteSpace : '',
     quickBookTop: quick?.getBoundingClientRect().top ?? -1,
     rangeTop: range?.getBoundingClientRect().top ?? -1,
     todayTop: today?.getBoundingClientRect().top ?? -1,
     quickBookWidth: quick?.getBoundingClientRect().width ?? 0,
     toolsWidth: tools?.getBoundingClientRect().width ?? 0,
     sameRangeRow: !!(today && range && today.closest('.hub-week-range-row') && today.closest('.hub-week-range-row') === range.closest('.hub-week-range-row')),
+    segBox: boxOf(seg),
+    todayBox: boxOf(today),
+    navBoxes: navs.map(el => boxOf(el)).filter((b): b is NonNullable<typeof b> => !!b),
   };
 }
 
@@ -806,6 +836,39 @@ const px = (d: ImageData, x: number, y: number): Rgba => {
   return { r: d.data[i], g: d.data[i + 1], b: d.data[i + 2], a: 1 };
 };
 const gap = (a: Rgba, b: Rgba) => Math.hypot(a.r - b.r, a.g - b.g, a.b - b.b);
+const STROKE_GAP = 18;
+
+function strokeOf(img: ImageData, box: { x: number; y: number; w: number; h: number } | null): { painted: number; cornerCut: boolean } {
+  if (!box || box.w < 8 || box.h < 8) return { painted: 0, cornerCut: false };
+  const x0 = Math.max(1, Math.round(box.x));
+  const y0 = Math.max(1, Math.round(box.y));
+  const x1 = Math.min(img.width - 2, Math.round(box.x + box.w) - 1);
+  const y1 = Math.min(img.height - 2, Math.round(box.y + box.h) - 1);
+  if (x1 - x0 < 6 || y1 - y0 < 6) return { painted: 0, cornerCut: false };
+  let painted = 0;
+  const xSteps = Math.max(6, Math.floor((x1 - x0) / 3));
+  const ySteps = Math.max(6, Math.floor((y1 - y0) / 3));
+  for (let i = 1; i < xSteps; i += 1) {
+    const x = x0 + Math.round(((x1 - x0) * i) / xSteps);
+    const edge = [px(img, x, y0), px(img, x, y0 + 1), px(img, x, y0 + 2)];
+    const inward = px(img, x, Math.min(y1 - 2, y0 + 8));
+    if (edge.some(p => gap(p, inward) >= STROKE_GAP)) painted += 1;
+  }
+  for (let i = 1; i < ySteps; i += 1) {
+    const y = y0 + Math.round(((y1 - y0) * i) / ySteps);
+    const edge = [px(img, x0, y), px(img, x0 + 1, y), px(img, x0 + 2, y)];
+    const inward = px(img, Math.min(x1 - 2, x0 + 8), y);
+    if (edge.some(p => gap(p, inward) >= STROKE_GAP)) painted += 1;
+  }
+  const outside = px(img, Math.max(0, x0 - 3), Math.max(0, y0 - 3));
+  let pagePx = 0;
+  for (let y = y0; y < y0 + 6 && y < img.height; y += 1) {
+    for (let x = x0; x < x0 + 6 && x < img.width; x += 1) {
+      if (gap(px(img, x, y), outside) < 12) pagePx += 1;
+    }
+  }
+  return { painted, cornerCut: pagePx >= 6 };
+}
 // Below this distance the background is too close to the ink to tell coverage apart.
 const MIN_INK_SPAN = 60;
 
@@ -1102,6 +1165,25 @@ window.__p2 = {
     const s = getComputedStyle(el);
     const bg = rgba(s.backgroundColor);
     return { bg: hex(bg), bgA: round(bg.a, 100), shadow: s.boxShadow, color: hex(rgba(s.color)) };
+  },
+
+  async chromePaint(png, chrome) {
+    const img = await decode(png);
+    const dpr = window.devicePixelRatio || img.width / Math.max(1, window.innerWidth);
+    const scale = (b: { x: number; y: number; w: number; h: number } | null) =>
+      b ? { x: b.x * dpr, y: b.y * dpr, w: b.w * dpr, h: b.h * dpr } : null;
+    const seg = strokeOf(img, scale(chrome.segBox));
+    const today = strokeOf(img, scale(chrome.todayBox));
+    const navs = chrome.navBoxes.map(b => strokeOf(img, scale(b)));
+    return {
+      ...chrome,
+      segPainted: seg.painted,
+      segCornerCut: seg.cornerCut,
+      todayPainted: today.painted,
+      todayCornerCut: today.cornerCut,
+      navPainted: navs.reduce((n, s) => n + s.painted, 0),
+      navCornerCut: navs.filter(s => s.cornerCut).length >= 2,
+    };
   },
 
   tray() {

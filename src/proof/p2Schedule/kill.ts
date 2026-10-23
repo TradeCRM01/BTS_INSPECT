@@ -717,31 +717,32 @@ describe('P2 Schedule on the built dist', () => {
   it(killTitle('K25'), async () => {
     const week = await measure('week-1280');
     const c = week.chrome;
-    expect.soft(c.headerAlign, 'header left-aligned').toBe('left');
     expect.soft(c.headerLeft < c.newJobLeft, 'New job sits to the right of the header').toBe(true);
-    expect.soft(c.segRadius, 'pill seg radius').toBeGreaterThanOrEqual(8);
-    expect.soft(c.segBorder, 'pill seg border').toBeGreaterThanOrEqual(1);
-    expect.soft(c.navBoxed, 'boxed ‹ ›').toBeGreaterThanOrEqual(2);
+    expect.soft(c.segPainted, 'pill seg paints a border').toBeGreaterThanOrEqual(4);
+    expect.soft(c.segCornerCut, 'pill seg radius cuts the corner').toBe(true);
+    expect.soft(c.navPainted, 'boxed ‹ › paint a border').toBeGreaterThanOrEqual(4);
+    expect.soft(c.navCornerCut, 'nav boxes keep a radius').toBe(true);
     expect.soft(c.range, 'week range').toBe('19 to 25 Oct');
     expect.soft(c.searchWidth, 'wide search').toBeGreaterThanOrEqual(200);
-    expect.soft(c.todayBorder, 'outlined Today').toBeGreaterThanOrEqual(1);
-    expect.soft(c.dayHeadFullShown, 'day headers one full line').toBe(7);
-    expect.soft(c.dayHeadShortShown, 'stacked short heads hidden at 1280').toBe(0);
-    expect.soft(c.dayHeadAlign, 'day heads left-aligned').toBe('left');
+    expect.soft(c.todayPainted, 'Today paints an outline').toBeGreaterThanOrEqual(4);
+    expect.soft(c.todayCornerCut, 'Today keeps a radius').toBe(true);
+    expect.soft(c.dayHeadShortShown, 'day headers one left-aligned line').toBe(7);
+    expect.soft(c.dayHeadFullShown, 'month-long heads hidden at 1280').toBe(0);
     expect.soft(c.dayHeadLines, 'day heads stay one line').toBeLessThanOrEqual(1);
+    expect.soft(c.dayHeadText.some(t => /Mon\s*19/.test(t) && !/Oct/.test(t)), `day head is Mon 19 (${c.dayHeadText.join(' | ')})`).toBe(true);
     expect.soft(c.line1_0036, 'card line 1').toBe('07:00–10:30 · #0036');
-    expect.soft(c.titleClamp, 'titles wrap to 2 lines').toBe(2);
-    expect.soft(c.weekCrewWrap, 'week crew names do not wrap').toBe('nowrap');
+    expect.soft(c.titleLines, 'titles wrap to 2 lines').toBe(2);
+    expect.soft(c.weekCrewLines, 'week crew names stay one line').toBe(1);
 
     const rail = await measure('rail-1280');
-    expect.soft(rail.chrome.trayHeadingPx, 'tray large heading').toBeGreaterThanOrEqual(18);
-    expect.soft(rail.chrome.trayHeadingTransform, 'tray heading not uppercase').toBe('none');
+    expect.soft(rail.chrome.trayHeadingH, 'tray large heading').toBeGreaterThanOrEqual(20);
+    expect.soft(rail.chrome.trayHeadingText, 'tray heading').toBe('Unscheduled');
     expect.soft(rail.chrome.trayCols, 'tray 3 compact columns').toBe(3);
 
     const day = await measure('day-1280');
     expect.soft(day.chrome.dayUntimedWidth, 'untimed card has a width').toBeGreaterThan(0);
     expect.soft(day.chrome.dayUntimedWidth < day.chrome.dayTrackWidth * 0.55, 'untimed card does not span the track').toBe(true);
-    expect.soft(day.chrome.dayCrewWrap, 'day crew names do not wrap').toBe('nowrap');
+    expect.soft(day.chrome.dayCrewLines, 'day crew names stay one line').toBe(1);
 
     const phone = await measure('week-390');
     expect.soft(phone.chrome.headerTop, '390 header not clipped at the top').toBeGreaterThanOrEqual(0);

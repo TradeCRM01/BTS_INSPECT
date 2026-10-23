@@ -526,6 +526,11 @@ async function measureOne(id: StateId, build: Build): Promise<Measured> {
       await settle(page);
     }
     const dom = await page.evaluate(() => window.__p2.measureDom());
+    const chromeShot = await shoot(page, `${what} chrome`);
+    dom.chrome = await page.evaluate(
+      ([b64, chrome]) => window.__p2.chromePaint(b64 as string, chrome as never),
+      [chromeShot.toString('base64'), dom.chrome] as const,
+    );
     const shape = KILLS['P2-day-track'].states.includes(id) ? await page.evaluate(() => window.__p2.trackShape()) : null;
     if (build === 'branch' && spec.frames.chips) {
       const clip = await page.evaluate(() => window.__p2.chipCrop());

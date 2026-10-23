@@ -6960,7 +6960,7 @@
     align-items: stretch;
     flex: 0 0 auto;
     gap: 0;
-    border: 1px solid var(--g-line);
+    border: 1px solid var(--g-line-strong);
     border-radius: 999px;
     overflow: visible;
     background: var(--g-surface);
@@ -7135,7 +7135,7 @@
   }
 
   .hub-week-nav-box {
-    border: 1px solid var(--g-line);
+    border: 1px solid var(--g-line-strong);
     border-radius: 10px;
     min-width: 44px;
     min-height: 44px;
@@ -7635,18 +7635,21 @@
     }
 
     .hub-week-head-full {
-      display: inline;
+      display: none;
       text-align: left;
       white-space: nowrap;
     }
 
     .hub-week-head-short {
-      display: none;
+      display: inline-flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 6px;
     }
 
     .hub-week-now {
       display: inline;
-      margin-left: 6px;
+      margin-left: auto;
     }
   }
 
@@ -7887,10 +7890,10 @@
     text-overflow: ellipsis;
     white-space: normal;
     font-family: var(--g-font-ui);
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 1.25;
-    opacity: 0.92;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 18px;
+    opacity: 1;
   }
 
   .hub-schedule-place {
