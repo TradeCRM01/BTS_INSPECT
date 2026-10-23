@@ -1,12 +1,17 @@
 import type { JobStatus } from '../types/crm';
 import { formatJobRef } from './jobRef';
-import { jobCrewScheduleNeedsCrewClass, jobCrewScheduleStatus } from './jobCrewScheduleStatus';
+import {
+  JOB_PILL_SET_A_DATE,
+  jobStatusPill,
+  type JobStatusPill,
+  type JobStatusPillInput,
+} from './jobStatusPill';
 
 export const JOBS_LIST_NO_CLIENT = 'No client';
+export const JOBS_LIST_NO_CREW = 'No crew yet';
 export const JOB_CLIENT_ATTACH_PLACEHOLDER = 'Add client…';
 const PHONE_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-/** Visible job name on list rows. Title first — not only #0001. */
 export function jobsListTitle(job: {
   title?: string | null;
   job_number?: number | null;
@@ -17,7 +22,6 @@ export function jobsListTitle(job: {
   return title || formatJobRef(job);
 }
 
-/** Customer cell. Blank client_name becomes No client, never an empty cell. */
 export function jobsListCustomer(job: { client_name?: string | null }): string {
   return (job.client_name ?? '').trim() || JOBS_LIST_NO_CLIENT;
 }
@@ -45,6 +49,37 @@ export function jobsListPhoneDate(ymd: string | null | undefined): string {
   return `${Number(match[3])} ${month}`;
 }
 
+export function jobsListCrewLabel(
+  assignedTeam: string[] | null | undefined,
+  members: ReadonlyArray<{ id: string; name?: string | null }> | null | undefined,
+): string {
+  const names: string[] = [];
+  for (const id of assignedTeam ?? []) {
+    const name = (members ?? []).find((member) => member.id === id)?.name?.trim();
+    if (name) names.push(name);
+  }
+  return names.length > 0 ? names.join(', ') : JOBS_LIST_NO_CREW;
+}
+
+export function jobsListPhoneLine2(input: {
+  ref: string;
+  suburb: string;
+  crew: string;
+}): string {
+  return [input.ref, input.suburb, input.crew].filter(Boolean).join(' · ');
+}
+
+export function jobsListPhoneLine3(input: {
+  client: string;
+  date: string;
+}): string {
+  return [input.client, input.date].filter(Boolean).join(' · ');
+}
+
+export function jobsListStatusPill(input: JobStatusPillInput): JobStatusPill {
+  return jobStatusPill(input);
+}
+
 export function jobsListPhoneRow(job: {
   title?: string | null;
   job_number?: number | null;
@@ -56,29 +91,47 @@ export function jobsListPhoneRow(job: {
   status: JobStatus;
   scheduled_date?: string | null;
   assigned_team?: string[] | null;
-}): {
+  invoices?: JobStatusPillInput['invoices'];
+  parentInvoices?: JobStatusPillInput['parentInvoices'];
+  children?: JobStatusPillInput['children'];
+  invoiceReadError?: boolean;
+}, crewLabel?: string): {
   title: string;
   ref: string;
   meta: string;
+  line2: string;
+  line3: string;
   status: string;
   statusClass: string;
   date: string;
+  pill: JobStatusPill;
 } {
   const suburb = jobsListSuburbFromSite(jobsListSite(job.address, job.client_address));
-  const bits = [jobsListCustomer(job), suburb].filter(Boolean);
-  const crewSchedule = jobCrewScheduleStatus(job.scheduled_date, job.assigned_team);
-  const needsClass = jobCrewScheduleNeedsCrewClass(crewSchedule.kind);
+  const crew = crewLabel ?? jobsListCrewLabel(job.assigned_team, []);
+  const ref = formatJobRef(job);
+  const date = jobsListPhoneDate(job.scheduled_date);
+  const pill = jobsListStatusPill(job);
+  const line2 = jobsListPhoneLine2({ ref, suburb, crew });
+  const line3 = jobsListPhoneLine3({ client: jobsListCustomer(job), date });
   return {
     title: jobsListTitle(job),
-    ref: formatJobRef(job),
-    meta: bits.join(' · '),
-    status: crewSchedule.label,
-    statusClass: needsClass ? `hub-jobs-phone-status ${needsClass}` : 'hub-jobs-phone-status',
-    date: jobsListPhoneDate(job.scheduled_date),
+    ref,
+    meta: line2,
+    line2,
+    line3,
+    status: pill.label,
+    statusClass: `hub-jobs-pill is-${pill.tone}`,
+    date,
+    pill,
   };
 }
 
-/** Phone Next is a control only. Closed / invoiced labels stay on the status pill. */
 export function jobsListPhoneNextLabel(next: { actionable: boolean; label: string }): string | null {
-  return next.actionable ? next.label : null;
+  if (!next.actionable) return null;
+  return next.label;
+}
+
+export function jobsListUndatedNextLabel(pillKind: string, nextLabel: string | null): string | null {
+  if (pillKind === 'no_date') return JOB_PILL_SET_A_DATE;
+  return nextLabel;
 }
