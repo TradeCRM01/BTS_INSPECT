@@ -9,7 +9,7 @@ import { ledger } from './mocks.ts';
 import {
   FADE, PALETTE, ROOTS, ROWS, TAP_MIN, TRACK_PROBE, isCream, isNavy,
   type Box, type ChipProbe, type ClockProbe, type ClipProbe, type DayBoardProbe, type DomMeasure, type MaskPart, type Offender, type PaletteCount, type Paint,
-  type LayoutProbe, type PartProbe, type ReachBox, type ReachProbe, type RowProbe, type SheetProbe, type Stroke, type TapProbe, type TextProbe, type TextRole,
+  type ChromeProbe, type DayTrackInfo, type LayoutProbe, type OverflowSkip, type PartProbe, type ReachBox, type ReachProbe, type RowProbe, type SheetProbe, type Stroke, type TapProbe, type TextProbe, type TextRole, type TrackLabel,
   type TrackShape, type TrackerProbe, type TrayState,
 } from './matrix.ts';
 import { FOCUS } from './matrix.ts';
@@ -62,7 +62,7 @@ export type P2Probe = {
 };
 
 declare global {
-  interface Window { __P2_BOOT__: { path: string; empty?: boolean; jobsError?: boolean; needCrewPair?: boolean }; __p2: P2Probe }
+  interface Window { __P2_BOOT__: { path: string; empty?: boolean; jobsError?: boolean; needCrewPair?: boolean; malformedCrew?: boolean }; __p2: P2Probe }
 }
 
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -566,12 +566,14 @@ function reach(): ReachProbe {
   return out;
 }
 
-function overflow(): Pick<DomMeasure, 'iw' | 'docSW' | 'bodySW' | 'maxRight' | 'maxEl' | 'offenders' | 'buttons' | 'clips'> {
+function overflow(): Pick<DomMeasure, 'iw' | 'docSW' | 'bodySW' | 'maxRight' | 'maxEl' | 'offenders' | 'buttons' | 'clips' | 'overflowSkips'> {
   const iw = window.innerWidth;
   let maxRight = 0;
   let maxEl = '';
   const offenders: Offender[] = [];
   const clips: ClipProbe[] = [];
+  const overflowSkips: OverflowSkip[] = [];
+  const trackClass = TRACK_PROBE.selector.slice(1);
   for (const el of document.body.querySelectorAll('*')) {
     const r = el.getBoundingClientRect();
     if (r.width <= 1 || r.height <= 1) continue;
@@ -581,16 +583,19 @@ function overflow(): Pick<DomMeasure, 'iw' | 'docSW' | 'bodySW' | 'maxRight' | '
       maxEl = describe(el);
     }
     const own = getComputedStyle(el);
-    if (own.textOverflow !== 'ellipsis') {
-      const clip = clipBox(el, false);
-      if (Number.isFinite(clip.right) && r.right > clip.right + 0.5 && !clip.clipEl.includes(TRACK_PROBE.selector.slice(1))) {
-        clips.push({
-          el: describe(el),
-          right: Math.round(r.right * 10) / 10,
-          clip: clip.clipEl,
-          clipRight: Math.round(clip.right * 10) / 10,
-        });
-      }
+    const clip = clipBox(el, false);
+    const pastClip = Number.isFinite(clip.right) && r.right > clip.right + 0.5;
+    if (pastClip && own.textOverflow === 'ellipsis') {
+      overflowSkips.push({ el: describe(el), right: Math.round(r.right * 10) / 10, reason: 'ellipsis-self' });
+    } else if (pastClip && clip.clipEl.includes(trackClass)) {
+      overflowSkips.push({ el: describe(el), right: Math.round(r.right * 10) / 10, reason: 'clip-inside-allowlisted-scroller' });
+    } else if (pastClip) {
+      clips.push({
+        el: describe(el),
+        right: Math.round(r.right * 10) / 10,
+        clip: clip.clipEl,
+        clipRight: Math.round(clip.right * 10) / 10,
+      });
     }
     if (r.right <= iw + 0.5) continue;
     let scroller: Offender['scroller'] = null;
@@ -598,10 +603,15 @@ function overflow(): Pick<DomMeasure, 'iw' | 'docSW' | 'bodySW' | 'maxRight' | '
       if (getComputedStyle(node).overflowX === 'visible') continue;
       const found = { classes: classesOf(node), right: Math.round(node.getBoundingClientRect().right * 10) / 10 };
       if (!scroller) scroller = found;
-      if (found.classes.includes(TRACK_PROBE.selector.slice(1))) {
+      if (found.classes.includes(trackClass)) {
         scroller = found;
         break;
       }
+    }
+    const insideTrack = !!scroller && scroller.classes.includes(trackClass) && scroller.right <= iw + 0.5;
+    if (insideTrack) {
+      overflowSkips.push({ el: describe(el), right: Math.round(r.right * 10) / 10, reason: 'sole-allowlisted-scroller' });
+      continue;
     }
     offenders.push({ el: describe(el), right: Math.round(r.right * 10) / 10, scroller });
   }
@@ -636,6 +646,112 @@ function overflow(): Pick<DomMeasure, 'iw' | 'docSW' | 'bodySW' | 'maxRight' | '
     offenders: offenders.slice(0, 60),
     buttons,
     clips: clips.slice(0, 40),
+    overflowSkips: overflowSkips.slice(0, 80),
+  };
+}
+
+function dayTrackInfo(): DayTrackInfo | null {
+  const el = track();
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return {
+    overflowX: getComputedStyle(el).overflowX,
+    sw: el.scrollWidth,
+    cw: el.clientWidth,
+    right: Math.round(r.right * 10) / 10,
+  };
+}
+
+function trackLabels(): TrackLabel[] {
+  const host = track();
+  if (!host) return [];
+  const out: TrackLabel[] = [];
+  const push = (el: Element, card: Element) => {
+    if (!visible(el)) return;
+    const textR = textBox(el) ?? el.getBoundingClientRect();
+    const cardR = card.getBoundingClientRect();
+    const clip = clipBox(el, true);
+    const clipIsTrack = clip.clipEl.includes(TRACK_PROBE.selector.slice(1));
+    const fitsClip = clipIsTrack || !Number.isFinite(clip.right)
+      || (textR.left >= clip.left - 0.5 && textR.right <= clip.right + 0.5);
+    out.push({
+      el: describe(el),
+      text: (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 48),
+      card: describe(card),
+      fitsCard: textR.left >= cardR.left - 0.5 && textR.right <= cardR.right + 0.5,
+      fitsClip,
+      clipEl: clip.clipEl,
+    });
+  };
+  for (const card of host.querySelectorAll('.hub-week-chip, [data-untimed-chip]')) {
+    for (const el of card.querySelectorAll('.hub-week-chip-clock, .hub-week-chip-ref, .hub-week-chip-desc, .hub-week-chip-line1, .hub-schedule-crew-name')) {
+      push(el, card);
+    }
+  }
+  for (const name of host.querySelectorAll('.hub-day-crew-lock .hub-schedule-crew-name')) {
+    const cell = name.closest('.hub-day-crew-lock') ?? name;
+    push(name, cell);
+  }
+  return out;
+}
+
+function chrome(): ChromeProbe {
+  const px = (el: Element | null, prop: string) => (el ? parseFloat(getComputedStyle(el).getPropertyValue(prop)) || 0 : 0);
+  const header = document.querySelector('.ops-page-head');
+  const newJob = [...document.querySelectorAll('button')].find(el => visible(el) && (el.textContent ?? '').includes('New job')) ?? null;
+  const seg = document.querySelector('.hub-week-seg');
+  const navs = [...document.querySelectorAll('.hub-week-nav-box')].filter(visible);
+  const range = document.querySelector('.hub-week-range-full');
+  const search = document.querySelector('.hub-week-search');
+  const today = document.querySelector('.hub-week-today');
+  const fulls = [...document.querySelectorAll('.hub-week-head-full')].filter(visible);
+  const shorts = [...document.querySelectorAll('.hub-week-head-short')].filter(visible);
+  const head = document.querySelector('.hub-week-head');
+  const two = [...document.querySelectorAll('[data-schedule-job].hub-week-chip')].find(el =>
+    (el.querySelector('.hub-week-chip-ref')?.textContent ?? '').includes('#0036'),
+  ) ?? null;
+  const desc = two?.querySelector('.hub-week-chip-desc') ?? document.querySelector('.hub-week-chip-desc');
+  const trays = [...document.querySelectorAll('[data-schedule-rail], [data-schedule-unscheduled-list]')];
+  const tray = trays.find(visible) ?? trays[0] ?? null;
+  const kicker = tray?.querySelector('.ops-card-kicker') ?? null;
+  const cards = tray?.querySelector('.hub-schedule-tray-cards') ?? null;
+  const untimed = document.querySelector('[data-untimed-chip]');
+  const trackEl = track();
+  const dayCrew = document.querySelector('.hub-day-crew-lock .hub-schedule-crew-name');
+  const weekCrew = document.querySelector('.hub-week-crew .hub-schedule-crew-name');
+  const quick = [...document.querySelectorAll('[data-schedule-quickbook-toggle], [data-schedule-section="quickbook"]')].find(visible) ?? null;
+  const tools = document.querySelector('.hub-week-tools');
+  const lh = fulls[0] ? parseFloat(getComputedStyle(fulls[0]).lineHeight) || 16 : 16;
+  return {
+    headerAlign: header ? getComputedStyle(header).textAlign : '',
+    headerLeft: header?.getBoundingClientRect().left ?? -1,
+    headerTop: header?.getBoundingClientRect().top ?? -1,
+    newJobLeft: newJob?.getBoundingClientRect().left ?? -1,
+    newJobRight: newJob?.getBoundingClientRect().right ?? -1,
+    segRadius: Math.max(px(seg, 'border-top-left-radius'), px(seg, 'border-radius')),
+    segBorder: px(seg, 'border-top-width'),
+    navBoxed: navs.filter(el => px(el, 'border-top-width') >= 1).length,
+    range: (range?.textContent ?? '').replace(/\s+/g, ' ').trim(),
+    searchWidth: search?.getBoundingClientRect().width ?? 0,
+    todayBorder: px(today, 'border-top-width'),
+    dayHeadFullShown: fulls.length,
+    dayHeadShortShown: shorts.length,
+    dayHeadAlign: head ? getComputedStyle(head).textAlign : '',
+    dayHeadLines: fulls[0] ? Math.round(fulls[0].getBoundingClientRect().height / lh) : 0,
+    line1_0036: (two?.querySelector('.hub-week-chip-line1')?.textContent ?? '').replace(/\s+/g, ' ').trim(),
+    titleClamp: desc ? parseInt(getComputedStyle(desc).getPropertyValue('-webkit-line-clamp') || '0', 10) || 0 : 0,
+    trayHeadingPx: px(kicker, 'font-size'),
+    trayHeadingTransform: kicker ? getComputedStyle(kicker).textTransform : '',
+    trayCols: cards ? getComputedStyle(cards).gridTemplateColumns.split(' ').filter(Boolean).length : 0,
+    dayUntimedWidth: untimed?.getBoundingClientRect().width ?? 0,
+    dayTrackWidth: trackEl ? trackEl.clientWidth : 0,
+    dayCrewWrap: dayCrew ? getComputedStyle(dayCrew).whiteSpace : '',
+    weekCrewWrap: weekCrew ? getComputedStyle(weekCrew).whiteSpace : '',
+    quickBookTop: quick?.getBoundingClientRect().top ?? -1,
+    rangeTop: range?.getBoundingClientRect().top ?? -1,
+    todayTop: today?.getBoundingClientRect().top ?? -1,
+    quickBookWidth: quick?.getBoundingClientRect().width ?? 0,
+    toolsWidth: tools?.getBoundingClientRect().width ?? 0,
   };
 }
 
@@ -854,6 +970,9 @@ window.__p2 = {
       layout: layoutProbe(),
       clocks: clocks(),
       reach: reach(),
+      trackLabels: trackLabels(),
+      dayTrack: dayTrackInfo(),
+      chrome: chrome(),
     };
   },
 
@@ -869,6 +988,7 @@ window.__p2 = {
       sw: el.scrollWidth,
       cw: el.clientWidth,
       right: Math.round(r.right * 10) / 10,
+      overflowX: getComputedStyle(el).overflowX,
       cutHourPx: cut ? { shown: Math.round(inner - cut.left), hidden: Math.round(cut.right - inner) } : { shown: 0, hidden: 0 },
     };
   },

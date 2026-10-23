@@ -4,15 +4,19 @@ import {
   SHEET, TAP_MIN, TODAY, TRACK_PROBE, UNTIMED, WEEK, channelGap, isAmber, isNavy, killTitle, rgbOf,
   type KillId, type Measure, type Offender, type Stroke,
 } from './matrix.ts';
-import { JOBS, JOB_IDS, SAM, SCHEDULE_FIXTURE } from './fixture.ts';
+import { JOBS, JOB_IDS, MALFORMED_CREW_IDS, SAM, SCHEDULE_FIXTURE } from './fixture.ts';
 import { bundleReport, closeHarness, measure, measureAll, openState, token, writeCapture } from './harness.ts';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 // The only scroller whose children may extend past innerWidth (Coach ruling on finding 7).
-// Any new entry needs a Coach ruling.
+// The brief kill title is "a real wheel scrolls the day track sideways": .hub-day-track is the
+// signed horizontal scroller (overflow-x:auto, sw>cw, track.right stays on screen). Children past
+// innerWidth are skipped only when they live inside that scroller. Labels inside it must still
+// fit their card. Any new skip reason needs a Coach ruling.
 const SOLE_SCROLLER = '.hub-day-track';
 const TOLERANCE_PX = 0.5;
+const SKIP_REASONS = new Set(['sole-allowlisted-scroller', 'ellipsis-self', 'clip-inside-allowlisted-scroller']);
 
 const states = (id: KillId) => measureAll(KILLS[id].states);
 const exempt = (o: Offender, iw: number) =>
@@ -130,6 +134,20 @@ describe('P2 Schedule on the built dist', () => {
       }
       const clipOutside = m.clips.filter(c => c.right > m.iw + TOLERANCE_PX && !c.clip.includes(SOLE_SCROLLER.slice(1)));
       expect.soft(clipOutside, `${m.id} clipped past innerWidth by a non-allowlisted ancestor`).toEqual([]);
+      for (const skip of m.overflowSkips) {
+        expect.soft(SKIP_REASONS.has(skip.reason), `${m.id} skip ${skip.el} @${skip.right} reason ${skip.reason}`).toBe(true);
+      }
+      if (m.dayTrack) {
+        expect.soft(['auto', 'scroll'].includes(m.dayTrack.overflowX), `${m.id} ${SOLE_SCROLLER} overflow-x is a scroller`).toBe(true);
+        expect.soft(m.dayTrack.right, `${m.id} ${SOLE_SCROLLER} stays on screen`).toBeLessThanOrEqual(m.iw + TOLERANCE_PX);
+        if (m.id.startsWith('day-')) {
+          expect.soft(m.dayTrack.sw, `${m.id} ${SOLE_SCROLLER} scrollWidth`).toBeGreaterThan(m.dayTrack.cw);
+        }
+      }
+      for (const lab of m.trackLabels) {
+        expect.soft(lab.fitsCard, `${m.id} track label "${lab.text}" past card ${lab.card}`).toBe(true);
+        expect.soft(lab.fitsClip, `${m.id} track label "${lab.text}" clipped by ${lab.clipEl || 'viewport'}`).toBe(true);
+      }
     }
   });
 
@@ -139,6 +157,7 @@ describe('P2 Schedule on the built dist', () => {
       expect.soft(t, `${m.id} renders the day track`).not.toBeNull();
       if (!t) continue;
       expect.soft(t.classes, `${m.id} wheel target is ${SOLE_SCROLLER}`).toContain(SOLE_SCROLLER.slice(1));
+      expect.soft(['auto', 'scroll'].includes(t.overflowX), `${m.id} ${SOLE_SCROLLER} overflow-x`).toBe(true);
       expect.soft(t.sw, `${m.id} track scrollWidth over clientWidth`).toBeGreaterThan(t.cw);
       expect.soft(t.right, `${m.id} track right edge`).toBeLessThanOrEqual(m.iw + TOLERANCE_PX);
       expect.soft(t.wheelX.trackLeft, `${m.id} horizontal wheel scrolls the track`).toBeGreaterThan(0);
@@ -674,5 +693,52 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(quoted?.pill, '#0206 never Scheduled').not.toBe('Scheduled');
     expect.soft(quoted?.pill, '#0206 never Booked').not.toBe('Booked');
     expect.soft(`${quoted?.clock} ${quoted?.line1}`, '#0206 clock never Booked').not.toMatch(/Booked/);
+  });
+
+  it(killTitle('K24'), async () => {
+    const m = await measure('malformed-1280');
+    expect.soft(m.pageErrors, 'malformed assigned_team throws').toEqual([]);
+    expect.soft(m.layout.h1, 'malformed page still renders Schedule').toEqual(['Schedule']);
+    const cards = MALFORMED_CREW_IDS.map(id => m.layout.cards.find(c => c.id === id));
+    expect.soft(cards.filter(Boolean).length, 'all five malformed crew jobs render').toBe(5);
+    for (const card of cards) {
+      expect.soft(card?.pill, `${card?.line1 || card?.id} counts as need crew`).toBe('Needs crew');
+    }
+    expect.soft(m.layout.whisper, 'five malformed jobs are need crew').toBe('5 on the board · 5 need crew');
+  });
+
+  it(killTitle('K25'), async () => {
+    const week = await measure('week-1280');
+    const c = week.chrome;
+    expect.soft(c.headerAlign, 'header left-aligned').toBe('left');
+    expect.soft(c.headerLeft < c.newJobLeft, 'New job sits to the right of the header').toBe(true);
+    expect.soft(c.segRadius, 'pill seg radius').toBeGreaterThanOrEqual(8);
+    expect.soft(c.segBorder, 'pill seg border').toBeGreaterThanOrEqual(1);
+    expect.soft(c.navBoxed, 'boxed ‹ ›').toBeGreaterThanOrEqual(2);
+    expect.soft(c.range, 'week range').toBe('19 to 25 Oct');
+    expect.soft(c.searchWidth, 'wide search').toBeGreaterThanOrEqual(200);
+    expect.soft(c.todayBorder, 'outlined Today').toBeGreaterThanOrEqual(1);
+    expect.soft(c.dayHeadFullShown, 'day headers one full line').toBe(7);
+    expect.soft(c.dayHeadShortShown, 'stacked short heads hidden at 1280').toBe(0);
+    expect.soft(c.dayHeadAlign, 'day heads left-aligned').toBe('left');
+    expect.soft(c.dayHeadLines, 'day heads stay one line').toBeLessThanOrEqual(1);
+    expect.soft(c.line1_0036, 'card line 1').toBe('07:00–10:30 · #0036');
+    expect.soft(c.titleClamp, 'titles wrap to 2 lines').toBe(2);
+    expect.soft(c.weekCrewWrap, 'week crew names do not wrap').toBe('nowrap');
+
+    const rail = await measure('rail-1280');
+    expect.soft(rail.chrome.trayHeadingPx, 'tray large heading').toBeGreaterThanOrEqual(18);
+    expect.soft(rail.chrome.trayHeadingTransform, 'tray heading not uppercase').toBe('none');
+    expect.soft(rail.chrome.trayCols, 'tray 3 compact columns').toBe(3);
+
+    const day = await measure('day-1280');
+    expect.soft(day.chrome.dayUntimedWidth, 'untimed card has a width').toBeGreaterThan(0);
+    expect.soft(day.chrome.dayUntimedWidth < day.chrome.dayTrackWidth * 0.55, 'untimed card does not span the track').toBe(true);
+    expect.soft(day.chrome.dayCrewWrap, 'day crew names do not wrap').toBe('nowrap');
+
+    const phone = await measure('week-390');
+    expect.soft(phone.chrome.headerTop, '390 header not clipped at the top').toBeGreaterThanOrEqual(0);
+    expect.soft(Math.abs(phone.chrome.todayTop - phone.chrome.rangeTop), 'Today on the range row').toBeLessThanOrEqual(12);
+    expect.soft(phone.chrome.quickBookTop > phone.chrome.rangeTop + 16, 'Quick book on its own row').toBe(true);
   });
 });

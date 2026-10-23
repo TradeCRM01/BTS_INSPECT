@@ -6714,9 +6714,11 @@
       flex: 0 1 auto;
       margin: 0;
       font-family: var(--g-font-title);
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--g-ink-muted);
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 0;
+      text-transform: none;
+      color: var(--g-ink);
     }
 
     .hub-week-document .hub-schedule-needs-date-rail > .ops-tray-head .ops-meta {
@@ -6958,10 +6960,11 @@
     align-items: stretch;
     flex: 0 0 auto;
     gap: 0;
-    border: none;
-    border-radius: 0;
+    border: 1px solid var(--g-line);
+    border-radius: 999px;
     overflow: visible;
-    background: none;
+    background: var(--g-surface);
+    padding: 2px;
   }
 
   .hub-week-seg-btn {
@@ -7173,7 +7176,9 @@
   }
 
   .hub-board-cal .hub-schedule-crew-name,
-  .hub-week-crew-name {
+  .hub-week-crew-name,
+  .hub-week-document .hub-week-crew .hub-schedule-crew-name,
+  .hub-week-document .hub-day-crew-lock .hub-schedule-crew-name {
     white-space: nowrap;
   }
 
@@ -7616,6 +7621,28 @@
     line-height: 1.1;
   }
 
+  @media (min-width: 1024px) {
+    .hub-week-head {
+      flex-wrap: nowrap;
+      text-align: left;
+    }
+
+    .hub-week-head-full {
+      display: inline;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .hub-week-head-short {
+      display: none;
+    }
+
+    .hub-week-now {
+      display: inline;
+      margin-left: 6px;
+    }
+  }
+
   .hub-week-range-short {
     display: none;
   }
@@ -7665,7 +7692,7 @@
     color: var(--schedule-ink);
     overflow: visible;
     text-overflow: clip;
-    white-space: normal;
+    white-space: nowrap;
   }
 
   .hub-week-cell {
