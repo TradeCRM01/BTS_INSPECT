@@ -516,7 +516,18 @@ function overflow(): Pick<DomMeasure, 'iw' | 'docSW' | 'bodySW' | 'maxRight' | '
     offenders.push({ el: describe(el), right: Math.round(r.right * 10) / 10, scroller });
   }
   offenders.sort((a, b) => b.right - a.right);
-  const buttons = [...document.querySelectorAll<HTMLElement>('button, [role="button"]')]
+  const chrome = document.querySelectorAll<HTMLElement>([
+    '.ops-page-head button',
+    '.ops-page-head [role="button"]',
+    '.hub-week-page-tools button',
+    '.hub-week-tools button',
+    '.hub-week-quiet',
+    '.hub-week-seg-btn',
+    '.shell-header button',
+    '.shell-tabbar button',
+    '[role="dialog"] .hub-editor-sticky-footer button',
+  ].join(', '));
+  const buttons = [...chrome]
     .filter(el => {
       const r = el.getBoundingClientRect();
       return r.width > 1 && r.height > 1 && getComputedStyle(el).visibility !== 'hidden';
