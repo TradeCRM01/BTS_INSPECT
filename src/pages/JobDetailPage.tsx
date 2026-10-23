@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AppShell } from '../components/layout/AppShell';
-import { LoadingSpinner, PageError, Breadcrumbs, useToast, OpsStatus, OpsSiteRow, OpsPhotoStamp } from '../components/ui';
+import { LoadingSpinner, PageError, Breadcrumbs, useToast, OpsStatus, OpsPhotoStamp } from '../components/ui';
 import { EnquiryConversation, useEnquiryConversation } from '../components/crm/EnquiryConversation';
 import { conversationLookClientPhone, conversationLookKind } from '../lib/enquiryConversation';
 import { JobFormModal } from '../components/crm/JobFormModal';
@@ -19,7 +19,6 @@ import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedS
 import {
   jobSheetHeaderPrimaryDetail,
   jobSheetHeaderPrimaryHeld,
-  jobSheetIdentityCrewLabel,
   listQueryBusy,
 } from '../lib/listQueryReady';
 import { TimeEntryForm } from '../components/timesheets/TimeEntryForm';
@@ -131,13 +130,38 @@ import {
 import {
   JOB_SHEET_TABS,
   jobSheetGroupLabel,
-  jobSheetOverviewRows,
+  jobSheetPaperworkCount,
   jobSheetTabFor,
+  jobSheetTabLabel,
   readJobSheetTab,
   writeJobSheetTab,
   type JobSheetSection,
   type JobSheetTab,
 } from '../lib/jobSheetTabs';
+import { JOB_SHEET_HEAD_BAR, JOB_SHEET_LINK } from '../lib/jobSheetLocks';
+import { canCreateJobInvoice, jobSheetInvoiceCtaLabel } from '../lib/jobSheetInvoiceCta';
+import { jobSheetWhenLine } from '../lib/jobSheetWhen';
+import {
+  JOB_SHEET_ALL_NOTES,
+  JOB_SHEET_ALL_PHOTOS,
+  JOB_SHEET_BACK,
+  JOB_SHEET_EDIT_BILL,
+  JOB_SHEET_SET_A_DATE,
+  JOB_SHEET_STATUS_OPTIONS,
+  jobSheetBillTotals,
+  jobSheetCrewLabel,
+  jobSheetEyebrow,
+  jobSheetMapsHref,
+  jobSheetNoteStamp,
+  jobSheetPhotosHeading,
+  jobSheetSubLine,
+} from '../lib/jobSheetChrome';
+import { jobStatusPill } from '../lib/jobStatusPill';
+import {
+  jobParentInvoicedEnabled,
+  jobParentInvoicedQueryKey,
+  loadParentInvoiced,
+} from '../lib/jobParentInvoiced';
 import { jhaCardHint, jhaListContext, jhaStatusClass, jhaStatusLabel, recommendJhaListAction } from '../lib/jhaNextAction';
 import { livingInspectionSummary, livingSwmsSummary, livingTake5Summary } from '../lib/livingJha';
 import { take5CardHint, take5FillPath, take5ListContext, take5StatusClass, take5StatusLabel, recommendTake5ListAction } from '../lib/take5NextAction';
@@ -153,10 +177,9 @@ import { inspectionDisplayStatus, reportSendSurface } from '../lib/sendReport';
 import type { TemplateSchema } from '../types/template';
 import { clientRecordHref } from '../lib/clientRecords';
 import {
-  Calendar, Clock, User, Phone, Mail, ChevronDown,
-  FileText, ShieldCheck, ShieldAlert, Receipt, DollarSign, Plus, ClipboardList, GitBranch, Users,
+  Clock,
+  FileText, ShieldCheck, ShieldAlert, Receipt, DollarSign, Plus, ClipboardList, GitBranch,
   MoreHorizontal, MapPin, Camera, CheckCircle2, CornerDownRight, Lock, ChevronRight,
-  type LucideIcon,
 } from 'lucide-react';
 import {
   buildJobClockOffEntry,
@@ -313,14 +336,6 @@ function scrollToId(id: string) {
   const target = el && el.getClientRects().length === 0 ? el.firstElementChild : el;
   target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
-
-const LANE_ICONS: Partial<Record<JobSheetSection, LucideIcon>> = {
-  'job-schedule': Calendar,
-  'job-swms': ShieldCheck,
-  'job-visit-notes': ClipboardList,
-  'job-quotes': FileText,
-  'job-bill': DollarSign,
-};
 
 /** DEV look frames only — empty / due rows on the audit job. Not a production path. */
 const TESTING_DUE_LOOK_EMPTY = 'testing-due-empty';
@@ -1556,10 +1571,8 @@ export function JobDetailPage() {
   const rescheduleAsked = isJobRescheduleQuery(searchParams);
   const tab = readJobSheetTab(searchParams, window.location.hash);
   // Materials is only the bill, so landing there opens the cost panel without a second tap.
-  const [billOpen, setBillOpen] = useState(tab === 'materials');
   // Replace, not push. Tab switches must not stack history, and back from an invoice still lands on the same tab.
   const setTab = (next: JobSheetTab) => {
-    if (next === 'materials') setBillOpen(true);
     setSearchParams(prev => writeJobSheetTab(new URLSearchParams(prev), next), { replace: true });
   };
   const pane = (section: JobSheetSection) => ({
@@ -1782,7 +1795,7 @@ export function JobDetailPage() {
     enabled: !!id && !!profile,
   });
 
-  const { data: teamMembers, isPending: teamMembersPending, isError: teamMembersError, refetch: refetchTeamMembers } = useQuery<TeamMember[]>({
+  const { data: teamMembers, isPending: teamMembersPending, isError: teamMembersError } = useQuery<TeamMember[]>({
     queryKey: ['team-members-job-detail'],
     queryFn: async () => {
       if (!profile?.company_id) return [];
@@ -1960,6 +1973,15 @@ export function JobDetailPage() {
     enabled: !!id && !!profile,
   });
 
+  const { data: parentInvoices, isError: parentInvoicesError } = useQuery({
+    queryKey: jobParentInvoicedQueryKey(job?.parent_job_id ?? ''),
+    queryFn: () => loadParentInvoiced({
+      companyId: profile!.company_id,
+      parentJobId: job!.parent_job_id!,
+    }),
+    enabled: Boolean(profile?.company_id && job && jobParentInvoicedEnabled(job)),
+  });
+
   const { data: timesheets, isPending: timesheetsPending, isError: timesheetsError, refetch: refetchTimesheets } = useQuery<JobTimesheet[]>({
     queryKey: ['job-timesheets', id],
     queryFn: async () => {
@@ -2048,7 +2070,7 @@ export function JobDetailPage() {
   const crewBusy = listQueryBusy({ isPending: teamMembersPending, isError: teamMembersError, data: teamMembers });
   const take5sFailed = take5sError || jhasError;
 
-  const { data: visitNotes, isPending: visitNotesPending, isError: visitNotesError, refetch: refetchVisitNotes } = useQuery<JobVisitNote[]>({
+  const { data: visitNotes, isPending: visitNotesPending, isError: visitNotesError } = useQuery<JobVisitNote[]>({
     queryKey: ['job-visit-notes', id],
     queryFn: async () => {
       if (visitNotesLookOn()) return lookVisitNotes(id!);
@@ -2072,7 +2094,7 @@ export function JobDetailPage() {
     enabled: !!id && !!profile?.company_id,
   });
 
-  const { data: jobPhotos, isPending: jobPhotosPending, isError: jobPhotosError, refetch: refetchJobPhotos } = useQuery<JobPhotoRow[]>({
+  const { data: jobPhotos, isPending: jobPhotosPending, isError: jobPhotosError } = useQuery<JobPhotoRow[]>({
     queryKey: ['job-photos', id],
     queryFn: async () => {
       if (visitNotesLookOn()) return [];
@@ -2184,7 +2206,7 @@ export function JobDetailPage() {
     enabled: !!profile,
   });
 
-  const { data: costTotals, isPending: costTotalsPending, isError: costTotalsError, refetch: refetchCostTotals } = useQuery<{ cost: number; charge: number; lines: number }>({
+  const { data: costTotals, isPending: costTotalsPending, isError: costTotalsError } = useQuery<{ cost: number; charge: number; lines: number }>({
     queryKey: ['job-cost-totals', id],
     queryFn: async () => {
       const p305 = p305LookKind();
@@ -2289,7 +2311,6 @@ export function JobDetailPage() {
     onError: (e: Error) => {
       showToast(e.message, 'error');
       if (e.message === JOB_BILL_INVOICE_NO_LINES) {
-        setBillOpen(true);
         revealSection('job-bill');
       }
     },
@@ -2764,6 +2785,39 @@ export function JobDetailPage() {
     parent_job_number: parentJob?.job_number ?? null,
   });
   const stages = childJobs ?? [];
+  const pill = jobStatusPill({
+    status: job.status,
+    scheduled_date: job.scheduled_date,
+    assigned_team: job.assigned_team,
+    invoices,
+    parentInvoices,
+    children: childJobs,
+    invoiceReadError: invoicesError || parentInvoicesError,
+  });
+  const whenLine = jobSheetWhenLine({
+    scheduled_date: job.scheduled_date,
+    start_time: job.start_time,
+    end_time: job.end_time,
+  });
+  const clockedMinutes = jobClockedMinutes(timesheets ?? [], jobHoursNow);
+  const subLine = jobSheetSubLine({
+    billLines: invoicePreviewForNext?.lineCount ?? costTotals?.lines ?? 0,
+    minutes: clockedMinutes,
+  });
+  const overviewPhotos = gallery.slice(0, 6);
+  const billPreview = jobSheetBillTotals(invoicePreviewForNext);
+  const paperworkHeld = jhasBusy || take5sBusy || inspectionsBusy || quotesBusy || invoicesBusy;
+  const paperworkCount = jobSheetPaperworkCount({
+    jhaCount: (jhas ?? []).length,
+    take5Count: (take5s ?? []).length,
+    inspectionCount: (inspections ?? []).length,
+    quoteCount: (quotes ?? []).length,
+    invoiceCount: (invoices ?? []).length,
+  });
+  const materialsHeld = billBusy || jobBillPreviewState === 'loading';
+  const materialsCount = jobBillPreviewState === 'ready'
+    ? (invoicePreviewForNext?.lineCount ?? costTotals?.lines ?? 0)
+    : (costTotals?.lines ?? 0);
 
   const jhaStartHref = (templateId: string) => {
     const params = new URLSearchParams({ templateId, jobId: job.id });
@@ -2863,7 +2917,6 @@ export function JobDetailPage() {
     }
     if (jobBillInvoiceBlocked(costTotals, invoicePreviewForNext, jobBillPreviewState)) {
       showToast(JOB_BILL_INVOICE_EMPTY, 'info');
-      setBillOpen(true);
       revealSection('job-bill');
       return;
     }
@@ -2917,7 +2970,12 @@ export function JobDetailPage() {
     phoneStored: phoneRow.kind === 'none' ? '' : phoneRow.phone,
   });
   const next = sheetNext.action;
-  const nextLabel = next.key === 'send' ? 'Share' : sheetNext.label;
+  const canInvoice = canCreateJobInvoice(profile?.role);
+  const hideInvoiceCta = next.key === 'invoice' && !canInvoice;
+  const invoiceCta = next.key === 'invoice' && canInvoice
+    ? jobSheetInvoiceCtaLabel(invoicePreviewForNext?.totalIncGst ?? 0)
+    : null;
+  const nextLabel = invoiceCta ?? (next.key === 'send' ? 'Share' : sheetNext.label);
   const arrivingPrimary = sheetNext.label === ARRIVING_NEXT_LABEL;
   const clientBusy = Boolean(job.client_id) && listQueryBusy({
     isPending: clientPending,
@@ -2926,7 +2984,7 @@ export function JobDetailPage() {
   });
   const contactHeld = clientBusy || timesheetsBusy;
   const headerPrimaryHeld = jobSheetHeaderPrimaryHeld({
-    nextKey: next.key,
+    nextKey: hideInvoiceCta ? 'none' : next.key,
     jhasPending,
     jhasError,
     inspectionsPending,
@@ -2935,7 +2993,7 @@ export function JobDetailPage() {
     timesheetsError,
     clientPending: Boolean(job.client_id) && clientPending,
     clientError,
-  });
+  }) || Boolean(next.key === 'invoice' && canInvoice && jobBillPreviewState !== 'ready');
 
   const invoiceNextBusy = invoiceFromJobBill.isPending || invoiceBillFlowBusy;
   const nextBusy =
@@ -2999,6 +3057,7 @@ export function JobDetailPage() {
   });
   const visitReady = visitDecision.action === 'write';
   const visitLog = sortJobVisitNotesNewestFirst(visitNotes);
+  const overviewNotes = visitLog.slice(0, 2);
   const attachVisitPhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     // A second pick while the first is still reading EXIF must win.
@@ -3036,41 +3095,6 @@ export function JobDetailPage() {
     job_number: job.job_number,
     title: job.title,
     address: job.address,
-  });
-  const laneRows = jobSheetOverviewRows({
-    jobStatus: job.status,
-    scheduledDate: job.scheduled_date,
-    startTime: job.start_time,
-    crewNames: assigned,
-    jhaCount: (jhas ?? []).length,
-    take5Count: (take5s ?? []).length,
-    inspectionCount: (inspections ?? []).length,
-    jhaBusy: jhasBusy,
-    jhaError: jhasError,
-    take5Busy: take5sBusy,
-    take5Error: take5sFailed,
-    inspectionsBusy,
-    inspectionsError,
-    crewBusy,
-    crewError: teamMembersError,
-    quotesBusy,
-    quotesError,
-    invoicesBusy,
-    invoicesError,
-    billBusy,
-    billError: costTotalsError,
-    notesBusy,
-    notesError: visitNotesError,
-    photosBusy,
-    photosError: jobPhotosError,
-    testingDueCount: dueTests.length,
-    noteCount: visitLog.length,
-    photoCount: gallery.length,
-    quoteCount: (quotes ?? []).length,
-    invoiceCount: (invoices ?? []).length,
-    billLines: costTotals?.lines ?? 0,
-    billCost: actualCost,
-    billCharge: chargeTotal,
   });
   const groupLabel = (section: JobSheetSection) => {
     const label = jobSheetGroupLabel(section);
@@ -3111,18 +3135,46 @@ export function JobDetailPage() {
         ${JOB_GALLERY_LOOK_CSS}
       `}</style>
       <div className={`ops-page hub-jobs hub-job-cal is-record-open${visitNotesLookOn() ? ' is-visit-notes-look' : ''}${jobPhotosLookOn() ? ' is-job-photos-look' : ''}`}>
+        <Link to="/jobs" className="hub-jobs-label job-sheet-back">{JOB_SHEET_BACK}</Link>
         <Breadcrumbs items={[
           { label: 'Jobs', to: '/jobs' },
           { label: `${jobRef} ${job.title}` },
         ]} />
 
-        <div className="hub-jobs-open-chrome">
-          <Link to="/jobs" className="hub-jobs-label">Jobs</Link>
-        </div>
-
-        <article className="hub-jobs-document job-cal-host">
-          <header className="hub-jobs-sheet-bar">
-            <span className="hub-jobs-hours">{jobRef}</span>
+        <article
+          className="hub-jobs-document job-cal-host"
+          style={{
+            ['--job-sheet-head-bar' as string]: JOB_SHEET_HEAD_BAR,
+            ['--job-sheet-link' as string]: JOB_SHEET_LINK,
+          }}
+        >
+          <header className="hub-jobs-sheet-bar" aria-hidden="true" />
+          <div className="hub-jobs-sheet-body">
+            <div className="job-sheet-head">
+            <div className="job-sheet-eyebrow">
+              <span className="job-sheet-ref">{jobSheetEyebrow(jobRef)}</span>
+              <details className="job-sheet-status">
+                <summary
+                  className={`hub-jobs-pill is-${pill.tone} hub-jobs-status-whisper`}
+                  aria-label="Job status"
+                  data-job-sheet-pill={pill.kind}
+                >
+                  {pill.label}
+                </summary>
+                <div className="job-sheet-status-menu" role="listbox" aria-label="Set job status">
+                  {JOB_SHEET_STATUS_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="option"
+                      aria-selected={job.status === opt.value}
+                      onClick={() => updateStatus.mutate(opt.value)}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </details>
             <div className="hub-jobs-tools-overflow">
               <details ref={moreRef} className="hub-job-more">
                 <summary aria-label="More actions">
@@ -3134,7 +3186,7 @@ export function JobDetailPage() {
                     role="menuitem"
                     onClick={() => { closeMore(); revealSection('job-schedule'); }}
                   >
-                    Schedule & people
+                    People
                   </button>
                   <button
                     type="button"
@@ -3228,19 +3280,25 @@ export function JobDetailPage() {
                 </div>
               </details>
             </div>
-          </header>
-          <div className="hub-jobs-sheet-body">
+            </div>
             <h1 className="hub-jobs-hero">{job.title}</h1>
-            <select
-              value={job.status}
-              onChange={e => updateStatus.mutate(e.target.value as JobStatus)}
-              className="hub-jobs-status-whisper"
-              aria-label="Job status"
-            >
-              {(Object.keys(JOB_STATUS_LABELS) as JobStatus[]).map(s => (
-                <option key={s} value={s}>{JOB_STATUS_LABELS[s]}</option>
-              ))}
-            </select>
+            {site ? (
+              <p className="job-sheet-site" data-job-sheet="site-line">
+                <MapPin size={14} /> {site}
+              </p>
+            ) : null}
+            <p className={`job-sheet-when${whenLine.undated ? ' is-undated' : ''}`} data-job-sheet="when">
+              <Clock size={14} /> {whenLine.text}
+              {whenLine.undated ? (
+                <button
+                  type="button"
+                  className="job-sheet-link"
+                  onClick={() => setTab('schedule')}
+                >
+                  {JOB_SHEET_SET_A_DATE}
+                </button>
+              ) : null}
+            </p>
 
             {(() => {
               const nextTools = (
@@ -3257,7 +3315,7 @@ export function JobDetailPage() {
                     </button>
                   ) : next.key === 'inspect' && !arrivingPrimary ? (
                     <Link to={inspectHref} className="btn-primary ops-next-control-block" title={next.detail}>{nextLabel}</Link>
-                  ) : next.key !== 'none' || arrivingPrimary ? (
+                  ) : (!hideInvoiceCta && next.key !== 'none') || arrivingPrimary ? (
                     <button
                       type="button"
                       className="btn-primary ops-next-control-block"
@@ -3306,7 +3364,7 @@ export function JobDetailPage() {
               ) : jobSheetHeaderPrimaryDetail(false, next.detail) ? (
                 <p className="ops-next-detail" data-job-next-detail>{next.detail}</p>
               ) : null;
-              if (next.key === 'invoice') {
+              if (next.key === 'invoice' && !hideInvoiceCta) {
                 return (
                   <div className="hub-job-invoice-next-preview" data-job-invoice-preview>
                     {nextTools}
@@ -3317,10 +3375,12 @@ export function JobDetailPage() {
               return (
                 <>
                   {nextTools}
-                  {nextDetail}
+                  {hideInvoiceCta ? null : nextDetail}
                 </>
               );
             })()}
+            {subLine ? <p className="job-sheet-sub" data-job-sheet="sub">{subLine}</p> : null}
+            </div>
 
             <div className="job-sheet-tabs" role="tablist" aria-label="Job sections">
               {JOB_SHEET_TABS.map(t => (
@@ -3333,7 +3393,11 @@ export function JobDetailPage() {
                   onClick={() => setTab(t.id)}
                   className={`job-sheet-tab ${tab === t.id ? 'is-on' : ''}`}
                 >
-                  {t.label}
+                  {jobSheetTabLabel(
+                    t.label,
+                    t.id === 'paperwork' ? paperworkCount : t.id === 'materials' ? materialsCount : 0,
+                    t.id === 'paperwork' ? paperworkHeld : t.id === 'materials' ? materialsHeld : false,
+                  )}
                 </button>
               ))}
             </div>
@@ -3344,28 +3408,40 @@ export function JobDetailPage() {
               </div>
             ) : null}
 
-            <div className="hub-jobs-ledger" {...pane('job-ledger')}>
-              <div className="hub-jobs-identity">
-              <div className="hub-jobs-identity-col is-site">
-                <div className="hub-jobs-ledger-row">
-                <OpsSiteRow
-                  hub
-                  site={site ? site : 'No site address yet — add it in job details'}
-                  mapsQuery={site}
-                />
+            <div className="job-sheet-overview hub-jobs-ledger" {...pane('job-ledger')}>
+              <div className="job-sheet-overview-main hub-jobs-identity">
+              <div className="job-sheet-kv hub-jobs-contact" data-job-sheet="kv">
+                <div className="job-sheet-kv-row" data-job-sheet="kv-site">
+                  <span className="job-sheet-kv-label">Site</span>
+                  <span className="job-sheet-kv-value">
+                    {site ? (
+                      <>
+                        {site}
+                        <a
+                          href={jobSheetMapsHref(site)}
+                          className="job-sheet-link"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Go
+                        </a>
+                      </>
+                    ) : (
+                      'No site address yet — add it in job details'
+                    )}
+                  </span>
+                </div>
                 {parentJob && (
-                  <Link to={`/jobs/${parentJob.id}`} className="inline-flex items-center gap-1 ops-meta text-accent hover:underline">
+                  <Link to={`/jobs/${parentJob.id}`} className="inline-flex items-center gap-1 ops-meta job-sheet-link">
                     <GitBranch size={12} />
                     Stage of {parentJob.job_number != null ? `#${padNum(parentJob.job_number)} ` : ''}{parentJob.title}
                   </Link>
                 )}
-                </div>
-              </div>
-              <div className="hub-jobs-identity-col hub-jobs-contact">
-              <div className="hub-jobs-contact-row">
+                <div className="job-sheet-kv-row hub-jobs-contact-row" data-job-sheet="kv-client">
+                  <span className="job-sheet-kv-label">Client</span>
+                  <span className="job-sheet-kv-value">
               {contactHeld ? (
                 <span className="flex items-center gap-1.5 ops-meta" data-job-client="pending" data-job-contact-held="1">
-                  <User size={13} />
                   <span className="skeleton inline-block h-4 w-28 rounded" />
                 </span>
               ) : attachRow.kind === 'pick' ? (
@@ -3376,7 +3452,6 @@ export function JobDetailPage() {
                     attachClient.mutate();
                   }}
                 >
-                  <User size={13} />
                   <select
                     value={clientAttachDraft}
                     onChange={e => setClientAttachDraft(e.target.value)}
@@ -3397,25 +3472,24 @@ export function JobDetailPage() {
                   </button>
                 </form>
               ) : attachRow.kind === 'miss' ? (
-                <span className="flex items-center gap-1.5 ops-meta">
-                  <User size={13} /> {JOB_CLIENT_ATTACH_NO_CLIENTS}
-                </span>
+                <span className="ops-meta">{JOB_CLIENT_ATTACH_NO_CLIENTS}</span>
               ) : headerClient.kind === 'name' && job.client_id ? (
-                <Link to={clientRecordHref(job.client_id)} className="flex items-center gap-1.5 text-accent hover:underline">
-                  <User size={13} /> {headerClient.name}
+                <Link to={clientRecordHref(job.client_id)} className="job-sheet-link">
+                  {headerClient.name}
                 </Link>
               ) : headerClient.kind === 'pending' ? (
-                <span className="flex items-center gap-1.5 ops-meta" data-job-client="pending">
-                  <User size={13} />
-                </span>
+                <span className="ops-meta" data-job-client="pending" />
               ) : (
-                <span className="flex items-center gap-1.5 ops-meta">
-                  <User size={13} /> No client
-                </span>
+                <span className="ops-meta">No client</span>
               )}
+                  </span>
+                </div>
+                <div className="job-sheet-kv-row" data-job-sheet="kv-phone">
+                  <span className="job-sheet-kv-label">Phone</span>
+                  <span className="job-sheet-kv-value">
               {!contactHeld && phoneRow.kind === 'tel' && (
-                <a href={`tel:${phoneRow.phone}`} className="job-client-phone-num">
-                  <Phone size={13} /> {phoneRow.phone}
+                <a href={`tel:${phoneRow.phone}`} className="job-client-phone-num job-sheet-link">
+                  {phoneRow.phone} · Call
                 </a>
               )}
               {!contactHeld && phoneRow.kind === 'edit' && (
@@ -3435,7 +3509,6 @@ export function JobDetailPage() {
                     saveClientPhone.mutate();
                   }}
                 >
-                  <Phone size={13} />
                   <input
                     ref={phoneInputRef}
                     type="tel"
@@ -3462,9 +3535,14 @@ export function JobDetailPage() {
                   {clientPhoneError ? <p id="job-client-phone-error" className="field-inline-error text-fail">{clientPhoneError}</p> : null}
                 </form>
               )}
+                  </span>
+                </div>
+                <div className="job-sheet-kv-row" data-job-sheet="kv-email">
+                  <span className="job-sheet-kv-label">Email</span>
+                  <span className="job-sheet-kv-value">
               {!contactHeld && emailRow.kind === 'mailto' && (
-                <a href={`mailto:${emailRow.email}`} className="job-client-email-addr">
-                  <Mail size={13} /> {emailRow.email}
+                <a href={`mailto:${emailRow.email}`} className="job-client-email-addr job-sheet-link">
+                  {emailRow.email}
                 </a>
               )}
               {!contactHeld && emailRow.kind === 'edit' && (
@@ -3485,7 +3563,6 @@ export function JobDetailPage() {
                     saveClientEmail.mutate();
                   }}
                 >
-                  <Mail size={13} />
                   <input
                     type="text"
                     inputMode="email"
@@ -3511,118 +3588,109 @@ export function JobDetailPage() {
                   {clientEmailError ? <p id="job-client-email-error" className="field-inline-error text-fail">{clientEmailError}</p> : null}
                 </form>
               )}
-              </div>
-              </div>
-              <div className="hub-jobs-identity-col is-ops">
-              <p className="hub-jobs-ledger-row">
-                <span className="flex items-center gap-1.5" data-job-crew={crewBusy ? 'held' : teamMembersError ? 'error' : 'ready'}>
-                  <Users size={13} />
-                  {jobSheetIdentityCrewLabel({
-                    busy: crewBusy,
-                    error: teamMembersError,
-                    names: assigned,
-                  })}
-                </span>
-              </p>
-            {job.scheduled_date && (
-              <p className="hub-jobs-ledger-row">
-                <span className="flex items-center gap-1.5">
-                  <Calendar size={13} />
-                  {format(parseISO(job.scheduled_date), 'EEE d MMM yyyy')}
-                  {job.start_time && (
-                    <span className="hub-jobs-hours">{job.start_time.slice(0, 5)}{job.end_time ? `–${job.end_time.slice(0, 5)}` : ''}</span>
-                  )}
-                </span>
-              </p>
-            )}
-            {job.priority !== 'medium' && (
-                <p className="hub-jobs-ledger-row">
-                  <span className="flex items-center gap-1 text-xs font-medium" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: JOB_PRIORITY_DOT[job.priority] }} />
-                    {JOB_PRIORITY_LABELS[job.priority]} priority
                   </span>
-                </p>
-              )}
-              </div>
+                </div>
+                <div className="job-sheet-kv-row" data-job-sheet="kv-crew">
+                  <span className="job-sheet-kv-label">Crew</span>
+                  <span
+                    className="job-sheet-kv-value"
+                    data-job-crew={crewBusy ? 'held' : teamMembersError ? 'error' : 'ready'}
+                  >
+                    {jobSheetCrewLabel(assigned, crewBusy, teamMembersError)}
+                  </span>
+                </div>
+                {job.priority !== 'medium' && (
+                  <div className="job-sheet-kv-row">
+                    <span className="job-sheet-kv-label">Priority</span>
+                    <span className="job-sheet-kv-value" style={{ color: JOB_PRIORITY_DOT[job.priority] }}>
+                      {JOB_PRIORITY_LABELS[job.priority]}
+                    </span>
+                  </div>
+                )}
               </div>
 
             {job.description && (
-              <div className="hub-jobs-ledger-row hub-jobs-scope">
+              <div className="hub-jobs-ledger-row hub-jobs-scope" data-job-sheet="scope">
                 <p className="ops-meta">Scope of works</p>
                 <p className="whitespace-pre-wrap">{job.description}</p>
               </div>
             )}
 
-            {((quotes ?? []).length > 0 || (invoices ?? []).length > 0) && (
-              <>
-                {(quotes ?? []).map(q => (
-                  <Link key={q.id} to={`/quotes?id=${q.id}`} className="hub-jobs-ledger-row">
-                    <span className="truncate">QT #{padNum(q.quote_number)} · {QUOTE_STATUS_LABELS[q.status as keyof typeof QUOTE_STATUS_LABELS] ?? q.status}</span>
-                    <span className="hub-jobs-hours">{formatMoney(Number(q.total))}</span>
-                  </Link>
-                ))}
-                {(invoices ?? []).map(inv => {
-                  const status = effectiveInvoiceStatus(inv);
-                  return (
-                    <Link key={inv.id} to={`/invoices?id=${inv.id}`} className="hub-jobs-ledger-row">
-                      <span className="truncate">INV #{padNum(inv.invoice_number)} · {INVOICE_STATUS_LABELS[status]}</span>
-                      <span className="hub-jobs-hours">{formatMoney(Number(inv.total))}</span>
-                    </Link>
-                  );
-                })}
-              </>
-            )}
-            </div>
-
-            <div className="hub-trays hub-jobs-more-trays">
-          <div id="job-lanes" {...pane('job-lanes')}>
             <EnquiryConversation messages={conversationMessages} timeZone={tenantTimeZone} />
-            <section className="ops-tray">
-              <div className="ops-related-list">
-                {laneRows.map(row => (
-                  <JobRelatedRow
-                    key={row.section}
-                    lane={row.section}
-                    onClick={() => revealSection(row.section)}
-                    icon={LANE_ICONS[row.section] ?? FileText}
-                    title={row.label}
-                    meta={row.meta || undefined}
-                    trailing={row.status ? <OpsStatus className={`ops-status-${row.tone}`}>{row.status}</OpsStatus> : undefined}
-                    action={row.retry ? (
-                      <button
-                        type="button"
-                        className="ops-link inline-flex items-center min-h-[44px] px-2"
-                        data-overview-retry={row.section}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (row.section === 'job-schedule' && teamMembersError) void refetchTeamMembers();
-                          if (row.section === 'job-swms') {
-                            if (jhasError) void refetchJhas();
-                            void refetchTake5s();
-                          }
-                          if (row.section === 'job-visit-notes') {
-                            if (inspectionsError) void refetchInspections();
-                            if (visitNotesError) void refetchVisitNotes();
-                            if (jobPhotosError) void refetchJobPhotos();
-                          }
-                          if (row.section === 'job-quotes') {
-                            if (quotesError) void refetchQuotes();
-                            if (invoicesError) void refetchInvoices();
-                          }
-                          if (row.section === 'job-bill' && costTotalsError) void refetchCostTotals();
-                        }}
-                      >
-                        Retry
-                      </button>
-                    ) : undefined}
-                  />
+
+            {!notesBusy && overviewNotes.length > 0 && (
+              <section className="job-sheet-notes" data-job-sheet="notes">
+                <div className="job-sheet-section-head">
+                  <h2>Notes</h2>
+                  <button type="button" className="job-sheet-link" onClick={() => revealSection('job-visit-notes')}>
+                    {JOB_SHEET_ALL_NOTES}
+                  </button>
+                </div>
+                {overviewNotes.map(note => (
+                  <p key={note.id} className="job-sheet-note-stamp">
+                    {jobSheetNoteStamp(
+                      note.author_name,
+                      format(parseISO(note.created_at), 'HH:mm'),
+                    )}
+                  </p>
                 ))}
+              </section>
+            )}
+
+            {!photosBusy && gallery.length > 0 && (
+              <section className="job-sheet-photos" data-job-sheet="photos">
+                <div className="job-sheet-section-head">
+                  <h2>{jobSheetPhotosHeading(gallery.length)}</h2>
+                  <button type="button" className="job-sheet-link" onClick={() => revealSection('job-gallery')}>
+                    {JOB_SHEET_ALL_PHOTOS}
+                  </button>
+                </div>
+                <div className="job-sheet-photo-grid">
+                  {overviewPhotos.map(photo => {
+                    const url = galleryUrls?.[photo.key];
+                    return (
+                      <button
+                        key={photo.key}
+                        type="button"
+                        className="job-sheet-photo"
+                        onClick={() => openJobPhotoLightbox(photo.key)}
+                      >
+                        {url ? <img src={url} alt="" /> : <span className="skeleton block h-full w-full" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
               </div>
-            </section>
-          </div>
+
+              <div className="job-sheet-overview-side">
+                <section className="job-sheet-bill" data-job-sheet="bill">
+                  <div className="job-sheet-section-head">
+                    <h2>Job bill</h2>
+                    <button type="button" className="job-sheet-link" onClick={() => setTab('materials')}>
+                      {JOB_SHEET_EDIT_BILL}
+                    </button>
+                  </div>
+                  {budget != null && (
+                    <p className="job-sheet-bill-row"><span>Budget</span><span>{formatMoney(budget)}</span></p>
+                  )}
+                  <p className="job-sheet-bill-row"><span>Cost</span><span>{formatMoney(actualCost)}</span></p>
+                  <p className="job-sheet-bill-row"><span>Charge ex GST</span><span>{billPreview?.subtotal ?? formatMoney(chargeTotal)}</span></p>
+                  {billPreview ? (
+                    <>
+                      <p className="job-sheet-bill-row"><span>Lines</span><span>{billPreview.lines}</span></p>
+                      <p className="job-sheet-bill-row"><span>Subtotal</span><span>{billPreview.subtotal}</span></p>
+                      <p className="job-sheet-bill-row"><span>GST 10%</span><span>{billPreview.gst}</span></p>
+                      <p className="job-sheet-bill-row is-total"><span>Total inc GST</span><span>{billPreview.total}</span></p>
+                    </>
+                  ) : (
+                    <p className="ops-meta">{billBusy ? '…' : costTotalsError ? "Couldn't load materials." : 'No materials'}</p>
+                  )}
+                </section>
 
         {stages.length > 0 && (
-          <div {...pane('job-stages')}>
+          <div data-job-sheet="stages">
             <JobRelatedSection
               title="Project stages"
               icon={GitBranch}
@@ -3650,13 +3718,12 @@ export function JobDetailPage() {
             </JobRelatedSection>
           </div>
         )}
+              </div>
+            </div>
 
+            <div className="hub-trays hub-jobs-more-trays">
         <div id="job-bill" {...pane('job-bill')}>
-          <button
-            type="button"
-            onClick={() => setBillOpen(o => !o)}
-            className="hub-jobs-bill-head"
-          >
+          <div className="hub-jobs-bill-head">
             <DollarSign size={16} className="text-navy shrink-0" />
             <div className="min-w-0 flex-1">
               <p className="ops-section-title">Job bill</p>
@@ -3666,10 +3733,8 @@ export function JobDetailPage() {
                 {(costTotals?.lines ?? 0) === 0 ? ' · Add materials on this job' : ''}
               </p>
             </div>
-            <ChevronDown size={16} className={`text-muted transition-transform ${billOpen ? 'rotate-180' : ''}`} />
-          </button>
-          {billOpen && (
-            <div className="mt-3">
+          </div>
+          <div className="mt-3">
               <JobCostingPanel
                 jobId={job.id}
                 clientId={job.client_id}
@@ -3685,8 +3750,7 @@ export function JobDetailPage() {
                   navigate(jobInvoiceCreateLanding(result.id));
                 }}
               />
-            </div>
-          )}
+          </div>
         </div>
 
           {groupLabel('job-swms')}
