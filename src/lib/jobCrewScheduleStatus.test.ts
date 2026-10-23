@@ -57,11 +57,11 @@ describe('three surfaces use shared crew schedule copy', () => {
     const tabs = readFileSync(resolve(process.cwd(), 'src/lib/jobSheetTabs.ts'), 'utf8');
     const jobsRow = readFileSync(resolve(process.cwd(), 'src/lib/jobsListRow.ts'), 'utf8');
     const jobsPage = readFileSync(resolve(process.cwd(), 'src/pages/JobsPage.tsx'), 'utf8');
-    const dash = readFileSync(resolve(process.cwd(), 'src/pages/DashboardPage.tsx'), 'utf8');
+    const today = readFileSync(resolve(process.cwd(), 'src/lib/todayLayout.ts'), 'utf8');
     expect(tabs).toContain('jobCrewScheduleStatus');
     expect(jobsRow).toContain('jobCrewScheduleStatus');
     expect(jobsPage).toContain('row.statusClass');
-    expect(dash).toContain('jobCrewScheduleStatus');
+    expect(today).toContain('jobCrewScheduleStatus');
     expect(tabs).toContain('jobCrewScheduleOverviewTone');
   });
 });

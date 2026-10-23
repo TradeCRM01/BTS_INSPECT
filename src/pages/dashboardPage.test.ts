@@ -18,17 +18,19 @@ describe('signed-in dashboard today floor', () => {
     expect(page).toContain('getAuditJobs()');
     expect(page).toContain('attachJobClients');
     expect(page).toContain('data-dashboard-home="1"');
-    expect(page).toContain('ops-page-title dashboard-home-hero">{NAV_WORDS.today}');
+    expect(src('src/pages/TodayBoardView.tsx')).toContain('ops-page-title dashboard-home-hero today-title">{NAV_WORDS.today}');
     expect(page).not.toContain('Your dashboard is empty');
   });
 
   it('opens the existing job page from a today row', () => {
     const page = src('src/pages/DashboardPage.tsx');
-    expect(page).toContain('dashboardJobHref');
-    expect(page).toContain('to={dashboardJobHref(job.id)}');
-    expect(page).toContain('data-dashboard-job={job.id}');
-    expect(page).toContain('formatJobRef(job)');
-    expect(page).toContain('dashboardClockLabel(job.start_time, job.end_time)');
+    expect(page).toContain('TodayBoardView');
+    const board = src('src/pages/TodayBoardView.tsx');
+    expect(board).toContain('dashboardJobHref');
+    expect(board).toContain('to={dashboardJobHref(job.id)}');
+    expect(board).toContain('data-dashboard-job={job.id}');
+    expect(board).toContain('formatJobRef(job)');
+    expect(board).toContain('todayClockLabel(job.start_time, job.end_time)');
     expect(page).not.toContain('to="/schedule"\n              className="flex items-center gap-2 px-1.5');
   });
 
@@ -152,18 +154,20 @@ describe('signed-in dashboard document sheet look', () => {
     expect(page).toContain('dashboard-home-sheet');
     expect(page).toContain('dashboard-home-sheet-bar');
     expect(page).toContain('dashboard-home-sheet-body');
-    expect(page).toContain('dashboard-home-hero');
+    expect(src('src/pages/TodayBoardView.tsx')).toContain('dashboard-home-hero');
     expect(page).toContain('dashboard-home-label');
-    expect(page).toContain('dashboard-home-ledger');
-    expect(page).toContain('dashboard-home-row');
+    expect(page).toContain('TodayBoardView');
+    const board = src('src/pages/TodayBoardView.tsx');
+    expect(board).toContain('dashboard-home-ledger');
+    expect(board).toContain('dashboard-home-row');
     expect(page).toContain('dashboard-home-primary');
-    expect(page).toContain('dashboardJobPlace(job)');
-    expect(page).toContain('dashboardJobMetaLine(job)');
-    expect(page).toContain('Week board');
-    expect(page).toContain('Open schedule');
+    expect(board).toContain('dashboardJobPlace(job)');
+    expect(board).toContain('todayJobMeta');
+    expect(board).toContain('Week board');
+    expect(page).not.toContain('Open schedule');
     expect(page).not.toContain('dashboard-home-kicker');
-    expect(page).not.toContain('<table');
-    expect(page).not.toContain('<thead');
+    expect(board).toContain('<table');
+    expect(board).toContain('<thead');
     expect(page).not.toMatch(/>TODAY</);
     expect(page).not.toContain('hub-jobs');
     expect(page).not.toContain('hub-quotes');
@@ -202,8 +206,8 @@ describe('signed-in dashboard document sheet look', () => {
 
   it('does not restyle Take 5, JHA, inspections, jobs, schedule, login, or AppShell', () => {
     const page = src('src/pages/DashboardPage.tsx');
-    expect(page).toContain('to="/schedule"');
-    expect(page).toContain('Nothing on today');
+    expect(src('src/pages/TodayBoardView.tsx')).toContain('to="/schedule"');
+    expect(src('src/pages/TodayBoardView.tsx')).toContain('Nothing on today');
     expect(page).not.toContain('Take5ListPage');
     expect(page).not.toContain('JhaDocumentsPage');
     expect(page).not.toContain('InspectionsPage');

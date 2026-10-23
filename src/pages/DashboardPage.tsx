@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo, useEffect, useLayoutEffect, Fragment, type ReactNode } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect, useLayoutEffect, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
@@ -6,11 +6,24 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { NAV_WORDS } from '../lib/brand';
 import { AppShell } from '../components/layout/AppShell';
-import { EmptyState, LoadingSpinner, PageError, useToast } from '../components/ui';
+import { LoadingSpinner, PageError, useToast } from '../components/ui';
 import { ReminderRow } from '../components/reminders/ReminderRow';
-import { deriveNudges, type NudgeInvoice, type NudgeQuote } from '../lib/nudges';
+import { JobFormModal } from '../components/crm/JobFormModal';
+import { deriveNudges, type Nudge, type NudgeInvoice, type NudgeQuote } from '../lib/nudges';
 import { countNeedsCrew } from '../lib/needCrew';
-import { TODAY_NUDGE_INVOICE_STATUSES, visibleTodayNudges, visibleTodayWidgets } from '../lib/todayBoard';
+import {
+  TODAY_NUDGE_INVOICE_STATUSES,
+  canSeeTodayMoney,
+  fetchComingUp,
+  fetchOutstanding,
+  fetchReadyToInvoice,
+  fetchTodayCash,
+  readyToInvoiceDetail,
+  visibleTodayNudges,
+  visibleTodayWidgets,
+} from '../lib/todayBoard';
+import { todayBandFromWidth } from '../lib/todayLayout';
+import { TodayBoardView } from './TodayBoardView';
 import {
   canTickReminder,
   listReminderJobsById,
@@ -32,7 +45,7 @@ import {
   useDraggable,
 } from '@dnd-kit/core';
 import {
-  Plus, X, GripVertical, Trash2, Sparkles, Briefcase, MoreHorizontal,
+  Plus, X, GripVertical, Trash2, Sparkles, MoreHorizontal,
   ChevronUp, ChevronDown,
 } from 'lucide-react';
 import {
@@ -45,14 +58,7 @@ import { WidgetRenderer } from '../widgets/WidgetComponents';
 import type { Json } from '../types/database';
 import type { Client, Job, JobWithClient } from '../types/crm';
 import { attachJobClients, hydrateJobParentNumbers } from '../lib/scheduleJobSearch';
-import { formatJobRef } from '../lib/jobRef';
 import {
-  dashboardClockLabel,
-  dashboardCrewLabel,
-  dashboardHeadingDate,
-  dashboardJobHref,
-  dashboardJobMetaLine,
-  dashboardJobPlace,
   dashboardTodayKey,
   todaysDashboardJobs,
 } from '../lib/dashboardHome';
@@ -70,10 +76,6 @@ import {
   resolveDashboardWidgets,
 } from '../lib/dashboardWidgets';
 import type { ScheduleCrewMember } from '../lib/scheduleBoard';
-import {
-  jobCrewScheduleNeedsCrewClass,
-  jobCrewScheduleStatus,
-} from '../lib/jobCrewScheduleStatus';
 
 interface DashboardWidget {
   id: string;
@@ -517,6 +519,9 @@ export function DashboardPage() {
     || lookDashboardSeed
     || lookDashboardRepro;
   const [editMode, setEditMode] = useState(false);
+  const [showJobForm, setShowJobForm] = useState(false);
+  const [viewportW, setViewportW] = useState(() => (typeof window === 'undefined' ? 1280 : window.innerWidth));
+  const [clock, setClock] = useState(() => new Date());
   const [showPicker, setShowPicker] = useState(false);
   const [addingWidget, setAddingWidget] = useState(false);
   const addingWidgetRef = useRef(false);
@@ -524,10 +529,24 @@ export function DashboardPage() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const widgetsBoxRef = useRef<HTMLDivElement>(null);
   const [canvasW, setCanvasW] = useState(DASHBOARD_WIDGET_CANVAS_W);
-  const now = new Date();
+  const now = lookDashboard ? dashboardLookNow() : clock;
   const todayKey = dashboardTodayKey(now);
   const tomorrowKey = dashboardTodayKey(addDays(now, 1));
   const { showToast } = useToast();
+  const todayBand = todayBandFromWidth(viewportW);
+
+  useEffect(() => {
+    const onResize = () => setViewportW(window.innerWidth);
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
+    if (lookDashboard) return;
+    const id = window.setInterval(() => setClock(new Date()), 60_000);
+    return () => window.clearInterval(id);
+  }, [lookDashboard]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -696,12 +715,57 @@ export function DashboardPage() {
 
   const companyId = profile?.company_id ?? '';
   const liveCompany = !!companyId && !lookDashboard;
+  const liveMoney = liveCompany && canSeeTodayMoney(profile?.role);
+
+  const { data: readyJobs, isLoading: readyLoading, error: readyError, refetch: refetchReady } = useQuery({
+    queryKey: ['today-ready', companyId, todayKey],
+    queryFn: () => fetchReadyToInvoice(supabase, companyId, todayKey),
+    enabled: liveCompany,
+  });
+  const { data: outstanding, isLoading: outstandingLoading, error: outstandingError, refetch: refetchOutstanding } = useQuery({
+    queryKey: ['today-outstanding', companyId],
+    queryFn: () => fetchOutstanding(supabase, companyId, now),
+    enabled: liveMoney,
+  });
+  const outstandingClientIds = [...new Set((outstanding?.display ?? []).map(row => row.client_id).filter(Boolean))] as string[];
+  const { data: outstandingClients } = useQuery({
+    queryKey: ['today-outstanding-clients', outstandingClientIds.join(',')],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, name')
+        .in('id', outstandingClientIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: liveMoney && outstandingClientIds.length > 0,
+  });
+  const outstandingNamed = outstanding
+    ? {
+      ...outstanding,
+      display: outstanding.display.map(row => ({
+        ...row,
+        client_name: outstandingClients?.find(client => client.id === row.client_id)?.name ?? null,
+      })),
+    }
+    : outstanding;
+  const { data: cash, isLoading: cashLoading, error: cashError, refetch: refetchCash } = useQuery({
+    queryKey: ['today-cash', companyId, todayKey],
+    queryFn: () => fetchTodayCash(supabase, companyId, todayKey),
+    enabled: liveMoney,
+  });
+  const { data: comingUp, isLoading: comingLoading, error: comingError, refetch: refetchComing } = useQuery({
+    queryKey: ['today-coming-up', companyId, todayKey],
+    queryFn: () => fetchComingUp(supabase, companyId, todayKey),
+    enabled: liveCompany,
+  });
+
   const { data: reminders } = useQuery({
     queryKey: ['reminders', companyId],
     queryFn: () => listReminders(companyId),
     enabled: liveCompany,
   });
-  const lookNow = lookDashboard ? dashboardLookNow() : now;
+  const lookNow = now;
   const stripRows = lookDashboard
     ? dashboardLookReminders(profile?.id ?? DASHBOARD_LOOK_OWNER)
     : todayReminders(splitReminderLists(reminders ?? []).upcoming, now);
@@ -719,8 +783,20 @@ export function DashboardPage() {
     queryFn: () => loadDashboardNudgeData(todayKey, tomorrowKey),
     enabled: liveCompany,
   });
+  const readyNudge: Nudge | null = (readyJobs ?? []).length > 0
+    ? {
+      key: 'ready_to_invoice',
+      kind: 'ready_to_invoice' as Nudge['kind'],
+      label: readyJobs!.length === 1 ? `${readyToInvoiceDetail(readyJobs!)} ready to invoice` : `${readyJobs!.length} jobs ready to invoice`,
+      detail: readyToInvoiceDetail(readyJobs!),
+      href: readyJobs!.length === 1 ? `/jobs/${readyJobs![0].id}` : '/jobs?status=completed',
+    }
+    : null;
   const nudges = visibleTodayNudges(
-    nudgeData ? deriveNudges({ ...nudgeData, userId: profile?.id ?? null, now }) : [],
+    [
+      ...(nudgeData ? deriveNudges({ ...nudgeData, userId: profile?.id ?? null, now }) : []),
+      ...(readyNudge ? [readyNudge] : []),
+    ],
     profile?.role,
   );
 
@@ -964,55 +1040,69 @@ export function DashboardPage() {
 
   const work = todayJobs ?? [];
   const needCrewCount = countNeedsCrew(work);
-  const jobCountLabel = work.length === 1 ? '1 job' : `${work.length} jobs`;
-  const whisper = [
-    dashboardHeadingDate(lookDashboard ? dashboardLookNow() : undefined),
-    company?.name,
-    !jobsLoading && work.length > 0 ? jobCountLabel : null,
-  ].filter(Boolean).join(' · ');
+  const moreMenu = (
+    <DashboardHomeMore
+      editMode={editMode}
+      onToggleEdit={() => setEditMode(e => !e)}
+      onNewJob={() => setShowJobForm(true)}
+    />
+  );
 
   return (
     <AppShell>
-      <div className="ops-page dashboard-home is-day-open">
+      <div className="ops-page dashboard-home is-day-open is-today-board">
         <article className="dashboard-home-sheet" data-dashboard-home="1">
           <header className="dashboard-home-sheet-bar">
             <span className="dashboard-home-mark">{NAV_WORDS.today}</span>
           </header>
           <div className="dashboard-home-sheet-body">
-            <h1 className="ops-page-title dashboard-home-hero">{NAV_WORDS.today}</h1>
-            <p className="hub-look-eyebrow dashboard-home-label dashboard-home-whisper" data-need-crew-count={needCrewCount}>{whisper}</p>
-
-            <div className="dashboard-home-tools">
-              {editMode ? (
-                <button
-                  type="button"
-                  onClick={() => setShowPicker(true)}
-                  className="btn-primary dashboard-home-primary"
-                >
-                  <Plus size={16} />
-                  Add widget
-                </button>
-              ) : work.length === 0 && !jobsLoading ? (
-                <Link to="/schedule" className="btn-primary dashboard-home-primary">
-                  Open schedule
-                </Link>
-              ) : (
-                <Link to="/schedule" className="btn-primary dashboard-home-primary">
-                  Week board
-                </Link>
-              )}
-              <div className="dashboard-home-tools-overflow">
-                <DashboardHomeMore
-                  editMode={editMode}
-                  onToggleEdit={() => setEditMode(e => !e)}
-                />
-              </div>
+            <div data-need-crew-count={needCrewCount} className="hub-look-eyebrow dashboard-home-label dashboard-home-whisper today-sr">
+              {NAV_WORDS.today}
             </div>
+            <TodayBoardView
+              now={now}
+              width={viewportW}
+              band={todayBand}
+              companyName={company?.name}
+              role={profile?.role}
+              jobs={work}
+              jobsLoading={jobsLoading}
+              jobsError={jobsError}
+              onRetryJobs={() => { void queryClient.invalidateQueries({ queryKey: ['dashboard-today-jobs'] }); }}
+              team={teamMembers}
+              ready={{
+                data: readyJobs,
+                isLoading: readyLoading,
+                error: readyError,
+                onRetry: () => { void refetchReady(); },
+              }}
+              outstanding={{
+                data: outstandingNamed,
+                isLoading: outstandingLoading,
+                error: outstandingError,
+                onRetry: () => { void refetchOutstanding(); },
+              }}
+              cash={{
+                data: cash,
+                isLoading: cashLoading,
+                error: cashError,
+                onRetry: () => { void refetchCash(); },
+              }}
+              coming={{
+                data: comingUp,
+                isLoading: comingLoading,
+                error: comingError,
+                onRetry: () => { void refetchComing(); },
+              }}
+              nudges={nudges}
+              more={moreMenu}
+              onNewJob={() => setShowJobForm(true)}
+            />
 
-            <section className="dashboard-home-strip" data-dashboard-reminders="1">
-              <div className="dashboard-home-section-head">
-                <h2 className="ops-section-title">Reminders</h2>
-                <Link to="/reminders" className="dashboard-home-all">All ›</Link>
+            <section className="today-sec today-reminders dashboard-home-strip" data-today-section="s12" data-dashboard-reminders="1">
+              <div className="today-sec-h dashboard-home-section-head">
+                <h2 className="ops-section-title" id="today-reminders-h">Reminders</h2>
+                <Link to="/reminders" className="today-quiet dashboard-home-all">All ›</Link>
               </div>
               <form className="reminders-capture dashboard-reminders-capture" onSubmit={captureReminder}>
                 <input
@@ -1051,89 +1141,19 @@ export function DashboardPage() {
                   ))}
                 </ul>
               )}
-              {nudges.length > 0 && (
-                <p className="dashboard-nudges-label">From your jobs, quotes and invoices</p>
-              )}
-              {nudges.length > 0 && (
-                <ul className="dashboard-nudges">
-                  {nudges.map(n => (
-                    <li key={n.key}>
-                      <Link to={n.href} className="dashboard-nudge" data-nudge-kind={n.kind}>
-                        <span className="dashboard-nudge-label">{n.label}</span>
-                        <span className="dashboard-nudge-detail">{n.detail}</span>
-                        <span className="dashboard-nudge-go">›</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </section>
 
-            <div className="dashboard-home-section-head">
-              <h2 className="ops-section-title">Today's schedule</h2>
-              <Link to="/schedule" className="dashboard-home-all">Schedule ›</Link>
-            </div>
-
-            {jobsLoading ? (
-              <div className="flex justify-center py-16"><LoadingSpinner /></div>
-            ) : work.length === 0 ? (
-              <EmptyState
-                icon={Briefcase}
-                title="Nothing on today"
-                message="No jobs are booked for today. The week is on the schedule."
-              />
-            ) : (
-              <div className="dashboard-home-ledger">
-                <div className="dashboard-home-thead">
-                  <span>Time</span>
-                  <span>Job</span>
-                  <span>Place</span>
-                </div>
-                {work.map(job => {
-                  const place = dashboardJobPlace(job);
-                  const crewSchedule = jobCrewScheduleStatus(job.status, job.scheduled_date, job.assigned_team);
-                  const crewScheduleClass = jobCrewScheduleNeedsCrewClass(crewSchedule.kind);
-                  const clientPlace = dashboardJobMetaLine(job);
-                  const metaParts = [
-                    formatJobRef(job),
-                    ...(clientPlace ? clientPlace.split(' · ') : [place].filter(Boolean)),
-                    dashboardCrewLabel(job.assigned_team, teamMembers),
-                  ].filter(Boolean);
-                  return (
-                    <Link
-                      key={job.id}
-                      to={dashboardJobHref(job.id)}
-                      data-dashboard-job={job.id}
-                      className="dashboard-home-row"
-                      aria-label="Open"
-                    >
-                      <span className="dashboard-home-time">
-                        {dashboardClockLabel(job.start_time, job.end_time)}
-                      </span>
-                      <span className="dashboard-home-job">
-                        <span className="dashboard-home-title">{job.title}</span>
-                        <span className="dashboard-home-ref">
-                          {metaParts.map((part, i) => (
-                            <Fragment key={`${job.id}-meta-${i}`}>
-                              {i > 0 ? ' · ' : null}
-                              <span className="dashboard-home-ref-seg">{part}</span>
-                            </Fragment>
-                          ))}
-                        </span>
-                        <span
-                          className={[
-                            'dashboard-home-crew-schedule',
-                            crewScheduleClass,
-                          ].filter(Boolean).join(' ')}
-                          data-crew-schedule={crewSchedule.kind}
-                        >
-                          {crewSchedule.label}
-                        </span>
-                      </span>
-                      <span className="dashboard-home-place">{place}</span>
-                    </Link>
-                  );
-                })}
+            <h2 className="today-sec-h today-widgets-head ops-section-title">Your widgets</h2>
+            {editMode && (
+              <div className="dashboard-home-tools">
+                <button
+                  type="button"
+                  onClick={() => setShowPicker(true)}
+                  className="btn-primary dashboard-home-primary"
+                >
+                  <Plus size={16} />
+                  Add widget
+                </button>
               </div>
             )}
 
@@ -1228,6 +1248,20 @@ export function DashboardPage() {
           onClose={() => { if (!addingWidget) setShowPicker(false); }}
           existingTypes={new Set((widgets ?? []).map(w => w.widget_type))}
           busy={addingWidget}
+        />
+      )}
+      {showJobForm && (
+        <JobFormModal
+          job={null}
+          presetDate={todayKey}
+          presetClientId={null}
+          onClose={() => setShowJobForm(false)}
+          onSaved={(jobId) => {
+            setShowJobForm(false);
+            void queryClient.invalidateQueries({ queryKey: ['dashboard-today-jobs'] });
+            void queryClient.invalidateQueries({ queryKey: ['today-coming-up'] });
+            if (jobId) window.location.assign(`/jobs/${jobId}`);
+          }}
         />
       )}
     </AppShell>
@@ -1331,9 +1365,11 @@ export function DashboardPhoneEditStack<T extends {
 function DashboardHomeMore({
   editMode,
   onToggleEdit,
+  onNewJob,
 }: {
   editMode: boolean;
   onToggleEdit: () => void;
+  onNewJob?: () => void;
 }) {
   const moreRef = useRef<HTMLDetailsElement>(null);
 
@@ -1367,6 +1403,16 @@ function DashboardHomeMore({
         <MoreHorizontal size={18} />
       </summary>
       <div className="dashboard-home-more-menu" role="menu">
+        {onNewJob ? (
+          <button
+            type="button"
+            role="menuitem"
+            className="today-more-new"
+            onClick={() => { onNewJob(); closeMore(); }}
+          >
+            New job
+          </button>
+        ) : null}
         <button
           type="button"
           role="menuitem"
