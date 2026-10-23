@@ -35,7 +35,6 @@ import {
 import { listCountWhisper, listQueryBusy } from '../lib/listQueryReady';
 import { Plus, Briefcase, MessageSquare } from 'lucide-react';
 import {
-  ALLOWED_ENQUIRY_PHONE,
   ALREADY_APPROVED_TOAST,
   DISMISS_REASONS,
   ENQUIRIES_VIEW,
@@ -50,6 +49,9 @@ import {
   enquiryCallerLabel,
   enquiryExcerpt,
   enquiryJobPath,
+  ENQUIRY_EMPTY_LOOK,
+  ENQUIRY_LOOK,
+  ENQUIRY_ONE_LOOK,
   enquiryLookKind,
   enquiryState,
   enquirySurfaceOpen,
@@ -333,7 +335,7 @@ function enquiryLookRows(): EnquiryRow[] {
   return [
     {
       id: 'look-enquiry-today',
-      callerPhone: ALLOWED_ENQUIRY_PHONE,
+      callerPhone: '+61400000000',
       clientId: 'look-client-northside',
       clientName: 'Northside Mechanical',
       missedCallAt: '2026-10-09T22:15:00.000Z',
@@ -346,7 +348,7 @@ function enquiryLookRows(): EnquiryRow[] {
     },
     {
       id: 'look-enquiry-noreply',
-      callerPhone: ALLOWED_ENQUIRY_PHONE,
+      callerPhone: '+61400000000',
       clientId: null,
       clientName: null,
       missedCallAt: '2026-10-09T06:40:00.000Z',
@@ -372,7 +374,7 @@ function enquiryLookRows(): EnquiryRow[] {
     },
     {
       id: 'look-enquiry-approved',
-      callerPhone: ALLOWED_ENQUIRY_PHONE,
+      callerPhone: '+61400000000',
       clientId: 'look-client-northside',
       clientName: 'Northside Mechanical',
       missedCallAt: '2026-10-05T23:00:00.000Z',
@@ -452,9 +454,17 @@ export function JobsPage() {
   const lookCrewS8dSeed = lookCrewS8d === CREW_S8D_LOOK_NEEDS
     || lookCrewS8d === CREW_S8D_LOOK_BOOKED
     || lookCrewS8d === CREW_S8D_LOOK_NOT;
-  const enquiryLook = enquiryLookKind(lookParam);
+  const enquiryLook = (import.meta.env.DEV || import.meta.env.VITE_LOOK_PROOF === '1')
+    ? (lookParam === ENQUIRY_LOOK
+      ? 'list'
+      : lookParam === ENQUIRY_EMPTY_LOOK
+        ? 'empty'
+        : lookParam === ENQUIRY_ONE_LOOK
+          ? 'one'
+          : null)
+    : enquiryLookKind(lookParam);
   const lookEnquirySeed = enquiryLook != null;
-  const enquirySurface = enquirySurfaceOpen(lookParam);
+  const enquirySurface = lookEnquirySeed || enquirySurfaceOpen(lookParam);
   const tenantTimeZone = resolveTenantTimeZone(
     (company as { time_zone?: string | null } | null)?.time_zone,
   );

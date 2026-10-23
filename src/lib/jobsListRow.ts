@@ -1,5 +1,6 @@
 import type { JobStatus } from '../types/crm';
 import { formatJobRef } from './jobRef';
+import { jobCrewScheduleNeedsCrewClass, jobCrewScheduleStatus } from './jobCrewScheduleStatus';
 import {
   JOB_PILL_SET_A_DATE,
   jobStatusPill,
@@ -111,6 +112,8 @@ export function jobsListPhoneRow(job: {
   const ref = formatJobRef(job);
   const date = jobsListPhoneDate(job.scheduled_date);
   const pill = jobsListStatusPill(job);
+  const crewSchedule = jobCrewScheduleStatus(job.scheduled_date, job.assigned_team);
+  const needsClass = jobCrewScheduleNeedsCrewClass(crewSchedule.kind);
   const line2 = jobsListPhoneLine2({ ref, suburb, crew });
   const line3 = jobsListPhoneLine3({ client: jobsListCustomer(job), date });
   return {
@@ -120,7 +123,7 @@ export function jobsListPhoneRow(job: {
     line2,
     line3,
     status: pill.label,
-    statusClass: `hub-jobs-pill is-${pill.tone}`,
+    statusClass: needsClass ? `hub-jobs-pill is-${pill.tone} ${needsClass}` : `hub-jobs-pill is-${pill.tone}`,
     date,
     pill,
   };

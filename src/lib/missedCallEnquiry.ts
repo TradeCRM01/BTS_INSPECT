@@ -62,7 +62,7 @@ export function isEnquiriesView(view: string | null | undefined): boolean {
 export function enquiryLookKind(
   look: string | null | undefined,
 ): 'list' | 'empty' | 'one' | null {
-  if (!(import.meta.env.DEV || import.meta.env.VITE_LOOK_PROOF === '1')) return null;
+  if (!import.meta.env.DEV) return null;
   if (look === ENQUIRY_LOOK) return 'list';
   if (look === ENQUIRY_EMPTY_LOOK) return 'empty';
   if (look === ENQUIRY_ONE_LOOK) return 'one';

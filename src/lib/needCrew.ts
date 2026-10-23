@@ -1,25 +1,37 @@
-import { jobCrewMemberCount } from './jobCrewScheduleStatus';
+export type CrewNeedStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | string;
+
+export type CrewNeedJob = {
+  status?: CrewNeedStatus | null;
+  scheduled_date?: string | null;
+  assigned_team?: string[] | null;
+};
+
+export function isFinishedCrewStatus(status: string | null | undefined): boolean {
+  return status === 'completed' || status === 'Done' || status === 'cancelled';
+}
+
+export function needsCrew(job: CrewNeedJob): boolean {
+  if (!(job.scheduled_date ?? '').trim()) return false;
+  if (isFinishedCrewStatus(job.status)) return false;
+  return (job.assigned_team ?? []).every(id => !id?.trim());
+}
+
+export function countNeedsCrew(jobs: readonly CrewNeedJob[]): number {
+  return jobs.filter(needsCrew).length;
+}
 
 export const NEED_CREW_COPY = 'need crew';
 
-/** Isolated until P1b lands `src/lib/needCrew.ts`. Swap is a one-line import. */
-export function jobNeedsCrew(job: {
-  status?: string | null;
-  assigned_team?: string[] | null;
-  scheduled_date?: string | null;
-}): boolean {
-  const status = (job.status ?? '').trim().toLowerCase();
-  if (status === 'completed' || status === 'cancelled' || status === 'done') return false;
-  if (!(job.scheduled_date ?? '').trim()) return false;
-  return jobCrewMemberCount(job.assigned_team) === 0;
+/** Isolated until P1b lands. Swap is a one-line import onto #403's helper. */
+export function jobNeedsCrew(job: CrewNeedJob): boolean {
+  return needsCrew({
+    ...job,
+    status: job.status === 'done' ? 'Done' : job.status,
+  });
 }
 
-export function countJobsNeedCrew<T extends {
-  status?: string | null;
-  assigned_team?: string[] | null;
-  scheduled_date?: string | null;
-}>(jobs: readonly T[]): number {
-  return jobs.reduce((n, job) => n + (jobNeedsCrew(job) ? 1 : 0), 0);
+export function countJobsNeedCrew<T extends CrewNeedJob>(jobs: readonly T[]): number {
+  return countNeedsCrew(jobs);
 }
 
 export function jobsNeedCrewWhisper(count: number): string {

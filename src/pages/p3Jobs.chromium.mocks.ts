@@ -1,6 +1,6 @@
 /** Browser-side stubs for the P3 Jobs Chromium harness. Not imported by the app. */
 
-export type P3Cfg = { path?: string; empty?: boolean; clientsError?: boolean };
+export type P3Cfg = { path?: string; empty?: boolean; clientsError?: boolean; extrasError?: boolean };
 
 function cfg(): P3Cfg {
   return (globalThis as unknown as { __P3__?: P3Cfg }).__P3__ ?? {};
@@ -111,6 +111,27 @@ function liveJobs() {
     assigned_team: [],
     job_number: 3,
     budget: null,
+  }, {
+    ...base, id: 'x-unknown', client_id: 'p3-client-36', title: 'Unknown status dated crewless',
+    status: 'on_hold', scheduled_date: '2026-10-22', start_time: '09:00', end_time: '10:00',
+    address: '1 Odd St, Stafford', assigned_team: [], job_number: 91, budget: null,
+  }, {
+    ...base, id: 'x-ws', client_id: 'p3-client-36', title: 'Whitespace crew ids',
+    status: 'scheduled', scheduled_date: '2026-10-22', start_time: '09:00', end_time: '10:00',
+    address: '2 Odd St, Stafford', assigned_team: ['  ', ''], job_number: 92, budget: null,
+  }, {
+    ...base, id: 'x-done', client_id: 'p3-client-36', title: 'Done with draft invoice',
+    status: 'completed', scheduled_date: '2026-10-18', start_time: '07:00', end_time: '10:30',
+    address: '3 Odd St, Stafford', assigned_team: ['p3-dean'], job_number: 93, budget: null,
+  }, {
+    ...base, id: 'x-parent', client_id: 'p3-client-36', title: 'Parent invoiced only in c2',
+    status: 'scheduled', scheduled_date: '2026-10-18', start_time: '07:00', end_time: '10:30',
+    address: '4 Odd St, Stafford', assigned_team: ['p3-dean'], job_number: 94, budget: null,
+  }, {
+    ...base, id: 'x-child', client_id: 'p3-client-36', title: 'Child of c2 invoiced parent',
+    status: 'completed', scheduled_date: '2026-10-18', start_time: '07:00', end_time: '10:30',
+    address: '5 Odd St, Stafford', assigned_team: ['p3-dean'], job_number: 95, budget: null,
+    parent_job_id: 'x-parent',
   }, ...fillers];
 }
 
@@ -261,6 +282,12 @@ function liveInvoices() {
     total: 100,
     due_date: null,
     created_at: STAMP,
+  }, {
+    id: 'x-inv-draft', company_id: 'c1', job_id: 'x-done', invoice_number: 93,
+    status: 'draft', total: 100, due_date: null, created_at: STAMP,
+  }, {
+    id: 'x-inv-c2', company_id: 'c2', job_id: 'x-parent', invoice_number: 94,
+    status: 'sent', total: 100, due_date: null, created_at: STAMP,
   }];
 }
 
@@ -288,6 +315,9 @@ function from(table: string) {
   const payload = () => {
     if (table === 'clients' && cfg().clientsError) {
       return { data: null, error: { message: 'clients failed' }, count: 0 };
+    }
+    if ((table === 'quotes' || table === 'invoices') && cfg().extrasError) {
+      return { data: null, error: { message: 'extras failed' }, count: 0 };
     }
     return { data: rows, error: null, count: rows.length };
   };

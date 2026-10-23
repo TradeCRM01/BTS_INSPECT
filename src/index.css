@@ -2365,7 +2365,7 @@
       bottom: 0;
       z-index: 2;
       margin-top: auto;
-      background: #FFFDF8;
+      background: var(--mkt-sheet, #fff);
       padding-bottom: calc(var(--shell-bottom-nav-h, 56px) + 16px);
     }
   }
@@ -2400,7 +2400,7 @@
       position: sticky;
       bottom: 0;
       z-index: 2;
-      background: #FFFDF8;
+      background: var(--mkt-sheet, #fff);
       padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
     }
   }
@@ -5431,6 +5431,25 @@
     color: var(--ops-navy, #0a2540);
     font-size: 14px;
     font-weight: 600;
+  }
+
+  @media (max-width: 768px) {
+    #job-bill .job-bill-lines-wrap {
+      overflow-x: hidden;
+      max-width: 100%;
+    }
+
+    #job-bill .job-bill-lines-table {
+      width: 100%;
+      max-width: 100%;
+      table-layout: fixed;
+    }
+
+    #job-bill .job-bill-lines-table th,
+    #job-bill .job-bill-lines-table td {
+      overflow: hidden;
+      word-break: break-word;
+    }
   }
 
   @media (max-width: 639px) {
@@ -10380,7 +10399,7 @@
       max-width: none;
       height: calc(75vh * var(--quote-pdf-page) / 100cqi) !important;
       border: 0;
-      background: #FFFDF8;
+      background: var(--mkt-sheet, #fff);
       transform: scale(calc(100cqi / var(--quote-pdf-page)));
       transform-origin: top left;
     }
@@ -10883,24 +10902,16 @@
   .hub-jobs-document {
     max-width: 1100px;
     margin: 0 auto 24px;
-    background: var(--job-look-sheet);
-    border: 1px solid var(--job-look-line);
-    border-radius: 16px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
     padding: 0;
-    overflow: hidden;
-    box-shadow:
-      inset 0 1px 0 #fff,
-      0 10px 28px rgba(10, 37, 64, 0.08);
+    overflow: visible;
+    box-shadow: none;
   }
 
   .hub-jobs-sheet-bar {
-    display: block;
-    height: 4px;
-    min-height: 4px;
-    padding: 0;
-    background: var(--job-sheet-head-bar, var(--job-look-ink));
-    color: #fff;
-    border-radius: 0;
+    display: none;
   }
 
   .hub-jobs-sheet-bar .hub-jobs-hours {
@@ -10946,9 +10957,9 @@
   }
 
   .hub-jobs-sheet-body {
-    padding: 24px 32px 24px;
-    background: var(--job-look-sheet);
-    box-shadow: inset 0 1px 0 #fff;
+    padding: 8px 16px 24px;
+    background: transparent;
+    box-shadow: none;
   }
 
   .hub-jobs-hero {
@@ -10993,14 +11004,17 @@
     font-weight: 600;
   }
 
-  /* Four equal tabs. No sideways scroller (F7 / K16). */
+  /* Four equal segmented tabs. One row. No sideways scroller (F7 / K16 / K7). */
   .hub-jobs-document .job-sheet-tabs {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     align-items: stretch;
     gap: 0;
-    margin-top: 16px;
-    border-bottom: 1px solid var(--job-look-line);
+    margin-top: 20px;
+    padding: 3px;
+    border: none;
+    border-radius: 12px;
+    background: #eeeae3;
     overflow: hidden;
   }
 
@@ -11009,7 +11023,7 @@
     min-height: 44px;
     padding: 0 6px;
     border: none;
-    border-radius: 0;
+    border-radius: 10px;
     background: none;
     color: var(--job-look-muted);
     font-family: var(--g-font-ui);
@@ -11033,7 +11047,8 @@
   .hub-jobs-document .job-sheet-tab.is-on {
     color: var(--job-look-ink);
     font-weight: 600;
-    box-shadow: inset 0 -2px 0 #2E75B6;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(10, 37, 64, 0.12);
   }
 
   .hub-jobs-document .job-sheet-tab:focus-visible {
@@ -11050,8 +11065,94 @@
   .hub-jobs-document .job-sheet-eyebrow {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 8px;
     min-height: 44px;
+  }
+
+  .hub-jobs-document .job-sheet-status {
+    margin-left: auto;
+  }
+
+  .hub-jobs-document .hub-jobs-pill.is-ok::before,
+  .hub-jobs-document .hub-jobs-pill.is-draft::before,
+  .hub-jobs-document .hub-jobs-pill.is-live::before,
+  .hub-jobs-document .hub-jobs-pill.is-warn::before,
+  .hub-jobs-document .hub-jobs-pill.is-sched::before,
+  .hub-jobs-document .hub-jobs-pill.is-bad::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: currentColor;
+  }
+
+  .hub-jobs-document .hub-jobs-pill.is-ok::before { background: #3d8b4a; }
+  .hub-jobs-document .hub-jobs-pill.is-warn::before { background: #c47a12; }
+  .hub-jobs-document .hub-jobs-pill.is-live::before { background: #2E75B6; }
+  .hub-jobs-document .hub-jobs-pill.is-sched::before { background: #5B6B7C; }
+  .hub-jobs-document .hub-jobs-pill.is-draft::before { background: #8a8174; }
+  .hub-jobs-document .hub-jobs-pill.is-bad::before { background: #b42318; }
+
+  .job-sheet-appbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 4px 8px 4px 0;
+  }
+
+  .job-sheet-appbar .job-sheet-back {
+    margin-right: auto;
+  }
+
+  .job-sheet-appbar-search,
+  .job-sheet-appbar-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    border: none;
+    background: none;
+    color: var(--job-look-ink);
+  }
+
+  .job-sheet-appbar-avatar {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    border-radius: 999px;
+    background: #eeeae3;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .hub-jobs.is-record-open .breadcrumbs {
+    display: none;
+  }
+
+  .hub-jobs-document .hub-job-invoice-next-preview {
+    background: none;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .hub-jobs-document .ops-next-detail {
+    display: none;
+  }
+
+  .hub-jobs-document .hub-jobs-tools .btn-primary,
+  .hub-jobs-document .hub-jobs-tools .ops-next-control-block {
+    width: 100%;
+    min-height: 56px;
+    height: 56px;
+    background: #111;
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    box-shadow: none;
   }
 
   .hub-jobs-document .job-sheet-ref {
@@ -11157,25 +11258,43 @@
 
   .job-sheet-kv-row {
     display: grid;
-    grid-template-columns: 72px minmax(0, 1fr);
-    gap: 12px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    column-gap: 12px;
     align-items: center;
     min-height: 44px;
-    padding: 4px 0;
+    padding: 10px 0;
     border-bottom: 1px solid var(--job-look-line);
   }
 
   .job-sheet-kv-label {
+    grid-column: 1;
+    grid-row: 1;
     color: var(--job-look-muted);
     font-size: 13px;
   }
 
   .job-sheet-kv-value {
+    grid-column: 1;
+    grid-row: 2;
     min-width: 0;
-    display: flex;
-    flex-wrap: wrap;
+    display: block;
+    font-size: 16px;
+    line-height: 22px;
+  }
+
+  .job-sheet-kv-act {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 10px;
+    box-shadow: inset 0 0 0 1px var(--job-look-line);
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
   }
 
   .job-sheet-section-head {
@@ -11200,18 +11319,31 @@
   }
 
   .job-sheet-photo {
+    position: relative;
     aspect-ratio: 1;
     padding: 0;
     border: none;
-    background: var(--g-bg);
+    background: #eeeae3;
     overflow: hidden;
     cursor: pointer;
   }
 
   .job-sheet-photo img {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  .job-sheet-photo-ph {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-start;
+    padding: 8px;
+    color: var(--job-look-muted);
   }
 
   .job-sheet-bill-row {
@@ -11271,10 +11403,16 @@
     }
 
     .job-sheet-overview {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: 32px;
-      align-items: start;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    .job-sheet-notes,
+    .job-sheet-photos,
+    .job-sheet-bill {
+      width: 100%;
+      max-width: none;
     }
 
     .hub-jobs-document [data-job-tab]:not([data-job-tab="overview"]) {
@@ -11967,7 +12105,7 @@
 
   /* Jobs list document only. Same paper kit as signed quote / clients list. Not the open record. */
   .hub-jobs-list-doc.ops-page {
-    background: #F5F0E6;
+    background: transparent;
   }
 
   .hub-jobs-list-doc .hub-jobs-sheet {
@@ -12004,10 +12142,11 @@
   }
 
   .hub-jobs-list-body {
-    padding: 32px 32px 24px;
-    background: #FFFDF8;
-    box-shadow: inset 0 1px 0 #fff;
-    overflow: visible;
+    padding: 24px 16px 24px;
+    background: transparent;
+    box-shadow: none;
+    overflow-x: hidden;
+    max-width: 100%;
   }
 
   .hub-jobs-list-doc .ops-page-title {
@@ -12062,15 +12201,17 @@
   /* Status strip is the primary filter. One hairline across the sheet; slides sideways on phone. */
   .hub-jobs-list-filters {
     display: flex;
+    flex-wrap: wrap;
     align-items: stretch;
-    gap: 4px;
+    gap: 2px;
+    width: 100%;
+    max-width: 100%;
     margin-top: 24px;
-    border-bottom: 1px solid #E2D9CC;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x proximity;
+    padding: 3px;
+    border: none;
+    border-radius: 12px;
+    background: #eeeae3;
+    overflow: hidden;
   }
 
   .hub-jobs-list-filters::-webkit-scrollbar {
@@ -12078,34 +12219,38 @@
   }
 
   .hub-jobs-list-filter {
-    flex: 0 0 auto;
+    flex: 1 1 calc(33.33% - 2px);
+    min-width: 0;
+    max-width: 100%;
     min-height: 44px;
-    padding: 0 12px;
+    padding: 0 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
     border: none;
-    border-radius: 0;
+    border-radius: 10px;
     background: none;
     color: #5B6B7C;
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 11px;
     font-weight: 500;
     white-space: nowrap;
-    scroll-snap-align: start;
     box-shadow: none;
     cursor: pointer;
   }
 
   .hub-jobs-list-filter:first-child {
-    margin-left: -12px;
+    margin-left: 0;
   }
 
   .hub-jobs-list-filter:hover {
-    color: #0A2540;
+    color: var(--job-look-ink);
   }
 
   .hub-jobs-list-filter.is-on {
-    color: #0A2540;
+    color: var(--job-look-ink);
     font-weight: 600;
-    box-shadow: inset 0 -2px 0 #2E75B6;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(10, 37, 64, 0.12);
   }
 
   .hub-jobs-list-filter:focus-visible {
@@ -12113,44 +12258,8 @@
     outline-offset: -2px;
   }
 
-  /* Status chips are the primary filter. One strip across the sheet; slides sideways on phone. */
-  .hub-jobs-list-filters {
-    display: flex;
-    align-items: stretch;
-    gap: 4px;
-    margin-top: 24px;
-    border-bottom: 1px solid #E2D9CC;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .hub-jobs-list-filters::-webkit-scrollbar {
+  .hub-jobs-list-bar {
     display: none;
-  }
-
-  .hub-jobs-list-filter {
-    flex: 0 0 auto;
-    min-height: 44px;
-    padding: 0 12px;
-    border: none;
-    border-radius: 0;
-    background: none;
-    color: #5B6B7C;
-    font-family: var(--g-font-ui);
-    font-size: 14px;
-    font-weight: 500;
-    letter-spacing: 0;
-    text-transform: none;
-    white-space: nowrap;
-    box-shadow: none;
-    cursor: pointer;
-  }
-
-  .hub-jobs-list-filter.is-on {
-    color: #0A2540;
-    font-weight: 600;
-    box-shadow: inset 0 -2px 0 #2E75B6;
   }
 
   .hub-jobs-list-doc .hub-jobs-list-filters + .hub-jobs-thead {
@@ -12455,13 +12564,14 @@
       align-items: flex-start;
       gap: 12px;
       width: 100%;
+      max-width: 100%;
       padding: 14px 0;
       border-top: 1px solid #E2D9CC;
       background: none;
       box-shadow: none;
       cursor: pointer;
       text-align: left;
-      color: #0A2540;
+      color: var(--job-look-ink);
       font-family: var(--g-font-ui);
     }
 
@@ -12514,8 +12624,8 @@
       min-height: 22px;
       padding: 0 8px;
       border-radius: 999px;
-      background: #F5F0E6;
-      color: #0A2540;
+      background: #eeeae3;
+      color: var(--job-look-ink);
       font-family: var(--g-font-ui);
       font-size: 12px;
       font-weight: 600;
