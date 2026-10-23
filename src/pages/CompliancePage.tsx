@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { lookParam } from '../lib/lookParam';
 import {
   COMPLIANCE_LIST_DEFAULT_FILTER,
   COMPLIANCE_LIST_FILTERS,
@@ -152,8 +153,8 @@ export function CompliancePage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const lookComplianceList = searchParams.get('look') === COMPLIANCE_LIST_LOOK;
-  const lookHotfixDate = import.meta.env.DEV && searchParams.get('look') === HOTFIX_DATE_LOOK;
+  const lookComplianceList = lookParam(searchParams) === COMPLIANCE_LIST_LOOK;
+  const lookHotfixDate = lookParam(searchParams) === HOTFIX_DATE_LOOK;
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<ComplianceListFilter>(
     lookComplianceList ? 'all' : COMPLIANCE_LIST_DEFAULT_FILTER,

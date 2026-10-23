@@ -45,6 +45,7 @@ import {
   shouldQueryLiveEnquiries,
 } from '../lib/missedCallEnquiry';
 import { resolveTenantTimeZone } from '../lib/tenantTimeZone';
+import { lookParam } from '../lib/lookParam';
 
 type JobRowModel = JobWithClient & {
   cover_photo_url: string | null;
@@ -411,16 +412,16 @@ export function JobsPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const lookParam = import.meta.env.DEV ? searchParams.get('look') : null;
-  const lookJobsList = import.meta.env.DEV && searchParams.get('look') === JOBS_LIST_LOOK;
-  const lookP307 = lookParam === JOBS_P307_LOOK;
-  const lookCrewS8d = lookParam;
+  const look = lookParam(searchParams);
+  const lookJobsList = look === JOBS_LIST_LOOK;
+  const lookP307 = look === JOBS_P307_LOOK;
+  const lookCrewS8d = look;
   const lookCrewS8dSeed = lookCrewS8d === CREW_S8D_LOOK_NEEDS
     || lookCrewS8d === CREW_S8D_LOOK_BOOKED
     || lookCrewS8d === CREW_S8D_LOOK_NOT;
-  const enquiryLook = enquiryLookKind(lookParam);
+  const enquiryLook = enquiryLookKind(look);
   const lookEnquirySeed = enquiryLook != null;
-  const enquirySurface = enquirySurfaceOpen(lookParam);
+  const enquirySurface = enquirySurfaceOpen(look);
   const tenantTimeZone = resolveTenantTimeZone(
     (company as { time_zone?: string | null } | null)?.time_zone,
   );
@@ -508,7 +509,7 @@ export function JobsPage() {
   });
 
   const queryLiveEnquiries = !!profile
-    && shouldQueryLiveEnquiries({ look: lookParam, view: viewParam })
+    && shouldQueryLiveEnquiries({ look, view: viewParam })
     && !lookJobsList
     && !lookP307
     && !lookCrewS8dSeed

@@ -49,7 +49,7 @@ describe('clients list laptop LOOK — quote paper, overflow on the sheet', () =
     expect(page).toContain('is-flip');
     expect(page).toContain('is-shift');
     expect(page).toContain('--hub-clients-list-more-shift');
-    expect(page).toContain("look') === CLIENTS_LIST_LOOK");
+    expect(page).toContain('lookParam(searchParams) === CLIENTS_LIST_LOOK');
     expect(page).toContain('Northside Electrical');
     expect(page).toContain('Harbour Lights');
     expect(page).toContain('Midland Workshops');

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FileText, MoreHorizontal, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { lookParam } from '../lib/lookParam';
 import { AUDIT_TAKE5_ID, getAuditJhaDoc, getAuditJob, getAuditTake5, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { supabase } from '../lib/supabase';
 import {
@@ -147,7 +148,7 @@ export function Take5ListPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const lookTake5List = searchParams.get('look') === TAKE5_LIST_LOOK;
+  const lookTake5List = lookParam(searchParams) === TAKE5_LIST_LOOK;
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<Take5ListFilter>(lookTake5List ? 'all' : TAKE5_LIST_DEFAULT_FILTER);
 

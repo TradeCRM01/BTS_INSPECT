@@ -1,3 +1,4 @@
+import { lookProofOn } from './lookParam';
 import { supabase } from './supabase';
 import {
   ALLOWED_ENQUIRY_PHONE,
@@ -36,7 +37,7 @@ export type ConversationMessage = {
 export function conversationLookKind(
   look: string | null | undefined,
 ): 'thread' | 'empty' | null {
-  if (!import.meta.env.DEV) return null;
+  if (!lookProofOn()) return null;
   if (look === CONVERSATION_LOOK) return 'thread';
   if (look === CONVERSATION_EMPTY_LOOK) return 'empty';
   return null;

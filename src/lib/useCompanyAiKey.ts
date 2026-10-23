@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchAiSettings } from './aiSettingsClient';
 import { isDevFieldAuditAuth } from './devFieldAuditAuth';
+import { lookWindowParam } from './lookParam';
 
 /** True when the company has its own Anthropic key (not platform env fallback). */
 export function useCompanyAiKey(): { ready: boolean; hasKey: boolean } {
@@ -18,8 +19,7 @@ export function useCompanyAiKey(): { ready: boolean; hasKey: boolean } {
 
   if (typeof window !== 'undefined') {
     try {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('look')?.startsWith('expense1') && params.get('expenseNoAi') === '1') {
+      if (lookWindowParam()?.startsWith('expense1') && lookWindowParam('expenseNoAi') === '1') {
         return { ready: true, hasKey: false };
       }
     } catch {

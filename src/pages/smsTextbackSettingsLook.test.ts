@@ -42,7 +42,7 @@ describe('sms text-back LOOK — existing company settings section', () => {
     expect(lib).toContain('Limits: ${settings.hourlyCap} an hour · ${settings.dailyCap} a day · ${settings.monthlyCap} text parts a month');
     expect(page).toContain('Saving…');
     expect(page).not.toContain("savingSmsTextback ? 'Saving...'");
-    expect(page).toContain("import.meta.env.DEV ? searchParams.get('look') : null");
+    expect(page).toContain('lookParam(searchParams)');
     expect(page).not.toContain('composer');
     expect(page).not.toContain('Ack template');
     expect(src('src/components/ui/Switch.tsx')).toContain('role="switch"');
@@ -53,8 +53,8 @@ describe('sms text-back LOOK — existing company settings section', () => {
     expect(lib).toContain('renderMissedCallAck');
     expect(lib).toContain('ENQUIRY_SURFACE_LIVE');
     expect(src('src/lib/missedCallEnquiry.ts')).toContain('ENQUIRY_SURFACE_LIVE = false');
-    expect(auth).toContain("params.get('look') === 'sms-settings'");
-    expect(auth).toContain("params.get('look') === 'sms-settings-invalid'");
+    expect(auth).toContain("look === 'sms-settings'");
+    expect(auth).toContain("look === 'sms-settings-invalid'");
     expect(sql).toContain('save_sms_textback_settings');
     expect(sql).toContain('sms_automation_settings_enabled_requires_name');
     expect(sql).toContain("v_role IS DISTINCT FROM 'admin'");

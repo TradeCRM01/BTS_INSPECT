@@ -10,6 +10,7 @@ import { evaluateShowIf } from '../lib/conditionEval';
 import type { TemplateSchema, Section, Question } from '../types/template';
 import { Plus, Trash2, ChevronDown, Camera, X, ClipboardList } from 'lucide-react';
 import { nanoid } from '../lib/nanoid';
+import { lookParam } from '../lib/lookParam';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
@@ -121,9 +122,9 @@ export function InspectionFillPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { profile, company } = useAuth();
-  const lookParam = import.meta.env.DEV ? searchParams.get('look') : null;
-  const lookInspection = inspectionSnapshotLookDoc(lookParam);
-  const lookJobs = inspectionSnapshotLookJobs(lookParam);
+  const look = lookParam(searchParams);
+  const lookInspection = inspectionSnapshotLookDoc(look);
+  const lookJobs = inspectionSnapshotLookJobs(look);
 
   const [responses, setResponses] = useState<Record<string, unknown>>({});
   const [meta, setMeta] = useState<Record<string, string>>({});
@@ -134,7 +135,7 @@ export function InspectionFillPage() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [photos, setPhotos] = useState<PhotoRecord[]>([]);
   const [attachmentUploading, setAttachmentUploading] = useState<Record<string, boolean>>({});
-  const [showMoreIdentity, setShowMoreIdentity] = useState(lookParam === LOOK_ISSUED_EDIT);
+  const [showMoreIdentity, setShowMoreIdentity] = useState(look === LOOK_ISSUED_EDIT);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const pendingSaveRef = useRef<PendingSave | null>(null);
   const metaRef = useRef<Record<string, string>>({});
@@ -216,7 +217,7 @@ export function InspectionFillPage() {
   });
 
   useEffect(() => {
-    if (!id || lookParam === LOOK_SNAPSHOT_VIEW || lookParam === LOOK_SNAPSHOT_EDIT || lookParam === LOOK_ISSUED_VIEW || lookParam === LOOK_ISSUED_EDIT) return;
+    if (!id || look === LOOK_SNAPSHOT_VIEW || look === LOOK_SNAPSHOT_EDIT || look === LOOK_ISSUED_VIEW || look === LOOK_ISSUED_EDIT) return;
     supabase.from('photos').select('*').eq('inspection_id', id).then(({ data, error }) => {
       if (error) { console.error('Photo fetch error:', error); return; }
       if (!data?.length) return;
@@ -227,7 +228,7 @@ export function InspectionFillPage() {
         })
       ).then(photosWithUrls => setPhotos(photosWithUrls)).catch(err => console.error('Photo URL error:', err));
     });
-  }, [id, lookParam]);
+  }, [id, look]);
 
   useEffect(() => {
     if (!inspection) return;

@@ -78,7 +78,7 @@ describe('schedule page week/day board', () => {
     expect(src('src/index.css')).toContain('.hub-day-drop-hint');
     expect(src('src/index.css')).toMatch(/\.hub-day-drop-hint[\s\S]{0,40}display: none/);
     expect(src('src/index.css')).toContain('.hub-day-crew-lock .ops-crew-mark');
-    expect(page).toContain("get('early') === '1'");
+    expect(page).toContain("lookParam(searchParams, 'early') === '1'");
     expect(page).toContain('weekBoardLookEarlyJobs');
     expect(page).toContain('05:30');
     expect(page).toContain('07:00');
@@ -267,7 +267,7 @@ describe('schedule board cream paper look', () => {
     expect(page).toContain('hub-week-sheet');
     expect(page).toContain('WeekBoardChrome');
     expect(page).toContain('All crews');
-    expect(page).toContain('lookParam === WEEK_BOARD_LOOK');
+    expect(page).toContain('look === WEEK_BOARD_LOOK');
     expect(page).toContain('FIX3A_SCHEDULE_LOOK');
     expect(page).toContain("name: 'Dave Hale'");
     expect(page).toContain("name: 'Jack Wieland'");

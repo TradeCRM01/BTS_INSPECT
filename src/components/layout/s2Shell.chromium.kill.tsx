@@ -92,6 +92,7 @@ async function bundleShell(): Promise<string> {
       'import.meta.env.DEV': 'false',
       'import.meta.env.PROD': 'true',
       'import.meta.env.SSR': 'false',
+      'import.meta.env.VITE_LOOK_PROOF': 'undefined',
       'import.meta.env.VITE_SUPABASE_URL': '"https://example.supabase.co"',
       'import.meta.env.VITE_SUPABASE_ANON_KEY': '"test-anon-key"',
     },

@@ -5,6 +5,7 @@ import { addDays } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { NAV_WORDS } from '../lib/brand';
+import { lookParam } from '../lib/lookParam';
 import { AppShell } from '../components/layout/AppShell';
 import { EmptyState, LoadingSpinner, PageError, useToast } from '../components/ui';
 import { ReminderRow } from '../components/reminders/ReminderRow';
@@ -504,12 +505,12 @@ export function DashboardPage() {
   const { profile, company } = useAuth();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
-  const lookParam = (import.meta.env.DEV || import.meta.env.VITE_LOOK_PROOF === '1') ? searchParams.get('look') : null;
-  const lookCrewS8dDashboard = lookParam === CREW_S8D_DASHBOARD_NEEDS;
-  const lookDashboardJack = lookParam === DASHBOARD_LOOK_JACK_LAYOUT;
-  const lookDashboardSeed = lookParam === DASHBOARD_LOOK_SEED;
-  const lookDashboardRepro = lookParam === DASHBOARD_LOOK_REPRO;
-  const lookDashboard = lookParam === DASHBOARD_LOOK
+  const look = lookParam(searchParams);
+  const lookCrewS8dDashboard = look === CREW_S8D_DASHBOARD_NEEDS;
+  const lookDashboardJack = look === DASHBOARD_LOOK_JACK_LAYOUT;
+  const lookDashboardSeed = look === DASHBOARD_LOOK_SEED;
+  const lookDashboardRepro = look === DASHBOARD_LOOK_REPRO;
+  const lookDashboard = look === DASHBOARD_LOOK
     || lookCrewS8dDashboard
     || lookDashboardJack
     || lookDashboardSeed

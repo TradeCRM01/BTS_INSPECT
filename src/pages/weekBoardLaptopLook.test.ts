@@ -33,7 +33,7 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(page).toContain('--hub-week-more-shift');
     expect(page).toContain('All crews');
     expect(page).toContain('className="btn-primary"');
-    expect(page).toContain('lookParam === WEEK_BOARD_LOOK');
+    expect(page).toContain('look === WEEK_BOARD_LOOK');
     expect(page).toContain("name: 'Dave Hale'");
     expect(page).toContain("name: 'Jack Wieland'");
     expect(page).toContain("name: 'Sam Ortiz'");
@@ -47,7 +47,7 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(page).toContain('rangeLabel');
     expect(page).toContain('hub-week-track');
     expect(page).toContain('WEEK_BOARD_LOOK_DAY_ANCHOR');
-    expect(src('src/lib/devFieldAuditAuth.ts')).toContain("params.get('look') === 'week-board'");
+    expect(src('src/lib/devFieldAuditAuth.ts')).toContain("look === 'week-board'");
     expect(page).toContain('>Week<');
     expect(page).toContain('#F7931A');
     expect(page).toContain('#7C3AED');

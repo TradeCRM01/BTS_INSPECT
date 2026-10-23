@@ -1,6 +1,7 @@
 import type { Session, User } from '@supabase/supabase-js';
 import type { Database } from '../types/database';
 import { LETTERHEAD_LOOK } from './companyLogo';
+import { lookParam } from './lookParam';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type Company = Database['public']['Tables']['companies']['Row'];
@@ -19,7 +20,7 @@ export function isDevOperatorAudit(): boolean {
   if (!import.meta.env.DEV) return false;
   try {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('operatorAudit') === '1') {
+    if (lookParam(params, 'operatorAudit') === '1') {
       sessionStorage.setItem(OPERATOR_AUDIT_KEY, '1');
       sessionStorage.setItem(AUDIT_KEY, '1');
       return true;
@@ -40,35 +41,36 @@ export function isDevFieldAuditAuth(): boolean {
   if (isDevOperatorAudit()) return true;
   try {
     const params = new URLSearchParams(window.location.search);
+    const look = lookParam(params);
     if (
-      params.get('auditAuth') === '1'
-      || params.get('look') === LETTERHEAD_LOOK
-      || params.get('look') === 'person-tickets'
-      || params.get('look') === 'team-list'
-      || params.get('look') === 'dashboard'
-      || params.get('look') === 'dashboard-seed'
-      || params.get('look') === 'dashboard-repro'
-      || params.get('look') === 'visit-notes'
-      || params.get('look') === 'job-photos'
-      || params.get('look') === 'week-board'
-      || params.get('look') === 'price-books'
-      || params.get('look') === 'enquiries'
-      || params.get('look') === 'enquiries-empty'
-      || params.get('look') === 'enquiries-one'
-      || params.get('look') === 'jobs-prod-schema'
-      || params.get('look') === 'conversation'
-      || params.get('look') === 'conversation-empty'
-      || params.get('look') === 'sms-settings'
-      || params.get('look') === 'sms-settings-invalid'
-      || params.get('look') === 'hotfix-date-bad'
-      || params.get('look') === 'ai-settings'
-      || params.get('look') === 'ai-console'
-      || params.get('look') === 'drive-error'
-      || params.get('look') === 'inspections-list'
-      || params.get('look') === 'inspection-snapshot-view'
-      || params.get('look') === 'inspection-snapshot-edit'
-      || params.get('look') === 'inspection-issued-view'
-      || params.get('look') === 'inspection-issued-edit'
+      lookParam(params, 'auditAuth') === '1'
+      || look === LETTERHEAD_LOOK
+      || look === 'person-tickets'
+      || look === 'team-list'
+      || look === 'dashboard'
+      || look === 'dashboard-seed'
+      || look === 'dashboard-repro'
+      || look === 'visit-notes'
+      || look === 'job-photos'
+      || look === 'week-board'
+      || look === 'price-books'
+      || look === 'enquiries'
+      || look === 'enquiries-empty'
+      || look === 'enquiries-one'
+      || look === 'jobs-prod-schema'
+      || look === 'conversation'
+      || look === 'conversation-empty'
+      || look === 'sms-settings'
+      || look === 'sms-settings-invalid'
+      || look === 'hotfix-date-bad'
+      || look === 'ai-settings'
+      || look === 'ai-console'
+      || look === 'drive-error'
+      || look === 'inspections-list'
+      || look === 'inspection-snapshot-view'
+      || look === 'inspection-snapshot-edit'
+      || look === 'inspection-issued-view'
+      || look === 'inspection-issued-edit'
       || window.location.pathname === '/__field-audit'
     ) {
       sessionStorage.setItem(AUDIT_KEY, '1');
@@ -94,7 +96,7 @@ export function isDevAuditBillingFetchFail(): boolean {
   if (!import.meta.env.DEV || !isDevFieldAuditAuth()) return false;
   try {
     const params = new URLSearchParams(window.location.search);
-    return params.get('auditBillingFail') === '1';
+    return lookParam(params, 'auditBillingFail') === '1';
   } catch {
     return false;
   }
@@ -136,7 +138,7 @@ export const DEV_AUDIT_PROFILE = {
 function devAuditCompanyTrades(): string[] {
   if (!import.meta.env.DEV) return [];
   try {
-    const raw = new URLSearchParams(window.location.search).get('trades');
+    const raw = lookParam(new URLSearchParams(window.location.search), 'trades');
     return raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
   } catch {
     return [];
@@ -147,7 +149,7 @@ function devAuditCompanyTrades(): string[] {
 function devAuditName(fallback: string): string {
   if (!import.meta.env.DEV) return fallback;
   try {
-    const n = new URLSearchParams(window.location.search).get('auditName');
+    const n = lookParam(new URLSearchParams(window.location.search), 'auditName');
     return n && n.trim() ? n.trim() : fallback;
   } catch {
     return fallback;

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { TEMPLATE_WRITE_NO_ROW, canEditTemplates, canViewTemplates, throwIfNoRows } from '../lib/templateAccess';
+import { lookParam } from '../lib/lookParam';
 import { TemplateAccessDenied } from '../components/layout/TemplateAccessDenied';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
@@ -47,7 +48,7 @@ export function TemplatesPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const lookTemplates = searchParams.get('look') === LOOK_TEMPLATES_SNAPSHOT;
+  const lookTemplates = lookParam(searchParams) === LOOK_TEMPLATES_SNAPSHOT;
   const [activeTab, setActiveTab] = useState<Tab>(() => searchParams.get('tab') === 'jha' ? 'jha' : 'inspections');
   const [showArchived, setShowArchived] = useState(false);
   const [writeError, setWriteError] = useState('');

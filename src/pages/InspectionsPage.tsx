@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { DEV_AUDIT_PROFILE, pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { lookParam } from '../lib/lookParam';
 import {
   AUDIT_INSPECTION_ID,
   getAuditClient,
@@ -210,7 +211,7 @@ export function InspectionsPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [searchParams] = useSearchParams();
-  const lookInspectionsList = searchParams.get('look') === INSPECTIONS_LIST_LOOK;
+  const lookInspectionsList = lookParam(searchParams) === INSPECTIONS_LIST_LOOK;
   const isAdmin = profile?.role === 'admin';
 
   const [search, setSearch] = useState('');

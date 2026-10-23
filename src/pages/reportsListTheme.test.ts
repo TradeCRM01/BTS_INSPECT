@@ -90,7 +90,7 @@ describe('reports list shows existing reports and opens the existing route', () 
     expect(page).toContain("Couldn't load reports");
     expect(page).toContain('retryLabel="Retry"');
     expect(page).toContain('refetchReports');
-    expect(page).toContain("look') === REPORTS_ERROR_LOOK");
+    expect(page).toContain('lookParam(searchParams) === REPORTS_ERROR_LOOK');
     expect(page).toContain('ops-page-title">Shared Drive');
     expect(page).not.toContain('pageQueryBlocked(reportsError)');
     expect(page).not.toContain('/reports/');

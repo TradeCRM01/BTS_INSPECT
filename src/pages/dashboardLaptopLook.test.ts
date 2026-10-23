@@ -44,7 +44,7 @@ describe('dashboard laptop LOOK — quote paper, overflow on the sheet', () => {
     expect(page).toContain('is-flip');
     expect(page).toContain('is-shift');
     expect(page).toContain('--dashboard-home-more-shift');
-    expect(page).toContain("look') === DASHBOARD_LOOK");
+    expect(page).toContain('look === DASHBOARD_LOOK');
     expect(page).toContain('Northside Electrical');
     expect(page).toContain('Harbour Lights');
     expect(page).toContain('Site labour');

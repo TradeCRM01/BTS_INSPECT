@@ -8,6 +8,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, Breadcrumbs, useToast, OpsStatus, OpsSiteRow, OpsPhotoStamp } from '../components/ui';
 import { EnquiryConversation, useEnquiryConversation } from '../components/crm/EnquiryConversation';
 import { conversationLookClientPhone, conversationLookKind } from '../lib/enquiryConversation';
+import { lookParam, lookWindowParam } from '../lib/lookParam';
 import { JobFormModal } from '../components/crm/JobFormModal';
 import { resolveTenantTimeZone } from '../lib/tenantTimeZone';
 import { JobCostingPanel } from '../components/jobs/JobCostingPanel';
@@ -352,12 +353,7 @@ const FIX2B_D_NORATE_LOOK = 'fix2b-d-norate';
 const LOOK_PHOTO_DIR = '/look/photos';
 
 function lookSearchParam(): string | null {
-  if (!import.meta.env.DEV) return null;
-  try {
-    return new URLSearchParams(window.location.search).get('look');
-  } catch {
-    return null;
-  }
+  return lookWindowParam();
 }
 
 function testingDueLookKind(): 'empty' | 'rows' | null {
@@ -1551,8 +1547,8 @@ const JOB_GALLERY_LOOK_CSS = `
 export function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const lookParam = import.meta.env.DEV ? searchParams.get('look') : null;
-  const conversationLookOn = conversationLookKind(lookParam) != null;
+  const look = lookParam(searchParams);
+  const conversationLookOn = conversationLookKind(look) != null;
   const rescheduleAsked = isJobRescheduleQuery(searchParams);
   const tab = readJobSheetTab(searchParams, window.location.hash);
   // Materials is only the bill, so landing there opens the cost panel without a second tap.
@@ -2739,9 +2735,9 @@ export function JobDetailPage() {
     : (auditLookPreview ?? jobBillInvoicePreview);
   const quotedInvoiceSheetMoneyLine = invoicePreviewForNext?.moneyLine ?? '';
   const conversationMessages = useEnquiryConversation({
-    look: lookParam,
+    look,
     companyId: profile?.company_id,
-    callerPhone: conversationLookClientPhone(lookParam, client?.phone),
+    callerPhone: conversationLookClientPhone(look, client?.phone),
     approvedJobId: job?.id ?? id,
   });
   const tenantTimeZone = resolveTenantTimeZone(

@@ -23,6 +23,7 @@ import { gstLabel } from '../lib/gst';
 import { commitMoneyField, committedNumber, moneyDraftAllowed, moneyFieldMessage } from '../lib/parseDecimal';
 import { LIST_LOADING_LABEL, listQueryBusy } from '../lib/listQueryReady';
 import { useCompanyAiKey } from '../lib/useCompanyAiKey';
+import { lookParam } from '../lib/lookParam';
 import {
   PRICE_BOOKS_LOOK,
   PRICE_BOOKS_SUBTITLE,
@@ -36,8 +37,8 @@ export function PriceBooksPage() {
   const { profile, company } = useAuth();
   const { hasKey: companyAiKey } = useCompanyAiKey();
   const [searchParams] = useSearchParams();
-  const lookPriceBooks = searchParams.get('look') === PRICE_BOOKS_LOOK;
-  const lookEmpty = lookPriceBooks && searchParams.get('empty') === '1';
+  const lookPriceBooks = lookParam(searchParams) === PRICE_BOOKS_LOOK;
+  const lookEmpty = lookPriceBooks && lookParam(searchParams, 'empty') === '1';
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
@@ -51,8 +52,19 @@ export function PriceBooksPage() {
   const [deleteItemTarget, setDeleteItemTarget] = useState<PriceBookItem | null>(null);
 
   const { data: priceBooks, isLoading, isPending, error } = useQuery({
-    queryKey: ['price-books'],
+    queryKey: ['price-books', lookPriceBooks],
     queryFn: async () => {
+      if (lookPriceBooks) {
+        return [{
+          id: 'look-price-book',
+          company_id: profile!.company_id,
+          name: 'Site rates',
+          description: null,
+          is_default: true,
+          created_at: '2026-10-05T00:00:00.000Z',
+          updated_at: '2026-10-05T00:00:00.000Z',
+        }] as PriceBook[];
+      }
       const mock = getAuditPriceBooks();
       if (mock) return mock;
       const { data, error } = await supabase.from('price_books').select('*').eq('company_id', profile!.company_id).order('created_at', { ascending: false });

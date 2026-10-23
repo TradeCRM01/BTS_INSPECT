@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
 import { listCountWhisper, listQueryBusy } from '../lib/listQueryReady';
+import { lookParam } from '../lib/lookParam';
 import { getAuditClients, getAuditJobs } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
 import { PageError, EmptyState, SearchBar, ConfirmDialog, useToast, LoadingSpinner } from '../components/ui';
@@ -98,7 +99,7 @@ export function ClientsPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [searchParams] = useSearchParams();
-  const lookClientsList = searchParams.get('look') === CLIENTS_LIST_LOOK;
+  const lookClientsList = lookParam(searchParams) === CLIENTS_LIST_LOOK;
   const [search, setSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);

@@ -45,9 +45,9 @@ describe('dashboard widgets LOOK — ink on the signed paper', () => {
     expect(page).not.toMatch(/Relovi|Littleloop/);
     expect(page).not.toMatch(/\bute\b/i);
 
-    expect(auth).toContain("params.get('look') === 'dashboard'");
-    expect(auth).toContain("params.get('look') === 'dashboard-seed'");
-    expect(auth).toContain("params.get('look') === 'dashboard-repro'");
+    expect(auth).toContain("look === 'dashboard'");
+    expect(auth).toContain("look === 'dashboard-seed'");
+    expect(auth).toContain("look === 'dashboard-repro'");
 
     expect(css).toContain('.dashboard-home-widgets');
     expect(css).toContain('.dashboard-home-widget-ink');

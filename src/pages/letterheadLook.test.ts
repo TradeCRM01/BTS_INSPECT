@@ -33,8 +33,8 @@ describe('quote + invoice letterhead mark LOOK', () => {
     expect(src('src/lib/CompanyLogoQuotePreview.tsx')).toContain('Quote #2002');
     expect(quoteEditor).toContain('companyWithLetterheadLookMark');
     expect(invoiceEditor).toContain('companyWithLetterheadLookMark');
-    expect(quotes).toContain("look') === LETTERHEAD_LOOK");
-    expect(invoices).toContain("look') === LETTERHEAD_LOOK");
+    expect(quotes).toContain('lookParam(searchParams) === LETTERHEAD_LOOK');
+    expect(invoices).toContain('lookParam(searchParams) === LETTERHEAD_LOOK');
     expect(quotes).toContain('fieldAuditConvertQuote');
     expect(invoices).toContain('getAuditInvoiceEditorRow');
     expect(invoices).toContain('getAuditClients');
