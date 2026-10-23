@@ -176,6 +176,16 @@ function liveNotes() {
   }];
 }
 
+const P3_PHOTO_CAPTIONS = [
+  'Overflow gully, before',
+  'CCTV, roots at 6.2 m',
+  'Boundary trap, exposed',
+  'Jetting set-up',
+  'CCTV, line clear',
+  'Inspection cap fitted',
+  'Site after',
+];
+
 function livePhotos() {
   return Array.from({ length: 7 }, (_, i) => {
     const hour = String(7 + i).padStart(2, '0');
@@ -186,7 +196,7 @@ function livePhotos() {
       job_id: 'p3-0036',
       visit_note_id: null,
       storage_path: `jobs/p3-0036/${i + 1}.jpg`,
-      caption: null,
+      caption: P3_PHOTO_CAPTIONS[i] ?? null,
       created_by: 'p3-dean',
       created_at: at,
       taken_at: at,
