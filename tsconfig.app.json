@@ -21,5 +21,10 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
-  "exclude": ["src/lib/aiConsoleEdge.probe.test.ts", "src/pages/p3Jobs.chromium.kill.tsx"]
+  "exclude": [
+    "src/lib/aiConsoleEdge.probe.test.ts",
+    "src/pages/p3Jobs.chromium.kill.tsx",
+    "src/pages/p3Jobs.chromium.entry.tsx",
+    "src/pages/p3Jobs.chromium.mocks.ts"
+  ]
 }

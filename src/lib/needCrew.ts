@@ -37,6 +37,7 @@ export function countNeedsCrew(
 
 export const NEED_CREW_COPY = 'need crew';
 
+<<<<<<< HEAD
 /** Isolated until P1b lands. Swap is a one-line import onto #403's helper. */
 export function jobNeedsCrew(job: CrewNeedJob | null | undefined): boolean {
   if (!job) return false;
@@ -50,6 +51,26 @@ export function countJobsNeedCrew(
   jobs: readonly unknown[] | null | undefined | string | number | object,
 ): number {
   return countNeedsCrew(jobs);
+=======
+/** Isolated until P1b lands `src/lib/needCrew.ts`. Swap is a one-line import. */
+export function jobNeedsCrew(job: {
+  status?: string | null;
+  assigned_team?: string[] | null;
+  scheduled_date?: string | null;
+}): boolean {
+  const status = (job.status ?? '').trim().toLowerCase();
+  if (status === 'completed' || status === 'cancelled' || status === 'done') return false;
+  if (!(job.scheduled_date ?? '').trim()) return false;
+  return jobCrewMemberCount(job.assigned_team) === 0;
+}
+
+export function countJobsNeedCrew<T extends {
+  status?: string | null;
+  assigned_team?: string[] | null;
+  scheduled_date?: string | null;
+}>(jobs: readonly T[]): number {
+  return jobs.reduce((n, job) => n + (jobNeedsCrew(job) ? 1 : 0), 0);
+>>>>>>> a687535e (fix(jobs): P3 r3 real-mount kills, need-crew date, look gate)
 }
 
 export function jobsNeedCrewWhisper(count: number): string {
