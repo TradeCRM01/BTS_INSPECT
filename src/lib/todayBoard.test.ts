@@ -105,6 +105,7 @@ function seedClient(tables: Record<string, SeedRow[]>, calls: Call[] = []): Toda
         },
         limit(count) {
           limit = count;
+          call.filters.push({ kind: 'limit', col: '', val: count });
           return q;
         },
         then(resolve, reject) {
@@ -373,6 +374,18 @@ describe('Q-E outstanding', () => {
     expect(invoiceCalls.every(call => !call.filters.some(filter => filter.kind === 'limit'))).toBe(true);
     expect(invoiceCalls[0]?.select).toBe(TODAY_QE_INVOICE_COLUMNS);
   });
+
+  it('records limit on the fake so a Q-E cap at :333 can go red', async () => {
+    const outstandingCalls: Call[] = [];
+    await fetchOutstanding(seedClient({ invoices: [] }, outstandingCalls), 'co', new Date(2026, 9, 19));
+    expect(outstandingCalls.some(call => call.filters.some(filter => filter.kind === 'limit'))).toBe(false);
+
+    const comingCalls: Call[] = [];
+    await fetchComingUp(seedClient({ jobs: [], clients: [] }, comingCalls), 'co', TODAY);
+    expect(comingCalls.some(call => (
+      call.table === 'jobs' && call.filters.some(filter => filter.kind === 'limit' && filter.val === 3)
+    ))).toBe(true);
+  });
 });
 
 describe('C2 money role gate', () => {
@@ -412,5 +425,28 @@ describe('K13 schema', () => {
     assertSchema('clients', TODAY_QD_CLIENT_COLUMNS);
     expect(TODAY_QE_INVOICE_COLUMNS.includes('paid_at')).toBe(false);
     expect(SCHEMA.invoices.includes('paid_at')).toBe(false);
+  });
+
+  it('keeps every today-board filter column inside the information_schema snapshot', async () => {
+    const calls: Call[] = [];
+    const client = seedClient({
+      jobs: [],
+      invoices: [],
+      invoice_payments: [],
+      expenses: [],
+      clients: [],
+    }, calls);
+    await fetchReadyToInvoice(client, 'co', TODAY);
+    await fetchTodayCash(client, 'co', TODAY);
+    await fetchComingUp(client, 'co', TODAY);
+    await fetchOutstanding(client, 'co', new Date(2026, 9, 19));
+    expect(calls.length).toBeGreaterThan(0);
+    for (const call of calls) {
+      const allowed = new Set(SCHEMA[call.table] ?? []);
+      for (const filter of call.filters) {
+        if (filter.kind === 'limit') continue;
+        expect(allowed.has(filter.col), `${call.table}.${filter.col} filter missing from p1b-columns.json`).toBe(true);
+      }
+    }
   });
 });
