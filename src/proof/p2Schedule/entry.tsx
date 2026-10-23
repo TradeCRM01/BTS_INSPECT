@@ -838,7 +838,8 @@ window.__p2 = {
 
   showEmptyDay() {
     const day = [...document.querySelectorAll('[data-agenda-day]')].find(el => visible(el) && !el.querySelector(ROWS.row));
-    const el = pageScroller();
+    let el = day?.parentElement ?? null;
+    while (el && !(el.scrollHeight > el.clientHeight + 4 && ['auto', 'scroll'].includes(getComputedStyle(el).overflowY))) el = el.parentElement;
     if (!day || !el) return '';
     scrolledBy = { el, top: el.scrollTop };
     el.scrollTop += day.getBoundingClientRect().top - el.getBoundingClientRect().top - 8;
