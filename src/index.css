@@ -13060,7 +13060,7 @@
   }
 
   .dashboard-home-widget-ink.is-editing {
-    padding-top: 28px;
+    padding: 56px 52px 48px 0;
   }
 
   .dashboard-home-widget-stack .dashboard-home-widget-ink {
@@ -13200,7 +13200,7 @@
 
   .dashboard-home-widget.is-editing {
     position: relative;
-    background: #FFFDF8;
+    background: var(--dashboard-home-sheet);
     border: 1px solid var(--dashboard-home-line);
     outline: 1px solid color-mix(in srgb, var(--g-accent) 35%, var(--dashboard-home-line));
   }
