@@ -129,6 +129,7 @@ async function bundleLook(opts: {
     jsx: 'automatic',
     write: false,
     logLevel: 'silent',
+    nodePaths: [join(ROOT, 'node_modules')],
     define: {
       'process.env.NODE_ENV': '"test"',
       'import.meta.env.MODE': '"test"',
@@ -217,7 +218,14 @@ async function openLook(args: {
   });
   const href = `${pathToFileURL(file).href}${args.path.includes('?') ? args.path.slice(args.path.indexOf('?')) : ''}`;
   await page.goto(href);
-  await page.waitForSelector(args.wait || '.shell-header', { timeout: 20000 });
+  try {
+    await page.waitForSelector(args.wait || '.shell-header', { timeout: 20000 });
+  } catch (err) {
+    const dumped = await page.evaluate(() => (
+      `${document.body?.innerText || ''}\n${document.documentElement.innerHTML.slice(0, 2500)}`
+    ));
+    throw new Error(`${err instanceof Error ? err.message : String(err)}\nPAINTED:${dumped}`);
+  }
   await page.evaluate(async () => {
     await document.fonts.ready;
     await new Promise((resolve) => setTimeout(resolve, 250));
@@ -373,52 +381,23 @@ describe('lookParam chromium kills', () => {
       execSync(`git worktree add --detach ${wt} ${MAIN_SHA}`, { cwd: ROOT, stdio: 'pipe' });
       execSync(`ln -sfn ${join(ROOT, 'node_modules')} ${join(wt, 'node_modules')}`);
     }
-    const pages = LOOK_PAGE_KILLS.filter((page) => [
-      'clients', 'jobs', 'inspections', 'jha', 'schedule', 'expenses',
-    ].includes(page.id));
-    const writeRuntimeEntry = (root: string) => {
-      const file = join(tmpdir(), `look-pixel-${root === ROOT ? 'head' : 'main'}.tsx`);
-      const imports = pages.map((page) => (
-        `import { ${page.component} } from '${join(root, page.file)}';`
-      )).join('\n');
-      const routes = pages.map((page) => (
-        `<Route path="${page.path}" element={<${page.component} />} />`
-      )).join('\n');
-      writeFileSync(file, `import { createRoot } from 'react-dom/client';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ToastProvider } from '${join(ROOT, 'src/components/ui/Toast')}';
-${imports}
-const cfg = (globalThis).__LOOK__ || {};
-const rootEl = document.getElementById('root');
-const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-createRoot(rootEl).render(
-  <QueryClientProvider client={client}>
-    <ToastProvider>
-      <MemoryRouter initialEntries={[cfg.path || '/clients']}>
-        <Routes>
-          ${routes}
-        </Routes>
-      </MemoryRouter>
-    </ToastProvider>
-  </QueryClientProvider>,
-);
-`);
-      return file;
-    };
-    const headJs = await bundleLook({ lookProof: false, entry: writeRuntimeEntry(ROOT) });
-    const mainEntry = writeRuntimeEntry(wt);
+    const pages = LOOK_PAGE_KILLS;
+    const headJs = await bundleLook({ lookProof: false });
+    const mainEntry = join(wt, 'src/lib/lookParam.chromium.entry.tsx');
+    writeFileSync(mainEntry, readFileSync(join(here, 'lookParam.chromium.entry.tsx'), 'utf8'));
     const mainJs = await bundleLook({ lookProof: false, entry: mainEntry });
     for (const spec of pages) {
       for (const width of WIDTHS) {
         const head = await openLook({ path: spec.path, js: headJs, width, wait: spec.wait });
+        if (spec.live?.length) await waitForAnyText(head, spec.live);
         const headShot = await head.screenshot({ type: 'png', animations: 'disabled' });
         await head.close();
         const main = await openLook({ path: spec.path, js: mainJs, width, wait: spec.wait });
+        if (spec.live?.length) await waitForAnyText(main, spec.live);
         const mainShot = await main.screenshot({ type: 'png', animations: 'disabled' });
         await main.close();
         expect(headShot.equals(mainShot), `0px ${spec.id} at ${width}`).toBe(true);
       }
     }
-  }, 300000);
+  }, 600000);
 });
