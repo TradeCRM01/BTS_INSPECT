@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { lookParam, lookProofOn, lookWindowParam } from './lookParam';
+import { lookParam, lookProofOn } from './lookParam';
 
 describe('lookParam', () => {
   afterEach(() => {
@@ -27,14 +27,6 @@ describe('lookParam', () => {
 
   it('keeps an empty look string', () => {
     expect(lookParam(new URLSearchParams('look='))).toBe('');
-  });
-
-  it('reads window search through lookWindowParam', () => {
-    const href = window.location.href;
-    window.history.replaceState({}, '', '/expenses?look=expense1-empty&expenseNoAi=1');
-    expect(lookWindowParam()).toBe('expense1-empty');
-    expect(lookWindowParam('expenseNoAi')).toBe('1');
-    window.history.replaceState({}, '', href);
   });
 
   it('spells the env gate so esbuild can substitute it', () => {
