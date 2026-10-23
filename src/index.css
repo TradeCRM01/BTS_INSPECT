@@ -12911,6 +12911,10 @@
   .dashboard-home-canvas.is-editing {
     border: none;
     background: none;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding-bottom: 80px;
+    box-sizing: content-box;
   }
 
   .dashboard-home-view-grid {
@@ -13060,7 +13064,26 @@
   }
 
   .dashboard-home-widget-ink.is-editing {
-    padding: 56px 52px 48px 0;
+    padding: 60px 16px 16px;
+    height: auto !important;
+    min-height: calc(168px + 60px + 16px);
+    box-sizing: border-box;
+  }
+
+  .dashboard-home-widget-ink.is-editing .h-full,
+  .dashboard-home-widget-ink.is-editing .flex-1 {
+    height: auto !important;
+    flex: 0 0 auto !important;
+    min-height: min-content !important;
+  }
+
+  .dashboard-home-widget-ink.is-editing .overflow-auto,
+  .dashboard-home-widget-ink.is-editing [data-compliance-deadlines] {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    flex: 0 0 auto !important;
+    min-height: min-content !important;
   }
 
   .dashboard-home-widget-stack .dashboard-home-widget-ink {
@@ -13200,6 +13223,11 @@
 
   .dashboard-home-widget.is-editing {
     position: relative;
+    height: auto !important;
+    min-height: calc(168px + 60px + 16px + 32px);
+    padding-bottom: 32px;
+    box-sizing: border-box;
+    overflow: hidden;
     background: var(--dashboard-home-sheet);
     border: 1px solid var(--dashboard-home-line);
     outline: 1px solid color-mix(in srgb, var(--g-accent) 35%, var(--dashboard-home-line));
@@ -13207,9 +13235,9 @@
 
   .dashboard-home-edit-chrome {
     position: absolute;
-    top: 6px;
-    left: 6px;
-    right: 6px;
+    top: 8px;
+    left: 8px;
+    right: 8px;
     z-index: 20;
     display: flex;
     align-items: center;

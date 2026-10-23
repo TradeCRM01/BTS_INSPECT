@@ -17,6 +17,9 @@ describe('P1b Today board layout', () => {
     expect(src).toContain('P1b-grid-clip: no clipped text on any grid card in view and edit, no id filter');
     expect(src).toContain('P1b-edit-overlap: edit handles miss card text at 375/390/768/1024/1280');
     expect(src).toContain('P1b-edit-chrome: view+edit controls hit-test and stay on their card at 768/1024/1280');
+    expect(src).toContain('P1b-edit-pad: title/icon inset ≥16 and View all gap 16±1 at 768/1024/1280');
+    expect(src).toContain('P1b-edit-pin: Drag and Remove sit 8px from the card edges at 768/1024/1280');
+    expect(src).toContain('P1b-edit-rows: no partial rows and edit body height matches view at 768/1024/1280');
     expect(src).toContain('P1b-edit-chrome mutant: absolute bars outside the card go red');
     expect(src).toContain('P1b-widget-1280: view and edit widget ids and widths match main 0898c3b9');
     expect(src).toContain('C7 painted: overdue is plain warn text');
@@ -26,6 +29,7 @@ describe('P1b Today board layout', () => {
     expect(src).toContain('P1b-place-cell: 1280 Place is row-tall, row-centred, and has no mid-row hairline');
     expect(src).toContain('P1b-phone-place: 390 meta shows place, not the client, and no · starts or ends a line');
     expect(src).toContain('P1b-needs-count: 390 hides the Needs you count and keeps the list uncapped');
+    expect(src).toContain('390 paints every seeded look Need');
     expect(src).toContain('P1b-query-need-crew: non-look fixture paints the dated crewless count');
     expect(src).toContain('P1b-query-cash-out: non-look fixture Out excludes wages and super');
     expect(src).toContain('P1b-query-outstanding: non-look fixture outstanding is company-scoped');

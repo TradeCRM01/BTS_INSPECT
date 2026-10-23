@@ -92,6 +92,8 @@ interface DashboardWidget {
   config: Json;
 }
 
+const EDIT_CARD_GROW = 60 + 16 + 32;
+
 async function persistDashboardWidgetRepair(
   before: DashboardWidget[],
   repaired: { widgets: DashboardWidget[]; droppedIds: string[] },
@@ -593,6 +595,16 @@ function dashboardLookReady(): ReadyToInvoiceJob[] {
   ];
 }
 
+function dashboardLookNudges(): Nudge[] {
+  return [1, 2, 3, 4].map((n) => ({
+    key: `look-need-${n}`,
+    kind: 'invoice_unpaid' as const,
+    label: `Look need ${n}`,
+    detail: `Look detail ${n}`,
+    href: `/quotes/${n}`,
+  }));
+}
+
 function dashboardLookComingUp(): Array<JobWithClient> {
   const stamp = '2026-10-19T03:40:00.000Z';
   const base = {
@@ -992,13 +1004,15 @@ export function DashboardPage() {
       href: readyJobs!.length === 1 ? `/jobs/${readyJobs![0].id}` : '/jobs?status=completed',
     }
     : null;
-  const nudges = visibleTodayNudges(
-    [
-      ...(nudgeData ? deriveNudges({ ...nudgeData, userId: profile?.id ?? null, now }) : []),
-      ...(readyNudge ? [readyNudge] : []),
-    ],
-    profile?.role,
-  );
+  const nudges = lookDashboard
+    ? dashboardLookNudges()
+    : visibleTodayNudges(
+      [
+        ...(nudgeData ? deriveNudges({ ...nudgeData, userId: profile?.id ?? null, now }) : []),
+        ...(readyNudge ? [readyNudge] : []),
+      ],
+      profile?.role,
+    );
 
   const [reminderTitle, setReminderTitle] = useState('');
   const [reminderSaving, setReminderSaving] = useState(false);
@@ -1225,7 +1239,8 @@ export function DashboardPage() {
     const ws = shownWidgets;
     const floor = editMode ? 320 : 0;
     if (!ws.length) return floor;
-    const maxBottom = Math.max(...ws.map(w => w.grid_y + w.grid_h));
+    const grow = editMode ? EDIT_CARD_GROW : 0;
+    const maxBottom = Math.max(...ws.map((w) => w.grid_y + w.grid_h + grow));
     return Math.max(floor, maxBottom + CANVAS_PAD);
   }, [shownWidgets, editMode]);
 

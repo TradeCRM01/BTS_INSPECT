@@ -1,4 +1,4 @@
-# r10 mutants (CoS runs these outside the suite)
+# r10 + r11 mutants (CoS runs these outside the suite)
 
 The suite never writes a tracked file. Apply one command, run the named test, restore with `git checkout -- <file>`.
 
@@ -42,7 +42,7 @@ TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "P1-today-m
 git checkout -- src/lib/brand.ts
 ```
 
-Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:2683` `toBe('Today')` AssertionError (`Tonight`).
+Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:2819` `toBe('Today')` AssertionError (`Tonight`).
 
 ## M-chrome — absolute bars outside the card
 
@@ -53,9 +53,9 @@ p = Path('src/index.css')
 t = p.read_text()
 inside = """.dashboard-home-edit-chrome {
     position: absolute;
-    top: 6px;
-    left: 6px;
-    right: 6px;"""
+    top: 8px;
+    left: 8px;
+    right: 8px;"""
 outside = """.dashboard-home-edit-chrome {
     position: absolute;
     top: -52px;
@@ -78,8 +78,8 @@ TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "P1b-edit-c
 git checkout -- src/index.css
 ```
 
-Mutates `src/index.css:13210` (`top: 6px`) and `:13224` (`bottom: 0`).  
-Red: `p1Dashboard.chromium.kill.tsx:2802` `elementFromPoint centre misses` AssertionError.
+Mutates `src/index.css:13238` (`top: 8px`) and `:13251` (`bottom: 0`).  
+Red: `p1Dashboard.chromium.kill.tsx:2938` `elementFromPoint centre misses` AssertionError.
 
 ## M-paint-fill — edit card fill transparent
 
@@ -88,12 +88,10 @@ python3 - <<'PY'
 from pathlib import Path
 p = Path('src/index.css')
 t = p.read_text()
-old = """.dashboard-home-widget.is-editing {
-    position: relative;
+old = """    overflow: hidden;
     background: var(--dashboard-home-sheet);
     border: 1px solid var(--dashboard-home-line);"""
-new = """.dashboard-home-widget.is-editing {
-    position: relative;
+new = """    overflow: hidden;
     background: transparent;
     border: 1px solid var(--dashboard-home-line);"""
 if old not in t:
@@ -104,8 +102,8 @@ TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "P1b-edit-p
 git checkout -- src/index.css
 ```
 
-Mutates `src/index.css:13203`.  
-Red: `p1Dashboard.chromium.kill.tsx:2874` fill vs main `255,255,255` AssertionError.
+Mutates `src/index.css:13231` (`background: var(--dashboard-home-sheet)`).  
+Red: `p1Dashboard.chromium.kill.tsx:3120` fill vs main `255,255,255` AssertionError.
 
 ## M-paint-sides — side borders removed
 
@@ -114,16 +112,14 @@ python3 - <<'PY'
 from pathlib import Path
 p = Path('src/index.css')
 t = p.read_text()
-old = """.dashboard-home-widget.is-editing {
-    position: relative;
-    background: var(--dashboard-home-sheet);
-    border: 1px solid var(--dashboard-home-line);"""
-new = """.dashboard-home-widget.is-editing {
-    position: relative;
-    background: var(--dashboard-home-sheet);
+old = """    background: var(--dashboard-home-sheet);
+    border: 1px solid var(--dashboard-home-line);
+    outline: 1px solid color-mix(in srgb, var(--g-accent) 35%, var(--dashboard-home-line));"""
+new = """    background: var(--dashboard-home-sheet);
     border: 1px solid var(--dashboard-home-line);
     border-left: none;
-    border-right: none;"""
+    border-right: none;
+    outline: 1px solid color-mix(in srgb, var(--g-accent) 35%, var(--dashboard-home-line));"""
 if old not in t:
     raise SystemExit('is-editing border missing')
 p.write_text(t.replace(old, new, 1))
@@ -132,8 +128,8 @@ TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "P1b-edit-p
 git checkout -- src/index.css
 ```
 
-Mutates `src/index.css:13204`.  
-Red: `p1Dashboard.chromium.kill.tsx:2879` left/right vs main `228,228,231` AssertionError.
+Mutates `src/index.css:13232`.  
+Red: `p1Dashboard.chromium.kill.tsx:3125` left/right vs main `228,228,231` AssertionError.
 
 ## M-layout — swap jobs and needs
 
@@ -176,4 +172,152 @@ TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "P1b-layout
 git checkout -- src/pages/TodayBoardView.tsx
 ```
 
-Red: `p1Dashboard.chromium.kill.tsx:2954` `390 jobs above needs` AssertionError.
+Red: `p1Dashboard.chromium.kill.tsx:3197` `390 jobs above needs` AssertionError.
+
+## M-pad — revert ink padding to 56/52/48/0
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = """.dashboard-home-widget-ink.is-editing {
+    padding: 60px 16px 16px;"""
+new = """.dashboard-home-widget-ink.is-editing {
+    padding: 56px 52px 48px 0;"""
+if old not in t:
+    raise SystemExit('edit ink padding missing')
+p.write_text(t.replace(old, new, 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "P1b-edit-pad:"
+git checkout -- src/index.css
+```
+
+Mutates `src/index.css:13067`.  
+Red: `p1Dashboard.chromium.kill.tsx:2959` title/icon inset `≥16` AssertionError (`0`).
+
+## M-pin — chrome flush to the card edge
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = """.dashboard-home-edit-chrome {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: 8px;"""
+new = """.dashboard-home-edit-chrome {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;"""
+if old not in t:
+    raise SystemExit('edit chrome pin missing')
+p.write_text(t.replace(old, new, 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "P1b-edit-pin:"
+git checkout -- src/index.css
+```
+
+Mutates `src/index.css:13238` (`top: 8px`).  
+Red: `p1Dashboard.chromium.kill.tsx:2978` Drag top `8±1` AssertionError.
+
+## M-clip — freeze edit cards at the saved grid height
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = """  .dashboard-home-widget.is-editing {
+    position: relative;
+    height: auto !important;
+    min-height: calc(168px + 60px + 16px + 32px);
+    padding-bottom: 32px;
+    box-sizing: border-box;
+    overflow: hidden;"""
+new = """  .dashboard-home-widget.is-editing {
+    position: relative;
+    height: 120px !important;
+    max-height: 120px;
+    min-height: 0;
+    padding-bottom: 0;
+    box-sizing: border-box;
+    overflow: hidden;"""
+if old not in t:
+    raise SystemExit('edit card grow missing')
+p.write_text(t.replace(old, new, 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "P1b-edit-rows:"
+git checkout -- src/index.css
+```
+
+Mutates `src/index.css:13224` to a 120px freeze.  
+Red: `p1Dashboard.chromium.kill.tsx:3012` partial rows AssertionError, or `:3049` Plant ticket clip.
+
+## M6 — cap Needs you at 3
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/pages/TodayBoardView.tsx')
+t = p.read_text()
+old = '{nudges.map(nudge =>'
+new = '{nudges.slice(0, 3).map(nudge =>'
+if old not in t:
+    raise SystemExit('nudges.map missing')
+p.write_text(t.replace(old, new, 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "P1b-needs-count:"
+git checkout -- src/pages/TodayBoardView.tsx
+```
+
+Mutates `src/pages/TodayBoardView.tsx` `{nudges.map(nudge =>` → `slice(0, 3)`.  
+Red: `p1Dashboard.chromium.kill.tsx:3752` `390 paints every seeded look Need` AssertionError (`3`).
+
+## M-plant — freeze the Compliance list at 122px
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = """  .dashboard-home-widget-ink.is-editing .h-full,
+  .dashboard-home-widget-ink.is-editing .flex-1 {
+    height: auto !important;
+    flex: 0 0 auto !important;
+    min-height: min-content !important;
+  }
+
+  .dashboard-home-widget-ink.is-editing .overflow-auto,
+  .dashboard-home-widget-ink.is-editing [data-compliance-deadlines] {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    flex: 0 0 auto !important;
+    min-height: min-content !important;
+  }"""
+new = """  .dashboard-home-widget-ink.is-editing .h-full,
+  .dashboard-home-widget-ink.is-editing .flex-1 {
+    height: auto !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+  }
+
+  .dashboard-home-widget-ink.is-editing .overflow-auto,
+  .dashboard-home-widget-ink.is-editing [data-compliance-deadlines] {
+    overflow: auto !important;
+    max-height: 48px !important;
+  }"""
+if old not in t:
+    raise SystemExit('edit list grow missing')
+p.write_text(t.replace(old, new, 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "P1b-edit-rows:"
+git checkout -- src/index.css
+```
+
+Mutates `src/index.css:13080` to a 48px list clip (and drops `.flex-1` `min-height: min-content`, which otherwise beats `max-height`).  
+Red: `p1Dashboard.chromium.kill.tsx:3012` partial rows AssertionError, or `:3049` Plant ticket clip.

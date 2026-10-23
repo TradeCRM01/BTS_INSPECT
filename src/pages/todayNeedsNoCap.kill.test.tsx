@@ -46,6 +46,7 @@ describe('Needs you has no cap', () => {
     const src = readFileSync(resolve(process.cwd(), 'src/pages/TodayBoardView.tsx'), 'utf8');
     expect(src).toContain('{nudges.map(nudge =>');
     expect(src).not.toMatch(/nudges\.slice\s*\(/);
+    // mutants.md M6 — slice(0, 3) also goes red on P1b-needs-count painted count 4
     act(() => {
       root.render(
         <MemoryRouter>

@@ -1646,6 +1646,144 @@ function readWidgetLayout(): WidgetLayoutRow[] {
   });
 }
 
+type EditPadPinRow = {
+  id: string;
+  type: string;
+  titleInset: number;
+  viewAllGap: number | null;
+  dragTop: number;
+  dragLeft: number;
+  removeTop: number;
+  removeRight: number;
+  bodyH: number;
+  partial: Array<{ text: string; why: string }>;
+  rowTexts: string[];
+  listScrollH: number | null;
+  listClientH: number | null;
+  plantBottom: number | null;
+  plantClipBottom: number | null;
+};
+
+function readEditPadPinRows(): {
+  innerWidth: number;
+  scrollWidth: number;
+  maxRight: number;
+  widgets: EditPadPinRow[];
+} {
+  const vis = (el: Element) => {
+    const s = getComputedStyle(el as HTMLElement);
+    const r = el.getBoundingClientRect();
+    return s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0
+      && r.width > 0 && r.height > 0;
+  };
+  const contentBox = (el: HTMLElement) => {
+    const r = el.getBoundingClientRect();
+    const s = getComputedStyle(el);
+    return {
+      left: r.left + parseFloat(s.borderLeftWidth),
+      top: r.top + parseFloat(s.borderTopWidth),
+      right: r.right - parseFloat(s.borderRightWidth),
+      bottom: r.bottom - parseFloat(s.borderBottomWidth),
+      width: r.width - parseFloat(s.borderLeftWidth) - parseFloat(s.borderRightWidth),
+      height: r.height - parseFloat(s.borderTopWidth) - parseFloat(s.borderBottomWidth),
+    };
+  };
+  const inkContent = (ink: HTMLElement) => {
+    const r = ink.getBoundingClientRect();
+    const s = getComputedStyle(ink);
+    return {
+      left: r.left + parseFloat(s.paddingLeft) + parseFloat(s.borderLeftWidth),
+      top: r.top + parseFloat(s.paddingTop) + parseFloat(s.borderTopWidth),
+      right: r.right - parseFloat(s.paddingRight) - parseFloat(s.borderRightWidth),
+      bottom: r.bottom - parseFloat(s.paddingBottom) - parseFloat(s.borderBottomWidth),
+      height: ink.clientHeight - parseFloat(s.paddingTop) - parseFloat(s.paddingBottom),
+    };
+  };
+  const clips = (el: Element) => {
+    const s = getComputedStyle(el as HTMLElement);
+    return /hidden|clip|auto|scroll/.test(s.overflow)
+      || /hidden|clip|auto|scroll/.test(s.overflowX)
+      || /hidden|clip|auto|scroll/.test(s.overflowY);
+  };
+  const clipOf = (start: HTMLElement, ink: HTMLElement) => {
+    const box = inkContent(ink);
+    let el: HTMLElement | null = start;
+    while (el) {
+      if (clips(el)) {
+        const c = contentBox(el);
+        box.left = Math.max(box.left, c.left);
+        box.top = Math.max(box.top, c.top);
+        box.right = Math.min(box.right, c.right);
+        box.bottom = Math.min(box.bottom, c.bottom);
+      }
+      if (el.classList.contains('dashboard-home-widget')) break;
+      el = el.parentElement;
+    }
+    return box;
+  };
+  const visibleBody = (ink: HTMLElement) => clipOf(ink, ink);
+  const hosts = [...document.querySelectorAll('[data-dashboard-widget-id]')].filter((el) => (
+    vis(el) && !el.closest('[data-dashboard-phone-stack]')
+  )) as HTMLElement[];
+  const rights = [...document.querySelectorAll('body *')].filter(vis).map((el) => el.getBoundingClientRect().right);
+  const widgets = hosts.map((host) => {
+    const card = (host.querySelector('.dashboard-home-widget') as HTMLElement | null) ?? host;
+    const ink = host.querySelector('.dashboard-home-widget-ink') as HTMLElement | null;
+    const inner = contentBox(card);
+    const mark = (ink?.querySelector('.text-xs.font-semibold, svg') as HTMLElement | null) ?? null;
+    const viewAll = [...(ink?.querySelectorAll('a') ?? [])].find((a) => /View all/i.test(a.textContent || ''));
+    const drag = host.querySelector('[title="Drag to move"]') as HTMLElement | null;
+    const remove = host.querySelector('[title="Remove widget"]') as HTMLElement | null;
+    const body = ink ? inkContent(ink) : { height: 0, left: 0, top: 0, right: 0, bottom: 0 };
+    const visBody = ink ? visibleBody(ink) : body;
+    const chrome = '[title="Drag to move"], [title="Remove widget"], .dashboard-home-widget-resize, .dashboard-home-edit-chrome, .dashboard-home-edit-foot';
+    const rows = ink
+      ? ([...ink.querySelectorAll('a, [data-dashboard-job], li, tr')].filter((el) => (
+        vis(el) && !el.closest(chrome) && !/View all/i.test(el.textContent || '')
+      )) as HTMLElement[])
+      : [];
+    const partial: Array<{ text: string; why: string }> = [];
+    for (const row of rows) {
+      const r = row.getBoundingClientRect();
+      const clip = ink ? clipOf(row, ink) : visBody;
+      const inside = r.left >= clip.left - 0.5 && r.top >= clip.top - 0.5
+        && r.right <= clip.right + 0.5 && r.bottom <= clip.bottom + 0.5;
+      if (!inside) {
+        partial.push({
+          text: (row.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80),
+          why: `row ${r.top.toFixed(1)}/${r.bottom.toFixed(1)} clip ${clip.top.toFixed(1)}/${clip.bottom.toFixed(1)}`,
+        });
+      }
+    }
+    const list = ink?.querySelector('[data-compliance-deadlines]') as HTMLElement | null;
+    const plant = rows.find((row) => /Plant ticket/.test(row.textContent || ''));
+    const plantClip = ink && plant ? clipOf(plant, ink) : null;
+    return {
+      id: host.getAttribute('data-dashboard-widget-id') || '',
+      type: (ink?.querySelector('.text-xs.font-semibold')?.textContent || '').trim(),
+      titleInset: mark ? mark.getBoundingClientRect().left - inner.left : 99,
+      viewAllGap: viewAll ? inner.right - viewAll.getBoundingClientRect().right : null,
+      dragTop: drag ? drag.getBoundingClientRect().top - inner.top : -1,
+      dragLeft: drag ? drag.getBoundingClientRect().left - inner.left : -1,
+      removeTop: remove ? remove.getBoundingClientRect().top - inner.top : -1,
+      removeRight: remove ? inner.right - remove.getBoundingClientRect().right : -1,
+      bodyH: body.height,
+      partial,
+      rowTexts: rows.map((row) => (row.textContent || '').replace(/\s+/g, ' ').trim()),
+      listScrollH: list ? list.scrollHeight : null,
+      listClientH: list ? list.clientHeight : null,
+      plantBottom: plant ? plant.getBoundingClientRect().bottom : null,
+      plantClipBottom: plantClip ? plantClip.bottom : null,
+    };
+  });
+  return {
+    innerWidth: window.innerWidth,
+    scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+    maxRight: rights.length ? Math.max(...rights) : 0,
+    widgets,
+  };
+}
+
 function readEditCardClips(): Array<{ id: string; x: number; y: number; width: number; height: number }> {
   const vis = (el: Element) => {
     const s = getComputedStyle(el as HTMLElement);
@@ -2808,6 +2946,116 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
 
   // mutants.md M-chrome — P1b-edit-chrome mutant: absolute bars outside the card go red
 
+  it('P1b-edit-pad: title/icon inset ≥16 and View all gap 16±1 at 768/1024/1280', async () => {
+    for (const width of [768, 1024, 1280] as const) {
+      const page = await openLookDist(lookOrigin, width, '/?look=dashboard-seed');
+      await enterEdit(page);
+      await page.setViewportSize({ width, height: 4000 });
+      const box = await page.evaluate(readEditPadPinRows);
+      expect(box.widgets.length, `edit widgets at ${width}`).toBeGreaterThan(0);
+      expect(box.scrollWidth, `docSW at ${width} edit`).toBeLessThanOrEqual(box.innerWidth);
+      expect(box.maxRight, `max rect.right at ${width} edit`).toBeLessThanOrEqual(box.innerWidth + 0.5);
+      for (const row of box.widgets) {
+        expect(row.titleInset, `${width} ${row.id} title/icon inset`).toBeGreaterThanOrEqual(16);
+        if (row.viewAllGap != null) {
+          expect(Math.abs(row.viewAllGap - 16), `${width} ${row.id} View all gap ${row.viewAllGap}`).toBeLessThanOrEqual(1);
+        }
+      }
+      await page.close();
+    }
+  }, 240000);
+
+  // mutants.md M-pad — P1b-edit-pad mutant: 52px right / 0 left padding goes red
+
+  it('P1b-edit-pin: Drag and Remove sit 8px from the card edges at 768/1024/1280', async () => {
+    for (const width of [768, 1024, 1280] as const) {
+      const page = await openLookDist(lookOrigin, width, '/?look=dashboard-seed');
+      await enterEdit(page);
+      await page.setViewportSize({ width, height: 4000 });
+      const box = await page.evaluate(readEditPadPinRows);
+      expect(box.widgets.length, `edit widgets at ${width}`).toBeGreaterThan(0);
+      for (const row of box.widgets) {
+        expect(Math.abs(row.dragTop - 8), `${width} ${row.id} Drag top`).toBeLessThanOrEqual(1);
+        expect(Math.abs(row.dragLeft - 8), `${width} ${row.id} Drag left`).toBeLessThanOrEqual(1);
+        expect(Math.abs(row.removeTop - 8), `${width} ${row.id} Remove top`).toBeLessThanOrEqual(1);
+        expect(Math.abs(row.removeRight - 8), `${width} ${row.id} Remove right`).toBeLessThanOrEqual(1);
+      }
+      await page.close();
+    }
+  }, 240000);
+
+  // mutants.md M-pin — P1b-edit-pin mutant: chrome at 0px from the card goes red
+
+  it('P1b-edit-rows: no partial rows and edit body height matches view at 768/1024/1280', async () => {
+    for (const width of [768, 1024, 1280] as const) {
+      const view = await openLookDist(lookOrigin, width, '/?look=dashboard-seed');
+      await view.setViewportSize({ width, height: 4000 });
+      const viewPad = await view.evaluate(readEditPadPinRows);
+      const viewBox = viewPad.widgets.map((row) => ({ id: row.id, bodyH: row.bodyH }));
+      expect(viewBox.length, `view widgets at ${width}`).toBeGreaterThan(0);
+      expect(viewPad.scrollWidth, `docSW at ${width} view`).toBeLessThanOrEqual(viewPad.innerWidth);
+      expect(viewPad.maxRight, `max rect.right at ${width} view`).toBeLessThanOrEqual(viewPad.innerWidth + 0.5);
+      await view.close();
+
+      const edit = await openLookDist(lookOrigin, width, '/?look=dashboard-seed');
+      await enterEdit(edit);
+      await edit.setViewportSize({ width, height: 4000 });
+      const editBox = await edit.evaluate(readEditPadPinRows);
+      expect(editBox.widgets.length, `edit widgets at ${width}`).toBeGreaterThan(0);
+      expect(editBox.scrollWidth, `docSW at ${width} edit-rows`).toBeLessThanOrEqual(editBox.innerWidth);
+      expect(editBox.maxRight, `max rect.right at ${width} edit-rows`).toBeLessThanOrEqual(editBox.innerWidth + 0.5);
+      const viewH = new Map(viewBox.map((row) => [row.id, row.bodyH]));
+      for (const row of editBox.widgets) {
+        const vh = viewH.get(row.id);
+        expect(vh, `${width} ${row.id} has a view body`).toBeTypeOf('number');
+        expect(row.bodyH, `${width} ${row.id} edit body keeps the view ink floor 168`).toBeGreaterThanOrEqual(167);
+        expect(row.partial, `${width} ${row.id} partial rows`).toEqual([]);
+      }
+      await edit.close();
+    }
+
+    for (const width of [768, 1024, 1280] as const) {
+      const dashView = await openLookDist(lookOrigin, width, '/?look=dashboard');
+      await dashView.setViewportSize({ width, height: 4000 });
+      const dashViewBox = await dashView.evaluate(readEditPadPinRows);
+      await dashView.close();
+      const dashEdit = await openLookDist(lookOrigin, width, '/?look=dashboard');
+      await enterEdit(dashEdit);
+      await dashEdit.setViewportSize({ width, height: 4000 });
+      const dashEditBox = await dashEdit.evaluate(readEditPadPinRows);
+      const complianceView = dashViewBox.widgets.find((row) => row.id === 'look-widget-compliance');
+      const complianceEdit = dashEditBox.widgets.find((row) => row.id === 'look-widget-compliance');
+      expect(complianceView, `${width} view Compliance`).toBeTruthy();
+      expect(complianceEdit, `${width} edit Compliance`).toBeTruthy();
+      if (width === 1280) {
+        expect(
+          Math.abs((complianceEdit?.bodyH ?? -1) - (complianceView?.bodyH ?? -2)),
+          `1280 Compliance edit body ${complianceEdit?.bodyH} vs view ${complianceView?.bodyH}`,
+        ).toBeLessThanOrEqual(1);
+      }
+      expect(complianceEdit?.partial, `${width} Compliance partial rows`).toEqual([]);
+      expect(
+        (complianceEdit?.rowTexts || []).some((text) => /Plant ticket/.test(text)),
+        `${width} Plant ticket is fully inside the Compliance body`,
+      ).toBe(true);
+      expect(complianceEdit?.listScrollH, `${width} Compliance list scrollHeight`).toBeTypeOf('number');
+      expect(complianceEdit?.listClientH, `${width} Compliance list clientHeight`).toBeTypeOf('number');
+      expect(
+        (complianceEdit?.listScrollH ?? 1) - (complianceEdit?.listClientH ?? 0),
+        `${width} Compliance list ${complianceEdit?.listScrollH} in ${complianceEdit?.listClientH}`,
+      ).toBeLessThanOrEqual(1);
+      expect(complianceEdit?.plantBottom, `${width} Plant ticket bottom`).toBeTypeOf('number');
+      expect(complianceEdit?.plantClipBottom, `${width} Plant ticket clip`).toBeTypeOf('number');
+      expect(
+        (complianceEdit?.plantBottom ?? 0) - (complianceEdit?.plantClipBottom ?? -1),
+        `${width} Plant ticket bottom ${complianceEdit?.plantBottom} vs clip ${complianceEdit?.plantClipBottom}`,
+      ).toBeLessThanOrEqual(0.5);
+      await dashEdit.close();
+    }
+  }, 240000);
+
+  // mutants.md M-clip — P1b-edit-rows mutant: fixed-height overflow clip goes red
+
   it('P1b-widget-1280: view and edit widget ids and widths match main 0898c3b9', async () => {
     const measure = async (edit: boolean) => {
       const page = await openLookDist(lookOrigin, 1280);
@@ -2939,11 +3187,8 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
   }, 120000);
 
   it('P1b-layout: painted section rects match the light mockup at 390 and 1280', async () => {
-    const frameDir = '/tmp/p1b-frames';
-    const artDir = '/opt/cursor/artifacts/p1b';
-    for (const dir of [frameDir, artDir]) {
-      try { execSync(`mkdir -p ${dir}`, { stdio: 'pipe' }); } catch { /* ignore */ }
-    }
+    const frameDir = mkdtempSync(join(tmpdir(), 'p1b-frames-'));
+    temps.push(frameDir);
     for (const width of [390, 1280] as const) {
       const page = await openLookDist(lookOrigin, width);
       await page.waitForSelector('[data-need-crew-count]', { timeout: 20000 });
@@ -2968,7 +3213,6 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       }
       const png = await page.screenshot({ type: 'png', fullPage: true, animations: 'disabled' });
       writeFileSync(join(frameDir, `p1b-today-dist-${width}-view.png`), png);
-      try { writeFileSync(join(artDir, `p1b-today-dist-${width}-view.png`), png); } catch { /* optional */ }
       await page.close();
     }
   }, 180000);
@@ -3499,11 +3743,28 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       return {
         countShown: !!(count && getComputedStyle(count).display !== 'none'),
         rows: rows.length,
+        labels: [...rows].map((row) => (row.textContent || '').replace(/\s+/g, ' ').trim()),
       };
     });
     await page.close();
     expect(box.countShown, '390 Needs you has no count').toBe(false);
     expect(box.rows, 'Needs you list stays uncapped').toBeGreaterThan(0);
+    expect(box.rows, '390 paints every seeded look Need').toBe(4);
+    expect(box.labels.some((text) => /Look need 4/.test(text)), '390 shows Look need 4').toBe(true);
+
+    const wide = await openLookDist(lookOrigin, 1280);
+    await wide.waitForSelector('.today-needs', { timeout: 20000 });
+    const wideBox = await wide.evaluate(() => {
+      const count = document.querySelector('.today-needs .today-count') as HTMLElement | null;
+      const rows = document.querySelectorAll('.today-need-row');
+      return {
+        count: (count?.textContent || '').trim(),
+        rows: rows.length,
+      };
+    });
+    await wide.close();
+    expect(wideBox.rows, '1280 paints every seeded look Need').toBe(4);
+    expect(wideBox.count, '1280 Needs you count').toBe('4');
   }, 120000);
 
   it('P1b-query-need-crew: non-look fixture paints the dated crewless count', async () => {

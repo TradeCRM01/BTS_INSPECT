@@ -28,7 +28,9 @@ export function needsCrew(job: CrewNeedJob | null | undefined): boolean {
   return assignedTeamIds(job.assigned_team).length === 0;
 }
 
-export function countNeedsCrew(jobs: unknown): number {
+export function countNeedsCrew(
+  jobs: readonly unknown[] | null | undefined | string | number | object,
+): number {
   if (!Array.isArray(jobs)) return 0;
   return (jobs as readonly (CrewNeedJob | null | undefined)[]).filter(needsCrew).length;
 }

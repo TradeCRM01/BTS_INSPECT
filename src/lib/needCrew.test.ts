@@ -81,6 +81,7 @@ describe('needsCrew', () => {
     expect(() => countNeedsCrew(null)).not.toThrow();
     expect(() => countNeedsCrew(undefined)).not.toThrow();
     expect(readFileSync(join(process.cwd(), 'src/lib/needCrew.ts'), 'utf8')).toContain('if (!Array.isArray(jobs)) return 0;');
+    expect(countNeedsCrew([null, undefined, 'str', {}, 5])).toBe(0);
   });
 
   it('treats null, a non-array, a non-string entry, and whitespace-only as no crew', () => {
