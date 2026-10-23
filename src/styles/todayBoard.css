@@ -79,7 +79,12 @@
 }
 
 .today-seg {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+  vertical-align: top;
 }
 
 .today-seg.is-company {
@@ -398,6 +403,7 @@
 .today-jobs-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .today-jobs-table caption,
@@ -408,7 +414,7 @@
   padding: 0;
   margin: -1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 1px);
+  clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
 }
@@ -418,7 +424,7 @@
   width: 1px;
   height: 1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 1px);
+  clip: rect(0, 0, 0, 0);
 }
 
 .today-jobs-table th {
@@ -435,7 +441,8 @@
   text-align: right;
 }
 
-.today-jobs-table tbody tr {
+.today-jobs-table tbody tr,
+.today-jobs[data-today-band="p"] .today-jobs-table tbody tr {
   display: grid;
   grid-template-columns: 64px minmax(0, 1fr);
   column-gap: 12px;
@@ -444,6 +451,31 @@
   padding: 14px 0;
   border-bottom: 1px solid var(--g-line);
   min-height: 72px;
+}
+
+.today-jobs[data-today-band="t"] .today-jobs-table tbody tr,
+.today-jobs[data-today-band="d"] .today-jobs-table tbody tr,
+.today-jobs-table[data-today-band="t"] tbody tr,
+.today-jobs-table[data-today-band="d"] tbody tr {
+  display: table-row !important;
+  grid-template-columns: none;
+  column-gap: 0;
+  padding: 0;
+  min-height: 0;
+}
+
+.today-jobs[data-today-band="t"] .today-jobs-table thead,
+.today-jobs[data-today-band="d"] .today-jobs-table thead {
+  position: static;
+  width: auto;
+  height: auto;
+  clip: auto;
+  overflow: visible;
+}
+
+.today-jobs-table td.dashboard-home-job {
+  min-width: 0;
+  width: 100%;
 }
 
 .today-jobs-table td {
@@ -478,6 +510,7 @@
   font-size: 16px;
   font-weight: 600;
   line-height: 22px;
+  min-height: 44px;
   text-decoration: none;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -495,11 +528,14 @@
   line-height: 20px;
 }
 
-.today-job-meta {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+.today-job-meta,
+.dashboard-home-ref {
+  display: block;
   overflow: hidden;
+  overflow-x: hidden;
+  max-width: 100%;
+  width: 100%;
+  max-height: 40px;
 }
 
 .today-jobs-table .today-pill {
@@ -767,6 +803,15 @@
 
   .today-jobs-table tbody tr {
     display: table-row;
+    grid-template-columns: none;
+    column-gap: 0;
+    padding: 0;
+    min-height: 0;
+  }
+
+  .today-jobs-table .today-time {
+    width: 88px;
+    max-width: none;
   }
 
   .today-jobs-table td {

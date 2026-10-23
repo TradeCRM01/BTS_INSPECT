@@ -430,7 +430,7 @@ function JobsSection({
   const cap = todayJobsCap(band);
   const shown = jobs.slice(0, cap);
   return (
-    <section className="today-sec today-jobs dashboard-home-ledger" data-today-section="s10" aria-labelledby="today-jobs-h">
+    <section className="today-sec today-jobs dashboard-home-ledger" data-today-section="s10" data-today-band={band} aria-labelledby="today-jobs-h">
       <div className="today-sec-h">
         <h2 id="today-jobs-h">Today's jobs</h2>
         <Link to="/schedule" className="today-quiet dashboard-home-all">{band === 'p' ? 'Week' : 'Schedule'} ›</Link>
@@ -448,13 +448,13 @@ function JobsSection({
           <p className="today-need-meta">No jobs are booked for today. The week is on the schedule.</p>
         </div>
       ) : (
-        <table className="today-jobs-table" role={band === 'p' ? 'table' : undefined}>
+        <table className="today-jobs-table" data-today-band={band} role={band === 'p' ? 'table' : undefined}>
           <caption className="today-sr">Today's jobs</caption>
-          <thead>
+          <thead className="dashboard-home-thead">
             <tr>
               <th scope="col">Time</th>
               <th scope="col">Job</th>
-              {showPlace ? <th scope="col">Place</th> : null}
+              {showPlace || band === 'p' ? <th scope="col">Place</th> : null}
               <th scope="col" className="is-status">Status</th>
             </tr>
           </thead>
@@ -470,28 +470,27 @@ function JobsSection({
                   aria-current={job.id === nowId ? 'true' : undefined}
                   role={band === 'p' ? 'row' : undefined}
                 >
-                  <td className="today-time" role={band === 'p' ? 'cell' : undefined}>
+                  <td className="today-time dashboard-home-time" role={band === 'p' ? 'cell' : undefined}>
                     {band === 'p'
                       ? todayClockLines(job.start_time, job.end_time).map((line, i) => (
                         <span key={`${job.id}-t-${i}`} className="today-time-line">{line}</span>
                       ))
                       : todayClockLabel(job.start_time, job.end_time)}
                   </td>
-                  <td role={band === 'p' ? 'cell' : undefined}>
-                    <Link className="today-job-title" to={dashboardJobHref(job.id)} aria-label="Open">
+                  <td className="dashboard-home-job" role={band === 'p' ? 'cell' : undefined}>
+                    <Link className="today-job-title dashboard-home-title" to={dashboardJobHref(job.id)} aria-label="Open">
                       {job.title}
                     </Link>
-                    <p className="today-job-meta">
+                    <p className="today-job-meta dashboard-home-ref">
                       {meta.map((part, i) => (
-                        <Fragment key={`${job.id}-m-${i}`}>
-                          {i > 0 ? ' · ' : null}
-                          <span className="today-seg">{part}</span>
-                        </Fragment>
+                        <span key={`${job.id}-m-${i}`} className="today-seg dashboard-home-ref-seg">
+                          {part}{i < meta.length - 1 ? ' · ' : ''}
+                        </span>
                       ))}
                     </p>
                     {band === 'p' ? (
                       <>
-                        <span className={`today-pill is-${pill.tone}`} data-crew-schedule={pill.kind}>
+                        <span className={`today-pill is-${pill.tone} dashboard-home-crew-schedule`} data-crew-schedule={pill.kind}>
                           <span className="today-pill-dot" aria-hidden />
                           {pill.label}
                         </span>
@@ -504,11 +503,11 @@ function JobsSection({
                     ) : null}
                   </td>
                   {showPlace ? (
-                    <td className="today-job-meta">{dashboardJobPlace(job)}</td>
+                    <td className="today-job-meta dashboard-home-place">{dashboardJobPlace(job)}</td>
                   ) : null}
                   {band !== 'p' ? (
                     <td className="is-status" data-crew-schedule={pill.kind}>
-                      <span className={`today-pill is-${pill.tone}`}>
+                      <span className={`today-pill is-${pill.tone} dashboard-home-crew-schedule`}>
                         <span className="today-pill-dot" aria-hidden />
                         {pill.label}
                       </span>
