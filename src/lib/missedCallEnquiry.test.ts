@@ -43,8 +43,10 @@ describe('enquiry list shape', () => {
   it('shows the matched client name, else the AU mobile, else withheld', () => {
     expect(enquiryCallerLabel({ clientName: 'Northside Mechanical', callerPhone: ALLOWED_ENQUIRY_PHONE }))
       .toBe('Northside Mechanical');
-    expect(enquiryCallerLabel({ callerPhone: ALLOWED_ENQUIRY_PHONE })).toBe('0418 893 602');
-    expect(enquiryCallerLabel({ callerPhone: '0418893602' })).toBe('0418 893 602');
+    expect(enquiryCallerLabel({ callerPhone: ALLOWED_ENQUIRY_PHONE }))
+      .toBe(formatAuMobileDisplay(ALLOWED_ENQUIRY_PHONE));
+    expect(enquiryCallerLabel({ callerPhone: '+61400000000' })).toBe('0400 000 000');
+    expect(enquiryCallerLabel({ callerPhone: '0400000000' })).toBe('0400 000 000');
     expect(enquiryCallerLabel({ callerPhone: null })).toBe('Number withheld');
     expect(enquiryCallerLabel({ callerPhone: '' })).toBe('Number withheld');
     expect(enquiryCallerLabel({ callerPhone: 'Number withheld' })).toBe('Number withheld');
@@ -93,15 +95,19 @@ describe('enquiry list shape', () => {
   });
 
   it('formats an allowlisted mobile for Call back and skips withheld', () => {
-    expect(formatAuMobileDisplay(ALLOWED_ENQUIRY_PHONE)).toBe('0418 893 602');
-    expect(formatAuMobileDisplay('0418893602')).toBe('0418 893 602');
+    expect(formatAuMobileDisplay('+61400000000')).toBe('0400 000 000');
+    expect(formatAuMobileDisplay('0400000000')).toBe('0400 000 000');
     expect(formatAuMobileDisplay('')).toBeNull();
     expect(formatAuMobileDisplay(null)).toBeNull();
     expect(formatAuMobileDisplay('Number withheld')).toBeNull();
     expect(formatAuMobileDisplay('not-a-phone')).toBeNull();
+    expect(enquiryCallback('+61400000000')).toEqual({
+      href: 'tel:+61400000000',
+      label: '0400 000 000',
+    });
     expect(enquiryCallback(ALLOWED_ENQUIRY_PHONE)).toEqual({
-      href: 'tel:+61418893602',
-      label: '0418 893 602',
+      href: `tel:${ALLOWED_ENQUIRY_PHONE}`,
+      label: formatAuMobileDisplay(ALLOWED_ENQUIRY_PHONE),
     });
     expect(enquiryCallback('')).toBeNull();
     expect(enquiryCallback(null)).toBeNull();
