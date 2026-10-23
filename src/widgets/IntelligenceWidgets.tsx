@@ -28,6 +28,7 @@ import {
   Loader2, Wrench, AlertCircle,
 } from 'lucide-react';
 import type { WidgetProps } from './WidgetComponents';
+import { industryNewsSource } from './industryNewsSource';
 
 // ────────────────────────────────────────────────────────────────────────────
 // AI Agent Widget — your on-dashboard assistant that can take real actions
@@ -224,7 +225,7 @@ export function IndustryNewsWidget() {
       return (json.items ?? []).slice(0, 8).map((item: Record<string, string>) => ({
         title: item.title ?? '',
         link: item.link ?? '#',
-        source: item.author ?? item.creator ?? 'Industry',
+        source: industryNewsSource(item.author, item.creator),
         pubDate: item.pubDate ?? '',
         snippet: (item.description ?? '').replace(/<[^>]+>/g, '').slice(0, 120),
       }));
