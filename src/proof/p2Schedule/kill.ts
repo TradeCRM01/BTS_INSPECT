@@ -409,6 +409,7 @@ describe('P2 Schedule on the built dist', () => {
     const unassigned = m.layout.lanes[m.layout.lanes.length - 1];
     expect.soft(dean?.count.includes('job'), 'Dean count says jobs').toBe(true);
     expect.soft(unassigned, 'Unassigned last').toMatchObject({ name: 'Unassigned', count: '4 need crew' });
+    expect.soft(m.layout.whisper, 'whisper keeps cancelled out of need crew').toBe(SCHEDULE_FIXTURE.whisper);
     const two = m.layout.cards.find(c => c.ref === SCHEDULE_FIXTURE.twoCrewRef);
     expect.soft(two?.lanes.length, '#0036 counts in both lanes').toBe(2);
   });
@@ -642,8 +643,11 @@ describe('P2 Schedule on the built dist', () => {
   it(killTitle('K21'), async () => {
     for (const m of await states('K21')) {
       if (m.iw <= 390) {
+        expect.soft(m.reach.agenda.height, `${m.id} agenda height`).toBeGreaterThan(0);
+        expect.soft(m.reach.agenda.visible, `${m.id} agenda visible height`).toBeGreaterThan(0);
         expect.soft(m.reach.agendaFirst.height, `${m.id} agenda first day height`).toBeGreaterThan(0);
         expect.soft(m.reach.agendaFirst.visible, `${m.id} agenda first day visible height`).toBeGreaterThan(0);
+        expect.soft(m.layout.agendaDays.length, `${m.id} agenda days painted`).toBeGreaterThan(0);
         const first = m.layout.agendaDays[0];
         expect.soft(first?.h ?? 0, `${m.id} first agenda day layout height`).toBeGreaterThan(0);
       } else {

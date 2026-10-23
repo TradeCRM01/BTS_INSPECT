@@ -536,6 +536,8 @@ function clocks(): ClockProbe[] {
 }
 
 function reach(): ReachProbe {
+  const agendas = [...document.querySelectorAll('.hub-week-agenda')].filter(visible);
+  const agenda = intersectBox(agendas[0] ?? document.querySelector('.hub-week-agenda'));
   const agendaFirst = intersectBox(document.querySelector('[data-agenda-day]'));
   const saved = saveScroll();
   const root = document.scrollingElement ?? document.documentElement;
@@ -556,6 +558,7 @@ function reach(): ReachProbe {
   const out = {
     tray: intersectBox(tray),
     lastLane: intersectBox(lastLane),
+    agenda,
     agendaFirst,
     vh: window.innerHeight,
   };

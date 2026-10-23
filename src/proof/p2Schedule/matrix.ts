@@ -271,7 +271,7 @@ export type Offender = { el: string; right: number; scroller: { classes: string[
 export type ClipProbe = { el: string; right: number; clip: string; clipRight: number };
 export type ClockProbe = { text: string; cls: string; textRight: number; clipRight: number; clipEl: string; fits: boolean };
 export type ReachBox = { top: number; bottom: number; height: number; visible: number };
-export type ReachProbe = { tray: ReachBox; lastLane: ReachBox; agendaFirst: ReachBox; vh: number };
+export type ReachProbe = { tray: ReachBox; lastLane: ReachBox; agenda: ReachBox; agendaFirst: ReachBox; vh: number };
 export type TrackProbe = {
   classes: string[];
   sw: number;
@@ -454,7 +454,7 @@ export const MUTANTS: readonly MutantSpec[] = [
   { id: 'set-date-on-card', kill: 'K11', file: BOARD_VIEWS, find: '<span className="hub-schedule-pill" data-kind={pill.kind}>{pill.label}</span>\n              <div className="ops-card-footer">', replace: '<span className="hub-schedule-pill" data-kind={pill.kind}>{pill.label}</span>\n              <button type="button" className="hub-schedule-set-date" data-schedule-set-date={job.id}>Set a date</button>\n              <div className="ops-card-footer">', brief: 'put Set a date back on the undated card' },
   css('clock-narrow-col', 'K20', '.hub-week-chip-clock {', 'max-width: none;', 'max-width: 6ch;\n    overflow: hidden;\n    text-overflow: ellipsis;', 'narrow the clock with ellipsis'),
   css('page-height-lock', 'K21', '.hub-board-cal.is-week-doc.ops-page {', 'height: auto;\n    padding: 12px 16px 16px;\n    overflow: visible;', 'height: calc(100dvh - 3.5rem);\n    padding: 12px 16px 16px;\n    overflow: hidden;', 'lock the week page to 100dvh and clip'),
-  css('agenda-min-zero', 'K21', '.hub-board-cal.is-week-doc .hub-week-agenda {', 'min-height: 160px;', 'min-height: 0;\n      height: 0;\n      overflow: hidden;', '390 agenda collapses to 0'),
+  { id: 'agenda-min-zero', kill: 'K21', file: BOARD_VIEWS, find: '{days.map(day => {\n        const date = parseISO(`${day.date}T00:00:00`);', replace: '{days.slice(0, 0).map(day => {\n        const date = parseISO(`${day.date}T00:00:00`);', brief: '390 agenda collapses to 0' },
   { id: 'quoted-as-scheduled', kill: 'K23', file: 'src/lib/scheduleInvoiceStatus.ts', find: 'return { label: sentenceStatus(job.status), kind: \'status\' };', replace: "return { label: 'Scheduled', kind: 'scheduled' };", brief: 'unknown status paints as Scheduled' },
 ];
 
