@@ -335,7 +335,7 @@ const DIST_MIME: Record<string, string> = {
 };
 
 function viteLookDist(lookProof: boolean, outDir: string): void {
-  const env = { ...process.env, LOOK_DIST_OUT: outDir };
+  const env: NodeJS.ProcessEnv = { ...process.env, LOOK_DIST_OUT: outDir };
   if (lookProof) env.VITE_LOOK_PROOF = '1';
   else delete env.VITE_LOOK_PROOF;
   execSync('npx vite build --config lookParam.dist.vite.config.ts', {
