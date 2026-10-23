@@ -99,7 +99,7 @@ import {
   jobBillInvoiceBlocked,
   jobInvoiceCreateLanding,
 } from '../lib/invoiceFromJobBill';
-import { DEFAULT_TAX_RATE } from '../lib/gst';
+import { calcDocumentTotals, DEFAULT_TAX_RATE } from '../lib/gst';
 import { effectiveInvoiceStatus } from '../lib/invoiceStatus';
 import { jobInvoiceActionFlags, jobOpenNext, pickJobDraftToSend } from '../lib/jobNextAction';
 import {
@@ -151,12 +151,14 @@ import {
   JOB_SHEET_EDIT_BILL,
   JOB_SHEET_SET_A_DATE,
   JOB_SHEET_STATUS_OPTIONS,
+  jobSheetBillLineSub,
   jobSheetBillTotals,
   jobSheetEyebrow,
   jobSheetMapsHref,
   jobSheetNoteStamp,
   jobSheetPhotosHeading,
   jobSheetSubLine,
+  type JobSheetBillLine,
 } from '../lib/jobSheetChrome';
 import { jobStatusPill } from '../lib/jobStatusPill';
 import {
@@ -2208,39 +2210,58 @@ export function JobDetailPage() {
     enabled: !!profile,
   });
 
-  const { data: costTotals, isPending: costTotalsPending, isError: costTotalsError, refetch: refetchCostTotals } = useQuery<{ cost: number; charge: number; lines: number }>({
+  const { data: costTotals, isPending: costTotalsPending, isError: costTotalsError, refetch: refetchCostTotals } = useQuery<{
+    cost: number;
+    charge: number;
+    lines: number;
+    rows: JobSheetBillLine[];
+  }>({
     queryKey: ['job-cost-totals', id],
     queryFn: async () => {
+      const emptyTotals = { cost: 0, charge: 0, lines: 0, rows: [] as JobSheetBillLine[] };
+      const fromRows = (raw: Array<Record<string, unknown>>): {
+        cost: number;
+        charge: number;
+        lines: number;
+        rows: JobSheetBillLine[];
+      } => {
+        const rows = raw.map((row, index) => ({
+          id: String(row.id ?? `line-${index}`),
+          description: String(row.description ?? ''),
+          quantity: Number(row.quantity) || 0,
+          unit_price: Number(row.unit_price) || 0,
+          total_price: Number(row.total_price ?? row.total_cost) || 0,
+          cost_type: String(row.cost_type ?? ''),
+          charge_type: row.charge_type == null ? null : String(row.charge_type),
+        }));
+        return {
+          cost: raw.reduce((sum, row) => sum + Number(row.total_cost || 0), 0),
+          charge: raw.reduce((sum, row) => sum + Number(row.total_price || row.total_cost || 0), 0),
+          lines: rows.length,
+          rows,
+        };
+      };
       const p305 = p305LookKind();
       const p307 = p307LookKind();
       if (fix2LookActive() && !fix2ClockoffInvoiceLook()) {
-        return { cost: 0, charge: 0, lines: 0 };
+        return emptyTotals;
       }
       if (p305 === 'bill' || p307 === 'agree' || p307 === 'reuse' || p307 === 'quoted') {
-        return { cost: 400, charge: 545, lines: 2 };
+        return { cost: 400, charge: 545, lines: 2, rows: [] };
       }
-      if (p305 === 'empty') return { cost: 0, charge: 0, lines: 0 };
+      if (p305 === 'empty') return emptyTotals;
       const auditBill = getAuditJobBillCosts();
       if (auditBill) {
-        return {
-          cost: auditBill.reduce((s, r) => s + Number(r.total_cost || 0), 0),
-          charge: auditBill.reduce((s, r) => s + Number(r.total_price || r.total_cost || 0), 0),
-          lines: auditBill.length,
-        };
+        return fromRows(auditBill as unknown as Array<Record<string, unknown>>);
       }
       const empty = getAuditEmptyList();
-      if (empty) return { cost: 0, charge: 0, lines: 0 };
+      if (empty) return emptyTotals;
       const { data, error } = await supabase
         .from('job_costs')
-        .select('total_cost, total_price')
+        .select('id, description, quantity, unit_price, total_price, total_cost, cost_type, charge_type')
         .eq('job_id', id!);
       if (error) throw error;
-      const rows = data ?? [];
-      return {
-        cost: rows.reduce((s, r) => s + Number(r.total_cost || 0), 0),
-        charge: rows.reduce((s, r) => s + Number(r.total_price || r.total_cost || 0), 0),
-        lines: rows.length,
-      };
+      return fromRows((data ?? []) as Array<Record<string, unknown>>);
     },
     enabled: !!id && !!profile,
   });
@@ -2808,6 +2829,16 @@ export function JobDetailPage() {
   });
   const overviewPhotos = gallery.slice(0, 6);
   const billPreview = jobSheetBillTotals(invoicePreviewForNext);
+  const sheetBillRows = costTotals?.rows ?? [];
+  const sheetBillMoney = billPreview ?? (() => {
+    const totals = calcDocumentTotals(chargeTotal, jobBillTaxRate);
+    return {
+      lines: sheetBillRows.length,
+      subtotal: formatMoney(totals.subtotal),
+      gst: formatMoney(totals.taxAmount),
+      total: formatMoney(totals.total),
+    };
+  })();
   const paperworkHeld = jhasBusy || take5sBusy || inspectionsBusy || quotesBusy || invoicesBusy;
   const paperworkCount = jobSheetPaperworkCount({
     jhaCount: (jhas ?? []).length,
@@ -3629,12 +3660,15 @@ export function JobDetailPage() {
                   </button>
                 </div>
                 {overviewNotes.map(note => (
-                  <p key={note.id} className="job-sheet-note-stamp">
-                    {jobSheetNoteStamp(
-                      note.author_name,
-                      format(parseISO(note.created_at), 'HH:mm'),
-                    )}
-                  </p>
+                  <article key={note.id} className="job-sheet-note" data-job-note="1">
+                    <div className="job-sheet-note-by">
+                      {jobSheetNoteStamp(
+                        note.author_name,
+                        format(parseISO(note.created_at), 'HH:mm'),
+                      )}
+                    </div>
+                    {note.body ? <p>{note.body}</p> : null}
+                  </article>
                 ))}
               </section>
             )}
@@ -3686,25 +3720,48 @@ export function JobDetailPage() {
                       {JOB_SHEET_EDIT_BILL}
                     </button>
                   </div>
-                  {budget != null && (
-                    <p className="job-sheet-bill-row"><span>Budget</span><span>{formatMoney(budget)}</span></p>
-                  )}
-                  <p className="job-sheet-bill-row"><span>Cost</span><span>{formatMoney(actualCost)}</span></p>
-                  <p className="job-sheet-bill-row"><span>Charge ex GST</span><span>{billPreview?.subtotal ?? formatMoney(chargeTotal)}</span></p>
-                  {billPreview ? (
-                    <>
-                      <p className="job-sheet-bill-row"><span>Lines</span><span>{billPreview.lines}</span></p>
-                      <p className="job-sheet-bill-row"><span>Subtotal</span><span>{billPreview.subtotal}</span></p>
-                      <p className="job-sheet-bill-row"><span>GST 10%</span><span>{billPreview.gst}</span></p>
-                      <p className="job-sheet-bill-row is-total"><span>Total inc GST</span><span>{billPreview.total}</span></p>
-                    </>
-                  ) : (
-                    <p className="ops-meta">{billBusy ? '…' : costTotalsError ? "Couldn't load materials." : 'No materials'}</p>
-                  )}
+                  <div className="job-sheet-bill3" data-job-bill="3">
+                    <div data-job-bill-cell="budget">
+                      <div className="job-sheet-bill-l">Budget</div>
+                      <div className="job-sheet-bill-v">{formatMoney(budget ?? 0)}</div>
+                    </div>
+                    <div data-job-bill-cell="cost">
+                      <div className="job-sheet-bill-l">Cost</div>
+                      <div className="job-sheet-bill-v">{formatMoney(actualCost)}</div>
+                    </div>
+                    <div data-job-bill-cell="charge">
+                      <div className="job-sheet-bill-l">Charge ex GST</div>
+                      <div className="job-sheet-bill-v">{sheetBillMoney.subtotal}</div>
+                    </div>
+                  </div>
+                  {sheetBillRows.map(line => (
+                    <div key={line.id} className="job-sheet-bill-line" data-job-bill-line="1">
+                      <div>
+                        <div className="job-sheet-bill-d">{line.description}</div>
+                        <div className="job-sheet-bill-s">{jobSheetBillLineSub(line)}</div>
+                      </div>
+                      <div className="job-sheet-bill-a">{formatMoney(line.total_price)}</div>
+                    </div>
+                  ))}
+                  {costTotalsError && !sheetBillRows.length ? (
+                    <p className="ops-meta">Couldn't load materials.</p>
+                  ) : null}
+                  <div className="job-sheet-bill-tot" data-job-bill-tot="sub">
+                    <span>Subtotal (ex GST)</span>
+                    <span>{sheetBillMoney.subtotal}</span>
+                  </div>
+                  <div className="job-sheet-bill-tot" data-job-bill-tot="gst">
+                    <span>GST (10%)</span>
+                    <span>{sheetBillMoney.gst}</span>
+                  </div>
+                  <div className="job-sheet-bill-tot is-big" data-job-bill-tot="total">
+                    <span>Total (inc GST)</span>
+                    <span>{sheetBillMoney.total}</span>
+                  </div>
                 </section>
 
               <details ref={moreRef} className="hub-job-more job-sheet-more" data-job-sheet="actions">
-                <summary>Actions</summary>
+                <summary className="btn-secondary">Actions</summary>
                 <div className="hub-job-more-menu" role="menu">
                   <button
                     type="button"
