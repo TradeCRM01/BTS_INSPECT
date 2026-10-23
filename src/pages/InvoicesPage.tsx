@@ -64,6 +64,7 @@ import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
 import { invoiceEditorShareArmed, invoiceLandingOpensSend } from '../lib/invoiceFromJobBill';
 import { clearJobInvoiceCreateHold } from '../lib/jobInvoiceCreateHold';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
+import { EMAIL_SETTINGS_CLIENT_COLUMNS } from '../lib/emailSmtpClient';
 import { invoiceSendCompanyFrom, isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
 import {
   commercialPdfCompanyFrom,
@@ -186,7 +187,7 @@ export function InvoicesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('email_settings')
-        .select('smtp_host, smtp_pass, from_name, from_email')
+        .select(EMAIL_SETTINGS_CLIENT_COLUMNS)
         .eq('company_id', profile!.company_id)
         .maybeSingle();
       if (error) throw error;

@@ -5,6 +5,7 @@ import { Mail, MoreHorizontal, Phone, User } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../ui';
 import type { Client, Job } from '../../types/crm';
+import { EMAIL_SETTINGS_CLIENT_COLUMNS } from '../../lib/emailSmtpClient';
 import {
   ARRIVING_NEXT_LABEL,
   decideArrivingSend,
@@ -133,7 +134,7 @@ export const JobClientReminder = forwardRef<JobClientReminderHandle, {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('email_settings')
-        .select('smtp_host, smtp_pass, from_name, from_email')
+        .select(EMAIL_SETTINGS_CLIENT_COLUMNS)
         .eq('company_id', companyId)
         .maybeSingle();
       if (error) throw error;

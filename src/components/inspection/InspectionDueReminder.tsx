@@ -13,6 +13,7 @@ import {
   type DueInspection,
   type DueInspectionJob,
 } from '../../lib/inspectionDueReminder';
+import { EMAIL_SETTINGS_CLIENT_COLUMNS } from '../../lib/emailSmtpClient';
 import { missSmsMessage, type ReminderClient, type ReminderEmailSettings } from '../../lib/jobReminder';
 import {
   JOB_CLIENT_ATTACH_NO_CLIENTS,
@@ -130,7 +131,7 @@ export function InspectionDueReminder({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('email_settings')
-        .select('smtp_host, smtp_pass, from_name, from_email')
+        .select(EMAIL_SETTINGS_CLIENT_COLUMNS)
         .eq('company_id', companyId)
         .maybeSingle();
       if (error) throw error;

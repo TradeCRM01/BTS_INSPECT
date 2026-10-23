@@ -120,7 +120,7 @@ export const QUOTE_SEND_QUOTE_COLUMNS =
   'id, company_id, quote_number, client_id, job_id, status, description, scope_of_works, line_items, subtotal, tax_rate, tax_amount, total, validity_date, notes, inclusions, exclusions';
 
 export const QUOTE_SEND_CLIENT_COLUMNS = 'id, name, email, phone, address';
-export const QUOTE_SEND_SMTP_COLUMNS = 'smtp_host, smtp_pass, from_name, from_email';
+export const QUOTE_SEND_SMTP_COLUMNS = 'smtp_host, from_name, from_email';
 export const QUOTE_SEND_JOB_COLUMNS = 'id, address';
 
 export const NO_EMAIL_MESSAGE = 'This client has no email. Add one on the client record before you send.';
@@ -136,10 +136,10 @@ export const NO_PDF_MESSAGE = 'The quote PDF could not be attached — quote was
 export const QUOTE_SEND_PIPE = [
   'supabase.functions.invoke job-reminder',
   'quoteId (one quote, company_id scoped — not the ledger)',
-  'email_settings where Resend is ready, else shared Grafter Resend smtp_pass on job-reminder',
+  'email_settings where Resend is ready, else shared Grafter Resend on job-reminder',
   'To = client.email (never invented)',
   'attach generated commercial quote PDF (generateCommercialPdf)',
-  'POST https://api.resend.com/emails with email_settings.smtp_pass',
+  'POST https://api.resend.com/emails with the company SMTP secret on the edge',
   'SMS beside: clients.phone via Twilio edge secrets on job-reminder (email status unchanged if SMS misses)',
   'UPDATE quotes.status = sent only when Resend returns 2xx (draft only)',
 ] as const;

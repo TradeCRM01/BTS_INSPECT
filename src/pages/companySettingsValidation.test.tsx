@@ -12,6 +12,7 @@ import { CompanySettingsPage } from './CompanySettingsPage';
 const harness = vi.hoisted(() => ({
   writes: [] as Array<{ table: string; op: string; payload: unknown }>,
   selectCols: [] as unknown[],
+  emailSelectCols: [] as unknown[],
   updateData: [{ id: 'co1' }] as unknown,
   updateError: null as unknown,
   labourColumnMissing: false,
@@ -74,7 +75,10 @@ vi.mock('../lib/supabase', () => ({
   supabase: {
     from(table: string) {
       return {
-        select() { return query({ data: table === 'email_settings' ? harness.emailSettings : [], error: null }); },
+        select(cols?: string) {
+          if (table === 'email_settings') harness.emailSelectCols.push(cols);
+          return query({ data: table === 'email_settings' ? harness.emailSettings : [], error: null });
+        },
         update(payload: unknown) {
           harness.writes.push({ table, op: 'update', payload });
           if (
@@ -160,6 +164,7 @@ beforeEach(() => {
   HTMLElement.prototype.scrollIntoView = vi.fn();
   harness.writes = [];
   harness.selectCols = [];
+  harness.emailSelectCols = [];
   harness.updateData = [{ id: 'co1' }];
   harness.updateError = null;
   harness.labourColumnMissing = false;
@@ -396,11 +401,11 @@ describe('Company Settings field validation', () => {
       smtp_port: 587,
       smtp_secure: false,
       smtp_user: '',
-      smtp_pass: '',
       from_name: 'Co',
       from_email: 'quotes@co.com.au',
       company_id: 'co1',
     });
+    expect(write?.payload).not.toHaveProperty('smtp_pass');
     expect(typeof (write?.payload as { smtp_port: unknown }).smtp_port).toBe('number');
   });
 
@@ -722,6 +727,26 @@ describe('Company Settings field validation', () => {
     });
     expect(harness.writes.length).toBe(writesBefore);
     expect(container.textContent).toContain(FIELD_BSB);
+  });
+
+  it('loads email settings on public columns and shows a set indicator instead of the secret', async () => {
+    harness.emailSettings = {
+      smtp_port: 587,
+      from_email: 'quotes@co.com.au',
+      from_name: 'Office',
+      smtp_host: 'smtp.resend.com',
+      smtp_user: 'resend',
+    } as typeof harness.emailSettings;
+    await renderPage();
+    expect(harness.emailSelectCols).toContain(
+      'id, company_id, smtp_host, smtp_port, smtp_secure, smtp_user, from_name, from_email, created_at, updated_at',
+    );
+    expect(String(harness.emailSelectCols.join(' '))).not.toContain('smtp_pass');
+    const state = container.querySelector('[data-smtp-secret-state]');
+    expect(state?.textContent).toBe('set');
+    expect(state?.getAttribute('data-smtp-secret-state')).toBe('set');
+    const secretInput = container.querySelector('input[autocomplete="new-password"]') as HTMLInputElement;
+    expect(secretInput?.value).toBe('');
   });
 
   it('shows the miss copy on a permission-denied SMTP save and does not leak the raw error', async () => {

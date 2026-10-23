@@ -140,7 +140,7 @@ describe('createInvoiceFromJobBill — job sheet Invoice next', () => {
     expect(builder).toContain('tax_amount: taxAmount');
     expect(builder).toContain('tax_rate: Number(input.taxRate)');
     expect(send).toContain('shared Grafter Resend');
-    expect(send).toContain('else shared Grafter Resend smtp_pass on job-reminder');
+    expect(send).toContain('else shared Grafter Resend on job-reminder');
   });
 
   it('leaves the quote convert path off this slice', () => {

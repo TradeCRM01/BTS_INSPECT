@@ -109,7 +109,7 @@ export const PURCHASE_ORDER_SEND_PO_COLUMNS =
   'id, company_id, po_number, supplier_id, job_id, status, line_items, subtotal, tax_rate, tax_amount, total, expected_delivery_date, notes';
 
 export const PURCHASE_ORDER_SEND_SUPPLIER_COLUMNS = 'id, name, email, phone, address';
-export const PURCHASE_ORDER_SEND_SMTP_COLUMNS = 'smtp_host, smtp_pass, from_name, from_email';
+export const PURCHASE_ORDER_SEND_SMTP_COLUMNS = 'smtp_host, from_name, from_email';
 export const PURCHASE_ORDER_SEND_JOB_COLUMNS = 'id, address';
 
 export const NO_EMAIL_MESSAGE = 'This supplier has no email. Add one on the supplier record before you send.';
@@ -129,7 +129,7 @@ export const PURCHASE_ORDER_SEND_PIPE = [
   'email_settings where Resend is ready (companies without SMTP are not mailed)',
   'To = suppliers.email (never invented)',
   'attach generated commercial purchase order PDF (generateCommercialPdf)',
-  'POST https://api.resend.com/emails with email_settings.smtp_pass',
+  'POST https://api.resend.com/emails with the company SMTP secret on the edge',
   'SMS beside: suppliers.phone via Twilio edge secrets on job-reminder (email status unchanged if SMS misses)',
   'UPDATE purchase_orders.status = sent only when Resend returns 2xx (draft only)',
 ] as const;

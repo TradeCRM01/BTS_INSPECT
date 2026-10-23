@@ -12,6 +12,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { invalidateAllJobBillInvoicePreviews } from '../lib/jobBillInvoicePreviewQuery';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
+import { EMAIL_SETTINGS_PUBLIC_COLUMNS, smtpSecretColumn } from '../lib/emailSmtpClient';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
 import { ArrowRight, Check, Upload, Plus, Trash2, Mail, Eye, EyeOff, AlertCircle, CheckCircle2, Users, Palette, Download } from 'lucide-react';
@@ -597,7 +598,6 @@ interface EmailSettings {
   smtp_port: string;
   smtp_secure: boolean;
   smtp_user: string;
-  smtp_pass: string;
   from_name: string;
   from_email: string;
 }
@@ -614,7 +614,6 @@ const defaultEmailSettings: EmailSettings = {
   smtp_port: '587',
   smtp_secure: false,
   smtp_user: '',
-  smtp_pass: '',
   from_name: '',
   from_email: '',
 };
@@ -725,6 +724,8 @@ export function CompanySettingsPage() {
   // Email / SMTP settings
   const [emailSettings, setEmailSettings] = useState<EmailSettings>(defaultEmailSettings);
   const [smtpOriginal, setSmtpOriginal] = useState<{ from_email: string; smtp_port: string } | undefined>();
+  const [smtpSecretDraft, setSmtpSecretDraft] = useState('');
+  const [smtpSecretSet, setSmtpSecretSet] = useState(false);
   const [loadingEmail, setLoadingEmail] = useState(false);
   const [savingEmail, setSavingEmail] = useState(false);
   const [emailSaved, setEmailSaved] = useState(false);
@@ -836,7 +837,7 @@ export function CompanySettingsPage() {
     setLoadingEmail(true);
     const { data } = await supabase
       .from('email_settings')
-      .select('*')
+      .select(EMAIL_SETTINGS_PUBLIC_COLUMNS)
       .eq('company_id', company.id)
       .maybeSingle();
     if (data) {
@@ -845,13 +846,16 @@ export function CompanySettingsPage() {
         smtp_port: String(data.smtp_port ?? 587),
         smtp_secure: data.smtp_secure ?? false,
         smtp_user: data.smtp_user ?? '',
-        smtp_pass: data.smtp_pass ?? '',
         from_name: data.from_name ?? '',
         from_email: data.from_email ?? '',
       };
       setEmailSettings(next);
+      setSmtpSecretDraft('');
+      setSmtpSecretSet(true);
       setSmtpOriginal({ from_email: next.from_email, smtp_port: next.smtp_port });
     } else {
+      setSmtpSecretDraft('');
+      setSmtpSecretSet(false);
       setSmtpOriginal({
         from_email: defaultEmailSettings.from_email,
         smtp_port: defaultEmailSettings.smtp_port,
@@ -1070,7 +1074,13 @@ export function CompanySettingsPage() {
     setEmailError('');
     setTestResult(null);
 
-    const payload = { ...emailSettings, smtp_port: Number(emailSettings.smtp_port) || 587, company_id: company.id };
+    const payload: Record<string, unknown> = {
+      ...emailSettings,
+      smtp_port: Number(emailSettings.smtp_port) || 587,
+      company_id: company.id,
+    };
+    const secretDraft = smtpSecretDraft.trim();
+    if (secretDraft) payload[smtpSecretColumn()] = secretDraft;
     const { error } = await supabase
       .from('email_settings')
       .upsert(payload, { onConflict: 'company_id' });
@@ -1078,6 +1088,10 @@ export function CompanySettingsPage() {
     if (error) {
       setEmailError(fieldSaveMiss(error));
     } else {
+      if (secretDraft) {
+        setSmtpSecretSet(true);
+        setSmtpSecretDraft('');
+      }
       setSmtpOriginal({
         from_email: emailSettings.from_email,
         smtp_port: String(Number(emailSettings.smtp_port) || 587),
@@ -2025,11 +2039,17 @@ export function CompanySettingsPage() {
                 <div className="hub-company-row">
                   <label className="hub-company-row-label">SMTP Password / API Key</label>
                   <div className="hub-company-field hub-company-input-wrap">
+                    <p
+                      data-smtp-secret-state={smtpSecretSet ? 'set' : 'unset'}
+                      className="hub-company-kicker"
+                    >
+                      {smtpSecretSet ? 'set' : 'not set'}
+                    </p>
                     <input
                       type={showPass ? 'text' : 'password'}
-                      value={emailSettings.smtp_pass}
-                      onChange={e => setEmailSettings(s => ({ ...s, smtp_pass: e.target.value }))}
-                      placeholder="API key"
+                      value={smtpSecretDraft}
+                      onChange={e => setSmtpSecretDraft(e.target.value)}
+                      placeholder={smtpSecretSet ? 'Leave blank to keep the current password' : 'API key'}
                       autoComplete="new-password"
                       className={inputClass + ' pr-12'}
                     />
@@ -2076,7 +2096,7 @@ export function CompanySettingsPage() {
                   >
                     {emailSaved ? <><Check size={15} /> Saved</> : savingEmail ? 'Saving...' : 'Save Email Settings'}
                   </button>
-                  {emailSettings.smtp_host && emailSettings.smtp_user && emailSettings.smtp_pass && (
+                  {emailSettings.smtp_host && emailSettings.smtp_user && (smtpSecretSet || smtpSecretDraft.trim()) && (
                     <button
                       type="button"
                       onClick={handleTestEmail}
