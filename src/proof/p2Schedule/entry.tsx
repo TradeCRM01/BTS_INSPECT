@@ -742,6 +742,9 @@ function chrome(): ChromeProbe {
   const today = [...document.querySelectorAll('.hub-week-today')].find(visible) ?? null;
   const toolbar = document.querySelector('.hub-week-track');
   const board = document.querySelector('[data-schedule-section="board"]');
+  const list = [...document.querySelectorAll('.hub-week-agenda')].find(visible)
+    ?? [...document.querySelectorAll('[data-schedule-phone-section="booked"]')].find(visible)
+    ?? board;
   const toolbarPadRight = toolbar ? parseFloat(getComputedStyle(toolbar).paddingRight) || 0 : 0;
   const crewOnToolbar = [...document.querySelectorAll('.hub-week-track .hub-schedule-crew-filter > summary')].filter(visible);
   const fulls = [...document.querySelectorAll('.hub-week-head-full')].filter(visible);
@@ -857,6 +860,13 @@ function chrome(): ChromeProbe {
     trayWeight: trayType.weight,
     traySize: trayType.size,
     trayLh: trayType.lh,
+    listLeft: (list ?? board)?.getBoundingClientRect().left ?? -1,
+    geistCheck: document.fonts.check('16px Geist'),
+    eyebrowTransform: eyebrow ? getComputedStyle(eyebrow).textTransform : '',
+    eyebrowLetterSpacing: eyebrow ? getComputedStyle(eyebrow).letterSpacing : '',
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    tzOffset: new Date().getTimezoneOffset(),
+    segActiveInk: '',
   };
 }
 
@@ -1297,7 +1307,8 @@ window.__p2 = {
       navCornerCut: navs.filter(s => s.cornerCut).length >= 2,
       eyebrowPaint: inkOf(eyebrowBox),
       segTrackPaint: trackOf(scale(chrome.segBox)),
-      segActivePaint: fillOf(segOnBox),
+      segActivePaint: trackOf(segOnBox),
+      segActiveInk: inkOf(segOnBox),
       todayFill: fillOf(scale(chrome.todayBox)),
     };
   },

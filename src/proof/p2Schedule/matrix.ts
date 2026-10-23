@@ -3,12 +3,14 @@
 
 export const BASE_SHA = '0898c3b93f167a090615232141bf73790bf731ef';
 // process.env.TZ may be UTC for the Node suite. Guard the read so the browser
-// bundle never throws. The fixture clock stays Brisbane so Now is 13:40.
+// bundle never throws. Playwright timezoneId follows env TZ; FROZEN_NOW matches
+// so K8 still reads Now 13:40 / 13:41 under UTC and Brisbane.
 export const HARNESS_PROCESS_TZ = typeof process !== 'undefined' && process.env && process.env.TZ ? process.env.TZ : '';
-export const TIMEZONE = 'Australia/Brisbane';
-export const FROZEN_NOW = '2026-10-19T13:40:00+10:00';
+export const TIMEZONE = HARNESS_PROCESS_TZ || 'Australia/Brisbane';
 export const FROZEN_NOW_UTC = '2026-10-19T13:40:00.000Z';
 export const FROZEN_NOW_AEST = '2026-10-19T13:40:00+10:00';
+export const FROZEN_NOW = TIMEZONE === 'UTC' || TIMEZONE === 'Etc/UTC' ? FROZEN_NOW_UTC : FROZEN_NOW_AEST;
+export const FROZEN_NOW_PLUS_1 = TIMEZONE === 'UTC' || TIMEZONE === 'Etc/UTC' ? '2026-10-19T13:41:00.000Z' : '2026-10-19T13:41:00+10:00';
 export const BEFORE_DIR = '/tmp/p2-proofs/before';
 export const BASELINE_VITEST_LOG = '/tmp/p2-baseline/vitest-built.log';
 
@@ -364,6 +366,13 @@ export type ChromeProbe = {
   trayWeight: number;
   traySize: number;
   trayLh: number;
+  listLeft: number;
+  geistCheck: boolean;
+  eyebrowTransform: string;
+  eyebrowLetterSpacing: string;
+  timeZone: string;
+  tzOffset: number;
+  segActiveInk: string;
 };
 
 export type LookPins = {
@@ -392,6 +401,10 @@ export type LookPins = {
   trayWeight: number;
   traySize: number;
   trayLh: number;
+  geistCheck: boolean;
+  eyebrowTransform: string;
+  eyebrowLetterSpacing: string;
+  segActiveInk: string;
 };
 export type ReachBox = { top: number; bottom: number; height: number; visible: number };
 export type ReachProbe = { tray: ReachBox; lastLane: ReachBox; agenda: ReachBox; agendaFirst: ReachBox; vh: number };
@@ -538,7 +551,7 @@ export const MUTANTS: readonly MutantSpec[] = [
   { id: 'chip-ref-clock', kill: 'P2-chip', file: BOARD_VIEWS, find: '<span className="hub-week-chip-clock">{clock}</span>\n        {\' · \'}\n        <span className="hub-week-chip-ref">{chip.ref}</span>', replace: '<span className="hub-week-chip-clock">{clock}</span>\n        {\' · \'}\n        <span className="hub-week-chip-ref">{`${clock} · ${chip.ref}`}</span>', brief: 'the week chip ref carries the clock' },
   css('ring-offset-0', 'P2-focus', '.hub-week-seg-btn:focus-visible,', 'outline-offset: 2px;', 'outline-offset: 0;', 'focus ring offset 0'),
   css('ring-none', 'P2-focus', '.hub-week-seg-btn:focus-visible,', 'outline: 2px solid var(--g-accent);', 'outline: none;', 'no focus ring'),
-  css('seg-on-unfilled', 'P2-focus', '.hub-week-seg-btn.is-on {', 'background: var(--g-inverse);', 'background: none;', 'the on seg loses its inverse fill'),
+  css('seg-on-unfilled', 'P2-focus', '.hub-week-seg-btn.is-on:focus-visible {', 'background: var(--g-inverse);', 'background: none;', 'the on seg loses its inverse fill'),
   css('now-1px', 'P2-now', '.hub-day-now {', '    width: 2px;', '    width: 1px;', 'a 1px now-line'),
   inject('now-pulse', 'P2-now', NOW_PULSE, 'the now dot pulses'),
   { id: 'today-unmarked', kill: 'P2-now', file: BOARD_VIEWS, find: '{today ? <span className="hub-week-now">Now {scheduleNowMark(now)}</span> : null}', replace: '{today ? null : null}', brief: 'the Today column drops the Now label' },
@@ -645,7 +658,7 @@ export const SCOPE = {
   ],
   forbiddenDirs: ['docs/look/p1/'],
   cssFile: 'src/index.css',
-  cssBaseRanges: [[6088, 8600]],
+  cssBaseRanges: [[6088, 8800]],
   exactLine: { file: 'src/pages/SchedulePage.tsx', line: 219, text: "  const lookParam = searchParams.get('look');" },
   lookParamText: "  const lookParam = searchParams.get('look');",
   tscMax: 180,
