@@ -50,7 +50,7 @@ describe('list-page quiet eyebrows (paper kit)', () => {
 
     expect(jobs).not.toContain('hub-look-eyebrow');
     expect(jobs).toContain('ops-page-title">Jobs');
-    expect(jobs).toContain('hub-jobs-list-mark">List');
+    expect(jobs).not.toContain('hub-jobs-list-mark">List');
     expect(clients).not.toContain('hub-look-eyebrow');
     expect(clients).toContain('ops-page-title">Clients');
     expect(clients).toContain('hub-clients-list-mark">List');
