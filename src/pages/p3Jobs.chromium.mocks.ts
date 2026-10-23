@@ -150,8 +150,8 @@ function liveClients() {
 
 function liveCrew() {
   return [
-    { id: 'p3-dean', name: 'Dean' },
-    { id: 'p3-tom', name: 'Tom' },
+    { id: 'p3-dean', name: 'Dean Moretti' },
+    { id: 'p3-tom', name: 'Tom Nguyen' },
   ];
 }
 

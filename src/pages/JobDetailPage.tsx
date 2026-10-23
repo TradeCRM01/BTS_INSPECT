@@ -3181,9 +3181,11 @@ export function JobDetailPage() {
           <button type="button" className="job-sheet-appbar-search" aria-label="Search">
             <Search size={22} />
           </button>
-          <span className="job-sheet-appbar-avatar" aria-label="Account">
-            {(profile?.name ?? 'DM').split(/\s+/).filter(Boolean).map((part: string) => part.charAt(0)).join('').slice(0, 2).toUpperCase()}
-          </span>
+          <button type="button" className="job-sheet-appbar-account" aria-label="Account">
+            <span className="job-sheet-appbar-avatar">
+              {(profile?.name ?? 'DM').split(/\s+/).filter(Boolean).map((part: string) => part.charAt(0)).join('').slice(0, 2).toUpperCase()}
+            </span>
+          </button>
         </header>
         <Breadcrumbs items={[
           { label: 'Jobs', to: '/jobs' },
@@ -3363,6 +3365,7 @@ export function JobDetailPage() {
             <div className="job-sheet-overview hub-jobs-ledger" {...pane('job-ledger')}>
               <div className="job-sheet-overview-main hub-jobs-identity">
               <div className="job-sheet-kv hub-jobs-contact" data-job-sheet="kv">
+                <div className="job-sheet-kv-rule" data-job-kv-rule="1" aria-hidden="true" />
                 <div className="job-sheet-kv-row" data-job-sheet="kv-site">
                   <span className="job-sheet-kv-label">Site</span>
                   <span className="job-sheet-kv-value">
@@ -3781,6 +3784,7 @@ export function JobDetailPage() {
                   <button
                     type="button"
                     role="menuitem"
+                    data-job-action="details"
                     onClick={() => { closeMore(); setShowEdit(true); }}
                   >
                     Details
