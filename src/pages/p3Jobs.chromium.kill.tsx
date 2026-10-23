@@ -53,7 +53,7 @@ const LOOK_SEED = ['Northside Electrical', 'Harbour Lights', 'Site labour', 'War
 type KillPage = {
   goto: (url: string) => Promise<unknown>;
   evaluate: <T>(fn: (() => T | Promise<T>) | ((arg: never) => T | Promise<T>), arg?: unknown) => Promise<T>;
-  waitForSelector: (sel: string, opts?: { timeout?: number; state?: 'attached' | 'visible' | 'hidden' }) => Promise<unknown>;
+  waitForSelector: (sel: string, opts?: { timeout?: number; state?: 'attached' | 'visible' | 'hidden' | 'detached' }) => Promise<unknown>;
   click: (sel: string) => Promise<unknown>;
   fill: (sel: string, value: string) => Promise<unknown>;
   setViewportSize: (size: { width: number; height: number }) => Promise<void>;
@@ -1864,6 +1864,8 @@ describe('P3 r9 mockup vs head at 390', () => {
         bill3Display: bill3 ? getComputedStyle(bill3).display : '',
         bill3Cols: billCellLefts.length,
         bill3Rows: billCellTops.length,
+        billCellTopList: billCells.map((cell) => cell.getBoundingClientRect().top),
+        billCellLeftList: billCells.map((cell) => cell.getBoundingClientRect().left),
         billFirstPadL: billCells[0] ? parseFloat(getComputedStyle(billCells[0]).paddingLeft) : -1,
         billFirstBorderL: billCells[0] ? parseFloat(getComputedStyle(billCells[0]).borderLeftWidth) : -1,
         billCellPadL: billCells[1] ? parseFloat(getComputedStyle(billCells[1]).paddingLeft) : -1,
@@ -1884,9 +1886,11 @@ describe('P3 r9 mockup vs head at 390', () => {
       };
     };
     const pinTabLabels = async (page: KillPage, sel: string, labels: string[]) => {
-      await page.evaluate(async ({ selector, next }) => {
+      await page.evaluate(async (arg: { selector: string; next: string[] }) => {
+        const { selector, next } = arg;
         const apply = () => {
-          const kids = [...document.querySelector(selector)?.children ?? []] as HTMLElement[];
+          const rail = document.querySelector(selector) as HTMLElement | null;
+          const kids = [...(rail?.children ?? [])] as HTMLElement[];
           kids.forEach((el, i) => {
             if (next[i]) el.textContent = next[i];
           });
@@ -1900,7 +1904,8 @@ describe('P3 r9 mockup vs head at 390', () => {
         let prev = '';
         for (let i = 0; i < 40; i += 1) {
           apply();
-          const kids = [...document.querySelector(selector)?.children ?? []] as HTMLElement[];
+          const rail = document.querySelector(selector) as HTMLElement | null;
+          const kids = [...(rail?.children ?? [])] as HTMLElement[];
           const texts = kids.map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim());
           const widths = kids.map((el) => el.getBoundingClientRect().width);
           const now = widths.map((w) => w.toFixed(2)).join(',');
@@ -2035,6 +2040,15 @@ describe('P3 r9 mockup vs head at 390', () => {
     expect(mockup.bill3Cols).toBe(3);
     expect(head.bill3Rows, 'bill3 one row').toBe(1);
     expect(mockup.bill3Rows).toBe(1);
+    expect(head.billCellTopList.length, 'bill3 three cell tops').toBe(3);
+    expect(head.billCellLeftList.length, 'bill3 three cell lefts').toBe(3);
+    expect(Math.abs(head.billCellTopList[0] - head.billCellTopList[1]) <= 1, `bill3 tops 0/1 ${head.billCellTopList}`).toBe(true);
+    expect(Math.abs(head.billCellTopList[1] - head.billCellTopList[2]) <= 1, `bill3 tops 1/2 ${head.billCellTopList}`).toBe(true);
+    expect(head.billCellLeftList[0] < head.billCellLeftList[1], `bill3 lefts 0<1 ${head.billCellLeftList}`).toBe(true);
+    expect(head.billCellLeftList[1] < head.billCellLeftList[2], `bill3 lefts 1<2 ${head.billCellLeftList}`).toBe(true);
+    expect(mockup.billCellTopList.length, 'mock bill3 three cell tops').toBe(3);
+    expect(Math.abs(mockup.billCellTopList[0] - mockup.billCellTopList[1]) <= 1, `mock bill3 tops ${mockup.billCellTopList}`).toBe(true);
+    expect(mockup.billCellLeftList[0] < mockup.billCellLeftList[1], `mock bill3 lefts ${mockup.billCellLeftList}`).toBe(true);
     expect(head.billFirstPadL).toBe(0);
     expect(head.billFirstBorderL).toBe(0);
     expect(head.billCellPadL).toBe(12);
@@ -2064,8 +2078,10 @@ describe('P3 r9 mockup vs head at 390', () => {
     });
     const box = await page.evaluate(() => {
       const el = document.querySelector('[data-job-sheet="actions"]') as HTMLElement | null;
+      const summary = document.querySelector('[data-job-sheet="actions"] > summary') as HTMLElement | null;
       const style = el ? getComputedStyle(el) : null;
       const r = el?.getBoundingClientRect();
+      const sr = summary?.getBoundingClientRect();
       const innerW = window.innerWidth;
       const innerH = window.innerHeight;
       const top = r?.top ?? -1;
@@ -2085,6 +2101,8 @@ describe('P3 r9 mockup vs head at 390', () => {
         innerH,
         visW: Math.min(right, innerW) - Math.max(left, 0),
         visH: Math.min(bottom, innerH) - Math.max(top, 0),
+        sumW: sr?.width ?? 0,
+        sumH: sr?.height ?? 0,
       };
     });
     expect(box.display, `${width} Actions display`).not.toBe('none');
@@ -2097,13 +2115,46 @@ describe('P3 r9 mockup vs head at 390', () => {
     expect(box.bottom, `${width} Actions bottom`).toBeGreaterThan(0);
     expect(box.left, `${width} Actions left`).toBeLessThan(box.innerW);
     expect(box.right, `${width} Actions right`).toBeGreaterThan(0);
+    expect(box.sumW, `${width} Actions summary width`).toBeGreaterThan(0);
+    expect(box.sumH, `${width} Actions summary height`).toBeGreaterThan(0);
+    expect(box.sumW, `${width} Actions summary fills gutters`).toBeGreaterThanOrEqual(box.innerW - 32 - 1);
     return box;
+  }
+
+  async function assertActionsHitTest(page: KillPage, width: number) {
+    if (await page.evaluate(() => !!document.querySelector('[data-job-form="1"]'))) {
+      await page.click('.hub-ops-form-close');
+      await page.waitForSelector('[data-job-form="1"]', { state: 'detached', timeout: 5000 });
+    }
+    await page.evaluate(() => {
+      document.querySelector('[data-job-sheet="actions"]')?.scrollIntoView({ block: 'center' });
+    });
+    const hit = await page.evaluate(() => {
+      const summary = document.querySelector('[data-job-sheet="actions"] > summary') as HTMLElement | null;
+      const sr = summary?.getBoundingClientRect();
+      const cx = sr ? sr.left + sr.width / 2 : -1;
+      const cy = sr ? sr.top + sr.height / 2 : -1;
+      const el = (cx >= 0 && cy >= 0) ? document.elementFromPoint(cx, cy) : null;
+      return {
+        ok: !!summary && !!el && (el === summary || summary.contains(el)),
+        tag: el ? `${(el as HTMLElement).tagName}.${(el as HTMLElement).className}`.replace(/\s+/g, '.') : 'null',
+        cx,
+        cy,
+        sumW: sr?.width ?? 0,
+        sumH: sr?.height ?? 0,
+      };
+    });
+    expect(hit.sumW, `${width} Actions hit-test summary width`).toBeGreaterThan(0);
+    expect(hit.sumH, `${width} Actions hit-test summary height`).toBeGreaterThan(0);
+    expect(hit.ok, `${width} Actions hit-test at centre ${hit.tag} @${hit.cx},${hit.cy}`).toBe(true);
+    return hit;
   }
 
   killIt('R9 existing job edit save writes the new title', async () => {
     const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
     await waitSheet(page);
     await assertActionsVisible(page, 390);
+    await assertActionsHitTest(page, 390);
     await page.click('[data-job-sheet="actions"] > summary');
     await page.click('[data-job-action="details"]');
     await page.waitForSelector('[data-job-form="1"]', { timeout: 10000 });
@@ -2141,7 +2192,9 @@ describe('P3 r9 mockup vs head at 390', () => {
       const page = await openPage({ width, path: '/jobs/p3-0036' });
       await waitSheet(page);
       await assertActionsVisible(page, width);
+      await assertActionsHitTest(page, width);
       await page.click('[data-job-sheet="actions"] > summary');
+      await assertActionsHitTest(page, width);
       await page.evaluate(() => {
         document.querySelector('[data-job-action="details"]')?.scrollIntoView({ block: 'center' });
       });
@@ -2157,6 +2210,10 @@ describe('P3 r9 mockup vs head at 390', () => {
         const innerH = window.innerHeight;
         const visW = d ? Math.min(d.right, innerW) - Math.max(d.left, 0) : 0;
         const visH = d ? Math.min(d.bottom, innerH) - Math.max(d.top, 0) : 0;
+        const menu = document.querySelector('[data-job-sheet="actions"] .hub-job-more-menu') as HTMLElement | null;
+        const summary = document.querySelector('[data-job-sheet="actions"] > summary') as HTMLElement | null;
+        const m = menu?.getBoundingClientRect();
+        const s = summary?.getBoundingClientRect();
         return {
           appMorePainted: !!appMore && appStyle?.display !== 'none' && (appMore.getBoundingClientRect().width || 0) > 0,
           items,
@@ -2165,6 +2222,12 @@ describe('P3 r9 mockup vs head at 390', () => {
           detailsVis: style?.visibility || '',
           detailsVisW: visW,
           detailsVisH: visH,
+          menuW: m?.width ?? 0,
+          menuL: m?.left ?? -1,
+          menuR: m?.right ?? -1,
+          sumL: s?.left ?? -1,
+          sumR: s?.right ?? -1,
+          innerW,
         };
       });
       expect(read.appMorePainted, `${width} appbar …`).toBe(false);
@@ -2173,6 +2236,9 @@ describe('P3 r9 mockup vs head at 390', () => {
       expect(read.detailsVis, `${width} Details visibility`).not.toBe('hidden');
       expect(read.detailsVisW, `${width} Details visible width in viewport`).toBeGreaterThan(0);
       expect(read.detailsVisH, `${width} Details visible height in viewport`).toBeGreaterThan(0);
+      expect(read.menuW, `${width} Actions menu width`).toBeGreaterThanOrEqual(read.innerW - 32 - 1);
+      expect(Math.abs(read.menuL - read.sumL) <= 1, `${width} Actions menu left under button ${read.menuL}/${read.sumL}`).toBe(true);
+      expect(Math.abs(read.menuR - read.sumR) <= 1, `${width} Actions menu right under button ${read.menuR}/${read.sumR}`).toBe(true);
       await page.click('[data-job-action="details"]');
       await page.waitForSelector('[data-job-form="1"]', { timeout: 10000 });
       await assertActionsVisible(page, width);
@@ -2285,5 +2351,52 @@ describe('P3 r9 mockup vs head at 390', () => {
     expect(ink.rgb[0], `kv ink ${ink.rgb}`).toBeLessThanOrEqual(40);
     expect(ink.rgb[1], `kv ink ${ink.rgb}`).toBeLessThanOrEqual(40);
     expect(ink.rgb[2], `kv ink ${ink.rgb}`).toBeLessThanOrEqual(40);
+  });
+
+  killIt('R12 Actions paints kit secondary border and fills the gutters', async () => {
+    const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
+    await waitSheet(page);
+    const box = await assertActionsVisible(page, 390);
+    await assertActionsHitTest(page, 390);
+    expect(box.sumW, '390 Actions summary fills gutters').toBeGreaterThanOrEqual(box.innerW - 32 - 1);
+    const paint = await page.evaluate(() => {
+      const summary = document.querySelector('[data-job-sheet="actions"] > summary') as HTMLElement | null;
+      const cs = summary ? getComputedStyle(summary) : null;
+      return {
+        borderTop: cs?.borderTopWidth || '',
+        borderRight: cs?.borderRightWidth || '',
+        borderBottom: cs?.borderBottomWidth || '',
+        borderLeft: cs?.borderLeftWidth || '',
+        bg: cs?.backgroundColor || '',
+      };
+    });
+    const shot = await samplePaintedPixels(page, '[data-job-sheet="actions"] > summary', 2);
+    const midY = Math.floor(shot.height / 2);
+    const midX = Math.floor(shot.width / 2);
+    const edge = nearestPainted(shot, [229, 231, 235], {
+      x0: 0,
+      x1: Math.min(6, shot.width),
+      y0: Math.max(0, midY - 4),
+      y1: Math.min(shot.height, midY + 5),
+    });
+    const fill = nearestPainted(shot, [255, 255, 255], {
+      x0: Math.max(0, midX - 4),
+      x1: Math.min(shot.width, midX + 5),
+      y0: Math.max(0, midY - 4),
+      y1: Math.min(shot.height, midY + 5),
+    });
+    await page.close();
+    expect(paint.borderTop, 'Actions computed border-top').toBe('1px');
+    expect(paint.borderRight, 'Actions computed border-right').toBe('1px');
+    expect(paint.borderBottom, 'Actions computed border-bottom').toBe('1px');
+    expect(paint.borderLeft, 'Actions computed border-left').toBe('1px');
+    expect(paint.bg.replace(/\s+/g, ''), 'Actions computed fill').toMatch(/rgb\(255,\s*255,\s*255\)/);
+    expect(Math.abs(edge.rgb[0] - 229), `Actions border R ${edge.rgb} d${edge.dist}`).toBeLessThanOrEqual(18);
+    expect(Math.abs(edge.rgb[1] - 231), `Actions border G ${edge.rgb}`).toBeLessThanOrEqual(18);
+    expect(Math.abs(edge.rgb[2] - 235), `Actions border B ${edge.rgb}`).toBeLessThanOrEqual(18);
+    const creamDist = Math.abs(edge.rgb[0] - 245) + Math.abs(edge.rgb[1] - 245) + Math.abs(edge.rgb[2] - 247);
+    expect(edge.dist < creamDist, `Actions border closer to #E5E7EB than cream ${edge.rgb} d${edge.dist} cream${creamDist}`).toBe(true);
+    const fillCream = Math.abs(fill.rgb[0] - 245) + Math.abs(fill.rgb[1] - 245) + Math.abs(fill.rgb[2] - 247);
+    expect(fill.dist < fillCream, `Actions fill closer to white than cream ${fill.rgb} d${fill.dist} cream${fillCream}`).toBe(true);
   });
 });
