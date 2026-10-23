@@ -7166,6 +7166,15 @@
     color: var(--g-ink);
   }
 
+  .hub-week-range-row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
   .hub-week-search {
     flex: 1 1 220px;
     min-width: 160px;
@@ -7185,9 +7194,7 @@
   }
 
   @media (max-width: 767px) {
-    .hub-week-tools .hub-week-nav-box { order: 1; }
-    .hub-week-tools .hub-week-range { order: 2; }
-    .hub-week-tools .hub-week-today { order: 3; }
+    .hub-week-tools .hub-week-range-row { order: 1; flex: 1 1 100%; }
     .hub-week-tools .hub-week-search { order: 10; flex: 1 1 100%; }
     .hub-week-tools .hub-schedule-crew-filter { order: 11; }
     .hub-week-tools .hub-schedule-quickbook-toggle { order: 20; flex: 1 1 100%; }

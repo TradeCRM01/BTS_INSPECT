@@ -701,9 +701,9 @@ function chrome(): ChromeProbe {
   const newJob = [...document.querySelectorAll('button')].find(el => visible(el) && (el.textContent ?? '').includes('New job')) ?? null;
   const seg = document.querySelector('.hub-week-seg');
   const navs = [...document.querySelectorAll('.hub-week-nav-box')].filter(visible);
-  const range = document.querySelector('.hub-week-range-full');
-  const search = document.querySelector('.hub-week-search');
-  const today = document.querySelector('.hub-week-today');
+  const range = [...document.querySelectorAll('.hub-week-range-full, .hub-week-range-short')].find(visible) ?? null;
+  const search = [...document.querySelectorAll('.hub-week-search')].find(visible) ?? null;
+  const today = [...document.querySelectorAll('.hub-week-today')].find(visible) ?? null;
   const fulls = [...document.querySelectorAll('.hub-week-head-full')].filter(visible);
   const shorts = [...document.querySelectorAll('.hub-week-head-short')].filter(visible);
   const head = document.querySelector('.hub-week-head');
@@ -715,7 +715,7 @@ function chrome(): ChromeProbe {
   const tray = trays.find(visible) ?? trays[0] ?? null;
   const kicker = tray?.querySelector('.ops-card-kicker') ?? null;
   const cards = tray?.querySelector('.hub-schedule-tray-cards') ?? null;
-  const untimed = document.querySelector('[data-untimed-chip]');
+  const untimed = [...document.querySelectorAll('[data-untimed-chip]')].find(visible) ?? null;
   const trackEl = track();
   const dayCrew = document.querySelector('.hub-day-crew-lock .hub-schedule-crew-name');
   const weekCrew = document.querySelector('.hub-week-crew .hub-schedule-crew-name');
@@ -752,6 +752,7 @@ function chrome(): ChromeProbe {
     todayTop: today?.getBoundingClientRect().top ?? -1,
     quickBookWidth: quick?.getBoundingClientRect().width ?? 0,
     toolsWidth: tools?.getBoundingClientRect().width ?? 0,
+    sameRangeRow: !!(today && range && today.closest('.hub-week-range-row') && today.closest('.hub-week-range-row') === range.closest('.hub-week-range-row')),
   };
 }
 

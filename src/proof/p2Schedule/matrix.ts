@@ -311,6 +311,7 @@ export type ChromeProbe = {
   todayTop: number;
   quickBookWidth: number;
   toolsWidth: number;
+  sameRangeRow: boolean;
 };
 export type ReachBox = { top: number; bottom: number; height: number; visible: number };
 export type ReachProbe = { tray: ReachBox; lastLane: ReachBox; agenda: ReachBox; agendaFirst: ReachBox; vh: number };
@@ -490,7 +491,7 @@ export const MUTANTS: readonly MutantSpec[] = [
   { id: 'tray-slice', kill: 'K11', file: BOARD_VIEWS, find: 'function UnscheduledJobCards({\n  jobs, teamMembers, onJobClick, onDragStart, selectedId = null, onOpenJob, onSetScheduleDate,\n  invoicedJobIds = NO_INVOICED,\n}: UnscheduledRailProps) {\n  return (\n    <>\n      {jobs.map(job => {', replace: 'function UnscheduledJobCards({\n  jobs, teamMembers, onJobClick, onDragStart, selectedId = null, onOpenJob, onSetScheduleDate,\n  invoicedJobIds = NO_INVOICED,\n}: UnscheduledRailProps) {\n  return (\n    <>\n      {jobs.slice(0, 2).map(job => {', brief: 'needsDate.slice(0,2)' },
   { id: 'hide-empty-agenda', kill: 'K12', file: BOARD_VIEWS, find: '{days.map(day => {\n        const date = parseISO(`${day.date}T00:00:00`);', replace: '{days.filter(day => day.jobs.length > 0).map(day => {\n        const date = parseISO(`${day.date}T00:00:00`);', brief: 'filter out zero-job days' },
   { id: 'quickbook-desk-only', kill: 'K13', file: 'src/index.css', rule: '.hub-week-quiet.hub-schedule-quickbook-toggle {', find: 'display: none;', replace: 'display: none !important;', brief: 'hide the phone Quick book toggle' },
-  { id: 'drop-today', kill: 'K14', file: 'src/pages/SchedulePage.tsx', find: '<button type="button" className="hub-week-quiet hub-week-today" onClick={() => applySchedule(viewMode, new Date())}>\n          Today\n        </button>', replace: '', brief: 'delete Today from the tools row' },
+  { id: 'drop-today', kill: 'K14', file: 'src/pages/SchedulePage.tsx', find: '<button type="button" className="hub-week-quiet hub-week-today" onClick={() => applySchedule(viewMode, new Date())}>\n            Today\n          </button>', replace: '', brief: 'delete Today from the tools row' },
   { id: 'invoice-paid-at', kill: 'K15', file: 'src/pages/SchedulePage.tsx', find: ".select('id, job_id, status')", replace: ".select('id, job_id, status, paid_at')", brief: 'add invoices.paid_at to Q-S1' },
   { id: 'swap-tray-board', kill: 'K17', file: 'src/pages/SchedulePage.tsx', find: '<div data-schedule-section="board">', replace: '<div data-schedule-section="tray">', brief: 'label the board section as tray' },
   { id: 'hardcode-count', kill: 'K18', file: 'src/lib/scheduleBoard.ts', find: '`${parts.onBoard} on the board`', replace: '`14 on the board`', brief: 'hardcode a fallback board count' },
@@ -507,7 +508,7 @@ export const MUTANTS: readonly MutantSpec[] = [
   { id: 'head-full-hidden', kill: 'K25', file: 'src/index.css', find: '    .hub-week-head-full {\n      display: inline;\n      text-align: left;\n      white-space: nowrap;\n    }', replace: '    .hub-week-head-full {\n      display: none;\n      text-align: left;\n      white-space: nowrap;\n    }', brief: 'hide the one-line laptop day heads' },
   { id: 'tray-kicker-tiny', kill: 'K25', file: 'src/index.css', find: '      font-size: 20px;\n      font-weight: 600;\n      letter-spacing: 0;\n      text-transform: none;\n      color: var(--g-ink);', replace: '      font-size: 11px;\n      font-weight: 700;\n      letter-spacing: 0.12em;\n      text-transform: uppercase;\n      color: var(--g-ink-muted);', brief: 'shrink the tray heading back to an 11px kicker' },
   { id: 'untimed-span-track', kill: 'K25', file: BOARD_VIEWS, find: 'width: Math.min(220, hourWidth * 2.2),', replace: 'width: hourWidth * hours.length,', brief: 'untimed day card spans the whole track' },
-  { id: 'today-off-range', kill: 'K25', file: 'src/index.css', find: '    .hub-week-tools .hub-week-today { order: 3; }', replace: '    .hub-week-tools .hub-week-today { order: 12; }', brief: 'Today leaves the 390 range row' },
+  { id: 'today-off-range', kill: 'K25', file: 'src/index.css', find: '  .hub-week-range-row {\n    display: flex;\n    flex-wrap: nowrap;\n    align-items: center;\n    gap: 8px;\n    min-width: 0;\n    flex: 1 1 auto;\n  }', replace: '  .hub-week-range-row {\n    display: flex;\n    flex-wrap: wrap;\n    align-items: center;\n    gap: 8px;\n    min-width: 0;\n    flex: 1 1 auto;\n  }\n  .hub-week-range-row .hub-week-today { flex: 1 1 100%; }', brief: 'Today leaves the 390 range row' },
   css('day-clock-clip', 'P2-overflow', '.hub-week-chip-clock {', 'max-width: none;', 'max-width: 2ch;\n    overflow: hidden;\n    text-overflow: clip;', 'clip day-track clock labels inside the card'),
 ];
 
