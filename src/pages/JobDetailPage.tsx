@@ -176,7 +176,6 @@ import {
 import { ReportSendDialog } from '../components/inspection/ReportSendDialog';
 import { inspectionDisplayStatus, reportSendSurface } from '../lib/sendReport';
 import type { TemplateSchema } from '../types/template';
-import { clientRecordHref } from '../lib/clientRecords';
 import {
   Clock,
   FileText, ShieldCheck, ShieldAlert, Receipt, DollarSign, Plus, ClipboardList, GitBranch,
@@ -3522,9 +3521,7 @@ export function JobDetailPage() {
               ) : attachRow.kind === 'miss' ? (
                 <span className="ops-meta">{JOB_CLIENT_ATTACH_NO_CLIENTS}</span>
               ) : headerClient.kind === 'name' && job.client_id ? (
-                <Link to={clientRecordHref(job.client_id)} className="job-sheet-kv-name">
-                  {headerClient.name}
-                </Link>
+                <span className="job-sheet-kv-name">{headerClient.name}</span>
               ) : headerClient.kind === 'pending' ? (
                 <span className="ops-meta" data-job-client="pending" />
               ) : (
