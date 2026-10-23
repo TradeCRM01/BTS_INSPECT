@@ -307,8 +307,8 @@ describe('Q-D coming up', () => {
         { id: 'cx', company_id: 'co', status: 'cancelled', scheduled_date: '2026-10-20', start_time: '06:00', title: 'No', job_number: 6, client_id: 'c1' },
       ],
       clients: [
-        { id: 'c1', name: 'Gwen Albright', address: 'Kedron' },
-        { id: 'c2', name: 'Other' },
+        { id: 'c1', company_id: 'co', name: 'Gwen Albright', address: 'Kedron' },
+        { id: 'c2', company_id: 'co', name: 'Other' },
       ],
     }, calls);
     const rows = await fetchComingUp(client, 'co', TODAY);
@@ -316,6 +316,25 @@ describe('Q-D coming up', () => {
     expect(rows[0]?.client_name).toBe('Gwen Albright');
     expect(calls.some(call => call.table === 'jobs' && call.filters.some(filter => filter.kind === 'gt' && filter.col === 'scheduled_date' && filter.val === TODAY))).toBe(true);
     expect(calls.filter(call => call.table === 'jobs').every(call => call.filters.some(filter => filter.col === 'company_id'))).toBe(true);
+  });
+
+  it('kills a Coming Up client row from another company', async () => {
+    const calls: Call[] = [];
+    const client = seedClient({
+      jobs: [
+        { id: 't1', company_id: 'co', status: 'scheduled', scheduled_date: '2026-10-20', start_time: '08:00', title: 'Tue', job_number: 2, client_id: 'c1' },
+      ],
+      clients: [
+        { id: 'c1', company_id: 'other', name: 'Beta Builders', address: 'Otherville' },
+      ],
+    }, calls);
+    const rows = await fetchComingUp(client, 'co', TODAY);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.client_name ?? null).toBeNull();
+    expect(rows[0]?.client_name).not.toBe('Beta Builders');
+    const clientCalls = calls.filter(call => call.table === 'clients');
+    expect(clientCalls).toHaveLength(1);
+    expect(clientCalls[0]?.filters.some(filter => filter.kind === 'eq' && filter.col === 'company_id' && filter.val === 'co')).toBe(true);
   });
 });
 

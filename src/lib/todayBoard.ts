@@ -433,6 +433,7 @@ export async function fetchComingUp(
   const clients = await readRows<{ id: string; name?: string | null; address?: string | null }>(
     client.from('clients')
       .select(TODAY_QD_CLIENT_COLUMNS)
+      .eq('company_id', companyId)
       .in('id', clientIds),
   );
   const names = new Map(clients.map(row => [row.id, row]));
