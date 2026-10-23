@@ -8,7 +8,7 @@ import { listSectionLoadError } from './listQueryReady';
 
 export const JOB_SHEET_TABS = [
   { id: 'overview', label: 'Overview' },
-  { id: 'schedule', label: 'Schedule & people' },
+  { id: 'schedule', label: 'People' },
   { id: 'paperwork', label: 'Paperwork' },
   { id: 'materials', label: 'Materials' },
 ] as const;

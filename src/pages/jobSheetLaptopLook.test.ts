@@ -20,10 +20,10 @@ describe('job sheet laptop LOOK — quote paper, one overflow, compact header', 
 
     expect(page).toContain('hub-jobs-document');
     expect(page).toContain('hub-jobs-identity');
-    expect(page).toContain('hub-jobs-identity-col');
+    expect(page).toContain('job-sheet-overview-main');
     expect(page).toContain('hub-jobs-contact');
     expect(page).toContain('hub-jobs-contact-row');
-    expect(page).toContain('OpsSiteRow');
+    expect(page).toContain('job-sheet-kv');
     expect(page).toContain('hub-job-more');
     expect(page).toContain('placeMoreMenu');
     expect(page).toContain('is-flip');
@@ -34,7 +34,7 @@ describe('job sheet laptop LOOK — quote paper, one overflow, compact header', 
     expect(page).toContain('hub-jobs-status-whisper');
     expect(page).toContain('AUDIT_DOC_JOB_ID');
     expect(page).toContain('lookVanTodayYmd');
-    expect(page).not.toContain('hub-jobs-pill');
+    expect(page).toContain('hub-jobs-pill');
     expect(page).not.toContain('hub-job-letterhead');
     expect(page).not.toContain('hub-job-kicker');
     expect(page).not.toContain('JobCalendarOverflow');
@@ -42,7 +42,7 @@ describe('job sheet laptop LOOK — quote paper, one overflow, compact header', 
     expect(page).not.toMatch(/Grafter|Relovi|Littleloop/);
     expect(page).not.toMatch(/\bute\b/i);
 
-    expect((page.match(/<OpsSiteRow/g) ?? []).length).toBe(1);
+    expect((page.match(/data-job-sheet="kv"/g) ?? []).length).toBe(1);
     expect((page.match(/className="hub-job-more"/g) ?? []).length).toBe(1);
     expect((page.match(/MoreHorizontal/g) ?? []).length).toBeGreaterThanOrEqual(1);
 
@@ -53,7 +53,7 @@ describe('job sheet laptop LOOK — quote paper, one overflow, compact header', 
     expect(css).toContain('overflow: hidden');
     expect(css).not.toContain('--hub-list-sheet-max');
     expect(css).toMatch(/\.hub-jobs-document \{[\s\S]{0,220}max-width: 1100px/);
-    expect(css).toContain('.hub-jobs-sheet-bar .hub-job-more > summary');
+    expect(css).toContain('.hub-jobs-document .job-sheet-eyebrow');
     expect(css).toContain('.hub-jobs-document .hub-jobs-tools .ops-next-control-done');
     expect(css).toContain('.hub-jobs-document .hub-jobs-status-whisper');
     expect(css).toContain('.hub-jobs-document .hub-jobs-tools .btn-primary');

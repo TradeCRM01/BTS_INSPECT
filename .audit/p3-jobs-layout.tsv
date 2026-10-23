@@ -6,3 +6,4 @@ ts	phase	decision	why	evidence	result
 2026-10-23T10:40:00Z	data	extras and clients now throw on error; extras catch marks extrasError	K13 / Coach 12	src/pages/JobsPage.tsx	wired
 2026-10-23T10:40:00Z	data	chunk extras and clients at 100 ids	Coach 8	src/lib/jobIdBatch.ts	wired
 2026-10-23T10:27:00Z	list	rebuilt /jobs list to clients-list anatomy with D1 pills and wrapping chips	mockup wins over List bar and hidden search	src/pages/JobsPage.tsx	list unit tests green
+2026-10-23T10:40:00Z	sheet	rebuilt /jobs/:id header, People tab, Overview kv/notes/photos/bill, Q-J1, costing on open	lanes removed; Jack tokens; one back; breadcrumbs 1024+	src/pages/JobDetailPage.tsx	sheet unit tests green
