@@ -336,7 +336,6 @@ function WeekJobChip({
   const chip = weekBoardChip(job, familyJobs);
   const ink = getReadableText(chip.color);
   const clock = scheduleChipClock(job.start_time, job.end_time, job.scheduled_date);
-  const timed = !!scheduleClockLabel(job.start_time, job.end_time);
   return (
     <div
       role="button"
@@ -357,10 +356,10 @@ function WeekJobChip({
       className={`hub-week-chip ${dragging ? 'is-dragging' : ''}`}
       style={{ background: chip.color, color: ink }}
     >
-      <span className="hub-week-chip-ref">{timed ? `${clock} · ${chip.ref}` : chip.ref}</span>
+      <span className="hub-week-chip-ref">{chip.ref}</span>
       {chip.description ? (
         <span className="hub-week-chip-desc">
-          {timed ? chip.description : [clock, chip.description].filter(Boolean).join(' · ')}
+          {[clock, chip.description].filter(Boolean).join(' · ')}
         </span>
       ) : null}
     </div>
@@ -443,7 +442,14 @@ export const PhoneWeekList = memo(function PhoneWeekList({
                         <span className="hub-week-agenda-copy">
                           <span className="hub-week-agenda-title">{job.title}</span>
                           <span className="hub-week-agenda-meta">
-                            {[job.client_name, suburb].filter(Boolean).join(' · ')}
+                            {[job.client_name, suburb].filter((part): part is string => !!part).map((part, index, parts) => (
+                              <Fragment key={part}>
+                                {index > 0 ? ' ' : null}
+                                <span className="hub-week-agenda-meta-part">
+                                  {index < parts.length - 1 ? `${part} ·` : part}
+                                </span>
+                              </Fragment>
+                            ))}
                           </span>
                           <span className="hub-week-agenda-crew">
                             {scheduleCrewLabel(job.assigned_team, teamMembers)}
@@ -551,6 +557,8 @@ export const DayBoardView = memo(function DayBoardView({
     if (!el) return;
     const pin = () => {
       const scrollLeft = el.scrollLeft;
+      const board = el.closest('.hub-day-board');
+      board?.classList.toggle('is-track-end', scrollLeft + el.clientWidth >= el.scrollWidth - 1);
       for (const pinEl of el.querySelectorAll<HTMLElement>('[data-day-chip-pin="1"]')) {
         const bar = pinEl.closest('.absolute');
         if (!(bar instanceof HTMLElement)) continue;
@@ -734,7 +742,7 @@ export const DayBoardView = memo(function DayBoardView({
                 painted.rowIdx < paintedRows.length - 1 ? 'border-b' : ''
               } ${painted.isUnassigned || painted.rowIdx % 2 !== 0 || painted.hovering ? 'bg-zebra' : 'bg-white'}`}
               style={{
-                borderLeft: painted.isUnassigned ? `3px dashed ${colors.navy}` : `3px solid ${painted.color}`,
+                borderLeft: painted.isUnassigned ? '3px dashed var(--g-line-strong)' : `3px solid ${painted.color}`,
               }}
               onClick={() => onDayClick(dateStr, painted.isUnassigned ? null : row.id)}
               onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropHoverId(row.id); }}
@@ -744,7 +752,7 @@ export const DayBoardView = memo(function DayBoardView({
                 className="ops-crew-mark"
                 style={{
                   background: painted.isUnassigned ? 'transparent' : painted.color,
-                  outline: painted.isUnassigned ? `1px solid ${colors.navy}` : undefined,
+                  outline: painted.isUnassigned ? '1px solid var(--g-ink-muted)' : undefined,
                 }}
               />
               <div className="min-w-0">
@@ -832,7 +840,7 @@ export const DayBoardView = memo(function DayBoardView({
                           <div
                             role="separator"
                             aria-label="Drag to change start time"
-                            className="absolute left-0 top-0 bottom-0 w-2 z-10 cursor-ew-resize hover:bg-navy/25 rounded-l"
+                            className="hub-day-resize hub-day-resize-start absolute left-0 top-0 bottom-0 w-2 z-10 cursor-ew-resize rounded-l"
                             onPointerDown={e => {
                               const grid = (e.currentTarget as HTMLElement).closest('[data-day-grid]');
                               if (grid instanceof HTMLElement) beginResize(e, job, 'start', grid);
@@ -843,7 +851,7 @@ export const DayBoardView = memo(function DayBoardView({
                           <div
                             role="separator"
                             aria-label="Drag to change finish time"
-                            className="absolute right-0 top-0 bottom-0 w-2 z-10 cursor-ew-resize hover:bg-navy/25 rounded-r"
+                            className="hub-day-resize hub-day-resize-end absolute right-0 top-0 bottom-0 w-2 z-10 cursor-ew-resize rounded-r"
                             onPointerDown={e => {
                               const grid = (e.currentTarget as HTMLElement).closest('[data-day-grid]');
                               if (grid instanceof HTMLElement) beginResize(e, job, 'end', grid);
@@ -882,8 +890,8 @@ function CurrentTimeVerticalIndicator({ hourWidth, dayStart }: { hourWidth: numb
   return (
     <div className="absolute top-0 bottom-0 z-20 pointer-events-none" style={{ left }}>
       <div className="flex flex-col items-center h-full">
-        <div className="w-2 h-2 rounded-full bg-accent -mt-1" />
-        <div className="flex-1 w-px bg-accent" />
+        <div className="hub-day-now-dot w-2 h-2 rounded-full -mt-1" />
+        <div className="hub-day-now-line flex-1" />
       </div>
     </div>
   );

@@ -191,8 +191,8 @@ describe('schedule page week/day board', () => {
     expect(sheet).toContain('jobsListSuburbFromSite');
     expect(src('src/components/ui/AppDialog.tsx')).toContain('swipeDownClose');
     expect(src('src/index.css')).toContain('.hub-schedule-job-sheet .btn-primary.hub-editor-sticky-save');
-    expect(src('src/index.css')).toMatch(/\.hub-schedule-job-sheet \.btn-primary\.hub-editor-sticky-save[\s\S]{0,80}#0A2540/);
-    expect(src('src/index.css')).toMatch(/\.hub-schedule-job-sheet \.btn-primary\.hub-editor-sticky-save[\s\S]{0,120}#FFFDF8/);
+    expect(src('src/index.css')).toMatch(/\.hub-schedule-job-sheet \.btn-primary\.hub-editor-sticky-save[\s\S]{0,80}var\(--g-inverse\)/);
+    expect(src('src/index.css')).toMatch(/\.hub-schedule-job-sheet \.btn-primary\.hub-editor-sticky-save[\s\S]{0,120}var\(--g-inverse-ink\)/);
     expect(src('src/index.css')).toContain('.hub-week-agenda .hub-jobs-phone-status');
     expect(page).toContain('scheduleSheetSavePayload');
     expect(page).toContain('scheduleFromSheet.mutate');

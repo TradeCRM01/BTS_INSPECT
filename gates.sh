@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Permanent gate: pin PostgREST, build, then vitest, then the Chromium dist-CSS suite.
-# Vitest's known product-test failures must not skip the shell kills.
+# Permanent gate: pin PostgREST, build, then vitest, then the Chromium dist-CSS suites.
+# A red suite must not skip the suites after it.
 set -euo pipefail
 
 PGRST_VERSION="v12.2.3"
@@ -60,7 +60,10 @@ ensure_postgrest
 export GATES=1
 
 VITE_LOOK_PROOF=1 npm run build
-vitest_rc=0
-npx vitest run --maxWorkers=2 "$@" || vitest_rc=$?
-npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts
-exit "$vitest_rc"
+rc=0
+npx vitest run --maxWorkers=2 "$@" || rc=$?
+npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts || rc=$?
+# Default vitest can rewrite files under src/; P2 reads built dist and rejects a newer src tree.
+npm run build
+npx vitest run -c vitest.p2-schedule.config.ts || rc=$?
+exit "$rc"
