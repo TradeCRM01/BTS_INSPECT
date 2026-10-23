@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -8,7 +9,7 @@ import { chromium, type Browser, type Page } from 'playwright';
 import {
   BASE_SHA, BEFORE_DIR, CONTRAST, FOCUS, FROZEN_NOW, HOVERS, KILLS, SHEET, STATES, TAP_MIN, TIMEZONE, TRACK_PROBE, QUICK_BOOK_PHRASE,
   isTouch, viewportHeight,
-  type Box, type Build, type FadeProbe, type FocusProbe, type FocusSide, type HoverProbe, type KillId, type Measure, type NowProbe,
+  type Box, type Build, type FadeProbe, type FocusProbe, type FocusSide, type HoverProbe, type KillId, type LookPins, type Measure, type NowProbe,
   type PaletteCount, type Recipe, type Shot, type StateId, type StateSpec, type TrackProbe, type TrackShape, type TrayProbe,
 } from './matrix.ts';
 import type { Run } from './entry.tsx';
@@ -102,6 +103,7 @@ async function makeArtifacts(build: Build): Promise<Artifacts> {
     logLevel: 'silent',
     define: {
       'process.env.NODE_ENV': '"production"',
+      'process.env.TZ': JSON.stringify(process.env.TZ ?? ''),
       'import.meta.env': JSON.stringify({
         MODE: 'production', DEV: false, PROD: true, SSR: false, BASE_URL: '/',
         VITE_SUPABASE_URL: 'https://example.supabase.co', VITE_SUPABASE_ANON_KEY: 'test-anon-key',
@@ -158,7 +160,7 @@ const browser = () => {
   browserPromise ??= chromium.launch({
     headless: true,
     executablePath: ['/usr/local/bin/google-chrome', '/usr/bin/google-chrome'].find(p => existsSync(p)),
-    args: ['--no-sandbox', '--disable-dev-shm-usage', '--force-color-profile=srgb', '--host-resolver-rules=MAP * ~NOTFOUND'],
+    args: ['--no-sandbox', '--disable-dev-shm-usage', '--force-color-profile=srgb', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1'],
   });
   return browserPromise;
 };
@@ -237,6 +239,7 @@ const RECIPES: Readonly<Record<Recipe, (page: Page, spec: StateSpec, notes: Note
   jobserror: async () => {},
   needcrew: async () => {},
   malformed: async () => {},
+  statusrules: async () => {},
   search: async (page) => {
     const box = page.locator('[data-schedule-search] input, .hub-week-search input').first();
     await box.fill('Luke');
@@ -336,7 +339,7 @@ export async function openState(id: StateId, build: Build = 'branch', height = v
     const page = await context.newPage();
     page.on('websocket', ws => websockets.push(ws.url()));
     page.on('pageerror', err => pageErrors.push(err.message));
-    await page.addInitScript((boot: { path: string; empty?: boolean; jobsError?: boolean; needCrewPair?: boolean; malformedCrew?: boolean }) => {
+    await page.addInitScript((boot: { path: string; empty?: boolean; jobsError?: boolean; needCrewPair?: boolean; malformedCrew?: boolean; statusRules?: boolean }) => {
       window.__P2_BOOT__ = boot;
       class FakeSpeechRecognition {
         lang = '';
@@ -357,6 +360,7 @@ export async function openState(id: StateId, build: Build = 'branch', height = v
       jobsError: spec.recipe === 'jobserror',
       needCrewPair: spec.recipe === 'needcrew',
       malformedCrew: spec.recipe === 'malformed',
+      statusRules: spec.recipe === 'statusrules',
     });
     await page.goto(url);
     await page.waitForFunction(() => !!window.__p2);
@@ -609,6 +613,198 @@ export function measure(id: StateId, build: Build = 'branch'): Promise<Measure> 
 }
 
 export const measureAll = (ids: readonly StateId[], build: Build = 'branch') => Promise.all(ids.map(id => measure(id, build)));
+
+let mockupPins: Promise<LookPins> | null = null;
+
+export function measureMockup1280(): Promise<LookPins> {
+  mockupPins ??= measureMockup1280Once();
+  return mockupPins;
+}
+
+async function measureMockup1280Once(): Promise<LookPins> {
+  const root = mkdtempSync(join(tmpdir(), 'p2-mockup-'));
+  temps.push(root);
+  const htmlDir = join(root, 'directions/4-dark-light/html');
+  mkdirSync(htmlDir, { recursive: true });
+  mkdirSync(join(root, 'directions/_src'), { recursive: true });
+  const fixtures = join(REPO_ROOT, 'docs/look/p2/fixtures');
+  copyFileSync(join(fixtures, 'schedule-1280-light.html'), join(htmlDir, 'schedule-1280-light.html'));
+  copyFileSync(join(fixtures, 'direction.css'), join(htmlDir, 'direction.css'));
+  copyFileSync(join(fixtures, 'tokens.css'), join(root, 'directions/4-dark-light/tokens.css'));
+  copyFileSync(join(fixtures, 'app.css'), join(root, 'directions/_src/app.css'));
+  const font = join(REPO_ROOT, 'public/fonts/Geist-Variable.woff2');
+  const server = createServer((req, res) => {
+    const urlPath = decodeURIComponent((req.url ?? '/').split('?')[0] ?? '/');
+    const file = urlPath.includes('Geist-VariableFont_wght')
+      ? font
+      : join(root, urlPath);
+    if (!existsSync(file) || statSync(file).isDirectory()) {
+      res.statusCode = 404;
+      res.end();
+      return;
+    }
+    const ext = file.split('.').pop() ?? '';
+    const types: Record<string, string> = { html: 'text/html; charset=utf-8', css: 'text/css', woff2: 'font/woff2', ttf: 'font/woff2' };
+    res.setHeader('content-type', types[ext] ?? 'application/octet-stream');
+    res.end(readFileSync(file));
+  });
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address() as { port: number };
+  const context = await (await browser()).newContext({
+    viewport: { width: 1280, height: 900 },
+    deviceScaleFactor: 1,
+    colorScheme: 'light',
+    reducedMotion: 'reduce',
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto(`http://127.0.0.1:${port}/directions/4-dark-light/html/schedule-1280-light.html`, { waitUntil: 'load' });
+    await page.waitForSelector('.s-head .h1, .s-head h1');
+    const pins = await page.evaluate(() => {
+      const typeOf = (el: Element | null) => {
+        if (!el) return { weight: 0, size: 0, lh: 0 };
+        const s = getComputedStyle(el);
+        return { weight: parseFloat(s.fontWeight) || 0, size: parseFloat(s.fontSize) || 0, lh: parseFloat(s.lineHeight) || 0 };
+      };
+      const box = (el: Element | null) => el?.getBoundingClientRect() ?? null;
+      const h1 = document.querySelector('.s-head .h1, .s-head h1');
+      const sub = document.querySelector('.s-head p.sub');
+      const eyebrow = document.querySelector('.s-head .eyebrow');
+      const newJob = document.querySelector('.s-head .btn-primary');
+      const seg = document.querySelector('.segc');
+      const search = document.querySelector('.fld');
+      const today = document.querySelector('.tools > .btn-secondary');
+      const board = document.querySelector('.board');
+      const tray = document.querySelector('.tray .h2');
+      const h1T = typeOf(h1);
+      const subT = typeOf(sub);
+      const trayT = typeOf(tray);
+      const newR = box(newJob);
+      const searchR = box(search);
+      const todayR = box(today);
+      const boardR = box(board);
+      return {
+        h1Weight: h1T.weight,
+        h1Size: h1T.size,
+        h1Lh: h1T.lh,
+        subWeight: subT.weight,
+        subSize: subT.size,
+        subLh: subT.lh,
+        eyebrowPaint: '',
+        newJobW: newR?.width ?? 0,
+        newJobH: newR?.height ?? 0,
+        newJobBottom: newR?.bottom ?? -1,
+        segTrackPaint: '',
+        segActivePaint: '',
+        searchW: searchR?.width ?? 0,
+        searchH: searchR?.height ?? 0,
+        todayW: todayR?.width ?? 0,
+        todayH: todayR?.height ?? 0,
+        todayFill: '',
+        boardLeft: boardR?.left ?? -1,
+        boardRight: boardR?.right ?? -1,
+        trayH: tray?.getBoundingClientRect().height ?? 0,
+        trayWeight: trayT.weight,
+        traySize: trayT.size,
+        trayLh: trayT.lh,
+        h1Left: h1?.getBoundingClientRect().left ?? -1,
+        eyebrowLeft: eyebrow?.getBoundingClientRect().left ?? -1,
+        eyebrow: {
+          x: eyebrow?.getBoundingClientRect().x ?? 0,
+          y: eyebrow?.getBoundingClientRect().y ?? 0,
+          w: eyebrow?.getBoundingClientRect().width ?? 0,
+          h: eyebrow?.getBoundingClientRect().height ?? 0,
+        },
+        seg: {
+          x: seg?.getBoundingClientRect().x ?? 0,
+          y: seg?.getBoundingClientRect().y ?? 0,
+          w: seg?.getBoundingClientRect().width ?? 0,
+          h: seg?.getBoundingClientRect().height ?? 0,
+        },
+        segOn: (() => {
+          const el = document.querySelector('.segc [aria-current]');
+          const r = el?.getBoundingClientRect();
+          return r ? { x: r.x, y: r.y, w: r.width, h: r.height } : { x: 0, y: 0, w: 0, h: 0 };
+        })(),
+        todayBox: todayR ? { x: todayR.x, y: todayR.y, w: todayR.width, h: todayR.height } : { x: 0, y: 0, w: 0, h: 0 },
+      };
+    });
+    const png = await page.screenshot({ animations: 'disabled', caret: 'hide' });
+    const paints = await page.evaluate(async (payload: { b64: string; boxes: { eyebrow: Box; seg: Box; segOn: Box; todayBox: Box } }) => {
+      const { b64, boxes } = payload;
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+      const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) throw new Error('mockup paint has no 2d context');
+      ctx.drawImage(bitmap, 0, 0);
+      const img = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+      const dpr = window.devicePixelRatio || img.width / Math.max(1, window.innerWidth);
+      const pxAt = (x: number, y: number) => {
+        const ix = Math.max(0, Math.min(img.width - 1, Math.round(x)));
+        const iy = Math.max(0, Math.min(img.height - 1, Math.round(y)));
+        const i = (iy * img.width + ix) * 4;
+        return `rgb(${img.data[i]}, ${img.data[i + 1]}, ${img.data[i + 2]})`;
+      };
+      const inkOf = (b: Box) => {
+        let best = { r: 255, g: 255, b: 255, lum: 999 };
+        const x0 = Math.max(0, Math.round(b.x * dpr));
+        const y0 = Math.max(0, Math.round(b.y * dpr));
+        const x1 = Math.min(img.width - 1, Math.round((b.x + b.w) * dpr));
+        const y1 = Math.min(img.height - 1, Math.round((b.y + b.h) * dpr));
+        for (let y = y0; y < y1; y += 2) {
+          for (let x = x0; x < x1; x += 2) {
+            const i = (y * img.width + x) * 4;
+            const r = img.data[i];
+            const g = img.data[i + 1];
+            const bch = img.data[i + 2];
+            const lum = 0.2126 * r + 0.7152 * g + 0.0722 * bch;
+            if (lum < best.lum) best = { r, g, b: bch, lum };
+          }
+        }
+        return `rgb(${best.r}, ${best.g}, ${best.b})`;
+      };
+      return {
+        eyebrowPaint: inkOf(boxes.eyebrow),
+        segTrackPaint: pxAt((boxes.seg.x + 4) * dpr, (boxes.seg.y + 3) * dpr),
+        segActivePaint: pxAt((boxes.segOn.x + boxes.segOn.w / 2) * dpr, (boxes.segOn.y + boxes.segOn.h / 2) * dpr),
+        todayFill: pxAt((boxes.todayBox.x + boxes.todayBox.w / 2) * dpr, (boxes.todayBox.y + boxes.todayBox.h / 2) * dpr),
+      };
+    }, { b64: png.toString('base64'), boxes: { eyebrow: pins.eyebrow, seg: pins.seg, segOn: pins.segOn, todayBox: pins.todayBox } });
+    return {
+      h1Left: pins.h1Left,
+      eyebrowLeft: pins.eyebrowLeft,
+      h1Weight: pins.h1Weight,
+      h1Size: pins.h1Size,
+      h1Lh: pins.h1Lh,
+      subWeight: pins.subWeight,
+      subSize: pins.subSize,
+      subLh: pins.subLh,
+      eyebrowPaint: paints.eyebrowPaint,
+      newJobW: pins.newJobW,
+      newJobH: pins.newJobH,
+      newJobBottom: pins.newJobBottom,
+      segTrackPaint: paints.segTrackPaint,
+      segActivePaint: paints.segActivePaint,
+      searchW: pins.searchW,
+      searchH: pins.searchH,
+      todayW: pins.todayW,
+      todayH: pins.todayH,
+      todayFill: paints.todayFill,
+      boardLeft: pins.boardLeft,
+      boardRight: pins.boardRight,
+      trayH: pins.trayH,
+      trayWeight: pins.trayWeight,
+      traySize: pins.traySize,
+      trayLh: pins.trayLh,
+    };
+  } finally {
+    await context.close();
+    await new Promise<void>(resolve => server.close(() => resolve()));
+  }
+}
 
 export async function closeHarness(): Promise<void> {
   if (browserPromise) await (await browserPromise).close();

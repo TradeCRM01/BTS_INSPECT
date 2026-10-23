@@ -1,30 +1,196 @@
-# r7b K24 — AssertionError names the thrown error
+# r8 real-file src mutants (outside the suite)
 
-Named harness mutants do not count. K24 harvest: real-file mutant at `src/pages/SchedulePage.tsx:1218` (`drop-needcrew-guard`), rebuild, normal Chromium suite (`vitest.p2-schedule.config.ts`, no mutant query), then revert. Timeouts and `p2 page never settled` do not count as kills.
+No test writes a tracked file. No in-test rebuild. Harvest is: patch the listed `find` → `replace` in the listed src file, `npm run build` when the kill reads dist, run the listed vitest command, confirm the AssertionError, then `git checkout -- <file>`.
 
-K24 `it()` is `src/proof/p2Schedule/kill.ts:723`. Collects `pageerror` and console `error` **before** navigate. Bounded settle (3s) does not throw. Then `pageErrors == []` and console errors `== []`, then each malformed-crew card (null, string, object, number, whitespace) renders its `Needs crew` pill.
+Named harness `?mutant=` queries do not count.
 
-Mutant red (not a timeout):
+Deleted grep (standing-rule exception): `src/pages/schedulePage.test.ts` `expect(page).toContain('countNeedCrewJobs')` — the void-shim grep. Named here because the standing rule allows that one deletion.
 
-| it() file:line | src file:line mutated | red line |
-|---|---|---|
-| `src/proof/p2Schedule/kill.ts:723` `K24` assert `:772` | `src/pages/SchedulePage.tsx:1218` local `needCrewOf` drops `if (!Array.isArray(job.assigned_team)) return true` + trim/typeof filter → `(job.assigned_team as string[]).filter(id => id.length > 0)` | `AssertionError: malformed assigned_team pageerror: job2.assigned_team.filter is not a function: expected [ Array(1) ] to deeply equal []` |
+## it() file:line (r8)
 
-r6/r7 real-file rows kept (K25 `it()` moved to `:792` after the K24 rewrite):
+| kill | it() |
+|---|---|
+| P2-overflow | `src/proof/p2Schedule/kill.ts:125` |
+| P2-focus | `src/proof/p2Schedule/kill.ts:271` (inverse fill left unchanged) |
+| K24 | `src/proof/p2Schedule/kill.ts:729` |
+| K25 | `src/proof/p2Schedule/kill.ts:814` |
+| K26 | `src/proof/p2Schedule/kill.ts:891` |
+| unit status | `src/lib/scheduleStatus.kill.test.ts` (10 `it()`s) |
+| fixture pin | `src/pages/schedule1280Light.fixture.test.ts:16` |
 
-| it() file:line | src file:line mutated | red line |
-|---|---|---|
-| `src/proof/p2Schedule/kill.ts:124` `P2-overflow` assert `:164` | `src/index.css:7901` `.hub-week-chip-clock` `white-space:normal; overflow:hidden; overflow-wrap:anywhere` → `white-space:nowrap; overflow:visible; overflow-wrap:normal` (no ellipsis) | `AssertionError: week-1024 track label "Booked Mon 19 Oct · Add a time · #0061" past card div.hub-week-chip: expected false to be true` |
-| `src/proof/p2Schedule/kill.ts:792` `K25` assert `:796` | `src/index.css:6643` `@media 1024` page pad `32px 32px 20px` → `12px 16px 16px` | `AssertionError: Schedule h1 left 16 vs mockup 32 (page 0 pad 16 parent 16): expected 16 to be less than or equal to 1` |
-| `src/proof/p2Schedule/kill.ts:792` `K25` assert `:803` | `src/index.css:7194` `.hub-week-search` `flex: 1 1 auto; min-width: 0` → `flex: 0 0 200px; width: 200px; max-width: 200px` | `AssertionError: search width 200 vs mockup 772.55: expected 572.55 to be less than or equal to 2` |
-| `src/proof/p2Schedule/kill.ts:792` `K25` assert `:803` | `src/pages/SchedulePage.tsx:965` move Today into the range row (beside the arrows) | `AssertionError: search width 779.453125 vs mockup 772.55: expected 6.9031250000000455 to be less than or equal to 2` |
-| `src/proof/p2Schedule/kill.ts:792` `K25` assert `:808` | `src/index.css:6164` `.hub-schedule-quickbook:not([data-open="1"])` `display:none` → `display:block; min-height:72px` | `AssertionError: toolbar.bottom 292.5 vs board.top 409.5: expected 117 to be less than or equal to 1` |
-| `src/proof/p2Schedule/kill.ts:792` `K25` assert `:835` | `src/pages/SchedulePage.tsx:993` `onClick={() => setQuickBookOpen(open => !open)}` → `onClick={openNewJob}` | `AssertionError: header New job opens Quick book: expected 0 to be greater than 0` |
-| `src/proof/p2Schedule/kill.ts:792` `K25` assert `:818` | `src/index.css:6746` tray kicker `height/min-height/font 32/28/700` → `11px uppercase muted` | `AssertionError: tray heading 16.5 vs measured mockup 32: expected 15.5 to be less than or equal to 1` |
-| `src/proof/p2Schedule/kill.ts:792` `K25` assert `:799` | `src/index.css:6990` `.hub-week-seg` `border: 1px solid var(--g-line-strong); border-radius: 999px` → `border: none; border-radius: 0` | `AssertionError: pill seg radius cuts the corner: expected false to be true` |
-| `src/proof/p2Schedule/kill.ts:792` `K25` assert `:800` | `src/index.css:7169` `.hub-week-nav-box` `border: 1px solid var(--g-line-strong); border-radius: 10px` → `border: none; border-radius: 0` | `AssertionError: boxed ‹ › paint a border: expected 0 to be greater than or equal to 4` |
-| `src/proof/p2Schedule/kill.ts:792` `K25` assert `:806` | `src/index.css:7176` `.hub-week-today` `border: 1px solid var(--g-line-strong)` → `border: 1px solid transparent` (radius 0) | `AssertionError: Today paints an outline: expected 0 to be greater than or equal to 4` |
-| `src/proof/p2Schedule/kill.ts:792` `K25` assert `:814` | `src/index.css:7938` `.hub-week-chip-desc` `-webkit-line-clamp: 2; white-space: normal` → `display:block; -webkit-line-clamp: 1; white-space: nowrap; max-height: 18px` | `AssertionError: titles wrap to 2 lines: expected 1 to be 2` |
-| `src/proof/p2Schedule/kill.ts:792` `K25` assert `:815` | `src/index.css:7225` crew-name `white-space: nowrap` → `white-space: normal; max-width: 36px` | `AssertionError: week crew names stay one line: expected 2 to be 1` |
-| `src/proof/p2Schedule/kill.ts:792` `K25` assert `:824` | `src/components/crm/BoardViews.tsx:833` untimed width `Math.min(220, hourWidth * 2.2)` → `hourWidth * hours.length` | `AssertionError: untimed card does not span the track: expected false to be true` |
-| `src/proof/p2Schedule/kill.ts:792` `K25` assert `:809` | `src/index.css:7692` `.hub-week-head-short` `display: inline-flex` → `display: none` | `AssertionError: day headers one left-aligned line: expected +0 to be 7` |
+## Commands
+
+```bash
+# K24 drop-needcrew-guard — shared crewIds asTeamIds guard
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/lib/scheduleNeedCrew.ts')
+p.write_text(p.read_text().replace(
+  'return asTeamIds(assigned).filter(id => id.trim());',
+  'return (assigned as string[]).filter(id => id.length > 0);',
+  1))
+PY
+npm run build
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K24:'
+# expected AssertionError: malformed assigned_team pageerror: assigned.filter is not a function: expected [ 'assigned.filter is not a function' ] to deeply equal []
+# harvested: src/proof/p2Schedule/kill.ts:729 K24 / kill.ts:780 pageerror expect
+git checkout -- src/lib/scheduleNeedCrew.ts
+
+# K26 unknown-as-scheduled
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/lib/scheduleInvoiceStatus.ts')
+p.write_text(p.read_text().replace(
+  "if (status === 'scheduled') return { label: 'Scheduled', kind: 'scheduled' };\n  return { label: sentenceStatus(job.status), kind: 'status' };",
+  "return { label: 'Scheduled', kind: 'scheduled' };",
+  1))
+PY
+npm run build
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K26:'
+# expected AssertionError: null status never Scheduled: expected 'Scheduled' not to be 'Scheduled'
+# harvested: src/proof/p2Schedule/kill.ts:891 K26 / kill.ts:899
+git checkout -- src/lib/scheduleInvoiceStatus.ts
+
+# K26 date-stringify
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/lib/scheduleNeedCrew.ts')
+p.write_text(p.read_text().replace(
+  "export function asDateText(value: unknown): string {\n  return typeof value === 'string' ? value.trim() : '';\n}",
+  "export function asDateText(value: unknown): string {\n  return String(value ?? '').trim();\n}",
+  1))
+PY
+npx vitest src/lib/scheduleStatus.kill.test.ts -t 'non-string scheduled_date'
+# expected AssertionError: expected '20261019' to be '' // Object.is equality
+# harvested: src/lib/scheduleStatus.kill.test.ts > non-string scheduled_date is undated and never throws
+git checkout -- src/lib/scheduleNeedCrew.ts
+
+# K26 clock-book-unknown
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/lib/scheduleBoard.ts')
+p.write_text(p.read_text().replace(
+  'if (job && (isNeedCrewJob(job) || isUnknownScheduleStatus(job.status))) return when;',
+  'if (job && isNeedCrewJob(job)) return when;',
+  1))
+PY
+npx vitest src/lib/scheduleStatus.kill.test.ts -t 'null status'
+# expected AssertionError: expected 'Booked Mon 19 Oct · Add a time' not to match /Booked/
+# harvested: src/lib/scheduleStatus.kill.test.ts > null status is never Scheduled or Booked
+git checkout -- src/lib/scheduleBoard.ts
+
+# K26 status-fallback-scheduled
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/lib/scheduleInvoiceStatus.ts')
+p.write_text(p.read_text().replace(
+  'if (!raw) return STATUS_FALLBACK;',
+  "if (!raw) return 'Scheduled';",
+  1))
+PY
+npx vitest src/lib/scheduleStatus.kill.test.ts -t 'empty status'
+# expected AssertionError: expected 'Scheduled' to be 'Status' // Object.is equality
+# harvested: src/lib/scheduleStatus.kill.test.ts > empty status is never Scheduled or Booked
+git checkout -- src/lib/scheduleInvoiceStatus.ts
+
+# P2-overflow day-clock-clip (index.css clock max-width 100% → 2ch)
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+p.write_text(p.read_text().replace(
+  '  .hub-week-chip-clock {\n    flex: 1 1 auto;\n    min-width: 0;\n    max-width: 100%;',
+  '  .hub-week-chip-clock {\n    flex: 1 1 auto;\n    min-width: 0;\n    max-width: 2ch;\n    overflow: hidden;\n    text-overflow: clip;',
+  1))
+PY
+npm run build
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-overflow'
+# expected AssertionError: clock "…" scrollWidth fits its own box: expected false to be true
+git checkout -- src/index.css
+
+# K25 today-beside-arrows (search-width pin)
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/pages/SchedulePage.tsx')
+old = """      </div>
+      <div className="hub-week-search" data-schedule-search="1">
+        {weekSearch}
+      </div>
+      <button type="button" className="hub-week-quiet hub-week-today" onClick={() => applySchedule(viewMode, new Date())}>
+        Today
+      </button>"""
+new = """        <button type="button" className="hub-week-quiet hub-week-today" onClick={() => applySchedule(viewMode, new Date())}>
+          Today
+        </button>
+      </div>
+      <div className="hub-week-search" data-schedule-search="1">
+        {weekSearch}
+      </div>"""
+t = p.read_text()
+if old not in t: raise SystemExit('today-beside-arrows find missed')
+p.write_text(t.replace(old, new, 1))
+PY
+npm run build
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
+# expected AssertionError: search width … vs fixture …
+git checkout -- src/pages/SchedulePage.tsx
+
+# K25 search-fixed-width
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+old = """    .hub-board-cal.is-week-doc .hub-week-search {
+      flex: 1 1 755.265625px;
+      min-width: 0;
+      max-width: 755.265625px;
+      width: 755.265625px;
+      height: 48px;
+      min-height: 48px;
+    }"""
+new = """    .hub-board-cal.is-week-doc .hub-week-search {
+      flex: 0 0 200px;
+      min-width: 0;
+      max-width: 200px;
+      width: 200px;
+      height: 48px;
+      min-height: 48px;
+    }"""
+t = p.read_text()
+if old not in t: raise SystemExit('search-fixed-width find missed')
+p.write_text(t.replace(old, new, 1))
+PY
+npm run build
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
+# expected AssertionError: search width … vs fixture …
+git checkout -- src/index.css
+
+# K25 today-no-stroke
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+old = """    .hub-board-cal.is-week-doc .hub-week-today {
+      width: 85.25px;
+      min-width: 85.25px;
+      height: 48px;
+      min-height: 48px;
+      margin-left: auto;
+      padding: 0 20px;"""
+new = """    .hub-board-cal.is-week-doc .hub-week-today {
+      width: auto;
+      min-width: 0;
+      height: 32px;
+      min-height: 32px;
+      margin-left: 0;
+      padding: 0 20px;"""
+t = p.read_text()
+if old not in t: raise SystemExit('today-no-stroke find missed')
+p.write_text(t.replace(old, new, 1))
+PY
+npm run build
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
+# expected AssertionError: Today width … vs fixture … / Today height …
+git checkout -- src/index.css
+```
+
+r7b pageerror assert is kept. Restored K24 h1 / whisper / DOM card asserts are additions.
+
+K25 hand-typed MOCKUP_* ranges were replaced with fixture-measured exact `toBe` values (tightened, never a range).

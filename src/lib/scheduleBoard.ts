@@ -3,7 +3,7 @@ import { SAFE_DATE_FALLBACK, safeFormatDate, safeLocaleDateString } from './safe
 import { DAY_HOUR_COUNT, DAY_START_HOUR, UNASSIGNED_ROW_ID, asTeamIds } from './dispatch';
 import { formatJobRef } from './jobRef';
 import { jobColorToStore, pickJobColor } from './jobColors';
-import { crewIds, isNeedCrewJob, type NeedCrewJob } from './scheduleNeedCrew';
+import { asDateText, crewIds, isNeedCrewJob, type NeedCrewJob } from './scheduleNeedCrew';
 import { isUnknownScheduleStatus } from './scheduleInvoiceStatus';
 
 /** AU trade week — Monday first, matching the existing board. */
@@ -78,10 +78,9 @@ export function parseScheduleDateParam(raw: string | null | undefined): Date | n
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-/** Calendar day from `jobs.scheduled_date` (date or ISO timestamp). */
-export function scheduleDayKey(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const day = value.trim().slice(0, 10);
+/** Calendar day from `jobs.scheduled_date` (date or ISO timestamp). Non-strings are undated. */
+export function scheduleDayKey(value: unknown): string | null {
+  const day = asDateText(value).slice(0, 10);
   return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null;
 }
 
@@ -230,10 +229,10 @@ export const AGENDA_NO_TIME_LABEL = 'No time set';
 export const SCHEDULE_ADD_TIME_LABEL = 'Add a time';
 
 export function scheduleBookedAddTimeLabel(
-  scheduledDate: string | null | undefined,
+  scheduledDate: unknown,
   job?: NeedCrewJob | null,
 ): string {
-  if (!scheduledDate) return AGENDA_NO_TIME_LABEL;
+  if (!asDateText(scheduledDate)) return AGENDA_NO_TIME_LABEL;
   const key = scheduleDayKey(scheduledDate);
   if (!key) return AGENDA_NO_TIME_LABEL;
   const [y, m, d] = key.split('-').map(Number);
@@ -273,12 +272,12 @@ export function scheduleClockLabel(
 export function scheduleChipClock(
   start: string | null | undefined,
   end?: string | null,
-  scheduledDate?: string | null,
+  scheduledDate?: unknown,
   job?: NeedCrewJob | null,
 ): string {
   const timed = scheduleClockLabel(start, end);
   if (timed) return timed;
-  if (scheduledDate) return scheduleBookedAddTimeLabel(scheduledDate, job);
+  if (asDateText(scheduledDate)) return scheduleBookedAddTimeLabel(scheduledDate, job);
   return TIME_NOT_SET_LABEL;
 }
 
@@ -479,8 +478,8 @@ export function countNeedCrewJobs<T extends NeedCrewCountable>(jobs: T[]): numbe
 }
 
 type NeedCrewCountable = {
-  status?: string | null;
-  scheduled_date?: string | null;
+  status?: unknown;
+  scheduled_date?: unknown;
   assigned_team?: unknown;
 };
 

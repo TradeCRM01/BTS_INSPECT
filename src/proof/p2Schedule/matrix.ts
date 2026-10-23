@@ -2,8 +2,13 @@
 // No runtime imports and erasable syntax only, so Node type stripping can load it from the script.
 
 export const BASE_SHA = '0898c3b93f167a090615232141bf73790bf731ef';
-export const FROZEN_NOW = '2026-10-19T13:40:00+10:00';
+// process.env.TZ may be UTC for the Node suite. Guard the read so the browser
+// bundle never throws. The fixture clock stays Brisbane so Now is 13:40.
+export const HARNESS_PROCESS_TZ = typeof process !== 'undefined' && process.env && process.env.TZ ? process.env.TZ : '';
 export const TIMEZONE = 'Australia/Brisbane';
+export const FROZEN_NOW = '2026-10-19T13:40:00+10:00';
+export const FROZEN_NOW_UTC = '2026-10-19T13:40:00.000Z';
+export const FROZEN_NOW_AEST = '2026-10-19T13:40:00+10:00';
 export const BEFORE_DIR = '/tmp/p2-proofs/before';
 export const BASELINE_VITEST_LOG = '/tmp/p2-baseline/vitest-built.log';
 
@@ -14,7 +19,7 @@ export const viewportHeight = (w: number): number => (w < 768 ? 812 : 900);
 export const isTouch = (w: number): boolean => w < 1024;
 
 export type View = 'week' | 'day';
-export type Recipe = 'none' | 'lineprobe' | 'tray' | 'rail' | 'sheet' | 'prefill' | 'more' | 'save' | 'tab' | 'field' | 'empty' | 'jobserror' | 'search' | 'needcrew' | 'malformed';
+export type Recipe = 'none' | 'lineprobe' | 'tray' | 'rail' | 'sheet' | 'prefill' | 'more' | 'save' | 'tab' | 'field' | 'empty' | 'jobserror' | 'search' | 'needcrew' | 'malformed' | 'statusrules';
 export type Shot = 'top' | 'scrolled' | 'dark' | 'empty' | 'chips' | 'focus' | 'middle' | 'end';
 export type Frames = Readonly<Partial<Record<Shot, string>>>;
 
@@ -68,6 +73,7 @@ export const STATES = {
   'search-1280': { path: '/schedule', w: 1280, recipe: 'search', frames: {} },
   'needcrew-1280': { path: '/schedule', w: 1280, recipe: 'needcrew', frames: {} },
   'malformed-1280': { path: '/schedule', w: 1280, recipe: 'malformed', frames: {} },
+  'status-1280': { path: '/schedule', w: 1280, recipe: 'statusrules', frames: {} },
   'edit-375': { path: '/schedule', w: 375, recipe: 'sheet', frames: {} },
   'edit-768': { path: '/schedule', w: 768, recipe: 'sheet', frames: {} },
   'edit-1024': { path: '/schedule', w: 1024, recipe: 'sheet', frames: {} },
@@ -100,7 +106,7 @@ export type KillId =
   | 'P2-tracker' | 'P2-chip' | 'P2-focus' | 'P2-now' | 'P2-day-board' | 'P2-scroller' | 'P2-sheet' | 'P2-tray' | 'P2-status'
   | 'K1' | 'K2' | 'K3' | 'K4' | 'K5' | 'K6' | 'K7' | 'K8' | 'K9' | 'K10'
   | 'K11' | 'K12' | 'K13' | 'K14' | 'K15' | 'K16' | 'K17' | 'K18' | 'K19'
-  | 'K20' | 'K21' | 'K22' | 'K23' | 'K24' | 'K25';
+  | 'K20' | 'K21' | 'K22' | 'K23' | 'K24' | 'K25' | 'K26';
 
 export const KILLS: Readonly<Record<KillId, { readonly title: string; readonly states: readonly StateId[] }>> = {
   'P2-palette': { title: 'no navy or cream pixels outside data colour', states: [...BOARD, 'sheet-390'] },
@@ -150,6 +156,7 @@ export const KILLS: Readonly<Record<KillId, { readonly title: string; readonly s
   K23: { title: 'dated crewed unknown status shows a sentence-case pill, never Scheduled or Booked', states: ['week-1280'] },
   K24: { title: 'malformed assigned_team never throws and each dated job counts as need crew', states: ['malformed-1280'] },
   K25: { title: '1280 mockup chrome and 390 tools row match the signed schedule paper', states: ['week-1280', 'rail-1280', 'day-1280', 'week-390', 'tray-390', 'sheet-390'] },
+  K26: { title: 'unknown and non-string status never Scheduled or Booked on the board', states: ['status-1280'] },
 };
 
 /** Every P2/K* kill opens a Playwright Chromium page against the built dist. None run in jsdom. */
@@ -235,10 +242,6 @@ export const ROWS = {
 } as const;
 export const PHONE_TABS = ['Today', 'Schedule', 'Jobs', 'More'] as const;
 export const QUICK_BOOK_PHRASE = 'Leaking tap tomorrow 9am Dean';
-export const MOCKUP_SEARCH_WIDTH = 772.55;
-export const MOCKUP_SEARCH_TOL = 2;
-export const MOCKUP_H1_LEFT = 32;
-export const MOCKUP_TRAY_HEADING_H = 32;
 export const WEEK = ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25'] as const;
 export const TODAY = '2026-10-19';
 export const EMPTY_COPY = /\b(nothing scheduled|no jobs|no bookings)\b/i;
@@ -284,7 +287,7 @@ export type TrayState = { label: string; expanded: boolean; listShown: boolean; 
 export type TrayProbe = { before: TrayState; after: TrayState };
 export type Offender = { el: string; right: number; scroller: { classes: string[]; right: number } | null };
 export type ClipProbe = { el: string; right: number; clip: string; clipRight: number };
-export type ClockProbe = { text: string; cls: string; textRight: number; clipRight: number; clipEl: string; fits: boolean };
+export type ClockProbe = { text: string; cls: string; textRight: number; clipRight: number; clipEl: string; fits: boolean; ownFits: boolean };
 export type OverflowSkip = { el: string; right: number; reason: 'sole-allowlisted-scroller' | 'ellipsis-self' | 'clip-inside-allowlisted-scroller' };
 export type TrackLabel = { el: string; text: string; card: string; fitsCard: boolean; fitsClip: boolean; clipEl: string };
 export type DayTrackInfo = { overflowX: string; sw: number; cw: number; left: number; right: number; top: number; bottom: number };
@@ -340,6 +343,55 @@ export type ChromeProbe = {
   segBox: ChromeBox | null;
   todayBox: ChromeBox | null;
   navBoxes: ChromeBox[];
+  h1Weight: number;
+  h1Size: number;
+  h1Lh: number;
+  whisperWeight: number;
+  whisperSize: number;
+  whisperLh: number;
+  eyebrowPaint: string;
+  newJobW: number;
+  newJobH: number;
+  newJobBottom: number;
+  segTrackPaint: string;
+  segActivePaint: string;
+  searchH: number;
+  todayW: number;
+  todayH: number;
+  todayFill: string;
+  boardLeft: number;
+  boardRight: number;
+  trayWeight: number;
+  traySize: number;
+  trayLh: number;
+};
+
+export type LookPins = {
+  h1Left: number;
+  eyebrowLeft: number;
+  h1Weight: number;
+  h1Size: number;
+  h1Lh: number;
+  subWeight: number;
+  subSize: number;
+  subLh: number;
+  eyebrowPaint: string;
+  newJobW: number;
+  newJobH: number;
+  newJobBottom: number;
+  segTrackPaint: string;
+  segActivePaint: string;
+  searchW: number;
+  searchH: number;
+  todayW: number;
+  todayH: number;
+  todayFill: string;
+  boardLeft: number;
+  boardRight: number;
+  trayH: number;
+  trayWeight: number;
+  traySize: number;
+  trayLh: number;
 };
 export type ReachBox = { top: number; bottom: number; height: number; visible: number };
 export type ReachProbe = { tray: ReachBox; lastLane: ReachBox; agenda: ReachBox; agendaFirst: ReachBox; vh: number };
@@ -415,7 +467,7 @@ export type LayoutProbe = {
   agendaDays: { date: string; empty: boolean; h: number }[];
   trayHeading: string;
   traySub: string;
-  trayCards: { meta: string; pill: string; text: string }[];
+  trayCards: { id: string; meta: string; pill: string; text: string }[];
   setDate: string[];
   allCrews: boolean;
   quickBook: boolean;
@@ -468,7 +520,7 @@ const BOARD_VIEWS = 'src/components/crm/BoardViews.tsx';
 export const MUTANTS: readonly MutantSpec[] = [
   { id: 'cream-page', kill: 'P2-palette', file: 'src/index.css', rule: '.hub-board-cal.is-week-doc.ops-page {', find: 'background: var(--g-bg);', replace: 'background: #F5F0E6;', brief: 'restore :6569 cream' },
   { id: 'navy-save', kill: 'P2-palette', file: 'src/index.css', rule: '.hub-schedule-job-sheet .btn-primary.hub-editor-sticky-save {', find: 'background: var(--g-inverse);', replace: 'background: #0A2540;', brief: 'restore :7810 navy Save' },
-  { id: 'whisper-5b6b7c', kill: 'P2-contrast', file: 'src/index.css', rule: '.hub-schedule-eyebrow {', find: 'color: var(--g-ink-muted);', replace: 'color: #5B6B7C;', brief: 'restore #5B6B7C on the eyebrow' },
+  { id: 'whisper-5b6b7c', kill: 'P2-contrast', file: 'src/index.css', rule: '.hub-schedule-eyebrow {', find: 'color: var(--g-ink-subtle);', replace: 'color: #5B6B7C;', brief: 'restore #5B6B7C on the eyebrow' },
   { id: 'chip-ink-threshold', kill: 'P2-contrast', file: 'src/index.css', rule: '.hub-week-chip-ref {', find: 'color: var(--g-ink);', replace: 'color: #C8C8C8;', brief: 'low-contrast chip refs on white cards' },
   { id: 'quiet-24', kill: 'P2-taps', file: 'src/index.css', rule: '.hub-week-quiet {', find: 'min-height: 44px;', replace: 'min-height: 24px;', brief: 'min-height 24px at :6965' },
   { id: 'seg-32', kill: 'P2-taps', file: 'src/index.css', rule: '.hub-week-seg-btn {', find: 'min-height: 44px;', replace: 'min-height: 32px;', brief: 'min-height 32px at :6933' },
@@ -503,7 +555,7 @@ export const MUTANTS: readonly MutantSpec[] = [
   css('pill-amber', 'P2-status', '.hub-schedule-pill[data-kind="scheduled"] {', 'background: var(--g-sched-bg);', 'background: var(--g-warn-bg);', 'amber scheduled pills'),
   { id: 'hide-header', kill: 'K1', file: 'src/index.css', rule: '.hub-board-cal .ops-page-head {', find: 'max-width: none;', replace: 'display: none;\n    max-width: none;', brief: 'hide the live header (restore F1)' },
   { id: 'need-crew-all', kill: 'K1', file: 'src/lib/scheduleNeedCrew.ts', find: 'return crewIds(job.assigned_team).length === 0;', replace: 'return true;', brief: 'count crewed jobs as need-crew' },
-  { id: 'need-crew-undated', kill: 'K19', file: 'src/lib/scheduleNeedCrew.ts', find: "if (!(job.scheduled_date ?? '').trim()) return false;\n  if (isFinishedCrewStatus(job.status)) return false;\n  return crewIds(job.assigned_team).length === 0;", replace: "if (isFinishedCrewStatus(job.status)) return false;\n  if (asTeamIds(job.assigned_team).length > 0) return false;\n  return job.status === 'scheduled' || job.status === 'in_progress';", brief: 'restore || in_progress without a date gate' },
+  { id: 'need-crew-undated', kill: 'K19', file: 'src/lib/scheduleNeedCrew.ts', find: 'if (!asDateText(job.scheduled_date)) return false;\n  if (isFinishedCrewStatus(job.status)) return false;\n  return crewIds(job.assigned_team).length === 0;', replace: "if (isFinishedCrewStatus(job.status)) return false;\n  if (asTeamIds(job.assigned_team).length > 0) return false;\n  return job.status === 'scheduled' || job.status === 'in_progress';", brief: 'restore || in_progress without a date gate' },
   { id: 'next-backwards', kill: 'K2', file: 'src/pages/SchedulePage.tsx', find: 'addWeeks(currentDate, 1)', replace: 'addWeeks(currentDate, -1)', brief: 'next week walks backwards' },
   { id: 'skip-empty-cells', kill: 'K3', file: 'src/lib/scheduleBoard.ts', find: 'cells: days.map(date => {', replace: 'cells: days.filter(date => jobsForCrewOnDay(visible, crew.id, date).length > 0).map(date => {', brief: 'skip cells with no jobs' },
   { id: 'count-days', kill: 'K4', file: 'src/lib/scheduleBoard.ts', find: "return count === 1 ? '1 job' : `${count} jobs`;", replace: "return count === 1 ? '1 booking' : `${count} bookings`;", brief: 'lane counts say bookings' },
@@ -526,24 +578,28 @@ export const MUTANTS: readonly MutantSpec[] = [
   { id: 'hardcode-count', kill: 'K18', file: 'src/lib/scheduleBoard.ts', find: '`${parts.onBoard} on the board`', replace: '`14 on the board`', brief: 'hardcode a fallback board count' },
   { id: 'unknown-excluded', kill: 'K22', file: 'src/lib/scheduleNeedCrew.ts', find: 'if (isFinishedCrewStatus(job.status)) return false;\n  return crewIds(job.assigned_team).length === 0;', replace: "if (isFinishedCrewStatus(job.status)) return false;\n  if ((job.status ?? '') !== 'scheduled' && job.status !== 'in_progress') return false;\n  return crewIds(job.assigned_team).length === 0;", brief: 'unknown status no longer counts as need-crew' },
   { id: 'crew-untrimmed', kill: 'K4', file: 'src/lib/scheduleNeedCrew.ts', find: 'return asTeamIds(assigned).filter(id => id.trim());', replace: 'return asTeamIds(assigned);', brief: 'whitespace crew ids count as crew' },
-  { id: 'cancelled-counted', kill: 'K4', file: 'src/lib/scheduleNeedCrew.ts', find: "return status === 'completed' || status === 'Done' || status === 'cancelled';", replace: "return status === 'completed' || status === 'Done';", brief: 'cancelled dated crewless counts as need-crew' },
-  { id: 'nodate-pill-gone', kill: 'K11', file: 'src/lib/scheduleInvoiceStatus.ts', find: "if (!(job.scheduled_date ?? '').trim()) return { label: 'No date', kind: 'nodate' };", replace: "if (!(job.scheduled_date ?? '').trim()) return { label: 'Undated', kind: 'nodate' };", brief: 'rename the No date pill' },
+  { id: 'cancelled-counted', kill: 'K4', file: 'src/lib/scheduleNeedCrew.ts', find: "return raw === 'completed' || raw === 'Done' || raw === 'cancelled';", replace: "return raw === 'completed' || raw === 'Done';", brief: 'cancelled dated crewless counts as need-crew' },
+  { id: 'nodate-pill-gone', kill: 'K11', file: 'src/lib/scheduleInvoiceStatus.ts', find: "if (!asDateText(job.scheduled_date)) return { label: 'No date', kind: 'nodate' };", replace: "if (!asDateText(job.scheduled_date)) return { label: 'Undated', kind: 'nodate' };", brief: 'rename the No date pill' },
+  { id: 'unknown-as-scheduled', kill: 'K26', file: 'src/lib/scheduleInvoiceStatus.ts', find: "if (status === 'scheduled') return { label: 'Scheduled', kind: 'scheduled' };\n  return { label: sentenceStatus(job.status), kind: 'status' };", replace: "return { label: 'Scheduled', kind: 'scheduled' };", brief: 'unknown and non-string status paint as Scheduled' },
+  { id: 'date-stringify', kill: 'K26', file: 'src/lib/scheduleNeedCrew.ts', find: 'export function asDateText(value: unknown): string {\n  return typeof value === \'string\' ? value.trim() : \'\';\n}', replace: 'export function asDateText(value: unknown): string {\n  return String(value ?? \'\').trim();\n}', brief: 'non-string scheduled_date becomes a dated string' },
+  { id: 'clock-book-unknown', kill: 'K26', file: 'src/lib/scheduleBoard.ts', find: 'if (job && (isNeedCrewJob(job) || isUnknownScheduleStatus(job.status))) return when;', replace: 'if (job && isNeedCrewJob(job)) return when;', brief: 'unknown status still shows a Booked clock' },
+  { id: 'status-fallback-scheduled', kill: 'K26', file: 'src/lib/scheduleInvoiceStatus.ts', find: 'if (!raw) return STATUS_FALLBACK;', replace: "if (!raw) return 'Scheduled';", brief: 'empty status sentence-cases to Scheduled' },
   { id: 'set-date-on-card', kill: 'K11', file: BOARD_VIEWS, find: '<span className="hub-schedule-pill" data-kind={pill.kind}>{pill.label}</span>\n              <div className="ops-card-footer">', replace: '<span className="hub-schedule-pill" data-kind={pill.kind}>{pill.label}</span>\n              <button type="button" className="hub-schedule-set-date" data-schedule-set-date={job.id}>Set a date</button>\n              <div className="ops-card-footer">', brief: 'put Set a date back on the undated card' },
   css('clock-narrow-col', 'K20', '.hub-week-chip-clock {', 'max-width: 100%;', 'max-width: 6ch;\n    overflow: hidden;\n    text-overflow: ellipsis;', 'narrow the clock with ellipsis'),
   css('page-height-lock', 'K21', '.hub-board-cal.is-week-doc.ops-page {', 'height: auto;\n    padding: 12px 16px 16px;\n    overflow: visible;', 'height: calc(100dvh - 3.5rem);\n    padding: 12px 16px 16px;\n    overflow: hidden;', 'lock the week page to 100dvh and clip'),
   { id: 'agenda-min-zero', kill: 'K21', file: BOARD_VIEWS, find: '{days.map(day => {\n        const date = parseISO(`${day.date}T00:00:00`);', replace: '{days.slice(0, 0).map(day => {\n        const date = parseISO(`${day.date}T00:00:00`);', brief: '390 agenda collapses to 0' },
   { id: 'quoted-as-scheduled', kill: 'K23', file: 'src/lib/scheduleInvoiceStatus.ts', find: 'return { label: sentenceStatus(job.status), kind: \'status\' };', replace: "return { label: 'Scheduled', kind: 'scheduled' };", brief: 'unknown status paints as Scheduled' },
-  { id: 'drop-needcrew-guard', kill: 'K24', file: 'src/pages/SchedulePage.tsx', find: '  if (!Array.isArray(job.assigned_team)) return true;\n  return job.assigned_team.filter((id): id is string => typeof id === \'string\' && id.trim().length > 0).length === 0;', replace: '  return (job.assigned_team as string[]).filter(id => id.length > 0).length === 0;', brief: 'drop the needCrew guard in SchedulePage\'s local helper' },
+  { id: 'drop-needcrew-guard', kill: 'K24', file: 'src/lib/scheduleNeedCrew.ts', find: 'return asTeamIds(assigned).filter(id => id.trim());', replace: 'return (assigned as string[]).filter(id => id.length > 0);', brief: 'drop the shared crewIds asTeamIds guard so .filter throws' },
   { id: 'head-short-hidden', kill: 'K25', file: 'src/index.css', find: '    .hub-week-head-short {\n      display: inline-flex;\n      flex-direction: row;\n      align-items: center;\n      gap: 6px;\n    }', replace: '    .hub-week-head-short {\n      display: none;\n      flex-direction: row;\n      align-items: center;\n      gap: 6px;\n    }', brief: 'hide the one-line laptop day heads' },
-  { id: 'tray-kicker-tiny', kill: 'K25', file: 'src/index.css', find: '      height: 32px;\n      min-height: 32px;\n      font-family: var(--g-font-title);\n      font-size: 28px;\n      font-weight: 700;\n      line-height: 32px;\n      letter-spacing: 0;\n      text-transform: none;\n      color: var(--g-ink);', replace: '      height: auto;\n      min-height: 0;\n      font-family: var(--g-font-title);\n      font-size: 11px;\n      font-weight: 700;\n      letter-spacing: 0.12em;\n      text-transform: uppercase;\n      color: var(--g-ink-muted);', brief: 'shrink the tray heading back to an 11px kicker' },
+  { id: 'tray-kicker-tiny', kill: 'K25', file: 'src/index.css', find: '      height: 26px;\n      min-height: 26px;\n      font-family: var(--g-font-title);\n      font-size: 20px;\n      font-weight: 600;\n      line-height: 26px;\n      letter-spacing: 0;\n      text-transform: none;\n      color: var(--g-ink);', replace: '      height: auto;\n      min-height: 0;\n      font-family: var(--g-font-title);\n      font-size: 11px;\n      font-weight: 700;\n      letter-spacing: 0.12em;\n      text-transform: uppercase;\n      color: var(--g-ink-muted);', brief: 'shrink the tray heading back to an 11px kicker' },
   { id: 'untimed-span-track', kill: 'K25', file: BOARD_VIEWS, find: 'width: Math.min(220, hourWidth * 2.2),', replace: 'width: hourWidth * hours.length,', brief: 'untimed day card spans the whole track' },
-  { id: 'today-off-range', kill: 'K25', file: 'src/index.css', find: '    .hub-week-track .hub-week-today { order: 2; }', replace: '    .hub-week-track .hub-week-today { order: 20; flex: 1 1 100%; }', brief: 'Today leaves the 390 range row' },
+  { id: 'today-off-range', kill: 'K25', file: 'src/index.css', find: '    .hub-week-track .hub-week-today { order: 2; flex: 0 0 auto; }', replace: '    .hub-week-track .hub-week-today { order: 20; flex: 1 1 100%; }', brief: 'Today leaves the 390 range row' },
   { id: 'title-one-line', kill: 'K25', file: 'src/index.css', find: '  .hub-week-chip-desc {\n    display: -webkit-box;\n    -webkit-line-clamp: 2;\n    -webkit-box-orient: vertical;\n    overflow: hidden;\n    text-overflow: ellipsis;\n    white-space: normal;\n    font-family: var(--g-font-ui);\n    font-size: 14px;\n    font-weight: 600;\n    line-height: 18px;\n    opacity: 1;\n  }', replace: '  .hub-week-chip-desc {\n    display: block;\n    -webkit-line-clamp: 1;\n    overflow: hidden;\n    text-overflow: ellipsis;\n    white-space: nowrap;\n    max-height: 18px;\n    font-family: var(--g-font-ui);\n    font-size: 14px;\n    font-weight: 600;\n    line-height: 18px;\n    opacity: 1;\n  }', brief: 'titles collapse to one line' },
   { id: 'crew-name-wrap', kill: 'K25', file: 'src/index.css', find: '  .hub-board-cal .hub-schedule-crew-name,\n  .hub-week-crew-name,\n  .hub-week-document .hub-week-crew .hub-schedule-crew-name,\n  .hub-week-document .hub-day-crew-lock .hub-schedule-crew-name {\n    white-space: nowrap;\n  }', replace: '  .hub-board-cal .hub-schedule-crew-name,\n  .hub-week-crew-name,\n  .hub-week-document .hub-week-crew .hub-schedule-crew-name,\n  .hub-week-document .hub-day-crew-lock .hub-schedule-crew-name {\n    white-space: normal;\n    max-width: 36px;\n  }', brief: 'crew names wrap onto two lines' },
-  { id: 'seg-no-stroke', kill: 'K25', file: 'src/index.css', find: '  .hub-week-seg {\n    display: inline-flex;\n    align-items: stretch;\n    flex: 0 0 auto;\n    gap: 0;\n    border: 1px solid var(--g-line-strong);\n    border-radius: 999px;', replace: '  .hub-week-seg {\n    display: inline-flex;\n    align-items: stretch;\n    flex: 0 0 auto;\n    gap: 0;\n    border: none;\n    border-radius: 0;', brief: 'pill seg loses its painted stroke and radius' },
+  { id: 'seg-no-stroke', kill: 'K25', file: 'src/index.css', find: '  .hub-week-seg {\n    display: inline-flex;\n    align-items: stretch;\n    flex: 0 0 auto;\n    gap: 2px;\n    border: 1px solid var(--g-line-strong);\n    border-radius: 14px;', replace: '  .hub-week-seg {\n    display: inline-flex;\n    align-items: stretch;\n    flex: 0 0 auto;\n    gap: 2px;\n    border: none;\n    border-radius: 0;', brief: 'pill seg loses its painted stroke and radius' },
   { id: 'nav-no-stroke', kill: 'K25', file: 'src/index.css', find: '  .hub-week-nav-box {\n    border: 1px solid var(--g-line-strong);\n    border-radius: 10px;', replace: '  .hub-week-nav-box {\n    border: none;\n    border-radius: 0;', brief: 'nav boxes lose their painted stroke' },
-  { id: 'today-no-stroke', kill: 'K25', file: 'src/index.css', find: '  .hub-week-today {\n    flex: 0 0 auto;\n    border: 1px solid var(--g-line-strong);\n    border-radius: 10px;', replace: '  .hub-week-today {\n    flex: 0 0 auto;\n    border: 1px solid transparent;\n    border-radius: 0;', brief: 'Today loses its painted outline' },
-  css('search-fixed-width', 'K25', '.hub-week-search {', 'flex: 1 1 auto;\n    min-width: 0;', 'flex: 0 0 200px;\n    width: 200px;\n    max-width: 200px;', 'fix the search at 200px'),
+  { id: 'today-no-stroke', kill: 'K25', file: 'src/index.css', find: '    .hub-board-cal.is-week-doc .hub-week-today {\n      width: 85.25px;\n      min-width: 85.25px;\n      height: 48px;\n      min-height: 48px;\n      margin-left: auto;\n      padding: 0 20px;', replace: '    .hub-board-cal.is-week-doc .hub-week-today {\n      width: auto;\n      min-width: 0;\n      height: 32px;\n      min-height: 32px;\n      margin-left: 0;\n      padding: 0 20px;', brief: 'Today loses its fixture-measured 85.25×48 white fill' },
+  { id: 'search-fixed-width', kill: 'K25', file: 'src/index.css', find: '    .hub-board-cal.is-week-doc .hub-week-search {\n      flex: 1 1 755.265625px;\n      min-width: 0;\n      max-width: 755.265625px;\n      width: 755.265625px;\n      height: 48px;\n      min-height: 48px;\n    }', replace: '    .hub-board-cal.is-week-doc .hub-week-search {\n      flex: 0 0 200px;\n      min-width: 0;\n      max-width: 200px;\n      width: 200px;\n      height: 48px;\n      min-height: 48px;\n    }', brief: 'fix the laptop search at 200px' },
   { id: 'today-beside-arrows', kill: 'K25', file: 'src/pages/SchedulePage.tsx', find: `      </div>
       <div className="hub-week-search" data-schedule-search="1">
         {weekSearch}
@@ -559,7 +615,7 @@ export const MUTANTS: readonly MutantSpec[] = [
       </div>`, brief: 'Today sits beside the arrows' },
   { id: 'quickbook-keeps-gap', kill: 'K25', file: 'src/index.css', find: '  .hub-schedule-quickbook:not([data-open="1"]) {\n    display: none;\n  }', replace: '  .hub-schedule-quickbook:not([data-open="1"]) {\n    display: block;\n    min-height: 72px;\n  }', brief: 'closed Quick book keeps a row under the toolbar' },
   { id: 'newjob-opens-form', kill: 'K25', file: 'src/pages/SchedulePage.tsx', find: 'onClick={() => setQuickBookOpen(open => !open)}', replace: 'onClick={openNewJob}', brief: 'header New job opens the form instead of Quick book' },
-  css('page-pad-16', 'K25', '.hub-board-cal.is-week-doc.ops-page {', 'padding: 32px 32px 20px;', 'padding: 12px 16px 16px;', 'laptop page pad drops from 32 to 16'),
+  css('page-pad-16', 'K25', '.hub-board-cal.is-week-doc.ops-page {', 'padding: 32px 0 20px;', 'padding: 12px 16px 16px;', 'laptop page pad drops from 32/0 to 16'),
   css('day-clock-clip', 'P2-overflow', '.hub-week-chip-clock {', 'max-width: 100%;', 'max-width: 2ch;\n    overflow: hidden;\n    text-overflow: clip;', 'clip day-track clock labels inside the card'),
   css('clock-nowrap-spill', 'P2-overflow', '.hub-week-chip-clock {', 'white-space: normal;\n    overflow: hidden;\n    overflow-wrap: anywhere;', 'white-space: nowrap;\n    overflow: visible;\n    overflow-wrap: normal;', 'nowrap clock with no ellipsis or overflow handling'),
 ];

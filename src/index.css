@@ -6135,7 +6135,7 @@
     font-family: var(--g-font-ui);
     font-size: 13px;
     font-weight: 500;
-    color: var(--g-ink-muted);
+    color: var(--g-ink-subtle);
     margin: 0 0 4px;
   }
 
@@ -6168,23 +6168,32 @@
 
   .hub-board-cal .ops-page-title {
     font-family: var(--g-font-title);
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    line-height: 1.1;
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    line-height: 52px;
     text-shadow: none;
     color: var(--schedule-ink);
-    font-size: 40px !important;
+    font-size: 48px !important;
     margin: 0;
   }
 
   .hub-board-cal .ops-page-head {
     max-width: none;
-    margin: 0 0 24px;
-    padding-top: 8px;
-    align-items: flex-start;
+    margin: 0 0 20px;
+    padding-top: 0;
+    align-items: flex-end;
     justify-content: space-between;
     gap: 16px;
     text-align: left;
+  }
+
+  .hub-board-cal .ops-page-head [data-schedule-whisper] {
+    margin-top: 8px;
+    font-family: var(--g-font-ui);
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 24px;
+    color: var(--g-ink-2);
   }
 
   .hub-schedule-kicker,
@@ -6641,7 +6650,34 @@
 
   @media (min-width: 1024px) {
     .hub-board-cal.is-week-doc.ops-page {
-      padding: 32px 32px 20px;
+      padding: 32px 0 20px;
+    }
+
+    .hub-board-cal.is-week-doc .ops-page-head {
+      padding: 0 32px;
+      align-items: flex-end;
+    }
+
+    .hub-board-cal.is-week-doc .ops-page-head .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 128.21875px;
+      min-width: 128.21875px;
+      height: 48px;
+      min-height: 48px;
+      padding: 0 20px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 20px;
+      white-space: nowrap;
+    }
+
+    .hub-board-cal.is-week-doc .ops-page-head .btn-primary svg {
+      width: 18px;
+      height: 18px;
     }
 
     .hub-board-cal.is-week-doc .hub-week-identity-row {
@@ -6657,7 +6693,7 @@
       gap: 10px;
       margin-top: 0;
       margin-bottom: 0;
-      padding: 0 0 18px;
+      padding: 0 32px 18px;
       border: none;
       flex: 0 0 auto;
     }
@@ -6675,17 +6711,48 @@
     }
 
     .hub-board-cal.is-week-doc .hub-week-today {
-      padding: 0 17px;
-      font-size: 14px;
+      width: auto;
+      min-width: 44px;
+      height: 48px;
+      min-height: 48px;
+      margin-left: auto;
+      padding: 0 20px;
+      font-size: 16px;
       font-weight: 600;
+      line-height: 20px;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-search {
+      flex: 1 1 auto;
+      min-width: 0;
+      height: 48px;
+      min-height: 48px;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-document {
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      max-width: none;
+      width: 100%;
+      margin: 0;
+    }
+
+    .hub-board-cal.is-week-doc [data-schedule-section="board"] {
+      width: 100%;
+      margin: 0;
     }
 
     .hub-board-cal.is-week-doc .hub-week-document .hub-week-board {
       margin-top: 0;
+      border: none;
+      border-radius: 0;
     }
 
     .hub-board-cal.is-week-doc .hub-week-document .hub-day-board {
       margin-top: 0;
+      border: none;
+      border-radius: 0;
     }
 
     .hub-board-cal.is-week-doc .hub-week-sheet-body {
@@ -6739,17 +6806,21 @@
       border-bottom: 1px solid var(--g-line);
     }
 
+    .hub-week-document .hub-schedule-needs-date-rail {
+      padding: 24px 32px 40px;
+    }
+
     .hub-week-document .hub-schedule-needs-date-rail > .ops-tray-head .ops-card-kicker {
       flex: 0 1 auto;
       margin: 0;
       display: flex;
       align-items: center;
-      height: 32px;
-      min-height: 32px;
+      height: 26px;
+      min-height: 26px;
       font-family: var(--g-font-title);
-      font-size: 28px;
-      font-weight: 700;
-      line-height: 32px;
+      font-size: 20px;
+      font-weight: 600;
+      line-height: 26px;
       letter-spacing: 0;
       text-transform: none;
       color: var(--g-ink);
@@ -6761,6 +6832,29 @@
       font-size: 12px;
       font-weight: 600;
       color: var(--g-ink);
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .hub-board-cal.is-week-doc .hub-week-today {
+      width: 85.25px;
+      min-width: 85.25px;
+      height: 48px;
+      min-height: 48px;
+      margin-left: auto;
+      padding: 0 20px;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 20px;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-search {
+      flex: 1 1 755.265625px;
+      min-width: 0;
+      max-width: 755.265625px;
+      width: 755.265625px;
+      height: 48px;
+      min-height: 48px;
     }
   }
 
@@ -6992,12 +7086,12 @@
     display: inline-flex;
     align-items: stretch;
     flex: 0 0 auto;
-    gap: 0;
+    gap: 2px;
     border: 1px solid var(--g-line-strong);
-    border-radius: 999px;
+    border-radius: 14px;
     overflow: visible;
-    background: var(--g-surface);
-    padding: 2px;
+    background: var(--g-surface-2);
+    padding: 4px;
   }
 
   .hub-week-seg-btn {
@@ -7019,7 +7113,7 @@
     background: var(--g-inverse);
     color: var(--g-inverse-ink);
     box-shadow: none;
-    border-radius: 10px;
+    border-radius: 8px;
   }
 
   .hub-week-tools {
@@ -7176,10 +7270,17 @@
 
   .hub-week-today {
     flex: 0 0 auto;
+    width: auto;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
     border: 1px solid var(--g-line-strong);
     border-radius: 10px;
+    background: var(--g-surface);
     padding: 0 12px;
     color: var(--g-ink);
+    font-size: 14px;
+    font-weight: 600;
   }
 
   .hub-week-range-row {
@@ -7214,8 +7315,13 @@
   }
 
   @media (max-width: 767px) {
-    .hub-week-track .hub-week-range-row { order: 1; flex: 1 1 auto; min-width: 0; }
-    .hub-week-track .hub-week-today { order: 2; }
+    .hub-week-track .hub-week-range-row {
+      order: 1;
+      flex: 1 1 0;
+      min-width: 0;
+      max-width: calc(100% - 72px);
+    }
+    .hub-week-track .hub-week-today { order: 2; flex: 0 0 auto; }
     .hub-week-track .hub-week-search { order: 10; flex: 1 1 100%; }
     .hub-week-tools-phone {
       display: block;
@@ -8196,6 +8302,34 @@
     text-transform: uppercase;
     color: var(--g-accent);
     vertical-align: middle;
+  }
+
+  .hub-schedule-voice-choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 8px;
+  }
+
+  .hub-schedule-voice-choice {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 16px;
+    background: var(--g-surface);
+    color: var(--g-ink);
+    border: 1px solid var(--g-line-strong);
+    border-radius: 12px;
+    font-family: var(--g-font-ui);
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .hub-schedule-voice-choice.is-on {
+    background: var(--g-surface-2);
   }
 
   .hub-schedule-voice-picks {
