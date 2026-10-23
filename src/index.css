@@ -6608,6 +6608,7 @@
     min-width: 0;
   }
 
+  /* Week-board document only. Same paper kit as signed quote / job sheet. */
   .hub-board-cal.is-week-doc.ops-page {
     background: var(--g-bg);
     display: block;
