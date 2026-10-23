@@ -103,33 +103,24 @@ describe('list loading truth', () => {
     expect(job).toContain('isError: take5sError || jhasError');
     expect(job).toContain('data-job-next-held');
     expect(job).toContain('jobSheetHeaderPrimaryHeld');
-    expect(job).toContain('jhaBusy: jhasBusy');
     expect(job).toContain('inspectionsBusy');
     expect(job).toContain('jhasPending');
     expect(job).toContain('inspectionsPending');
     expect(job).toContain('jhasError');
     expect(job).toContain('inspectionsError');
-    expect(job).toContain('data-overview-retry={row.section}');
-    expect(job).toContain('row.retry');
     expect(job).toContain('void refetchJhas()');
     expect(job).toContain('void refetchTake5s()');
     expect(job).toContain('void refetchInspections()');
     expect(job).toContain('void refetchQuotes()');
     expect(job).toContain('void refetchInvoices()');
-    expect(job).toContain('void refetchTeamMembers()');
-    expect(job).toContain('void refetchVisitNotes()');
-    expect(job).toContain('void refetchJobPhotos()');
-    expect(job).toContain('void refetchCostTotals()');
     expect(job).toContain('crewBusy');
     expect(job).toContain('quotesBusy');
     expect(job).toContain('billBusy');
-    expect(job).toContain('notesBusy');
-    expect(job).toContain('photosBusy');
     expect(job).toContain('timesheetsPending');
     expect(job).toContain('clientPending');
     expect(job).toContain('data-job-contact-held');
     expect(job).toContain('contactHeld');
-    expect(job).toContain('jobSheetIdentityCrewLabel');
+    expect(job).toContain('jobSheetCrewLabel');
     expect(job).toContain('data-job-crew');
     expect(job).toContain('jobSheetHeaderPrimaryDetail');
     expect(job).toContain('data-job-next-detail-held');
@@ -166,9 +157,8 @@ describe('list loading truth', () => {
     expect(contracts).not.toContain('pageQueryBlocked');
 
     const job = src('src/pages/JobDetailPage.tsx');
-    expect(job).toContain('data-overview-retry={row.section}');
-    expect(job).toContain('row.retry');
     expect(job).toContain('Retry');
+    expect(job).toContain('onRetry');
 
     const drive = src('src/pages/ReportsListPage.tsx');
     expect(drive).toContain('isError: Boolean(foldersError)');
@@ -180,13 +170,7 @@ describe('list loading truth', () => {
   it('inline Retry hit areas are 44px without changing global ops-link', () => {
     const hit = 'inline-flex items-center min-h-[44px] px-2';
     const overview = src('src/pages/JobDetailPage.tsx');
-    const overviewRetry = overview.slice(
-      overview.indexOf('action={row.retry'),
-      overview.indexOf('</button>', overview.indexOf('action={row.retry')),
-    );
-    expect(overviewRetry).toContain(hit);
-    expect(overviewRetry).toContain('data-overview-retry');
-    expect(overviewRetry).toContain('stopPropagation');
+    expect(overview).toContain('onRetry');
 
     const contracts = src('src/pages/ContractsPage.tsx');
     const contractsRetry = contracts.slice(

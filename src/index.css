@@ -11866,14 +11866,14 @@
     display: none;
   }
 
-  .hub-jobs.is-record-open .hub-jobs-open-chrome {
-    display: flex;
+  .hub-jobs.is-record-open .job-sheet-back {
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
+    min-height: 44px;
     max-width: 1100px;
-    margin: 0 auto 16px;
-    padding-top: 8px;
+    margin: 0 auto 8px;
+    padding: 0 4px;
+    color: var(--job-sheet-link, #296AA5);
   }
 
   .hub-jobs.is-record-open .ops-page-head,
@@ -11883,6 +11883,17 @@
   .hub-jobs.is-record-open .ops-sticky,
   .hub-jobs.is-record-open nav[aria-label="Breadcrumb"] {
     display: none;
+  }
+
+  @media (min-width: 1024px) {
+    .hub-jobs.is-record-open .job-sheet-back {
+      display: none;
+    }
+    .hub-jobs.is-record-open nav[aria-label="Breadcrumb"] {
+      display: flex;
+      max-width: 1100px;
+      margin: 0 auto 12px;
+    }
   }
 
   .hub-jobs-document {
@@ -11898,7 +11909,13 @@
   }
 
   .hub-jobs-sheet-bar {
-    display: none;
+    display: block;
+    height: 4px;
+    min-height: 4px;
+    padding: 0;
+    background: var(--job-sheet-head-bar, var(--job-look-ink));
+    color: #fff;
+    border-radius: 0;
   }
 
   .hub-jobs-sheet-bar .hub-jobs-hours {
@@ -11998,45 +12015,37 @@
     font-weight: 600;
   }
 
-  /* Section rail on the open sheet. Same strip as the list's status filters: one hairline, slides sideways on phone. */
+  /* Four equal tabs. No sideways scroller (F7 / K16). */
   .hub-jobs-document .job-sheet-tabs {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     align-items: stretch;
-    gap: 4px;
+    gap: 0;
     margin-top: 16px;
     border-bottom: 1px solid var(--job-look-line);
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x proximity;
-  }
-
-  .hub-jobs-document .job-sheet-tabs::-webkit-scrollbar {
-    display: none;
+    overflow: hidden;
   }
 
   .hub-jobs-document .job-sheet-tab {
-    flex: 0 0 auto;
+    min-width: 0;
     min-height: 44px;
-    padding: 0 12px;
+    padding: 0 6px;
     border: none;
     border-radius: 0;
     background: none;
     color: var(--job-look-muted);
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
     white-space: nowrap;
-    scroll-snap-align: start;
     box-shadow: none;
     cursor: pointer;
   }
 
   .hub-jobs-document .job-sheet-tab:first-child {
-    margin-left: -12px;
+    margin-left: 0;
   }
 
   .hub-jobs-document .job-sheet-tab:hover {
@@ -12052,6 +12061,211 @@
   .hub-jobs-document .job-sheet-tab:focus-visible {
     outline: 2px solid #2E75B6;
     outline-offset: -2px;
+  }
+
+  .hub-jobs-document .job-sheet-head {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .hub-jobs-document .job-sheet-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+  }
+
+  .hub-jobs-document .job-sheet-ref {
+    font-family: var(--g-font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--job-look-muted);
+  }
+
+  .hub-jobs-document .job-sheet-status {
+    position: relative;
+  }
+
+  .hub-jobs-document .job-sheet-status > summary {
+    list-style: none;
+    cursor: pointer;
+  }
+
+  .hub-jobs-document .job-sheet-status > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .hub-jobs-document .job-sheet-status-menu {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 180px;
+    padding: 6px;
+    background: var(--job-look-sheet);
+    border: 1px solid var(--job-look-line);
+    border-radius: 12px;
+    box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08);
+  }
+
+  .hub-jobs-document .job-sheet-status-menu button {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 12px;
+    border: none;
+    background: none;
+    color: var(--job-look-ink);
+    font-family: var(--g-font-ui);
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .hub-jobs-document .job-sheet-site,
+  .hub-jobs-document .job-sheet-when {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    margin: 0;
+    color: var(--job-look-ink);
+    font-size: 14px;
+  }
+
+  .hub-jobs-document .job-sheet-when.is-undated {
+    color: var(--job-look-muted);
+  }
+
+  .hub-jobs-document .job-sheet-link {
+    color: var(--job-sheet-link, #296AA5);
+    background: none;
+    border: none;
+    padding: 0;
+    min-height: 44px;
+    font: inherit;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .hub-jobs-document .job-sheet-sub {
+    margin: 0;
+    color: var(--job-look-muted);
+    font-size: 13px;
+  }
+
+  .hub-jobs-document .hub-jobs-tools .btn-primary,
+  .hub-jobs-document .hub-jobs-tools .ops-next-control-block {
+    width: 100%;
+  }
+
+  .job-sheet-overview {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin-top: 24px;
+  }
+
+  .job-sheet-kv {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .job-sheet-kv-row {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    min-height: 44px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--job-look-line);
+  }
+
+  .job-sheet-kv-label {
+    color: var(--job-look-muted);
+    font-size: 13px;
+  }
+
+  .job-sheet-kv-value {
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .job-sheet-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 44px;
+  }
+
+  .job-sheet-section-head h2 {
+    margin: 0;
+    font-family: var(--g-font-ui);
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .job-sheet-photo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .job-sheet-photo {
+    aspect-ratio: 1;
+    padding: 0;
+    border: none;
+    background: var(--g-bg);
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .job-sheet-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .job-sheet-bill-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0;
+    min-height: 32px;
+    font-size: 14px;
+  }
+
+  .job-sheet-bill-row.is-total {
+    font-weight: 600;
+  }
+
+  .job-sheet-note-stamp {
+    margin: 0 0 8px;
+    font-size: 14px;
+  }
+
+  @media (min-width: 768px) {
+    .hub-jobs-document .hub-jobs-tools .btn-primary,
+    .hub-jobs-document .hub-jobs-tools .ops-next-control-block {
+      width: auto;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .job-sheet-overview {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 32px;
+      align-items: start;
+    }
   }
 
   /* Paperwork group label. Quiet eyebrow over the first tray of each group, hidden with it. */
@@ -12651,42 +12865,31 @@
     }
 
     .hub-jobs-sheet-bar {
-      height: 44px;
-      min-height: 44px;
-      padding: 0 16px;
+      height: 4px;
+      min-height: 4px;
+      padding: 0;
       border-radius: 0;
-    }
-
-    .hub-jobs-sheet-bar .hub-jobs-pill,
-    .hub-jobs-sheet-bar .hub-job-status {
-      background: #2E75B6;
-      color: #fff;
     }
 
     .hub-jobs-sheet-body {
       padding: 24px 16px 16px;
     }
 
-    /* Phone rail. 6px tab padding is 12px label spacing; the hit boxes touch.
-       All four tabs stay unscrolled. A right-edge fade covers leftover scroll. */
     .hub-jobs-document .job-sheet-tabs {
       gap: 0;
-      margin-left: -16px;
-      margin-right: -16px;
-      padding: 0 6px 0 10px;
-      scroll-padding: 0 6px;
-      -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 6px), transparent);
-      mask-image: linear-gradient(to right, black 0, black calc(100% - 6px), transparent);
+      margin-left: 0;
+      margin-right: 0;
+      padding: 0;
     }
 
     .hub-jobs-document .job-sheet-tab {
       padding: 0 6px;
       font-size: 12px;
-      min-width: 64px;
+      min-width: 0;
     }
 
     .hub-jobs-document .job-sheet-tab:first-child {
-      margin-left: -8px;
+      margin-left: 0;
     }
 
     .hub-jobs-identity {

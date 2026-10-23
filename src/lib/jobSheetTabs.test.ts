@@ -19,7 +19,7 @@ describe('job sheet tabs', () => {
   it('lists the four tabs in the locked order with the locked labels', () => {
     expect(JOB_SHEET_TABS.map(t => [t.id, t.label])).toEqual([
       ['overview', 'Overview'],
-      ['schedule', 'Schedule & people'],
+      ['schedule', 'People'],
       ['paperwork', 'Paperwork'],
       ['materials', 'Materials'],
     ]);
