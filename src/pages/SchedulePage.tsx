@@ -1002,7 +1002,7 @@ export function SchedulePage() {
 
         {boardTrack}
 
-        {!boardLookActive && isLoading ? (
+        {!boardLookActive && isLoading && !jobs ? (
           <div className="flex justify-center py-20"><LoadingSpinner /></div>
         ) : (
           <div className="hub-schedule-desk hub-schedule-phone hub-week-document" data-week-sheet="1">
