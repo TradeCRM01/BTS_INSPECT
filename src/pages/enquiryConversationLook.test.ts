@@ -35,7 +35,7 @@ describe('enquiry conversation LOOK — existing Client and Job sheets', () => {
     expect(src('src/lib/enquiryConversation.ts')).toContain('conversationPhonesMatch(callerPhone, ALLOWED_ENQUIRY_PHONE)');
     expect(src('src/lib/devFieldAuditDocs.ts')).toContain('conversationLookClientPhone');
     expect(src('src/lib/enquiryConversation.ts')).toContain('ENQUIRY_SURFACE_LIVE');
-    expect(src('src/lib/enquiryConversation.ts')).toContain("if (!import.meta.env.DEV) return null");
+    expect(src('src/lib/enquiryConversation.ts')).toContain('if (!lookProofOn()) return null');
     expect(src('src/lib/missedCallEnquiry.ts')).toContain('ENQUIRY_SURFACE_LIVE = false');
     expect(css).toContain('.hub-enquiry-conversation');
     expect(css).toContain('.hub-enquiry-conversation-state.is-failed');
