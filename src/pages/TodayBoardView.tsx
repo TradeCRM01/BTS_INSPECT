@@ -77,7 +77,7 @@ export function TodayBoardView({
   nudges,
   more,
   onNewJob,
-  needCrewCount,
+  needCrewCount = 0,
 }: {
   now: Date;
   width: number;
@@ -96,7 +96,7 @@ export function TodayBoardView({
   nudges: TodayNudge[];
   more: ReactNode;
   onNewJob: () => void;
-  needCrewCount: number;
+  needCrewCount?: number;
 }) {
   const seeMoney = canSeeTodayMoney(role);
   const crewOut = todayCrewOut(jobs);

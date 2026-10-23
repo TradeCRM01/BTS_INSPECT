@@ -17,7 +17,6 @@ describe('needsCrew', () => {
   it('kills an undated crewless job from needsCrew and the dashboard/jobs need-crew count', () => {
     const undatedScheduled = { status: 'scheduled' as const, scheduled_date: null, assigned_team: [] as string[] };
     const undatedProgress = { status: 'in_progress' as const, scheduled_date: '', assigned_team: [] as string[] };
-    const datedOpen = { status: 'scheduled' as const, scheduled_date: '2026-10-19', assigned_team: [] as string[] };
     expect(needsCrew(undatedScheduled)).toBe(false);
     expect(needsCrew(undatedProgress)).toBe(false);
     expect(jobCrewScheduleStatus(undatedScheduled.status, undatedScheduled.scheduled_date, undatedScheduled.assigned_team)).toEqual({
