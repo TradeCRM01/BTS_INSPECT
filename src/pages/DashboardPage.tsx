@@ -17,6 +17,10 @@ import {
   fetchOutstanding,
   fetchReadyToInvoice,
   fetchTodayCash,
+  todayCashRangeLabel,
+  todayCashWindow,
+  type TodayCashTotals,
+  type TodayOutstandingTotals,
   readyToInvoiceDetail,
   visibleTodayNudges,
   visibleTodayWidgets,
@@ -450,7 +454,74 @@ function dashboardLookJobs(needsCrewOnly = false): JobWithClient[] {
       job_number: 43,
       client_name: 'Harbour Lights',
     },
+    {
+      ...base,
+      id: 'look-dash-need-crew',
+      title: 'Workshop callout',
+      status: 'scheduled',
+      scheduled_date: day,
+      start_time: '13:00',
+      end_time: '15:00',
+      address: '4 Depot St, Perth WA 6000',
+      assigned_team: [],
+      job_number: 44,
+      client_name: 'Depot Mechanical',
+    },
+    {
+      ...base,
+      id: 'look-dash-no-date',
+      title: 'Waiting on a date',
+      status: 'scheduled',
+      scheduled_date: null,
+      start_time: null,
+      end_time: null,
+      address: '9 Yard Rd, Perth WA 6000',
+      assigned_team: [],
+      job_number: 45,
+      client_name: 'Yard Services',
+    },
   ];
+}
+
+function dashboardLookCash(): TodayCashTotals {
+  const todayKey = DASHBOARD_LOOK_DAY;
+  const { from, to } = todayCashWindow(todayKey);
+  const amounts = [
+    { moneyIn: 800, moneyOut: 100 },
+    { moneyIn: 200, moneyOut: 400 },
+    { moneyIn: 900, moneyOut: 200 },
+    { moneyIn: 700, moneyOut: 300 },
+    { moneyIn: 100, moneyOut: 50 },
+    { moneyIn: 0, moneyOut: 0 },
+    { moneyIn: 514.3, moneyOut: 812.75 },
+  ];
+  const days = amounts.map((row, i) => {
+    const date = new Date(2026, 7, 28 + i);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    return { date: key, ...row };
+  });
+  return {
+    moneyIn: 4214.3,
+    moneyOut: 1862.75,
+    net: 2351.55,
+    from,
+    to,
+    rangeLabel: todayCashRangeLabel(from, to),
+    days,
+  };
+}
+
+function dashboardLookOutstanding(): TodayOutstandingTotals {
+  return {
+    outstanding: 3589.65,
+    overdue: 462,
+    count: 4,
+    display: [
+      { id: 'look-inv-1', invoice_number: 112, status: 'sent', total: 1929.65, amount_paid: 0, due_date: '2026-09-14', created_at: '2026-09-02', client_id: 'c1' },
+      { id: 'look-inv-2', invoice_number: 91, status: 'part_paid', total: 1688, amount_paid: 500, due_date: '2026-09-20', created_at: '2026-09-01', client_id: 'c2' },
+      { id: 'look-inv-3', invoice_number: 90, status: 'overdue', total: 462, amount_paid: 0, due_date: '2026-08-20', created_at: '2026-08-01', client_id: 'c3' },
+    ],
+  };
 }
 
 type DashboardNudgeData = { jobs: JobWithClient[]; quotes: NudgeQuote[]; invoices: NudgeInvoice[] };
@@ -717,14 +788,14 @@ export function DashboardPage() {
   const liveMoney = liveCompany && canSeeTodayMoney(profile?.role);
 
   const { data: readyJobs, isLoading: readyLoading, error: readyError, refetch: refetchReady } = useQuery({
-    queryKey: ['today-ready', companyId, todayKey],
-    queryFn: () => fetchReadyToInvoice(supabase, companyId, todayKey),
-    enabled: liveCompany,
+    queryKey: ['today-ready', companyId, todayKey, lookDashboard],
+    queryFn: () => lookDashboard ? [] : fetchReadyToInvoice(supabase, companyId, todayKey),
+    enabled: liveCompany || lookDashboard,
   });
   const { data: outstanding, isLoading: outstandingLoading, error: outstandingError, refetch: refetchOutstanding } = useQuery({
-    queryKey: ['today-outstanding', companyId],
-    queryFn: () => fetchOutstanding(supabase, companyId, now),
-    enabled: liveMoney,
+    queryKey: ['today-outstanding', companyId, lookDashboard],
+    queryFn: () => lookDashboard ? dashboardLookOutstanding() : fetchOutstanding(supabase, companyId, now),
+    enabled: liveMoney || lookDashboard,
   });
   const outstandingClientIds = [...new Set((outstanding?.display ?? []).map(row => row.client_id).filter(Boolean))] as string[];
   const { data: outstandingClients } = useQuery({
@@ -749,14 +820,14 @@ export function DashboardPage() {
     }
     : outstanding;
   const { data: cash, isLoading: cashLoading, error: cashError, refetch: refetchCash } = useQuery({
-    queryKey: ['today-cash', companyId, todayKey],
-    queryFn: () => fetchTodayCash(supabase, companyId, todayKey),
-    enabled: liveMoney,
+    queryKey: ['today-cash', companyId, todayKey, lookDashboard],
+    queryFn: () => lookDashboard ? dashboardLookCash() : fetchTodayCash(supabase, companyId, todayKey),
+    enabled: liveMoney || lookDashboard,
   });
   const { data: comingUp, isLoading: comingLoading, error: comingError, refetch: refetchComing } = useQuery({
-    queryKey: ['today-coming-up', companyId, todayKey],
-    queryFn: () => fetchComingUp(supabase, companyId, todayKey),
-    enabled: liveCompany,
+    queryKey: ['today-coming-up', companyId, todayKey, lookDashboard],
+    queryFn: () => lookDashboard ? [] : fetchComingUp(supabase, companyId, todayKey),
+    enabled: liveCompany || lookDashboard,
   });
 
   const { data: reminders } = useQuery({

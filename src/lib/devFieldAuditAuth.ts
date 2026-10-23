@@ -32,11 +32,15 @@ export function isDevOperatorAudit(): boolean {
 
 /**
  * DEV-only mock session so field-audit can open real settings pages.
- * Never true in production builds. Armed by /__field-audit or ?auditAuth=1
- * (and by operator audit, which reuses the mock session).
+ * Armed by /__field-audit or ?auditAuth=1 in DEV, or by a VITE_LOOK_PROOF=1
+ * proof build (never the Pages production build).
  */
+function lookProofBuild(): boolean {
+  return import.meta.env.DEV || import.meta.env.VITE_LOOK_PROOF === '1';
+}
+
 export function isDevFieldAuditAuth(): boolean {
-  if (!import.meta.env.DEV) return false;
+  if (!lookProofBuild()) return false;
   if (isDevOperatorAudit()) return true;
   try {
     const params = new URLSearchParams(window.location.search);
