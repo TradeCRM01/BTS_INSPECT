@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo, useEffect, useLayoutEffect, type ReactNode } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect, useLayoutEffect, Fragment, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
@@ -1085,11 +1085,12 @@ export function DashboardPage() {
                   const place = dashboardJobPlace(job);
                   const crewSchedule = jobCrewScheduleStatus(job.scheduled_date, job.assigned_team);
                   const crewScheduleClass = jobCrewScheduleNeedsCrewClass(crewSchedule.kind);
-                  const meta = [
+                  const clientPlace = dashboardJobMetaLine(job);
+                  const metaParts = [
                     formatJobRef(job),
-                    dashboardJobMetaLine(job) || place,
+                    ...(clientPlace ? clientPlace.split(' · ') : [place].filter(Boolean)),
                     dashboardCrewLabel(job.assigned_team, teamMembers),
-                  ].filter(Boolean).join(' · ');
+                  ].filter(Boolean);
                   return (
                     <Link
                       key={job.id}
@@ -1103,7 +1104,14 @@ export function DashboardPage() {
                       </span>
                       <span className="dashboard-home-job">
                         <span className="dashboard-home-title">{job.title}</span>
-                        <span className="dashboard-home-ref">{meta}</span>
+                        <span className="dashboard-home-ref">
+                          {metaParts.map((part, i) => (
+                            <Fragment key={`${job.id}-meta-${i}`}>
+                              {i > 0 ? ' · ' : null}
+                              <span className="dashboard-home-ref-seg">{part}</span>
+                            </Fragment>
+                          ))}
+                        </span>
                         <span
                           className={[
                             'dashboard-home-crew-schedule',

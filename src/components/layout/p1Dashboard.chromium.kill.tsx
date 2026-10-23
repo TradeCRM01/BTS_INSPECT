@@ -41,12 +41,14 @@ const PROD_REMINDER_TITLES = [
 ] as const;
 const PROD_REMINDER_META = '#0137 · Replace kitchen mixer tap · Overdue · Wed 21 Oct · Company';
 const PROD_REMINDER_TEXTS = [...PROD_REMINDER_TITLES, PROD_REMINDER_META] as const;
+const LIVE_JOB_META = '#0141.A$ · Owen Price — delete ok · Ashgrove · CoS Invitee Test';
+const LONG_META_SEG = `A$LONG${'W'.repeat(80)}`;
 
 type KillPage = {
   goto: (url: string) => Promise<unknown>;
   evaluate: <T>(fn: (() => T | Promise<T>) | ((arg: never) => T | Promise<T>), arg?: unknown) => Promise<T>;
   emulateMedia: (opts: { colorScheme?: 'dark' | 'light' | 'no-preference' }) => Promise<void>;
-  waitForSelector: (sel: string, opts?: { timeout?: number }) => Promise<unknown>;
+  waitForSelector: (sel: string, opts?: { timeout?: number; state?: 'attached' | 'visible' | 'hidden' }) => Promise<unknown>;
   setViewportSize: (size: { width: number; height: number }) => Promise<void>;
   screenshot: (opts?: {
     type?: 'png';
@@ -144,12 +146,12 @@ async function bundleDashboard(opts?: { lookProof?: boolean }): Promise<string> 
           cb: (args: { path: string }) => { path: string; namespace: string } | null,
         ) => void;
       }) {
-        build.onResolve({ filter: /(?:AuthContext|useCompanyAiKey|DevConsole|\/lib\/supabase)$/ }, (args) => {
+        build.onResolve({ filter: /(?:AuthContext|useCompanyAiKey|DevConsole|(?:^|[./])supabase)$/ }, (args) => {
           const spec = args.path.replace(/\\/g, '/');
           if (/AuthContext$/.test(spec)) return { path: mocks, namespace: 'file' };
           if (/useCompanyAiKey$/.test(spec)) return { path: mocks, namespace: 'file' };
           if (/DevConsole$/.test(spec)) return { path: mocks, namespace: 'file' };
-          if (/\/lib\/supabase$/.test(spec)) return { path: mocks, namespace: 'file' };
+          if (/(?:^|[./])supabase$/.test(spec)) return { path: mocks, namespace: 'file' };
           return null;
         });
       },
@@ -289,26 +291,34 @@ async function paintLookFakes(page: KillPage, want: {
   await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
   await page.evaluate(async () => {
     for (let i = 0; i < 80; i += 1) {
-      const ready = !!document.querySelector('.dashboard-home-ledger')
+      const ledger = !!document.querySelector('.dashboard-home-ledger')
         || /Nothing on today/.test(document.body.textContent || '');
-      if (ready) return;
+      const rem = document.querySelectorAll('.reminders-title').length >= 2;
+      if (ledger && rem) return;
       await new Promise((resolve) => window.setTimeout(resolve, 50));
     }
   });
-  return page.evaluate((need) => {
+  return page.evaluate((need: { rem: readonly string[]; widgets: readonly string[]; jobs: readonly string[] }) => {
     const remIds = [...document.querySelectorAll('[data-reminder-id]')]
       .map((el) => el.getAttribute('data-reminder-id') || '');
     const widgetIds = [...document.querySelectorAll('[data-dashboard-widget-id]')]
       .map((el) => el.getAttribute('data-dashboard-widget-id') || '');
     const jobIds = [...document.querySelectorAll('[data-dashboard-job]')]
       .map((el) => el.getAttribute('data-dashboard-job') || '');
+    const remTitles = [...document.querySelectorAll('.reminders-title')]
+      .map((el) => (el.textContent || '').trim())
+      .filter(Boolean);
+    const crewText = [...document.querySelectorAll('[data-dashboard-job], .dashboard-home-ref')]
+      .map((el) => el.textContent || '')
+      .join('\n');
     return {
-      rem: need.rem.filter((id) => remIds.includes(id)),
-      widgets: need.widgets.filter((id) => widgetIds.includes(id)),
-      jobs: need.jobs.filter((id) => jobIds.includes(id)),
-      crew: [...document.querySelectorAll('[data-dashboard-job], .dashboard-home-ref')]
-        .some((el) => /\bDave\b|\bJack\b/.test(el.textContent || '')),
+      rem: need.rem.filter((id: string) => remIds.includes(id)),
+      widgets: need.widgets.filter((id: string) => widgetIds.includes(id)),
+      jobs: need.jobs.filter((id: string) => jobIds.includes(id)),
+      lookCrew: /\bDave\b|\bJack\b/.test(crewText),
       lookDay: /Thursday 3 September/.test(document.body.textContent || ''),
+      liveCrew: crewText.includes('CoS Invitee Test'),
+      liveRemTitles: remTitles,
       liveReminders: !!document.querySelector('[data-dashboard-reminders="1"] .reminders-capture'),
     };
   }, want);
@@ -318,8 +328,10 @@ const LIVE_LOOK_OK = {
   rem: [] as string[],
   widgets: [] as string[],
   jobs: [] as string[],
-  crew: false,
+  lookCrew: false,
   lookDay: false,
+  liveCrew: true,
+  liveRemTitles: [...PROD_REMINDER_TITLES],
   liveReminders: true,
 };
 
@@ -328,8 +340,10 @@ function liveLookBag(paint: Awaited<ReturnType<typeof paintLookFakes>>) {
     rem: paint.rem,
     widgets: paint.widgets,
     jobs: paint.jobs,
-    crew: paint.crew,
+    lookCrew: paint.lookCrew,
     lookDay: paint.lookDay,
+    liveCrew: paint.liveCrew,
+    liveRemTitles: paint.liveRemTitles,
     liveReminders: paint.liveReminders,
   };
 }
@@ -1613,35 +1627,203 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     expect(liveLookBag(paint), '/?look=crew-s8d-dashboard-needs must stay on the live data path').toEqual(LIVE_LOOK_OK);
   }, 60000);
 
-  it('P1-schedule-time: 375/390 long range stays in the time track', async () => {
+  it('P1-schedule-stack: 375/390 time left equals Job title left', async () => {
     for (const width of [375, 390] as const) {
       const page = await openPage({ width });
-      await page.waitForSelector('.dashboard-home-row .dashboard-home-time', { timeout: 20000 });
+      await page.waitForSelector('.dashboard-home-row .dashboard-home-title', { timeout: 20000 });
       const box = await page.evaluate(() => {
         const row = document.querySelector('.dashboard-home-row') as HTMLElement | null;
         const time = row?.querySelector('.dashboard-home-time') as HTMLElement | null;
-        const job = row?.querySelector('.dashboard-home-job') as HTMLElement | null;
-        if (!row || !time || !job) throw new Error('schedule row missing time/job');
-        const range = document.createRange();
-        range.selectNodeContents(time);
-        const text = range.getBoundingClientRect();
-        const jobBox = job.getBoundingClientRect();
-        const gap = parseFloat(getComputedStyle(row).columnGap || '0') || 0;
+        const title = row?.querySelector('.dashboard-home-title') as HTMLElement | null;
+        if (!row || !time || !title) throw new Error('schedule row missing time/title');
         return {
-          text: (time.textContent || '').trim(),
-          textRight: text.right,
-          gap,
-          jobLeft: jobBox.left,
+          timeLeft: time.getBoundingClientRect().left,
+          titleLeft: title.getBoundingClientRect().left,
         };
       });
       await page.close();
-      expect(box.text, `long time range at ${width}`).toMatch(/07:30\s+–\s+16:00/);
       expect(
-        box.textRight + box.gap,
-        `time text right + gap <= Job left at ${width}`,
-      ).toBeLessThanOrEqual(box.jobLeft + 0.5);
+        Math.abs(box.timeLeft - box.titleLeft),
+        `time left equals title left at ${width}`,
+      ).toBeLessThanOrEqual(1);
     }
   }, 120000);
+
+  it('P1-schedule-thead: no visible Time/Job thead below 640, still in the a11y tree', async () => {
+    for (const width of [375, 390] as const) {
+      const page = await openPage({ width });
+      await page.waitForSelector('.dashboard-home-thead', { timeout: 20000, state: 'attached' });
+      const read = () => page.evaluate(() => {
+        const thead = document.querySelector('.dashboard-home-thead') as HTMLElement | null;
+        if (!thead) throw new Error('thead missing');
+        const s = getComputedStyle(thead);
+        const r = thead.getBoundingClientRect();
+        const visible = s.display !== 'none'
+          && s.visibility !== 'hidden'
+          && r.width > 2
+          && r.height > 2
+          && s.clip !== 'rect(0px, 0px, 0px, 0px)'
+          && s.clip !== 'rect(0, 0, 0, 0)';
+        return {
+          display: s.display,
+          text: (thead.textContent || '').replace(/\s+/g, ' ').trim(),
+          visible,
+          inTree: document.body.contains(thead),
+        };
+      });
+      const top = await read();
+      await page.evaluate(() => {
+        const main = document.querySelector('main');
+        if (main) main.scrollTop = Math.min(main.scrollHeight, 240);
+        else window.scrollTo(0, 240);
+      });
+      const scrolled = await read();
+      await page.close();
+      expect(top.inTree, `thead in tree at ${width} top`).toBe(true);
+      expect(top.display, `thead not display:none at ${width} top`).not.toBe('none');
+      expect(top.text, `thead labels at ${width}`).toMatch(/Time/);
+      expect(top.visible, `thead hidden at ${width} top`).toBe(false);
+      expect(scrolled.visible, `thead hidden at ${width} scrolled`).toBe(false);
+      expect(scrolled.inTree, `thead in tree at ${width} scrolled`).toBe(true);
+    }
+  }, 120000);
+
+  it('P1-schedule-meta: #0141 wraps ≤2 lines and only after · at 375/390', async () => {
+    for (const width of [375, 390] as const) {
+      const page = await openPage({ width, js: dashJsNoProof, path: '/?look=dashboard' });
+      await page.waitForSelector('.dashboard-home-ref-seg', { timeout: 20000 });
+      const box = await page.evaluate((want: string) => {
+        const ref = [...document.querySelectorAll('.dashboard-home-ref')]
+          .find((el) => (el.textContent || '').includes('#0141.A$')) as HTMLElement | undefined;
+        if (!ref) throw new Error('0141 meta missing');
+        const segs = [...ref.querySelectorAll('.dashboard-home-ref-seg')] as HTMLElement[];
+        const lineTops = (el: Element) => {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          return [...range.getClientRects()].map((r) => Math.round(r.top));
+        };
+        const chars: Array<{ ch: string; top: number }> = [];
+        const walker = document.createTreeWalker(ref, NodeFilter.SHOW_TEXT);
+        let node = walker.nextNode();
+        while (node) {
+          const t = node.textContent || '';
+          for (let i = 0; i < t.length; i += 1) {
+            const range = document.createRange();
+            range.setStart(node, i);
+            range.setEnd(node, i + 1);
+            const r = range.getClientRects()[0];
+            if (r) chars.push({ ch: t[i], top: Math.round(r.top) });
+          }
+          node = walker.nextNode();
+        }
+        const lineStrs: string[] = [];
+        let cur = '';
+        let top: number | null = null;
+        for (const c of chars) {
+          if (top === null) top = c.top;
+          if (Math.abs(c.top - top) > 2) {
+            lineStrs.push(cur);
+            cur = '';
+            top = c.top;
+          }
+          cur += c.ch;
+        }
+        if (cur) lineStrs.push(cur);
+        return {
+          text: (ref.textContent || '').replace(/\s+/g, ' ').trim(),
+          want,
+          lines: new Set(lineTops(ref)).size,
+          segLines: segs.map((seg) => new Set(lineTops(seg)).size),
+          nowrap: segs.map((seg) => getComputedStyle(seg).whiteSpace),
+          wrapEnds: lineStrs.slice(0, -1).map((line) => / ·\s*$/.test(line)),
+          lineStrs,
+        };
+      }, LIVE_JOB_META);
+      await page.close();
+      expect(box.text, `0141 meta at ${width}`).toBe(LIVE_JOB_META);
+      expect(box.lines, `0141 line count at ${width}`).toBeLessThanOrEqual(2);
+      expect(box.segLines.every((n) => n <= 1), `nowrap segments at ${width}`).toBe(true);
+      expect(box.nowrap.every((v) => v === 'nowrap'), `nowrap computed at ${width}`).toBe(true);
+      expect(box.wrapEnds.every(Boolean), `breaks after · at ${width}`).toBe(true);
+    }
+  }, 120000);
+
+  it('P1-schedule-meta-long: a single long segment does not overflow at 375/390', async () => {
+    for (const width of [375, 390] as const) {
+      const page = await openPage({ width, js: dashJsNoProof, path: '/?look=dashboard' });
+      await page.waitForSelector('.dashboard-home-ref-seg', { timeout: 20000 });
+      const box = await page.evaluate((long: string) => {
+        const seg = document.querySelector('.dashboard-home-ref-seg') as HTMLElement | null;
+        const ref = seg?.parentElement as HTMLElement | null;
+        const row = seg?.closest('.dashboard-home-row') as HTMLElement | null;
+        if (!seg || !ref || !row) throw new Error('meta seg missing');
+        const wrap = getComputedStyle(seg).overflowWrap;
+        seg.textContent = long;
+        // nowrap keeps ordinary spaces together; overflow-wrap is the
+        // fallback for a single token wider than the line.
+        seg.style.whiteSpace = 'normal';
+        const overflowOf = () => {
+          const rs = ref.getBoundingClientRect();
+          const rowBox = row.getBoundingClientRect();
+          return ref.scrollWidth > ref.clientWidth + 1 || rs.right > rowBox.right + 1;
+        };
+        const withWrap = overflowOf();
+        seg.style.overflowWrap = 'normal';
+        const withoutWrap = overflowOf();
+        return { wrap, withWrap, withoutWrap };
+      }, LONG_META_SEG);
+      await page.close();
+      expect(box.wrap, `overflow-wrap at ${width}`).toMatch(/anywhere|break-word/);
+      expect(box.withWrap, `long segment overflow at ${width}`).toBe(false);
+      expect(box.withoutWrap, `removing overflow-wrap overflows at ${width}`).toBe(true);
+    }
+  }, 120000);
+
+  it('P1-schedule-tracks: 768/1024/1280 header cell x equals row cell x', async () => {
+    for (const width of [768, 1024, 1280] as const) {
+      const page = await openPage({ width });
+      await page.waitForSelector('.dashboard-home-row', { timeout: 20000 });
+      const box = await page.evaluate(() => {
+        const thead = document.querySelector('.dashboard-home-thead') as HTMLElement | null;
+        const row = document.querySelector('.dashboard-home-row') as HTMLElement | null;
+        if (!thead || !row) throw new Error('thead/row missing');
+        const heads = [...thead.children] as HTMLElement[];
+        const cells = [
+          row.querySelector('.dashboard-home-time'),
+          row.querySelector('.dashboard-home-job'),
+          row.querySelector('.dashboard-home-place'),
+        ] as Array<HTMLElement | null>;
+        return heads.map((head, i) => ({
+          head: head.getBoundingClientRect().left,
+          cell: cells[i]?.getBoundingClientRect().left ?? -1,
+        }));
+      });
+      await page.close();
+      expect(box.length, `track cells at ${width}`).toBe(3);
+      for (const pair of box) {
+        expect(Math.abs(pair.head - pair.cell), `shared track at ${width}`).toBeLessThanOrEqual(1);
+      }
+    }
+  }, 120000);
+
+  it('P1-schedule-pill: Booked pill width is content width, not the column', async () => {
+    const page = await openPage({ width: 768 });
+    await page.waitForSelector('.dashboard-home-crew-schedule', { timeout: 20000 });
+    const box = await page.evaluate(() => {
+      const pill = document.querySelector('.dashboard-home-crew-schedule') as HTMLElement | null;
+      const job = pill?.closest('.dashboard-home-job') as HTMLElement | null;
+      if (!pill || !job) throw new Error('pill missing');
+      const align = getComputedStyle(pill).alignSelf;
+      return {
+        align,
+        pillW: pill.getBoundingClientRect().width,
+        jobW: job.getBoundingClientRect().width,
+      };
+    });
+    await page.close();
+    expect(box.align, 'pill align-self').toBe('flex-start');
+    expect(box.pillW, 'pill narrower than job column').toBeLessThan(box.jobW - 8);
+  }, 60000);
 
   it('P1-today-mark: changing NAV_WORDS.today changes the black bar text', async () => {
     const brandPath = join(process.cwd(), 'src/lib/brand.ts');
