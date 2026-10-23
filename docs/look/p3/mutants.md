@@ -13,7 +13,7 @@ R14 keeps every r13 assert and ADDs the r10 fully-inside Actions box (`top >= -1
 | m26 visibility | `.job-sheet-more { visibility: hidden }` in `src/index.css` | `R9 sheet actions stay reachable at 375 390 768` via `assertActionsVisible` :2266 | AssertionError `375 Actions visibility: expected 'hidden' not to be 'hidden'` **and** hit-test |
 | m26 height:0 | `.job-sheet-more { height: 0; overflow: hidden }` in `src/index.css` | `R9 sheet actions stay reachable at 375 390 768` via `assertActionsVisible` :2268 | AssertionError `375 Actions height: expected 0 to be greater than 0` **and** hit-test / summary rect |
 | bill3-flat | `.job-sheet-bill3` `display:block` in `src/index.css` | `R9 job-390-light named elements` :2160 `bill3Display` (kept) and cell rects | AssertionError `expected 'block' to be 'grid'` **and** tops not same-row / lefts not left-to-right |
-| bill-inset | `.job-sheet-bill3 > div` padding-left `12px` → `0` in `src/index.css` | `R9 job-390-light named elements` :2198 `head Cost value inset` | AssertionError `head Cost value inset 1: expected false to be true` |
+| bill-inset | `.job-sheet-bill-v` `margin-left: 8px` in `src/index.css` | `R9 job-390-light named elements` :2197 `head Budget value inset` | AssertionError `head Budget value inset 8: expected false to be true` |
 | bl-subline-removed | drop `.job-sheet-bill-s` from `JobDetailPage.tsx` | `R9 job-390-light named elements` `billSubCount` | AssertionError `real line sub-lines: expected 0 to be greater than 0` |
 | Go ring | drop the `#A1A1AA` inset on `.job-sheet-kv-act` | `R10 Go/Call ring paints line-strong on the edge` | painted edge pixel leaves `rgb(161,161,170)` |
 | Site hair | remove the first `[data-job-kv-rule]` or its 1px fill | `R10 Site hairline paints above the first KV row`; `R6-5` four hairs | painted `#E4E4E7` miss or hairCount ≠ 4 |
@@ -250,8 +250,8 @@ python3 - <<'PY'
 from pathlib import Path
 p = Path('src/index.css')
 t = p.read_text()
-old = '  .job-sheet-bill3 > div {\n    padding: 12px 0 12px 12px;\n    border-left: 1px solid var(--job-look-line);\n  }'
-new = '  .job-sheet-bill3 > div {\n    padding: 12px 0 12px 0;\n    border-left: 1px solid var(--job-look-line);\n  }'
+old = '  .job-sheet-bill-v {\n    font-weight: 600;\n    font-size: 20px;\n    line-height: 26px;\n    font-variant-numeric: tabular-nums;\n  }'
+new = '  .job-sheet-bill-v {\n    font-weight: 600;\n    font-size: 20px;\n    line-height: 26px;\n    font-variant-numeric: tabular-nums;\n    margin-left: 8px;\n  }'
 if old not in t:
     raise SystemExit('bill-inset anchor missing')
 p.write_text(t.replace(old, new, 1))
@@ -259,7 +259,7 @@ print('mutated bill-inset')
 PY
 npm run build
 npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R9 job-390-light named elements"
-# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:2198
-#   head Cost value inset 1: expected false to be true
+# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:2197
+#   head Budget value inset 8: expected false to be true
 git checkout -- src/index.css
 ```
