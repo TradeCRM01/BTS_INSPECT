@@ -1,4 +1,4 @@
-# r8 real-file src mutants (outside the suite)
+# r8b real-file src mutants (outside the suite)
 
 No test writes a tracked file. No in-test rebuild. Harvest is: patch the listed `find` → `replace` in the listed src file, `npm run build` when the kill reads dist, run the listed vitest command, confirm the AssertionError, then `git checkout -- <file>`.
 
@@ -6,15 +6,17 @@ Named harness `?mutant=` queries do not count.
 
 Deleted grep (standing-rule exception): `src/pages/schedulePage.test.ts` `expect(page).toContain('countNeedCrewJobs')` — the void-shim grep. Named here because the standing rule allows that one deletion.
 
-## it() file:line (r8)
+## it() file:line (r8b)
 
 | kill | it() |
 |---|---|
 | P2-overflow | `src/proof/p2Schedule/kill.ts:125` |
-| P2-focus | `src/proof/p2Schedule/kill.ts:271` (inverse fill left unchanged) |
-| K24 | `src/proof/p2Schedule/kill.ts:729` |
-| K25 | `src/proof/p2Schedule/kill.ts:814` |
-| K26 | `src/proof/p2Schedule/kill.ts:891` |
+| P2-focus | `src/proof/p2Schedule/kill.ts:271` (inverse-fill assert left unchanged) |
+| K24 | `src/proof/p2Schedule/kill.ts:731` |
+| K25 | `src/proof/p2Schedule/kill.ts:816` |
+| K25 search-width / today-beside-arrows | `src/proof/p2Schedule/kill.ts:828` |
+| K25 header-gutter 16±1 | `src/proof/p2Schedule/kill.ts:876` |
+| K26 | `src/proof/p2Schedule/kill.ts:901` |
 | unit status | `src/lib/scheduleStatus.kill.test.ts` (10 `it()`s) |
 | fixture pin | `src/pages/schedule1280Light.fixture.test.ts:16` |
 
@@ -105,6 +107,46 @@ PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-overflow'
 # expected AssertionError: clock "…" scrollWidth fits its own box: expected false to be true
+git checkout -- src/index.css
+
+# K25 header-gutter-zero — 375/390/768 header-block left = list left = 16
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+old = """  @media (max-width: 639px) {
+    .hub-board-cal.is-week-doc .ops-page-head,
+    .hub-board-cal.is-week-doc .hub-week-identity-row,
+    .hub-board-cal.is-week-doc .hub-week-track,
+    .hub-board-cal.is-week-doc .hub-week-search,
+    .hub-board-cal.is-week-doc .hub-week-agenda {
+      margin-left: 16px;
+      margin-right: 16px;
+      width: auto;
+      max-width: calc(100% - 32px);
+      box-sizing: border-box;
+    }
+  }"""
+new = """  @media (max-width: 639px) {
+    .hub-board-cal.is-week-doc .ops-page-head,
+    .hub-board-cal.is-week-doc .hub-week-identity-row,
+    .hub-board-cal.is-week-doc .hub-week-track,
+    .hub-board-cal.is-week-doc .hub-week-search,
+    .hub-board-cal.is-week-doc .hub-week-agenda {
+      margin-left: 0;
+      margin-right: 0;
+      width: auto;
+      max-width: calc(100% - 32px);
+      box-sizing: border-box;
+    }
+  }"""
+t = p.read_text()
+if old not in t: raise SystemExit('header-gutter-zero find missed')
+p.write_text(t.replace(old, new, 1))
+PY
+npm run build
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
+# expected AssertionError: week-375 header-block left 0: expected 16 to be less than or equal to 1
+# harvested: src/proof/p2Schedule/kill.ts:816 K25 / kill.ts:878 header-block left
 git checkout -- src/index.css
 
 # K25 today-beside-arrows (search-width pin)

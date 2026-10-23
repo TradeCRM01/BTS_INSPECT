@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import {
-  CONTRAST, EMPTY_COPY, FADE, FOCUS, IN_PROGRESS, JOB_REF, KILLS, NOW, PALETTE, PHONE_BOARD_BREAKPOINT, PHONE_TABS, ROWS, SAME_COLOUR,
-  SHEET, TAP_MIN, TODAY, TRACK_PROBE, UNTIMED, WEEK, channelGap, isAmber, isNavy, killTitle, rgbOf,
+  CONTRAST, EMPTY_COPY, FADE, FOCUS, FROZEN_NOW_PLUS_1, IN_PROGRESS, JOB_REF, KILLS, NOW, PALETTE, PHONE_BOARD_BREAKPOINT, PHONE_TABS, ROWS, SAME_COLOUR,
+  SHEET, TAP_MIN, TIMEZONE, TODAY, TRACK_PROBE, UNTIMED, WEEK, channelGap, isAmber, isNavy, killTitle, rgbOf,
   type KillId, type Measure, type Offender, type Stroke,
 } from './matrix.ts';
 import { JOBS, JOB_IDS, MALFORMED_CREW_IDS, SAM, SCHEDULE_FIXTURE } from './fixture.ts';
@@ -507,9 +507,11 @@ describe('P2 Schedule on the built dist', () => {
     const m = await measure('week-1280');
     expect.soft(m.layout.now, 'frozen Now').toBe('Now 13:40');
     const o = await openState('week-1280');
-    await o.page.clock.setFixedTime(new Date('2026-10-19T13:41:00+10:00'));
+    await o.page.clock.setFixedTime(new Date(FROZEN_NOW_PLUS_1));
     await o.page.waitForFunction(() => (document.querySelector('.hub-week-now')?.textContent ?? '').includes('13:41'));
     expect.soft(await o.page.locator('.hub-week-now').innerText(), 'advanced Now').toBe('Now 13:41');
+    expect.soft(m.chrome.timeZone, 'Playwright timezoneId follows env TZ').toBe(TIMEZONE);
+    expect.soft(m.chrome.tzOffset, 'browser Date offset minutes').toBe(TIMEZONE === 'UTC' || TIMEZONE === 'Etc/UTC' ? 0 : -600);
     await o.close();
   });
 
@@ -843,6 +845,8 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(c.whisperSize, 'sub-line size vs fixture').toBe(mock.subSize);
     expect.soft(c.whisperLh, 'sub-line line-height vs fixture').toBe(mock.subLh);
     expect.soft(c.eyebrowPaint, 'eyebrow painted vs fixture').toBe(mock.eyebrowPaint);
+    expect.soft(c.eyebrowTransform, 'eyebrow transform vs fixture').toBe(mock.eyebrowTransform);
+    expect.soft(c.eyebrowLetterSpacing, 'eyebrow letter-spacing vs fixture').toBe(mock.eyebrowLetterSpacing);
     expect.soft(c.newJobW, 'New job width vs fixture').toBe(mock.newJobW);
     expect.soft(c.newJobH, 'New job height vs fixture').toBe(mock.newJobH);
     expect.soft(c.segTrackPaint, 'Week/Day track painted vs fixture').toBe(mock.segTrackPaint);
@@ -869,6 +873,12 @@ describe('P2 Schedule on the built dist', () => {
     const phone = await measure('week-390');
     expect.soft(phone.chrome.headerTop, '390 header not clipped at the top').toBeGreaterThanOrEqual(0);
     expect.soft(Math.abs(phone.chrome.todayTop - phone.chrome.rangeTop), 'Today on the range row').toBeLessThanOrEqual(24);
+    for (const id of ['week-375', 'week-390', 'week-768'] as const) {
+      const g = id === 'week-390' ? phone : await measure(id);
+      expect.soft(Math.abs(g.chrome.headerLeft - 16), `${id} header-block left ${g.chrome.headerLeft}`).toBeLessThanOrEqual(1);
+      expect.soft(Math.abs(g.chrome.listLeft - 16), `${id} list left ${g.chrome.listLeft}`).toBeLessThanOrEqual(1);
+      expect.soft(Math.abs(g.chrome.headerLeft - g.chrome.listLeft), `${id} header-block left = list left`).toBeLessThanOrEqual(1);
+    }
 
     const opened = await openState('week-1280');
     await opened.page.getByRole('button', { name: 'New job' }).first().click();

@@ -6136,6 +6136,8 @@
     font-size: 13px;
     font-weight: 500;
     color: var(--g-ink-subtle);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     margin: 0 0 4px;
   }
 
@@ -6168,13 +6170,19 @@
 
   .hub-board-cal .ops-page-title {
     font-family: var(--g-font-title);
-    font-weight: 600;
-    letter-spacing: -0.035em;
-    line-height: 52px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.1;
     text-shadow: none;
     color: var(--schedule-ink);
-    font-size: 48px !important;
+    font-size: 40px !important;
     margin: 0;
+  }
+
+  @media (max-width: 1023px) {
+    .hub-board-cal .ops-page-title {
+      font-size: 32px !important;
+    }
   }
 
   .hub-board-cal .ops-page-head {
@@ -6836,6 +6844,13 @@
   }
 
   @media (min-width: 1280px) {
+    .hub-board-cal.is-week-doc .ops-page-title {
+      font-weight: 600;
+      letter-spacing: -0.035em;
+      line-height: 52px;
+      font-size: 48px !important;
+    }
+
     .hub-board-cal.is-week-doc .hub-week-today {
       width: 85.25px;
       min-width: 85.25px;
@@ -6855,6 +6870,20 @@
       width: 755.265625px;
       height: 48px;
       min-height: 48px;
+    }
+  }
+
+  @media (max-width: 639px) {
+    .hub-board-cal.is-week-doc .ops-page-head,
+    .hub-board-cal.is-week-doc .hub-week-identity-row,
+    .hub-board-cal.is-week-doc .hub-week-track,
+    .hub-board-cal.is-week-doc .hub-week-search,
+    .hub-board-cal.is-week-doc .hub-week-agenda {
+      margin-left: 16px;
+      margin-right: 16px;
+      width: auto;
+      max-width: calc(100% - 32px);
+      box-sizing: border-box;
     }
   }
 
@@ -7110,10 +7139,17 @@
   }
 
   .hub-week-seg-btn.is-on {
-    background: var(--g-inverse);
-    color: var(--g-inverse-ink);
+    background: var(--g-surface);
+    color: var(--g-ink);
     box-shadow: none;
     border-radius: 8px;
+  }
+
+  .hub-week-seg-btn.is-on:focus-visible {
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    outline: 2px solid var(--g-accent);
+    outline-offset: 2px;
   }
 
   .hub-week-tools {
@@ -8652,7 +8688,7 @@
     }
 
     .hub-board-cal.is-week-doc .hub-week-search {
-      padding: 0 12px 4px;
+      padding: 0 0 4px;
       flex: 0 0 auto;
     }
 
@@ -8665,12 +8701,12 @@
     }
 
     .hub-board-cal.is-week-doc .hub-week-identity-row {
-      padding: 0 12px;
+      padding: 0;
     }
 
     .hub-board-cal.is-week-doc .hub-week-track {
       margin-top: 4px;
-      padding: 2px 12px 4px;
+      padding: 2px 0 4px;
       flex: 0 0 auto;
     }
 

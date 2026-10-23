@@ -660,6 +660,7 @@ async function measureMockup1280Once(): Promise<LookPins> {
     const page = await context.newPage();
     await page.goto(`http://127.0.0.1:${port}/directions/4-dark-light/html/schedule-1280-light.html`, { waitUntil: 'load' });
     await page.waitForSelector('.s-head .h1, .s-head h1');
+    await page.evaluate(() => document.fonts.ready);
     const pins = await page.evaluate(() => {
       const typeOf = (el: Element | null) => {
         if (!el) return { weight: 0, size: 0, lh: 0 };
@@ -709,6 +710,9 @@ async function measureMockup1280Once(): Promise<LookPins> {
         trayLh: trayT.lh,
         h1Left: h1?.getBoundingClientRect().left ?? -1,
         eyebrowLeft: eyebrow?.getBoundingClientRect().left ?? -1,
+        geistCheck: document.fonts.check('16px Geist'),
+        eyebrowTransform: eyebrow ? getComputedStyle(eyebrow).textTransform : '',
+        eyebrowLetterSpacing: eyebrow ? getComputedStyle(eyebrow).letterSpacing : '',
         eyebrow: {
           x: eyebrow?.getBoundingClientRect().x ?? 0,
           y: eyebrow?.getBoundingClientRect().y ?? 0,
@@ -769,7 +773,8 @@ async function measureMockup1280Once(): Promise<LookPins> {
       return {
         eyebrowPaint: inkOf(boxes.eyebrow),
         segTrackPaint: pxAt((boxes.seg.x + 4) * dpr, (boxes.seg.y + 3) * dpr),
-        segActivePaint: pxAt((boxes.segOn.x + boxes.segOn.w / 2) * dpr, (boxes.segOn.y + boxes.segOn.h / 2) * dpr),
+        segActivePaint: pxAt((boxes.segOn.x + 4) * dpr, (boxes.segOn.y + 3) * dpr),
+        segActiveInk: inkOf(boxes.segOn),
         todayFill: pxAt((boxes.todayBox.x + boxes.todayBox.w / 2) * dpr, (boxes.todayBox.y + boxes.todayBox.h / 2) * dpr),
       };
     }, { b64: png.toString('base64'), boxes: { eyebrow: pins.eyebrow, seg: pins.seg, segOn: pins.segOn, todayBox: pins.todayBox } });
@@ -799,6 +804,10 @@ async function measureMockup1280Once(): Promise<LookPins> {
       trayWeight: pins.trayWeight,
       traySize: pins.traySize,
       trayLh: pins.trayLh,
+      geistCheck: pins.geistCheck,
+      eyebrowTransform: pins.eyebrowTransform,
+      eyebrowLetterSpacing: pins.eyebrowLetterSpacing,
+      segActiveInk: paints.segActiveInk,
     };
   } finally {
     await context.close();
