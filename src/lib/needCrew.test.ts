@@ -42,6 +42,12 @@ describe('needsCrew', () => {
       scheduled_date: '',
       assigned_team: [],
     }).status).toBe(JOB_CREW_SCHEDULE_NO_DATE);
+  });
+
+  it('counts only dated crewless jobs', () => {
+    const undatedScheduled = { status: 'scheduled' as const, scheduled_date: null, assigned_team: [] as string[] };
+    const undatedProgress = { status: 'in_progress' as const, scheduled_date: '', assigned_team: [] as string[] };
+    const datedOpen = { status: 'scheduled' as const, scheduled_date: '2026-10-19', assigned_team: [] as string[] };
     expect(countNeedsCrew([undatedScheduled, undatedProgress, datedOpen])).toBe(1);
   });
 });

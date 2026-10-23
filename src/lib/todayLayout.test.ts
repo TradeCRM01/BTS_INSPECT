@@ -17,6 +17,7 @@ import {
   todayShowsPlace,
   todayWhisperCrew,
   todayWhisperJobs,
+  todayWhisperNeedCrew,
   TODAY_CREW_NONE,
   TODAY_PILL_READY,
   TODAY_PILL_SET_DATE,
@@ -136,6 +137,9 @@ describe('whisper and due copy', () => {
     expect(todayWhisperCrew(0)).toBe('No crew out');
     expect(todayWhisperCrew(1)).toBe('1 crew out');
     expect(todayWhisperCrew(4)).toBe('4 crew out');
+    expect(todayWhisperNeedCrew(0)).toBe('0 need crew');
+    expect(todayWhisperNeedCrew(1)).toBe('1 need crew');
+    expect(todayWhisperNeedCrew(2)).toBe('2 need crew');
     expect(todayWhisperJobs(2)).not.toMatch(/booking/i);
   });
 

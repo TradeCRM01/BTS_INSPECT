@@ -37,6 +37,7 @@ import {
   todayShowsPlace,
   todayWhisperCrew,
   todayWhisperJobs,
+  todayWhisperNeedCrew,
   TODAY_PILL_SET_DATE,
   type TodayBand,
 } from '../lib/todayLayout';
@@ -76,6 +77,7 @@ export function TodayBoardView({
   nudges,
   more,
   onNewJob,
+  needCrewCount,
 }: {
   now: Date;
   width: number;
@@ -94,6 +96,7 @@ export function TodayBoardView({
   nudges: TodayNudge[];
   more: ReactNode;
   onNewJob: () => void;
+  needCrewCount: number;
 }) {
   const seeMoney = canSeeTodayMoney(role);
   const crewOut = todayCrewOut(jobs);
@@ -130,6 +133,14 @@ export function TodayBoardView({
                 <>
                   {' · '}
                   <span className="today-seg">{crewLine}</span>
+                </>
+              ) : null}
+              {!jobsLoading ? (
+                <>
+                  {jobLine || crewLine ? ' · ' : null}
+                  <span className="today-seg" data-need-crew-count={needCrewCount}>
+                    {todayWhisperNeedCrew(needCrewCount)}
+                  </span>
                 </>
               ) : null}
               {jobsError && !jobLine ? (

@@ -1053,9 +1053,6 @@ export function DashboardPage() {
       <div className="ops-page dashboard-home is-day-open is-today-board">
         <article className="dashboard-home-sheet" data-dashboard-home="1">
           <div className="dashboard-home-sheet-body">
-            <div data-need-crew-count={needCrewCount} className="hub-look-eyebrow dashboard-home-label dashboard-home-whisper today-sr">
-              {NAV_WORDS.today}
-            </div>
             <TodayBoardView
               now={now}
               width={viewportW}
@@ -1094,6 +1091,7 @@ export function DashboardPage() {
               nudges={nudges}
               more={moreMenu}
               onNewJob={() => setShowJobForm(true)}
+              needCrewCount={needCrewCount}
             />
 
             <section className="today-sec today-reminders dashboard-home-strip" data-today-section="s12" data-dashboard-reminders="1">

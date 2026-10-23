@@ -113,6 +113,10 @@ export function todayWhisperCrew(count: number): string {
   return count === 1 ? '1 crew out' : `${count} crew out`;
 }
 
+export function todayWhisperNeedCrew(count: number): string {
+  return count === 1 ? '1 need crew' : `${count} need crew`;
+}
+
 export function pickTodayNowJob<T extends DashboardTodayJob>(
   jobs: readonly T[],
   now: Date,
