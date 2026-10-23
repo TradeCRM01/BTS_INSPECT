@@ -190,6 +190,28 @@ describe('Q-A ready to invoice', () => {
     expect(ready[0]?.scheduled_date).not.toBe('2026-09-01');
   });
 
+  it('D4f: a sibling visit invoice keeps the parent off ready', () => {
+    const parent = 'p-sib';
+    const visitA = job({ id: 'v-a', job_number: 60, parent_job_id: parent, scheduled_date: '2026-10-10' });
+    const visitB = job({ id: 'v-b', job_number: 61, parent_job_id: parent, scheduled_date: '2026-10-12' });
+    const extra = [
+      job({ id: parent, job_number: 13, scheduled_date: '2026-09-20' }),
+      visitA,
+      visitB,
+    ];
+    const invoices = [{ id: 'i-sib', job_id: 'v-a', status: 'sent' }];
+    const ready = rollupReadyToInvoice([visitA, visitB], extra, invoices, WINDOW);
+    const ignoreSibling = rollupReadyToInvoice(
+      [visitA, visitB],
+      extra,
+      invoices.filter(invoice => invoice.job_id === parent),
+      WINDOW,
+    );
+    expect(ready).toEqual([]);
+    expect(ignoreSibling.map(row => row.id)).toEqual([parent]);
+    expect(ready).not.toEqual(ignoreSibling);
+  });
+
   it('D4: any non-void invoice including draft counts as invoiced, void stays ready, 40-day jobs drop', () => {
     const completed = [
       job({ id: 'drafted', job_number: 20, scheduled_date: '2026-10-10' }),
