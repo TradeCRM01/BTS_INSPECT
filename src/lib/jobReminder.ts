@@ -84,7 +84,8 @@ export type ReminderEmailSettings = {
   smtp_host?: string | null;
   from_name?: string | null;
   from_email?: string | null;
-} & Record<string, string | null | undefined>;
+  ready?: boolean;
+} & Record<string, unknown>;
 
 export type ReminderCompany = {
   name?: string | null;
@@ -329,6 +330,7 @@ export function formatEmailAndSmsMessage(
 
 export function emailSettingsReady(settings: ReminderEmailSettings | null | undefined): boolean {
   if (!settings) return false;
+  if (typeof settings.ready === 'boolean') return settings.ready;
   const hostOk = String(settings.smtp_host ?? '').toLowerCase().includes('resend');
   const fromOk = !!(settings.from_email ?? '').trim();
   if (!hostOk || !fromOk) return false;

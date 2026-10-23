@@ -23,6 +23,7 @@ import {
   type SmtpSettingsRow,
 } from './sendInvoice';
 import { asStringList } from './asStringList';
+import { fetchEmailSmtpReady, withEmailSmtpReady } from './emailSmtpClient';
 import { formatEmailAndSmsMessage, type SmsSendResult } from './jobReminder';
 import {
   INVOICE_MARKED_PAID_MESSAGE,
@@ -80,7 +81,7 @@ export async function loadInvoiceSendBundle(
   const jobScope = invoiceSendJobQuery(invoice?.job_id);
   const smtpScope = scopes.smtp;
 
-  const [clientRes, jobRes, smtpRes, existingPdf] = await Promise.all([
+  const [clientRes, jobRes, smtpRes, existingPdf, smtpReady] = await Promise.all([
     clientScope
       ? applyInvoiceSendScope(supabase.from(clientScope.table), clientScope).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -89,6 +90,7 @@ export async function loadInvoiceSendBundle(
       : Promise.resolve({ data: null, error: null }),
     applyInvoiceSendScope(supabase.from(smtpScope.table), smtpScope).maybeSingle(),
     loadExistingInvoicePdf(company.id, invoiceId),
+    fetchEmailSmtpReady(supabase),
   ]);
   if (clientRes.error) throw clientRes.error;
   if (jobRes.error) throw jobRes.error;
@@ -103,7 +105,7 @@ export async function loadInvoiceSendBundle(
     invoice,
     client: (clientRes.data ?? null) as InvoiceSendBundle['client'],
     jobAddress: (jobRes.data as { address?: string | null } | null)?.address ?? null,
-    smtp: (smtpRes.data ?? null) as SmtpSettingsRow | null,
+    smtp: withEmailSmtpReady((smtpRes.data ?? null) as SmtpSettingsRow | null, smtpReady),
     company,
     existingPdf,
     priceBookCodesByItemId,

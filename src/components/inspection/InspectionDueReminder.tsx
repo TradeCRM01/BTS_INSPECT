@@ -13,7 +13,7 @@ import {
   type DueInspection,
   type DueInspectionJob,
 } from '../../lib/inspectionDueReminder';
-import { EMAIL_SETTINGS_CLIENT_COLUMNS } from '../../lib/emailSmtpClient';
+import { loadBrowserEmailSettings } from '../../lib/emailSmtpClient';
 import { missSmsMessage, type ReminderClient, type ReminderEmailSettings } from '../../lib/jobReminder';
 import {
   JOB_CLIENT_ATTACH_NO_CLIENTS,
@@ -128,15 +128,7 @@ export function InspectionDueReminder({
 
   const { data: settings, isFetched: settingsFetched } = useQuery<ReminderEmailSettings | null>({
     queryKey: ['email-settings', companyId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('email_settings')
-        .select(EMAIL_SETTINGS_CLIENT_COLUMNS)
-        .eq('company_id', companyId)
-        .maybeSingle();
-      if (error) throw error;
-      return (data as ReminderEmailSettings) ?? null;
-    },
+    queryFn: async () => loadBrowserEmailSettings(supabase, companyId) as Promise<ReminderEmailSettings | null>,
     enabled: !!companyId,
   });
 

@@ -45,7 +45,8 @@ export type SmtpSettingsRow = {
   smtp_host?: string | null;
   from_name?: string | null;
   from_email?: string | null;
-} & Record<string, string | null | undefined>;
+  ready?: boolean;
+} & Record<string, unknown>;
 
 export type InvoiceSendDecision =
   | {

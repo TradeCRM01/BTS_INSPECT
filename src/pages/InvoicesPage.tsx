@@ -64,7 +64,7 @@ import { INVOICE_SOURCE_QUOTE } from '../lib/invoiceFromQuote';
 import { invoiceEditorShareArmed, invoiceLandingOpensSend } from '../lib/invoiceFromJobBill';
 import { clearJobInvoiceCreateHold } from '../lib/jobInvoiceCreateHold';
 import { quoteClientDetailFromClient, visibleClientContacts } from '../lib/clientRecords';
-import { EMAIL_SETTINGS_CLIENT_COLUMNS } from '../lib/emailSmtpClient';
+import { loadBrowserEmailSettings } from '../lib/emailSmtpClient';
 import { invoiceSendCompanyFrom, isSmtpReady, type SmtpSettingsRow } from '../lib/sendInvoice';
 import {
   commercialPdfCompanyFrom,
@@ -184,15 +184,7 @@ export function InvoicesPage() {
 
   const { data: smtpSettings } = useQuery<SmtpSettingsRow | null>({
     queryKey: ['email-settings', profile?.company_id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('email_settings')
-        .select(EMAIL_SETTINGS_CLIENT_COLUMNS)
-        .eq('company_id', profile!.company_id)
-        .maybeSingle();
-      if (error) throw error;
-      return (data as SmtpSettingsRow) ?? null;
-    },
+    queryFn: async () => loadBrowserEmailSettings(supabase, profile!.company_id) as Promise<SmtpSettingsRow | null>,
     enabled: !!profile?.company_id,
   });
   const smtpReady = smtpSettings === undefined ? null : isSmtpReady(smtpSettings);

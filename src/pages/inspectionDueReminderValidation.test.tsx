@@ -11,6 +11,7 @@ import { FIELD_AU_PHONE, FIELD_EMAIL } from '../lib/fieldValidation';
 
 vi.mock('../lib/supabase', () => ({
   supabase: {
+    rpc: async () => ({ data: true, error: null }),
     from() {
       return {
         select() {
@@ -25,7 +26,6 @@ vi.mock('../lib/supabase', () => ({
                 maybeSingle: () => Promise.resolve({
                   data: {
                     smtp_host: 'smtp.resend.com',
-                    smtp_pass: 'x',
                     from_name: 'Co',
                     from_email: 'quotes@co.com.au',
                   },

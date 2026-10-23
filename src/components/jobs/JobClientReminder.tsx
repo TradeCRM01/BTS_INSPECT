@@ -5,7 +5,7 @@ import { Mail, MoreHorizontal, Phone, User } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../ui';
 import type { Client, Job } from '../../types/crm';
-import { EMAIL_SETTINGS_CLIENT_COLUMNS } from '../../lib/emailSmtpClient';
+import { loadBrowserEmailSettings } from '../../lib/emailSmtpClient';
 import {
   ARRIVING_NEXT_LABEL,
   decideArrivingSend,
@@ -131,15 +131,7 @@ export const JobClientReminder = forwardRef<JobClientReminderHandle, {
 
   const { data: settings, isFetched: settingsFetched } = useQuery<ReminderEmailSettings | null>({
     queryKey: ['email-settings', companyId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('email_settings')
-        .select(EMAIL_SETTINGS_CLIENT_COLUMNS)
-        .eq('company_id', companyId)
-        .maybeSingle();
-      if (error) throw error;
-      return (data as ReminderEmailSettings) ?? null;
-    },
+    queryFn: async () => loadBrowserEmailSettings(supabase, companyId) as Promise<ReminderEmailSettings | null>,
     enabled: !!companyId,
   });
 

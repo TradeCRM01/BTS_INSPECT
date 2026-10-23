@@ -15,6 +15,7 @@ import {
   type QuoteSendCompany,
 } from './sendQuote';
 import { type SmtpSettingsRow } from './sendInvoice';
+import { fetchEmailSmtpReady, withEmailSmtpReady } from './emailSmtpClient';
 import { formatEmailAndSmsMessage, type SmsSendResult } from './jobReminder';
 import { generateCommercialPdf } from '../reports/commercial/generateCommercialPdf';
 import {
@@ -50,7 +51,7 @@ export async function loadQuoteSendBundle(
   const jobScope = quoteSendJobQuery(quote?.job_id);
   const smtpScope = scopes.smtp;
 
-  const [clientRes, jobRes, smtpRes] = await Promise.all([
+  const [clientRes, jobRes, smtpRes, smtpReady] = await Promise.all([
     clientScope
       ? applyQuoteSendScope(supabase.from(clientScope.table), clientScope).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -58,6 +59,7 @@ export async function loadQuoteSendBundle(
       ? applyQuoteSendScope(supabase.from(jobScope.table), jobScope).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
     applyQuoteSendScope(supabase.from(smtpScope.table), smtpScope).maybeSingle(),
+    fetchEmailSmtpReady(supabase),
   ]);
   if (clientRes.error) throw clientRes.error;
   if (jobRes.error) throw jobRes.error;
@@ -72,7 +74,7 @@ export async function loadQuoteSendBundle(
     quote,
     client: (clientRes.data ?? null) as QuoteSendBundle['client'],
     jobAddress: (jobRes.data as { address?: string | null } | null)?.address ?? null,
-    smtp: (smtpRes.data ?? null) as SmtpSettingsRow | null,
+    smtp: withEmailSmtpReady((smtpRes.data ?? null) as SmtpSettingsRow | null, smtpReady),
     company,
     priceBookCodesByItemId,
   };

@@ -1083,7 +1083,9 @@ export function CompanySettingsPage() {
     if (secretDraft) payload[smtpSecretColumn()] = secretDraft;
     const { error } = await supabase
       .from('email_settings')
-      .upsert(payload, { onConflict: 'company_id' });
+      .upsert(payload, { onConflict: 'company_id' })
+      .select(EMAIL_SETTINGS_PUBLIC_COLUMNS)
+      .maybeSingle();
 
     if (error) {
       setEmailError(fieldSaveMiss(error));

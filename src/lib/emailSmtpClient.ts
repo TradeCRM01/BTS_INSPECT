@@ -36,3 +36,46 @@ export function emailSettingsPublicSelect(select: string | null | undefined): bo
   if (!cols.trim() || cols.includes('*')) return false;
   return !cols.split(',').map((part) => part.trim()).includes(smtpSecretColumn());
 }
+
+type SmtpRpcResult = Promise<{ data: unknown; error: { message?: string } | null }>;
+
+export async function fetchEmailSmtpReady(client: {
+  rpc: (fn: string) => SmtpRpcResult;
+}): Promise<boolean> {
+  const { data, error } = await client.rpc(EMAIL_SMTP_READY_RPC);
+  if (error) throw error;
+  return data === true;
+}
+
+export function withEmailSmtpReady<T extends Record<string, unknown> | null>(
+  row: T,
+  ready: boolean,
+): (T & { ready: boolean }) | null {
+  if (!row && !ready) return null;
+  return { ...(row ?? {} as T), ready };
+}
+
+export async function loadBrowserEmailSettings(
+  client: {
+    rpc: (fn: string) => SmtpRpcResult;
+    from: (table: string) => {
+      select: (columns: string) => {
+        eq: (column: string, value: string) => {
+          maybeSingle: () => Promise<{ data: unknown; error: { message?: string } | null }>;
+        };
+      };
+    };
+  },
+  companyId: string,
+): Promise<(Record<string, unknown> & { ready: boolean }) | null> {
+  const [rowRes, ready] = await Promise.all([
+    client
+      .from('email_settings')
+      .select(EMAIL_SETTINGS_CLIENT_COLUMNS)
+      .eq('company_id', companyId)
+      .maybeSingle(),
+    fetchEmailSmtpReady(client),
+  ]);
+  if (rowRes.error) throw rowRes.error;
+  return withEmailSmtpReady((rowRes.data ?? null) as Record<string, unknown> | null, ready);
+}
