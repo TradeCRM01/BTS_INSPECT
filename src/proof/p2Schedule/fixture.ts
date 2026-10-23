@@ -370,22 +370,22 @@ export const MALFORMED_CREW_JOBS: readonly Row[] = [
   job({
     id: JOB_IDS.crewListNum,
     job_number: 210,
-    title: 'Crew as [1]',
+    title: 'Crew as null',
     client_id: C.priya,
     scheduled_date: '2026-10-22',
     start_time: '08:00:00',
     end_time: '09:00:00',
-    assigned_team: [1],
+    assigned_team: null,
   }),
   job({
     id: JOB_IDS.crewListObj,
     job_number: 211,
-    title: 'Crew as [{}]',
+    title: 'Crew as whitespace',
     client_id: C.luke,
     scheduled_date: '2026-10-23',
     start_time: '08:00:00',
     end_time: '09:00:00',
-    assigned_team: [{}],
+    assigned_team: [' '],
   }),
 ];
 
