@@ -21,12 +21,13 @@ export function isFinishedCrewStatus(status: string | null | undefined): boolean
   return status === 'completed' || status === 'Done' || status === 'cancelled';
 }
 
-export function needsCrew(job: CrewNeedJob): boolean {
+export function needsCrew(job: CrewNeedJob | null | undefined): boolean {
+  if (job == null) return false;
   if (!scheduledDateText(job.scheduled_date)) return false;
   if (isFinishedCrewStatus(job.status)) return false;
   return assignedTeamIds(job.assigned_team).length === 0;
 }
 
-export function countNeedsCrew(jobs: readonly CrewNeedJob[]): number {
+export function countNeedsCrew(jobs: readonly (CrewNeedJob | null | undefined)[]): number {
   return jobs.filter(needsCrew).length;
 }

@@ -125,19 +125,19 @@ export function TodayBoardView({
               {showCompany && companyName ? (
                 <>
                   <span className="today-seg is-company">{companyName}</span>
-                  {jobLine ? ' · ' : null}
+                  {jobLine ? <span className="today-sep" aria-hidden> · </span> : null}
                 </>
               ) : null}
               {jobLine ? <span className="today-seg">{jobLine}</span> : null}
               {crewLine ? (
                 <>
-                  {' · '}
+                  <span className="today-sep" aria-hidden> · </span>
                   <span className="today-seg">{crewLine}</span>
                 </>
               ) : null}
               {!jobsLoading ? (
                 <>
-                  {jobLine || crewLine ? ' · ' : null}
+                  {jobLine || crewLine ? <span className="today-sep" aria-hidden> · </span> : null}
                   <span className="today-seg" data-need-crew-count={needCrewCount}>
                     {todayWhisperNeedCrew(needCrewCount)}
                   </span>
@@ -196,7 +196,7 @@ export function TodayBoardView({
           onRetry={onRetryJobs}
           showPlace={showPlace}
         />
-        <NeedsSection nudges={nudges} />
+        <NeedsSection nudges={nudges} band={band} />
       </div>
 
       {band !== 'p' && (
@@ -259,7 +259,7 @@ function NowSection({
         <p className="today-now-meta">
           {meta.map((part, i) => (
             <Fragment key={`${job.id}-now-${i}`}>
-              {i > 0 ? ' · ' : null}
+              {i > 0 ? <span className="today-sep" aria-hidden> · </span> : null}
               <span className="today-seg">{part}</span>
             </Fragment>
           ))}
@@ -494,9 +494,10 @@ function JobsSection({
                       <span className="today-job-title">{job.title}</span>
                       <p className="today-job-meta">
                         {meta.map((part, i) => (
-                          <span key={`${job.id}-m-${i}`} className="today-seg">
-                            {part}{i < meta.length - 1 ? ' · ' : ''}
-                          </span>
+                          <Fragment key={`${job.id}-m-${i}`}>
+                            {i > 0 ? <span className="today-sep" aria-hidden> · </span> : null}
+                            <span className="today-seg">{part}</span>
+                          </Fragment>
                         ))}
                       </p>
                       {band === 'p' ? (
@@ -508,7 +509,7 @@ function JobsSection({
                     </Link>
                   </td>
                   {showPlace ? (
-                    <td className="today-job-meta today-job-place">{dashboardJobPlace(job)}</td>
+                    <td className="today-job-place">{dashboardJobPlace(job)}</td>
                   ) : null}
                   {band !== 'p' ? (
                     <td className="is-status" data-crew-schedule={pill.kind}>
@@ -531,12 +532,12 @@ function JobsSection({
   );
 }
 
-function NeedsSection({ nudges }: { nudges: TodayNudge[] }) {
+function NeedsSection({ nudges, band }: { nudges: TodayNudge[]; band: TodayBand }) {
   return (
     <section className="today-sec today-needs" data-today-section="s11" aria-labelledby="today-needs-h">
       <div className="today-sec-h">
         <h2 id="today-needs-h">Needs you</h2>
-        {nudges.length > 0 ? (
+        {nudges.length > 0 && band !== 'p' ? (
           <span className="today-count" aria-label={`${nudges.length} items`}>{nudges.length}</span>
         ) : null}
       </div>

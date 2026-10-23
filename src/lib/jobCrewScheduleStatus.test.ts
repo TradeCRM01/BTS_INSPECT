@@ -7,6 +7,7 @@ import {
   JOB_CREW_SCHEDULE_DONE,
   JOB_CREW_SCHEDULE_NEEDS_CREW,
   JOB_CREW_SCHEDULE_NO_DATE,
+  JOB_CREW_SCHEDULE_UNKNOWN,
   jobCrewScheduleStatus,
 } from './jobCrewScheduleStatus';
 
@@ -71,6 +72,50 @@ describe('jobCrewScheduleStatus', () => {
       label: JOB_CREW_SCHEDULE_NEEDS_CREW,
       kind: 'needs_crew',
     });
+  });
+
+  it('never throws, and empty, non-string, or raw SCHEDULED/booked never paint Scheduled or Booked', () => {
+    const crewed = ['dave'];
+    expect(() => jobCrewScheduleStatus(5, '2026-10-19', crewed)).not.toThrow();
+    expect(() => jobCrewScheduleStatus(null, '2026-10-19', crewed)).not.toThrow();
+    expect(jobCrewScheduleStatus('', '2026-10-19', crewed)).toEqual({
+      label: JOB_CREW_SCHEDULE_UNKNOWN,
+      kind: 'unknown',
+    });
+    expect(jobCrewScheduleStatus('   ', '2026-10-19', crewed)).toEqual({
+      label: JOB_CREW_SCHEDULE_UNKNOWN,
+      kind: 'unknown',
+    });
+    expect(jobCrewScheduleStatus(null, '2026-10-19', crewed)).toEqual({
+      label: JOB_CREW_SCHEDULE_UNKNOWN,
+      kind: 'unknown',
+    });
+    expect(jobCrewScheduleStatus(5, '2026-10-19', crewed)).toEqual({
+      label: JOB_CREW_SCHEDULE_UNKNOWN,
+      kind: 'unknown',
+    });
+    expect(jobCrewScheduleStatus('SCHEDULED', '2026-10-19', crewed)).toEqual({
+      label: JOB_CREW_SCHEDULE_UNKNOWN,
+      kind: 'unknown',
+    });
+    expect(jobCrewScheduleStatus('booked', '2026-10-19', crewed)).toEqual({
+      label: JOB_CREW_SCHEDULE_UNKNOWN,
+      kind: 'unknown',
+    });
+    expect(jobCrewScheduleStatus('', '2026-10-19', [])).toEqual({
+      label: JOB_CREW_SCHEDULE_NEEDS_CREW,
+      kind: 'needs_crew',
+    });
+    expect(jobCrewScheduleStatus('SCHEDULED', '2026-10-19', [])).toEqual({
+      label: JOB_CREW_SCHEDULE_NEEDS_CREW,
+      kind: 'needs_crew',
+    });
+    for (const status of ['', '  ', null, undefined, 5, 'SCHEDULED', 'booked'] as const) {
+      const pill = jobCrewScheduleStatus(status, '2026-10-19', crewed);
+      expect(pill.label).not.toBe(JOB_CREW_SCHEDULE_BOOKED);
+      expect(pill.label).not.toBe('Scheduled');
+      expect(pill.kind).not.toBe('booked');
+    }
   });
 });
 

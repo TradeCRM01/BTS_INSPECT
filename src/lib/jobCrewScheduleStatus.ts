@@ -6,6 +6,7 @@ export const JOB_CREW_SCHEDULE_NO_DATE = 'No date';
 export const JOB_CREW_SCHEDULE_IN_PROGRESS = 'In progress';
 export const JOB_CREW_SCHEDULE_DONE = 'Done';
 export const JOB_CREW_SCHEDULE_CANCELLED = 'Cancelled';
+export const JOB_CREW_SCHEDULE_UNKNOWN = 'Unknown';
 
 export type JobCrewScheduleKind =
   | 'needs_crew'
@@ -31,9 +32,22 @@ export function jobCrewMemberCount(assignedTeam: unknown): number {
   return assignedTeamIds(assignedTeam).length;
 }
 
+function unknownStatusPill(status: unknown): JobCrewScheduleStatus {
+  if (typeof status === 'string') {
+    const raw = status.trim();
+    if (raw) {
+      const label = sentenceCaseStatus(raw);
+      if (label && label !== JOB_CREW_SCHEDULE_BOOKED && label !== 'Scheduled') {
+        return { label, kind: 'unknown' };
+      }
+    }
+  }
+  return { label: JOB_CREW_SCHEDULE_UNKNOWN, kind: 'unknown' };
+}
+
 export function jobCrewScheduleStatus(
-  status: string | null | undefined,
-  scheduledDate: string | null | undefined,
+  status: unknown,
+  scheduledDate: unknown,
   assignedTeam: unknown,
 ): JobCrewScheduleStatus {
   if (status === 'completed' || status === 'Done') {
@@ -46,7 +60,11 @@ export function jobCrewScheduleStatus(
   if (!hasDate) {
     return { label: JOB_CREW_SCHEDULE_NO_DATE, kind: 'no_date' };
   }
-  if (needsCrew({ status, scheduled_date: scheduledDate, assigned_team: assignedTeam })) {
+  if (needsCrew({
+    status: typeof status === 'string' ? status : undefined,
+    scheduled_date: scheduledDate,
+    assigned_team: assignedTeam,
+  })) {
     return { label: JOB_CREW_SCHEDULE_NEEDS_CREW, kind: 'needs_crew' };
   }
   if (status === 'in_progress') {
@@ -55,11 +73,7 @@ export function jobCrewScheduleStatus(
   if (status === 'scheduled') {
     return { label: JOB_CREW_SCHEDULE_BOOKED, kind: 'booked' };
   }
-  const raw = (status ?? '').trim();
-  if (!raw) {
-    return { label: JOB_CREW_SCHEDULE_BOOKED, kind: 'booked' };
-  }
-  return { label: sentenceCaseStatus(raw), kind: 'unknown' };
+  return unknownStatusPill(status);
 }
 
 export function jobCrewScheduleNeedsCrewClass(kind: JobCrewScheduleKind): string {

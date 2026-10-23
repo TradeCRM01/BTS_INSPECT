@@ -7,7 +7,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { DashboardTodayJob } from '../lib/dashboardHome';
 import { JOB_CREW_SCHEDULE_NEEDS_CREW } from '../lib/jobCrewScheduleStatus';
-import { countNeedsCrew, isFinishedCrewStatus } from '../lib/needCrew';
+import { countNeedsCrew } from '../lib/needCrew';
 import { TodayBoardView } from './TodayBoardView';
 
 const now = new Date(2026, 9, 19, 13, 40, 0);
@@ -103,15 +103,5 @@ describe('needCrew malformed assigned_team', () => {
     expect(pills).toHaveLength(MALFORMED.length);
     expect(pills.every(pill => (pill.textContent ?? '').includes(JOB_CREW_SCHEDULE_NEEDS_CREW))).toBe(true);
     expect(container.textContent).not.toMatch(/\bScheduled\b/);
-  });
-
-  it('mutant: restoring the assigned_team throw goes red on the no-throw kill', () => {
-    function needsCrewThrowing(job: DashboardTodayJob): boolean {
-      if (!(job.scheduled_date ?? '').trim()) return false;
-      if (isFinishedCrewStatus(job.status)) return false;
-      return (job.assigned_team ?? []).every(id => !id?.trim());
-    }
-    const jobs = malformedJobs();
-    expect(() => jobs.filter(needsCrewThrowing).length).toThrow();
   });
 });

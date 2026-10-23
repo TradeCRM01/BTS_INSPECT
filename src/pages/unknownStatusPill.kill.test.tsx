@@ -9,7 +9,6 @@ import type { DashboardTodayJob } from '../lib/dashboardHome';
 import {
   JOB_CREW_SCHEDULE_BOOKED,
   JOB_CREW_SCHEDULE_NEEDS_CREW,
-  jobCrewScheduleStatus,
 } from '../lib/jobCrewScheduleStatus';
 import { countNeedsCrew } from '../lib/needCrew';
 import { TodayBoardView } from './TodayBoardView';
@@ -88,28 +87,6 @@ function pillFor(jobId: string): HTMLElement {
   return pill as HTMLElement;
 }
 
-function bookedFallthrough(
-  status: string | null | undefined,
-  scheduledDate: string | null | undefined,
-  assignedTeam: unknown,
-) {
-  const live = jobCrewScheduleStatus(status, scheduledDate, assignedTeam);
-  if (live.kind === 'needs_crew' || live.kind === 'no_date' || live.kind === 'done' || live.kind === 'cancelled' || live.kind === 'in_progress') {
-    return live;
-  }
-  return { label: JOB_CREW_SCHEDULE_BOOKED, kind: 'booked' as const };
-}
-
-function scheduledUnknown(
-  status: string | null | undefined,
-  scheduledDate: string | null | undefined,
-  assignedTeam: unknown,
-) {
-  const live = jobCrewScheduleStatus(status, scheduledDate, assignedTeam);
-  if (status === 'quoted') return { label: 'Scheduled', kind: 'booked' as const };
-  return live;
-}
-
 describe('unknown status pill', () => {
   it('renders Needs crew for a dated crewless unknown status, never Scheduled or Booked', () => {
     const jobs = [job({ id: 'quoted-empty', title: 'Quoted no crew', assigned_team: [] })];
@@ -143,19 +120,5 @@ describe('unknown status pill', () => {
     expect(pillFor('await-crew').textContent).toContain('Awaiting parts');
     expect(pillFor('await-crew').textContent).not.toContain(JOB_CREW_SCHEDULE_BOOKED);
     expect(pillFor('await-empty').textContent).toContain(JOB_CREW_SCHEDULE_NEEDS_CREW);
-  });
-
-  it('mutant: unknown dated+crew falling through to Booked goes red', () => {
-    const mutant = bookedFallthrough('quoted', '2026-10-19', ['dave']);
-    expect(mutant.label).toBe(JOB_CREW_SCHEDULE_BOOKED);
-    expect(mutant.label).not.toBe('Quoted');
-    expect(jobCrewScheduleStatus('quoted', '2026-10-19', ['dave']).label).toBe('Quoted');
-  });
-
-  it('mutant: unknown dated+crewless mapped to Scheduled goes red', () => {
-    const mutant = scheduledUnknown('quoted', '2026-10-19', []);
-    expect(mutant.label).toBe('Scheduled');
-    expect(mutant.label).not.toBe(JOB_CREW_SCHEDULE_NEEDS_CREW);
-    expect(jobCrewScheduleStatus('quoted', '2026-10-19', []).label).toBe(JOB_CREW_SCHEDULE_NEEDS_CREW);
   });
 });

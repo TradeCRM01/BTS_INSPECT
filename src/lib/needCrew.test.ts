@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { jobsListPhoneRow } from './jobsListRow';
 import { JOB_CREW_SCHEDULE_NO_DATE, jobCrewScheduleStatus } from './jobCrewScheduleStatus';
-import { assignedTeamIds, countNeedsCrew, isFinishedCrewStatus, needsCrew } from './needCrew';
+import { assignedTeamIds, countNeedsCrew, needsCrew } from './needCrew';
 
 describe('needsCrew', () => {
   it('requires crew only for unfinished scheduled or in-progress jobs with no assigned member', () => {
@@ -50,6 +50,21 @@ describe('needsCrew', () => {
     expect(countNeedsCrew([undatedScheduled, undatedProgress, datedOpen])).toBe(1);
   });
 
+  it('treats a missing job as not needing crew and skips it in counts', () => {
+    expect(needsCrew(null)).toBe(false);
+    expect(needsCrew(undefined)).toBe(false);
+    expect(() => needsCrew(null)).not.toThrow();
+    expect(() => needsCrew(undefined)).not.toThrow();
+    expect(() => countNeedsCrew([null])).not.toThrow();
+    expect(countNeedsCrew([null])).toBe(0);
+    expect(countNeedsCrew([undefined])).toBe(0);
+    expect(countNeedsCrew([
+      null,
+      undefined,
+      { status: 'scheduled', scheduled_date: '2026-10-19', assigned_team: [] },
+    ])).toBe(1);
+  });
+
   it('treats null, a non-array, a non-string entry, and whitespace-only as no crew', () => {
     const dated = { status: 'scheduled' as const, scheduled_date: '2026-10-19' };
     expect(assignedTeamIds(null)).toEqual([]);
@@ -66,28 +81,6 @@ describe('needsCrew', () => {
       { ...dated, assigned_team: [1] },
       { ...dated, assigned_team: ['   '] },
     ])).toBe(4);
-  });
-
-  it('mutant: restoring the assigned_team throw throws on a non-array', () => {
-    function needsCrewThrowing(job: {
-      status?: string | null;
-      scheduled_date?: string | null;
-      assigned_team?: string[] | null;
-    }): boolean {
-      if (!(job.scheduled_date ?? '').trim()) return false;
-      if (isFinishedCrewStatus(job.status)) return false;
-      return (job.assigned_team ?? []).every(id => !id?.trim());
-    }
-    expect(() => needsCrewThrowing({
-      status: 'scheduled',
-      scheduled_date: '2026-10-19',
-      assigned_team: 'dave' as unknown as string[],
-    })).toThrow();
-    expect(() => needsCrew({
-      status: 'scheduled',
-      scheduled_date: '2026-10-19',
-      assigned_team: 'dave',
-    })).not.toThrow();
   });
 
   it('treats a non-string scheduled_date as no date and never throws', () => {

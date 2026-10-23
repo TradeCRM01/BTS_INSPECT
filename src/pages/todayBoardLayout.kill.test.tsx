@@ -19,6 +19,13 @@ describe('P1b Today board layout', () => {
     expect(src).toContain('C7 painted: overdue is plain warn text');
     expect(src).toContain('P1b-table-rects: 1280 row height, column x, and Needs you chevron share a line');
     expect(src).toContain('P1b-phone-meta: 390 meta sits under the title, not in the time column');
+    expect(src).toContain('P1b-sep-baseline: · centre y is within 2px of the text centre at 390 and 1280');
+    expect(src).toContain('P1b-place-cell: 1280 Place is row-tall, row-centred, and has no mid-row hairline');
+    expect(src).toContain('P1b-phone-place: 390 meta shows place, not the client, and no · starts or ends a line');
+    expect(src).toContain('P1b-needs-count: 390 hides the Needs you count and keeps the list uncapped');
+    expect(src).toContain('P1b-query-need-crew: non-look fixture paints the dated crewless count');
+    expect(src).toContain('P1b-query-cash-out: non-look fixture Out excludes wages and super');
+    expect(src).toContain('P1b-query-outstanding: non-look fixture outstanding is company-scoped');
     expect(src).not.toContain("expect(ids).toEqual(['s1', 's2', 's3', 's4', 's6', 's10', 's11', 's13', 's14', 's15', 's12'])");
   });
 });

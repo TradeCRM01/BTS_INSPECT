@@ -62,6 +62,7 @@ type KillPage = {
     animations?: 'disabled' | 'allow';
     clip?: { x: number; y: number; width: number; height: number };
   }) => Promise<Buffer>;
+  addInitScript: (fn: () => void) => Promise<void>;
   context: () => { newCDPSession: (page: KillPage) => Promise<KillCDP> };
   close: () => Promise<void>;
 };
@@ -285,8 +286,8 @@ const JOBS_NEEDS_SRC = `        <JobsSection
           onRetry={onRetryJobs}
           showPlace={showPlace}
         />
-        <NeedsSection nudges={nudges} />`;
-const NEEDS_JOBS_SRC = `        <NeedsSection nudges={nudges} />
+        <NeedsSection nudges={nudges} band={band} />`;
+const NEEDS_JOBS_SRC = `        <NeedsSection nudges={nudges} band={band} />
         <JobsSection
           jobs={jobs}
           team={team}
@@ -353,6 +354,19 @@ async function openLookDist(origin: string, width: number, path = '/?look=dashbo
   const phone = width <= 430;
   const page = await browser.newPage({
     viewport: { width, height: phone ? 2000 : 1600 },
+  });
+  await page.addInitScript(() => {
+    const Real = Date;
+    const ms = Date.parse('2026-10-19T03:40:00.000Z');
+    function FrozenDate(this: Date) {
+      if (arguments.length === 0) return new Real(ms);
+      return new (Function.prototype.bind.apply(Real, [null].concat([].slice.call(arguments))))();
+    }
+    FrozenDate.now = function () { return ms; };
+    FrozenDate.parse = Real.parse;
+    FrozenDate.UTC = Real.UTC;
+    FrozenDate.prototype = Real.prototype;
+    (window as unknown as { Date: DateConstructor }).Date = FrozenDate as unknown as DateConstructor;
   });
   await page.goto(`${origin}${path}`);
   await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 25000 });
@@ -501,6 +515,65 @@ async function sampleClipCenter(page: KillPage, clip: { x: number; y: number; wi
     ctx.drawImage(img, 0, 0);
     const px = ctx.getImageData(Math.floor(img.width / 2), Math.floor(img.height / 2), 1, 1).data;
     return { r: px[0], g: px[1], b: px[2] };
+  }, buf.toString('base64'));
+}
+
+async function waitForSectionText(page: KillPage, section: string, needle: string): Promise<string> {
+  const started = Date.now();
+  let text = '';
+  while (Date.now() - started < 20000) {
+    text = await page.evaluate(((id: string) => (
+      document.querySelector(`[data-today-section="${id}"]`)?.textContent || ''
+    )) as never, section as never);
+    if (text.includes(needle)) return text;
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+  throw new Error(`section ${section} never showed ${needle}: ${text}`);
+}
+
+async function samplePaintedTextOnFill(page: KillPage, clip: { x: number; y: number; width: number; height: number }) {
+  const safe = {
+    x: Math.max(0, Math.floor(clip.x)),
+    y: Math.max(0, Math.floor(clip.y)),
+    width: Math.max(4, Math.ceil(clip.width)),
+    height: Math.max(4, Math.ceil(clip.height)),
+  };
+  const buf = await page.screenshot({ type: 'png', clip: safe, animations: 'disabled' });
+  return page.evaluate(async (b64: string) => {
+    const img = new Image();
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = reject;
+      img.src = `data:image/png;base64,${b64}`;
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('no canvas');
+    ctx.drawImage(img, 0, 0);
+    const data = ctx.getImageData(0, 0, img.width, img.height).data;
+    const counts = new Map<string, { r: number; g: number; b: number; n: number }>();
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] < 80) continue;
+      const r = data[i] & ~7;
+      const g = data[i + 1] & ~7;
+      const b = data[i + 2] & ~7;
+      const key = `${r},${g},${b}`;
+      const cur = counts.get(key);
+      if (cur) cur.n += 1;
+      else counts.set(key, { r, g, b, n: 1 });
+    }
+    const ranked = [...counts.values()].sort((a, b) => b.n - a.n);
+    const fill = ranked[0] ?? { r: 0, g: 0, b: 0, n: 0 };
+    const dist = (c: { r: number; g: number; b: number }) => {
+      const dr = c.r - fill.r;
+      const dg = c.g - fill.g;
+      const db = c.b - fill.b;
+      return dr * dr + dg * dg + db * db;
+    };
+    const text = ranked.filter(c => c.n >= 3 && dist(c) > 900).sort((a, b) => dist(b) - dist(a))[0] ?? fill;
+    return { fill: { r: fill.r, g: fill.g, b: fill.b }, text: { r: text.r, g: text.g, b: text.b } };
   }, buf.toString('base64'));
 }
 
@@ -2764,30 +2837,21 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       eq?.scrollIntoView({ block: 'center' });
       const read = (el: Element | undefined) => {
         if (!el) return null;
-        const cs = getComputedStyle(el as HTMLElement);
         const r = el.getBoundingClientRect();
-        return { fg: cs.color, bg: cs.backgroundColor, x: r.x, y: r.y, width: r.width, height: r.height };
+        return { day: today, x: r.x, y: r.y, width: r.width, height: r.height };
       };
       return { cell: read(cell), eq: read(eq) };
     });
     expect(box.cell, 'calendar today painted').toBeTruthy();
+    expect(box.cell?.day, 'frozen clock is the 19th').toBe('19');
     expect(box.eq, 'calculator equals painted').toBeTruthy();
-    const parseRgb = (value: string) => {
-      const m = value.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
-      if (!m) return { r: 0, g: 0, b: 0 };
-      return { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]) };
-    };
     for (const node of [box.cell, box.eq]) {
       if (!node) continue;
-      const computed = contrastRgb(parseRgb(node.fg), parseRgb(node.bg));
-      const pix = await sampleClipCenter(page, {
-        x: Math.max(0, node.x + 1),
-        y: Math.max(0, node.y + 1),
-        width: 2,
-        height: 2,
-      });
-      expect(computed, `computed ${node.fg} on ${node.bg}`).toBeGreaterThanOrEqual(4.5);
-      expect(contrastRgb(parseRgb(node.fg), pix), 'painted fill vs painted text').toBeGreaterThanOrEqual(4.5);
+      const painted = await samplePaintedTextOnFill(page, node);
+      expect(
+        contrastRgb(painted.text, painted.fill),
+        `painted text (${painted.text.r},${painted.text.g},${painted.text.b}) on fill (${painted.fill.r},${painted.fill.g},${painted.fill.b})`,
+      ).toBeGreaterThanOrEqual(4.5);
     }
     await page.close();
   }, 120000);
@@ -3052,5 +3116,158 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     expect(pair[1].width).toBeGreaterThanOrEqual(8);
     expect(pair[1].x).toBeGreaterThan(pair[0].x);
     expect(pair[1].x - (pair[0].x + pair[0].width)).toBeLessThan(16);
+  }, 120000);
+
+  it('P1b-sep-baseline: · centre y is within 2px of the text centre at 390 and 1280', async () => {
+    for (const width of [390, 1280] as const) {
+      const page = await openLookDist(lookOrigin, width);
+      await page.waitForSelector('.today-sep', { timeout: 20000 });
+      const box = await page.evaluate(() => {
+        const read = (root: Element | null) => {
+          const sep = root?.querySelector('.today-sep') as HTMLElement | null;
+          const seg = root?.querySelector('.today-seg') as HTMLElement | null;
+          if (!sep || !seg) return null;
+          const sr = sep.getBoundingClientRect();
+          const tr = seg.getBoundingClientRect();
+          return {
+            sepCy: (sr.top + sr.bottom) / 2,
+            textCy: (tr.top + tr.bottom) / 2,
+          };
+        };
+        return {
+          sub: read(document.querySelector('.today-sub')),
+          meta: read(document.querySelector('.today-job-meta')),
+        };
+      });
+      await page.close();
+      expect(box.sub, `${width} header sep`).toBeTruthy();
+      expect(Math.abs((box.sub?.sepCy ?? 0) - (box.sub?.textCy ?? 0)), `${width} header · baseline`).toBeLessThanOrEqual(2);
+      expect(box.meta, `${width} row sep`).toBeTruthy();
+      expect(Math.abs((box.meta?.sepCy ?? 0) - (box.meta?.textCy ?? 0)), `${width} row · baseline`).toBeLessThanOrEqual(2);
+    }
+  }, 120000);
+
+  it('P1b-place-cell: 1280 Place is row-tall, row-centred, and has no mid-row hairline', async () => {
+    const page = await openLookDist(lookOrigin, 1280);
+    await page.waitForSelector('.today-job-place', { timeout: 20000 });
+    const box = await page.evaluate(() => {
+      const row = document.querySelector('.today-jobs[data-today-band="d"] .today-job-row') as HTMLElement | null;
+      const place = row?.querySelector('.today-job-place') as HTMLElement | null;
+      const rr = row?.getBoundingClientRect();
+      const pr = place?.getBoundingClientRect();
+      return {
+        rowH: rr?.height ?? 0,
+        placeH: pr?.height ?? 0,
+        rowCy: rr ? (rr.top + rr.bottom) / 2 : 0,
+        placeCy: pr ? (pr.top + pr.bottom) / 2 : 0,
+        rowBottom: rr?.bottom ?? 0,
+        placeBottom: pr?.bottom ?? 0,
+        display: place ? getComputedStyle(place).display : '',
+      };
+    });
+    await page.close();
+    expect(box.display, 'Place stays a table cell').toBe('table-cell');
+    expect(Math.abs(box.placeH - box.rowH), 'Place matches row height').toBeLessThanOrEqual(2);
+    expect(Math.abs(box.placeCy - box.rowCy), 'Place is row-centred').toBeLessThanOrEqual(2);
+    expect(Math.abs(box.placeBottom - box.rowBottom), 'no mid-row Place hairline').toBeLessThanOrEqual(2);
+  }, 120000);
+
+  it('P1b-phone-place: 390 meta shows place, not the client, and no · starts or ends a line', async () => {
+    const page = await openLookDist(lookOrigin, 390);
+    await page.waitForSelector('.today-job-meta', { timeout: 20000 });
+    const box = await page.evaluate(() => {
+      const meta = document.querySelector('.today-job-row .today-job-meta') as HTMLElement | null;
+      const text = (meta?.textContent || '').replace(/\s+/g, ' ').trim();
+      const dangling = (() => {
+        if (!meta) return true;
+        const items: Array<{ y: number; x: number; right: number; sep: boolean }> = [];
+        const walker = document.createTreeWalker(meta, NodeFilter.SHOW_TEXT);
+        let node = walker.nextNode();
+        while (node) {
+          const raw = node.textContent || '';
+          if (!raw.trim()) {
+            node = walker.nextNode();
+            continue;
+          }
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          for (const r of [...range.getClientRects()]) {
+            if (r.width < 1 || r.height < 1) continue;
+            items.push({
+              y: Math.round(r.top),
+              x: r.left,
+              right: r.right,
+              sep: raw.includes('·'),
+            });
+          }
+          node = walker.nextNode();
+        }
+        const byY = new Map<number, typeof items>();
+        for (const item of items) {
+          const band = [...byY.keys()].find(y => Math.abs(y - item.y) <= 2) ?? item.y;
+          const list = byY.get(band) ?? [];
+          list.push(item);
+          byY.set(band, list);
+        }
+        return [...byY.values()].some((line) => {
+          const ordered = [...line].sort((a, b) => a.x - b.x);
+          return ordered[0]?.sep || ordered[ordered.length - 1]?.sep;
+        });
+      })();
+      return { text, dangling };
+    });
+    await page.close();
+    expect(box.text).toMatch(/Perth/);
+    expect(box.text).not.toMatch(/Northside Electrical/);
+    expect(box.dangling, 'no · at the start or end of a line').toBe(false);
+  }, 120000);
+
+  it('P1b-needs-count: 390 hides the Needs you count and keeps the list uncapped', async () => {
+    const page = await openLookDist(lookOrigin, 390);
+    await page.waitForSelector('.today-needs', { timeout: 20000 });
+    const box = await page.evaluate(() => {
+      const count = document.querySelector('.today-needs .today-count') as HTMLElement | null;
+      const rows = document.querySelectorAll('.today-need-row');
+      return {
+        countShown: !!(count && getComputedStyle(count).display !== 'none'),
+        rows: rows.length,
+      };
+    });
+    await page.close();
+    expect(box.countShown, '390 Needs you has no count').toBe(false);
+    expect(box.rows, 'Needs you list stays uncapped').toBeGreaterThan(0);
+  }, 120000);
+
+  it('P1b-query-need-crew: non-look fixture paints the dated crewless count', async () => {
+    const page = await openPage({ width: 1280, js: dashJsNoProof, path: '/' });
+    await page.waitForSelector('[data-need-crew-count]', { timeout: 20000 });
+    const box = await page.evaluate(() => {
+      const el = document.querySelector('[data-need-crew-count]');
+      return {
+        count: el?.getAttribute('data-need-crew-count') || '',
+        text: el?.textContent || '',
+      };
+    });
+    await page.close();
+    expect(box.count, 'needs-you count from the Today query').toBe('4');
+    expect(box.text).toMatch(/4 need crew/);
+  }, 120000);
+
+  it('P1b-query-cash-out: non-look fixture Out excludes wages and super', async () => {
+    const page = await openPage({ width: 1280, js: dashJsNoProof, path: '/' });
+    await page.waitForSelector('[data-today-section="s14"]', { timeout: 20000 });
+    const text = await waitForSectionText(page, 's14', '1,862.75');
+    await page.close();
+    expect(text).toMatch(/1,862\.75/);
+    expect(text).not.toMatch(/4,052\.75/);
+  }, 120000);
+
+  it('P1b-query-outstanding: non-look fixture outstanding is company-scoped', async () => {
+    const page = await openPage({ width: 1280, js: dashJsNoProof, path: '/' });
+    await page.waitForSelector('[data-today-section="s6"]', { timeout: 20000 });
+    const text = await waitForSectionText(page, 's6', '3,579.65');
+    await page.close();
+    expect(text).toMatch(/3,579\.65/);
+    expect(text).not.toMatch(/8,579\.65/);
   }, 120000);
 });

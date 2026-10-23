@@ -79,11 +79,15 @@
 }
 
 .today-seg {
-  display: inline-block;
+  display: inline;
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.today-sep {
+  display: inline;
+  white-space: pre;
+  font: inherit;
+  line-height: inherit;
   vertical-align: baseline;
 }
 
@@ -561,6 +565,7 @@ button.today-btn-primary,
 }
 
 .today-job-meta,
+.today-job-place,
 .today-need-meta,
 .today-out-due,
 .today-coming-meta,
@@ -570,7 +575,7 @@ button.today-btn-primary,
   line-height: 20px;
 }
 
-.today-job-meta {
+p.today-job-meta {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -580,8 +585,9 @@ button.today-btn-primary,
   max-height: none;
 }
 
-.today-jobs[data-today-band="p"] .today-job-meta {
-  white-space: normal;
+.today-job-place {
+  display: table-cell;
+  vertical-align: middle;
 }
 
 .today-job-cell .today-job-meta {

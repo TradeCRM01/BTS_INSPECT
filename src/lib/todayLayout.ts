@@ -210,7 +210,7 @@ export function todayJobMeta(
   const client = (job.client_name ?? '').trim();
   const place = dashboardJobPlace(job);
   const crew = todayCrewMeta(job.assigned_team, members);
-  if (width < 640) return [ref, client, crew].filter(Boolean);
+  if (width < 640) return [ref, place, crew].filter(Boolean);
   if (width < 1200) return [ref, client, place, crew].filter(Boolean);
   return [ref, client, crew].filter(Boolean);
 }

@@ -124,14 +124,15 @@ describe('D7 pills and wording', () => {
     expect(TODAY_PILL_SET_DATE).toBe('Set a date');
   });
 
-  it('writes No crew yet in meta and keeps the client on the phone line', () => {
+  it('writes No crew yet in meta and keeps the place on the phone line', () => {
     expect(todayCrewMeta([], [])).toBe(TODAY_CREW_NONE);
     expect(todayJobMeta(job({
       id: 'row',
       job_number: 36,
       assigned_team: [],
       client_name: 'Stafford Bowls',
-    }), [], 390)).toEqual(['#0036', 'Stafford Bowls', TODAY_CREW_NONE]);
+      address: '12 Brooke St, Stafford QLD 4053',
+    }), [], 390)).toEqual(['#0036', 'Stafford', TODAY_CREW_NONE]);
     expect(todayCrewFirstNames(['dean'], [{ id: 'dean', name: 'Dean Hollis' }])).toBe('Dean');
     expect(todayCrewFirstNames(['dean', 'tom'], [
       { id: 'dean', name: 'Dean Hollis' },
