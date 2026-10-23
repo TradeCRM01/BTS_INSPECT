@@ -79,7 +79,7 @@ type KillBrowser = {
   close: () => Promise<void>;
 };
 
-const KILL_TZ = 'Australia/Brisbane';
+const KILL_TZ = process.env.TZ || 'Australia/Brisbane';
 const NOTE_TOM_ISO = '2026-10-19T07:40:00.000Z';
 const NOTE_DEAN_ISO = '2026-10-19T08:10:00.000Z';
 
@@ -1528,28 +1528,72 @@ describe('P3 look gate', () => {
 });
 
 describe('P3 r6 type, CTA contrast, hairlines', () => {
-  killIt('R6-1 seeded title wraps to two lines at 390', async () => {
-    const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
-    await waitSheet(page);
-    const read = await page.evaluate(() => {
-      const hero = document.querySelector('h1.hub-jobs-hero') as HTMLElement | null;
-      if (!hero) return { title: '', lines: 0, fontSize: 0 };
-      const range = document.createRange();
-      range.selectNodeContents(hero);
-      const tops = [...range.getClientRects()].map((box) => Math.round(box.top));
-      const lines = new Set(tops).size;
+  const readHeroType = () => {
+    const hero = document.querySelector('h1.hub-jobs-hero') as HTMLElement | null;
+    if (!hero) {
       return {
-        title: hero.textContent ?? '',
-        lines,
-        fontSize: parseFloat(getComputedStyle(hero).fontSize),
-        weight: getComputedStyle(hero).fontWeight,
+        title: '',
+        lines: 0,
+        fontSize: 0,
+        weight: '',
+        scrollHeight: 0,
+        clientHeight: 0,
+        scrollWidth: 0,
+        clientWidth: 0,
+        right: 0,
+        innerWidth: window.innerWidth,
       };
-    });
-    await page.close();
-    expect(read.title).toBe('Blocked sewer, CCTV inspection');
-    expect(read.fontSize).toBeGreaterThanOrEqual(32);
-    expect(Number(read.weight)).toBe(600);
-    expect(read.lines, 'mockup title wraps to two lines at 390').toBe(2);
+    }
+    const range = document.createRange();
+    range.selectNodeContents(hero);
+    const tops = [...range.getClientRects()].map((box) => Math.round(box.top));
+    const box = hero.getBoundingClientRect();
+    return {
+      title: hero.textContent ?? '',
+      lines: new Set(tops).size,
+      fontSize: parseFloat(getComputedStyle(hero).fontSize),
+      weight: getComputedStyle(hero).fontWeight,
+      scrollHeight: hero.scrollHeight,
+      clientHeight: hero.clientHeight,
+      scrollWidth: hero.scrollWidth,
+      clientWidth: hero.clientWidth,
+      right: box.right,
+      innerWidth: window.innerWidth,
+    };
+  };
+
+  killIt('R6-1 fixture title is one line at 375 and 390', async () => {
+    for (const width of [375, 390] as const) {
+      const page = await openPage({ width, path: '/jobs/p3-0036' });
+      await waitSheet(page);
+      const read = await page.evaluate(readHeroType);
+      await page.close();
+      expect(read.title).toBe('Blocked sewer, CCTV inspection');
+      expect(read.fontSize).toBe(24);
+      expect(Number(read.weight)).toBe(600);
+      expect(read.lines, `${width} fixture title lines`).toBe(1);
+    }
+  });
+
+  killIt('R15 long title wraps to two lines at 375 and 390 without clip', async () => {
+    const longTitle = 'Hot water system replacement and backflow test';
+    for (const width of [375, 390] as const) {
+      const page = await openPage({ width, path: '/jobs/p3-0036' });
+      await waitSheet(page);
+      await page.evaluate((title: string) => {
+        const hero = document.querySelector('h1.hub-jobs-hero') as HTMLElement | null;
+        if (hero) hero.textContent = title;
+      }, longTitle);
+      const read = await page.evaluate(readHeroType);
+      await page.close();
+      expect(read.title).toBe(longTitle);
+      expect(read.fontSize, `${width} long title size`).toBe(24);
+      expect(Number(read.weight), `${width} long title weight`).toBe(600);
+      expect(read.lines, `${width} long title lines`).toBe(2);
+      expect(read.scrollHeight, `${width} long title scrollHeight`).toBeLessThanOrEqual(read.clientHeight);
+      expect(read.scrollWidth, `${width} long title scrollWidth`).toBeLessThanOrEqual(read.clientWidth);
+      expect(read.right, `${width} long title right`).toBeLessThanOrEqual(read.innerWidth);
+    }
   });
 
   killIt('R6-4 invoice CTA contrast against white is at least 7', async () => {
@@ -1763,6 +1807,36 @@ describe('P3 r9 mockup vs head at 390', () => {
       },
     };
     const measure = (sels: typeof selectors.mockup) => {
+      const fixedInk = (el: Element | null) => {
+        if (!el) return 0;
+        const cs = getComputedStyle(el as HTMLElement);
+        const ctx = document.createElement('canvas').getContext('2d');
+        if (!ctx) return 0;
+        ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+        return ctx.measureText('Hamburgefonstiv 0123456789').width;
+      };
+      const inkBox = (el: Element | null) => {
+        if (!el) return { width: 0, left: 0, top: 0, height: 0 };
+        const range = document.createRange();
+        const texts: { left: number; right: number; top: number; bottom: number }[] = [];
+        const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        while (walk.nextNode()) {
+          const node = walk.currentNode;
+          if (!node.textContent?.trim()) continue;
+          range.selectNodeContents(node);
+          for (const box of range.getClientRects()) {
+            if (box.width > 0 && box.height > 0) {
+              texts.push({ left: box.left, right: box.right, top: box.top, bottom: box.bottom });
+            }
+          }
+        }
+        if (!texts.length) return { width: 0, left: 0, top: 0, height: 0 };
+        const left = Math.min(...texts.map((box) => box.left));
+        const right = Math.max(...texts.map((box) => box.right));
+        const top = Math.min(...texts.map((box) => box.top));
+        const bottom = Math.max(...texts.map((box) => box.bottom));
+        return { width: right - left, left, top, height: bottom - top };
+      };
       const pageEl = document.querySelector(sels.page) as HTMLElement | null;
       const cta = document.querySelector(sels.cta) as HTMLElement | null;
       const content = document.querySelector(sels.content) as HTMLElement | null;
@@ -1871,6 +1945,7 @@ describe('P3 r9 mockup vs head at 390', () => {
         titleSize: title ? parseFloat(getComputedStyle(title).fontSize) : 0,
         titleWeight: title ? getComputedStyle(title).fontWeight : '',
         titleY: title ? title.getBoundingClientRect().top : -1,
+        titleBottom: title ? title.getBoundingClientRect().bottom : -1,
         appbarY: appbar ? appbar.getBoundingClientRect().top : -1,
         avatarW: avatar ? avatar.getBoundingClientRect().width : 0,
         avatarH: avatar ? avatar.getBoundingClientRect().height : 0,
@@ -1893,6 +1968,18 @@ describe('P3 r9 mockup vs head at 390', () => {
         tabFontWeight: rail ? getComputedStyle(rail.querySelector(mock ? 'a' : '.job-sheet-tab') as HTMLElement).fontWeight : '',
         tabLabels: [...(rail?.children ?? [])].map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim()),
         tabWidths: [...(rail?.children ?? [])].map((el) => (el as HTMLElement).getBoundingClientRect().width),
+        tabScrollWidths: [...(rail?.children ?? [])].map((el) => (el as HTMLElement).scrollWidth),
+        tabPadX: [...(rail?.children ?? [])].map((el) => {
+          const cs = getComputedStyle(el as HTMLElement);
+          return parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+        }),
+        tabWeights: [...(rail?.children ?? [])].map((el) => getComputedStyle(el as HTMLElement).fontWeight),
+        tabOnShadow: (() => {
+          const on = [...(rail?.children ?? [])].find((el) => (
+            (el as HTMLElement).classList.contains('is-on')
+          )) as HTMLElement | undefined;
+          return on ? getComputedStyle(on).boxShadow : '';
+        })(),
         searchX: search ? search.getBoundingClientRect().left : -1,
         avatarX: avatar ? avatar.getBoundingClientRect().left : -1,
         eyebrowColor: eyebrow ? getComputedStyle(eyebrow).color : '',
@@ -1952,6 +2039,51 @@ describe('P3 r9 mockup vs head at 390', () => {
         totBigSize: totBig ? parseFloat(getComputedStyle(totBig).fontSize) : -1,
         totBigWeight: totBig ? getComputedStyle(totBig).fontWeight : '',
         totBigBorderTop: totBig ? getComputedStyle(totBig).borderTopWidth : '',
+        billCellH: billCells[0] ? billCells[0].getBoundingClientRect().height : -1,
+        billLabelTop: billCells.map((cell) => {
+          const labelEl = cell.querySelector(mock ? '.l' : '.job-sheet-bill-l');
+          const ink = inkBox(labelEl);
+          return labelEl ? ink.top - cell.getBoundingClientRect().top : -1;
+        }),
+        billValueX: billCells.map((cell, i) => {
+          const v = billCellVs[i];
+          const ink = inkBox(v);
+          return v ? ink.left - cell.getBoundingClientRect().left : -1;
+        }),
+        totH: (() => {
+          const tot = document.querySelector(mock ? '.tot:not(.big)' : '[data-job-bill-tot="sub"]') as HTMLElement | null;
+          return tot ? tot.getBoundingClientRect().height : -1;
+        })(),
+        totLh: (() => {
+          const tot = document.querySelector(mock ? '.tot:not(.big)' : '[data-job-bill-tot="sub"]') as HTMLElement | null;
+          return tot ? parseFloat(getComputedStyle(tot).lineHeight) : -1;
+        })(),
+        totBigH: totBig ? totBig.getBoundingClientRect().height : -1,
+        totBigLh: totBig ? parseFloat(getComputedStyle(totBig).lineHeight) : -1,
+        noteByH: noteBy ? noteBy.getBoundingClientRect().height : -1,
+        noteByLh: noteBy ? parseFloat(getComputedStyle(noteBy).lineHeight) : -1,
+        titleInk: inkBox(title).width,
+        kvLabelInk: inkBox(label).width,
+        kvValueInk: inkBox(value).width,
+        notePInk: inkBox(noteP).width,
+        noteByInk: inkBox(noteBy).width,
+        scopeHInk: inkBox(document.querySelector(mock ? '.sec .h2' : '.job-sheet-scope-h')).width,
+        ctaInk: inkBox(cta).width,
+        tabInks: [...(rail?.children ?? [])].map((el) => inkBox(el).width),
+        titleFixedInk: fixedInk(title),
+        kvLabelFixedInk: fixedInk(label),
+        kvValueFixedInk: fixedInk(value),
+        notePFixedInk: fixedInk(noteP),
+        scopeHFixedInk: fixedInk(document.querySelector(mock ? '.sec .h2' : '.job-sheet-scope-h')),
+        ctaFixedInk: fixedInk(cta),
+        tabOnFixedInk: (() => {
+          const on = [...(rail?.children ?? [])].find((el) => (el as HTMLElement).classList.contains('is-on')) as HTMLElement | undefined;
+          return fixedInk(on ?? null);
+        })(),
+        tabOffFixedInk: (() => {
+          const off = [...(rail?.children ?? [])].find((el) => !(el as HTMLElement).classList.contains('is-on')) as HTMLElement | undefined;
+          return fixedInk(off ?? null);
+        })(),
       };
     };
     const pinTabLabels = async (page: KillPage, sel: string, labels: string[]) => {
@@ -2041,11 +2173,15 @@ describe('P3 r9 mockup vs head at 390', () => {
     expect(head.eyebrowTracking).toBeCloseTo(mockup.eyebrowTracking, 0);
     expect(Number(head.titleWeight)).toBe(600);
     expect(Number(mockup.titleWeight)).toBe(600);
-    expect(near(head.titleSize, mockup.titleSize)).toBe(true);
+    expect(head.titleSize).toBe(24);
+    expect(mockup.titleSize).toBe(34);
     expect(near(head.appbarY, mockup.appbarY), `appbar y head ${head.appbarY} mock ${mockup.appbarY}`).toBe(true);
     expect(near(head.eyebrowY, mockup.eyebrowY), `eyebrow y head ${head.eyebrowY} mock ${mockup.eyebrowY}`).toBe(true);
     expect(near(head.titleY, mockup.titleY), `title y head ${head.titleY} mock ${mockup.titleY}`).toBe(true);
-    expect(near(head.ctaY, mockup.ctaY), `cta y head ${head.ctaY} mock ${mockup.ctaY}`).toBe(true);
+    expect(head.ctaY, 'head ctaY is titleBottom plus mock title-to-CTA gap').toBe(
+      head.titleBottom + (mockup.ctaY - mockup.titleBottom),
+    );
+    expect(head.ctaY, 'head fixture ctaY at 390').toBe(199);
     expect(near(head.avatarW, 32)).toBe(true);
     expect(near(head.avatarH, 32)).toBe(true);
     expect(head.avatarBg.replace(/\s+/g, '')).toMatch(/rgb\(10,\s*10,\s*11\)/);
@@ -2059,17 +2195,25 @@ describe('P3 r9 mockup vs head at 390', () => {
     expect(Number(mockup.kvValueWeight)).toBe(400);
     expect(head.tabFontSize).toBe(14);
     expect(mockup.tabFontSize).toBe(14);
-    expect(Number(head.tabFontWeight)).toBe(600);
+    expect(Number(head.tabFontWeight)).toBe(500);
     expect(Number(mockup.tabFontWeight)).toBe(600);
     expect(head.tabLabels, 'head tab labels pinned to mock').toEqual(mockLabels);
     expect(mockup.tabLabels).toEqual(mockLabels);
     expect(head.tabWidths.length, 'four tab columns').toBe(4);
     expect(mockup.tabWidths.length).toBe(4);
-    const mockTabTargets = [79, 75.8, 101.2, 87.9];
+    const headTabW390 = [81.390625, 81.390625, 97.53125, 83.6875];
     head.tabWidths.forEach((w, i) => {
-      expect(near(w, mockup.tabWidths[i]), `tab ${i} width head ${w} mock ${mockup.tabWidths[i]}`).toBe(true);
-      expect(near(w, mockTabTargets[i]), `tab ${i} width head ${w} target ${mockTabTargets[i]}`).toBe(true);
+      expect(w, `tab ${i} width head ${w}`).toBe(headTabW390[i]);
+      expect(Number(head.tabWeights[i]), `tab ${i} weight`).toBe(i === 0 ? 500 : 400);
+      const sw = head.tabScrollWidths[i];
+      const pad = head.tabPadX[i];
+      const contentW = sw - pad;
+      expect(
+        Math.abs(w - (contentW + pad)),
+        `tab ${i} content-sized width ${w} == scrollWidth ${sw} + pad ${pad}`,
+      ).toBeLessThanOrEqual(1);
     });
+    expect(head.tabOnShadow.replace(/\s+/g, ''), 'active tab line ring').toMatch(/rgb\(228,228,231\)/);
     expect(near(head.searchX, mockup.searchX), `searchX head ${head.searchX} mock ${mockup.searchX}`).toBe(true);
     expect(near(head.avatarX, mockup.avatarX), `avatarX head ${head.avatarX} mock ${mockup.avatarX}`).toBe(true);
     expect(head.eyebrowColor.replace(/\s+/g, '')).toMatch(/rgb\(74,\s*74,\s*82\)/);
@@ -2227,6 +2371,41 @@ describe('P3 r9 mockup vs head at 390', () => {
     expect(head.totBigBorderTop).toBe('1px');
     expect(near(mockup.totBigSize, 17)).toBe(true);
     expect(Number(mockup.totBigWeight)).toBe(700);
+    expect(head.billCellH, 'head bill3 cell height below 768').toBe(122);
+    expect(mockup.billCellH, 'mock bill3 cell height').toBe(122);
+    expect(head.billLabelTop[0], `head Budget label top ${head.billLabelTop[0]}`).toBe(mockup.billLabelTop[0]);
+    expect(head.billLabelTop[1], `head Cost label top ${head.billLabelTop[1]}`).toBe(mockup.billLabelTop[1]);
+    expect(head.billLabelTop[2], `head Charge label top ${head.billLabelTop[2]}`).toBe(mockup.billLabelTop[2]);
+    expect(head.billValueX[0], `head Budget value x ${head.billValueX[0]}`).toBe(13);
+    expect(head.billValueX[1], `head Cost value x ${head.billValueX[1]}`).toBe(26);
+    expect(head.billValueX[2], `head Charge value x ${head.billValueX[2]}`).toBe(26);
+    expect(mockup.billValueX[0], `mock Budget value x ${mockup.billValueX[0]}`).toBe(13);
+    expect(mockup.billValueX[1], `mock Cost value x ${mockup.billValueX[1]}`).toBe(26);
+    expect(mockup.billValueX[2], `mock Charge value x ${mockup.billValueX[2]}`).toBe(26);
+    expect(head.totH, 'head tot row height').toBe(40);
+    expect(mockup.totH, 'mock tot row height').toBe(40);
+    expect(head.totBigH, 'head tot.big row height').toBe(45);
+    expect(mockup.totBigH, 'mock tot.big row height').toBe(45);
+    expect(head.noteByH, 'head note .by height').toBe(24);
+    expect(head.noteByLh, 'head note .by lh').toBe(24);
+    expect(mockup.noteByH, 'mock note .by height').toBe(24);
+    expect(mockup.noteByLh, 'mock note .by lh').toBe(24);
+      expect(Math.abs(head.titleInk - 333.96875), `head title ink ${head.titleInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(head.kvLabelInk - 23.3125), `head kv label ink ${head.kvLabelInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(head.kvValueInk - 162.734375), `head kv value ink ${head.kvValueInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(head.notePInk - 90.875), `head note p ink ${head.notePInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(head.scopeHInk - 144.21875), `head scope ink ${head.scopeHInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(head.ctaInk - 184.125), `head cta ink ${head.ctaInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(head.tabInks[0] - 61.296875), `head tab on ink ${head.tabInks[0]}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(head.tabInks[1] - 44.078125), `head tab off ink ${head.tabInks[1]}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(head.titleFixedInk - 348.1621398925781), `head title fixed ink ${head.titleFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(head.kvLabelFixedInk - 179.76409912109375), `head kv label fixed ink ${head.kvLabelFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(head.kvValueFixedInk - 221.24844360351562), `head kv value fixed ink ${head.kvValueFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(head.notePFixedInk - 221.24844360351562), `head note p fixed ink ${head.notePFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(head.scopeHFixedInk - 290.1357421875), `head scope fixed ink ${head.scopeHFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(head.ctaFixedInk - 246.6151123046875), `head cta fixed ink ${head.ctaFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(head.tabOnFixedInk - 198.3568115234375), `head tab on fixed ink ${head.tabOnFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(head.tabOffFixedInk - 193.59127807617188), `head tab off fixed ink ${head.tabOffFixedInk}`).toBeLessThanOrEqual(1);
   });
 
   async function assertActionsVisible(page: KillPage, width: number) {
@@ -2507,8 +2686,28 @@ describe('P3 r9 mockup vs head at 390', () => {
     });
     const shot = await samplePaintedPixels(page, '[data-job-sheet="kv-site"] .job-sheet-kv-value', 1);
     const ink = nearestPainted(shot, [10, 10, 11]);
+    const kvInkW = await page.evaluate(() => {
+      const value = document.querySelector('[data-job-sheet="kv-site"] .job-sheet-kv-value');
+      if (!value) return 0;
+      const range = document.createRange();
+      range.selectNodeContents(value);
+      const rects = [...range.getClientRects()].filter((box) => box.width > 0);
+      if (!rects.length) return 0;
+      return Math.max(...rects.map((box) => box.right)) - Math.min(...rects.map((box) => box.left));
+    });
+    const kvFixedInk = await page.evaluate(() => {
+      const value = document.querySelector('[data-job-sheet="kv-site"] .job-sheet-kv-value') as HTMLElement | null;
+      if (!value) return 0;
+      const cs = getComputedStyle(value);
+      const ctx = document.createElement('canvas').getContext('2d');
+      if (!ctx) return 0;
+      ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      return ctx.measureText('Hamburgefonstiv 0123456789').width;
+    });
     await page.close();
     expect(Number(read)).toBe(400);
+    expect(Math.abs(kvInkW - 162.734375), `kv value ink width ${kvInkW}`).toBeLessThanOrEqual(1);
+    expect(Math.abs(kvFixedInk - 221.24844360351562), `kv value fixed ink ${kvFixedInk}`).toBeLessThanOrEqual(1);
     expect(ink.rgb[0], `kv ink ${ink.rgb}`).toBeLessThanOrEqual(40);
     expect(ink.rgb[1], `kv ink ${ink.rgb}`).toBeLessThanOrEqual(40);
     expect(ink.rgb[2], `kv ink ${ink.rgb}`).toBeLessThanOrEqual(40);
@@ -2562,5 +2761,313 @@ describe('P3 r9 mockup vs head at 390', () => {
     expect(edge.dist < creamDist, `Actions border closer to #E5E7EB than cream ${edge.rgb} d${edge.dist} cream${creamDist}`).toBe(true);
     const fillCream = Math.abs(fill.rgb[0] - 245) + Math.abs(fill.rgb[1] - 245) + Math.abs(fill.rgb[2] - 247);
     expect(fill.dist < fillCream, `Actions fill closer to white than cream ${fill.rgb} d${fill.dist} cream${fillCream}`).toBe(true);
+  });
+});
+
+describe('P3 r15 phone type below 768', () => {
+  const readType = () => {
+    const styleOf = (el: Element | null) => (el ? getComputedStyle(el as HTMLElement) : null);
+    const inkBox = (el: Element | null) => {
+      if (!el) return { width: 0, left: 0, top: 0, height: 0 };
+      const range = document.createRange();
+      const texts: { left: number; right: number; top: number; bottom: number }[] = [];
+      const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      while (walk.nextNode()) {
+        const node = walk.currentNode;
+        if (!node.textContent?.trim()) continue;
+        range.selectNodeContents(node);
+        for (const box of range.getClientRects()) {
+          if (box.width > 0 && box.height > 0) {
+            texts.push({ left: box.left, right: box.right, top: box.top, bottom: box.bottom });
+          }
+        }
+      }
+      if (!texts.length) return { width: 0, left: 0, top: 0, height: 0 };
+      const left = Math.min(...texts.map((box) => box.left));
+      const right = Math.max(...texts.map((box) => box.right));
+      const top = Math.min(...texts.map((box) => box.top));
+      const bottom = Math.max(...texts.map((box) => box.bottom));
+      return { width: right - left, left, top, height: bottom - top };
+    };
+    const fixedInk = (el: Element | null) => {
+      if (!el) return 0;
+      const cs = getComputedStyle(el as HTMLElement);
+      const ctx = document.createElement('canvas').getContext('2d');
+      if (!ctx) return 0;
+      ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      return ctx.measureText('Hamburgefonstiv 0123456789').width;
+    };
+    const hero = document.querySelector('h1.hub-jobs-hero');
+    const label = document.querySelector('[data-job-sheet="kv-site"] .job-sheet-kv-label');
+    const values = [...document.querySelectorAll('.job-sheet-kv-row > .job-sheet-kv-value')];
+    const scopeH = document.querySelector('.job-sheet-scope-h');
+    const notesH = document.querySelector('[data-job-sheet="notes"] h2');
+    const cta = document.querySelector('[data-job-sheet="cta"]');
+    const tabs = [...document.querySelectorAll('.job-sheet-tab')] as HTMLElement[];
+    const on = tabs.find((tab) => tab.classList.contains('is-on'));
+    const off = tabs.find((tab) => !tab.classList.contains('is-on'));
+    const vis = (el: Element) => {
+      const s = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+    };
+    const els = [...document.querySelectorAll('body *')].filter(vis);
+    const rights = els.map((el) => el.getBoundingClientRect().right);
+    return {
+      innerWidth: window.innerWidth,
+      titleSize: hero ? parseFloat(styleOf(hero)!.fontSize) : -1,
+      titleLh: hero ? parseFloat(styleOf(hero)!.lineHeight) : -1,
+      titleWeight: hero ? styleOf(hero)!.fontWeight : '',
+      kvLabelSize: label ? parseFloat(styleOf(label)!.fontSize) : -1,
+      kvLabelLh: label ? parseFloat(styleOf(label)!.lineHeight) : -1,
+      kvLabelWeight: label ? styleOf(label)!.fontWeight : '',
+      kvValueWeights: values.map((el) => styleOf(el)!.fontWeight),
+      kvValueSize: values[0] ? parseFloat(styleOf(values[0])!.fontSize) : -1,
+      kvValueLh: values[0] ? parseFloat(styleOf(values[0])!.lineHeight) : -1,
+      scopeHSize: scopeH ? parseFloat(styleOf(scopeH)!.fontSize) : -1,
+      scopeHLh: scopeH ? parseFloat(styleOf(scopeH)!.lineHeight) : -1,
+      scopeHWeight: scopeH ? styleOf(scopeH)!.fontWeight : '',
+      notesHSize: notesH ? parseFloat(styleOf(notesH)!.fontSize) : -1,
+      notesHLh: notesH ? parseFloat(styleOf(notesH)!.lineHeight) : -1,
+      notesHWeight: notesH ? styleOf(notesH)!.fontWeight : '',
+      ctaSize: cta ? parseFloat(styleOf(cta)!.fontSize) : -1,
+      ctaLh: cta ? parseFloat(styleOf(cta)!.lineHeight) : -1,
+      ctaWeight: cta ? styleOf(cta)!.fontWeight : '',
+      titleBottom: hero ? hero.getBoundingClientRect().bottom : -1,
+      ctaY: cta ? (cta as HTMLElement).getBoundingClientRect().top : -1,
+      tabWidths: tabs.map((tab) => tab.getBoundingClientRect().width),
+      tabScrollWidths: tabs.map((tab) => tab.scrollWidth),
+      tabPadX: tabs.map((tab) => {
+        const cs = getComputedStyle(tab);
+        return parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+      }),
+      tabWeights: tabs.map((tab) => styleOf(tab)!.fontWeight),
+      tabOnShadow: on ? styleOf(on)!.boxShadow : '',
+      tabOnWeight: on ? styleOf(on)!.fontWeight : '',
+      tabOffWeight: off ? styleOf(off)!.fontWeight : '',
+      tabOnSize: on ? parseFloat(styleOf(on)!.fontSize) : -1,
+      tabOffSize: off ? parseFloat(styleOf(off)!.fontSize) : -1,
+      tabOnLh: on ? parseFloat(styleOf(on)!.lineHeight) : -1,
+      tabOffLh: off ? parseFloat(styleOf(off)!.lineHeight) : -1,
+      tabCols: document.querySelector('.job-sheet-tabs')
+        ? getComputedStyle(document.querySelector('.job-sheet-tabs') as HTMLElement).gridTemplateColumns.split(' ').filter(Boolean).length
+        : 0,
+      scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+      maxRight: rights.length ? Math.max(...rights) : 0,
+      titleInk: inkBox(hero).width,
+      kvLabelInk: inkBox(label).width,
+      kvValueInk: inkBox(values[0]).width,
+      scopeHInk: inkBox(scopeH).width,
+      notesHInk: inkBox(notesH).width,
+      ctaInk: inkBox(cta).width,
+      tabOnInk: inkBox(on ?? null).width,
+      tabOffInk: inkBox(off ?? null).width,
+      notePInk: inkBox(document.querySelector('.job-sheet-note p')).width,
+      titleFixedInk: fixedInk(hero),
+      kvLabelFixedInk: fixedInk(label),
+      kvValueFixedInk: fixedInk(values[0] ?? null),
+      scopeHFixedInk: fixedInk(scopeH),
+      notesHFixedInk: fixedInk(notesH),
+      ctaFixedInk: fixedInk(cta),
+      tabOnFixedInk: fixedInk(on ?? null),
+      tabOffFixedInk: fixedInk(off ?? null),
+      notePFixedInk: fixedInk(document.querySelector('.job-sheet-note p')),
+      noteByH: (() => {
+        const by = document.querySelector('.job-sheet-note-by') as HTMLElement | null;
+        return by ? by.getBoundingClientRect().height : -1;
+      })(),
+      noteByLh: (() => {
+        const by = document.querySelector('.job-sheet-note-by') as HTMLElement | null;
+        return by ? parseFloat(getComputedStyle(by).lineHeight) : -1;
+      })(),
+      totH: (() => {
+        const tot = document.querySelector('[data-job-bill-tot="sub"]') as HTMLElement | null;
+        return tot ? tot.getBoundingClientRect().height : -1;
+      })(),
+      totBigH: (() => {
+        const tot = document.querySelector('[data-job-bill-tot="total"]') as HTMLElement | null;
+        return tot ? tot.getBoundingClientRect().height : -1;
+      })(),
+      billCellH: (() => {
+        const cell = document.querySelector('[data-job-bill-cell="budget"]') as HTMLElement | null;
+        return cell ? cell.getBoundingClientRect().height : -1;
+      })(),
+      billLabelTop: (() => {
+        const cell = document.querySelector('[data-job-bill-cell="budget"]') as HTMLElement | null;
+        const lab = cell?.querySelector('.job-sheet-bill-l') || null;
+        return cell && lab ? inkBox(lab).top - cell.getBoundingClientRect().top : -1;
+      })(),
+      billValueX: ['budget', 'cost', 'charge'].map((id) => {
+        const cell = document.querySelector(`[data-job-bill-cell="${id}"]`) as HTMLElement | null;
+        const v = cell?.querySelector('.job-sheet-bill-v') || null;
+        return cell && v ? inkBox(v).left - cell.getBoundingClientRect().left : -1;
+      }),
+    };
+  };
+
+  killIt('R15 Jack phone type at 375 and 390', async () => {
+    for (const width of [375, 390] as const) {
+      const page = await openPage({ width, path: '/jobs/p3-0036' });
+      await waitSheet(page);
+      await page.evaluate(async () => {
+        let prev = '';
+        for (let i = 0; i < 20; i += 1) {
+          const tabs = [...document.querySelectorAll('.job-sheet-tab')] as HTMLElement[];
+          const now = tabs.map((tab) => tab.getBoundingClientRect().width.toFixed(3)).join(',');
+          if (now && now === prev) return;
+          prev = now;
+          await new Promise((resolve) => window.setTimeout(resolve, 50));
+        }
+      });
+      const read = await page.evaluate(readType);
+      await page.close();
+      expect(read.innerWidth, `${width} innerWidth`).toBe(width);
+      expect(read.titleSize, `${width} title size`).toBe(24);
+      expect(read.titleLh, `${width} title lh`).toBe(30);
+      expect(Number(read.titleWeight), `${width} title weight`).toBe(600);
+      expect(Number(read.kvLabelWeight), `${width} kv label weight`).toBe(400);
+      expect(read.kvValueWeights.length, `${width} kv values`).toBeGreaterThanOrEqual(4);
+      for (const [i, weight] of read.kvValueWeights.entries()) {
+        expect(Number(weight), `${width} kv value ${i} weight`).toBe(400);
+      }
+      expect(Number(read.scopeHWeight), `${width} Scope of works weight`).toBe(600);
+      expect(Number(read.notesHWeight), `${width} Notes heading weight`).toBe(600);
+      expect(Number(read.ctaWeight), `${width} CTA weight`).toBe(600);
+      expect(Number(read.tabOnWeight), `${width} active tab weight`).toBe(500);
+      expect(Number(read.tabOffWeight), `${width} inactive tab weight`).toBe(400);
+      expect(read.ctaY, `${width} ctaY is titleBottom plus mock title-to-CTA gap`).toBe(
+        read.titleBottom + 72,
+      );
+      expect(read.ctaY, `${width} fixture ctaY`).toBe(199);
+      const tabW = width === 375
+        ? [87.796875, 87.796875, 97.609375, 87.796875]
+        : [79.734375, 79.734375, 97.609375, 86.921875];
+      expect(read.tabWidths.length, `${width} tab count`).toBe(4);
+      read.tabWidths.forEach((w, i) => {
+        expect(w, `${width} tab ${i} width`).toBe(tabW[i]);
+        expect(Number(read.tabWeights[i]), `${width} tab ${i} weight`).toBe(i === 0 ? 500 : 400);
+        const sw = read.tabScrollWidths[i];
+        const pad = read.tabPadX[i];
+        const contentW = sw - pad;
+        expect(
+          Math.abs(w - (contentW + pad)),
+          `${width} tab ${i} content-sized width ${w} == scrollWidth ${sw} + pad ${pad}`,
+        ).toBeLessThanOrEqual(1);
+      });
+      expect(read.tabOnShadow.replace(/\s+/g, ''), `${width} active tab line ring`).toMatch(/rgb\(228,228,231\)/);
+      expect(read.tabCols, `${width} tab columns`).toBe(4);
+      expect(read.scrollWidth, `${width} docSW`).toBeLessThanOrEqual(read.innerWidth);
+      expect(read.maxRight, `${width} maxRight`).toBeLessThanOrEqual(read.innerWidth);
+      expect(read.billCellH, `${width} bill3 cell height`).toBe(122);
+      expect(read.billValueX[0], `${width} Budget value x`).toBe(13);
+      expect(read.billValueX[1], `${width} Cost value x`).toBe(26);
+      expect(read.billValueX[2], `${width} Charge value x`).toBe(26);
+      expect(read.totH, `${width} tot row height`).toBe(40);
+      expect(read.totBigH, `${width} tot.big row height`).toBe(45);
+      expect(read.noteByH, `${width} note .by height`).toBe(24);
+      expect(read.noteByLh, `${width} note .by lh`).toBe(24);
+      expect(Math.abs(read.titleInk - 333.96875), `${width} title ink ${read.titleInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.kvLabelInk - 23.3125), `${width} kv label ink ${read.kvLabelInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.kvValueInk - 162.734375), `${width} kv value ink ${read.kvValueInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.scopeHInk - 144.21875), `${width} scope ink ${read.scopeHInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.notesHInk - 55.703125), `${width} notes h ink ${read.notesHInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.ctaInk - 184.125), `${width} cta ink ${read.ctaInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.tabOnInk - 61.296875), `${width} tab on ink ${read.tabOnInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.tabOffInk - 44.078125), `${width} tab off ink ${read.tabOffInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.notePInk - 90.875), `${width} note p ink ${read.notePInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.titleFixedInk - 348.1621398925781), `${width} title fixed ink ${read.titleFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.kvLabelFixedInk - 179.76409912109375), `${width} kv label fixed ink ${read.kvLabelFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.kvValueFixedInk - 221.24844360351562), `${width} kv value fixed ink ${read.kvValueFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.scopeHFixedInk - 290.1357421875), `${width} scope fixed ink ${read.scopeHFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.notesHFixedInk - 290.1357421875), `${width} notes h fixed ink ${read.notesHFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.ctaFixedInk - 246.6151123046875), `${width} cta fixed ink ${read.ctaFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.tabOnFixedInk - 198.3568115234375), `${width} tab on fixed ink ${read.tabOnFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.tabOffFixedInk - 193.59127807617188), `${width} tab off fixed ink ${read.tabOffFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.notePFixedInk - 221.24844360351562), `${width} note p fixed ink ${read.notePFixedInk}`).toBeLessThanOrEqual(1);
+    }
+  });
+
+  killIt('R15 weight pins have painted ink widths at 375 and 390', async () => {
+    for (const width of [375, 390] as const) {
+      const page = await openPage({ width, path: '/jobs/p3-0036' });
+      await waitSheet(page);
+      const read = await page.evaluate(readType);
+      await page.close();
+      const ink = {
+        title: 333.96875,
+        kvLabel: 23.3125,
+        kvValue: 162.734375,
+        scopeH: 144.21875,
+        notesH: 55.703125,
+        cta: 184.125,
+        tabOn: 61.296875,
+        tabOff: 44.078125,
+        noteP: 90.875,
+      };
+      expect(Math.abs(read.titleInk - ink.title), `${width} title ink ${read.titleInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.kvLabelInk - ink.kvLabel), `${width} kv label ink ${read.kvLabelInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.kvValueInk - ink.kvValue), `${width} kv value ink ${read.kvValueInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.scopeHInk - ink.scopeH), `${width} scope ink ${read.scopeHInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.notesHInk - ink.notesH), `${width} notes h ink ${read.notesHInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.ctaInk - ink.cta), `${width} cta ink ${read.ctaInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.tabOnInk - ink.tabOn), `${width} tab on ink ${read.tabOnInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.tabOffInk - ink.tabOff), `${width} tab off ink ${read.tabOffInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.notePInk - ink.noteP), `${width} note p ink ${read.notePInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.titleFixedInk - 348.1621398925781), `${width} title fixed ink ${read.titleFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.kvLabelFixedInk - 179.76409912109375), `${width} kv label fixed ink ${read.kvLabelFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.kvValueFixedInk - 221.24844360351562), `${width} kv value fixed ink ${read.kvValueFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.scopeHFixedInk - 290.1357421875), `${width} scope fixed ink ${read.scopeHFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.notesHFixedInk - 290.1357421875), `${width} notes h fixed ink ${read.notesHFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.ctaFixedInk - 246.6151123046875), `${width} cta fixed ink ${read.ctaFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.tabOnFixedInk - 198.3568115234375), `${width} tab on fixed ink ${read.tabOnFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.tabOffFixedInk - 193.59127807617188), `${width} tab off fixed ink ${read.tabOffFixedInk}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(read.notePFixedInk - 221.24844360351562), `${width} note p fixed ink ${read.notePFixedInk}`).toBeLessThanOrEqual(1);
+    }
+  });
+
+  killIt('R15 1024 and 1280 type unchanged vs r14 1dd0d37b', async () => {
+    for (const width of [1024, 1280] as const) {
+      const page = await openPage({ width, path: '/jobs/p3-0036' });
+      await waitSheet(page);
+      const read = await page.evaluate(readType);
+      await page.close();
+      expect(read.innerWidth, `${width} innerWidth`).toBe(width);
+      expect(read.titleSize, `${width} title size`).toBe(22);
+      expect(read.titleLh, `${width} title lh`).toBe(26.4);
+      expect(Number(read.titleWeight), `${width} title weight`).toBe(600);
+      expect(read.kvLabelSize, `${width} kv label size`).toBe(13);
+      expect(read.kvLabelLh, `${width} kv label lh`).toBe(19.5);
+      expect(Number(read.kvLabelWeight), `${width} kv label weight`).toBe(500);
+      expect(read.kvValueSize, `${width} kv value size`).toBe(16);
+      expect(read.kvValueLh, `${width} kv value lh`).toBe(22);
+      for (const [i, weight] of read.kvValueWeights.entries()) {
+        expect(Number(weight), `${width} kv value ${i} weight`).toBe(400);
+      }
+      expect(read.scopeHSize, `${width} Scope size`).toBe(20);
+      expect(read.scopeHLh, `${width} Scope lh`).toBe(26);
+      expect(Number(read.scopeHWeight), `${width} Scope weight`).toBe(600);
+      expect(read.notesHSize, `${width} Notes h size`).toBe(20);
+      expect(read.notesHLh, `${width} Notes h lh`).toBe(26);
+      expect(Number(read.notesHWeight), `${width} Notes h weight`).toBe(600);
+      expect(read.ctaSize, `${width} CTA size`).toBe(17);
+      expect(read.ctaLh, `${width} CTA lh`).toBe(20);
+      expect(Number(read.ctaWeight), `${width} CTA weight`).toBe(600);
+      expect(read.tabOnSize, `${width} active tab size`).toBe(14);
+      expect(read.tabOffSize, `${width} inactive tab size`).toBe(14);
+      expect(read.tabOnLh, `${width} active tab lh`).toBe(21);
+      expect(read.tabOffLh, `${width} inactive tab lh`).toBe(21);
+      expect(Number(read.tabOnWeight), `${width} active tab weight`).toBe(600);
+      expect(Number(read.tabOffWeight), `${width} inactive tab weight`).toBe(600);
+      expect(read.tabCols, `${width} tab columns`).toBe(4);
+      expect(read.scrollWidth, `${width} docSW`).toBeLessThanOrEqual(read.innerWidth);
+      expect(read.maxRight, `${width} maxRight`).toBeLessThanOrEqual(read.innerWidth);
+      expect(read.billCellH, `${width} bill3 cell height stays r14`).toBe(69.5);
+      expect(read.billValueX[0], `${width} Budget value x stays r14`).toBe(0);
+      expect(read.billValueX[1], `${width} Cost value x stays r14`).toBe(13);
+      expect(read.billValueX[2], `${width} Charge value x stays r14`).toBe(13);
+      expect(read.totH, `${width} tot row height stays r14`).toBe(38.5);
+      expect(read.totBigH, `${width} tot.big row height stays r14`).toBe(46.5);
+      expect(read.noteByH, `${width} note .by height stays r14`).toBe(21);
+    }
   });
 });
