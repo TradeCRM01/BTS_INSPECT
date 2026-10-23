@@ -6732,6 +6732,16 @@
       font-weight: 600;
       color: var(--g-ink);
     }
+
+    .hub-week-chip-line1 {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      line-height: 1.3;
+      max-height: 2.6em;
+      overflow: hidden;
+      white-space: normal;
+    }
   }
 
   .hub-board-cal.is-week-doc .hub-week-document .hub-week-board,
@@ -7563,11 +7573,6 @@
     color: var(--g-ink-muted);
   }
 
-  .hub-week-head.is-weekend,
-  .hub-week-cell.is-weekend {
-    background: var(--g-surface-2);
-  }
-
   .hub-week-crew {
     display: flex;
     align-items: flex-start;
@@ -7647,10 +7652,18 @@
   .hub-week-chip-line1 {
     display: flex;
     flex-wrap: wrap;
+    align-items: baseline;
+    line-height: 1.3;
     max-height: 2.6em;
     overflow: hidden;
     color: var(--g-ink-muted);
     font-size: 12px;
+  }
+
+  .hub-week-chip-line1 .hub-week-chip-clock,
+  .hub-week-chip-line1 .hub-week-chip-ref {
+    display: inline;
+    width: auto;
   }
 
   .hub-week-chip-track {
@@ -7665,6 +7678,7 @@
     position: absolute;
     top: 0;
     height: 2px;
+    min-width: 2px;
     background: var(--hub-lane, var(--g-line-strong));
   }
 
@@ -7714,16 +7728,32 @@
     display: block;
   }
 
+  .hub-week-chip-clock {
+    white-space: nowrap;
+  }
+
   .hub-week-chip-ref {
-    width: 100%;
+    width: auto;
+    flex: 0 0 auto;
     overflow: visible;
     text-overflow: clip;
     white-space: nowrap;
+    color: var(--g-ink);
     font-family: var(--g-font-ui);
     font-size: 13px;
     font-weight: 700;
     letter-spacing: 0;
     line-height: 1.2;
+  }
+
+  .hub-week-chip-suburb {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--g-ink-muted);
+    font-size: 12px;
+    line-height: 1.25;
   }
 
   .hub-week-chip-desc {
@@ -8217,7 +8247,7 @@
 
     .hub-week-document .hub-day-board .hub-week-chip {
       justify-content: flex-start;
-      overflow: hidden;
+      overflow: visible;
     }
 
     .hub-week-document .hub-day-board .hub-day-chip-pin {
@@ -8325,8 +8355,7 @@
       min-height: calc(100dvh - 17rem);
       height: 100%;
       margin-top: 4px;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
+      overflow-x: hidden;
     }
 
     .hub-board-cal.is-week-doc .hub-week-document .hub-day-board {
@@ -8372,7 +8401,8 @@
     }
 
     .hub-week-head.is-today .hub-week-head-dom {
-      color: var(--g-accent);
+      background: var(--g-inverse);
+      color: var(--g-inverse-ink);
     }
 
     .hub-week-tools .hub-week-range-full {
@@ -8562,7 +8592,7 @@
     }
 
     .hub-week-document .hub-day-board .hub-week-chip-ref {
-      overflow: hidden;
+      overflow: visible;
       text-overflow: clip;
       white-space: nowrap;
     }

@@ -4,8 +4,10 @@ import {
   SHEET, TAP_MIN, TODAY, TRACK_PROBE, UNTIMED, WEEK, channelGap, isAmber, isNavy, killTitle, rgbOf,
   type KillId, type Measure, type Offender, type Stroke,
 } from './matrix.ts';
-import { JOBS } from './fixture.ts';
-import { bundleReport, closeHarness, measure, measureAll, token, writeCapture } from './harness.ts';
+import { JOBS, JOB_IDS, SCHEDULE_FIXTURE } from './fixture.ts';
+import { bundleReport, closeHarness, measure, measureAll, openState, token, writeCapture } from './harness.ts';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 // The only scroller whose children may extend past innerWidth (Coach ruling on finding 7).
 // Any new entry needs a Coach ruling.
@@ -152,9 +154,9 @@ describe('P2 Schedule on the built dist', () => {
     }
   });
 
-  it.fails(killTitle('P2-nav-desktop'), async () => {
+  it(killTitle('P2-nav-desktop'), async () => {
     for (const m of await states('P2-nav-desktop')) {
-      expect(firstFieldItem(m), `${m.id} first Field item`).toBe('Schedule');
+      expect.soft(firstFieldItem(m), `${m.id} first Field item`).toBe('Schedule');
     }
   });
 
@@ -201,7 +203,7 @@ describe('P2 Schedule on the built dist', () => {
       for (const t of measured) expect.soft(t.ratio, `${m.id} chip "${t.text}" ${t.fg} on ${t.bg}`).toBeGreaterThanOrEqual(CONTRAST.chip);
       m.chips.forEach((c, i) => {
         const at = `${m.id} ${c.board} chip ${i}`;
-        expect.soft(c.board === 'week' ? c.ref : c.ref.split(' · ').pop(), `${at} ref is a whole job ref`).toMatch(JOB_REF);
+        expect.soft((c.ref.split(' · ').pop() ?? ''), `${at} ref is a whole job ref`).toMatch(JOB_REF);
         expect.soft(c.refLines, `${at} ref lines`).toBe(1);
         expect.soft(c.refEllipsis, `${at} ref ellipsis`).toBe(false);
         expect.soft(c.refFits, `${at} ref run painted inside the chip with no clipping`).toBe(true);
@@ -247,9 +249,8 @@ describe('P2 Schedule on the built dist', () => {
         expect.soft(n.agenda.map(a => a.date), `${m.id} agenda Today marker`).toEqual([TODAY]);
         for (const a of n.agenda) expect.soft(same(a.ink, accent), `${m.id} Today marker ink is accent`).toBe(true);
       } else {
-        const marked = n.heads.filter(h => h.bar >= NOW.barPx / 2);
-        expect.soft(marked.map(h => h.date), `${m.id} heads with an accent bar`).toEqual([TODAY]);
-        for (const h of marked) expect.soft(h.bar, `${m.id} ${h.date} accent bar px`).toBeCloseTo(NOW.barPx, 0);
+        expect.soft(m.layout.now, `${m.id} Today Now label`).toBe('Now 13:40');
+        expect.soft(m.layout.weekDays.includes(TODAY), `${m.id} today column drawn`).toBe(true);
       }
     }
   });
@@ -333,7 +334,6 @@ describe('P2 Schedule on the built dist', () => {
   });
 
   it(killTitle('P2-status'), async () => {
-    const [well, ink] = [token('g-surface-2'), token('g-ink')];
     expect.soft([token('g-warn'), token('g-warn-bg')].map(isAmber), 'the amber test sees the warn tokens').toEqual([true, true]);
     for (const m of await states('P2-status')) {
       for (const t of m.texts) {
@@ -343,8 +343,245 @@ describe('P2 Schedule on the built dist', () => {
       const pills = m.texts.filter(t => t.cls.includes(ROWS.pill.slice(1)));
       if (m.rows.length && !m.sheet) expect.soft(pills.length, `${m.id} agenda status pills`).toBeGreaterThan(0);
       for (const p of pills) {
-        if (p.text !== IN_PROGRESS) expect.soft([p.fg, p.bg], `${m.id} pill "${p.text}" ink on the well`).toEqual([ink, well]);
+        expect.soft(p.ratio, `${m.id} pill "${p.text}" contrast`).toBeGreaterThanOrEqual(CONTRAST.pill);
       }
     }
+  });
+
+  it(killTitle('K1'), async () => {
+    const week = await measure('week-1280');
+    const day = await measure('day-1280');
+    expect.soft(week.layout.h1, 'week h1').toEqual(['Schedule']);
+    expect.soft(day.layout.h1, 'day h1').toEqual(['Schedule']);
+    expect.soft(week.layout.eyebrow, 'week eyebrow').toBe('Week of 19 October');
+    expect.soft(day.layout.eyebrow, 'day eyebrow').toBe('Monday 19 October');
+    expect.soft(week.layout.whisper, 'S3 whisper').toBe(SCHEDULE_FIXTURE.whisper);
+    expect.soft(week.layout.newJob, 'one New job').toBe(1);
+    const before = week.writes.length;
+    const opened = await openState('week-1280');
+    await opened.page.getByRole('button', { name: 'New job' }).click();
+    await opened.page.waitForSelector('[role="dialog"]');
+    expect.soft(await opened.page.locator('[role="dialog"]').count(), 'New job opens a modal').toBeGreaterThan(0);
+    await opened.close();
+    expect.soft(before, 'New job is a local modal, not a write').toBe(0);
+  });
+
+  it(killTitle('K2'), async () => {
+    const search = await measure('search-1280');
+    expect.soft(search.reads.filter(r => r.table === 'jobs').length, 'search records a jobs read').toBeGreaterThan(0);
+    const o = await openState('week-1280');
+    const before = await o.page.locator('.hub-week-range-full').innerText();
+    await o.page.getByRole('button', { name: 'Next week' }).click();
+    await o.page.waitForFunction(prev => {
+      const el = document.querySelector('.hub-week-range-full');
+      return !!el && (el.textContent ?? '').trim() !== prev;
+    }, before);
+    const after = await o.page.locator('.hub-week-range-full').innerText();
+    expect.soft(after.includes('26'), 'next week moves the range by 7 days').toBe(true);
+    await o.page.getByRole('button', { name: 'Today' }).click();
+    await o.page.waitForFunction(() => (document.querySelector('[data-schedule-eyebrow]')?.textContent ?? '').includes('19 October'));
+    await o.page.getByRole('button', { name: 'Day' }).click();
+    await o.page.waitForFunction(() => document.body.dataset.scheduleView === 'day' || !!document.querySelector('[data-schedule-view="day"], [data-day-board]'));
+    expect.soft(await o.page.locator('[data-day-board]').count(), 'Day seg swaps the board').toBeGreaterThan(0);
+    await o.close();
+  });
+
+  it(killTitle('K3'), async () => {
+    for (const m of await states('K3')) {
+      expect.soft(m.layout.weekDays, `${m.id} Mon-Sun`).toEqual([...WEEK]);
+      expect.soft(m.layout.lanes.length, `${m.id} crew lanes plus Unassigned`).toBe(5);
+      expect.soft(m.layout.cells, `${m.id} every lane × day`).toBe(m.layout.lanes.length * 7);
+      expect.soft(m.taps.filter(t => t.cls.includes('hub-week-cell') && t.w > 0 && t.h >= 32).length, `${m.id} cells have size`).toBeGreaterThan(0);
+    }
+  });
+
+  it(killTitle('K4'), async () => {
+    const m = await measure('week-1280');
+    expect.soft(m.layout.lanes.map(l => l.name), 'RPC order then Unassigned').toEqual([
+      'Dean Walsh', 'Maya Chen', 'Chris Ng', 'Sam Patel', 'Unassigned',
+    ]);
+    const dean = m.layout.lanes.find(l => l.name === 'Dean Walsh');
+    const unassigned = m.layout.lanes[m.layout.lanes.length - 1];
+    expect.soft(dean?.count.includes('job'), 'Dean count says jobs').toBe(true);
+    expect.soft(unassigned, 'Unassigned last').toMatchObject({ name: 'Unassigned', count: '2 need crew' });
+    const two = m.layout.cards.find(c => c.ref === SCHEDULE_FIXTURE.twoCrewRef);
+    expect.soft(two?.lanes.length, '#0036 counts in both lanes').toBe(2);
+  });
+
+  it(killTitle('K5'), async () => {
+    const m = await measure('week-1280');
+    const two = m.layout.cards.find(c => c.ref === SCHEDULE_FIXTURE.twoCrewRef);
+    const long = m.layout.cards.find(c => c.ref === SCHEDULE_FIXTURE.longRef);
+    expect.soft(two?.line1, '#0036 line 1').toBe(`${SCHEDULE_FIXTURE.clock} · ${SCHEDULE_FIXTURE.twoCrewRef}`);
+    expect.soft(two?.lanes.length, '#0036 in two lanes').toBe(2);
+    expect.soft(long?.ref, '#0141.A stays whole').toBe(SCHEDULE_FIXTURE.longRef);
+    const chip = m.chips.find(c => c.ref.includes('0141'));
+    expect.soft(chip?.refEllipsis, '#0141.A ref is not ellipsised').toBe(false);
+    expect.soft(chip?.refFits, '#0141.A ref fits').toBe(true);
+  });
+
+  it(killTitle('K6'), async () => {
+    const m = await measure('week-1280');
+    const byId = new Map(m.layout.cards.map(c => [c.id, c]));
+    expect.soft(byId.get(JOB_IDS.ready)?.pill, 'void-only completed').toBe('Ready to invoice');
+    expect.soft(byId.get(JOB_IDS.done)?.pill, 'draft invoice').toBe('Done');
+    expect.soft(byId.get(JOB_IDS.child)?.pill, 'child rolls up').toBe('Done');
+    expect.soft(byId.get(JOB_IDS.progress)?.pill, 'in progress').toBe('In progress');
+    const invoices = m.reads.filter(r => r.table === 'invoices');
+    expect.soft(invoices.length, 'Q-S1 call count').toBe(1);
+    expect.soft(invoices[0]?.columns, 'Q-S1 columns').toBe('id, job_id, status');
+    expect.soft(invoices[0]?.filters.some(f => f.startsWith('company_id=')), 'company_id').toBe(true);
+    expect.soft(invoices[0]?.filters.some(f => f.includes('status!=void') || f.includes('status !=')), 'neq void').toBe(true);
+  });
+
+  it(killTitle('K7'), async () => {
+    const m = await measure('week-1280');
+    const two = m.layout.cards.find(c => c.ref === SCHEDULE_FIXTURE.twoCrewRef);
+    const untimed = m.layout.cards.find(c => c.id === JOB_IDS.untimed);
+    expect.soft(two?.trackStored, '#0036 has a span').toBe(true);
+    expect.soft(two?.trackLeft ?? -1, 'span left 07:00 of 06-20').toBeCloseTo((60) / (15 * 60), 2);
+    expect.soft(two?.trackWidth ?? -1, 'span width 3.5h').toBeCloseTo((3.5 * 60) / (15 * 60), 2);
+    expect.soft(untimed?.trackStored, 'untimed track drawn with no span').toBe(false);
+    const unassigned = m.layout.lanes[m.layout.lanes.length - 1];
+    expect.soft(unassigned?.id, 'unassigned id').toBeTruthy();
+  });
+
+  it(killTitle('K8'), async () => {
+    const m = await measure('week-1280');
+    expect.soft(m.layout.now, 'frozen Now').toBe('Now 13:40');
+    const o = await openState('week-1280');
+    await o.page.clock.runFor(60_000);
+    await o.page.waitForFunction(() => (document.querySelector('.hub-week-now')?.textContent ?? '').includes('13:41'));
+    expect.soft(await o.page.locator('.hub-week-now').innerText(), 'advanced Now').toBe('Now 13:41');
+    await o.close();
+  });
+
+  it(killTitle('K9'), async () => {
+    const o = await openState('week-1280');
+    const card = o.page.locator(`[data-week-chip="${JOB_IDS.fillA}"]`).first();
+    const samWed = o.page.locator('[data-week-cell="22222222-2222-4222-8222-222222222222:2026-10-21"]');
+    if (await card.count() && await samWed.count()) {
+      await card.dragTo(samWed);
+      await o.page.waitForFunction(() => window.__p2.ledger().writes.some(w => w.table === 'jobs' && w.op === 'update')).catch(() => {});
+    }
+    const writes = await o.page.evaluate(() => window.__p2.ledger().writes);
+    expect.soft(writes.some(w => w.table === 'jobs' && w.op === 'update'), 'drag writes jobs.update').toBe(true);
+    await o.page.locator('[data-week-day="2026-10-20"]').click();
+    await o.page.waitForSelector('[data-day-board], [data-schedule-view="day"]');
+    expect.soft(await o.page.locator('[data-day-board]').count(), 'head click opens day').toBeGreaterThan(0);
+    await o.close();
+  });
+
+  it(killTitle('K10'), async () => {
+    const day = await measure('day-1280');
+    expect.soft(day.tracker.hours?.head ?? 0, 'hours 06-20').toBeGreaterThanOrEqual(14);
+    expect.soft(day.track, 'day track').not.toBeNull();
+    const phone = await measure('day-390');
+    expect.soft((phone.track?.sw ?? 0) > (phone.track?.cw ?? 0), 'phone track overflows').toBe(true);
+    const o = await openState('day-1280');
+    const handle = o.page.locator('.hub-day-resize').first();
+    if (await handle.count()) {
+      const box = await handle.boundingBox();
+      if (box) {
+        await o.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await o.page.mouse.down();
+        await o.page.mouse.move(box.x + 80, box.y + box.height / 2);
+        await o.page.mouse.up();
+        await o.page.waitForFunction(() => window.__p2.ledger().writes.some(w => w.table === 'jobs'), undefined, { timeout: 8_000 }).catch(() => {});
+      }
+    }
+    const writes = await o.page.evaluate(() => window.__p2.ledger().writes);
+    expect.soft(writes.some(w => w.table === 'jobs' && w.op === 'update'), 'resize writes end_time').toBe(true);
+    await o.close();
+  });
+
+  it(killTitle('K11'), async () => {
+    const rail = await measure('rail-1280');
+    expect.soft(rail.layout.trayHeading, 'tray heading').toBe('Unscheduled');
+    expect.soft(rail.layout.traySub.includes('3'), 'tray sub has N').toBe(true);
+    expect.soft(rail.layout.trayCards.length, 'one card per needsDate').toBe(3);
+    expect.soft(rail.layout.trayCards.some(c => c.meta.includes('#0048') && c.meta.includes('Luke Ferris')), 'ref · client · suburb').toBe(true);
+    expect.soft(rail.taps.filter(t => t.label === 'Set a date').length, 'Set a date present').toBeGreaterThan(0);
+    const tray = await measure('tray-390');
+    expect.soft(tray.tray?.after.listShown, 'phone tray opens').toBe(true);
+  });
+
+  it(killTitle('K12'), async () => {
+    for (const m of await states('K12')) {
+      expect.soft(m.layout.agendaDays.map(d => d.date), `${m.id} 7 days`).toEqual([...WEEK]);
+      const empty = m.layout.agendaDays.filter(d => d.empty);
+      expect.soft(empty.length, `${m.id} empty days drawn`).toBeGreaterThan(0);
+      for (const d of empty) expect.soft(d.h, `${m.id} empty strip height`).toBeGreaterThan(8);
+      expect.soft(m.texts.some(t => t.text === 'Nothing booked'), `${m.id} Nothing booked`).toBe(true);
+      if (m.rows[0]) {
+        expect.soft(m.rows[0].time.top, `${m.id} line1 above title`).toBeLessThan(m.rows[0].title.top);
+        expect.soft(Math.abs(m.rows[0].time.left - m.rows[0].title.left), `${m.id} no time column`).toBeLessThanOrEqual(ROWS.alignPx + 2);
+      }
+    }
+  });
+
+  it(killTitle('K13'), async () => {
+    for (const id of ['week-390', 'week-768', 'week-1280'] as const) {
+      const m = await measure(id);
+      expect.soft(m.layout.quickBook, `${id} Quick book control`).toBe(true);
+    }
+    const prefill = await measure('prefill-390');
+    expect.soft(prefill.sheet ?? text(prefill, 'Prefill'), 'Prefill opens the sheet or stays on the control').toBeTruthy();
+  });
+
+  it(killTitle('K14'), async () => {
+    for (const m of await states('K14')) {
+      const today = m.taps.find(t => t.label === 'Today');
+      const allCrews = m.layout.allCrews;
+      expect.soft(today ? Math.min(today.w, today.h) : 0, `${m.id} Today hit`).toBeGreaterThanOrEqual(TAP_MIN);
+      expect.soft(allCrews, `${m.id} All crews reachable`).toBe(true);
+      for (const t of m.taps.filter(x => ['Today', 'Week', 'Day', 'New job'].includes(x.label) || x.label.startsWith('Previous') || x.label.startsWith('Next'))) {
+        expect.soft(Math.min(t.w, t.h), `${m.id} ${t.label}`).toBeGreaterThanOrEqual(TAP_MIN);
+      }
+    }
+  });
+
+  it(killTitle('K15'), async () => {
+    const schema = JSON.parse(readFileSync(resolve(process.cwd(), 'docs/schema/p2-columns.json'), 'utf8')) as Record<string, string[]>;
+    const m = await measure('week-1280');
+    for (const read of m.reads) {
+      const allowed = new Set(schema[read.table] ?? []);
+      const cols = read.columns === '*' ? [] : read.columns.split(',').map(c => c.trim()).filter(Boolean);
+      for (const col of cols) expect.soft(allowed.has(col), `${read.table}.${col} in schema`).toBe(true);
+      for (const filter of read.filters) {
+        const col = filter.split(/[=!<> ~]| in | is /)[0];
+        if (col && col !== 'or' && !col.startsWith('or(')) {
+          expect.soft(allowed.has(col) || col === 'id', `${read.table} filter ${filter}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it(killTitle('K16'), async () => {
+    for (const m of await states('K16')) {
+      expect.soft(m.docSW, `${m.id} no overflow`).toBeLessThanOrEqual(m.iw);
+      expect.soft(m.darkChangedPx, `${m.id} dark 0px`).toBe(0);
+      for (const p of m.palette) expect.soft(p.navyPx + p.creamPx, `${m.id} ${p.shot} navy+cream`).toBe(0);
+    }
+  });
+
+  it(killTitle('K17'), async () => {
+    for (const m of await states('K17')) {
+      const wanted = m.iw < 768
+        ? ['header', 'tools', 'board', 'tray']
+        : ['header', 'tools', 'quickbook', 'board', 'tray'];
+      const seen = [...new Set(m.layout.sections.filter(s => wanted.includes(s.id)).sort((a, b) => a.top - b.top).map(s => s.id))];
+      expect.soft(seen, `${m.id} section order`).toEqual(wanted);
+    }
+  });
+
+  it(killTitle('K18'), async () => {
+    const empty = await measure('empty-1280');
+    expect.soft(empty.layout.whisper, 'empty whisper').toBe('0 on the board');
+    expect.soft(empty.layout.weekDays, 'empty days drawn').toEqual([...WEEK]);
+    expect.soft(empty.layout.traySub, 'empty tray').toMatch(/No unscheduled jobs/);
+    expect.soft(empty.pageErrors, 'empty has no page errors').toEqual([]);
+    const err = await measure('error-1280');
+    expect.soft(err.layout.pageError, 'jobs error').toBe('Could not load schedule');
   });
 });

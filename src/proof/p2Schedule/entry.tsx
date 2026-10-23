@@ -9,9 +9,10 @@ import { ledger } from './mocks.ts';
 import {
   FADE, PALETTE, ROOTS, ROWS, TAP_MIN, TRACK_PROBE, isCream, isNavy,
   type Box, type ChipProbe, type DayBoardProbe, type DomMeasure, type MaskPart, type Offender, type PaletteCount, type Paint,
-  type PartProbe, type RowProbe, type SheetProbe, type Stroke, type TapProbe, type TextProbe, type TextRole, type TrackShape,
-  type TrackerProbe, type TrayState,
+  type LayoutProbe, type PartProbe, type RowProbe, type SheetProbe, type Stroke, type TapProbe, type TextProbe, type TextRole,
+  type TrackShape, type TrackerProbe, type TrayState,
 } from './matrix.ts';
+import { FOCUS } from './matrix.ts';
 
 type Rgba = { r: number; g: number; b: number; a: number };
 type ScrollState = { mainTop: number; docTop: number; trackTop: number; trackLeft: number; roomDown: number; roomUp: number };
@@ -61,7 +62,7 @@ export type P2Probe = {
 };
 
 declare global {
-  interface Window { __P2_BOOT__: { path: string }; __p2: P2Probe }
+  interface Window { __P2_BOOT__: { path: string; empty?: boolean; jobsError?: boolean }; __p2: P2Probe }
 }
 
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -586,6 +587,81 @@ function inView(x: number, y: number) {
   return x >= 0 && y >= 0 && x < window.innerWidth && y < window.innerHeight;
 }
 
+function layoutProbe(): LayoutProbe {
+  const css = (el: Element | null, prop: string) => (el ? getComputedStyle(el).getPropertyValue(prop).trim() : '');
+  const cards = [...document.querySelectorAll<HTMLElement>('[data-schedule-job].hub-week-chip')].filter(visible).map(el => {
+    const ref = (el.querySelector('.hub-week-chip-ref')?.textContent ?? '').replace(/\s+/g, ' ').trim();
+    const clock = (el.querySelector('.hub-week-chip-clock')?.textContent ?? el.getAttribute('data-chip-clock') ?? '').trim();
+    const line1 = (el.querySelector('.hub-week-chip-line1')?.textContent ?? '').replace(/\s+/g, ' ').trim();
+    const pill = (el.querySelector('.hub-schedule-pill')?.textContent ?? '').trim();
+    const lane = el.closest('[data-week-crew], [data-crew-drop], [data-crew-lane]');
+    const laneId = (lane as HTMLElement | null)?.dataset.weekCrew
+      ?? (lane as HTMLElement | null)?.dataset.crewDrop
+      ?? (lane as HTMLElement | null)?.dataset.crewLane
+      ?? '';
+    const track = el.querySelector<HTMLElement>('.hub-week-chip-span');
+    const host = el.querySelector('.hub-week-chip-track');
+    const hostW = host?.getBoundingClientRect().width || 1;
+    const trackR = track?.getBoundingClientRect();
+    const hostR = host?.getBoundingClientRect();
+    return {
+      id: el.dataset.scheduleJob ?? el.dataset.weekChip ?? '',
+      ref,
+      clock,
+      line1,
+      pill,
+      lanes: laneId ? [laneId] : [],
+      trackStored: el.querySelector('.hub-week-chip-track')?.getAttribute('data-stored') === '1',
+      trackLeft: trackR && hostR ? (trackR.left - hostR.left) / hostW : 0,
+      trackWidth: trackR && hostR ? trackR.width / hostW : 0,
+      rail: css(el.querySelector('.hub-week-chip-rail'), 'background-color'),
+    };
+  });
+  const byId = new Map<string, typeof cards[number]>();
+  for (const card of cards) {
+    const prev = byId.get(card.id);
+    if (prev) prev.lanes.push(...card.lanes);
+    else byId.set(card.id, { ...card, lanes: [...card.lanes] });
+  }
+  const tray = document.querySelector('[data-schedule-rail]');
+  return {
+    h1: [...document.querySelectorAll('h1')].filter(visible).map(el => (el.textContent ?? '').trim()),
+    eyebrow: (document.querySelector('[data-schedule-eyebrow]')?.textContent ?? '').trim(),
+    whisper: (document.querySelector('[data-schedule-whisper]')?.textContent ?? '').trim(),
+    newJob: [...document.querySelectorAll('button')].filter(el => visible(el) && (el.textContent ?? '').includes('New job')).length,
+    now: (document.querySelector('.hub-week-now')?.textContent ?? '').trim() || null,
+    sections: [...document.querySelectorAll<HTMLElement>('[data-schedule-section]')].filter(visible).map(el => ({
+      id: el.dataset.scheduleSection ?? '',
+      top: Math.round(el.getBoundingClientRect().top),
+    })),
+    lanes: [...document.querySelectorAll<HTMLElement>('[data-week-crew]')].filter(visible).map(el => ({
+      id: el.dataset.weekCrew ?? '',
+      name: (el.querySelector('[data-week-crew-label], .hub-schedule-crew-name')?.textContent ?? '').trim(),
+      count: (el.querySelector('.ops-meta')?.textContent ?? '').trim(),
+    })),
+    weekDays: [...document.querySelectorAll<HTMLElement>('[data-week-day]')].filter(visible).map(el => el.dataset.weekDay ?? ''),
+    cells: [...document.querySelectorAll('[data-week-cell]')].filter(visible).length,
+    weekendJobs: document.querySelector<HTMLElement>('.hub-week-grid')?.dataset.weekendJobs ?? null,
+    cards: [...byId.values()],
+    agendaDays: [...document.querySelectorAll<HTMLElement>('[data-agenda-day]')].filter(visible).map(el => ({
+      date: el.dataset.agendaDay ?? '',
+      empty: !!el.querySelector('[data-agenda-empty]'),
+      h: el.getBoundingClientRect().height,
+    })),
+    trayHeading: (tray?.querySelector('.ops-card-kicker')?.textContent ?? '').trim(),
+    traySub: (tray?.querySelector('.ops-tray-head .ops-meta')?.textContent ?? '').trim(),
+    trayCards: [...(tray?.querySelectorAll('[data-schedule-rail-job]') ?? [])].map(el => ({
+      meta: (el.querySelector('.hub-schedule-ref')?.textContent ?? '').trim(),
+      pill: (el.querySelector('.hub-schedule-pill')?.textContent ?? '').trim(),
+    })),
+    allCrews: !!document.querySelector('[data-schedule-all-crews]'),
+    quickBook: !!document.querySelector('[data-schedule-section="quickbook"], [data-schedule-quickbook-toggle]'),
+    pageError: (document.querySelector('main')?.textContent ?? '').includes('Could not load schedule')
+      ? 'Could not load schedule'
+      : '',
+  };
+}
+
 window.__p2 = {
   async ready() {
     await document.fonts.ready;
@@ -645,6 +721,7 @@ window.__p2 = {
       tabs: [...document.querySelectorAll('[data-phone-tab]')].filter(visible).map(el => (el.textContent ?? '').trim()),
       menu: menu ? [...menu.querySelectorAll('a, button')].filter(visible).map(el => (el.textContent ?? '').trim()) : null,
       path: currentPath,
+      layout: layoutProbe(),
     };
   },
 
@@ -826,7 +903,8 @@ window.__p2 = {
   },
 
   focusMark() {
-    return [...document.querySelectorAll('[data-week-track] button')].filter(visible).map((el, i) => {
+    const want = new Set<string>(FOCUS.labels);
+    return [...document.querySelectorAll('[data-week-track] button')].filter(el => visible(el) && want.has(label(el))).map((el, i) => {
       el.setAttribute('data-p2-focus', String(i));
       const r = el.getBoundingClientRect();
       return { label: label(el), box: { x: r.left, y: r.top, w: r.width, h: r.height }, hit: hitSize(el) };

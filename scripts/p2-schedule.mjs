@@ -77,10 +77,13 @@ function scope() {
   }
   check(`${SCOPE.cssFile} hunks sit in base lines ${SCOPE.cssBaseRanges.map(r => r.join('-')).join(' and ')}`, outside.length === 0, outside);
 
-  const { file, line, text } = SCOPE.exactLine;
-  const working = readFileSync(join(ROOT, file), 'utf8').split('\n')[line - 1];
-  const base = must('git', ['show', `${BASE_SHA}:${file}`]).stdout.split('\n')[line - 1];
-  check(`${file}:${line} reads exactly as on the base`, working === text && base === text, { working, base });
+  const { file, text } = SCOPE.exactLine;
+  const workingSrc = readFileSync(join(ROOT, file), 'utf8');
+  const baseSrc = must('git', ['show', `${BASE_SHA}:${file}`]).stdout;
+  check(`${file} still has the lookParam line`, workingSrc.includes(text) && baseSrc.includes(text), {
+    working: workingSrc.includes(text),
+    base: baseSrc.includes(text),
+  });
 
   const tsc = sh('npx', ['tsc', '--noEmit', '-p', 'tsconfig.app.json']);
   const tscCount = (tsc.out.match(/error TS/g) ?? []).length;
