@@ -21,7 +21,7 @@ describe('dashboard laptop LOOK — quote paper, overflow on the sheet', () => {
     expect(page).toContain('dashboard-home');
     expect(page).toContain('dashboard-home-sheet');
     expect(page).toContain('dashboard-home-sheet-bar');
-    expect(page).toContain('dashboard-home-mark">Today');
+    expect(page).toContain('dashboard-home-mark">{NAV_WORDS.today}');
     expect(page).toContain('dashboard-home-sheet-body');
     expect(page).toContain('dashboard-home-whisper');
     expect(page).toContain('dashboard-home-tools');

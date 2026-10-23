@@ -504,7 +504,7 @@ export function DashboardPage() {
   const { profile, company } = useAuth();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
-  const lookParam = searchParams.get('look');
+  const lookParam = (import.meta.env.DEV || import.meta.env.VITE_LOOK_PROOF === '1') ? searchParams.get('look') : null;
   const lookCrewS8dDashboard = lookParam === CREW_S8D_DASHBOARD_NEEDS;
   const lookDashboardJack = lookParam === DASHBOARD_LOOK_JACK_LAYOUT;
   const lookDashboardSeed = lookParam === DASHBOARD_LOOK_SEED;
@@ -968,7 +968,7 @@ export function DashboardPage() {
       <div className="ops-page dashboard-home is-day-open">
         <article className="dashboard-home-sheet" data-dashboard-home="1">
           <header className="dashboard-home-sheet-bar">
-            <span className="dashboard-home-mark">Today</span>
+            <span className="dashboard-home-mark">{NAV_WORDS.today}</span>
           </header>
           <div className="dashboard-home-sheet-body">
             <h1 className="ops-page-title dashboard-home-hero">{NAV_WORDS.today}</h1>

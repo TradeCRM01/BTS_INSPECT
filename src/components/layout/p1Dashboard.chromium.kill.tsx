@@ -115,7 +115,7 @@ function ensureMainDistCss(): string {
   return readCssDir(join(wt, 'dist/assets'));
 }
 
-async function bundleDashboard(): Promise<string> {
+async function bundleDashboard(opts?: { lookProof?: boolean }): Promise<string> {
   const mocks = join(here, 's2Shell.chromium.mocks.ts');
   const result = await esbuild.build({
     absWorkingDir: process.cwd(),
@@ -132,6 +132,7 @@ async function bundleDashboard(): Promise<string> {
       'import.meta.env.DEV': 'false',
       'import.meta.env.PROD': 'true',
       'import.meta.env.SSR': 'false',
+      'import.meta.env.VITE_LOOK_PROOF': opts?.lookProof === false ? 'undefined' : '"1"',
       'import.meta.env.VITE_SUPABASE_URL': '"https://example.supabase.co"',
       'import.meta.env.VITE_SUPABASE_ANON_KEY': '"test-anon-key"',
     },
@@ -189,6 +190,7 @@ let browser: Awaited<ReturnType<typeof launchBrowser>>;
 let distCss = '';
 let mainCss = '';
 let dashJs = '';
+let dashJsNoProof = '';
 let runDir = '';
 const temps: string[] = [];
 
@@ -196,6 +198,7 @@ beforeAll(async () => {
   distCss = readDistCss();
   mainCss = ensureMainDistCss();
   dashJs = await bundleDashboard();
+  dashJsNoProof = await bundleDashboard({ lookProof: false });
   runDir = mkdtempSync(join(tmpdir(), 'p1-chroma-'));
   temps.push(runDir);
   browser = await launchBrowser();
@@ -212,9 +215,10 @@ async function openPage(args: {
   allowDark?: boolean;
   path?: string;
   css?: string;
+  js?: string;
 }): Promise<KillPage> {
   const html = fixtureHtml({
-    js: dashJs,
+    js: args.js ?? dashJs,
     css: args.css ?? distCss,
     theme: args.theme ?? 'light',
     allowDark: args.allowDark ?? false,
@@ -232,6 +236,102 @@ async function openPage(args: {
   await page.waitForSelector('.shell-header', { timeout: 20000 });
   await page.evaluate(async () => { await document.fonts.ready; });
   return page;
+}
+
+const LOOK_REMS = ['look-rem-mia', 'look-rem-0137', 'look-rem-megan'] as const;
+const LOOK_WIDGETS = [
+  'look-widget-upcoming-jobs',
+  'look-widget-outstanding-invoices',
+  'look-widget-compliance',
+] as const;
+const LOOK_SEED_WIDGETS = [
+  ...LOOK_WIDGETS,
+  'seed-weather',
+  'seed-clock',
+  'seed-calendar',
+  'seed-calculator',
+  'seed-quick_actions',
+  'seed-pending_reports',
+  'seed-agent_reminders',
+  'seed-kpi_scorecard',
+] as const;
+const LOOK_REPRO_WIDGETS = [
+  'w-jobs',
+  'w-weather1',
+  'w-weather2',
+  'w-weather3',
+  'w-invoices',
+  'w-compliance',
+  'w-pending',
+  'w-clock',
+  'w-calendar',
+  'w-calculator',
+  'w-quick',
+  'w-kpi',
+] as const;
+const LOOK_JACK_WIDGETS = [
+  'look-jack-outstanding',
+  'look-jack-cash',
+  'look-jack-revenue',
+  'look-jack-upcoming',
+  'look-jack-compliance',
+  'look-jack-kpi',
+  'look-jack-team',
+] as const;
+const LOOK_JOBS = ['look-dash-northside', 'look-dash-harbour'] as const;
+const LOOK_NEEDS_CREW_JOBS = ['look-dash-needs-crew'] as const;
+
+async function paintLookFakes(page: KillPage, want: {
+  rem: readonly string[];
+  widgets: readonly string[];
+  jobs: readonly string[];
+}) {
+  await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
+  await page.evaluate(async () => {
+    for (let i = 0; i < 80; i += 1) {
+      const ready = !!document.querySelector('.dashboard-home-ledger')
+        || /Nothing on today/.test(document.body.textContent || '');
+      if (ready) return;
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+    }
+  });
+  return page.evaluate((need) => {
+    const remIds = [...document.querySelectorAll('[data-reminder-id]')]
+      .map((el) => el.getAttribute('data-reminder-id') || '');
+    const widgetIds = [...document.querySelectorAll('[data-dashboard-widget-id]')]
+      .map((el) => el.getAttribute('data-dashboard-widget-id') || '');
+    const jobIds = [...document.querySelectorAll('[data-dashboard-job]')]
+      .map((el) => el.getAttribute('data-dashboard-job') || '');
+    return {
+      rem: need.rem.filter((id) => remIds.includes(id)),
+      widgets: need.widgets.filter((id) => widgetIds.includes(id)),
+      jobs: need.jobs.filter((id) => jobIds.includes(id)),
+      crew: [...document.querySelectorAll('[data-dashboard-job], .dashboard-home-ref')]
+        .some((el) => /\bDave\b|\bJack\b/.test(el.textContent || '')),
+      lookDay: /Thursday 3 September/.test(document.body.textContent || ''),
+      liveReminders: !!document.querySelector('[data-dashboard-reminders="1"] .reminders-capture'),
+    };
+  }, want);
+}
+
+const LIVE_LOOK_OK = {
+  rem: [] as string[],
+  widgets: [] as string[],
+  jobs: [] as string[],
+  crew: false,
+  lookDay: false,
+  liveReminders: true,
+};
+
+function liveLookBag(paint: Awaited<ReturnType<typeof paintLookFakes>>) {
+  return {
+    rem: paint.rem,
+    widgets: paint.widgets,
+    jobs: paint.jobs,
+    crew: paint.crew,
+    lookDay: paint.lookDay,
+    liveReminders: paint.liveReminders,
+  };
 }
 
 async function applyProdReminderCopy(page: KillPage) {
@@ -1473,4 +1573,93 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     await probe.close();
     expect(pix.hits, 'T2 --ops-navy #2B4A6F bar paints navy-band pixels').toBeGreaterThan(0);
   }, 60000);
+
+  it('P1-look-prod dashboard: prod no-flag /?look=dashboard stays live (rem/jobs/widgets/crew)', async () => {
+    const page = await openPage({ width: 375, path: '/?look=dashboard', js: dashJsNoProof });
+    const paint = await paintLookFakes(page, { rem: LOOK_REMS, widgets: LOOK_WIDGETS, jobs: LOOK_JOBS });
+    await page.close();
+    expect(liveLookBag(paint), '/?look=dashboard must stay on the live data path').toEqual(LIVE_LOOK_OK);
+  }, 60000);
+
+  it('P1-look-prod dashboard-seed: prod no-flag /?look=dashboard-seed stays live (rem/jobs/widgets/crew)', async () => {
+    const page = await openPage({ width: 375, path: '/?look=dashboard-seed', js: dashJsNoProof });
+    const paint = await paintLookFakes(page, { rem: LOOK_REMS, widgets: LOOK_SEED_WIDGETS, jobs: LOOK_JOBS });
+    await page.close();
+    expect(liveLookBag(paint), '/?look=dashboard-seed must stay on the live data path').toEqual(LIVE_LOOK_OK);
+  }, 60000);
+
+  it('P1-look-prod dashboard-repro: prod no-flag /?look=dashboard-repro stays live (rem/jobs/widgets/crew)', async () => {
+    const page = await openPage({ width: 375, path: '/?look=dashboard-repro', js: dashJsNoProof });
+    const paint = await paintLookFakes(page, { rem: LOOK_REMS, widgets: LOOK_REPRO_WIDGETS, jobs: LOOK_JOBS });
+    await page.close();
+    expect(liveLookBag(paint), '/?look=dashboard-repro must stay on the live data path').toEqual(LIVE_LOOK_OK);
+  }, 60000);
+
+  it('P1-look-prod dashboard-jack: prod no-flag /?look=dashboard-jack stays live (rem/jobs/widgets/crew)', async () => {
+    const page = await openPage({ width: 375, path: '/?look=dashboard-jack', js: dashJsNoProof });
+    const paint = await paintLookFakes(page, { rem: LOOK_REMS, widgets: LOOK_JACK_WIDGETS, jobs: LOOK_JOBS });
+    await page.close();
+    expect(liveLookBag(paint), '/?look=dashboard-jack must stay on the live data path').toEqual(LIVE_LOOK_OK);
+  }, 60000);
+
+  it('P1-look-prod crew-s8d-dashboard-needs: prod no-flag /?look=crew-s8d-dashboard-needs stays live (rem/jobs/widgets/crew)', async () => {
+    const page = await openPage({ width: 375, path: '/?look=crew-s8d-dashboard-needs', js: dashJsNoProof });
+    const paint = await paintLookFakes(page, {
+      rem: LOOK_REMS,
+      widgets: LOOK_WIDGETS,
+      jobs: LOOK_NEEDS_CREW_JOBS,
+    });
+    await page.close();
+    expect(liveLookBag(paint), '/?look=crew-s8d-dashboard-needs must stay on the live data path').toEqual(LIVE_LOOK_OK);
+  }, 60000);
+
+  it('P1-schedule-time: 375/390 long range stays in the time track', async () => {
+    for (const width of [375, 390] as const) {
+      const page = await openPage({ width });
+      await page.waitForSelector('.dashboard-home-row .dashboard-home-time', { timeout: 20000 });
+      const box = await page.evaluate(() => {
+        const row = document.querySelector('.dashboard-home-row') as HTMLElement | null;
+        const time = row?.querySelector('.dashboard-home-time') as HTMLElement | null;
+        const job = row?.querySelector('.dashboard-home-job') as HTMLElement | null;
+        if (!row || !time || !job) throw new Error('schedule row missing time/job');
+        const range = document.createRange();
+        range.selectNodeContents(time);
+        const text = range.getBoundingClientRect();
+        const jobBox = job.getBoundingClientRect();
+        const gap = parseFloat(getComputedStyle(row).columnGap || '0') || 0;
+        return {
+          text: (time.textContent || '').trim(),
+          textRight: text.right,
+          gap,
+          jobLeft: jobBox.left,
+        };
+      });
+      await page.close();
+      expect(box.text, `long time range at ${width}`).toMatch(/07:30\s+–\s+16:00/);
+      expect(
+        box.textRight + box.gap,
+        `time text right + gap <= Job left at ${width}`,
+      ).toBeLessThanOrEqual(box.jobLeft + 0.5);
+    }
+  }, 120000);
+
+  it('P1-today-mark: changing NAV_WORDS.today changes the black bar text', async () => {
+    const brandPath = join(process.cwd(), 'src/lib/brand.ts');
+    const orig = readFileSync(brandPath, 'utf8');
+    try {
+      if (!orig.includes("today: 'Today'")) throw new Error('NAV_WORDS.today literal missing');
+      writeFileSync(brandPath, orig.replace("today: 'Today'", "today: 'Tonight'"));
+      const js = await bundleDashboard();
+      writeFileSync(brandPath, orig);
+      const page = await openPage({ width: 375, js });
+      await page.waitForSelector('.dashboard-home-mark', { timeout: 20000 });
+      const mark = await page.evaluate(() =>
+        (document.querySelector('.dashboard-home-mark')?.textContent || '').trim(),
+      );
+      await page.close();
+      expect(mark, 'black bar follows NAV_WORDS.today').toBe('Tonight');
+    } finally {
+      writeFileSync(brandPath, orig);
+    }
+  }, 120000);
 });
