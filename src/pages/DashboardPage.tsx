@@ -9,7 +9,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { EmptyState, LoadingSpinner, PageError, useToast } from '../components/ui';
 import { ReminderRow } from '../components/reminders/ReminderRow';
 import { deriveNudges, type NudgeInvoice, type NudgeQuote } from '../lib/nudges';
-import { TODAY_NUDGE_INVOICE_STATUSES } from '../lib/todayBoard';
+import { TODAY_NUDGE_INVOICE_STATUSES, visibleTodayNudges, visibleTodayWidgets } from '../lib/todayBoard';
 import {
   canTickReminder,
   listReminderJobsById,
@@ -718,9 +718,10 @@ export function DashboardPage() {
     queryFn: () => loadDashboardNudgeData(todayKey, tomorrowKey),
     enabled: liveCompany,
   });
-  const nudges = nudgeData
-    ? deriveNudges({ ...nudgeData, userId: profile?.id ?? null, now })
-    : [];
+  const nudges = visibleTodayNudges(
+    nudgeData ? deriveNudges({ ...nudgeData, userId: profile?.id ?? null, now }) : [],
+    profile?.role,
+  );
 
   const [reminderTitle, setReminderTitle] = useState('');
   const [reminderSaving, setReminderSaving] = useState(false);
@@ -875,6 +876,10 @@ export function DashboardPage() {
     () => clampDashboardWidgetsToCanvas(widgets ?? [], canvasW),
     [widgets, canvasW],
   );
+  const shownWidgets = useMemo(
+    () => visibleTodayWidgets(displayWidgets, profile?.role),
+    [displayWidgets, profile?.role],
+  );
 
   const handleDragStart = (e: DragStartEvent) => {
     setActiveId(String(e.active.id));
@@ -940,16 +945,16 @@ export function DashboardPage() {
   }, [persistWidget, onResizeMove]);
 
   const canvasHeight = useMemo(() => {
-    const ws = displayWidgets;
+    const ws = shownWidgets;
     const floor = editMode ? 320 : 0;
     if (!ws.length) return floor;
     const maxBottom = Math.max(...ws.map(w => w.grid_y + w.grid_h));
     return Math.max(floor, maxBottom + CANVAS_PAD);
-  }, [displayWidgets, editMode]);
+  }, [shownWidgets, editMode]);
 
   const viewWidgets = useMemo(
-    () => sortDashboardWidgetsForView(displayWidgets),
-    [displayWidgets],
+    () => sortDashboardWidgetsForView(shownWidgets),
+    [shownWidgets],
   );
 
   if (pageQueryBlocked(error) || pageQueryBlocked(jobsError)) {
@@ -1150,7 +1155,7 @@ export function DashboardPage() {
                 {editMode ? (
                   <>
                     <DashboardPhoneEditStack
-                      widgets={widgets ?? []}
+                      widgets={shownWidgets}
                       onMove={movePhoneWidget}
                       onRemove={removeWidget}
                     >
@@ -1174,7 +1179,7 @@ export function DashboardPage() {
                           className={`dashboard-home-canvas relative overflow-x-auto is-editing`}
                           style={{ height: canvasHeight, minWidth: '100%' }}
                         >
-                          {displayWidgets.map(w => (
+                          {shownWidgets.map(w => (
                             <FreeWidget
                               key={w.id}
                               widget={w}

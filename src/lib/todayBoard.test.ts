@@ -9,7 +9,10 @@ import {
   TODAY_QD_CLIENT_COLUMNS,
   TODAY_QD_JOB_COLUMNS,
   TODAY_QE_INVOICE_COLUMNS,
+  canSeeTodayMoney,
   cashTotals,
+  visibleTodayNudges,
+  visibleTodayWidgets,
   fetchComingUp,
   fetchOutstanding,
   fetchReadyToInvoice,
@@ -329,6 +332,32 @@ describe('Q-E outstanding', () => {
     expect(invoiceCalls.every(call => call.filters.some(filter => filter.col === 'company_id' && filter.val === 'co'))).toBe(true);
     expect(invoiceCalls.every(call => !call.filters.some(filter => filter.kind === 'limit'))).toBe(true);
     expect(invoiceCalls[0]?.select).toBe(TODAY_QE_INVOICE_COLUMNS);
+  });
+});
+
+describe('C2 money role gate', () => {
+  it('shows money to owner and admin, and hides $ widgets and $ nudges from crew', () => {
+    expect(canSeeTodayMoney('admin')).toBe(true);
+    expect(canSeeTodayMoney('owner')).toBe(true);
+    expect(canSeeTodayMoney('member')).toBe(false);
+    expect(canSeeTodayMoney('crew')).toBe(false);
+    const widgets = [
+      { id: 'jobs', widget_type: 'upcoming_jobs' },
+      { id: 'inv', widget_type: 'outstanding_invoices' },
+      { id: 'cash', widget_type: 'cash_flow' },
+      { id: 'rev', widget_type: 'revenue_overview' },
+      { id: 'po', widget_type: 'open_pos' },
+    ];
+    expect(visibleTodayWidgets(widgets, 'admin').map(row => row.id)).toEqual(['jobs', 'inv', 'cash', 'rev', 'po']);
+    expect(visibleTodayWidgets(widgets, 'member').map(row => row.id)).toEqual(['jobs']);
+    const nudges = [
+      { kind: 'jobs_tomorrow' },
+      { kind: 'invoice_unpaid' },
+      { kind: 'quote_chase' },
+      { kind: 'leave_soon' },
+    ];
+    expect(visibleTodayNudges(nudges, 'admin').map(row => row.kind)).toEqual(['jobs_tomorrow', 'invoice_unpaid', 'quote_chase', 'leave_soon']);
+    expect(visibleTodayNudges(nudges, 'member').map(row => row.kind)).toEqual(['jobs_tomorrow', 'leave_soon']);
   });
 });
 
