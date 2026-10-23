@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -9,18 +9,32 @@ import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner, PageError, EmptyState, SearchBar, useToast } from '../components/ui';
 import { OverlayPortal } from '../components/ui/OverlayPortal';
 import { JobFormModal } from '../components/crm/JobFormModal';
-import type { Job, JobWithClient, JobStatus, Client } from '../types/crm';
-import { JOB_STATUS_LABELS } from '../types/crm';
+import type { Job, JobWithClient, Client } from '../types/crm';
 import { jobInvoiceActionFlags, jobOpenNext } from '../lib/jobNextAction';
 import { formatJobRef, withParentJobNumbers } from '../lib/jobRef';
-import { jobsListCustomer, jobsListPhoneNextLabel, jobsListPhoneRow, jobsListTitle } from '../lib/jobsListRow';
-import { jobCrewScheduleNeedsCrewClass, jobCrewScheduleStatus } from '../lib/jobCrewScheduleStatus';
+import {
+  jobsListCrewLabel,
+  jobsListCustomer,
+  jobsListPhoneDate,
+  jobsListPhoneNextLabel,
+  jobsListPhoneRow,
+  jobsListTitle,
+  jobsListUndatedNextLabel,
+} from '../lib/jobsListRow';
 import { countNeedsCrew } from '../lib/needCrew';
-import { todayWhisperNeedCrew } from '../lib/todayLayout';
 import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
 import { chunkIds } from '../lib/jobIdBatch';
+import { countJobsNeedCrew, withNeedCrewWhisper } from '../lib/needCrew';
+import {
+  JOBS_LIST_FILTERS,
+  countJobsListFilter,
+  jobMatchesListFilter,
+  jobStatusPill,
+  type JobsListFilterKey,
+  type JobStatusPillInput,
+} from '../lib/jobStatusPill';
 import { listCountWhisper, listQueryBusy } from '../lib/listQueryReady';
-import { Plus, Briefcase, MoreHorizontal, MessageSquare } from 'lucide-react';
+import { Plus, Briefcase, MessageSquare } from 'lucide-react';
 import {
   ALLOWED_ENQUIRY_PHONE,
   ALREADY_APPROVED_TOAST,
@@ -55,15 +69,32 @@ type JobRowModel = JobWithClient & {
   extrasError?: boolean;
 };
 
-type StatusFilter = 'all' | JobStatus;
-
-const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'scheduled', label: JOB_STATUS_LABELS.scheduled },
-  { key: 'in_progress', label: JOB_STATUS_LABELS.in_progress },
-  { key: 'completed', label: JOB_STATUS_LABELS.completed },
-  { key: 'cancelled', label: JOB_STATUS_LABELS.cancelled },
+const LOOK_CREW = [
+  { id: 'look-jobs-dave', name: 'Dave' },
+  { id: 'look-jobs-jack', name: 'Jack' },
 ];
+
+function listJobFacts(job: JobRowModel, rows: JobRowModel[]): JobStatusPillInput {
+  const invoices = job.docs
+    .filter((doc) => doc.kind === 'invoice')
+    .map((doc) => ({ status: doc.status }));
+  const parent = job.parent_job_id ? rows.find((row) => row.id === job.parent_job_id) : undefined;
+  const parentInvoices = parent
+    ? parent.docs.filter((doc) => doc.kind === 'invoice').map((doc) => ({ status: doc.status }))
+    : undefined;
+  const children = rows
+    .filter((row) => row.parent_job_id === job.id)
+    .map((row) => ({ status: row.status }));
+  return {
+    status: job.status,
+    scheduled_date: job.scheduled_date,
+    assigned_team: job.assigned_team,
+    invoices,
+    parentInvoices,
+    children: children.length ? children : undefined,
+    invoiceReadError: job.extrasError,
+  };
+}
 
 /** Signed jobs-list frame seed — list look only, not a live company. */
 const JOBS_LIST_LOOK = 'jobs-list';
@@ -428,7 +459,7 @@ export function JobsPage() {
   const tenantTimeZone = resolveTenantTimeZone(
     (company as { time_zone?: string | null } | null)?.time_zone,
   );
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<JobsListFilterKey>('all');
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
@@ -514,6 +545,24 @@ export function JobsPage() {
     enabled: !!profile && !lookJobsList && !lookP307 && !lookCrewS8dSeed && !lookEnquirySeed,
   });
 
+  const { data: liveMembers } = useQuery<Array<{ id: string; name: string }>>({
+    queryKey: ['team-members-jobs-list', profile?.company_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_company_members', {
+        p_company_id: profile!.company_id,
+      });
+      if (error) throw error;
+      return (data ?? []).map((member: { id: string; name: string }) => ({
+        id: member.id,
+        name: member.name,
+      }));
+    },
+    enabled: !!profile?.company_id && !lookJobsList && !lookP307 && !lookCrewS8dSeed && !lookEnquirySeed,
+  });
+  const crewMembers = lookJobsList || lookP307 || lookCrewS8dSeed || lookEnquirySeed
+    ? LOOK_CREW
+    : (liveMembers ?? []);
+
   const queryLiveEnquiries = !!profile
     && shouldQueryLiveEnquiries({ look: lookParam, view: viewParam })
     && !lookJobsList
@@ -563,10 +612,7 @@ export function JobsPage() {
         ? jobsListLookRows()
         : (jobs ?? []);
   const filtered = useMemo(() => {
-    let result = listRows;
-    if (statusFilter !== 'all') {
-      result = result.filter(j => j.status === statusFilter);
-    }
+    let result = listRows.filter((job) => jobMatchesListFilter(listJobFacts(job, listRows), statusFilter));
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(j =>
@@ -596,20 +642,20 @@ export function JobsPage() {
   const todayCount = countEnquiriesToday(enquiryRows, new Date(), tenantTimeZone);
   const reviewCount = countEnquiriesToReview(enquiryRows);
 
-  const filterLabel = STATUS_FILTERS.find(tab => tab.key === statusFilter)?.label ?? 'All';
+  const filterLabel = JOBS_LIST_FILTERS.find(tab => tab.key === statusFilter)?.label ?? 'All';
   const busy = listQueryBusy({ isPending, isLoading, data: jobs, seeded: lookJobsList || lookP307 || lookCrewS8dSeed });
   const enquiriesBusy = lookEnquirySeed
     ? false
     : listQueryBusy({ isPending: enquiriesPending, isLoading: enquiriesLoading, data: liveEnquiries, seeded: false });
   const whisper = showEnquiries
     ? enquiryWhisper({ busy: enquiriesBusy, reviewCount, todayCount })
-    : listCountWhisper({
+    : withNeedCrewWhisper(listCountWhisper({
       busy,
       filterLabel,
       count: filtered.length,
       singular: 'job',
       plural: 'jobs',
-    });
+    }), countJobsNeedCrew(listRows));
 
   useEffect(() => {
     const clientId = searchParams.get('client');
@@ -706,35 +752,25 @@ export function JobsPage() {
     <AppShell>
       <div className="ops-page hub-jobs hub-jobs-list-doc">
         <div className="hub-jobs-sheet">
-          <header className="hub-jobs-list-bar">
-            {showEnquiries ? null : (
-              <span className="hub-jobs-list-mark">List</span>
-            )}
-          </header>
           <div className="hub-jobs-list-body">
-            <div className="hub-jobs-list-identity">
-              <div>
-                {showEnquiries ? (
-                  <h1 className="ops-page-title">Enquiries</h1>
-                ) : (
-                  <h1 className="ops-page-title">Jobs</h1>
-                )}
-                <p className="hub-jobs-list-whisper" data-need-crew-count={needCrewCount}>
-                  {showEnquiries ? whisper : `${whisper} · ${todayWhisperNeedCrew(needCrewCount)}`}
-                </p>
-              </div>
-              <div className="hub-jobs-list-tools">
-                {showEnquiries ? null : (
-                  <button
-                    type="button"
-                    onClick={() => { setPresetClientId(null); setShowForm(true); }}
-                    className="btn-primary"
-                  >
-                    <Plus size={20} /> New job
-                  </button>
-                )}
-              </div>
+            <div className="hub-jobs-list-head">
+              {showEnquiries ? (
+                <h1 className="ops-page-title">Enquiries</h1>
+              ) : (
+                <h1 className="ops-page-title">Jobs</h1>
+              )}
+              {showEnquiries ? null : (
+                <button
+                  type="button"
+                  onClick={() => { setPresetClientId(null); setShowForm(true); }}
+                  className="btn-primary"
+                  data-jobs-new="1"
+                >
+                  <Plus size={16} /> New job
+                </button>
+              )}
             </div>
+            <p className="hub-jobs-list-whisper" data-need-crew-count={needCrewCount}>{whisper}</p>
             {lookJobsList || lookP307 || lookCrewS8dSeed || !enquirySurface ? null : (
             <div className="hub-jobs-list-views" role="tablist" aria-label="Jobs or enquiries">
               <button
@@ -764,25 +800,35 @@ export function JobsPage() {
               </button>
             </div>
             )}
-            <div className="hub-jobs-list-track">
-              <div className="hub-jobs-list-tools-overflow">
-                <JobsListFind search={search} onSearch={setSearch} />
-              </div>
+            <div className="hub-jobs-list-search">
+              <SearchBar
+                value={search}
+                onChange={setSearch}
+                placeholder={showEnquiries ? 'Search name, suburb or phone' : 'Search jobs or clients'}
+              />
             </div>
             {showEnquiries ? null : (
             <div className="hub-jobs-list-filters" role="tablist" aria-label="Job status">
-              {STATUS_FILTERS.map(tab => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={statusFilter === tab.key}
-                  onClick={() => setStatusFilter(tab.key)}
-                  className={`hub-jobs-list-filter ${statusFilter === tab.key ? 'is-on' : ''}`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+              {JOBS_LIST_FILTERS.map(tab => {
+                const count = countJobsListFilter(
+                  listRows.map((job) => listJobFacts(job, listRows)),
+                  tab.key,
+                );
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={statusFilter === tab.key}
+                    data-jobs-filter={tab.key}
+                    onClick={() => setStatusFilter(tab.key)}
+                    className={`hub-jobs-list-filter ${statusFilter === tab.key ? 'is-on' : ''}`}
+                  >
+                    {tab.label}
+                    <span className="hub-jobs-list-filter-count">{count}</span>
+                  </button>
+                );
+              })}
             </div>
             )}
             {showEnquiries ? (
@@ -826,19 +872,21 @@ export function JobsPage() {
               <>
                 <div className="hub-jobs-phone-list" data-jobs-phone-list="1">
                   {filtered.map(job => (
-                    <JobPhoneRow key={job.id} job={job} />
+                    <JobPhoneRow key={job.id} job={job} rows={listRows} members={crewMembers} />
                   ))}
                 </div>
                 <div className="hub-jobs-desktop-list">
                   <div className="hub-jobs-thead">
                     <span>Job</span>
-                    <span>Customer</span>
+                    <span>Client</span>
                     <span>Suburb</span>
+                    <span className="hub-jobs-col-crew">Crew</span>
+                    <span className="hub-jobs-col-date">Date</span>
                     <span>Status</span>
-                    <span />
+                    <span>Next</span>
                   </div>
                   {filtered.map(job => (
-                    <JobRow key={job.id} job={job} />
+                    <JobRow key={job.id} job={job} rows={listRows} members={crewMembers} />
                   ))}
                 </div>
               </>
@@ -950,96 +998,28 @@ export function JobsPage() {
   );
 }
 
-function placeJobsListMore(more: HTMLDetailsElement) {
-  const menu = more.querySelector('.hub-jobs-list-more-menu') as HTMLElement | null;
-  const paper = more.closest('.hub-jobs-sheet') as HTMLElement | null;
-  if (!menu || !paper) return;
-  more.classList.remove('is-flip', 'is-shift');
-  menu.style.removeProperty('--hub-jobs-list-more-shift');
-  if (!more.open) return;
-  const pad = 8;
-  const paperRect = paper.getBoundingClientRect();
-  const bar = paper.querySelector('.hub-jobs-list-bar');
-  const inkFloor = (bar?.getBoundingClientRect().bottom ?? paperRect.top) + pad;
-  const viewBottom = window.innerHeight - pad;
-  const menuRect = menu.getBoundingClientRect();
-  const trigger = more.querySelector('summary') as HTMLElement | null;
-  const triggerRect = trigger?.getBoundingClientRect() ?? menuRect;
-  const flippedTop = triggerRect.top - pad - menuRect.height;
-  const overflowsBottom = menuRect.bottom > Math.min(paperRect.bottom - pad, viewBottom);
-  if (overflowsBottom && flippedTop >= inkFloor) {
-    more.classList.add('is-flip');
-  }
-  const after = menu.getBoundingClientRect();
-  let shift = 0;
-  if (after.right > paperRect.right - pad) shift = paperRect.right - pad - after.right;
-  if (after.left + shift < paperRect.left + pad) shift = paperRect.left + pad - after.left;
-  if (shift !== 0) {
-    more.classList.add('is-shift');
-    menu.style.setProperty('--hub-jobs-list-more-shift', `${Math.round(shift)}px`);
-  }
-}
-
-function JobsListFind({
-  search,
-  onSearch,
+function JobPhoneRow({
+  job,
+  rows,
+  members,
 }: {
-  search: string;
-  onSearch: (value: string) => void;
+  job: JobRowModel;
+  rows: JobRowModel[];
+  members: Array<{ id: string; name: string }>;
 }) {
-  const moreRef = useRef<HTMLDetailsElement>(null);
-
-  const closeMore = () => {
-    if (moreRef.current) moreRef.current.open = false;
-  };
-
-  const placeMoreMenu = () => {
-    if (moreRef.current) placeJobsListMore(moreRef.current);
-  };
-
-  useEffect(() => {
-    const more = moreRef.current;
-    const onPointer = (event: PointerEvent) => {
-      if (!moreRef.current?.open) return;
-      if (!moreRef.current.contains(event.target as Node)) closeMore();
-    };
-    more?.addEventListener('toggle', placeMoreMenu);
-    window.addEventListener('resize', placeMoreMenu);
-    document.addEventListener('pointerdown', onPointer);
-    return () => {
-      more?.removeEventListener('toggle', placeMoreMenu);
-      window.removeEventListener('resize', placeMoreMenu);
-      document.removeEventListener('pointerdown', onPointer);
-    };
-  }, []);
-
-  return (
-    <div className="hub-jobs-list-find">
-      <div className="hub-jobs-chrome">
-        <SearchBar value={search} onChange={onSearch} placeholder="Search jobs or clients..." />
-      </div>
-      <details ref={moreRef} className="hub-jobs-list-more">
-        <summary aria-label="Search">
-          <MoreHorizontal size={18} />
-        </summary>
-        <div className="hub-jobs-list-more-menu" role="menu" />
-      </details>
-    </div>
-  );
-}
-
-function JobPhoneRow({ job }: { job: JobRowModel }) {
   const navigate = useNavigate();
+  const facts = listJobFacts(job, rows);
   const invoiceFlags = jobInvoiceActionFlags(
     job.docs
       .filter(doc => doc.kind === 'invoice')
       .map(doc => ({ status: doc.status ?? 'draft', due_date: doc.due_date })),
   );
   const next = jobOpenNext({ ...job, ...invoiceFlags });
-  const row = jobsListPhoneRow(job);
-  const phoneNext = jobsListPhoneNextLabel(next);
+  const crew = jobsListCrewLabel(job.assigned_team, members);
+  const row = jobsListPhoneRow({ ...job, ...facts }, crew);
+  const phoneNext = jobsListUndatedNextLabel(row.pill.kind, jobsListPhoneNextLabel(next));
+  const nextHref = row.pill.kind === 'no_date' ? `/jobs/${job.id}?tab=schedule` : next.href;
   const jobHref = `/jobs/${job.id}`;
-  const showRef = row.ref && row.ref !== row.title;
   return (
     <div
       role="link"
@@ -1051,20 +1031,19 @@ function JobPhoneRow({ job }: { job: JobRowModel }) {
       className="hub-jobs-phone-row"
     >
       <div className="hub-jobs-phone-copy">
-        <p className="hub-jobs-phone-title">
-          {row.title}
-          {showRef ? <span className="hub-jobs-phone-ref"> {row.ref}</span> : null}
+        <p className="hub-jobs-phone-title-row">
+          <span className="hub-jobs-phone-title">{row.title}</span>
+          <span className={row.statusClass} data-jobs-pill={row.pill.kind}>{row.status}</span>
         </p>
-        <p className="hub-jobs-phone-meta">{row.meta}</p>
+        <p className="hub-jobs-phone-meta">{row.line2}</p>
         <p className="hub-jobs-phone-facts">
-          <span className={row.statusClass}>{row.status}</span>
-          {row.date ? <span className="hub-jobs-phone-date">{row.date}</span> : null}
+          <span>{row.line3}</span>
         </p>
       </div>
       {phoneNext ? (
         <span className="hub-jobs-phone-next-wrap" onClick={e => e.stopPropagation()}>
           <Link
-            to={next.href}
+            to={nextHref}
             className="hub-next hub-jobs-phone-next"
             data-job-list-next={phoneNext}
             data-jobs-phone-next="1"
@@ -1077,8 +1056,18 @@ function JobPhoneRow({ job }: { job: JobRowModel }) {
   );
 }
 
-function JobRow({ job }: { job: JobRowModel }) {
+function JobRow({
+  job,
+  rows,
+  members,
+}: {
+  job: JobRowModel;
+  rows: JobRowModel[];
+  members: Array<{ id: string; name: string }>;
+}) {
   const navigate = useNavigate();
+  const facts = listJobFacts(job, rows);
+  const pill = jobStatusPill(facts);
   const invoiceFlags = jobInvoiceActionFlags(
     job.docs
       .filter(doc => doc.kind === 'invoice')
@@ -1087,9 +1076,11 @@ function JobRow({ job }: { job: JobRowModel }) {
   const next = jobOpenNext({ ...job, ...invoiceFlags });
   const site = visibleSite(job.address, job.client_address);
   const suburb = site ? suburbFromSite(site) : '';
+  const crew = jobsListCrewLabel(job.assigned_team, members);
+  const date = jobsListPhoneDate(job.scheduled_date);
   const jobHref = `/jobs/${job.id}`;
-  const crewSchedule = jobCrewScheduleStatus(job.status, job.scheduled_date, job.assigned_team);
-  const crewScheduleClass = jobCrewScheduleNeedsCrewClass(crewSchedule.kind);
+  const nextLabel = jobsListUndatedNextLabel(pill.kind, next.actionable ? next.label : null);
+  const nextHref = pill.kind === 'no_date' ? `/jobs/${job.id}?tab=schedule` : next.href;
   return (
     <div
       role="link"
@@ -1102,25 +1093,32 @@ function JobRow({ job }: { job: JobRowModel }) {
       <span className="hub-jobs-job">
         <span className="hub-jobs-title">{jobsListTitle(job)}</span>
         <span className="hub-jobs-ref">{formatJobRef(job)}</span>
+        <span className="hub-jobs-row-mid-meta">{crew}{date ? ` · ${date}` : ''}</span>
       </span>
       <span className="truncate hub-jobs-name">{jobsListCustomer(job)}</span>
       <span className="truncate hub-jobs-muted">{suburb}</span>
-      <span className={['hub-jobs-status', crewScheduleClass].filter(Boolean).join(' ')}>
-        {crewSchedule.label}
+      <span className="truncate hub-jobs-col-crew">{crew}</span>
+      <span className="truncate hub-jobs-col-date">{date}</span>
+      <span className={`hub-jobs-status ${rowStatusClass(pill.tone)}`} data-jobs-pill={pill.kind}>
+        {pill.label}
       </span>
       <span className="hub-jobs-row-next" onClick={e => e.stopPropagation()}>
-        {next.actionable ? (
+        {nextLabel ? (
           <Link
-            to={next.href}
+            to={nextHref}
             className="hub-next shrink-0"
-            data-job-list-next={next.label}
+            data-job-list-next={nextLabel}
           >
-            {next.label}
+            {nextLabel}
           </Link>
         ) : null}
       </span>
     </div>
   );
+}
+
+function rowStatusClass(tone: string): string {
+  return `hub-jobs-pill is-${tone}`;
 }
 
 function EnquiryListRow({
