@@ -716,7 +716,7 @@ function tables(after: Row[], before: Row[]): string {
   for (const r of after) {
     const reach = r.reach as Measure['reach'] | undefined;
     if (!reach) continue;
-    out.push(`| ${r.state} | ${reach.vh} | ${reach.agendaFirst.height} | ${reach.agendaFirst.visible} | ${reach.tray.visible} | ${reach.lastLane.visible} |`);
+    out.push(`| ${r.state} | ${reach.vh} | ${reach.agenda?.height ?? reach.agendaFirst.height} | ${reach.agenda?.visible ?? reach.agendaFirst.visible} | ${reach.tray.visible} | ${reach.lastLane.visible} |`);
   }
   out.push('', '## Clocks vs clipping ancestors', '', '| state | clocks | clipped |', '|---|---:|---|');
   for (const r of after) {
