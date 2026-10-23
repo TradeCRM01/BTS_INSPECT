@@ -683,11 +683,14 @@ function trackLabels(): TrackLabel[] {
     const clip = clipBox(el, true);
     const clipIsTrack = clip.clipEl.includes(TRACK_PROBE.selector.slice(1));
     let clipOnCard = clipIsTrack;
-    for (let node: Element | null = el; node && node !== card.parentElement; node = node.parentElement) {
+    let node: Element | null = el;
+    while (node && node !== card.parentElement) {
       const s = getComputedStyle(node);
-      if (s.overflowX === 'visible' && s.overflowY === 'visible') continue;
-      clipOnCard = card === node || card.contains(node) || clipIsTrack;
-      break;
+      if (s.overflowX !== 'visible' || s.overflowY !== 'visible') {
+        clipOnCard = card === node || card.contains(node) || clipIsTrack;
+        break;
+      }
+      node = node.parentElement;
     }
     const fitsClip = clamp || clipOnCard || !Number.isFinite(clip.right)
       || (textR.left >= clip.left - 0.5 && textR.right <= clip.right + 0.5);

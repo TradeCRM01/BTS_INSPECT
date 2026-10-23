@@ -844,7 +844,7 @@ export function SchedulePage() {
   const weekRangeShort = weekRangeLabel;
   const dayRangeLabel = format(currentDate, 'EEE d MMM yyyy');
   const dayRangeShort = format(currentDate, 'EEE d MMM');
-  const needCrew = countNeedCrewJobs(boardJobs);
+  const needCrew = boardJobs.filter(needCrewOf).length;
   const boardWhisper = scheduleBoardWhisper({
     onBoard: onBoard.length,
     needCrew,
@@ -1207,4 +1207,14 @@ export function SchedulePage() {
       )}
     </AppShell>
   );
+}
+
+void countNeedCrewJobs;
+
+/** Local until #403. Never throws. Malformed crew is need-crew. Unknown status is never Scheduled or Booked. */
+function needCrewOf(job: { status?: string | null; scheduled_date?: string | null; assigned_team?: unknown }): boolean {
+  if (!(job.scheduled_date ?? '').trim()) return false;
+  if (job.status === 'completed' || job.status === 'Done' || job.status === 'cancelled') return false;
+  if (!Array.isArray(job.assigned_team)) return true;
+  return job.assigned_team.filter((id): id is string => typeof id === 'string' && id.trim().length > 0).length === 0;
 }
