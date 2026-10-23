@@ -62,6 +62,16 @@ describe('jobStatusPill D1', () => {
       scheduled_date: '2026-10-19',
       assigned_team: ['a'],
     }).label).toBe('Scheduled');
+    expect(jobStatusPill({
+      status: 'booked',
+      scheduled_date: '2026-10-19',
+      assigned_team: [],
+    }).label).toBe(JOB_PILL_NEEDS_CREW);
+    expect(jobStatusPill({
+      status: 'booked',
+      scheduled_date: '2026-10-19',
+      assigned_team: [],
+    }).label).not.toBe('Booked');
     expect(JOB_PILL_SET_A_DATE).toBe('Set a date');
   });
 

@@ -367,7 +367,7 @@ const FIX2B_D_NORATE_LOOK = 'fix2b-d-norate';
 const LOOK_PHOTO_DIR = '/look/photos';
 
 function lookSearchParam(): string | null {
-  if (!import.meta.env.DEV) return null;
+  if (!(import.meta.env.DEV || import.meta.env.VITE_LOOK_PROOF === '1')) return null;
   try {
     return new URLSearchParams(window.location.search).get('look');
   } catch {
@@ -1566,7 +1566,7 @@ const JOB_GALLERY_LOOK_CSS = `
 export function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const lookParam = import.meta.env.DEV ? searchParams.get('look') : null;
+  const lookParam = (import.meta.env.DEV || import.meta.env.VITE_LOOK_PROOF === '1') ? searchParams.get('look') : null;
   const conversationLookOn = conversationLookKind(lookParam) != null;
   const rescheduleAsked = isJobRescheduleQuery(searchParams);
   const tab = readJobSheetTab(searchParams, window.location.hash);
