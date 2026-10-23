@@ -1,28 +1,29 @@
-# P3 r13 mutants
+# P3 r14 mutants
 
 Real-file mutants. Edit `src`, `npm run build`, run the named Chromium `it()`, revert. Timeouts, injected CSS, in-suite rebuilds, and tests that write tracked files do not count. Each kill cites `it()` in `src/pages/p3Jobs.chromium.kill.tsx`.
 
 Portable mockup pin lives at `docs/look/p3/fixtures/{job-390-light.html,direction.css,tokens.css,app.css}`. `src/pages/job390Light.fixture.test.ts` sha256-checks those four files. No `/home/ubuntu` paths.
 
-R13 keeps every r12 assert and ADDs note weight 400, Notes heading size/weight, disclosed `All notes`, photo fill/ring painted ±3, icon/caption geometry ±1, and a tight Actions border ±3 beside the standing `#E5E7EB ±18`. Commands below run **outside** the suite.
+R14 keeps every r13 assert and ADDs the r10 fully-inside Actions box (`top >= -1`, `bottom <= innerH+1`, `left >= -1`, `right <= innerW+1`) after `scrollIntoView`, bill3 value left insets 0/12/12 ±1 vs the cell rect, and `.v` 20/26/600 on both sides. Photos count format is disclosed: mock extra `N · …`, head heading `Photos · N`. Commands below run **outside** the suite.
 
 | id | src edit | kill | red |
 | --- | --- | --- | --- |
 | m15 | `.job-sheet-tabs` forced to `grid-auto-flow:row; grid-template-columns:1fr 1fr` in `src/index.css` | `K7 four tabs one row` :1057 `expect(read.columns).toBe(4)` and :1058 `uniqueLefts`; also `R9 job-390-light named elements` tab width | AssertionError `expected 2 to be 4`; tab 0 width 174 vs mock 79 |
 | m26 | `.job-sheet-more { display: none }` in `src/index.css` | `R9 sheet actions stay reachable at 375 390 768` via `assertActionsVisible` | AssertionError `375 Actions display: expected 'none' not to be 'none'` |
-| m26 visibility | `.job-sheet-more { visibility: hidden }` in `src/index.css` | `R9 sheet actions stay reachable at 375 390 768` via `assertActionsVisible` :2210 | AssertionError `375 Actions visibility: expected 'hidden' not to be 'hidden'` **and** hit-test |
-| m26 height:0 | `.job-sheet-more { height: 0; overflow: hidden }` in `src/index.css` | `R9 sheet actions stay reachable at 375 390 768` via `assertActionsVisible` :2212 | AssertionError `375 Actions height: expected 0 to be greater than 0` **and** hit-test / summary rect |
-| bill3-flat | `.job-sheet-bill3` `display:block` in `src/index.css` | `R9 job-390-light named elements` :2138 `bill3Display` (kept) and cell rects | AssertionError `expected 'block' to be 'grid'` **and** tops not same-row / lefts not left-to-right |
+| m26 visibility | `.job-sheet-more { visibility: hidden }` in `src/index.css` | `R9 sheet actions stay reachable at 375 390 768` via `assertActionsVisible` :2266 | AssertionError `375 Actions visibility: expected 'hidden' not to be 'hidden'` **and** hit-test |
+| m26 height:0 | `.job-sheet-more { height: 0; overflow: hidden }` in `src/index.css` | `R9 sheet actions stay reachable at 375 390 768` via `assertActionsVisible` :2268 | AssertionError `375 Actions height: expected 0 to be greater than 0` **and** hit-test / summary rect |
+| bill3-flat | `.job-sheet-bill3` `display:block` in `src/index.css` | `R9 job-390-light named elements` :2160 `bill3Display` (kept) and cell rects | AssertionError `expected 'block' to be 'grid'` **and** tops not same-row / lefts not left-to-right |
+| bill-inset | `.job-sheet-bill3 > div` padding-left `12px` → `0` in `src/index.css` | `R9 job-390-light named elements` :2198 `head Cost value inset` | AssertionError `head Cost value inset 1: expected false to be true` |
 | bl-subline-removed | drop `.job-sheet-bill-s` from `JobDetailPage.tsx` | `R9 job-390-light named elements` `billSubCount` | AssertionError `real line sub-lines: expected 0 to be greater than 0` |
 | Go ring | drop the `#A1A1AA` inset on `.job-sheet-kv-act` | `R10 Go/Call ring paints line-strong on the edge` | painted edge pixel leaves `rgb(161,161,170)` |
 | Site hair | remove the first `[data-job-kv-rule]` or its 1px fill | `R10 Site hairline paints above the first KV row`; `R6-5` four hairs | painted `#E4E4E7` miss or hairCount ≠ 4 |
 | KV 400 | `font-weight: 500` on `.job-sheet-kv-value` | `R10 KV value paints ink at weight 400` | AssertionError weight ≠ 400 |
 | Tabs 11px | `font-size: 11px` on `.job-sheet-tabs .job-sheet-tab` | R9 `tabFontSize` | AssertionError `14` vs `11` |
 | Fixture pin | rewrite any fixture byte | `job-390-light fixture pin` in `src/pages/job390Light.fixture.test.ts` | sha256 mismatch |
-| actions-text-link | revert `.job-sheet-more > summary.btn-secondary` to grey text-link (no fill, no border) and the ≤768 `width:100%` to `width:auto` | `R12 Actions paints kit secondary border and fills the gutters` :2460 | AssertionError `390 Actions summary fills gutters: expected 73.546875 to be greater than or equal to 357` |
-| note-weight | `.job-sheet-note p` `font-weight: 700` | `R9 job-390-light named elements` :2079 `notePWeight` | AssertionError `head note body weight 400: expected 700 to be 400` |
-| photo-fill | `.job-sheet-photo` background `#eeeae3` | `R9 job-390-light named elements` :2135 painted fill ±3 | AssertionError `head photo fill 238,234,227 d15` vs `#EBEBEE` |
-| photo-icon | drop `.job-sheet-photo-ic { margin-bottom: auto }` | `R9 job-390-light named elements` :2103 icon Y ±1 | AssertionError `photo icon Y head 74.328125 mock 8` |
+| actions-text-link | revert `.job-sheet-more > summary.btn-secondary` to grey text-link (no fill, no border) and the ≤768 `width:100%` to `width:auto` | `R12 Actions paints kit secondary border and fills the gutters` :2522 | AssertionError `390 Actions summary fills gutters: expected 73.546875 to be greater than or equal to 357` |
+| note-weight | `.job-sheet-note p` `font-weight: 700` | `R9 job-390-light named elements` :2097 `notePWeight` | AssertionError `head note body weight 400: expected 700 to be 400` |
+| photo-fill | `.job-sheet-photo` background `#eeeae3` | `R9 job-390-light named elements` :2157 painted fill ±3 | AssertionError `head photo fill 238,234,227 d15` vs `#EBEBEE` |
+| photo-icon | drop `.job-sheet-photo-ic { margin-bottom: auto }` | `R9 job-390-light named elements` :2125 icon Y ±1 | AssertionError `photo icon Y head 74.328125 mock 8` |
 
 m26 is a click-path kill: Playwright `page.click` on `summary`, then `[data-job-action="details"]`. No `open=true`, no JS `.click()`. Hidden Actions fails on kept `visibility` / non-zero viewport rect **and** on `document.elementFromPoint` at the summary centre.
 
@@ -46,7 +47,7 @@ print('mutated note-weight')
 PY
 npm run build
 npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R9 job-390-light named elements"
-# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:2079
+# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:2097
 #   head note body weight 400: expected 700 to be 400
 git checkout -- src/index.css
 ```
@@ -79,7 +80,7 @@ print('mutated photo-fill')
 PY
 npm run build
 npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R9 job-390-light named elements"
-# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:2135
+# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:2157
 #   head photo fill 238,234,227 d15: expected 15 to be less than or equal to 3
 git checkout -- src/index.css
 ```
@@ -100,7 +101,7 @@ print('mutated photo-icon')
 PY
 npm run build
 npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R9 job-390-light named elements"
-# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:2103
+# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:2125
 #   photo icon Y head 74.328125 mock 8: expected false to be true
 git checkout -- src/index.css
 ```
@@ -176,9 +177,9 @@ print('mutated actions-text-link')
 PY
 npm run build
 npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R12 Actions paints kit secondary"
-# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:2460
+# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:2522
 #   390 Actions summary fills gutters: expected 73.546875 to be greater than or equal to 357
-# assertActionsVisible :2221 is the same gutter expect
+# assertActionsVisible :2281 is the same gutter expect
 git checkout -- src/index.css
 ```
 
@@ -239,5 +240,26 @@ PY
 npm run build
 npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R9 sheet actions stay reachable"
 # expected AssertionError: 375 Actions height: expected 0 to be greater than 0
+git checkout -- src/index.css
+```
+
+### bill-inset
+
+```sh
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = '  .job-sheet-bill3 > div {\n    padding: 12px 0 12px 12px;\n    border-left: 1px solid var(--job-look-line);\n  }'
+new = '  .job-sheet-bill3 > div {\n    padding: 12px 0 12px 0;\n    border-left: 1px solid var(--job-look-line);\n  }'
+if old not in t:
+    raise SystemExit('bill-inset anchor missing')
+p.write_text(t.replace(old, new, 1))
+print('mutated bill-inset')
+PY
+npm run build
+npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R9 job-390-light named elements"
+# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:2198
+#   head Cost value inset 1: expected false to be true
 git checkout -- src/index.css
 ```
