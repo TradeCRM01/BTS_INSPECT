@@ -7740,8 +7740,10 @@
 
   .hub-week-chip-line1 {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: baseline;
+    min-width: 0;
+    max-width: 100%;
     line-height: 1.3;
     max-height: none;
     overflow: visible;
@@ -7753,6 +7755,8 @@
   .hub-week-chip-line1 .hub-week-chip-ref {
     display: inline;
     width: auto;
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
 
   .hub-week-chip-track {
@@ -8358,7 +8362,7 @@
     }
 
     .hub-week-document .hub-day-board .hub-week-chip-line1 {
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
       overflow: visible;
     }
 

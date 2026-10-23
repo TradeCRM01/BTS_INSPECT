@@ -382,7 +382,7 @@ describe('P2 Schedule on the built dist', () => {
       return !!el && (el.textContent ?? '').trim() !== prev;
     }, before);
     const after = await o.page.locator('.hub-week-range-full').innerText();
-    expect.soft(after.includes('26 Oct'), 'next week moves the range by 7 days').toBe(true);
+    expect.soft(after.includes('26 to 1 Nov'), 'next week moves the range by 7 days').toBe(true);
     await o.page.locator('main').getByRole('button', { name: 'Today' }).click();
     await o.page.waitForFunction(() => (document.querySelector('[data-schedule-eyebrow]')?.textContent ?? '').includes('19 October'));
     await o.page.locator('.hub-week-seg-btn', { hasText: 'Day' }).click();
