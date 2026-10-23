@@ -1,6 +1,6 @@
 /** Browser-side stubs for the P3 Jobs Chromium harness. Not imported by the app. */
 
-export type P3Cfg = { path?: string; empty?: boolean };
+export type P3Cfg = { path?: string; empty?: boolean; clientsError?: boolean };
 
 function cfg(): P3Cfg {
   return (globalThis as unknown as { __P3__?: P3Cfg }).__P3__ ?? {};
@@ -60,10 +60,10 @@ function liveJobs() {
   const base = jobBase();
   const fillers = [4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({
     ...base,
-    id: `p3-j${n}`,
+    id: n === 4 ? 'p3-void-parent' : n === 5 ? 'p3-void-child' : `p3-j${n}`,
     client_id: 'p3-client-36',
-    title: `Filler job ${n}`,
-    status: n === 12 ? 'in_progress' : 'scheduled',
+    title: n === 4 ? 'Void parent invoice' : n === 5 ? 'Child of void parent' : `Filler job ${n}`,
+    status: n === 4 || n === 5 ? 'completed' : n === 12 ? 'in_progress' : 'scheduled',
     scheduled_date: '2026-10-20',
     start_time: '08:00',
     end_time: '12:00',
@@ -71,6 +71,7 @@ function liveJobs() {
     assigned_team: ['p3-dean'],
     job_number: n,
     budget: null,
+    parent_job_id: n === 5 ? 'p3-void-parent' : null,
   }));
   return [{
     ...base,
@@ -250,6 +251,19 @@ function liveQuotes() {
   }];
 }
 
+function liveInvoices() {
+  return [{
+    id: 'p3-inv-void',
+    company_id: 'c1',
+    job_id: 'p3-void-parent',
+    invoice_number: 9,
+    status: 'void',
+    total: 100,
+    due_date: null,
+    created_at: STAMP,
+  }];
+}
+
 type MockRow = Record<string, unknown>;
 
 function tableRows(table: string): MockRow[] {
@@ -262,6 +276,7 @@ function tableRows(table: string): MockRow[] {
   if (table === 'timesheet_entries') return liveTimesheetEntries() as unknown as MockRow[];
   if (table === 'jha_documents') return liveJhas() as unknown as MockRow[];
   if (table === 'quotes') return liveQuotes() as unknown as MockRow[];
+  if (table === 'invoices') return liveInvoices() as unknown as MockRow[];
   if (table === 'companies') {
     return [{ id: 'c1', name: 'Northside Plumbing', default_labour_rate: null, time_zone: 'Australia/Brisbane' }];
   }
@@ -270,7 +285,12 @@ function tableRows(table: string): MockRow[] {
 
 function from(table: string) {
   let rows = tableRows(table).map((row) => ({ ...row }));
-  const payload = () => ({ data: rows, error: null, count: rows.length });
+  const payload = () => {
+    if (table === 'clients' && cfg().clientsError) {
+      return { data: null, error: { message: 'clients failed' }, count: 0 };
+    }
+    return { data: rows, error: null, count: rows.length };
+  };
   const chain: Record<string, unknown> = {};
   chain.select = () => chain;
   chain.eq = (column: string, value: unknown) => {
