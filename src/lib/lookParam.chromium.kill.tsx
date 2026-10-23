@@ -12,7 +12,7 @@ import { createRequire } from 'node:module';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { LOOK_PAGE_KILLS, LOOK_PROOF_SCAN_KEYS } from './lookParam.chromium.catalog';
+import { LOOK_FILL_KILLS, LOOK_PAGE_KILLS, SEARCH_PARAM_ALLOWLIST } from './lookParam.chromium.catalog';
 
 const require = createRequire(import.meta.url);
 const ts = require('typescript') as typeof import('typescript');
@@ -128,8 +128,73 @@ function collectStringConsts(source: import('typescript').SourceFile): Map<strin
   return consts;
 }
 
-function lookReadsOutsideHelper(): Array<{ file: string; line: number; text: string }> {
-  const keys = new Set<string>(LOOK_PROOF_SCAN_KEYS);
+function isUrlSearchParamsCtor(node: import('typescript').NewExpression): boolean {
+  return ts.isIdentifier(node.expression) && node.expression.text === 'URLSearchParams';
+}
+
+function typeLooksLikeSearchParams(type: import('typescript').TypeNode | undefined): boolean {
+  return Boolean(type && /\bURLSearchParams\b/.test(type.getText()));
+}
+
+function calleeName(expr: import('typescript').Expression): string {
+  const cur = unwrapExpr(expr);
+  if (ts.isIdentifier(cur)) return cur.text;
+  if (ts.isPropertyAccessExpression(cur)) return cur.name.text;
+  return '';
+}
+
+function collectSearchParamNames(source: import('typescript').SourceFile): Set<string> {
+  const names = new Set<string>();
+  const visit = (node: import('typescript').Node) => {
+    if (ts.isParameter(node) && ts.isIdentifier(node.name) && typeLooksLikeSearchParams(node.type)) {
+      names.add(node.name.text);
+    }
+    if (ts.isVariableDeclaration(node) && node.initializer) {
+      const init = unwrapExpr(node.initializer);
+      if (ts.isCallExpression(init) && calleeName(init.expression) === 'useSearchParams') {
+        if (ts.isArrayBindingPattern(node.name)) {
+          const first = node.name.elements[0];
+          if (first && !ts.isOmittedExpression(first) && ts.isIdentifier(first.name)) {
+            names.add(first.name.text);
+          }
+        } else if (ts.isIdentifier(node.name)) {
+          names.add(node.name.text);
+        }
+      }
+      if (ts.isNewExpression(init) && isUrlSearchParamsCtor(init) && ts.isIdentifier(node.name)) {
+        names.add(node.name.text);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return names;
+}
+
+function isSearchReceiver(
+  expr: import('typescript').Expression,
+  names: Set<string>,
+): boolean {
+  const cur = unwrapExpr(expr);
+  if (ts.isIdentifier(cur) && names.has(cur.text)) return true;
+  if (ts.isNewExpression(cur) && isUrlSearchParamsCtor(cur)) return true;
+  if (ts.isPropertyAccessExpression(cur) && cur.name.text === 'searchParams') return true;
+  return false;
+}
+
+function pushHit(
+  hits: Array<{ file: string; line: number; text: string }>,
+  source: import('typescript').SourceFile,
+  text: string,
+  node: import('typescript').Node,
+  rel: string,
+): void {
+  const { line } = source.getLineAndCharacterOfPosition(node.getStart());
+  hits.push({ file: rel, line: line + 1, text: text.split('\n')[line]?.trim() ?? '' });
+}
+
+function searchParamAllowlistHits(): Array<{ file: string; line: number; text: string }> {
+  const allow = new Set<string>(SEARCH_PARAM_ALLOWLIST);
   const skip = /lookParam\.ts$|lookParam\.chromium\.|lookParam\.dist\.|\.test\.|\.chromium\.kill\./;
   const hits: Array<{ file: string; line: number; text: string }> = [];
   const walk = (dir: string) => {
@@ -147,23 +212,36 @@ function lookReadsOutsideHelper(): Array<{ file: string; line: number; text: str
       const kind = name.name.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
       const source = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, kind);
       const consts = collectStringConsts(source);
+      const names = collectSearchParamNames(source);
       const visit = (node: import('typescript').Node) => {
-        if (
-          ts.isCallExpression(node)
-          && node.arguments.length > 0
-          && ts.isPropertyAccessExpression(node.expression)
-        ) {
-          const method = node.expression.name.text;
-          const value = lookStringFromNode(node.arguments[0], consts);
-          if (value != null) {
-            const proofGet = (method === 'get' || method === 'has') && keys.has(value);
-            const proofNeedle = (method === 'includes' || method === 'indexOf') && (
-              value.includes('look=')
-              || [...keys].some((key) => value === `${key}=` || value.includes(`${key}=`))
-            );
-            if (proofGet || proofNeedle) {
-              const { line } = source.getLineAndCharacterOfPosition(node.getStart());
-              hits.push({ file: rel, line: line + 1, text: text.split('\n')[line]?.trim() ?? '' });
+        if (ts.isSpreadElement(node) && isSearchReceiver(node.expression, names)) {
+          pushHit(hits, source, text, node, rel);
+        }
+        if (ts.isForOfStatement(node) && isSearchReceiver(node.expression, names)) {
+          pushHit(hits, source, text, node, rel);
+        }
+        if (ts.isCallExpression(node)) {
+          const callee = unwrapExpr(node.expression);
+          if (ts.isPropertyAccessExpression(callee) && callee.name.text === 'fromEntries') {
+            const root = unwrapExpr(callee.expression);
+            if (ts.isIdentifier(root) && root.text === 'Object' && node.arguments[0] && isSearchReceiver(node.arguments[0], names)) {
+              pushHit(hits, source, text, node, rel);
+            }
+          }
+          if (ts.isPropertyAccessExpression(callee) && callee.name.text === 'from') {
+            const root = unwrapExpr(callee.expression);
+            if (ts.isIdentifier(root) && root.text === 'Array' && node.arguments[0] && isSearchReceiver(node.arguments[0], names)) {
+              pushHit(hits, source, text, node, rel);
+            }
+          }
+          if (ts.isPropertyAccessExpression(callee) && isSearchReceiver(callee.expression, names)) {
+            const method = callee.name.text;
+            if (method === 'entries' || method === 'keys' || method === 'values' || method === 'forEach') {
+              pushHit(hits, source, text, node, rel);
+            }
+            if (method === 'get' || method === 'has' || method === 'getAll') {
+              const key = node.arguments[0] ? lookStringFromNode(node.arguments[0], consts) : null;
+              if (key == null || !allow.has(key)) pushHit(hits, source, text, node, rel);
             }
           }
         }
@@ -250,12 +328,17 @@ let browser: Awaited<ReturnType<typeof launchBrowser>>;
 let distCss = '';
 let proofJs = '';
 let liveJs = '';
+let fillProofJs = '';
+let fillLiveJs = '';
 const temps: string[] = [];
+const fillEntry = join(here, 'lookParam.chromium.fill-entry.tsx');
 
 beforeAll(async () => {
   distCss = readDistCss();
   proofJs = await bundleLook({ lookProof: true });
   liveJs = await bundleLook({ lookProof: false });
+  fillProofJs = await bundleLook({ lookProof: true, entry: fillEntry });
+  fillLiveJs = await bundleLook({ lookProof: false, entry: fillEntry });
   browser = await launchBrowser();
 }, 180000);
 
@@ -396,49 +479,49 @@ async function openDistClients(origin: string): Promise<KillPage> {
 }
 
 describe('lookParam chromium kills', () => {
-  it('inventory: no src file reads a proof param outside lookParam.ts', () => {
-    expect(lookReadsOutsideHelper(), 'raw proof-param reads').toEqual([]);
+  it('inventory: search-param reads outside lookParam.ts are allowlisted literals', () => {
+    expect(searchParamAllowlistHits(), 'non-allowlisted search-param reads').toEqual([]);
   }, 30000);
 
-  it('inventory mutant: one raw look read goes red', () => {
-    const target = join(ROOT, 'src/pages/ClientsPage.tsx');
+  it('inventory mutant i1: concatenated .get(\'lo\'+\'ok\') goes red', () => {
+    const target = join(ROOT, 'src/pages/JhaFillPage.tsx');
     const orig = readFileSync(target, 'utf8');
     try {
-      writeFileSync(target, `${orig}\nvoid new URLSearchParams('look=x').get('look');\n`);
-      expect(lookReadsOutsideHelper().some((hit) => hit.file.endsWith('ClientsPage.tsx'))).toBe(true);
+      writeFileSync(target, `${orig}\nvoid new URLSearchParams(location.search).get('lo' + 'ok');\n`);
+      expect(searchParamAllowlistHits().some((hit) => hit.file.endsWith('JhaFillPage.tsx'))).toBe(true);
     } finally {
       writeFileSync(target, orig);
     }
   }, 30000);
 
-  it('inventory mutant: template-literal .get(`look`) goes red', () => {
+  it('inventory mutant i3: Object.fromEntries(searchParams).look goes red', () => {
     const target = join(ROOT, 'src/pages/JobDetailPage.tsx');
     const orig = readFileSync(target, 'utf8');
     try {
-      writeFileSync(target, `${orig}\nvoid new URLSearchParams(location.search).get(\`look\`);\n`);
-      expect(lookReadsOutsideHelper().some((hit) => hit.file.endsWith('JobDetailPage.tsx'))).toBe(true);
+      writeFileSync(target, `${orig}\nvoid Object.fromEntries(new URLSearchParams(location.search)).look;\n`);
+      expect(searchParamAllowlistHits().some((hit) => hit.file.endsWith('JobDetailPage.tsx'))).toBe(true);
     } finally {
       writeFileSync(target, orig);
     }
   }, 30000);
 
-  it('inventory mutant: .get(CONST) goes red', () => {
+  it('inventory mutant: .get(variable) goes red', () => {
     const target = join(ROOT, 'src/pages/ClientDetailPage.tsx');
     const orig = readFileSync(target, 'utf8');
     try {
-      writeFileSync(target, `${orig}\nconst LOOK_PARAM = 'look';\nvoid new URLSearchParams(location.search).get(LOOK_PARAM);\n`);
-      expect(lookReadsOutsideHelper().some((hit) => hit.file.endsWith('ClientDetailPage.tsx'))).toBe(true);
+      writeFileSync(target, `${orig}\nvoid new URLSearchParams(location.search).get(window.name);\n`);
+      expect(searchParamAllowlistHits().some((hit) => hit.file.endsWith('ClientDetailPage.tsx'))).toBe(true);
     } finally {
       writeFileSync(target, orig);
     }
   }, 30000);
 
-  it('inventory mutant: includes(\'look=\') goes red', () => {
-    const target = join(ROOT, 'src/lib/templateAccess.ts');
+  it('inventory mutant: non-allowlisted literal .get(\'sneaky\') goes red', () => {
+    const target = join(ROOT, 'src/pages/ClientsPage.tsx');
     const orig = readFileSync(target, 'utf8');
     try {
-      writeFileSync(target, `${orig}\nvoid location.href.includes('look=');\n`);
-      expect(lookReadsOutsideHelper().some((hit) => hit.file.endsWith('templateAccess.ts'))).toBe(true);
+      writeFileSync(target, `${orig}\nvoid new URLSearchParams(location.search).get('sneaky');\n`);
+      expect(searchParamAllowlistHits().some((hit) => hit.file.endsWith('ClientsPage.tsx'))).toBe(true);
     } finally {
       writeFileSync(target, orig);
     }
@@ -540,6 +623,48 @@ describe('lookParam chromium kills', () => {
       expect(painted.includes('Scan receipt'), 'un-gated expenseNoAi must hide Scan receipt').toBe(false);
     });
   }, 120000);
+
+  for (const page of LOOK_FILL_KILLS) {
+    it(`prod no-flag ${page.id}: look fixture stays off`, async () => {
+      const tab = await openLook({ path: page.path, js: fillLiveJs, wait: page.wait });
+      const painted = await pageText(tab);
+      await tab.close();
+      for (const fixture of page.fixtures) {
+        expect(painted.includes(fixture), `${page.id} leaked ${fixture}`).toBe(false);
+      }
+    }, 180000);
+
+    it(`flag-on ${page.id}: look fixture paints`, async () => {
+      const tab = await openLook({ path: page.path, js: fillProofJs, wait: page.wait });
+      const painted = await waitForAnyText(tab, page.fixtures);
+      await tab.close();
+      const hit = page.fixtures.some((fixture) => painted.includes(fixture));
+      expect(hit, `${page.id} missing ${page.fixtures.join(' | ')}`).toBe(true);
+    }, 180000);
+
+    it(`mutant un-gate ${page.id}: prod no-flag kill goes red`, async () => {
+      await withMutatedFile(join(ROOT, page.file), ungateSource, async () => {
+        const js = await bundleLook({ lookProof: false, entry: fillEntry });
+        const tab = await openLook({ path: page.path, js, wait: page.wait });
+        const painted = await waitForAnyText(tab, page.fixtures);
+        await tab.close();
+        const hit = page.fixtures.some((fixture) => painted.includes(fixture));
+        expect(hit, `${page.id} un-gate must leak ${page.fixtures.join(' | ')}`).toBe(true);
+      });
+    }, 180000);
+
+    it(`mutant force-off ${page.id}: flag-on kill goes red`, async () => {
+      await withMutatedFile(join(ROOT, page.file), forceOffSource, async () => {
+        const js = await bundleLook({ lookProof: true, entry: fillEntry });
+        const tab = await openLook({ path: page.path, js, wait: page.wait });
+        const painted = await pageText(tab);
+        await tab.close();
+        for (const fixture of page.fixtures) {
+          expect(painted.includes(fixture), `${page.id} force-off still painted ${fixture}`).toBe(false);
+        }
+      });
+    }, 180000);
+  }
 
   it('dist vite build: unset hides ?look= fixture; VITE_LOOK_PROOF=1 paints it', async () => {
     const offDir = mkdtempSync(join(tmpdir(), 'look-dist-off-'));

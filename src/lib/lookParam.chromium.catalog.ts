@@ -206,3 +206,67 @@ export const LOOK_PROOF_SCAN_KEYS = [
   'trades',
   'auditName',
 ] as const;
+
+/** Product query keys that may be read outside lookParam.ts. Proof keys are not listed. */
+export const SEARCH_PARAM_ALLOWLIST = [
+  'id',
+  'tab',
+  'view',
+  'date',
+  'send',
+  'print',
+  'chase',
+  'reschedule',
+  'checkout',
+  'status',
+  'client',
+  'job',
+  'templateId',
+  'docId',
+  'jobId',
+  'clientId',
+  'crmJobId',
+  'jhaId',
+  'crewId',
+  't',
+  'token',
+  'token_hash',
+  'type',
+  'next',
+  'expired',
+  'recovered',
+  'error_code',
+  'error',
+  'error_description',
+  'auto',
+  'clear',
+  'subject',
+  'body',
+  'code',
+  'state',
+] as const;
+
+export type LookFillKill = {
+  id: string;
+  file: string;
+  path: string;
+  wait: string;
+  fixtures: string[];
+};
+
+export const LOOK_FILL_KILLS: LookFillKill[] = [
+  {
+    id: 'inspection-fill',
+    file: 'src/pages/InspectionFillPage.tsx',
+    path: '/inspections/look-insp-pat?look=inspection-snapshot-view',
+    wait: '.hub-inspections, .shell-header',
+    fixtures: ['Pat Snapshot', 'Snapshot job'],
+  },
+  {
+    id: 'jha-fill',
+    file: 'src/pages/JhaFillPage.tsx',
+    path: '/jha/new?look=jha-creator-snapshot',
+    wait: '.hub-jha, .shell-header',
+    fixtures: ['Pat Snapshot', 'Snapshot Yard'],
+  },
+];
