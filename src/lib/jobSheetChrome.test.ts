@@ -7,6 +7,7 @@ import {
   JOB_SHEET_NO_CREW,
   JOB_SHEET_SET_A_DATE,
   jobSheetBillLinesLabel,
+  jobSheetBillLineSub,
   jobSheetBillTotals,
   jobSheetCrewLabel,
   jobSheetEyebrow,
@@ -54,5 +55,20 @@ describe('job sheet chrome', () => {
     expect(JOB_SHEET_ALL_NOTES).toBe('All notes');
     expect(JOB_SHEET_ALL_PHOTOS).toBe('All photos');
     expect(JOB_SHEET_EDIT_BILL).toBe('Edit bill');
+  });
+
+  it('builds a Job bill sub-line from the real cost row', () => {
+    expect(jobSheetBillLineSub({
+      quantity: 2,
+      unit_price: 165,
+      cost_type: 'labor',
+      charge_type: 'Labour',
+    })).toBe('Labour · 2 h × $165.00');
+    expect(jobSheetBillLineSub({
+      quantity: 1,
+      unit_price: 38,
+      cost_type: 'material',
+      charge_type: 'fixed',
+    })).toBe('Materials · 1 × $38.00');
   });
 });

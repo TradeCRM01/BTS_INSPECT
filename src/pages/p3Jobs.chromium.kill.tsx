@@ -1132,7 +1132,7 @@ describe('P3 overview people form bar', () => {
     expect(read.notes).toContain(`Dean Walsh · ${read.dean}`);
     expect(read.photos).toBe(6);
     expect(read.all).toContain('All photos');
-    expect(read.all).toContain('Total inc GST');
+    expect(read.all).toContain('Total (inc GST)');
     expect(read.all).toContain('$919.05');
     expect(read.all).toContain('Edit bill');
     expect(read.labelLeftOfValue, 'Site label sits left of the address').toBe(true);
@@ -1782,6 +1782,20 @@ describe('P3 r9 mockup vs head at 390', () => {
       const railStyle = rail ? getComputedStyle(rail) : null;
       const kvRows = [...document.querySelectorAll(mock ? '.kv' : '.job-sheet-kv-row')] as HTMLElement[];
       const appbar = document.querySelector(mock ? '.appbar' : '.job-sheet-appbar') as HTMLElement | null;
+      const note = document.querySelector(mock ? '.note' : '.job-sheet-note') as HTMLElement | null;
+      const noteBy = document.querySelector(mock ? '.note .by' : '.job-sheet-note-by') as HTMLElement | null;
+      const noteP = document.querySelector(mock ? '.note p' : '.job-sheet-note p') as HTMLElement | null;
+      const photos = document.querySelector(mock ? '.photos' : '.job-sheet-photo-grid') as HTMLElement | null;
+      const photo = document.querySelector(mock ? '.ph' : '.job-sheet-photo') as HTMLElement | null;
+      const photoBox = photo?.getBoundingClientRect();
+      const bill3 = document.querySelector(mock ? '.bill3' : '.job-sheet-bill3') as HTMLElement | null;
+      const billL = document.querySelector(mock ? '.bill3 .l' : '.job-sheet-bill-l') as HTMLElement | null;
+      const billV = document.querySelector(mock ? '.bill3 .v' : '.job-sheet-bill-v') as HTMLElement | null;
+      const billCells = [...(bill3?.children ?? [])] as HTMLElement[];
+      const billCellLefts = [...new Set(billCells.map((cell) => Math.round(cell.getBoundingClientRect().left)))];
+      const billCellTops = [...new Set(billCells.map((cell) => Math.round(cell.getBoundingClientRect().top)))];
+      const billSubs = [...document.querySelectorAll(mock ? '.bl .s' : '.job-sheet-bill-s')] as HTMLElement[];
+      const totBig = document.querySelector(mock ? '.tot.big' : '.job-sheet-bill-tot.is-big') as HTMLElement | null;
       return {
         selectors: sels,
         ctaBg: cta ? getComputedStyle(cta).backgroundColor : '',
@@ -1835,6 +1849,38 @@ describe('P3 r9 mockup vs head at 390', () => {
         eyebrowColor: eyebrow ? getComputedStyle(eyebrow).color : '',
         subLh: sub ? parseFloat(getComputedStyle(sub).lineHeight) : -1,
         crewText: (document.querySelector(mock ? '.kv:nth-of-type(4) dd' : '[data-job-sheet="kv-crew"] .job-sheet-kv-value')?.textContent || '').replace(/\s+/g, ' ').trim(),
+        noteBySize: noteBy ? parseFloat(getComputedStyle(noteBy).fontSize) : -1,
+        noteByWeight: noteBy ? getComputedStyle(noteBy).fontWeight : '',
+        noteByColor: noteBy ? getComputedStyle(noteBy).color : '',
+        notePSize: noteP ? parseFloat(getComputedStyle(noteP).fontSize) : -1,
+        notePLh: noteP ? parseFloat(getComputedStyle(noteP).lineHeight) : -1,
+        notePad: note ? parseFloat(getComputedStyle(note).paddingTop) : -1,
+        noteBorder: note ? getComputedStyle(note).borderBottomWidth : '',
+        photoCols: photos ? getComputedStyle(photos).gridTemplateColumns.split(' ').filter(Boolean).length : 0,
+        photoGap: photos ? parseFloat(getComputedStyle(photos).columnGap || getComputedStyle(photos).gap) : -1,
+        photoRatio: photoBox && photoBox.height > 0 ? photoBox.width / photoBox.height : 0,
+        photoRadius: photo ? parseFloat(getComputedStyle(photo).borderRadius) : -1,
+        photoShadow: photo ? getComputedStyle(photo).boxShadow : '',
+        bill3Display: bill3 ? getComputedStyle(bill3).display : '',
+        bill3Cols: billCellLefts.length,
+        bill3Rows: billCellTops.length,
+        billFirstPadL: billCells[0] ? parseFloat(getComputedStyle(billCells[0]).paddingLeft) : -1,
+        billFirstBorderL: billCells[0] ? parseFloat(getComputedStyle(billCells[0]).borderLeftWidth) : -1,
+        billCellPadL: billCells[1] ? parseFloat(getComputedStyle(billCells[1]).paddingLeft) : -1,
+        billCellBorderL: billCells[1] ? parseFloat(getComputedStyle(billCells[1]).borderLeftWidth) : -1,
+        bill3BorderTop: bill3 ? getComputedStyle(bill3).borderTopWidth : '',
+        bill3BorderBottom: bill3 ? getComputedStyle(bill3).borderBottomWidth : '',
+        billLSize: billL ? parseFloat(getComputedStyle(billL).fontSize) : -1,
+        billLColor: billL ? getComputedStyle(billL).color : '',
+        billVSize: billV ? parseFloat(getComputedStyle(billV).fontSize) : -1,
+        billVLh: billV ? parseFloat(getComputedStyle(billV).lineHeight) : -1,
+        billVWeight: billV ? getComputedStyle(billV).fontWeight : '',
+        billVVariant: billV ? getComputedStyle(billV).fontVariantNumeric : '',
+        billSubCount: billSubs.length,
+        billSubText: (billSubs[0]?.textContent || '').replace(/\s+/g, ' ').trim(),
+        totBigSize: totBig ? parseFloat(getComputedStyle(totBig).fontSize) : -1,
+        totBigWeight: totBig ? getComputedStyle(totBig).fontWeight : '',
+        totBigBorderTop: totBig ? getComputedStyle(totBig).borderTopWidth : '',
       };
     };
     const pinTabLabels = async (page: KillPage, sel: string, labels: string[]) => {
@@ -1960,6 +2006,56 @@ describe('P3 r9 mockup vs head at 390', () => {
     expect(head.emailPainted, 'Email is not its own painted row').toBe(false);
     expect(head.clientHref).toBe('/clients/p3-client-36');
     expect(head.scopeH).toMatch(/20px/);
+    expect(near(head.noteBySize, 14)).toBe(true);
+    expect(near(mockup.noteBySize, 14)).toBe(true);
+    expect(Number(head.noteByWeight)).toBe(500);
+    expect(Number(mockup.noteByWeight)).toBe(500);
+    expect(head.noteByColor.replace(/\s+/g, '')).toMatch(/rgb\(74,\s*74,\s*82\)/);
+    expect(mockup.noteByColor.replace(/\s+/g, '')).toMatch(/rgb\(74,\s*74,\s*82\)/);
+    expect(near(head.notePSize, 16)).toBe(true);
+    expect(near(mockup.notePSize, 16)).toBe(true);
+    expect(near(head.notePLh, 24)).toBe(true);
+    expect(near(mockup.notePLh, 24)).toBe(true);
+    expect(near(head.notePad, 14)).toBe(true);
+    expect(near(mockup.notePad, 14)).toBe(true);
+    expect(head.noteBorder).toBe('1px');
+    expect(mockup.noteBorder).toBe('1px');
+    expect(head.photoCols, 'photos 3-col').toBe(3);
+    expect(mockup.photoCols).toBe(3);
+    expect(near(head.photoGap, 6)).toBe(true);
+    expect(near(mockup.photoGap, 6)).toBe(true);
+    expect(near(head.photoRatio, 1, 0.08)).toBe(true);
+    expect(near(mockup.photoRatio, 1, 0.08)).toBe(true);
+    expect(near(head.photoRadius, mockup.photoRadius)).toBe(true);
+    expect(head.photoShadow).toMatch(/inset/i);
+    expect(mockup.photoShadow).toMatch(/inset/i);
+    expect(head.bill3Display).toBe('grid');
+    expect(mockup.bill3Display).toBe('grid');
+    expect(head.bill3Cols, 'bill3 three painted columns').toBe(3);
+    expect(mockup.bill3Cols).toBe(3);
+    expect(head.bill3Rows, 'bill3 one row').toBe(1);
+    expect(mockup.bill3Rows).toBe(1);
+    expect(head.billFirstPadL).toBe(0);
+    expect(head.billFirstBorderL).toBe(0);
+    expect(head.billCellPadL).toBe(12);
+    expect(head.billCellBorderL).toBe(1);
+    expect(head.bill3BorderTop).toBe('1px');
+    expect(head.bill3BorderBottom).toBe('1px');
+    expect(near(head.billLSize, 13)).toBe(true);
+    expect(head.billLColor.replace(/\s+/g, '')).toMatch(/rgb\(74,\s*74,\s*82\)/);
+    expect(near(head.billVSize, 20)).toBe(true);
+    expect(near(head.billVLh, 26)).toBe(true);
+    expect(Number(head.billVWeight)).toBe(600);
+    expect(head.billVVariant).toMatch(/tabular-nums/);
+    expect(head.billSubCount, 'real line sub-lines').toBeGreaterThan(0);
+    expect(mockup.billSubCount).toBeGreaterThan(0);
+    expect(head.billSubText).toMatch(/·/);
+    expect(mockup.billSubText).toMatch(/·/);
+    expect(near(head.totBigSize, 17)).toBe(true);
+    expect(Number(head.totBigWeight)).toBe(700);
+    expect(head.totBigBorderTop).toBe('1px');
+    expect(near(mockup.totBigSize, 17)).toBe(true);
+    expect(Number(mockup.totBigWeight)).toBe(700);
   });
 
   async function assertActionsVisible(page: KillPage, width: number) {
@@ -1970,25 +2066,37 @@ describe('P3 r9 mockup vs head at 390', () => {
       const el = document.querySelector('[data-job-sheet="actions"]') as HTMLElement | null;
       const style = el ? getComputedStyle(el) : null;
       const r = el?.getBoundingClientRect();
+      const innerW = window.innerWidth;
+      const innerH = window.innerHeight;
+      const top = r?.top ?? -1;
+      const bottom = r?.bottom ?? -1;
+      const left = r?.left ?? -1;
+      const right = r?.right ?? -1;
       return {
         display: style?.display || '',
+        visibility: style?.visibility || '',
         width: r?.width ?? 0,
         height: r?.height ?? 0,
-        top: r?.top ?? -1,
-        bottom: r?.bottom ?? -1,
-        left: r?.left ?? -1,
-        right: r?.right ?? -1,
-        innerW: window.innerWidth,
-        innerH: window.innerHeight,
+        top,
+        bottom,
+        left,
+        right,
+        innerW,
+        innerH,
+        visW: Math.min(right, innerW) - Math.max(left, 0),
+        visH: Math.min(bottom, innerH) - Math.max(top, 0),
       };
     });
     expect(box.display, `${width} Actions display`).not.toBe('none');
+    expect(box.visibility, `${width} Actions visibility`).not.toBe('hidden');
     expect(box.width, `${width} Actions width`).toBeGreaterThan(0);
     expect(box.height, `${width} Actions height`).toBeGreaterThan(0);
-    expect(box.top, `${width} Actions top`).toBeGreaterThanOrEqual(-1);
-    expect(box.bottom, `${width} Actions bottom`).toBeLessThanOrEqual(box.innerH + 1);
-    expect(box.left, `${width} Actions left`).toBeGreaterThanOrEqual(-1);
-    expect(box.right, `${width} Actions right`).toBeLessThanOrEqual(box.innerW + 1);
+    expect(box.visW, `${width} Actions visible width in viewport`).toBeGreaterThan(0);
+    expect(box.visH, `${width} Actions visible height in viewport`).toBeGreaterThan(0);
+    expect(box.top, `${width} Actions top`).toBeLessThan(box.innerH);
+    expect(box.bottom, `${width} Actions bottom`).toBeGreaterThan(0);
+    expect(box.left, `${width} Actions left`).toBeLessThan(box.innerW);
+    expect(box.right, `${width} Actions right`).toBeGreaterThan(0);
     return box;
   }
 
@@ -2034,6 +2142,9 @@ describe('P3 r9 mockup vs head at 390', () => {
       await waitSheet(page);
       await assertActionsVisible(page, width);
       await page.click('[data-job-sheet="actions"] > summary');
+      await page.evaluate(() => {
+        document.querySelector('[data-job-action="details"]')?.scrollIntoView({ block: 'center' });
+      });
       const read = await page.evaluate(() => {
         const appMore = document.querySelector('.job-sheet-appbar .hub-job-more') as HTMLElement | null;
         const items = [...document.querySelectorAll('[data-job-sheet="actions"] [role="menuitem"]')]
@@ -2041,17 +2152,31 @@ describe('P3 r9 mockup vs head at 390', () => {
         const appStyle = appMore ? getComputedStyle(appMore) : null;
         const details = document.querySelector('[data-job-action="details"]') as HTMLElement | null;
         const d = details?.getBoundingClientRect();
+        const style = details ? getComputedStyle(details) : null;
+        const innerW = window.innerWidth;
+        const innerH = window.innerHeight;
+        const visW = d ? Math.min(d.right, innerW) - Math.max(d.left, 0) : 0;
+        const visH = d ? Math.min(d.bottom, innerH) - Math.max(d.top, 0) : 0;
         return {
           appMorePainted: !!appMore && appStyle?.display !== 'none' && (appMore.getBoundingClientRect().width || 0) > 0,
           items,
           detailsW: d?.width ?? 0,
           detailsH: d?.height ?? 0,
+          detailsVis: style?.visibility || '',
+          detailsVisW: visW,
+          detailsVisH: visH,
         };
       });
-      await page.close();
       expect(read.appMorePainted, `${width} appbar …`).toBe(false);
       expect(read.detailsW, `${width} Details width`).toBeGreaterThan(0);
       expect(read.detailsH, `${width} Details height`).toBeGreaterThan(0);
+      expect(read.detailsVis, `${width} Details visibility`).not.toBe('hidden');
+      expect(read.detailsVisW, `${width} Details visible width in viewport`).toBeGreaterThan(0);
+      expect(read.detailsVisH, `${width} Details visible height in viewport`).toBeGreaterThan(0);
+      await page.click('[data-job-action="details"]');
+      await page.waitForSelector('[data-job-form="1"]', { timeout: 10000 });
+      await assertActionsVisible(page, width);
+      await page.close();
       expect(read.items, `${width} actions`).toEqual(expect.arrayContaining([
         'Details',
         'Add to calendar',
