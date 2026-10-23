@@ -1,3 +1,8 @@
+import { execSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { jobsListPhoneRow } from './jobsListRow';
 import { JOB_CREW_SCHEDULE_NO_DATE, jobCrewScheduleStatus } from './jobCrewScheduleStatus';
@@ -63,6 +68,30 @@ describe('needsCrew', () => {
       undefined,
       { status: 'scheduled', scheduled_date: '2026-10-19', assigned_team: [] },
     ])).toBe(1);
+  });
+
+  it('returns 0 for a missing jobs array and kills a mutant that drops the guard', async () => {
+    expect(countNeedsCrew(null)).toBe(0);
+    expect(countNeedsCrew(undefined)).toBe(0);
+    expect(() => countNeedsCrew(null)).not.toThrow();
+    expect(() => countNeedsCrew(undefined)).not.toThrow();
+    const srcPath = join(process.cwd(), 'src/lib/needCrew.ts');
+    const orig = readFileSync(srcPath, 'utf8');
+    const guard = 'if (!jobs) return 0;';
+    expect(orig).toContain(guard);
+    const dir = mkdtempSync(join(tmpdir(), 'need-crew-null-'));
+    const mutantPath = join(dir, 'needCrew.ts');
+    writeFileSync(mutantPath, orig.replace(guard, ''));
+    const outPath = join(dir, 'needCrew.js');
+    execSync(`npx esbuild ${mutantPath} --bundle --format=esm --platform=neutral --outfile=${outPath}`, {
+      cwd: process.cwd(),
+      stdio: 'pipe',
+    });
+    const mutant = await import(pathToFileURL(outPath).href) as {
+      countNeedsCrew: (jobs: unknown) => number;
+    };
+    expect(() => mutant.countNeedsCrew(null)).toThrow();
+    expect(() => mutant.countNeedsCrew(undefined)).toThrow();
   });
 
   it('treats null, a non-array, a non-string entry, and whitespace-only as no crew', () => {

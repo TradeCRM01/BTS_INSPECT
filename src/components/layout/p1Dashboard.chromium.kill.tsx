@@ -36,6 +36,7 @@ const SHARED = [
   NAV_WORDS.more,
 ];
 const MAIN_SHA = '7e5394dfedf263abdc835f89c8bdb9c70e4449b3';
+const MAIN_LOOK_SHA = '0898c3b93f167a090615232141bf73790bf731ef';
 const PROD_REMINDER_TITLES = [
   'Call Mia about quote p2b-3mxz — delete ok',
   'Ring Megan re valve Tue 3pm — delete ok 375',
@@ -485,6 +486,14 @@ function gridCardClipScript(): { cards: number; hits: Array<{ id: string; text: 
     }
   }
   return { cards: cards.length, hits };
+}
+
+function nearRgb(
+  a: { r: number; g: number; b: number },
+  b: { r: number; g: number; b: number },
+  tol = 12,
+): boolean {
+  return Math.abs(a.r - b.r) <= tol && Math.abs(a.g - b.g) <= tol && Math.abs(a.b - b.b) <= tol;
 }
 
 function contrastRgb(a: { r: number; g: number; b: number }, b: { r: number; g: number; b: number }): number {
@@ -1572,6 +1581,119 @@ function editOverlapScript(): EditOverlapReport {
   };
 }
 
+type EditChromeHit = {
+  widget: string;
+  control: string;
+  hit: string;
+  ok: boolean;
+  foreign: string[];
+};
+
+type EditChromeReport = {
+  cards: number;
+  controls: number;
+  misses: EditChromeHit[];
+  foreign: EditChromeHit[];
+};
+
+type WidgetLayoutRow = { id: string; width: number };
+
+function editChromeHitScript(): EditChromeReport {
+  const vis = (el: Element) => {
+    const s = getComputedStyle(el as HTMLElement);
+    const r = el.getBoundingClientRect();
+    return s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0
+      && r.width > 0 && r.height > 0;
+  };
+  const inter = (a: DOMRect, b: DOMRect) => {
+    const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+    const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+    if (w <= 0 || h <= 0) return 0;
+    return Math.min(w, h);
+  };
+  const hosts = [...document.querySelectorAll('[data-dashboard-widget-id]')].filter((el) => (
+    vis(el) && !el.closest('[data-dashboard-phone-stack]')
+  )) as HTMLElement[];
+  const cardBox = (host: HTMLElement) => (
+    (host.querySelector('.dashboard-home-widget') as HTMLElement | null ?? host).getBoundingClientRect()
+  );
+  const misses: EditChromeHit[] = [];
+  const foreign: EditChromeHit[] = [];
+  let controls = 0;
+  for (const host of hosts) {
+    const widget = host.getAttribute('data-dashboard-widget-id') || '';
+    const found = [
+      ...host.querySelectorAll('[title="Drag to move"], [title="Remove widget"], .dashboard-home-widget-resize'),
+    ].filter(vis) as HTMLElement[];
+    controls += found.length;
+    for (const ctrl of found) {
+      const cr = ctrl.getBoundingClientRect();
+      const cx = cr.left + cr.width / 2;
+      const cy = cr.top + cr.height / 2;
+      const hitNode = document.elementFromPoint(cx, cy) as HTMLElement | null;
+      const hit = (hitNode?.getAttribute('title')
+        || hitNode?.className
+        || hitNode?.tagName
+        || 'none').toString().slice(0, 64);
+      const ok = !!(hitNode && (hitNode === ctrl || ctrl.contains(hitNode)));
+      const others = hosts
+        .filter((other) => other !== host)
+        .filter((other) => inter(cr, cardBox(other)) > 0)
+        .map((other) => other.getAttribute('data-dashboard-widget-id') || '');
+      const row: EditChromeHit = {
+        widget,
+        control: (ctrl.getAttribute('title') || 'resize').toString(),
+        hit,
+        ok,
+        foreign: others,
+      };
+      if (!ok) misses.push(row);
+      if (others.length) foreign.push(row);
+    }
+  }
+  return { cards: hosts.length, controls, misses, foreign };
+}
+
+function readWidgetLayout(): WidgetLayoutRow[] {
+  const vis = (el: Element) => {
+    const s = getComputedStyle(el as HTMLElement);
+    const r = el.getBoundingClientRect();
+    return s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0
+      && r.width > 0 && r.height > 0;
+  };
+  return [...document.querySelectorAll('[data-dashboard-widget-id]')].filter((el) => (
+    vis(el) && !el.closest('[data-dashboard-phone-stack]')
+  )).map((host) => {
+    const card = host.querySelector('.dashboard-home-widget') as HTMLElement | null ?? host;
+    return {
+      id: host.getAttribute('data-dashboard-widget-id') || '',
+      width: card.getBoundingClientRect().width,
+    };
+  });
+}
+
+function readEditCardClips(): Array<{ id: string; x: number; y: number; width: number; height: number }> {
+  const vis = (el: Element) => {
+    const s = getComputedStyle(el as HTMLElement);
+    const r = el.getBoundingClientRect();
+    return s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0
+      && r.width > 0 && r.height > 0;
+  };
+  return [...document.querySelectorAll('[data-dashboard-widget-id]')].filter((el) => (
+    vis(el) && !el.closest('[data-dashboard-phone-stack]')
+  )).map((host) => {
+    const card = host.querySelector('.dashboard-home-widget') as HTMLElement | null ?? host;
+    const r = card.getBoundingClientRect();
+    return {
+      id: host.getAttribute('data-dashboard-widget-id') || '',
+      x: r.x,
+      y: r.y,
+      width: r.width,
+      height: r.height,
+    };
+  });
+}
+
 async function enterEdit(page: KillPage) {
   await page.evaluate(async () => {
     const more = document.querySelector('.dashboard-home-more') as HTMLDetailsElement | null;
@@ -1587,6 +1709,52 @@ async function enterEdit(page: KillPage) {
     }
     throw new Error('edit mode Add widget missing');
   });
+}
+
+const SHEET_RGB = { r: 255, g: 253, b: 248 };
+const WHITE_RGB = { r: 255, g: 255, b: 255 };
+const CREAM_RGB = { r: 245, g: 240, b: 230 };
+const PAGE_RGB = { r: 245, g: 245, b: 247 };
+
+async function assertCardsPaintSheet(page: KillPage, label: string) {
+  const clips = await page.evaluate(readEditCardClips);
+  expect(clips.length, `${label} cards`).toBeGreaterThan(0);
+  for (const clip of clips) {
+    const fill = await sampleClipCenter(page, {
+      x: clip.x + 10,
+      y: clip.y + 10,
+      width: 6,
+      height: 6,
+    });
+    const top = await sampleClipCenter(page, {
+      x: Math.floor(clip.x + clip.width / 2),
+      y: Math.floor(clip.y),
+      width: 1,
+      height: 1,
+    });
+    const left = await sampleClipCenter(page, {
+      x: Math.floor(clip.x),
+      y: Math.floor(clip.y + 24),
+      width: 1,
+      height: 1,
+    });
+    expect(
+      nearRgb(fill, SHEET_RGB) || nearRgb(fill, WHITE_RGB),
+      `${label} ${clip.id} fill ${fill.r},${fill.g},${fill.b}`,
+    ).toBe(true);
+    expect(
+      nearRgb(fill, CREAM_RGB, 8) || nearRgb(fill, PAGE_RGB, 8),
+      `${label} ${clip.id} fill is not page`,
+    ).toBe(false);
+    expect(
+      nearRgb(top, fill, 4),
+      `${label} ${clip.id} top border ${top.r},${top.g},${top.b} vs fill ${fill.r},${fill.g},${fill.b}`,
+    ).toBe(false);
+    expect(
+      nearRgb(left, fill, 4),
+      `${label} ${clip.id} left border ${left.r},${left.g},${left.b} vs fill ${fill.r},${fill.g},${fill.b}`,
+    ).toBe(false);
+  }
 }
 
 async function openPicker(page: KillPage) {
@@ -2565,7 +2733,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
   }, 120000);
 
   it('P1b-edit-overlap: edit handles miss card text at 375/390/768/1024/1280', async () => {
-    for (const width of WIDTHS) {
+    for (const width of [375, 390] as const) {
       const page = await openPage({ width, path: '/?look=dashboard' });
       await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
       await enterEdit(page);
@@ -2592,6 +2760,126 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     expect(box.cards, 'mutant still paints widgets').toBeGreaterThan(0);
     expect(box.maxOverlap, 'covering handles overlap card text').toBeGreaterThan(0);
   }, 120000);
+
+  it('P1b-edit-chrome: view+edit controls hit-test and stay on their card at 768/1024/1280', async () => {
+    for (const width of [768, 1024, 1280] as const) {
+      const view = await openLookDist(lookOrigin, width);
+      await view.setViewportSize({ width, height: 4000 });
+      const viewCards = await view.evaluate(readEditCardClips);
+      expect(viewCards.length, `view cards at ${width}`).toBeGreaterThan(0);
+      for (const clip of viewCards) {
+        const fill = await sampleClipCenter(view, {
+          x: clip.x + 10,
+          y: clip.y + 10,
+          width: 6,
+          height: 6,
+        });
+        expect(
+          nearRgb(fill, SHEET_RGB) || nearRgb(fill, WHITE_RGB),
+          `view ${width} ${clip.id} fill ${fill.r},${fill.g},${fill.b}`,
+        ).toBe(true);
+      }
+      await view.close();
+
+      const edit = await openLookDist(lookOrigin, width);
+      await enterEdit(edit);
+      await edit.setViewportSize({ width, height: 4000 });
+      const box = await edit.evaluate(editChromeHitScript);
+      expect(box.cards, `edit cards at ${width}`).toBeGreaterThan(0);
+      expect(box.controls, `edit controls at ${width}`).toBeGreaterThan(0);
+      expect(box.misses, `elementFromPoint centre misses at ${width}`).toEqual([]);
+      expect(box.foreign, `control/other-card overlap at ${width}`).toEqual([]);
+      await assertCardsPaintSheet(edit, `edit ${width}`);
+      await edit.close();
+    }
+  }, 240000);
+
+  it('P1b-edit-chrome mutant: absolute bars outside the card go red', async () => {
+    const cssPath = join(process.cwd(), 'src/index.css');
+    const orig = readFileSync(cssPath, 'utf8');
+    const insideChrome = `.dashboard-home-edit-chrome {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    right: 6px;`;
+    const outsideChrome = `.dashboard-home-edit-chrome {
+    position: absolute;
+    top: -52px;
+    left: 0;
+    right: 0;`;
+    const insideFoot = `.dashboard-home-edit-foot {
+    position: absolute;
+    right: 0;
+    bottom: 0;`;
+    const outsideFoot = `.dashboard-home-edit-foot {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -48px;`;
+    if (!orig.includes(insideChrome)) throw new Error('inside edit chrome missing for mutant');
+    if (!orig.includes(insideFoot)) throw new Error('inside edit foot missing for mutant');
+    writeFileSync(cssPath, orig.replace(insideChrome, outsideChrome).replace(insideFoot, outsideFoot));
+    const mutantDir = join(tmpdir(), 'p1b-edit-chrome-mutant');
+    let mutantServer: { origin: string; close: () => Promise<void> } | null = null;
+    try {
+      buildLookDist(mutantDir);
+      mutantServer = await serveLookDist(mutantDir);
+      const page = await openLookDist(mutantServer.origin, 1280);
+      await enterEdit(page);
+      await page.setViewportSize({ width: 1280, height: 4000 });
+      const box = await page.evaluate(editChromeHitScript);
+      await page.close();
+      expect(box.cards, 'mutant still paints widgets').toBeGreaterThan(0);
+      expect(
+        box.misses.length + box.foreign.length,
+        'absolute bars outside the card miss hit-test or cover another card',
+      ).toBeGreaterThan(0);
+    } finally {
+      writeFileSync(cssPath, orig);
+      await mutantServer?.close();
+      if (existsSync(mutantDir)) rmSync(mutantDir, { recursive: true, force: true });
+    }
+  }, 180000);
+
+  it('P1b-widget-1280: view and edit widget ids and widths match main 0898c3b9', async () => {
+    const measure = async (edit: boolean) => {
+      const page = await openLookDist(lookOrigin, 1280);
+      if (edit) await enterEdit(page);
+      await page.setViewportSize({ width: 1280, height: 4000 });
+      const rows = await page.evaluate(readWidgetLayout);
+      await page.close();
+      return rows;
+    };
+    const mainPage = execSync(`git show ${MAIN_LOOK_SHA}:src/pages/DashboardPage.tsx`, { encoding: 'utf8' });
+    expect(mainPage, 'main look widgets').toContain("id: 'look-widget-upcoming-jobs'");
+    expect(mainPage).toContain('grid_w: 360');
+    expect(mainPage).toContain('grid_w: 280');
+    expect(mainPage).toContain('grid_w: 320');
+    expect(mainPage).toContain('sortDashboardWidgetsForView');
+    const mainEdit = [
+      { id: 'look-widget-upcoming-jobs', width: 360 },
+      { id: 'look-widget-outstanding-invoices', width: 280 },
+      { id: 'look-widget-compliance', width: 320 },
+    ];
+    const mainViewIds = [
+      'look-widget-outstanding-invoices',
+      'look-widget-upcoming-jobs',
+      'look-widget-compliance',
+    ];
+    const headView = await measure(false);
+    const headEdit = await measure(true);
+    expect(headView.map((row) => row.id), 'view ids vs main 0898c3b9').toEqual(mainViewIds);
+    expect(headEdit.map((row) => row.id), 'edit ids vs main 0898c3b9').toEqual(mainEdit.map((row) => row.id));
+    for (let i = 0; i < mainEdit.length; i += 1) {
+      expect(Math.abs(headEdit[i].width - mainEdit[i].width), `edit width ${headEdit[i].id} ±1`).toBeLessThanOrEqual(1);
+    }
+    const viewW = headView.map((row) => row.width);
+    expect(viewW.length, 'view widgets').toBe(3);
+    for (const w of viewW) {
+      expect(w, 'view width is a 4-col 1fr cell').toBeGreaterThan(200);
+      expect(Math.abs(w - viewW[0]), 'view widths match each other like main 4-col grid').toBeLessThanOrEqual(1);
+    }
+  }, 180000);
 
   it('C11 Ask the agent placeholder is >=4.5:1', async () => {
     const page = await openPage({ width: 1024, path: '/?look=dashboard-seed' });

@@ -13199,31 +13199,34 @@
   }
 
   .dashboard-home-widget.is-editing {
+    position: relative;
+    background: #FFFDF8;
+    border: 1px solid var(--dashboard-home-line);
     outline: 1px solid color-mix(in srgb, var(--g-accent) 35%, var(--dashboard-home-line));
   }
 
   .dashboard-home-edit-chrome {
     position: absolute;
-    top: -52px;
-    left: 0;
-    right: 0;
+    top: 6px;
+    left: 6px;
+    right: 6px;
+    z-index: 20;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 52px;
-    padding: 0 4px;
+    height: 44px;
     box-sizing: border-box;
   }
 
   .dashboard-home-edit-foot {
     position: absolute;
-    bottom: -48px;
-    left: 0;
     right: 0;
+    bottom: 0;
+    z-index: 20;
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    height: 48px;
+    height: 44px;
     box-sizing: border-box;
   }
 
