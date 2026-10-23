@@ -1,4 +1,4 @@
-import { needsCrew } from './needCrew';
+import { assignedTeamIds, needsCrew } from './needCrew';
 
 export const JOB_CREW_SCHEDULE_NEEDS_CREW = 'Needs crew';
 export const JOB_CREW_SCHEDULE_BOOKED = 'Booked';
@@ -13,21 +13,28 @@ export type JobCrewScheduleKind =
   | 'no_date'
   | 'in_progress'
   | 'done'
-  | 'cancelled';
+  | 'cancelled'
+  | 'unknown';
 
 export type JobCrewScheduleStatus = {
   label: string;
   kind: JobCrewScheduleKind;
 };
 
-export function jobCrewMemberCount(assignedTeam: string[] | null | undefined): number {
-  return (assignedTeam ?? []).filter(id => (id ?? '').trim().length > 0).length;
+export function sentenceCaseStatus(status: string): string {
+  const raw = status.trim();
+  if (!raw) return raw;
+  return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+}
+
+export function jobCrewMemberCount(assignedTeam: unknown): number {
+  return assignedTeamIds(assignedTeam).length;
 }
 
 export function jobCrewScheduleStatus(
   status: string | null | undefined,
   scheduledDate: string | null | undefined,
-  assignedTeam: string[] | null | undefined,
+  assignedTeam: unknown,
 ): JobCrewScheduleStatus {
   if (status === 'completed' || status === 'Done') {
     return { label: JOB_CREW_SCHEDULE_DONE, kind: 'done' };
@@ -45,7 +52,14 @@ export function jobCrewScheduleStatus(
   if (status === 'in_progress') {
     return { label: JOB_CREW_SCHEDULE_IN_PROGRESS, kind: 'in_progress' };
   }
-  return { label: JOB_CREW_SCHEDULE_BOOKED, kind: 'booked' };
+  if (status === 'scheduled') {
+    return { label: JOB_CREW_SCHEDULE_BOOKED, kind: 'booked' };
+  }
+  const raw = (status ?? '').trim();
+  if (!raw) {
+    return { label: JOB_CREW_SCHEDULE_BOOKED, kind: 'booked' };
+  }
+  return { label: sentenceCaseStatus(raw), kind: 'unknown' };
 }
 
 export function jobCrewScheduleNeedsCrewClass(kind: JobCrewScheduleKind): string {

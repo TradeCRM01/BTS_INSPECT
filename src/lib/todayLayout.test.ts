@@ -115,6 +115,11 @@ describe('D7 pills and wording', () => {
       status: 'scheduled',
       scheduled_date: null,
     }), new Set())).toMatchObject({ label: 'No date', kind: 'no_date' });
+    expect(todayJobPill(job({
+      id: 'quoted-crew',
+      status: 'quoted',
+      assigned_team: ['dean'],
+    }), new Set())).toMatchObject({ label: 'Quoted', kind: 'unknown', tone: 'draft' });
     expect(TODAY_PILL_SET_DATE).toBe('Set a date');
   });
 

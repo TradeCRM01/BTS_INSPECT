@@ -48,7 +48,18 @@ describe('jobCrewScheduleStatus', () => {
       kind: 'needs_crew',
     });
     expect(status.kind).not.toBe('booked');
+    expect(status.label).not.toBe('Scheduled');
     expect(needsCrew({ status: 'on_hold', scheduled_date: '2026-10-19', assigned_team: [] })).toBe(true);
+  });
+
+  it('kills an unknown dated job with crew falling through to Booked or Scheduled', () => {
+    const status = jobCrewScheduleStatus('quoted', '2026-10-19', ['dave']);
+    expect(status).toEqual({
+      label: 'Quoted',
+      kind: 'unknown',
+    });
+    expect(status.label).not.toBe(JOB_CREW_SCHEDULE_BOOKED);
+    expect(status.label).not.toBe('Scheduled');
   });
 });
 
