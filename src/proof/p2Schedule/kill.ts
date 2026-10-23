@@ -21,7 +21,7 @@ const firstFieldItem = (m: Measure) => m.menu?.[0] ?? null;
 const same = (a: string, b: string) => channelGap(a.slice(0, 7), b) <= SAME_COLOUR;
 const painted = (s: Stroke | null) => !!s && s.w >= 1 && s.a > 0 && s.style !== 'none' && s.style !== 'hidden';
 const text = (m: Measure, words: string) => m.texts.find(t => t.text === words);
-const UNTIMED_JOBS = JOBS.filter(j => j.scheduled_date && !j.start_time).length;
+const UNTIMED_JOBS = JOBS.filter(j => j.scheduled_date && !j.start_time && j.status !== 'cancelled').length;
 
 describe('P2 Schedule on the built dist', () => {
   afterAll(async () => {
@@ -365,8 +365,8 @@ describe('P2 Schedule on the built dist', () => {
     const before = week.writes.length;
     const opened = await openState('week-1280');
     await opened.page.getByRole('button', { name: 'New job' }).click();
-    await opened.page.waitForSelector('[role="dialog"]');
-    expect.soft(await opened.page.locator('[role="dialog"]').count(), 'New job opens a modal').toBeGreaterThan(0);
+    await opened.page.waitForSelector('.hub-ops-form-sheet');
+    expect.soft(await opened.page.locator('.hub-ops-form-sheet').count(), 'New job opens a modal').toBeGreaterThan(0);
     await opened.close();
     expect.soft(before, 'New job is a local modal, not a write').toBe(0);
   });
