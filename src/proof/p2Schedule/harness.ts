@@ -433,7 +433,7 @@ async function hover(page: Page, target: string): Promise<HoverProbe> {
   await el.hover();
   await settle(page);
   const after = await read();
-  const label = await el.evaluate(e => (e.getAttribute('aria-label') || e.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40));
+  const label = await el.evaluate(e => (e.getAttribute('aria-label') || (e as HTMLElement).innerText || '').replace(/\s+/g, ' ').trim().slice(0, 40));
   await page.mouse.move(0, 0);
   return { target, label, before, after };
 }
