@@ -90,9 +90,108 @@ function liveCrew() {
 
 type MockRow = Record<string, unknown>;
 
+function liveJobs() {
+  const day = TODAY_FIXTURE_DAY;
+  const stamp = liveDueIso();
+  const base = {
+    company_id: TODAY_FIXTURE_COMPANY,
+    description: null as string | null,
+    priority: 'medium',
+    inspection_id: null as string | null,
+    created_by: '00000000-0000-0000-0000-000000000002',
+    created_at: stamp,
+    updated_at: stamp,
+    color: null as string | null,
+    budget: null as number | null,
+    parent_job_id: null as string | null,
+  };
+  return [{
+    ...base,
+    id: 'live-job-0141',
+    client_id: 'live-client-owen',
+    title: 'Mixer tap',
+    status: 'scheduled',
+    scheduled_date: day,
+    start_time: '13:00',
+    end_time: '15:00',
+    address: '12 Example St, Ashgrove QLD 4060',
+    assigned_team: ['live-crew-invitee'],
+    job_number: 141,
+    cost_code: 'A$',
+  }, {
+    ...base,
+    id: 'live-job-0137',
+    client_id: 'live-client-megan',
+    title: 'Replace kitchen mixer tap',
+    status: 'scheduled',
+    scheduled_date: day,
+    start_time: '14:00',
+    end_time: '16:00',
+    address: '4 Example St, Wilston QLD 4051',
+    assigned_team: ['live-crew-0137'],
+    job_number: 137,
+    cost_code: null,
+  }, {
+    ...base,
+    id: 'live-job-undated',
+    client_id: 'live-client-owen',
+    title: 'Waiting on a date',
+    status: 'scheduled',
+    scheduled_date: null,
+    start_time: null,
+    end_time: null,
+    address: '9 Yard Rd, Ashgrove QLD 4060',
+    assigned_team: [],
+    job_number: 42,
+    cost_code: null,
+  }, {
+    ...base,
+    id: 'live-job-unknown',
+    client_id: 'live-client-megan',
+    title: 'Hold for parts',
+    status: 'on_hold',
+    scheduled_date: day,
+    start_time: '16:00',
+    end_time: '17:00',
+    address: '2 Hold St, Wilston QLD 4051',
+    assigned_team: [' '],
+    job_number: 46,
+    cost_code: null,
+  }, {
+    ...base,
+    id: 'live-job-awaiting',
+    client_id: 'live-client-owen',
+    title: 'Parts on order',
+    status: 'awaiting_parts',
+    scheduled_date: day,
+    start_time: '15:00',
+    end_time: '16:00',
+    address: '47 Parts Rd, Ashgrove QLD 4060',
+    assigned_team: ['live-crew-invitee'],
+    job_number: 47,
+    cost_code: null,
+  }];
+}
+
+function liveClients() {
+  return [{
+    id: 'live-client-owen',
+    company_id: TODAY_FIXTURE_COMPANY,
+    name: 'Owen Price — delete ok',
+    phone: null,
+    address: '12 Example St, Ashgrove QLD 4060',
+  }, {
+    id: 'live-client-megan',
+    company_id: TODAY_FIXTURE_COMPANY,
+    name: 'Megan Lowe',
+    phone: null,
+    address: '4 Example St, Wilston QLD 4051',
+  }];
+}
+
 function tableRows(table: string): MockRow[] {
-  if (table === 'jobs') return TODAY_FIXTURE_JOBS as unknown as MockRow[];
-  if (table === 'clients') return TODAY_FIXTURE_CLIENTS as unknown as MockRow[];
+  if (table === 'jobs') return [...liveJobs(), ...TODAY_FIXTURE_JOBS] as unknown as MockRow[];
+  if (table === 'clients') return [...liveClients(), ...TODAY_FIXTURE_CLIENTS] as unknown as MockRow[];
   if (table === 'invoices') return TODAY_FIXTURE_INVOICES as unknown as MockRow[];
   if (table === 'invoice_payments') return TODAY_FIXTURE_PAYMENTS as unknown as MockRow[];
   if (table === 'expenses') return TODAY_FIXTURE_EXPENSES as unknown as MockRow[];

@@ -454,17 +454,19 @@ function JobsSection({
       ) : (
         <table className="today-jobs-table" data-today-band={band} role={band === 'p' ? 'table' : undefined}>
           <caption className="today-sr">Today's jobs</caption>
-          <colgroup>
-            <col className="today-col-time" />
-            <col className="today-col-job" />
-            {showPlace ? <col className="today-col-place" /> : null}
-            {band !== 'p' ? <col className="today-col-status" /> : null}
-          </colgroup>
+          {band !== 'p' ? (
+            <colgroup>
+              <col className="today-col-time" />
+              <col className="today-col-job" />
+              {showPlace ? <col className="today-col-place" /> : null}
+              <col className="today-col-status" />
+            </colgroup>
+          ) : null}
           <thead className="today-jobs-thead">
             <tr>
               <th scope="col">Time</th>
               <th scope="col">Job</th>
-              {showPlace ? <th scope="col">Place</th> : null}
+              {showPlace || band === 'p' ? <th scope="col">Place</th> : null}
               {band !== 'p' ? <th scope="col" className="is-status">Status</th> : null}
             </tr>
           </thead>
@@ -488,22 +490,22 @@ function JobsSection({
                       : todayClockLabel(job.start_time, job.end_time)}
                   </td>
                   <td className="today-job-cell" role={band === 'p' ? 'cell' : undefined}>
-                    <Link className="today-job-title" to={dashboardJobHref(job.id)} aria-label="Open">
-                      {job.title}
-                    </Link>
-                    <p className="today-job-meta">
-                      {meta.map((part, i) => (
-                        <span key={`${job.id}-m-${i}`} className="today-seg">
-                          {part}{i < meta.length - 1 ? ' · ' : ''}
+                    <Link className="today-job-open" to={dashboardJobHref(job.id)} aria-label="Open">
+                      <span className="today-job-title">{job.title}</span>
+                      <p className="today-job-meta">
+                        {meta.map((part, i) => (
+                          <span key={`${job.id}-m-${i}`} className="today-seg">
+                            {part}{i < meta.length - 1 ? ' · ' : ''}
+                          </span>
+                        ))}
+                      </p>
+                      {band === 'p' ? (
+                        <span className={`today-pill is-${pill.tone}`} data-crew-schedule={pill.kind}>
+                          <span className="today-pill-dot" aria-hidden />
+                          {pill.label}
                         </span>
-                      ))}
-                    </p>
-                    {band === 'p' ? (
-                      <span className={`today-pill is-${pill.tone}`} data-crew-schedule={pill.kind}>
-                        <span className="today-pill-dot" aria-hidden />
-                        {pill.label}
-                      </span>
-                    ) : null}
+                      ) : null}
+                    </Link>
                   </td>
                   {showPlace ? (
                     <td className="today-job-meta today-job-place">{dashboardJobPlace(job)}</td>

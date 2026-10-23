@@ -79,10 +79,11 @@
 }
 
 .today-seg {
-  display: inline;
-  max-width: none;
-  overflow: visible;
-  white-space: inherit;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   vertical-align: baseline;
 }
 
@@ -413,6 +414,13 @@ button.today-btn-primary,
   table-layout: fixed;
 }
 
+.today-jobs[data-today-band="p"] .today-jobs-table,
+.today-jobs[data-today-band="p"] .today-jobs-table tbody,
+.today-jobs[data-today-band="p"] .today-jobs-table thead {
+  display: block;
+  width: 100%;
+}
+
 .today-jobs-table caption,
 .today-sr {
   position: absolute;
@@ -464,6 +472,7 @@ button.today-btn-primary,
   padding: 14px 0;
   border-bottom: 1px solid var(--g-line);
   min-height: 72px;
+  width: 100%;
 }
 
 .today-jobs[data-today-band="t"] .today-jobs-table tbody tr,
@@ -489,6 +498,21 @@ button.today-btn-primary,
 .today-jobs-table td.today-job-cell {
   min-width: 0;
   width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.today-job-open {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  overflow: hidden;
+  min-height: 44px;
+  color: inherit;
+  text-decoration: none;
 }
 
 .today-jobs-table td {
@@ -523,7 +547,7 @@ button.today-btn-primary,
   font-size: 16px;
   font-weight: 600;
   line-height: 22px;
-  min-height: 44px;
+  min-height: 0;
   text-decoration: none;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -533,7 +557,6 @@ button.today-btn-primary,
 
 .today-jobs[data-today-band="t"] .today-job-title,
 .today-jobs[data-today-band="d"] .today-job-title {
-  min-height: 0;
   -webkit-line-clamp: 1;
 }
 
@@ -555,6 +578,10 @@ button.today-btn-primary,
   max-width: 100%;
   width: 100%;
   max-height: none;
+}
+
+.today-jobs[data-today-band="p"] .today-job-meta {
+  white-space: normal;
 }
 
 .today-job-cell .today-job-meta {
@@ -632,7 +659,14 @@ button.today-btn-primary,
   overflow: hidden;
 }
 
-.today-need-caret,
+.today-need-caret {
+  align-self: flex-start;
+  flex: none;
+  margin-top: 1px;
+  margin-left: auto;
+  color: var(--g-ink-muted);
+}
+
 .today-coming-crew {
   align-self: center;
   color: var(--g-ink-muted);
@@ -848,8 +882,21 @@ button.today-btn-primary,
     vertical-align: middle;
   }
 
+  .today-jobs-table td.today-job-cell {
+    padding: 0;
+    width: auto;
+  }
+
   .today-jobs-table tbody tr {
     height: 58px;
+  }
+
+  .today-job-open {
+    min-height: 44px;
+    height: 100%;
+    justify-content: center;
+    padding: 8px 12px 8px 0;
+    box-sizing: border-box;
   }
 
   .today-jobs-table .today-pill {

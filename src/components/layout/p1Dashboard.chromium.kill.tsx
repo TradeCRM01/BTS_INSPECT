@@ -1105,7 +1105,7 @@ function collectCreamMeta() {
       h: Math.ceil(r.height + pad * 2),
     });
   };
-  for (const node of el.querySelectorAll('.dashboard-home-pill, .today-pill, .today-quiet, .today-set-date, .today-try, img, .dashboard-home-ai-avatar, .bg-gradient-to-br')) {
+  for (const node of el.querySelectorAll('.dashboard-home-pill, .today-pill, .today-quiet, .today-set-date, .today-try, .today-overdue, img, .dashboard-home-ai-avatar, .bg-gradient-to-br')) {
     if (vis(node)) add(node);
   }
   for (const svg of el.querySelectorAll('svg')) {
