@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { COMPANY, MALFORMED_CREW_JOBS, MEMBERS, NEED_CREW_PAIR, PROFILE, TABLES, type Row } from './fixture.ts';
+import { COMPANY, MALFORMED_CREW_JOBS, MEMBERS, NEED_CREW_PAIR, PROFILE, STATUS_RULE_JOBS, TABLES, type Row } from './fixture.ts';
 import type { LedgerRead, LedgerWrite } from './matrix.ts';
 
 export const ledger: { writes: LedgerWrite[]; unmocked: string[]; reads: LedgerRead[] } = {
@@ -15,6 +15,12 @@ type WriteOp = 'insert' | 'update' | 'upsert' | 'delete';
 
 const likeToRegExp = (pattern: string) =>
   new RegExp(`^${pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*')}$`, 'i');
+
+/** Non-string scheduled_date is undated, matching asDateText. Other columns stay as stored. */
+function dateCell(row: Row, col: string): unknown {
+  if (col !== 'scheduled_date') return row[col] ?? null;
+  return typeof row[col] === 'string' && row[col].trim() ? row[col] : null;
+}
 
 function orClause(clause: string): (row: Row) => boolean {
   const [col, op, ...rest] = clause.split('.');
@@ -45,9 +51,9 @@ class Query implements PromiseLike<Result> {
   delete() { return this.writeOp('delete'); }
   eq(col: string, v: unknown) { return this.where(`${col}=${String(v)}`, r => r[col] === v); }
   neq(col: string, v: unknown) { return this.where(`${col}!=${String(v)}`, r => r[col] !== v); }
-  gte(col: string, v: string) { return this.where(`${col}>=${v}`, r => r[col] != null && String(r[col]) >= v); }
-  lte(col: string, v: string) { return this.where(`${col}<=${v}`, r => r[col] != null && String(r[col]) <= v); }
-  is(col: string, v: null) { return this.where(`${col} is ${String(v)}`, r => (r[col] ?? null) === v); }
+  gte(col: string, v: string) { return this.where(`${col}>=${v}`, r => dateCell(r, col) != null && String(dateCell(r, col)) >= v); }
+  lte(col: string, v: string) { return this.where(`${col}<=${v}`, r => dateCell(r, col) != null && String(dateCell(r, col)) <= v); }
+  is(col: string, v: null) { return this.where(`${col} is ${String(v)}`, r => dateCell(r, col) === v); }
   in(col: string, vs: readonly unknown[]) { return this.where(`${col} in ${vs.length}`, r => vs.includes(r[col])); }
   ilike(col: string, p: string) { return this.where(`${col}~${p}`, r => likeToRegExp(p).test(String(r[col] ?? ''))); }
   not(col: string, op: string, v: unknown) {
@@ -99,7 +105,9 @@ class Query implements PromiseLike<Result> {
         ? NEED_CREW_PAIR
         : boot()?.malformedCrew && this.table === 'jobs'
           ? MALFORMED_CREW_JOBS
-          : TABLES[this.table];
+          : boot()?.statusRules && this.table === 'jobs'
+            ? STATUS_RULE_JOBS
+            : TABLES[this.table];
     if (!source) {
       ledger.unmocked.push(`from(${this.table})`);
       return { data: this.one ? null : [], error: null, count: 0 };

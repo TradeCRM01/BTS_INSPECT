@@ -35,6 +35,7 @@ import {
   type ScheduleSheetInput,
   type ScheduleViewMode,
 } from '../lib/scheduleBoard';
+import { asDateText } from '../lib/scheduleNeedCrew';
 import { scheduleInvoicedJobIds, scheduleInvoicedQueryIds } from '../lib/scheduleInvoiceStatus';
 import { NAV_WORDS } from '../lib/brand';
 import { matchQuickBookJobs, parseQuickBook, resolveQuickBook, spokenSheetFields, type QuickBookNewJobDraft, type SpokenSheetFields } from '../lib/quickBook';
@@ -655,10 +656,17 @@ export function SchedulePage() {
 
   const boardJobs = useMemo(
     () => {
-      if (lookFix3aBoard) return withScheduleJobPatches(fix3aLookJobs(fix3aUnscheduledCount));
-      if (!lookWeekBoard) return jobs ?? [];
-      const seed = withScheduleJobPatches(weekBoardLookJobs());
-      return lookEarlyBar ? [...seed, ...weekBoardLookEarlyJobs()] : seed;
+      const raw = lookFix3aBoard
+        ? withScheduleJobPatches(fix3aLookJobs(fix3aUnscheduledCount))
+        : !lookWeekBoard
+          ? (jobs ?? [])
+          : lookEarlyBar
+            ? [...withScheduleJobPatches(weekBoardLookJobs()), ...weekBoardLookEarlyJobs()]
+            : withScheduleJobPatches(weekBoardLookJobs());
+      return raw.map(job => ({
+        ...job,
+        scheduled_date: asDateText(job.scheduled_date) || null,
+      }));
     },
     [fix3aUnscheduledCount, lookFix3aBoard, lookWeekBoard, lookEarlyBar, jobs],
   );
@@ -844,7 +852,7 @@ export function SchedulePage() {
   const weekRangeShort = weekRangeLabel;
   const dayRangeLabel = format(currentDate, 'EEE d MMM yyyy');
   const dayRangeShort = format(currentDate, 'EEE d MMM');
-  const needCrew = boardJobs.filter(needCrewOf).length;
+  const needCrew = countNeedCrewJobs(boardJobs);
   const boardWhisper = scheduleBoardWhisper({
     onBoard: onBoard.length,
     needCrew,
@@ -995,7 +1003,7 @@ export function SchedulePage() {
             aria-expanded={quickBookOpen}
             data-schedule-quickbook-toggle="1"
           >
-            <Plus size={16} /> New job
+            <Plus size={18} /> New job
           </button>
         </header>
 
@@ -1209,12 +1217,3 @@ export function SchedulePage() {
   );
 }
 
-void countNeedCrewJobs;
-
-/** Local until #403. Never throws. Malformed crew is need-crew. Unknown status is never Scheduled or Booked. */
-function needCrewOf(job: { status?: string | null; scheduled_date?: string | null; assigned_team?: unknown }): boolean {
-  if (!(job.scheduled_date ?? '').trim()) return false;
-  if (job.status === 'completed' || job.status === 'Done' || job.status === 'cancelled') return false;
-  if (!Array.isArray(job.assigned_team)) return true;
-  return job.assigned_team.filter((id): id is string => typeof id === 'string' && id.trim().length > 0).length === 0;
-}

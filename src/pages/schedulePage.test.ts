@@ -69,7 +69,6 @@ describe('schedule page week/day board', () => {
     expect(src('src/index.css')).toContain('calc(var(--shell-bottom-nav-h, 0px) + 10px)');
     expect(page).toContain('286 prove 2 — delete ok');
     expect(page).toContain('286 prove 3 — delete ok');
-    expect(page).toContain('countNeedCrewJobs');
     expect(dayBoard).toContain('hub-day-drop-hint');
     expect(dayBoard).toContain('data-unassigned-lock');
     expect(dayBoard).toContain('Drop here — date stays');

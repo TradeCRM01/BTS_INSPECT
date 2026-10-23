@@ -63,7 +63,7 @@ export type P2Probe = {
 };
 
 declare global {
-  interface Window { __P2_BOOT__: { path: string; empty?: boolean; jobsError?: boolean; needCrewPair?: boolean; malformedCrew?: boolean }; __p2: P2Probe }
+  interface Window { __P2_BOOT__: { path: string; empty?: boolean; jobsError?: boolean; needCrewPair?: boolean; malformedCrew?: boolean; statusRules?: boolean }; __p2: P2Probe }
 }
 
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -524,13 +524,16 @@ function clocks(): ClockProbe[] {
     if (!visible(el)) continue;
     const textR = textBox(el) ?? el.getBoundingClientRect();
     const clip = clipBox(el, true);
+    const ownFits = (el as HTMLElement).scrollWidth <= (el as HTMLElement).clientWidth + 0.5;
+    const ancestorFits = textR.left >= clip.left - 0.5 && textR.right <= clip.right + 0.5;
     out.push({
       text: (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 48),
       cls: describe(el),
       textRight: Math.round(textR.right * 10) / 10,
       clipRight: Number.isFinite(clip.right) ? Math.round(clip.right * 10) / 10 : textR.right,
       clipEl: clip.clipEl,
-      fits: textR.left >= clip.left - 0.5 && textR.right <= clip.right + 0.5,
+      ownFits,
+      fits: ancestorFits && ownFits,
     });
   }
   return out;
@@ -758,6 +761,19 @@ function chrome(): ChromeProbe {
   const weekCrew = [...document.querySelectorAll('.hub-week-crew .hub-schedule-crew-name')].find(visible) ?? null;
   const quick = [...document.querySelectorAll('[data-schedule-quickbook-toggle], [data-schedule-section="quickbook"]')].find(visible) ?? null;
   const tools = document.querySelector('.hub-week-tools');
+  const whisper = document.querySelector('[data-schedule-whisper]');
+  const typeOf = (el: Element | null) => {
+    if (!el) return { weight: 0, size: 0, lh: 0 };
+    const s = getComputedStyle(el);
+    return { weight: parseFloat(s.fontWeight) || 0, size: parseFloat(s.fontSize) || 0, lh: parseFloat(s.lineHeight) || 0 };
+  };
+  const h1Type = typeOf(h1);
+  const whisperType = typeOf(whisper);
+  const trayType = typeOf(kicker);
+  const newJobR = newJob?.getBoundingClientRect();
+  const searchR = search?.getBoundingClientRect();
+  const todayR = today?.getBoundingClientRect();
+  const boardR = board?.getBoundingClientRect();
   const headLine = shorts[0] ?? fulls[0] ?? heads[0] ?? null;
   const lh = headLine ? parseFloat(getComputedStyle(headLine).lineHeight) || 16 : 16;
   return {
@@ -820,6 +836,27 @@ function chrome(): ChromeProbe {
     segBox: boxOf(seg),
     todayBox: boxOf(today),
     navBoxes: navs.map(el => boxOf(el)).filter((b): b is NonNullable<typeof b> => !!b),
+    h1Weight: h1Type.weight,
+    h1Size: h1Type.size,
+    h1Lh: h1Type.lh,
+    whisperWeight: whisperType.weight,
+    whisperSize: whisperType.size,
+    whisperLh: whisperType.lh,
+    eyebrowPaint: '',
+    newJobW: newJobR?.width ?? 0,
+    newJobH: newJobR?.height ?? 0,
+    newJobBottom: newJobR?.bottom ?? -1,
+    segTrackPaint: '',
+    segActivePaint: '',
+    searchH: searchR?.height ?? 0,
+    todayW: todayR?.width ?? 0,
+    todayH: todayR?.height ?? 0,
+    todayFill: '',
+    boardLeft: boardR?.left ?? -1,
+    boardRight: boardR?.right ?? -1,
+    trayWeight: trayType.weight,
+    traySize: trayType.size,
+    trayLh: trayType.lh,
   };
 }
 
@@ -1000,6 +1037,7 @@ function layoutProbe(): LayoutProbe {
     trayHeading: (tray?.querySelector('.ops-card-kicker')?.textContent ?? '').trim(),
     traySub: (tray?.querySelector('.ops-tray-head .ops-meta')?.textContent ?? '').trim(),
     trayCards: [...(tray?.querySelectorAll('[data-schedule-rail-job]') ?? [])].map(el => ({
+      id: (el as HTMLElement).dataset.scheduleRailJob ?? '',
       meta: (el.querySelector('.hub-schedule-ref')?.textContent ?? '').trim(),
       pill: (el.querySelector('.hub-schedule-pill')?.textContent ?? '').trim(),
       text: (el.textContent ?? '').replace(/\s+/g, ' ').trim(),
@@ -1214,9 +1252,41 @@ window.__p2 = {
     const dpr = window.devicePixelRatio || img.width / Math.max(1, window.innerWidth);
     const scale = (b: { x: number; y: number; w: number; h: number } | null) =>
       b ? { x: b.x * dpr, y: b.y * dpr, w: b.w * dpr, h: b.h * dpr } : null;
+    const rgbAt = (x: number, y: number) => {
+      const p = px(img, Math.max(0, Math.min(img.width - 1, Math.round(x))), Math.max(0, Math.min(img.height - 1, Math.round(y))));
+      return `rgb(${p.r}, ${p.g}, ${p.b})`;
+    };
+    const inkOf = (b: { x: number; y: number; w: number; h: number } | null) => {
+      if (!b || b.w < 2 || b.h < 2) return '';
+      let best = { r: 255, g: 255, b: 255, lum: 999 };
+      const x0 = Math.max(0, Math.round(b.x));
+      const y0 = Math.max(0, Math.round(b.y));
+      const x1 = Math.min(img.width - 1, Math.round(b.x + b.w));
+      const y1 = Math.min(img.height - 1, Math.round(b.y + b.h));
+      for (let y = y0; y < y1; y += 2) {
+        for (let x = x0; x < x1; x += 2) {
+          const p = px(img, x, y);
+          const lum = 0.2126 * p.r + 0.7152 * p.g + 0.0722 * p.b;
+          if (lum < best.lum) best = { r: p.r, g: p.g, b: p.b, lum };
+        }
+      }
+      return `rgb(${best.r}, ${best.g}, ${best.b})`;
+    };
+    const fillOf = (b: { x: number; y: number; w: number; h: number } | null) => {
+      if (!b || b.w < 4 || b.h < 4) return '';
+      return rgbAt(b.x + b.w / 2, b.y + b.h / 2);
+    };
+    const trackOf = (b: { x: number; y: number; w: number; h: number } | null) => {
+      if (!b || b.w < 8 || b.h < 8) return '';
+      return rgbAt(b.x + 4, b.y + 3);
+    };
     const seg = strokeOf(img, scale(chrome.segBox));
     const today = strokeOf(img, scale(chrome.todayBox));
     const navs = chrome.navBoxes.map(b => strokeOf(img, scale(b)));
+    const eyebrow = document.querySelector('[data-schedule-eyebrow], .hub-schedule-eyebrow, .s-head .eyebrow');
+    const segOn = document.querySelector('.hub-week-seg-btn.is-on, .segc [aria-current]');
+    const eyebrowBox = eyebrow ? scale(boxOf(eyebrow)) : null;
+    const segOnBox = segOn ? scale(boxOf(segOn)) : null;
     return {
       ...chrome,
       segPainted: seg.painted,
@@ -1225,6 +1295,10 @@ window.__p2 = {
       todayCornerCut: today.cornerCut,
       navPainted: navs.reduce((n, s) => n + s.painted, 0),
       navCornerCut: navs.filter(s => s.cornerCut).length >= 2,
+      eyebrowPaint: inkOf(eyebrowBox),
+      segTrackPaint: trackOf(scale(chrome.segBox)),
+      segActivePaint: fillOf(segOnBox),
+      todayFill: fillOf(scale(chrome.todayBox)),
     };
   },
 

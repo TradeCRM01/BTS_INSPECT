@@ -1,11 +1,12 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import {
-  CONTRAST, EMPTY_COPY, FADE, FOCUS, IN_PROGRESS, JOB_REF, KILLS, MOCKUP_H1_LEFT, MOCKUP_SEARCH_TOL, MOCKUP_SEARCH_WIDTH, MOCKUP_TRAY_HEADING_H, NOW, PALETTE, PHONE_BOARD_BREAKPOINT, PHONE_TABS, ROWS, SAME_COLOUR,
+  CONTRAST, EMPTY_COPY, FADE, FOCUS, IN_PROGRESS, JOB_REF, KILLS, NOW, PALETTE, PHONE_BOARD_BREAKPOINT, PHONE_TABS, ROWS, SAME_COLOUR,
   SHEET, TAP_MIN, TODAY, TRACK_PROBE, UNTIMED, WEEK, channelGap, isAmber, isNavy, killTitle, rgbOf,
   type KillId, type Measure, type Offender, type Stroke,
 } from './matrix.ts';
 import { JOBS, JOB_IDS, MALFORMED_CREW_IDS, SAM, SCHEDULE_FIXTURE } from './fixture.ts';
-import { bundleReport, closeHarness, measure, measureAll, openState, token, writeCapture } from './harness.ts';
+import { STATUS_FALLBACK } from '../../lib/scheduleInvoiceStatus';
+import { bundleReport, closeHarness, measure, measureAll, measureMockup1280, openState, token, writeCapture } from './harness.ts';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -163,6 +164,10 @@ describe('P2 Schedule on the built dist', () => {
       for (const lab of m.trackLabels) {
         expect.soft(lab.fitsCard, `${m.id} track label "${lab.text}" past card ${lab.card}`).toBe(true);
         expect.soft(lab.fitsClip, `${m.id} track label "${lab.text}" clipped by ${lab.clipEl || 'viewport'}`).toBe(true);
+      }
+      for (const c of m.clocks.filter(clock => clock.cls.includes('hub-week-chip-clock'))) {
+        expect.soft(c.ownFits, `${m.id} clock "${c.text}" scrollWidth fits its own box`).toBe(true);
+        expect.soft(c.fits, `${m.id} clock "${c.text}" clipped by ${c.clipEl || 'viewport'} ${c.textRight}>${c.clipRight}`).toBe(true);
       }
       if (/^(week|day|tray)-/.test(m.id) && !m.sheet) {
         const longest = m.trackLabels.filter(lab => /Add a time/.test(lab.text) || /Booked /.test(lab.text));
@@ -680,6 +685,7 @@ describe('P2 Schedule on the built dist', () => {
       expect.soft(clocks.length, `${m.id} laptop clocks`).toBeGreaterThan(0);
       for (const c of clocks) {
         expect.soft(c.fits, `${m.id} "${c.text}" clipped by ${c.clipEl || 'viewport'} ${c.textRight}>${c.clipRight}`).toBe(true);
+        expect.soft(c.ownFits, `${m.id} "${c.text}" own scrollWidth fits`).toBe(true);
       }
     }
   });
@@ -735,6 +741,8 @@ describe('P2 Schedule on the built dist', () => {
       { id: JOB_IDS.crewObject, kind: 'object', pill: 'Needs crew' },
       { id: JOB_IDS.crewNumber, kind: 'number', pill: 'Needs crew' },
       { id: JOB_IDS.crewListObj, kind: 'whitespace', pill: 'Needs crew' },
+      { id: JOB_IDS.crewListOne, kind: '[1]', pill: 'Needs crew' },
+      { id: JOB_IDS.crewListEmptyObj, kind: '[{}]', pill: 'Needs crew' },
     ];
     try {
       page.on('pageerror', err => { pageErrors.push(err.message); });
@@ -783,6 +791,20 @@ describe('P2 Schedule on the built dist', () => {
         const card = cards.find(c => c.id === want.id);
         expect.soft(card?.pill, `malformed ${want.kind} crew card ${card?.line1 || want.id} pill`).toBe(want.pill);
       }
+      expect(await page.locator('h1').first().textContent(), 'K24 h1 Schedule').toBe('Schedule');
+      expect((await page.locator('[data-schedule-whisper]').textContent())?.trim(), 'K24 board count').toBe('7 on the board · 7 need crew');
+      const domCards = await page.evaluate(ids => [...document.querySelectorAll<HTMLElement>('[data-schedule-job]')].filter(el => {
+        const id = el.dataset.scheduleJob ?? '';
+        return (ids as string[]).includes(id) && el.getBoundingClientRect().width > 1;
+      }).map(el => ({
+        id: el.dataset.scheduleJob ?? '',
+        pill: (el.querySelector('.hub-schedule-pill')?.textContent ?? '').trim(),
+      })), MALFORMED_CREW_IDS.slice());
+      expect(domCards.length, 'all seven malformed crew jobs render as DOM cards').toBe(7);
+      for (const want of malformedPills) {
+        const card = domCards.find(c => c.id === want.id);
+        expect.soft(card?.pill, `DOM card ${want.kind} pill`).toBe(want.pill);
+      }
     } finally {
       await page.close().catch(() => {});
       await donor.close();
@@ -790,17 +812,18 @@ describe('P2 Schedule on the built dist', () => {
   });
 
   it(killTitle('K25'), async () => {
+    const mock = await measureMockup1280();
     const week = await measure('week-1280');
     const c = week.chrome;
     expect.soft(c.headerLeft < c.newJobLeft, 'New job sits to the right of the header').toBe(true);
-    expect.soft(Math.abs(c.h1Left - MOCKUP_H1_LEFT), `Schedule h1 left ${c.h1Left} vs mockup ${MOCKUP_H1_LEFT} (page ${c.pageLeft} pad ${c.pagePadLeft} parent ${c.h1ParentLeft})`).toBeLessThanOrEqual(1);
-    expect.soft(Math.abs(c.eyebrowLeft - MOCKUP_H1_LEFT), `eyebrow left ${c.eyebrowLeft} vs mockup ${MOCKUP_H1_LEFT}`).toBeLessThanOrEqual(1);
+    expect.soft(c.h1Left, `Schedule h1 left ${c.h1Left} vs fixture ${mock.h1Left} (page ${c.pageLeft} pad ${c.pagePadLeft} parent ${c.h1ParentLeft})`).toBe(mock.h1Left);
+    expect.soft(c.eyebrowLeft, `eyebrow left ${c.eyebrowLeft} vs fixture ${mock.eyebrowLeft}`).toBe(mock.eyebrowLeft);
     expect.soft(c.segPainted, 'pill seg paints a border').toBeGreaterThanOrEqual(4);
     expect.soft(c.segCornerCut, 'pill seg radius cuts the corner').toBe(true);
     expect.soft(c.navPainted, 'boxed ‹ › paint a border').toBeGreaterThanOrEqual(4);
     expect.soft(c.navCornerCut, 'nav boxes keep a radius').toBe(true);
     expect.soft(c.range, 'week range').toBe('19 to 25 Oct');
-    expect.soft(Math.abs(c.searchWidth - MOCKUP_SEARCH_WIDTH), `search width ${c.searchWidth} vs mockup ${MOCKUP_SEARCH_WIDTH}`).toBeLessThanOrEqual(MOCKUP_SEARCH_TOL);
+    expect.soft(c.searchWidth, `search width ${c.searchWidth} vs fixture ${mock.searchW}`).toBe(mock.searchW);
     expect.soft(Math.abs(c.todayRight - c.toolbarRight), `Today.right ${c.todayRight} vs toolbar.right ${c.toolbarRight}`).toBeLessThanOrEqual(1);
     expect.soft(c.crewToolbarShown, 'Crew is not a toolbar label').toBe(0);
     expect.soft(c.todayPainted, 'Today paints an outline').toBeGreaterThanOrEqual(4);
@@ -813,9 +836,28 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(c.line1_0036, 'card line 1').toBe('07:00–10:30 · #0036');
     expect.soft(c.titleLines, 'titles wrap to 2 lines').toBe(2);
     expect.soft(c.weekCrewLines, 'week crew names stay one line').toBe(1);
+    expect.soft(c.h1Weight, 'h1 weight vs fixture').toBe(mock.h1Weight);
+    expect.soft(c.h1Size, 'h1 size vs fixture').toBe(mock.h1Size);
+    expect.soft(c.h1Lh, 'h1 line-height vs fixture').toBe(mock.h1Lh);
+    expect.soft(c.whisperWeight, 'sub-line weight vs fixture').toBe(mock.subWeight);
+    expect.soft(c.whisperSize, 'sub-line size vs fixture').toBe(mock.subSize);
+    expect.soft(c.whisperLh, 'sub-line line-height vs fixture').toBe(mock.subLh);
+    expect.soft(c.eyebrowPaint, 'eyebrow painted vs fixture').toBe(mock.eyebrowPaint);
+    expect.soft(c.newJobW, 'New job width vs fixture').toBe(mock.newJobW);
+    expect.soft(c.newJobH, 'New job height vs fixture').toBe(mock.newJobH);
+    expect.soft(c.segTrackPaint, 'Week/Day track painted vs fixture').toBe(mock.segTrackPaint);
+    expect.soft(c.searchH, 'search height vs fixture').toBe(mock.searchH);
+    expect.soft(c.todayW, 'Today width vs fixture').toBe(mock.todayW);
+    expect.soft(c.todayH, 'Today height vs fixture').toBe(mock.todayH);
+    expect.soft(c.todayFill, 'Today fill painted vs fixture').toBe(mock.todayFill);
+    expect.soft(c.boardLeft, 'board left vs fixture').toBe(mock.boardLeft);
+    expect.soft(c.boardRight, 'board right vs fixture').toBe(mock.boardRight);
+    expect.soft(c.trayWeight, 'tray heading weight vs fixture').toBe(mock.trayWeight);
+    expect.soft(c.traySize, 'tray heading size vs fixture').toBe(mock.traySize);
+    expect.soft(c.trayLh, 'tray heading line-height vs fixture').toBe(mock.trayLh);
 
     const rail = await measure('rail-1280');
-    expect.soft(Math.abs(rail.chrome.trayHeadingH - MOCKUP_TRAY_HEADING_H), `tray heading ${rail.chrome.trayHeadingH} vs measured mockup ${MOCKUP_TRAY_HEADING_H}`).toBeLessThanOrEqual(1);
+    expect.soft(rail.chrome.trayHeadingH, `tray heading ${rail.chrome.trayHeadingH} vs fixture ${mock.trayH}`).toBe(mock.trayH);
     expect.soft(rail.chrome.trayHeadingText, 'tray heading').toBe('Unscheduled');
     expect.soft(rail.chrome.trayCols, 'tray 3 compact columns').toBe(3);
 
@@ -836,6 +878,34 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(await opened.page.locator('[data-schedule-quickbook-existing]').count(), 'header New job opens schedule existing').toBeGreaterThan(0);
     expect.soft(await opened.page.locator('[data-schedule-quickbook-new]').count(), 'header New job opens New job choice').toBeGreaterThan(0);
     expect.soft(await opened.page.locator('.hub-schedule-voice-mic').count(), 'header New job opens the mic').toBeGreaterThan(0);
+    const existingChoice = opened.page.locator('[data-schedule-quickbook-existing]').first();
+    const newChoice = opened.page.locator('[data-schedule-quickbook-new]').first();
+    expect.soft(await existingChoice.evaluate(el => el.tagName), 'schedule existing is a labelled choice').toBe('BUTTON');
+    expect.soft((await existingChoice.textContent())?.trim(), 'schedule existing label').toBe('Schedule existing');
+    expect.soft(await newChoice.evaluate(el => el.tagName), 'New job is a labelled choice').toBe('BUTTON');
+    expect.soft(await existingChoice.isVisible(), 'schedule existing option visible').toBe(true);
+    expect.soft(await newChoice.isVisible(), 'New job option visible').toBe(true);
     await opened.close();
+  });
+
+  it(killTitle('K26'), async () => {
+    const m = await measure('status-1280');
+    expect(m.pageErrors, 'non-string status/date must not throw').toEqual([]);
+    const byId = new Map(m.layout.cards.map(c => [c.id, c]));
+    const nullStatus = byId.get(JOB_IDS.statusNull);
+    const numStatus = byId.get(JOB_IDS.statusNum);
+    const objStatus = byId.get(JOB_IDS.statusObj);
+    expect.soft(nullStatus?.pill, 'null status crewed dated').toBe(STATUS_FALLBACK);
+    expect.soft(nullStatus?.pill, 'null status never Scheduled').not.toBe('Scheduled');
+    expect.soft(`${nullStatus?.clock} ${nullStatus?.line1}`, 'null status never Booked').not.toMatch(/Booked/);
+    expect.soft(numStatus?.pill, 'number status crewed').toBe(STATUS_FALLBACK);
+    expect.soft(numStatus?.pill, 'number status never Scheduled').not.toBe('Scheduled');
+    expect.soft(`${numStatus?.clock} ${numStatus?.line1}`, 'number status never Booked').not.toMatch(/Booked/);
+    expect.soft(objStatus?.pill, 'object status dated crewless').toBe('Needs crew');
+    expect.soft(objStatus?.pill, 'object status never Scheduled').not.toBe('Scheduled');
+    const dateNum = m.layout.trayCards.find(c => c.id === JOB_IDS.dateNum)
+      ?? m.layout.trayCards.find(c => c.text.includes('#0304') || c.text.includes('#304'))
+      ?? m.layout.cards.find(c => c.id === JOB_IDS.dateNum);
+    expect.soft(dateNum?.pill, 'non-string scheduled_date is undated').toBe('No date');
   });
 });

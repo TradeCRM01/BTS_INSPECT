@@ -39,6 +39,12 @@ export const JOB_IDS = {
   crewNumber: 'aaaaaaaa-0209-4000-8000-000000000209',
   crewListNum: 'aaaaaaaa-0210-4000-8000-000000000210',
   crewListObj: 'aaaaaaaa-0211-4000-8000-000000000211',
+  crewListOne: 'aaaaaaaa-0212-4000-8000-000000000212',
+  crewListEmptyObj: 'aaaaaaaa-0213-4000-8000-000000000213',
+  statusNull: 'aaaaaaaa-0301-4000-8000-000000000301',
+  statusNum: 'aaaaaaaa-0302-4000-8000-000000000302',
+  statusObj: 'aaaaaaaa-0303-4000-8000-000000000303',
+  dateNum: 'aaaaaaaa-0304-4000-8000-000000000304',
 } as const;
 
 const C = {
@@ -57,10 +63,10 @@ type JobInput = {
   job_number: number;
   title: string;
   client_id: string | null;
-  scheduled_date?: string | null;
+  scheduled_date?: unknown;
   start_time?: string | null;
   end_time?: string | null;
-  status?: string;
+  status?: unknown;
   address?: string | null;
   assigned_team?: unknown;
   description?: string | null;
@@ -387,11 +393,77 @@ export const MALFORMED_CREW_JOBS: readonly Row[] = [
     end_time: '09:00:00',
     assigned_team: [' '],
   }),
+  job({
+    id: JOB_IDS.crewListOne,
+    job_number: 212,
+    title: 'Crew as [1]',
+    client_id: C.nora,
+    scheduled_date: '2026-10-20',
+    start_time: '10:00:00',
+    end_time: '11:00:00',
+    assigned_team: [1],
+  }),
+  job({
+    id: JOB_IDS.crewListEmptyObj,
+    job_number: 213,
+    title: 'Crew as [{}]',
+    client_id: C.alex,
+    scheduled_date: '2026-10-21',
+    start_time: '10:00:00',
+    end_time: '11:00:00',
+    assigned_team: [{}],
+  }),
 ];
 
 export const MALFORMED_CREW_IDS = [
   JOB_IDS.crewString, JOB_IDS.crewObject, JOB_IDS.crewNumber, JOB_IDS.crewListNum, JOB_IDS.crewListObj,
+  JOB_IDS.crewListOne, JOB_IDS.crewListEmptyObj,
 ] as const;
+
+export const STATUS_RULE_JOBS: readonly Row[] = [
+  job({
+    id: JOB_IDS.statusNull,
+    job_number: 301,
+    title: 'Status as null',
+    client_id: C.luke,
+    scheduled_date: '2026-10-19',
+    start_time: '11:00:00',
+    end_time: '12:00:00',
+    assigned_team: [DEAN],
+    status: null,
+  }),
+  job({
+    id: JOB_IDS.statusNum,
+    job_number: 302,
+    title: 'Status as number',
+    client_id: C.nora,
+    scheduled_date: '2026-10-20',
+    start_time: null,
+    end_time: null,
+    assigned_team: [DEAN],
+    status: 5,
+  }),
+  job({
+    id: JOB_IDS.statusObj,
+    job_number: 303,
+    title: 'Status as object',
+    client_id: C.alex,
+    scheduled_date: '2026-10-21',
+    assigned_team: [],
+    status: {},
+  }),
+  job({
+    id: JOB_IDS.dateNum,
+    job_number: 304,
+    title: 'Date as number',
+    client_id: C.priya,
+    scheduled_date: 20261019,
+    start_time: '08:00:00',
+    end_time: '09:00:00',
+    assigned_team: [],
+    status: 'scheduled',
+  }),
+];
 
 export const NEED_CREW_PAIR: readonly Row[] = [
   job({

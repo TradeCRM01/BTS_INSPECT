@@ -1,4 +1,4 @@
-import { isNeedCrewJob } from './scheduleNeedCrew';
+import { asDateText, asStatusText, isNeedCrewJob } from './scheduleNeedCrew';
 
 export type SchedulePillKind =
   | 'ready'
@@ -23,29 +23,31 @@ export type ScheduleInvoiceRow = {
 
 export type SchedulePillJob = {
   id: string;
-  status?: string | null;
-  scheduled_date?: string | null;
+  status?: unknown;
+  scheduled_date?: unknown;
   parent_job_id?: string | null;
   assigned_team?: unknown;
 };
 
 const KNOWN_PILL_STATUS = new Set(['scheduled', 'in_progress', 'completed', 'Done', 'cancelled']);
 
-export function sentenceStatus(status: string | null | undefined): string {
-  const raw = (status ?? '').trim();
-  if (!raw) return 'Scheduled';
+/** Neutral fallback for empty, whitespace, or non-string status. Never 'Scheduled'. */
+export const STATUS_FALLBACK = 'Status';
+
+export function sentenceStatus(status: unknown): string {
+  const raw = asStatusText(status);
+  if (!raw) return STATUS_FALLBACK;
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
-export function isUnknownScheduleStatus(status: string | null | undefined): boolean {
-  const raw = (status ?? '').trim();
-  return raw !== '' && !KNOWN_PILL_STATUS.has(raw);
+export function isUnknownScheduleStatus(status: unknown): boolean {
+  return !KNOWN_PILL_STATUS.has(asStatusText(status));
 }
 
 export function scheduleInvoicedQueryIds(jobs: SchedulePillJob[]): string[] {
   const ids = new Set<string>();
   for (const job of jobs) {
-    if (job.status !== 'completed') continue;
+    if (asStatusText(job.status) !== 'completed') continue;
     ids.add(job.id);
     if (job.parent_job_id) ids.add(job.parent_job_id);
   }
@@ -72,9 +74,10 @@ export function schedulePill(
   job: SchedulePillJob,
   invoicedJobIds: Set<string> = new Set(),
 ): SchedulePill {
-  if (!(job.scheduled_date ?? '').trim()) return { label: 'No date', kind: 'nodate' };
-  if (job.status === 'cancelled') return { label: 'Cancelled', kind: 'cancelled' };
-  if (job.status === 'completed') {
+  if (!asDateText(job.scheduled_date)) return { label: 'No date', kind: 'nodate' };
+  const status = asStatusText(job.status);
+  if (status === 'cancelled') return { label: 'Cancelled', kind: 'cancelled' };
+  if (status === 'completed') {
     const invoiced = invoicedJobIds.has(job.id)
       || (!!job.parent_job_id && invoicedJobIds.has(job.parent_job_id));
     return invoiced
@@ -82,9 +85,7 @@ export function schedulePill(
       : { label: 'Ready to invoice', kind: 'ready' };
   }
   if (isNeedCrewJob(job)) return { label: 'Needs crew', kind: 'needcrew' };
-  if (job.status === 'in_progress') return { label: 'In progress', kind: 'progress' };
-  if (!job.status || job.status === 'scheduled' || job.status === 'Done') {
-    return { label: 'Scheduled', kind: 'scheduled' };
-  }
+  if (status === 'in_progress') return { label: 'In progress', kind: 'progress' };
+  if (status === 'scheduled') return { label: 'Scheduled', kind: 'scheduled' };
   return { label: sentenceStatus(job.status), kind: 'status' };
 }
