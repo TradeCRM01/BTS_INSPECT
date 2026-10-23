@@ -1715,6 +1715,54 @@ const SHEET_RGB = { r: 255, g: 253, b: 248 };
 const WHITE_RGB = { r: 255, g: 255, b: 255 };
 const CREAM_RGB = { r: 245, g: 240, b: 230 };
 const PAGE_RGB = { r: 245, g: 245, b: 247 };
+/** Painted on main 0898c3b9 edit cards: interior is --g-surface; the line is --g-line (2nd-card left edge). */
+const MAIN_0898_FILL = { r: 255, g: 255, b: 255 };
+const MAIN_0898_BORDER = { r: 228, g: 228, b: 231 };
+
+function channelClose(
+  a: { r: number; g: number; b: number },
+  b: { r: number; g: number; b: number },
+): boolean {
+  return Math.abs(a.r - b.r) <= 1 && Math.abs(a.g - b.g) <= 1 && Math.abs(a.b - b.b) <= 1;
+}
+
+function fmtRgb(c: { r: number; g: number; b: number }): string {
+  return `${c.r},${c.g},${c.b}`;
+}
+
+type EditCardPaint = {
+  id: string;
+  fill: { r: number; g: number; b: number };
+  top: { r: number; g: number; b: number };
+  right: { r: number; g: number; b: number };
+  bottom: { r: number; g: number; b: number };
+  left: { r: number; g: number; b: number };
+};
+
+async function sampleEditCardPaint(page: KillPage): Promise<EditCardPaint[]> {
+  const clips = await page.evaluate(readEditCardClips);
+  const rows: EditCardPaint[] = [];
+  for (const clip of clips) {
+    const midX = Math.round(clip.x + clip.width / 2);
+    const midY = Math.round(clip.y + clip.height / 2);
+    const topY = Math.max(0, Math.round(clip.y));
+    const leftX = Math.max(0, Math.round(clip.x));
+    const rightX = Math.max(0, Math.round(clip.x + clip.width - 1));
+    const bottomY = Math.max(0, Math.round(clip.y + clip.height - 1));
+    const fill = await sampleClipCenter(page, {
+      x: midX - 2,
+      y: topY + 24,
+      width: 4,
+      height: 4,
+    });
+    const top = await sampleClipCenter(page, { x: midX, y: topY, width: 1, height: 1 });
+    const right = await sampleClipCenter(page, { x: rightX, y: midY, width: 1, height: 1 });
+    const bottom = await sampleClipCenter(page, { x: midX, y: bottomY, width: 1, height: 1 });
+    const left = await sampleClipCenter(page, { x: leftX, y: midY, width: 1, height: 1 });
+    rows.push({ id: clip.id, fill, top, right, bottom, left });
+  }
+  return rows;
+}
 
 async function assertCardsPaintSheet(page: KillPage, label: string) {
   const clips = await page.evaluate(readEditCardClips);
@@ -2880,6 +2928,87 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       expect(Math.abs(w - viewW[0]), 'view widths match each other like main 4-col grid').toBeLessThanOrEqual(1);
     }
   }, 180000);
+
+  it('P1b-edit-paint: edit card fill and 4 edge midpoints match main 0898c3b9 at 768/1024/1280', async () => {
+    for (const width of [768, 1024, 1280] as const) {
+      const page = await openLookDist(lookOrigin, width);
+      await enterEdit(page);
+      await page.setViewportSize({ width, height: 4000 });
+      const rows = await sampleEditCardPaint(page);
+      await page.close();
+      expect(rows.length, `edit cards at ${width}`).toBeGreaterThan(0);
+      for (const row of rows) {
+        expect(
+          channelClose(row.fill, MAIN_0898_FILL),
+          `${width} ${row.id} fill ${fmtRgb(row.fill)} vs main ${fmtRgb(MAIN_0898_FILL)}`,
+        ).toBe(true);
+        for (const edge of ['top', 'right', 'bottom', 'left'] as const) {
+          expect(
+            channelClose(row[edge], MAIN_0898_BORDER),
+            `${width} ${row.id} ${edge} ${fmtRgb(row[edge])} vs main ${fmtRgb(MAIN_0898_BORDER)}`,
+          ).toBe(true);
+        }
+      }
+    }
+  }, 240000);
+
+  it('P1b-edit-paint mutant: missing fill or side borders go red', async () => {
+    const cssPath = join(process.cwd(), 'src/index.css');
+    const orig = readFileSync(cssPath, 'utf8');
+    const editingHead = `.dashboard-home-widget.is-editing {
+    position: relative;
+    background: var(--dashboard-home-sheet);
+    border: 1px solid var(--dashboard-home-line);`;
+    if (!orig.includes(editingHead)) throw new Error('edit card paint block missing for mutant');
+
+    const runMutant = async (label: string, next: string, backdrop: boolean) => {
+      writeFileSync(cssPath, orig.replace(editingHead, next));
+      const mutantDir = join(tmpdir(), `p1b-edit-paint-${label}`);
+      let mutantServer: { origin: string; close: () => Promise<void> } | null = null;
+      try {
+        buildLookDist(mutantDir);
+        mutantServer = await serveLookDist(mutantDir);
+        const page = await openLookDist(mutantServer.origin, 1280);
+        await enterEdit(page);
+        await page.setViewportSize({ width: 1280, height: 4000 });
+        if (backdrop) {
+          await page.evaluate(() => {
+            const style = document.createElement('style');
+            style.textContent = '.dashboard-home-canvas{background:rgb(20,80,20)!important}';
+            document.head.appendChild(style);
+          });
+        }
+        const rows = await sampleEditCardPaint(page);
+        await page.close();
+        expect(rows.length, `${label} still paints widgets`).toBeGreaterThan(0);
+        return rows;
+      } finally {
+        writeFileSync(cssPath, orig);
+        await mutantServer?.close();
+        if (existsSync(mutantDir)) rmSync(mutantDir, { recursive: true, force: true });
+      }
+    };
+
+    const noFill = await runMutant('fill', `.dashboard-home-widget.is-editing {
+    position: relative;
+    background: transparent;
+    border: 1px solid var(--dashboard-home-line);`, true);
+    expect(
+      noFill.some((row) => !channelClose(row.fill, MAIN_0898_FILL)),
+      'transparent edit card fill must miss main 0898c3b9 white',
+    ).toBe(true);
+
+    const noSides = await runMutant('sides', `.dashboard-home-widget.is-editing {
+    position: relative;
+    background: var(--dashboard-home-sheet);
+    border: 1px solid var(--dashboard-home-line);
+    border-left: none;
+    border-right: none;`, false);
+    expect(
+      noSides.some((row) => !channelClose(row.left, MAIN_0898_BORDER) || !channelClose(row.right, MAIN_0898_BORDER)),
+      'missing side borders must miss main 0898c3b9 line',
+    ).toBe(true);
+  }, 240000);
 
   it('C11 Ask the agent placeholder is >=4.5:1', async () => {
     const page = await openPage({ width: 1024, path: '/?look=dashboard-seed' });
