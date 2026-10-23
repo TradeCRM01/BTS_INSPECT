@@ -1001,6 +1001,7 @@ export const WeekBoardView = memo(function WeekBoardView({
               <span className="hub-week-head-full">{format(day, 'EEE d MMM')}</span>
               <span className="hub-week-head-short">
                 <span className="hub-week-head-dow">{format(day, 'EEE')}</span>
+                {' '}
                 <span className="hub-week-head-dom">{format(day, 'd')}</span>
               </span>
               {today ? <span className="hub-week-now">Now {scheduleNowMark(now)}</span> : null}

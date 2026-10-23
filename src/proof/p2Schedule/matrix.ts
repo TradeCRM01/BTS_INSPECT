@@ -281,37 +281,44 @@ export type ClockProbe = { text: string; cls: string; textRight: number; clipRig
 export type OverflowSkip = { el: string; right: number; reason: 'sole-allowlisted-scroller' | 'ellipsis-self' | 'clip-inside-allowlisted-scroller' };
 export type TrackLabel = { el: string; text: string; card: string; fitsCard: boolean; fitsClip: boolean; clipEl: string };
 export type DayTrackInfo = { overflowX: string; sw: number; cw: number; right: number };
+export type ChromeBox = { x: number; y: number; w: number; h: number };
 export type ChromeProbe = {
   headerAlign: string;
   headerLeft: number;
   headerTop: number;
   newJobLeft: number;
   newJobRight: number;
-  segRadius: number;
-  segBorder: number;
-  navBoxed: number;
+  segPainted: number;
+  segCornerCut: boolean;
+  navPainted: number;
+  navCornerCut: boolean;
   range: string;
   searchWidth: number;
-  todayBorder: number;
+  todayPainted: number;
+  todayCornerCut: boolean;
   dayHeadFullShown: number;
   dayHeadShortShown: number;
   dayHeadAlign: string;
   dayHeadLines: number;
+  dayHeadText: string[];
   line1_0036: string;
-  titleClamp: number;
-  trayHeadingPx: number;
-  trayHeadingTransform: string;
+  titleLines: number;
+  weekCrewLines: number;
+  dayCrewLines: number;
+  trayHeadingH: number;
+  trayHeadingText: string;
   trayCols: number;
   dayUntimedWidth: number;
   dayTrackWidth: number;
-  dayCrewWrap: string;
-  weekCrewWrap: string;
   quickBookTop: number;
   rangeTop: number;
   todayTop: number;
   quickBookWidth: number;
   toolsWidth: number;
   sameRangeRow: boolean;
+  segBox: ChromeBox | null;
+  todayBox: ChromeBox | null;
+  navBoxes: ChromeBox[];
 };
 export type ReachBox = { top: number; bottom: number; height: number; visible: number };
 export type ReachProbe = { tray: ReachBox; lastLane: ReachBox; agenda: ReachBox; agendaFirst: ReachBox; vh: number };
@@ -505,10 +512,15 @@ export const MUTANTS: readonly MutantSpec[] = [
   { id: 'agenda-min-zero', kill: 'K21', file: BOARD_VIEWS, find: '{days.map(day => {\n        const date = parseISO(`${day.date}T00:00:00`);', replace: '{days.slice(0, 0).map(day => {\n        const date = parseISO(`${day.date}T00:00:00`);', brief: '390 agenda collapses to 0' },
   { id: 'quoted-as-scheduled', kill: 'K23', file: 'src/lib/scheduleInvoiceStatus.ts', find: 'return { label: sentenceStatus(job.status), kind: \'status\' };', replace: "return { label: 'Scheduled', kind: 'scheduled' };", brief: 'unknown status paints as Scheduled' },
   { id: 'drop-array-guard', kill: 'K24', file: 'src/lib/dispatch.ts', find: 'if (!Array.isArray(value)) return [];\n  return value.filter((id): id is string => typeof id === \'string\' && id.length > 0);', replace: 'return (value as string[]).filter((id): id is string => typeof id === \'string\' && id.length > 0);', brief: 'drop the asTeamIds array guard' },
-  { id: 'head-full-hidden', kill: 'K25', file: 'src/index.css', find: '    .hub-week-head-full {\n      display: inline;\n      text-align: left;\n      white-space: nowrap;\n    }', replace: '    .hub-week-head-full {\n      display: none;\n      text-align: left;\n      white-space: nowrap;\n    }', brief: 'hide the one-line laptop day heads' },
+  { id: 'head-short-hidden', kill: 'K25', file: 'src/index.css', find: '    .hub-week-head-short {\n      display: inline-flex;\n      flex-direction: row;\n      align-items: center;\n      gap: 6px;\n    }', replace: '    .hub-week-head-short {\n      display: none;\n      flex-direction: row;\n      align-items: center;\n      gap: 6px;\n    }', brief: 'hide the one-line laptop day heads' },
   { id: 'tray-kicker-tiny', kill: 'K25', file: 'src/index.css', find: '      font-size: 20px;\n      font-weight: 600;\n      letter-spacing: 0;\n      text-transform: none;\n      color: var(--g-ink);', replace: '      font-size: 11px;\n      font-weight: 700;\n      letter-spacing: 0.12em;\n      text-transform: uppercase;\n      color: var(--g-ink-muted);', brief: 'shrink the tray heading back to an 11px kicker' },
   { id: 'untimed-span-track', kill: 'K25', file: BOARD_VIEWS, find: 'width: Math.min(220, hourWidth * 2.2),', replace: 'width: hourWidth * hours.length,', brief: 'untimed day card spans the whole track' },
   { id: 'today-off-range', kill: 'K25', file: 'src/index.css', find: '  .hub-week-range-row {\n    display: flex;\n    flex-wrap: nowrap;\n    align-items: center;\n    gap: 8px;\n    min-width: 0;\n    flex: 1 1 auto;\n  }', replace: '  .hub-week-range-row {\n    display: flex;\n    flex-wrap: wrap;\n    align-items: center;\n    gap: 8px;\n    min-width: 0;\n    flex: 1 1 auto;\n  }\n  .hub-week-range-row .hub-week-today { flex: 1 1 100%; }', brief: 'Today leaves the 390 range row' },
+  css('title-one-line', 'K25', '.hub-week-chip-desc {', 'font-size: 14px;\n    font-weight: 600;\n    line-height: 18px;\n    opacity: 1;', 'font-size: 14px;\n    font-weight: 600;\n    line-height: 18px;\n    opacity: 1;\n    -webkit-line-clamp: 1;\n    white-space: nowrap;\n    max-height: 18px;', 'titles collapse to one line'),
+  css('crew-name-wrap', 'K25', '.hub-week-document .hub-week-crew .hub-schedule-crew-name,\n  .hub-week-document .hub-day-crew-lock .hub-schedule-crew-name {', 'white-space: nowrap;', 'white-space: normal;\n    max-width: 36px;', 'crew names wrap onto two lines'),
+  css('seg-no-stroke', 'K25', '.hub-week-seg {', 'border: 1px solid var(--g-line-strong);\n    border-radius: 999px;', 'border: none;\n    border-radius: 0;', 'pill seg loses its painted stroke and radius'),
+  css('nav-no-stroke', 'K25', '.hub-week-nav-box {', 'border: 1px solid var(--g-line-strong);\n    border-radius: 10px;', 'border: none;\n    border-radius: 0;', 'nav boxes lose their painted stroke'),
+  css('today-no-stroke', 'K25', '.hub-week-today {', 'border: 1px solid var(--g-line-strong);\n    border-radius: 10px;', 'border: none;\n    border-radius: 0;', 'Today loses its painted outline'),
   css('day-clock-clip', 'P2-overflow', '.hub-week-chip-clock {', 'max-width: none;', 'max-width: 2ch;\n    overflow: hidden;\n    text-overflow: clip;', 'clip day-track clock labels inside the card'),
 ];
 
