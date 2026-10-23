@@ -5,15 +5,17 @@
  * Filename omits `.test.` so the default include misses it.
  */
 import { execSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createReadStream, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
-import { dirname, join, relative } from 'node:path';
+import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { LOOK_PAGE_KILLS, LOOK_PROOF_SCAN_KEYS } from './lookParam.chromium.catalog';
 
 const require = createRequire(import.meta.url);
+const ts = require('typescript') as typeof import('typescript');
 const esbuild = require('esbuild') as {
   build: (opts: Record<string, unknown>) => Promise<{ outputFiles?: Array<{ text: string }> }>;
 };
@@ -87,10 +89,48 @@ function readDistCss(): string {
   return files.map((name) => readFileSync(join(dir, name), 'utf8')).join('\n');
 }
 
+function unwrapExpr(node: import('typescript').Expression): import('typescript').Expression {
+  let cur = node;
+  for (let i = 0; i < 6; i++) {
+    if (ts.isAsExpression(cur) || ts.isParenthesizedExpression(cur)) {
+      cur = cur.expression;
+      continue;
+    }
+    if (typeof ts.isSatisfiesExpression === 'function' && ts.isSatisfiesExpression(cur)) {
+      cur = cur.expression;
+      continue;
+    }
+    break;
+  }
+  return cur;
+}
+
+function lookStringFromNode(
+  node: import('typescript').Expression,
+  consts: Map<string, string>,
+): string | null {
+  const cur = unwrapExpr(node);
+  if (ts.isStringLiteral(cur) || ts.isNoSubstitutionTemplateLiteral(cur)) return cur.text;
+  if (ts.isIdentifier(cur)) return consts.get(cur.text) ?? null;
+  return null;
+}
+
+function collectStringConsts(source: import('typescript').SourceFile): Map<string, string> {
+  const consts = new Map<string, string>();
+  const visit = (node: import('typescript').Node) => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+      const value = lookStringFromNode(node.initializer, consts);
+      if (value != null) consts.set(node.name.text, value);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return consts;
+}
+
 function lookReadsOutsideHelper(): Array<{ file: string; line: number; text: string }> {
-  const keys = LOOK_PROOF_SCAN_KEYS.join('|');
-  const re = new RegExp(String.raw`\.get\(\s*['"](?:${keys})['"]\s*\)`);
-  const skip = /lookParam\.ts$|lookParam\.chromium\.|\.test\.|\.chromium\.kill\./;
+  const keys = new Set<string>(LOOK_PROOF_SCAN_KEYS);
+  const skip = /lookParam\.ts$|lookParam\.chromium\.|lookParam\.dist\.|\.test\.|\.chromium\.kill\./;
   const hits: Array<{ file: string; line: number; text: string }> = [];
   const walk = (dir: string) => {
     for (const name of readdirSync(dir, { withFileTypes: true })) {
@@ -103,10 +143,33 @@ function lookReadsOutsideHelper(): Array<{ file: string; line: number; text: str
       if (!/\.(ts|tsx)$/.test(name.name)) continue;
       const rel = relative(ROOT, full).replace(/\\/g, '/');
       if (skip.test(rel)) continue;
-      const lines = readFileSync(full, 'utf8').split('\n');
-      lines.forEach((text, i) => {
-        if (re.test(text)) hits.push({ file: rel, line: i + 1, text: text.trim() });
-      });
+      const text = readFileSync(full, 'utf8');
+      const kind = name.name.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+      const source = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, kind);
+      const consts = collectStringConsts(source);
+      const visit = (node: import('typescript').Node) => {
+        if (
+          ts.isCallExpression(node)
+          && node.arguments.length > 0
+          && ts.isPropertyAccessExpression(node.expression)
+        ) {
+          const method = node.expression.name.text;
+          const value = lookStringFromNode(node.arguments[0], consts);
+          if (value != null) {
+            const proofGet = (method === 'get' || method === 'has') && keys.has(value);
+            const proofNeedle = (method === 'includes' || method === 'indexOf') && (
+              value.includes('look=')
+              || [...keys].some((key) => value === `${key}=` || value.includes(`${key}=`))
+            );
+            if (proofGet || proofNeedle) {
+              const { line } = source.getLineAndCharacterOfPosition(node.getStart());
+              hits.push({ file: rel, line: line + 1, text: text.split('\n')[line]?.trim() ?? '' });
+            }
+          }
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
     }
   };
   walk(join(ROOT, 'src'));
@@ -262,6 +325,76 @@ function withMutatedFile(file: string, rewrite: (src: string) => string, fn: () 
   return fn().finally(() => writeFileSync(file, orig));
 }
 
+const DIST_MIME: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.json': 'application/json',
+  '.map': 'application/json',
+};
+
+function viteLookDist(lookProof: boolean, outDir: string): void {
+  const env = { ...process.env, LOOK_DIST_OUT: outDir };
+  if (lookProof) env.VITE_LOOK_PROOF = '1';
+  else delete env.VITE_LOOK_PROOF;
+  execSync('npx vite build --config lookParam.dist.vite.config.ts', {
+    cwd: ROOT,
+    env,
+    stdio: 'pipe',
+  });
+}
+
+function findDistHtml(dir: string): string {
+  const index = join(dir, 'index.html');
+  if (existsSync(index)) return index;
+  const nested = join(dir, 'src/lib/lookParam.dist.html');
+  if (existsSync(nested)) return nested;
+  throw new Error(`look dist html missing in ${dir}`);
+}
+
+function serveDist(dir: string): Promise<{ origin: string; close: () => Promise<void> }> {
+  const indexHtml = findDistHtml(dir);
+  const root = resolve(dir);
+  const server = createServer((req, res) => {
+    const url = new URL(req.url || '/', 'http://127.0.0.1');
+    const rel = decodeURIComponent(url.pathname);
+    const file = resolve(root, `.${rel === '/' ? '/index.html' : rel}`);
+    const allowed = file === root || file.startsWith(`${root}/`);
+    const target = allowed && existsSync(file) && statSync(file).isFile() ? file : indexHtml;
+    res.setHeader('content-type', DIST_MIME[extname(target)] || 'application/octet-stream');
+    createReadStream(target).pipe(res);
+  });
+  return new Promise((resolveListen, reject) => {
+    server.listen(0, '127.0.0.1', () => {
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') {
+        reject(new Error('look dist listen failed'));
+        return;
+      }
+      resolveListen({
+        origin: `http://127.0.0.1:${addr.port}`,
+        close: () => new Promise((done) => server.close(() => done())),
+      });
+    });
+  });
+}
+
+async function openDistClients(origin: string): Promise<KillPage> {
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await page.goto(`${origin}/clients?look=clients-list`);
+  try {
+    await page.waitForSelector('.hub-clients, .shell-header', { timeout: 20000 });
+  } catch (err) {
+    const dumped = await page.evaluate(() => (
+      `${document.body?.innerText || ''}\n${document.documentElement.innerHTML.slice(0, 2500)}`
+    ));
+    await page.close();
+    throw new Error(`${err instanceof Error ? err.message : String(err)}\nDIST:${dumped}`);
+  }
+  return page;
+}
+
 describe('lookParam chromium kills', () => {
   it('inventory: no src file reads a proof param outside lookParam.ts', () => {
     expect(lookReadsOutsideHelper(), 'raw proof-param reads').toEqual([]);
@@ -273,6 +406,39 @@ describe('lookParam chromium kills', () => {
     try {
       writeFileSync(target, `${orig}\nvoid new URLSearchParams('look=x').get('look');\n`);
       expect(lookReadsOutsideHelper().some((hit) => hit.file.endsWith('ClientsPage.tsx'))).toBe(true);
+    } finally {
+      writeFileSync(target, orig);
+    }
+  }, 30000);
+
+  it('inventory mutant: template-literal .get(`look`) goes red', () => {
+    const target = join(ROOT, 'src/pages/JobDetailPage.tsx');
+    const orig = readFileSync(target, 'utf8');
+    try {
+      writeFileSync(target, `${orig}\nvoid new URLSearchParams(location.search).get(\`look\`);\n`);
+      expect(lookReadsOutsideHelper().some((hit) => hit.file.endsWith('JobDetailPage.tsx'))).toBe(true);
+    } finally {
+      writeFileSync(target, orig);
+    }
+  }, 30000);
+
+  it('inventory mutant: .get(CONST) goes red', () => {
+    const target = join(ROOT, 'src/pages/ClientDetailPage.tsx');
+    const orig = readFileSync(target, 'utf8');
+    try {
+      writeFileSync(target, `${orig}\nconst LOOK_PARAM = 'look';\nvoid new URLSearchParams(location.search).get(LOOK_PARAM);\n`);
+      expect(lookReadsOutsideHelper().some((hit) => hit.file.endsWith('ClientDetailPage.tsx'))).toBe(true);
+    } finally {
+      writeFileSync(target, orig);
+    }
+  }, 30000);
+
+  it('inventory mutant: includes(\'look=\') goes red', () => {
+    const target = join(ROOT, 'src/lib/templateAccess.ts');
+    const orig = readFileSync(target, 'utf8');
+    try {
+      writeFileSync(target, `${orig}\nvoid location.href.includes('look=');\n`);
+      expect(lookReadsOutsideHelper().some((hit) => hit.file.endsWith('templateAccess.ts'))).toBe(true);
     } finally {
       writeFileSync(target, orig);
     }
@@ -374,6 +540,66 @@ describe('lookParam chromium kills', () => {
       expect(painted.includes('Scan receipt'), 'un-gated expenseNoAi must hide Scan receipt').toBe(false);
     });
   }, 120000);
+
+  it('dist vite build: unset hides ?look= fixture; VITE_LOOK_PROOF=1 paints it', async () => {
+    const offDir = mkdtempSync(join(tmpdir(), 'look-dist-off-'));
+    const onDir = mkdtempSync(join(tmpdir(), 'look-dist-on-'));
+    temps.push(offDir, onDir);
+    viteLookDist(false, offDir);
+    viteLookDist(true, onDir);
+    const off = await serveDist(offDir);
+    try {
+      const page = await openDistClients(off.origin);
+      const painted = await pageText(page);
+      await page.close();
+      expect(painted.includes('Northside Electrical'), 'unset dist leaked clients-list fixture').toBe(false);
+    } finally {
+      await off.close();
+    }
+    const on = await serveDist(onDir);
+    try {
+      const page = await openDistClients(on.origin);
+      const painted = await waitForAnyText(page, ['Northside Electrical']);
+      await page.close();
+      expect(painted.includes('Northside Electrical'), 'flag dist missing clients-list fixture').toBe(true);
+    } finally {
+      await on.close();
+    }
+  }, 300000);
+
+  it('dist mutant un-gate: unset vite build paints the ?look= fixture', async () => {
+    await withMutatedFile(join(ROOT, 'src/pages/ClientsPage.tsx'), ungateSource, async () => {
+      const dir = mkdtempSync(join(tmpdir(), 'look-dist-ungate-'));
+      temps.push(dir);
+      viteLookDist(false, dir);
+      const served = await serveDist(dir);
+      try {
+        const page = await openDistClients(served.origin);
+        const painted = await waitForAnyText(page, ['Northside Electrical']);
+        await page.close();
+        expect(painted.includes('Northside Electrical'), 'un-gate unset dist must leak fixture').toBe(true);
+      } finally {
+        await served.close();
+      }
+    });
+  }, 180000);
+
+  it('dist mutant force-off: VITE_LOOK_PROOF=1 vite build hides the ?look= fixture', async () => {
+    await withMutatedFile(join(ROOT, 'src/pages/ClientsPage.tsx'), forceOffSource, async () => {
+      const dir = mkdtempSync(join(tmpdir(), 'look-dist-forceoff-'));
+      temps.push(dir);
+      viteLookDist(true, dir);
+      const served = await serveDist(dir);
+      try {
+        const page = await openDistClients(served.origin);
+        const painted = await pageText(page);
+        await page.close();
+        expect(painted.includes('Northside Electrical'), 'force-off flag dist still painted fixture').toBe(false);
+      } finally {
+        await served.close();
+      }
+    });
+  }, 180000);
 
   it('pixel: 0px vs main 30cb09d9 at 375/390/768/1024/1280 on live touched pages', async () => {
     const wt = join(tmpdir(), 'look-main-30cb09d9');
