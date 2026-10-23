@@ -62,7 +62,7 @@ type KillPage = {
     animations?: 'disabled' | 'allow';
     clip?: { x: number; y: number; width: number; height: number };
   }) => Promise<Buffer>;
-  addInitScript: (fn: () => void) => Promise<void>;
+  addInitScript: (script: string | (() => void)) => Promise<void>;
   context: () => { newCDPSession: (page: KillPage) => Promise<KillCDP> };
   close: () => Promise<void>;
 };
@@ -355,28 +355,19 @@ async function openLookDist(origin: string, width: number, path = '/?look=dashbo
   const page = await browser.newPage({
     viewport: { width, height: phone ? 2000 : 1600 },
   });
-  await page.addInitScript(() => {
-    const Real = Date;
-    const ms = Date.parse('2026-10-19T03:40:00.000Z');
-    const FrozenDate = function FrozenDate() {
+  await page.addInitScript(`(function(){
+    var Real = Date;
+    var ms = Date.parse('2026-10-19T03:40:00.000Z');
+    function FrozenDate() {
       if (arguments.length === 0) return new Real(ms);
-      if (arguments.length === 1) return new Real(arguments[0] as string | number | Date);
-      return new Real(
-        arguments[0] as number,
-        arguments[1] as number,
-        arguments[2] as number | undefined,
-        arguments[3] as number | undefined,
-        arguments[4] as number | undefined,
-        arguments[5] as number | undefined,
-        arguments[6] as number | undefined,
-      );
-    };
-    FrozenDate.now = function () { return ms; };
+      return new (Function.prototype.bind.apply(Real, [null].concat([].slice.call(arguments))))();
+    }
+    FrozenDate.now = function(){ return ms; };
     FrozenDate.parse = Real.parse;
     FrozenDate.UTC = Real.UTC;
     FrozenDate.prototype = Real.prototype;
-    (window as unknown as { Date: DateConstructor }).Date = FrozenDate as unknown as DateConstructor;
-  });
+    window.Date = FrozenDate;
+  })()`);
   await page.goto(`${origin}${path}`);
   await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 25000 });
   await page.evaluate(async () => { await document.fonts.ready; });
