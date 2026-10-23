@@ -121,9 +121,26 @@ export type TodayFilterChain<T> = {
   ) => Promise<unknown>;
 };
 
-export type TodayBoardClient = {
-  from: (table: string) => TodayFilterChain<Record<string, unknown>>;
+export type TodayBoardFrom = {
+  select: (columns: string) => TodayFilterChain<Record<string, unknown>>;
 };
+
+export type TodayBoardClient = {
+  from: (table: string) => TodayBoardFrom;
+};
+
+/** Live Supabase `from()` is a deep generic; tests implement TodayBoardClient. */
+export type TodayBoardSource = {
+  from: (table: string) => unknown;
+};
+
+function tableFrom(client: TodayBoardSource, table: string): TodayBoardFrom {
+  const rel = client.from(table);
+  if (!rel || typeof rel !== 'object' || !('select' in rel)) {
+    throw new Error(`today board: ${table} has no select`);
+  }
+  return rel as TodayBoardFrom;
+}
 
 export function addIsoDays(iso: string, days: number): string {
   const [year, month, day] = iso.split('-').map(Number);
@@ -340,13 +357,13 @@ export function outstandingTotals(
 }
 
 export async function fetchReadyToInvoice(
-  client: TodayBoardClient,
+  client: TodayBoardSource,
   companyId: string,
   todayKey: string,
 ): Promise<ReadyToInvoiceJob[]> {
   const windowStart = todayReadyWindowStart(todayKey);
   const completed = await readRows<TodayJobRow>(
-    client.from('jobs')
+    tableFrom(client, 'jobs')
       .select(TODAY_QA_JOB_COLUMNS)
       .eq('company_id', companyId)
       .eq('status', 'completed')
@@ -364,13 +381,13 @@ export async function fetchReadyToInvoice(
   const extra: TodayJobRow[] = [];
   if (parentIds.length > 0) {
     extra.push(...await readRows<TodayJobRow>(
-      client.from('jobs')
+      tableFrom(client, 'jobs')
         .select(TODAY_QA_JOB_COLUMNS)
         .eq('company_id', companyId)
         .in('id', parentIds),
     ));
     extra.push(...await readRows<TodayJobRow>(
-      client.from('jobs')
+      tableFrom(client, 'jobs')
         .select(TODAY_QA_JOB_COLUMNS)
         .eq('company_id', companyId)
         .in('parent_job_id', parentIds),
@@ -381,7 +398,7 @@ export async function fetchReadyToInvoice(
   const invoices = jobIds.length === 0
     ? []
     : await readRows<TodayInvoiceJobRow>(
-      client.from('invoices')
+      tableFrom(client, 'invoices')
         .select(TODAY_QA_INVOICE_COLUMNS)
         .eq('company_id', companyId)
         .in('job_id', jobIds)
@@ -392,21 +409,21 @@ export async function fetchReadyToInvoice(
 }
 
 export async function fetchTodayCash(
-  client: TodayBoardClient,
+  client: TodayBoardSource,
   companyId: string,
   todayKey: string,
 ): Promise<TodayCashTotals> {
   const { from, to } = todayCashWindow(todayKey);
   const [payments, expenses] = await Promise.all([
     readRows<TodayPaymentRow>(
-      client.from('invoice_payments')
+      tableFrom(client, 'invoice_payments')
         .select(TODAY_QB_PAYMENT_COLUMNS)
         .eq('company_id', companyId)
         .gte('paid_at', from)
         .lte('paid_at', to),
     ),
     readRows<TodayExpenseRow>(
-      client.from('expenses')
+      tableFrom(client, 'expenses')
         .select(TODAY_QC_EXPENSE_COLUMNS)
         .eq('company_id', companyId)
         .in('status', TODAY_CASH_EXPENSE_STATUSES)
@@ -418,12 +435,12 @@ export async function fetchTodayCash(
 }
 
 export async function fetchComingUp(
-  client: TodayBoardClient,
+  client: TodayBoardSource,
   companyId: string,
   todayKey: string,
 ): Promise<Array<TodayJobRow & { client_name?: string | null; client_address?: string | null }>> {
   const jobs = await readRows<TodayJobRow>(
-    client.from('jobs')
+    tableFrom(client, 'jobs')
       .select(TODAY_QD_JOB_COLUMNS)
       .eq('company_id', companyId)
       .gt('scheduled_date', todayKey)
@@ -435,7 +452,7 @@ export async function fetchComingUp(
   const clientIds = [...new Set(jobs.map(job => job.client_id).filter(Boolean))] as string[];
   if (clientIds.length === 0) return jobs;
   const clients = await readRows<{ id: string; name?: string | null; address?: string | null }>(
-    client.from('clients')
+    tableFrom(client, 'clients')
       .select(TODAY_QD_CLIENT_COLUMNS)
       .eq('company_id', companyId)
       .in('id', clientIds),
@@ -452,12 +469,12 @@ export async function fetchComingUp(
 }
 
 export async function fetchOutstanding(
-  client: TodayBoardClient,
+  client: TodayBoardSource,
   companyId: string,
   now = new Date(),
 ): Promise<TodayOutstandingTotals> {
   const invoices = await readRows<TodayOutstandingRow>(
-    client.from('invoices')
+    tableFrom(client, 'invoices')
       .select(TODAY_QE_INVOICE_COLUMNS)
       .eq('company_id', companyId)
       .in('status', TODAY_OUTSTANDING_STATUSES),

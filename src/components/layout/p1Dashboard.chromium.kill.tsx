@@ -2136,7 +2136,6 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       const box = await page.evaluate(() => {
         const pill = document.querySelector('.dashboard-home-crew-schedule') as HTMLElement | null;
         if (!pill) throw new Error('pill missing');
-        const cs = getComputedStyle(pill);
         const row = (pill.closest('tr') || pill.parentElement) as HTMLElement;
         return {
           pillW: pill.getBoundingClientRect().width,
