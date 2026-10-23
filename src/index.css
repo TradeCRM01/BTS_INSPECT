@@ -6127,10 +6127,50 @@
     padding: 16px 24px 32px;
   }
 
-  .hub-board-cal.is-week-doc > .ops-page-head,
   .hub-board-cal.is-week-doc > .hub-schedule-chrome,
   .hub-board-cal.is-week-doc > .hub-schedule-sheet {
     display: none;
+  }
+
+  .hub-schedule-eyebrow {
+    font-family: var(--g-font-ui);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--g-ink-muted);
+    margin: 0 0 4px;
+  }
+
+  .hub-schedule-crew-filter {
+    position: relative;
+  }
+
+  .hub-schedule-crew-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 8;
+    display: flex;
+    flex-direction: column;
+    min-width: 160px;
+    padding: 8px;
+    background: var(--g-surface);
+    border: 1px solid var(--g-line);
+    border-radius: 12px;
+    box-shadow: var(--g-sh-2);
+  }
+
+  .hub-week-quiet.hub-schedule-quickbook-toggle {
+    display: none;
+  }
+
+  @media (max-width: 767px) {
+    .hub-week-quiet.hub-schedule-quickbook-toggle {
+      display: inline-flex;
+    }
+
+    .hub-schedule-quickbook:not([data-open="1"]) {
+      display: none;
+    }
   }
 
   .hub-board-cal .ops-page-title {
@@ -6652,7 +6692,7 @@
       min-height: 280px;
       height: auto;
       max-height: none;
-      overflow-x: auto;
+      overflow-x: hidden;
       overflow-y: hidden;
     }
 
@@ -6743,7 +6783,7 @@
   }
 
   .hub-week-sheet .hub-week-board.ops-board {
-    overflow-x: auto;
+    overflow-x: hidden;
     overflow-y: visible;
   }
 
@@ -7151,9 +7191,10 @@
   }
 
   .hub-week-document .hub-week-chip {
-    border: none;
-    border-radius: 4px;
+    border: 1px solid var(--g-line);
+    border-radius: 8px;
     box-shadow: none;
+    background: var(--g-surface);
   }
 
   .hub-week-document .hub-week-chip:hover {
@@ -7216,12 +7257,13 @@
   }
 
   .hub-week-document .hub-day-board .hub-week-chip {
-    border: none;
-    border-radius: 4px;
+    border: 1px solid var(--g-line);
+    border-radius: 8px;
     box-shadow: none;
+    background: var(--g-surface);
     height: 100%;
-    justify-content: center;
-    padding: 6px 8px;
+    justify-content: flex-start;
+    padding: 6px 8px 8px 11px;
   }
 
   .hub-week-document .hub-day-board .hub-day-chip-pin {
@@ -7294,7 +7336,8 @@
 
   .hub-week-board {
     width: 100%;
-    overflow-x: auto;
+    min-width: 0;
+    overflow-x: hidden;
   }
 
   .hub-week-swipe-helper {
@@ -7343,12 +7386,29 @@
 
   .hub-week-agenda-empty {
     margin: 0;
-    min-height: 44px;
-    display: flex;
-    align-items: center;
     color: var(--g-ink-muted);
     font-family: var(--g-font-ui);
     font-size: 13px;
+    background: none;
+    border: none;
+  }
+
+  .hub-week-agenda-book {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 28px;
+    max-height: 32px;
+    margin: 4px 0 0;
+    padding: 0 8px;
+    border: 1px dashed var(--g-line);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--g-ink-muted);
+    font-family: var(--g-font-ui);
+    font-size: 12px;
+    line-height: 1.2;
+    cursor: pointer;
   }
 
   .hub-week-agenda-list {
@@ -7359,9 +7419,9 @@
 
   .hub-week-agenda-row {
     display: grid;
-    grid-template-columns: var(--hub-agenda-track);
+    grid-template-columns: minmax(0, 1fr);
     align-items: flex-start;
-    gap: 12px;
+    gap: 2px;
     width: 100%;
     min-height: 44px;
     padding: 8px 0;
@@ -7403,15 +7463,18 @@
     align-items: flex-start;
     gap: 2px;
     min-width: 0;
-    flex: 1 1 auto;
+    width: 100%;
   }
 
   .hub-week-agenda-title {
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-family: var(--g-font-ui);
     font-size: 15px;
     font-weight: 600;
-    white-space: normal;
-    overflow-wrap: break-word;
   }
 
   .hub-week-agenda-meta,
@@ -7428,9 +7491,14 @@
 
   .hub-week-grid {
     display: grid;
-    grid-template-columns: 104px repeat(7, minmax(104px, 1fr));
-    min-width: 880px;
+    grid-template-columns: 148px repeat(5, minmax(0, 1fr)) repeat(2, 72px);
+    width: 100%;
+    min-width: 0;
     border-top: 1px solid var(--g-line);
+  }
+
+  .hub-week-grid[data-weekend-jobs="1"] {
+    grid-template-columns: 148px repeat(7, minmax(0, 1fr));
   }
 
   .hub-week-corner,
@@ -7452,6 +7520,7 @@
 
   .hub-week-head {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     min-height: 44px;
@@ -7471,8 +7540,12 @@
     box-shadow: none;
   }
 
-  .hub-week-head-short {
+  .hub-week-head-full {
     display: none;
+  }
+
+  .hub-week-head-short {
+    display: flex;
     flex-direction: column;
     align-items: center;
     gap: 1px;
@@ -7484,15 +7557,39 @@
   }
 
   .hub-week-head.is-today {
-    color: var(--g-accent);
+    color: var(--schedule-ink);
     background: var(--schedule-sheet);
     font-weight: 700;
-    box-shadow: inset 0 -2px 0 var(--g-accent);
+    box-shadow: none;
+  }
+
+  .hub-week-head.is-today .hub-week-head-dom {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+  }
+
+  .hub-week-now {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--g-ink-muted);
+  }
+
+  .hub-week-head.is-weekend,
+  .hub-week-cell.is-weekend {
+    background: var(--g-surface-2);
   }
 
   .hub-week-crew {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
+    gap: 8px;
     padding: 6px 10px;
     min-height: 64px;
     position: sticky;
@@ -7509,7 +7606,7 @@
     color: var(--schedule-ink);
     overflow: visible;
     text-overflow: clip;
-    white-space: nowrap;
+    white-space: normal;
   }
 
   .hub-week-cell {
@@ -7527,24 +7624,103 @@
     background: var(--schedule-sheet);
   }
 
+  .hub-week-cell.is-weekend,
+  .hub-week-head.is-weekend {
+    background: var(--g-surface-2);
+  }
+
   .hub-week-cell.is-hover {
     background: color-mix(in srgb, var(--g-ink) 4%, var(--g-surface));
   }
 
   .hub-week-chip {
+    position: relative;
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
     width: 100%;
     max-width: 100%;
     overflow: visible;
-    border: none;
-    border-radius: 4px;
-    padding: 3px 6px;
+    background: var(--g-surface);
+    color: var(--g-ink);
+    border: 1px solid var(--g-line);
+    border-radius: 8px;
+    padding: 6px 8px 8px 11px;
     min-height: 44px;
     text-align: left;
     cursor: pointer;
     box-shadow: none;
+  }
+
+  .hub-week-chip-rail {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--hub-lane, var(--g-line-strong));
+    border-radius: 8px 0 0 8px;
+  }
+
+  .hub-week-chip-line1 {
+    display: flex;
+    flex-wrap: wrap;
+    max-height: 2.6em;
+    overflow: hidden;
+    color: var(--g-ink-muted);
+    font-size: 12px;
+  }
+
+  .hub-week-chip-track {
+    position: relative;
+    display: block;
+    height: 2px;
+    margin-top: 4px;
+    background: var(--g-line);
+  }
+
+  .hub-week-chip-span {
+    position: absolute;
+    top: 0;
+    height: 2px;
+    background: var(--hub-lane, var(--g-line-strong));
+  }
+
+  .hub-schedule-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    width: fit-content;
+  }
+
+  .hub-schedule-pill[data-kind="ready"] {
+    background: var(--g-ok-bg);
+    color: var(--g-ok);
+  }
+
+  .hub-schedule-pill[data-kind="progress"] {
+    background: var(--g-live-bg);
+    color: var(--g-live);
+  }
+
+  .hub-schedule-pill[data-kind="scheduled"] {
+    background: var(--g-sched-bg);
+    color: var(--g-sched);
+  }
+
+  .hub-schedule-pill[data-kind="cancelled"] {
+    background: var(--g-bad-bg);
+    color: var(--g-bad);
+  }
+
+  .hub-schedule-pill[data-kind="done"],
+  .hub-schedule-pill[data-kind="nodate"] {
+    background: var(--g-draft-bg);
+    color: var(--g-draft);
   }
 
   .hub-week-chip.is-dragging {
@@ -8028,9 +8204,13 @@
     }
 
     .hub-week-grid {
-      grid-template-columns: 80px repeat(7, 156px);
-      width: max-content;
-      min-width: 1172px;
+      grid-template-columns: 148px repeat(5, minmax(0, 1fr)) repeat(2, 72px);
+      width: 100%;
+      min-width: 0;
+    }
+
+    .hub-week-grid[data-weekend-jobs="1"] {
+      grid-template-columns: 148px repeat(7, minmax(0, 1fr));
     }
 
     .hub-day-track {
@@ -8380,10 +8560,10 @@
     }
 
     .hub-week-grid {
-      grid-template-columns: 58px repeat(7, 156px);
+      grid-template-columns: 148px repeat(5, minmax(0, 1fr)) repeat(2, 72px);
       grid-template-rows: 40px;
       grid-auto-rows: minmax(64px, 1fr);
-      width: max-content;
+      width: 100%;
       min-width: 0;
       flex: 1 1 0;
       height: 100%;

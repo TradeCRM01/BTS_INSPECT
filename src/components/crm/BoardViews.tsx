@@ -1,13 +1,9 @@
 import { useState, useMemo, useRef, memo, useEffect, Fragment, type ReactNode } from 'react';
 import type { JobWithClient } from '../../types/crm';
-import { JOB_STATUS_LABELS, JOB_STATUS_RAIL, JOB_STATUS_STYLES } from '../../types/crm';
-import { getReadableText, pickEmployeeColor } from '../../lib/jobColors';
 import {
   PHONE_UNSCHEDULED_EXPANDED_DEFAULT,
   phoneUnscheduledChipLabel,
 } from '../../lib/schedulePhoneUnscheduled';
-import { colors } from '../../lib/colors';
-import { OpsStatus, opsSiteLabel } from '../ui/OpsCard';
 import {
   startTimeFromDropOffset,
   placeDayRowJobs,
@@ -49,7 +45,14 @@ import {
   weekBoardCrewLabel,
   weekBoardRows,
   WEEK_UNASSIGNED_CREW_ID,
+  scheduleLaneColor,
+  scheduleLaneCountLabel,
+  scheduleLaneJobCount,
+  scheduleNowMark,
+  scheduleTimeTrack,
+  weekHasWeekendJobs,
 } from '../../lib/scheduleBoard';
+import { schedulePill } from '../../lib/scheduleInvoiceStatus';
 import { jobsListSite, jobsListSuburbFromSite } from '../../lib/jobsListRow';
 
 export interface TeamMember {
@@ -70,14 +73,16 @@ export interface BoardProps {
   onJobResize?: (jobId: string, startTime: string, endTime: string) => void;
   filteredEmployeeIds: Set<string>;
   onSelectDay?: (date: Date) => void;
+  invoicedJobIds?: Set<string>;
 }
 
 const DAY_START = DAY_START_HOUR;
 const DAY_END = DAY_END_HOUR;
-const ALL_DAY_H = 56;
-const TIMED_H = 72;
+const ALL_DAY_H = 112;
+const TIMED_H = 120;
 const ROW_PAD = 6;
-const ROW_MIN = 72;
+const ROW_MIN = 112;
+const NO_INVOICED: Set<string> = new Set();
 
 function dateKey(d: Date): string {
   return scheduleDateKey(d);
@@ -100,15 +105,19 @@ interface JobBlockProps {
   dragging?: boolean;
   fill?: boolean;
   detail?: boolean;
+  laneColor?: string;
+  invoicedJobIds?: Set<string>;
 }
 
 const JobBlock = memo(function JobBlock({
-  job, onClick, onDragStart, dragging,
+  job, onClick, onDragStart, dragging, laneColor, invoicedJobIds = NO_INVOICED,
 }: JobBlockProps) {
   const chip = weekBoardChip(job);
-  const ink = getReadableText(chip.color);
-  const clock = scheduleChipClock(job.start_time, job.end_time, job.scheduled_date);
-  const timed = !!scheduleClockLabel(job.start_time, job.end_time);
+  const clock = scheduleClockLabel(job.start_time, job.end_time)
+    ?? scheduleChipClock(job.start_time, job.end_time, job.scheduled_date);
+  const suburb = jobsListSuburbFromSite(jobsListSite(job.address, job.client_address));
+  const pill = schedulePill(job, invoicedJobIds);
+  const track = scheduleTimeTrack(job.start_time, job.end_time);
 
   return (
     <div
@@ -129,11 +138,26 @@ const JobBlock = memo(function JobBlock({
       className={`hub-week-chip cursor-pointer w-full h-full ${
         dragging ? 'is-dragging' : ''
       }`}
-      style={{ background: chip.color, color: ink }}
+      style={{ ['--hub-lane' as string]: laneColor ?? scheduleLaneColor(WEEK_UNASSIGNED_CREW_ID) }}
     >
+      <span className="hub-week-chip-rail" aria-hidden />
       <span className="hub-day-chip-pin" data-day-chip-pin="1">
-        <span className="hub-week-chip-ref">{timed ? `${clock} · ${chip.ref}` : chip.ref}</span>
-        <span className="hub-week-chip-desc">{timed ? chip.description : [clock, chip.description].filter(Boolean).join(' · ')}</span>
+        <span className="hub-week-chip-line1">
+          <span className="hub-week-chip-clock">{clock}</span>
+          {' · '}
+          <span className="hub-week-chip-ref">{chip.ref}</span>
+        </span>
+        {chip.description ? <span className="hub-week-chip-desc">{chip.description}</span> : null}
+        {suburb ? <span className="hub-week-chip-suburb">{suburb}</span> : null}
+        <span className="hub-schedule-pill" data-kind={pill.kind}>{pill.label}</span>
+        <span className="hub-week-chip-track" data-stored={track.stored ? '1' : '0'}>
+          {track.stored ? (
+            <span
+              className="hub-week-chip-span"
+              style={{ left: `${track.left * 100}%`, width: `${track.width * 100}%` }}
+            />
+          ) : null}
+        </span>
       </span>
     </div>
   );
@@ -149,16 +173,20 @@ type UnscheduledRailProps = {
   selectedId?: string | null;
   onOpenJob?: (job: JobWithClient) => void;
   onSetScheduleDate?: (job: JobWithClient) => void;
+  invoicedJobIds?: Set<string>;
 };
 
 function UnscheduledJobCards({
   jobs, teamMembers, onJobClick, onDragStart, selectedId = null, onOpenJob, onSetScheduleDate,
+  invoicedJobIds = NO_INVOICED,
 }: UnscheduledRailProps) {
   return (
     <>
       {jobs.map(job => {
-        const site = opsSiteLabel(job.address, job.client_address);
         const selected = selectedId === job.id;
+        const pill = schedulePill(job, invoicedJobIds);
+        const suburb = jobsListSuburbFromSite(jobsListSite(job.address, job.client_address));
+        const meta = [formatJobRef(job), job.client_name, suburb].filter(Boolean).join(' · ');
         return (
           <div
             key={job.id}
@@ -179,37 +207,11 @@ function UnscheduledJobCards({
             className={`ops-card job-cal-host ops-card-hover w-full text-left active:scale-[0.98] cursor-pointer ${
               selected ? 'is-on' : ''
             }`}
-            style={{ borderLeftWidth: 3, borderLeftColor: JOB_STATUS_RAIL[job.status] }}
           >
             <div className="ops-card-body">
-              <div className="flex items-start justify-between gap-2 mb-1">
-                <p className="hub-schedule-ref truncate">{formatJobRef(job)} | {site}</p>
-                <div className="flex items-center gap-1 shrink-0">
-                  <OpsStatus className={JOB_STATUS_STYLES[job.status]}>
-                    {!job.scheduled_date ? 'Needs date' : JOB_STATUS_LABELS[job.status]}
-                  </OpsStatus>
-                  {onOpenJob ? (
-                    <a
-                      href={scheduleJobHref(job.id)}
-                      data-schedule-open-job={job.id}
-                      className="hub-schedule-next"
-                      onClick={e => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onOpenJob(job);
-                      }}
-                      onPointerDown={e => e.stopPropagation()}
-                    >
-                      Open
-                    </a>
-                  ) : null}
-                  <JobCalendarOverflow
-                    job={job}
-                    site={calendarSite(job.address, job.client_address)}
-                    members={teamMembers}
-                  />
-                </div>
-              </div>
+              {job.title ? <p className="hub-week-chip-desc">{job.title}</p> : null}
+              <p className="hub-schedule-ref">{meta}</p>
+              <span className="hub-schedule-pill" data-kind={pill.kind}>{pill.label}</span>
               <div className="ops-card-footer">
                 <button
                   type="button"
@@ -231,9 +233,27 @@ function UnscheduledJobCards({
                 >
                   Set a date
                 </button>
+                {onOpenJob ? (
+                  <a
+                    href={scheduleJobHref(job.id)}
+                    data-schedule-open-job={job.id}
+                    className="hub-schedule-next"
+                    onClick={e => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onOpenJob(job);
+                    }}
+                    onPointerDown={e => e.stopPropagation()}
+                  >
+                    Open
+                  </a>
+                ) : null}
+                <JobCalendarOverflow
+                  job={job}
+                  site={calendarSite(job.address, job.client_address)}
+                  members={teamMembers}
+                />
               </div>
-              {job.client_name && <p className="ops-meta mt-1.5 truncate">{job.client_name}</p>}
-              {job.title && <p className="ops-meta mt-0.5 truncate">{job.title}</p>}
             </div>
           </div>
         );
@@ -244,7 +264,7 @@ function UnscheduledJobCards({
 
 export const NeedsDateRail = memo(function NeedsDateRail({
   jobs, teamMembers, onJobClick, onDragStart, alwaysShow = false, className = '',
-  selectedId = null, onOpenJob, onSetScheduleDate,
+  selectedId = null, onOpenJob, onSetScheduleDate, invoicedJobIds,
 }: UnscheduledRailProps & {
   alwaysShow?: boolean;
   className?: string;
@@ -269,6 +289,7 @@ export const NeedsDateRail = memo(function NeedsDateRail({
             selectedId={selectedId}
             onOpenJob={onOpenJob}
             onSetScheduleDate={onSetScheduleDate}
+            invoicedJobIds={invoicedJobIds}
           />
         )}
       </div>
@@ -278,6 +299,7 @@ export const NeedsDateRail = memo(function NeedsDateRail({
 
 export const PhoneUnscheduledTray = memo(function PhoneUnscheduledTray({
   jobs, teamMembers, onJobClick, onDragStart, selectedId = null, onOpenJob, onSetScheduleDate,
+  invoicedJobIds,
 }: UnscheduledRailProps) {
   const [expanded, setExpanded] = useState(PHONE_UNSCHEDULED_EXPANDED_DEFAULT);
   if (jobs.length === 0) return null;
@@ -313,6 +335,7 @@ export const PhoneUnscheduledTray = memo(function PhoneUnscheduledTray({
             selectedId={selectedId}
             onOpenJob={onOpenJob}
             onSetScheduleDate={onSetScheduleDate}
+            invoicedJobIds={invoicedJobIds}
           />
         </div>
       ) : null}
@@ -326,16 +349,23 @@ function WeekJobChip({
   dragging,
   onClick,
   onDragStart,
+  laneColor,
+  invoicedJobIds = NO_INVOICED,
 }: {
   job: JobWithClient;
   familyJobs: JobWithClient[];
   dragging?: boolean;
   onClick: () => void;
   onDragStart?: (e: React.DragEvent) => void;
+  laneColor: string;
+  invoicedJobIds?: Set<string>;
 }) {
   const chip = weekBoardChip(job, familyJobs);
-  const ink = getReadableText(chip.color);
-  const clock = scheduleChipClock(job.start_time, job.end_time, job.scheduled_date);
+  const clock = scheduleClockLabel(job.start_time, job.end_time)
+    ?? scheduleChipClock(job.start_time, job.end_time, job.scheduled_date);
+  const suburb = jobsListSuburbFromSite(jobsListSite(job.address, job.client_address));
+  const pill = schedulePill(job, invoicedJobIds);
+  const track = scheduleTimeTrack(job.start_time, job.end_time);
   return (
     <div
       role="button"
@@ -354,20 +384,34 @@ function WeekJobChip({
       data-week-chip={job.id}
       data-chip-clock={clock}
       className={`hub-week-chip ${dragging ? 'is-dragging' : ''}`}
-      style={{ background: chip.color, color: ink }}
+      style={{ ['--hub-lane' as string]: laneColor }}
     >
-      <span className="hub-week-chip-ref">{chip.ref}</span>
+      <span className="hub-week-chip-rail" aria-hidden />
+      <span className="hub-week-chip-line1">
+        <span className="hub-week-chip-clock">{clock}</span>
+        {' · '}
+        <span className="hub-week-chip-ref">{chip.ref}</span>
+      </span>
       {chip.description ? (
-        <span className="hub-week-chip-desc">
-          {[clock, chip.description].filter(Boolean).join(' · ')}
-        </span>
+        <span className="hub-week-chip-desc">{chip.description}</span>
       ) : null}
+      {suburb ? <span className="hub-week-chip-suburb">{suburb}</span> : null}
+      <span className="hub-schedule-pill" data-kind={pill.kind}>{pill.label}</span>
+      <span className="hub-week-chip-track" data-stored={track.stored ? '1' : '0'}>
+        {track.stored ? (
+          <span
+            className="hub-week-chip-span"
+            style={{ left: `${track.left * 100}%`, width: `${track.width * 100}%` }}
+          />
+        ) : null}
+      </span>
     </div>
   );
 }
 
 export const PhoneDayList = memo(function PhoneDayList({
   jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, onJobResize,
+  invoicedJobIds,
 }: {
   jobs: JobWithClient[];
   teamMembers?: TeamMember[];
@@ -376,6 +420,7 @@ export const PhoneDayList = memo(function PhoneDayList({
   onDayClick: (dateStr: string, employeeId?: string | null) => void;
   onJobDrop?: (drop: JobDropPayload) => void;
   onJobResize?: (jobId: string, startTime: string, endTime: string) => void;
+  invoicedJobIds?: Set<string>;
 }) {
   return (
     <DayBoardView
@@ -387,6 +432,7 @@ export const PhoneDayList = memo(function PhoneDayList({
       onJobDrop={onJobDrop}
       onJobResize={onJobResize}
       filteredEmployeeIds={new Set()}
+      invoicedJobIds={invoicedJobIds}
       phone
     />
   );
@@ -394,11 +440,14 @@ export const PhoneDayList = memo(function PhoneDayList({
 
 export const PhoneWeekList = memo(function PhoneWeekList({
   jobs, teamMembers, currentDate, onJobClick, agendaFooter = null, unscheduledCount = 0,
+  onDayClick, invoicedJobIds = NO_INVOICED,
 }: {
   jobs: JobWithClient[];
   teamMembers?: TeamMember[];
   currentDate: Date;
   onJobClick: (job: JobWithClient) => void;
+  onDayClick?: (dateStr: string, employeeId?: string | null) => void;
+  invoicedJobIds?: Set<string>;
   agendaFooter?: ReactNode;
   unscheduledCount?: number;
 }) {
@@ -423,11 +472,28 @@ export const PhoneWeekList = memo(function PhoneWeekList({
               {day.isToday ? <span className="hub-week-agenda-today">Today</span> : null}
             </h2>
             {day.jobs.length === 0 ? (
-              <p className="hub-week-agenda-empty">Nothing booked</p>
+              <div className="hub-week-agenda-empty-day" data-agenda-empty={day.date}>
+                <p className="hub-week-agenda-empty">Nothing booked</p>
+                <button
+                  type="button"
+                  className="hub-week-agenda-book"
+                  data-agenda-book={day.date}
+                  onClick={() => onDayClick?.(day.date)}
+                  onDragOver={e => { e.preventDefault(); }}
+                  onDrop={e => {
+                    e.preventDefault();
+                    onDayClick?.(day.date);
+                  }}
+                >
+                  Tap to book
+                </button>
+              </div>
             ) : (
               <ul className="hub-week-agenda-list">
                 {day.jobs.map(job => {
                   const suburb = jobsListSuburbFromSite(jobsListSite(job.address, job.client_address));
+                  const pill = schedulePill(job, invoicedJobIds);
+                  const clock = scheduleAgendaClock(job.start_time, job.end_time, job.scheduled_date);
                   return (
                     <li key={job.id}>
                       <button
@@ -437,24 +503,16 @@ export const PhoneWeekList = memo(function PhoneWeekList({
                         onClick={() => onJobClick(job)}
                       >
                         <span className="hub-week-agenda-time">
-                          {scheduleAgendaClock(job.start_time, job.end_time, job.scheduled_date)}
+                          {clock} · {formatJobRef(job)}
                         </span>
                         <span className="hub-week-agenda-copy">
                           <span className="hub-week-agenda-title">{job.title}</span>
-                          <span className="hub-week-agenda-meta">
-                            {[job.client_name, suburb].filter((part): part is string => !!part).map((part, index, parts) => (
-                              <Fragment key={part}>
-                                {index > 0 ? ' ' : null}
-                                <span className="hub-week-agenda-meta-part">
-                                  {index < parts.length - 1 ? `${part} ·` : part}
-                                </span>
-                              </Fragment>
-                            ))}
+                          <span className="hub-week-agenda-meta hub-week-agenda-crew">
+                            {[suburb, scheduleCrewLabel(job.assigned_team, teamMembers)].filter(Boolean).join(' · ')}
                           </span>
-                          <span className="hub-week-agenda-crew">
-                            {scheduleCrewLabel(job.assigned_team, teamMembers)}
+                          <span className="hub-jobs-phone-status hub-schedule-pill" data-kind={pill.kind}>
+                            {pill.label}
                           </span>
-                          <span className="hub-jobs-phone-status">{JOB_STATUS_LABELS[job.status]}</span>
                         </span>
                       </button>
                     </li>
@@ -482,7 +540,7 @@ export const PhoneWeekList = memo(function PhoneWeekList({
 
 export const DayBoardView = memo(function DayBoardView({
   jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, onJobResize, filteredEmployeeIds,
-  phone = false,
+  phone = false, invoicedJobIds,
 }: BoardProps & { phone?: boolean }) {
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dropHoverId, setDropHoverId] = useState<string | null>(null);
@@ -498,14 +556,13 @@ export const DayBoardView = memo(function DayBoardView({
   );
 
   const rows = useMemo(() => {
-    const r: { id: string; name: string; schedule_color?: string | null }[] = [
-      { id: UNASSIGNED_ROW_ID, name: weekBoardCrewLabel('Unassigned') },
-    ];
+    const r: { id: string; name: string; schedule_color?: string | null }[] = [];
     for (const m of teamMembers) {
       if (filteredEmployeeIds.size === 0 || filteredEmployeeIds.has(m.id)) {
         r.push({ id: m.id, name: weekBoardCrewLabel(m.name), schedule_color: m.schedule_color });
       }
     }
+    r.push({ id: UNASSIGNED_ROW_ID, name: weekBoardCrewLabel('Unassigned') });
     return r;
   }, [teamMembers, filteredEmployeeIds]);
 
@@ -528,7 +585,6 @@ export const DayBoardView = memo(function DayBoardView({
     return map;
   }, [jobs, rows, dateStr]);
 
-  const unassignedCount = jobsByRow.get(UNASSIGNED_ROW_ID)?.length ?? 0;
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -663,7 +719,7 @@ export const DayBoardView = memo(function DayBoardView({
   const gridWidth = hours.length * hourWidth;
   const paintedRows = rows.map((row, rowIdx) => {
     const isUnassigned = row.id === UNASSIGNED_ROW_ID;
-    const color = isUnassigned ? colors.accent : pickEmployeeColor(row.id, row.schedule_color);
+    const color = scheduleLaneColor(row.id, row.schedule_color);
     const rowJobs = jobsByRow.get(row.id) ?? [];
     const layout = placeDayRowJobs(rowJobs.map(job => ({
       id: job.id,
@@ -689,22 +745,6 @@ export const DayBoardView = memo(function DayBoardView({
 
   return (
     <div className="ops-board hub-day-board" data-schedule-track="day" data-day-board="1" data-day-start={dayStart} data-day-phone={phone ? '1' : undefined}>
-      <div className="hub-schedule-board-head">
-        <p className="hub-schedule-range">
-          {format(currentDate, 'EEEE, d MMMM yyyy')}
-          {isToday(currentDate) && (
-            <span className="ml-2 ops-status ops-status-info">
-              TODAY
-            </span>
-          )}
-        </p>
-        <p className="ops-meta">
-          {unassignedCount > 0
-            ? `${unassignedCount} unassigned · drop on a person to assign them`
-            : 'Search a job, drop it on a person or a time · drag the ends to change duration'}
-        </p>
-      </div>
-
       <div
         ref={scrollRef}
         className="hub-day-track hub-day-crew-rail hub-day-hours job-cal-board-scroll"
@@ -757,11 +797,10 @@ export const DayBoardView = memo(function DayBoardView({
               />
               <div className="min-w-0">
                 <p className="hub-schedule-crew-name">{row.name}</p>
-                <p className={`ops-meta${painted.isUnassigned && painted.rowJobs.length === 0 ? ' hub-day-drop-hint' : ''}`}>
-                  {painted.isUnassigned
-                    ? (painted.rowJobs.length === 0 ? 'Drop here — date stays' : `${painted.rowJobs.length} · needs crew`)
-                    : `${painted.rowJobs.length} job${painted.rowJobs.length !== 1 ? 's' : ''}`}
-                </p>
+                <p className="ops-meta">{scheduleLaneCountLabel(row.id, painted.rowJobs.length)}</p>
+                {painted.isUnassigned && painted.rowJobs.length === 0 ? (
+                  <p className="ops-meta hub-day-drop-hint">Drop here — date stays</p>
+                ) : null}
               </div>
             </div>
             <div
@@ -812,6 +851,8 @@ export const DayBoardView = memo(function DayBoardView({
                           teamMembers={teamMembers}
                           compact
                           dragging={dragJobId === job.id}
+                          laneColor={painted.color}
+                          invoicedJobIds={invoicedJobIds}
                           onClick={() => onJobClick(job)}
                           onDragStart={e => handleDragStart(e, job.id)}
                         />
@@ -866,6 +907,8 @@ export const DayBoardView = memo(function DayBoardView({
                         teamMembers={teamMembers}
                         compact={width < 120}
                         dragging={dragJobId === job.id}
+                        laneColor={painted.color}
+                        invoicedJobIds={invoicedJobIds}
                         onClick={() => onJobClick(job)}
                         onDragStart={e => handleDragStart(e, job.id)}
                       />
@@ -901,6 +944,7 @@ function CurrentTimeVerticalIndicator({ hourWidth, dayStart }: { hourWidth: numb
 
 export const WeekBoardView = memo(function WeekBoardView({
   jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, filteredEmployeeIds, onSelectDay,
+  invoicedJobIds,
 }: BoardProps) {
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dropHoverKey, setDropHoverKey] = useState<string | null>(null);
@@ -942,45 +986,58 @@ export const WeekBoardView = memo(function WeekBoardView({
     else onDayClick(dateStr);
   };
 
+  const weekendJobs = weekHasWeekendJobs(rows);
+
   return (
     <div className="ops-board hub-week-board" data-schedule-week="1" data-week-board="1">
-      <div className="hub-schedule-board-head">
-        <p className="hub-schedule-label">This week</p>
-        <p className="ops-meta">
-          Drag a chip onto a crew and day. Empty slots stay empty.
-        </p>
-      </div>
-      <p className="hub-week-swipe-helper">Swipe sideways for the full week.</p>
-      <div className="hub-week-grid">
-        <div className="hub-week-corner" />
+      <div className="hub-week-grid" data-weekend-jobs={weekendJobs ? '1' : '0'}>
+        <div className="hub-week-corner">
+          <span className="hub-schedule-label">Crew</span>
+        </div>
         {days.map(day => {
           const ds = dateKey(day);
           const today = isToday(day);
+          const weekend = day.getDay() === 0 || day.getDay() === 6;
           return (
             <button
               key={ds}
               type="button"
               data-week-day={ds}
               onClick={() => openDay(ds)}
-              className={`hub-week-head ${today ? 'is-today' : ''}`}
+              className={`hub-week-head ${today ? 'is-today' : ''} ${weekend ? 'is-weekend' : ''}`}
             >
               <span className="hub-week-head-full">{format(day, 'EEE d MMM')}</span>
               <span className="hub-week-head-short">
                 <span className="hub-week-head-dow">{format(day, 'EEE')}</span>
                 <span className="hub-week-head-dom">{format(day, 'd')}</span>
               </span>
+              {today ? <span className="hub-week-now">Now {scheduleNowMark(new Date())}</span> : null}
             </button>
           );
         })}
-        {rows.map(row => (
+        {rows.map(row => {
+          const member = teamMembers.find(item => item.id === row.crewId);
+          const laneColor = scheduleLaneColor(row.crewId, member?.schedule_color);
+          return (
           <div key={row.crewId} className="contents">
             <div className="hub-week-crew" data-week-crew={row.crewId}>
-              <p className="hub-schedule-crew-name" data-week-crew-label={row.crewName}>{row.crewName}</p>
+              <span
+                className="ops-crew-mark"
+                style={{
+                  background: row.crewId === WEEK_UNASSIGNED_CREW_ID ? 'transparent' : laneColor,
+                  outline: row.crewId === WEEK_UNASSIGNED_CREW_ID ? '1px solid var(--g-ink-muted)' : undefined,
+                }}
+              />
+              <div className="min-w-0">
+                <p className="hub-schedule-crew-name" data-week-crew-label={row.crewName}>{row.crewName}</p>
+                <p className="ops-meta">{scheduleLaneCountLabel(row.crewId, scheduleLaneJobCount(row))}</p>
+              </div>
             </div>
-            {row.cells.map(cell => {
+            {row.cells.map((cell, index) => {
               const hoverKey = `${row.crewId}:${cell.date}`;
               const hovering = dropHoverKey === hoverKey;
               const crewId = row.crewId === WEEK_UNASSIGNED_CREW_ID ? null : row.crewId;
+              const weekend = index >= 5;
               return (
                 <div
                   key={hoverKey}
@@ -988,7 +1045,7 @@ export const WeekBoardView = memo(function WeekBoardView({
                   onDragOver={e => { e.preventDefault(); setDropHoverKey(hoverKey); }}
                   onDrop={e => handleDrop(e, cell.date, row.crewId)}
                   onClick={() => onDayClick(cell.date, crewId)}
-                  className={`hub-week-cell ${hovering ? 'is-hover' : ''} ${cell.chips.length === 0 ? 'is-empty' : ''}`}
+                  className={`hub-week-cell ${hovering ? 'is-hover' : ''} ${cell.chips.length === 0 ? 'is-empty' : ''} ${weekend ? 'is-weekend' : ''}`}
                 >
                   {cell.jobs.map(job => (
                     <WeekJobChip
@@ -996,6 +1053,8 @@ export const WeekBoardView = memo(function WeekBoardView({
                       job={job}
                       familyJobs={jobs}
                       dragging={dragJobId === job.id}
+                      laneColor={laneColor}
+                      invoicedJobIds={invoicedJobIds}
                       onClick={() => onJobClick(job)}
                       onDragStart={e => handleDragStart(e, job.id)}
                     />
@@ -1004,7 +1063,8 @@ export const WeekBoardView = memo(function WeekBoardView({
               );
             })}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
