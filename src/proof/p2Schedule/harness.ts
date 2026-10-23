@@ -206,8 +206,15 @@ const RECIPES: Readonly<Record<Recipe, (page: Page, spec: StateSpec, notes: Note
     await page.waitForSelector('.hub-schedule-voice-hint, .hub-schedule-voice-picks, .hub-schedule-voice-new');
   },
   more: async (page, spec) => {
-    await press(page, spec.w, 'summary[aria-label="More"]');
-    await page.waitForSelector('details[open] summary[aria-label="More"]');
+    await press(page, spec.w, '[data-schedule-crew-filter] summary');
+    await orTimeout(page.waitForSelector('[data-schedule-crew-filter][open], .hub-schedule-crew-menu', { timeout: 5_000 }));
+  },
+  empty: async () => {},
+  jobserror: async () => {},
+  search: async (page) => {
+    const box = page.locator('[data-schedule-search] input, .hub-week-search input').first();
+    await box.fill('Luke');
+    await orTimeout(page.waitForSelector('[data-schedule-search] [data-schedule-open-job], .hub-schedule-search-panel', { timeout: 5_000 }));
   },
   save: async (page, spec) => {
     await openSheet(page, spec.w);
@@ -303,7 +310,13 @@ export async function openState(id: StateId, build: Build = 'branch', height = v
     const page = await context.newPage();
     page.on('websocket', ws => websockets.push(ws.url()));
     page.on('pageerror', err => pageErrors.push(err.message));
-    await page.addInitScript((path: string) => { window.__P2_BOOT__ = { path }; }, spec.path);
+    await page.addInitScript((boot: { path: string; empty?: boolean; jobsError?: boolean }) => {
+      window.__P2_BOOT__ = boot;
+    }, {
+      path: spec.path,
+      empty: spec.recipe === 'empty',
+      jobsError: spec.recipe === 'jobserror',
+    });
     await page.goto(url);
     await page.waitForFunction(() => !!window.__p2);
     await ready(page);
@@ -508,7 +521,7 @@ async function measureOne(id: StateId, build: Build): Promise<Measured> {
       ...dom, id, build, palette: paletteCounts, darkChangedPx,
       track: shape ? await probeTrack(id, build, shape, { blocked, websockets, pageErrors }) : null,
       hovers, focus, fade, now, tray: notes.tray ?? null, safeArea: safe,
-      blocked, websockets, writes: led.writes, unmocked: led.unmocked, pageErrors, png,
+      blocked, websockets, writes: led.writes, reads: led.reads ?? [], unmocked: led.unmocked, pageErrors, png,
     };
   } finally {
     await close();

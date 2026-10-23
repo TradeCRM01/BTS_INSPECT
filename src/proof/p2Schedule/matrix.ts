@@ -1,8 +1,8 @@
 // Pure data shared by the browser probes, the kill file, the harness and scripts/p2-schedule.mjs.
 // No runtime imports and erasable syntax only, so Node type stripping can load it from the script.
 
-export const BASE_SHA = '7e5394dfedf263abdc835f89c8bdb9c70e4449b3';
-export const FROZEN_NOW = '2026-10-23T15:40:00+10:00';
+export const BASE_SHA = '30cb09d96410c1d05171c8bc13bbbd998e4cda77';
+export const FROZEN_NOW = '2026-10-19T13:40:00+10:00';
 export const TIMEZONE = 'Australia/Brisbane';
 export const BEFORE_DIR = '/tmp/p2-proofs/before';
 export const BASELINE_VITEST_LOG = '/tmp/p2-baseline/vitest-built.log';
@@ -14,7 +14,7 @@ export const viewportHeight = (w: Width): number => (w < 768 ? 812 : 900);
 export const isTouch = (w: Width): boolean => w < 1024;
 
 export type View = 'week' | 'day';
-export type Recipe = 'none' | 'lineprobe' | 'tray' | 'rail' | 'sheet' | 'prefill' | 'more' | 'save' | 'tab' | 'field';
+export type Recipe = 'none' | 'lineprobe' | 'tray' | 'rail' | 'sheet' | 'prefill' | 'more' | 'save' | 'tab' | 'field' | 'empty' | 'jobserror' | 'search';
 export type Shot = 'top' | 'scrolled' | 'dark' | 'empty' | 'chips' | 'focus' | 'middle' | 'end';
 export type Frames = Readonly<Partial<Record<Shot, string>>>;
 
@@ -60,6 +60,9 @@ export const STATES = {
   'nav-1280': { path: '/schedule', w: 1280, recipe: 'field', frames: { top: 'schedule-nav-1280.png' } },
   'save-390': { path: '/schedule', w: 390, recipe: 'save', frames: {} },
   'lineprobe-375': { path: '/schedule', w: 375, recipe: 'lineprobe', frames: {} },
+  'empty-1280': { path: '/schedule', w: 1280, recipe: 'empty', frames: {} },
+  'error-1280': { path: '/schedule', w: 1280, recipe: 'jobserror', frames: {} },
+  'search-1280': { path: '/schedule', w: 1280, recipe: 'search', frames: {} },
 } as const satisfies Record<string, StateSpec>;
 export type StateId = keyof typeof STATES;
 export const STATE_IDS = Object.keys(STATES) as StateId[];
@@ -82,7 +85,9 @@ const PHONE_DAY: readonly StateId[] = ['day-375', 'day-390', 'day-768'];
 export type KillId =
   | 'P2-palette' | 'P2-contrast' | 'P2-taps' | 'P2-lines' | 'P2-m2' | 'P2-dark'
   | 'P2-overflow' | 'P2-day-track' | 'P2-nav-phone' | 'P2-nav-desktop' | 'P2-mocks'
-  | 'P2-tracker' | 'P2-chip' | 'P2-focus' | 'P2-now' | 'P2-day-board' | 'P2-scroller' | 'P2-sheet' | 'P2-tray' | 'P2-status';
+  | 'P2-tracker' | 'P2-chip' | 'P2-focus' | 'P2-now' | 'P2-day-board' | 'P2-scroller' | 'P2-sheet' | 'P2-tray' | 'P2-status'
+  | 'K1' | 'K2' | 'K3' | 'K4' | 'K5' | 'K6' | 'K7' | 'K8' | 'K9' | 'K10'
+  | 'K11' | 'K12' | 'K13' | 'K14' | 'K15' | 'K16' | 'K17' | 'K18';
 
 export const KILLS: Readonly<Record<KillId, { readonly title: string; readonly states: readonly StateId[] }>> = {
   'P2-palette': { title: 'no navy or cream pixels outside data colour', states: [...BOARD, 'sheet-390'] },
@@ -94,7 +99,7 @@ export const KILLS: Readonly<Record<KillId, { readonly title: string; readonly s
   'P2-overflow': { title: 'no overflow outside the sole allowlisted scroller', states: SCHEDULE },
   'P2-day-track': { title: 'a real wheel scrolls the day track sideways and never traps vertical scroll', states: PHONE_DAY },
   'P2-nav-phone': { title: 'phone tabs reach Schedule in one tap', states: ['tabs-375', 'tabs-390'] },
-  'P2-nav-desktop': { title: 'Schedule is first in Field at 768 and up, expected red until #398', states: ['nav-768', 'nav-1280'] },
+  'P2-nav-desktop': { title: 'Schedule is first in Field at 768 and up', states: ['nav-768', 'nav-1280'] },
   'P2-mocks': { title: 'no network, no unmocked calls, writes only in the ledger', states: STATE_IDS },
   'P2-tracker': { title: 'week and day tracks keep every day and hour drawn with no empty-state copy', states: TRACKS },
   'P2-chip': { title: 'chip refs paint whole on one line, descriptions own the ellipsis, every chip text is measured', states: BOARD },
@@ -105,6 +110,24 @@ export const KILLS: Readonly<Record<KillId, { readonly title: string; readonly s
   'P2-sheet': { title: 'quick book scrim, surface sheet, hairline, one shadow, inverse Save and Prefill, line Cancel, safe-area footer', states: ['sheet-390', 'prefill-390', 'prefill-1280'] },
   'P2-tray': { title: 'the unscheduled tray starts collapsed and one tap opens it, chip and Set a date hit 44', states: ['tray-390'] },
   'P2-status': { title: 'status pills are ink on the well and amber marks only an In Progress pill', states: SCHEDULE },
+  K1: { title: 'one Schedule header, week/day eyebrow, S3 whisper, one New job', states: ['week-1280', 'day-1280'] },
+  K2: { title: 'seg, next, Today and search move the board with one recorded call', states: ['week-1280', 'search-1280'] },
+  K3: { title: 'week grid draws 8 columns and every lane × day cell', states: ['week-1024', 'week-1280'] },
+  K4: { title: 'lanes follow RPC order, full names, jobs counts, Unassigned last', states: ['week-1280'] },
+  K5: { title: 'card line 1 keeps the whole ref, #0036 sits in two lanes', states: ['week-1280'] },
+  K6: { title: 'D1 pills and one Q-S1 invoices read with company_id and not void', states: ['week-1280'] },
+  K7: { title: 'rail is lane colour and the time track follows D2', states: ['week-1280'] },
+  K8: { title: 'today head says Now 13:40 and advances one minute', states: ['week-1280'] },
+  K9: { title: 'drag, unassign, empty cell and day head keep the existing mutations', states: ['week-1280'] },
+  K10: { title: 'day hours 06-20, resize writes end_time, phone track scrolls', states: ['day-390', 'day-1280'] },
+  K11: { title: 'tray lists every undated job with Set a date, Open and drag', states: ['tray-390', 'rail-1280'] },
+  K12: { title: 'agenda draws 7 days and a Nothing booked strip on empty days', states: ['week-375', 'week-390'] },
+  K13: { title: 'Quick book is reachable at every width and Prefill opens the sheet', states: ['week-390', 'week-768', 'week-1280', 'prefill-390'] },
+  K14: { title: 'every tools-row action including All crews and Today hits 44', states: ['week-390', 'week-768', 'week-1280'] },
+  K15: { title: 'recorded select and filter columns sit in docs/schema/p2-columns.json', states: ['week-1280'] },
+  K16: { title: 'the colour bar still holds on the rebuilt layout', states: [...BOARD] },
+  K17: { title: 'section order is header, tools, quickbook, board, tray', states: ['week-390', 'week-768', 'week-1280'] },
+  K18: { title: 'empty company draws the board and a jobs error shows PageError', states: ['empty-1280', 'error-1280'] },
 };
 export const killTitle = (id: KillId): string => `${id}: ${KILLS[id].title}`;
 
@@ -174,25 +197,25 @@ export const ROWS = {
   time: '.hub-week-agenda-time',
   title: '.hub-week-agenda-title',
   meta: '.hub-week-agenda-meta',
-  pill: '.hub-jobs-phone-status',
+  pill: '.hub-schedule-pill',
   stackBelow: 640,
   maxMetaLines: 2,
   alignPx: 1,
 } as const;
 export const PHONE_TABS = ['Today', 'Schedule', 'Jobs', 'More'] as const;
-export const QUICK_BOOK_PHRASE = 'Hours test Friday 9am Grafter';
+export const QUICK_BOOK_PHRASE = 'Leaking tap tomorrow 9am Dean';
 export const WEEK = ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25'] as const;
-export const TODAY = '2026-10-23';
-export const EMPTY_COPY = /\b(nothing booked|nothing scheduled|no jobs|no bookings)\b/i;
+export const TODAY = '2026-10-19';
+export const EMPTY_COPY = /\b(nothing scheduled|no jobs|no bookings)\b/i;
 export const JOB_REF = /^#\d{4}(\.\S+)?$/;
-export const IN_PROGRESS = 'In Progress';
-export const UNTIMED = /^Booked (Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) · Add a time$/;
+export const IN_PROGRESS = 'In progress';
+export const UNTIMED = /^Booked (Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) · Add a time/;
 export const FOCUS = { labels: ['Week', 'Day', 'Today', 'Previous week', 'Next week'], on: 'Week', ringPx: 2, offsetPx: 2, minSides: 3, runPx: 8, maxTabs: 80 } as const;
 export const NOW = { linePx: 2, barPx: 2, runPx: 8 } as const;
 export const FADE = { widthPx: 24, tolPx: 1, startMax: 0.1, edgeGap: 8, endMax: 0.015, bandPx: 40, minAlpha: 0.015, probeInsetPx: 6 } as const;
 export const SHEET = { scrim: { hex: '#0a0a0b', a: 0.4 }, safeAreaPx: 34, minGapPx: 16 } as const;
 export const HOVERS: Readonly<Partial<Record<StateId, string>>> = {
-  'more-1280': '.hub-week-crew-opt',
+  'more-1280': '.hub-schedule-crew-menu .hub-week-quiet',
   'day-1280': '.hub-day-resize',
   'week-1280': '.hub-week-board .hub-week-chip',
 };
@@ -255,8 +278,43 @@ export type DomMeasure = {
   tabs: string[];
   menu: string[] | null;
   path: string;
+  layout: LayoutProbe;
 };
 export type LedgerWrite = { table: string; op: string; filters: string[] };
+export type LedgerRead = { table: string; columns: string; filters: string[] };
+export type LayoutLane = { id: string; name: string; count: string };
+export type LayoutCard = {
+  id: string;
+  ref: string;
+  clock: string;
+  line1: string;
+  pill: string;
+  lanes: string[];
+  trackStored: boolean;
+  trackLeft: number;
+  trackWidth: number;
+  rail: string;
+};
+export type LayoutProbe = {
+  h1: string[];
+  eyebrow: string;
+  whisper: string;
+  newJob: number;
+  now: string | null;
+  sections: { id: string; top: number }[];
+  lanes: LayoutLane[];
+  weekDays: string[];
+  cells: number;
+  weekendJobs: string | null;
+  cards: LayoutCard[];
+  agendaDays: { date: string; empty: boolean; h: number }[];
+  trayHeading: string;
+  traySub: string;
+  trayCards: { meta: string; pill: string }[];
+  allCrews: boolean;
+  quickBook: boolean;
+  pageError: string;
+};
 export type Measure = DomMeasure & {
   id: StateId;
   build: Build;
@@ -272,6 +330,7 @@ export type Measure = DomMeasure & {
   blocked: string[];
   websockets: string[];
   writes: LedgerWrite[];
+  reads: LedgerRead[];
   unmocked: string[];
   pageErrors: string[];
 };
@@ -282,7 +341,7 @@ type MutantEdit =
 
 export type MutantSpec = MutantEdit & {
   readonly id: string;
-  readonly kill: Exclude<KillId, 'P2-nav-desktop'>;
+  readonly kill: KillId;
   readonly find: string;
   readonly replace: string;
   readonly brief: string;
@@ -303,7 +362,7 @@ const BOARD_VIEWS = 'src/components/crm/BoardViews.tsx';
 export const MUTANTS: readonly MutantSpec[] = [
   { id: 'cream-page', kill: 'P2-palette', file: 'src/index.css', rule: '.hub-board-cal.is-week-doc.ops-page {', find: 'background: var(--g-bg);', replace: 'background: #F5F0E6;', brief: 'restore :6569 cream' },
   { id: 'navy-save', kill: 'P2-palette', file: 'src/index.css', rule: '.hub-schedule-job-sheet .btn-primary.hub-editor-sticky-save {', find: 'background: var(--g-inverse);', replace: 'background: #0A2540;', brief: 'restore :7810 navy Save' },
-  { id: 'whisper-5b6b7c', kill: 'P2-contrast', file: 'src/index.css', rule: '.hub-week-status-whisper {', find: 'color: var(--g-ink-muted);', replace: 'color: #5B6B7C;', brief: 'restore #5B6B7C at :6812' },
+  { id: 'whisper-5b6b7c', kill: 'P2-contrast', file: 'src/index.css', rule: '.hub-schedule-eyebrow {', find: 'color: var(--g-ink-muted);', replace: 'color: #5B6B7C;', brief: 'restore #5B6B7C on the eyebrow' },
   { id: 'chip-ink-threshold', kill: 'P2-contrast', file: 'src/lib/jobColors.ts', find: "return inkContrast >= whiteContrast ? '#0A0A0B' : '#FFFFFF';", replace: "return (0.299 * parseInt(hex.slice(1, 3), 16) + 0.587 * parseInt(hex.slice(3, 5), 16) + 0.114 * parseInt(hex.slice(5, 7), 16)) / 255 > 0.55 ? '#1A1A1A' : '#FFFFFF';", brief: 'restore the getReadableText threshold' },
   { id: 'quiet-24', kill: 'P2-taps', file: 'src/index.css', rule: '.hub-week-quiet {', find: 'min-height: 44px;', replace: 'min-height: 24px;', brief: 'min-height 24px at :6965' },
   { id: 'seg-32', kill: 'P2-taps', file: 'src/index.css', rule: '.hub-week-seg-btn {', find: 'min-height: 44px;', replace: 'min-height: 32px;', brief: 'min-height 32px at :6933' },
@@ -314,16 +373,17 @@ export const MUTANTS: readonly MutantSpec[] = [
   { id: 'fake-scroller', kill: 'P2-overflow', file: 'src/index.css', find: CSS_ANCHOR, replace: `${FAKE_SCROLLER}${CSS_ANCHOR}`, brief: 'non-allowlisted element past innerWidth inside a fake overflow-x:auto wrapper' },
   { id: 'track-no-scroll', kill: 'P2-day-track', file: 'src/index.css', rule: '.hub-day-track {', find: 'overflow-x: auto;', replace: 'overflow-x: hidden;', brief: 'the day track stops scrolling sideways' },
   { id: 'track-trap', kill: 'P2-day-track', file: 'src/index.css', rule: '.hub-day-track {', find: 'overflow-y: hidden;', replace: 'overflow-y: auto;\n    max-height: 160px;\n    overscroll-behavior: contain;', brief: 'the day track traps vertical scroll' },
-  { id: 'phone-tab-to', kill: 'P2-nav-phone', file: 'src/components/layout/appShellPhoneNav.ts', find: "{ id: 'schedule', label: 'Schedule', to: '/schedule' },", replace: "{ id: 'schedule', label: 'Schedule', to: '/jobs' },", brief: 'reorder in a copy of the tab config' },
+  { id: 'phone-tab-to', kill: 'P2-nav-phone', file: 'src/components/layout/appShellPhoneNav.ts', find: "{ id: 'schedule', label: NAV_WORDS.schedule, to: '/schedule' },", replace: "{ id: 'schedule', label: NAV_WORDS.schedule, to: '/jobs' },", brief: 'reorder in a copy of the tab config' },
+  { id: 'field-order', kill: 'P2-nav-desktop', file: 'src/components/layout/AppShell.tsx', find: "    { to: '/schedule', label: NAV_WORDS.schedule, icon: Calendar },\n    { to: '/inspections', label: 'Inspections', icon: ClipboardList },", replace: "    { to: '/inspections', label: 'Inspections', icon: ClipboardList },\n    { to: '/schedule', label: NAV_WORDS.schedule, icon: Calendar },", brief: 'Inspections ahead of Schedule in a copy of the Field config' },
   { id: 'fetch-leak', kill: 'P2-mocks', file: BOARD_VIEWS, find: 'export const PhoneWeekList = memo(function PhoneWeekList({', replace: "void fetch('https://grafter.com.au/p2-leak');\nexport const PhoneWeekList = memo(function PhoneWeekList({", brief: 'a live request from the Schedule bundle' },
   inject('empty-days-hidden', 'P2-tracker', HIDE_EMPTY, 'empty agenda days, week cells and lane hours stop drawing'),
-  { id: 'chip-ref-clock', kill: 'P2-chip', file: BOARD_VIEWS, find: '<span className="hub-week-chip-ref">{chip.ref}</span>', replace: '<span className="hub-week-chip-ref">{`${clock} · ${chip.ref}`}</span>', brief: 'the week chip ref carries the clock' },
+  { id: 'chip-ref-clock', kill: 'P2-chip', file: BOARD_VIEWS, find: '<span className="hub-week-chip-clock">{clock}</span>\n        {\' · \'}\n        <span className="hub-week-chip-ref">{chip.ref}</span>', replace: '<span className="hub-week-chip-clock">{clock}</span>\n        {\' · \'}\n        <span className="hub-week-chip-ref">{`${clock} · ${chip.ref}`}</span>', brief: 'the week chip ref carries the clock' },
   css('ring-offset-0', 'P2-focus', '.hub-week-seg-btn:focus-visible,', 'outline-offset: 2px;', 'outline-offset: 0;', 'focus ring offset 0'),
   css('ring-none', 'P2-focus', '.hub-week-seg-btn:focus-visible,', 'outline: 2px solid var(--g-accent);', 'outline: none;', 'no focus ring'),
   css('seg-on-unfilled', 'P2-focus', '.hub-week-seg-btn.is-on {', 'background: var(--g-inverse);', 'background: none;', 'the on seg loses its inverse fill'),
   css('now-1px', 'P2-now', '.hub-day-now-line {', 'width: 2px;', 'width: 1px;', 'a 1px now-line'),
   inject('now-pulse', 'P2-now', NOW_PULSE, 'the now dot pulses'),
-  css('today-unmarked', 'P2-now', '.hub-week-head.is-today {', 'box-shadow: inset 0 -2px 0 var(--g-accent);', 'box-shadow: none;', 'the Today head loses its accent bar'),
+  { id: 'today-unmarked', kill: 'P2-now', file: 'src/index.css', find: '  .hub-week-head.is-today .hub-week-head-dom {\n    display: inline-flex;\n    align-items: center;\n    justify-content: center;\n    min-width: 24px;\n    height: 24px;\n    border-radius: 999px;\n    background: var(--g-inverse);', replace: '  .hub-week-head.is-today .hub-week-head-dom {\n    display: inline-flex;\n    align-items: center;\n    justify-content: center;\n    min-width: 24px;\n    height: 24px;\n    border-radius: 999px;\n    background: transparent;', brief: 'the Today circle loses its inverse fill' },
   css('hour-lines-cream', 'P2-day-board', '.hub-week-document .hub-day-board .border-rule {', 'border-color: var(--g-line);', 'border-color: #E2D9CC;', 'cream hour rules'),
   inject('zebra-flat', 'P2-day-board', FLAT_ZEBRA, 'every lane flat surface'),
   { id: 'unassigned-navy', kill: 'P2-day-board', file: BOARD_VIEWS, find: "borderLeft: painted.isUnassigned ? '3px dashed var(--g-line-strong)'", replace: "borderLeft: painted.isUnassigned ? '3px dashed #0A2540'", brief: 'a navy unassigned rail' },
@@ -334,7 +394,29 @@ export const MUTANTS: readonly MutantSpec[] = [
   css('footer-no-safe-area', 'P2-sheet', '.hub-schedule-job-sheet .hub-editor-sticky-footer {', 'padding: 12px 16px max(16px, env(safe-area-inset-bottom));', 'padding: 12px 16px 16px;', 'the footer ignores the safe area'),
   { id: 'tray-noop', kill: 'P2-tray', file: BOARD_VIEWS, find: 'setExpanded(open => !open);', replace: 'setExpanded(open => open);', brief: 'the tray chip toggle does nothing' },
   css('agenda-time-ink', 'P2-m2', '.hub-week-agenda-time {', 'color: var(--g-ink-muted);', 'color: var(--g-ink);', 'the agenda time line in full ink'),
-  css('pill-amber', 'P2-status', '.hub-week-agenda .hub-jobs-phone-status {', 'background: var(--g-well);', 'background: var(--g-warn-bg);', 'amber agenda pills'),
+  css('pill-amber', 'P2-status', '.hub-schedule-pill[data-kind="scheduled"] {', 'background: var(--g-sched-bg);', 'background: var(--g-warn-bg);', 'amber scheduled pills'),
+  { id: 'hide-header', kill: 'K1', file: 'src/index.css', rule: '.hub-board-cal .ops-page-head {', find: 'max-width: 1400px;', replace: 'display: none;\n    max-width: 1400px;', brief: 'hide the live header (restore F1)' },
+  { id: 'need-crew-all', kill: 'K1', file: 'src/lib/scheduleNeedCrew.ts', find: 'if (asTeamIds(job.assigned_team).length > 0) return false;', replace: 'if (false && asTeamIds(job.assigned_team).length > 0) return false;', brief: 'count crewed jobs as need-crew' },
+  { id: 'next-backwards', kill: 'K2', file: 'src/pages/SchedulePage.tsx', find: 'addWeeks(currentDate, 1)', replace: 'addWeeks(currentDate, -1)', brief: 'next week walks backwards' },
+  { id: 'skip-empty-cells', kill: 'K3', file: 'src/lib/scheduleBoard.ts', find: 'cells: days.map(date => {', replace: 'cells: days.filter(date => jobsForCrewOnDay(visible, crew.id, date).length > 0).map(date => {', brief: 'skip cells with no jobs' },
+  { id: 'count-days', kill: 'K4', file: 'src/lib/scheduleBoard.ts', find: 'return row.cells.reduce((sum, cell) => sum + cell.jobs.length, 0);', replace: 'return row.cells.filter(cell => cell.jobs.length > 0).length;', brief: 'count distinct days instead of cards' },
+  { id: 'ref-ellipsis', kill: 'K5', file: 'src/index.css', rule: '.hub-week-chip-ref,', find: 'display: block;', replace: 'display: block;\n    overflow: hidden;\n    text-overflow: ellipsis;\n    white-space: nowrap;\n    max-width: 4ch;', brief: 'ellipsis on the ref span' },
+  { id: 'first-crew-only', kill: 'K5', file: 'src/lib/scheduleBoard.ts', find: 'return team.includes(crewId);', replace: 'return team[0] === crewId;', brief: 'jobOnCrewRow checks only team[0]' },
+  { id: 'invoice-no-void', kill: 'K6', file: 'src/pages/SchedulePage.tsx', find: ".neq('status', 'void');", replace: ';', brief: 'drop status <> void' },
+  { id: 'invoice-no-company', kill: 'K6', file: 'src/pages/SchedulePage.tsx', find: ".eq('company_id', profile!.company_id)", replace: '', brief: 'drop the company_id filter' },
+  { id: 'track-14h', kill: 'K7', file: 'src/lib/scheduleBoard.ts', find: 'const span = DAY_HOUR_COUNT * 60;', replace: 'const span = 14 * 60;', brief: 'divide the day by 14h' },
+  { id: 'now-12h', kill: 'K8', file: 'src/lib/scheduleBoard.ts', find: "return format(now, 'HH:mm');", replace: "return format(now, 'hh:mm');", brief: 'format Now as 12-hour hh:mm' },
+  { id: 'drop-keeps-date', kill: 'K9', file: BOARD_VIEWS, find: 'onDrop={e => handleDrop(e, cell.date, row.crewId)}', replace: 'onDrop={e => handleDrop(e, rows[0]?.cells[0]?.date ?? cell.date, row.crewId)}', brief: 'drop handler keeps the old date' },
+  { id: 'hide-empty-hours', kill: 'K10', file: BOARD_VIEWS, find: '<div className="hub-day-hours-head flex border-b border-rule">\n            {hours.map(h => (', replace: '<div className="hub-day-hours-head flex border-b border-rule">\n            {hours.filter(h => paintedRows.some(p => p.rowJobs.some(j => (j.start_time ?? "").startsWith(String(h).padStart(2, "0"))))).map(h => (', brief: 'hide hours with no jobs' },
+  { id: 'track-overflow-hidden', kill: 'K10', file: 'src/index.css', rule: '.hub-day-track {', find: 'overflow-x: auto;', replace: 'overflow-x: hidden;', brief: 'the day track stops scrolling sideways' },
+  css('fade-auto-k10', 'K10', '.hub-week-document .hub-day-board::after {', 'pointer-events: none;', 'pointer-events: auto;', 'the fade swallows clicks'),
+  { id: 'tray-slice', kill: 'K11', file: BOARD_VIEWS, find: 'function UnscheduledJobCards({\n  jobs, teamMembers, onJobClick, onDragStart, selectedId = null, onOpenJob, onSetScheduleDate,\n  invoicedJobIds = NO_INVOICED,\n}: UnscheduledRailProps) {\n  return (\n    <>\n      {jobs.map(job => {', replace: 'function UnscheduledJobCards({\n  jobs, teamMembers, onJobClick, onDragStart, selectedId = null, onOpenJob, onSetScheduleDate,\n  invoicedJobIds = NO_INVOICED,\n}: UnscheduledRailProps) {\n  return (\n    <>\n      {jobs.slice(0, 3).map(job => {', brief: 'needsDate.slice(0,3)' },
+  { id: 'hide-empty-agenda', kill: 'K12', file: BOARD_VIEWS, find: '{days.map(day => {\n        const date = parseISO(`${day.date}T00:00:00`);', replace: '{days.filter(day => day.jobs.length > 0).map(day => {\n        const date = parseISO(`${day.date}T00:00:00`);', brief: 'filter out zero-job days' },
+  { id: 'quickbook-desk-only', kill: 'K13', file: 'src/index.css', rule: '.hub-week-quiet.hub-schedule-quickbook-toggle {', find: 'display: none;', replace: 'display: none !important;', brief: 'hide the phone Quick book toggle' },
+  { id: 'drop-today', kill: 'K14', file: 'src/pages/SchedulePage.tsx', find: '<button type="button" className="hub-week-quiet" onClick={() => applySchedule(viewMode, new Date())}>\n          Today\n        </button>', replace: '', brief: 'delete Today from the tools row' },
+  { id: 'invoice-paid-at', kill: 'K15', file: 'src/pages/SchedulePage.tsx', find: ".select('id, job_id, status')", replace: ".select('id, job_id, status, paid_at')", brief: 'add invoices.paid_at to Q-S1' },
+  { id: 'swap-tray-board', kill: 'K17', file: 'src/pages/SchedulePage.tsx', find: '<div data-schedule-section="board">', replace: '<div data-schedule-section="tray" data-p2-swapped="1" /><div data-schedule-section="board">', brief: 'swap tray and board in JSX' },
+  { id: 'hardcode-count', kill: 'K18', file: 'src/lib/scheduleBoard.ts', find: '`${parts.onBoard} on the board`', replace: '`14 on the board`', brief: 'hardcode a fallback board count' },
 ];
 
 export const SCOPE = {
@@ -359,12 +441,12 @@ export const SCOPE = {
     'src/pr378TemplateGuard.test.tsx',
     'vitest.s2-shell.config.ts',
     'scripts/capture-p1-dashboard-look.mjs',
-    'src/pages/SchedulePage.tsx',
   ],
   forbiddenDirs: ['docs/look/p1/'],
   cssFile: 'src/index.css',
-  cssBaseRanges: [[6088, 8286], [8975, 8975]],
-  exactLine: { file: 'src/pages/SchedulePage.tsx', line: 390, text: "  const lookParam = searchParams.get('look');" },
+  cssBaseRanges: [[6088, 8600]],
+  exactLine: { file: 'src/pages/SchedulePage.tsx', line: 221, text: "  const lookParam = searchParams.get('look');" },
+  lookParamText: "  const lookParam = searchParams.get('look');",
   tscMax: 180,
   mustStayGreen: ['src/pages/schedulePage.test.ts', 'src/pages/scheduleDesktop1280.test.ts'],
 } as const;

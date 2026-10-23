@@ -1,0 +1,21 @@
+{
+  "jobs": [
+    "id", "company_id", "client_id", "title", "description", "status", "priority",
+    "scheduled_date", "start_time", "end_time", "address", "assigned_team",
+    "inspection_id", "created_by", "created_at", "updated_at", "job_number",
+    "color", "budget", "parent_job_id", "cost_code", "dispatch_ready",
+    "dispatch_version", "required_crew_count", "last_dispatch_override_at",
+    "last_dispatch_override_reason", "created_via", "automation_ref",
+    "creator_name_snapshot"
+  ],
+  "clients": [
+    "id", "company_id", "name", "contact_person", "phone", "email", "address",
+    "notes", "archived", "created_at"
+  ],
+  "invoices": [
+    "id", "job_id", "status", "company_id"
+  ],
+  "get_company_members": [
+    "id", "email", "name", "role", "schedule_color"
+  ]
+}

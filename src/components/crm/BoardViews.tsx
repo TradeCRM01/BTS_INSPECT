@@ -925,8 +925,17 @@ export const DayBoardView = memo(function DayBoardView({
   );
 });
 
+function useScheduleNow() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  return now;
+}
+
 function CurrentTimeVerticalIndicator({ hourWidth, dayStart }: { hourWidth: number; dayStart: number }) {
-  const now = new Date();
+  const now = useScheduleNow();
   const h = now.getHours() + now.getMinutes() / 60;
   if (h < dayStart || h > DAY_END) return null;
   const left = (h - dayStart) * hourWidth;
@@ -987,6 +996,7 @@ export const WeekBoardView = memo(function WeekBoardView({
   };
 
   const weekendJobs = weekHasWeekendJobs(rows);
+  const now = useScheduleNow();
 
   return (
     <div className="ops-board hub-week-board" data-schedule-week="1" data-week-board="1">
@@ -1011,7 +1021,7 @@ export const WeekBoardView = memo(function WeekBoardView({
                 <span className="hub-week-head-dow">{format(day, 'EEE')}</span>
                 <span className="hub-week-head-dom">{format(day, 'd')}</span>
               </span>
-              {today ? <span className="hub-week-now">Now {scheduleNowMark(new Date())}</span> : null}
+              {today ? <span className="hub-week-now">Now {scheduleNowMark(now)}</span> : null}
             </button>
           );
         })}

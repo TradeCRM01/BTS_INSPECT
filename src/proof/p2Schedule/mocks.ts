@@ -1,10 +1,15 @@
 import type { ReactNode } from 'react';
 import { COMPANY, MEMBERS, PROFILE, TABLES, type Row } from './fixture.ts';
-import type { LedgerWrite } from './matrix.ts';
+import type { LedgerRead, LedgerWrite } from './matrix.ts';
 
-export const ledger: { writes: LedgerWrite[]; unmocked: string[] } = { writes: [], unmocked: [] };
+export const ledger: { writes: LedgerWrite[]; unmocked: string[]; reads: LedgerRead[] } = {
+  writes: [],
+  unmocked: [],
+  reads: [],
+};
 
-type Result = { data: unknown; error: null; count: number | null };
+type Result = { data: unknown; error: { message: string } | null; count: number | null };
+const boot = () => (typeof window !== 'undefined' ? window.__P2_BOOT__ : undefined);
 type Filter = { label: string; test: (row: Row) => boolean };
 type WriteOp = 'insert' | 'update' | 'upsert' | 'delete';
 
@@ -26,13 +31,14 @@ class Query implements PromiseLike<Result> {
   private max: number | null = null;
   private one: 'single' | 'maybe' | null = null;
   private write: WriteOp | null = null;
+  private columns = '*';
   private readonly table: string;
 
   constructor(table: string) {
     this.table = table;
   }
 
-  select() { return this; }
+  select(columns?: string) { this.columns = columns ?? '*'; return this; }
   insert() { return this.writeOp('insert'); }
   update() { return this.writeOp('update'); }
   upsert() { return this.writeOp('upsert'); }
@@ -84,11 +90,17 @@ class Query implements PromiseLike<Result> {
       ledger.writes.push({ table: this.table, op: this.write, filters: this.filters.map(f => f.label) });
       return { data: null, error: null, count: null };
     }
-    const source = TABLES[this.table];
+    if (boot()?.jobsError && this.table === 'jobs') {
+      return { data: null, error: { message: 'p2 jobs failed' }, count: null };
+    }
+    const source = boot()?.empty && (this.table === 'jobs' || this.table === 'invoices')
+      ? []
+      : TABLES[this.table];
     if (!source) {
       ledger.unmocked.push(`from(${this.table})`);
       return { data: this.one ? null : [], error: null, count: 0 };
     }
+    ledger.reads.push({ table: this.table, columns: this.columns, filters: this.filters.map(f => f.label) });
     let rows = source.filter(r => this.filters.every(f => f.test(r)));
     for (const s of [...this.sorts].reverse()) {
       rows = [...rows].sort((a, b) => {
@@ -121,7 +133,10 @@ const inertChannel = strict('channel', { on() { return inertChannel; }, subscrib
 export const supabase = strict('supabase', {
   from: (table: string) => strict(`from(${table})`, new Query(table)),
   rpc: async (name: string) => {
-    if (name === 'get_company_members') return { data: structuredClone(MEMBERS), error: null };
+    if (name === 'get_company_members') {
+      ledger.reads.push({ table: 'get_company_members', columns: 'id, email, name, role, schedule_color', filters: [] });
+      return { data: structuredClone(boot()?.empty ? [] : MEMBERS), error: null };
+    }
     if (name === 'is_platform_operator') return { data: false, error: null };
     ledger.unmocked.push(`rpc(${name})`);
     return { data: null, error: null };
