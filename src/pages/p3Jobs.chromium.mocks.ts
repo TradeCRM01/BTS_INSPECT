@@ -139,7 +139,7 @@ function liveClients() {
   return [{
     id: 'p3-client-36',
     company_id: 'c1',
-    name: 'P3 Grange Rd',
+    name: 'Brooke Lawson',
     phone: '0400000036',
     email: 'sam@example.com',
     address: '12 Grange Rd, Stafford',

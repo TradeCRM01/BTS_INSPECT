@@ -17,7 +17,7 @@ export const JOB_SHEET_STATUS_OPTIONS: { value: JobStatus; label: string }[] = [
 ];
 
 export function jobSheetEyebrow(ref: string): string {
-  return `JOB ${ref}`;
+  return `Job ${ref}`;
 }
 
 export function jobSheetHoursLogged(minutes: number): string {

@@ -463,7 +463,7 @@ describe('P3 K0 harness', () => {
     expect(read.when).not.toContain(' – ');
     expect(read.sub).toBe('4 bill lines · 4.4 h logged');
     expect(read.back).toBe(JOB_SHEET_BACK);
-    expect(read.text).toContain('JOB #0036');
+    expect(read.text).toContain('Job #0036');
     expect(read.text).toContain('Ready to invoice');
     expect(read.text).not.toMatch(/Relovi|Littleloop|booking/i);
   });
@@ -921,7 +921,7 @@ describe('P3 sheet pills CTA Q-J1 tabs', () => {
       sub: document.querySelector('[data-job-sheet="sub"]')?.textContent ?? '',
     }));
     await page.close();
-    expect(read.eyebrow).toBe('JOB #0036');
+    expect(read.eyebrow).toBe('Job #0036');
     expect(read.when).toContain('Mon 19 Oct · 07:00–10:30');
     expect(read.cta).toBe(jobSheetInvoiceCtaLabel(919.05));
     expect(read.sub).toBe('4 bill lines · 4.4 h logged');
@@ -1118,7 +1118,7 @@ describe('P3 overview people form bar', () => {
       };
     }, { tom: NOTE_TOM_ISO, dean: NOTE_DEAN_ISO });
     await page.close();
-    expect(read.kv).toEqual(['kv-site', 'kv-client', 'kv-phone', 'kv-email', 'kv-crew']);
+    expect(read.kv).toEqual(['kv-site', 'kv-client', 'kv-phone', 'kv-crew']);
     expect(read.go).toContain('maps.google.com');
     expect(read.call).toMatch(/tel:0400/);
     expect(read.notes).toContain(`Tom Nguyen · ${read.tom}`);
@@ -1828,5 +1828,185 @@ describe('P3 look gate', () => {
     });
     expect(red.line).toBeGreaterThan(0);
     expect(red.message).toMatch(/Northside Electrical|Harbour Lights|Site labour|Warehouse lights|expected/i);
+  }, 120000);
+});
+
+describe('P3 r6 type, CTA contrast, hairlines', () => {
+  killIt('R6-1 seeded title wraps to two lines at 390', async () => {
+    const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
+    await waitSheet(page);
+    const read = await page.evaluate(() => {
+      const hero = document.querySelector('h1.hub-jobs-hero') as HTMLElement | null;
+      if (!hero) return { title: '', lines: 0, fontSize: 0 };
+      const range = document.createRange();
+      range.selectNodeContents(hero);
+      const tops = [...range.getClientRects()].map((box) => Math.round(box.top));
+      const lines = new Set(tops).size;
+      return {
+        title: hero.textContent ?? '',
+        lines,
+        fontSize: parseFloat(getComputedStyle(hero).fontSize),
+        weight: getComputedStyle(hero).fontWeight,
+      };
+    });
+    await page.close();
+    expect(read.title).toBe('Hot water replacement');
+    expect(read.lines, 'seeded title wraps at 390').toBeGreaterThanOrEqual(2);
+    expect(read.fontSize).toBeGreaterThanOrEqual(32);
+    expect(Number(read.weight)).toBeGreaterThanOrEqual(700);
+  });
+
+  killIt('R6-1 mutant shrinks the title to one line', async () => {
+    const red = await captureMutantRed({
+      path: 'src/pages/JobDetailPage.tsx',
+      mutant: 'src/pages/JobDetailPage.tsx hero nowrap 12px',
+      mutate: (src) => src.replace(
+        '<h1 className="hub-jobs-hero">{job.title}</h1>',
+        '<h1 className="hub-jobs-hero" style={{ fontSize: 12, whiteSpace: \'nowrap\' }}>{job.title}</h1>',
+      ),
+      run: async () => {
+        const js = await bundleJobs();
+        const page = await openPage({ width: 390, path: '/jobs/p3-0036', js });
+        await waitSheet(page);
+        const lines = await page.evaluate(() => {
+          const hero = document.querySelector('h1.hub-jobs-hero') as HTMLElement | null;
+          if (!hero) return 0;
+          const range = document.createRange();
+          range.selectNodeContents(hero);
+          return new Set([...range.getClientRects()].map((box) => Math.round(box.top))).size;
+        });
+        await page.close();
+        expect(lines, 'seeded title wraps at 390').toBeGreaterThanOrEqual(2);
+      },
+    });
+    expect(red.line).toBeGreaterThan(0);
+    expect(red.message).toMatch(/wraps|lines|expected/i);
+  }, 120000);
+
+  killIt('R6-4 invoice CTA contrast against white is at least 7', async () => {
+    const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
+    await waitSheet(page);
+    const read = await page.evaluate(() => {
+      const cta = document.querySelector('[data-job-sheet="cta"]') as HTMLElement | null;
+      const bg = cta ? getComputedStyle(cta).backgroundColor : '';
+      const nums = bg.match(/\d+(\.\d+)?/g)?.map(Number) ?? [];
+      const [r, g, b] = nums;
+      const lin = (c: number) => {
+        const x = c / 255;
+        return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+      };
+      const lum = (rr: number, gg: number, bb: number) => 0.2126 * lin(rr) + 0.7152 * lin(gg) + 0.0722 * lin(bb);
+      const contrast = Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b)
+        ? (1.05) / (lum(r, g, b) + 0.05)
+        : 0;
+      return {
+        text: (cta?.textContent ?? '').replace(/\s+/g, ' ').trim(),
+        disabled: cta?.hasAttribute('disabled') ?? true,
+        bg,
+        contrast,
+        icon: !!cta?.querySelector('svg'),
+      };
+    });
+    await page.close();
+    expect(read.disabled, 'invoice CTA is not a disabled state').toBe(false);
+    expect(read.text).toContain('Create invoice');
+    expect(read.icon, 'receipt icon paints').toBe(true);
+    expect(read.contrast, `cta ${read.bg} vs white`).toBeGreaterThanOrEqual(7);
+  });
+
+  killIt('R6-4 mutant greys the CTA under 7:1', async () => {
+    const red = await captureMutantRed({
+      path: 'src/index.css',
+      mutant: 'src/index.css r6-cta-ink #0A2540 → #d0d0d0',
+      mutate: (src) => src.replace(
+        'background: #0A2540; /* r6-cta-ink */',
+        'background: #d0d0d0; /* r6-cta-ink */',
+      ),
+      run: async () => {
+        rebuildDistCss();
+        const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
+        await waitSheet(page);
+        const contrast = await page.evaluate(() => {
+          const cta = document.querySelector('[data-job-sheet="cta"]') as HTMLElement | null;
+          const nums = (cta ? getComputedStyle(cta).backgroundColor : '').match(/\d+(\.\d+)?/g)?.map(Number) ?? [];
+          const [r, g, b] = nums;
+          const lin = (c: number) => {
+            const x = c / 255;
+            return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+          };
+          const lum = (rr: number, gg: number, bb: number) => 0.2126 * lin(rr) + 0.7152 * lin(gg) + 0.0722 * lin(bb);
+          return Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b)
+            ? 1.05 / (lum(r, g, b) + 0.05)
+            : 0;
+        });
+        await page.close();
+        expect(contrast, 'cta vs white').toBeGreaterThanOrEqual(7);
+      },
+    });
+    expect(red.line).toBeGreaterThan(0);
+    expect(red.message).toMatch(/contrast|7|expected/i);
+    rebuildDistCss();
+  }, 180000);
+
+  killIt('R6-5 hairline rect sits between each Overview pair', async () => {
+    const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
+    await waitSheet(page);
+    const read = await page.evaluate(() => {
+      const ids = ['kv-site', 'kv-client', 'kv-phone', 'kv-crew'];
+      const rows = ids.map((id) => document.querySelector(`[data-job-sheet="${id}"]`) as HTMLElement | null);
+      const hairs = [...document.querySelectorAll('[data-job-kv-rule]')] as HTMLElement[];
+      return {
+        rowCount: rows.filter(Boolean).length,
+        hairCount: hairs.length,
+        pairs: hairs.map((hair, i) => {
+          const box = hair.getBoundingClientRect();
+          const a = rows[i]?.getBoundingClientRect();
+          const b = rows[i + 1]?.getBoundingClientRect();
+          return {
+            height: box.height,
+            width: box.width,
+            between: !!a && !!b && box.top >= a.bottom - 2 && box.bottom <= b.top + 2,
+          };
+        }),
+      };
+    });
+    await page.close();
+    expect(read.rowCount).toBe(4);
+    expect(read.hairCount).toBe(3);
+    for (const pair of read.pairs) {
+      expect(pair.height, 'hairline rect height').toBeGreaterThanOrEqual(1);
+      expect(pair.width, 'hairline rect width').toBeGreaterThan(100);
+      expect(pair.between, 'hairline rect between rows').toBe(true);
+    }
+  });
+
+  killIt('R6-5 mutant hides the hairline rects', async () => {
+    const red = await captureMutantRed({
+      path: 'src/pages/JobDetailPage.tsx',
+      mutant: 'src/pages/JobDetailPage.tsx hide kv hairlines',
+      mutate: (src) => src.replace(
+        /data-job-kv-rule="1"/g,
+        'data-job-kv-rule="1" hidden',
+      ),
+      run: async () => {
+        const js = await bundleJobs();
+        const page = await openPage({ width: 390, path: '/jobs/p3-0036', js });
+        await waitSheet(page);
+        const hairs = await page.evaluate(() => (
+          [...document.querySelectorAll('[data-job-kv-rule]')].map((el) => {
+            const box = el.getBoundingClientRect();
+            return { height: box.height, width: box.width, hidden: (el as HTMLElement).hidden };
+          })
+        ));
+        await page.close();
+        expect(hairs.length).toBe(3);
+        for (const hair of hairs) {
+          expect(hair.height, 'hairline rect height').toBeGreaterThanOrEqual(1);
+          expect(hair.width, 'hairline rect width').toBeGreaterThan(100);
+        }
+      },
+    });
+    expect(red.line).toBeGreaterThan(0);
+    expect(red.message).toMatch(/hairline|height|expected/i);
   }, 120000);
 });
