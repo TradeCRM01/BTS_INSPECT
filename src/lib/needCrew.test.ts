@@ -14,6 +14,23 @@ describe('jobNeedsCrew', () => {
     expect(jobNeedsCrew({ status: 'unknown', scheduled_date: '2026-10-19', assigned_team: [] })).toBe(true);
   });
 
+  it('never throws and treats a malformed assigned_team as no crew', () => {
+    const dated = { status: 'scheduled', scheduled_date: '2026-10-19' };
+    const malformed = [
+      { foo: 1 },
+      'dean',
+      12,
+      [1, { id: 'x' }],
+      { 0: 'p3-dean' },
+    ];
+    for (const assigned_team of malformed) {
+      expect(() => jobNeedsCrew({ ...dated, assigned_team })).not.toThrow();
+      expect(jobNeedsCrew({ ...dated, assigned_team })).toBe(true);
+    }
+    expect(jobNeedsCrew({ ...dated, assigned_team: null })).toBe(true);
+    expect(jobNeedsCrew({ status: 'scheduled', assigned_team: { foo: 1 } })).toBe(false);
+  });
+
   it('never counts an undated job, even when crewless', () => {
     expect(jobNeedsCrew({ status: 'scheduled', scheduled_date: null, assigned_team: [] })).toBe(false);
     expect(jobNeedsCrew({ status: 'scheduled', scheduled_date: '', assigned_team: [] })).toBe(false);

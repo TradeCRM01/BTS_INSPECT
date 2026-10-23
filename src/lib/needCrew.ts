@@ -3,17 +3,20 @@ export type CrewNeedStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancel
 export type CrewNeedJob = {
   status?: CrewNeedStatus | null;
   scheduled_date?: string | null;
-  assigned_team?: string[] | null;
+  assigned_team?: unknown;
 };
 
 export function isFinishedCrewStatus(status: string | null | undefined): boolean {
   return status === 'completed' || status === 'Done' || status === 'cancelled';
 }
 
+/** Malformed assigned_team is no crew. Never throws. */
 export function needsCrew(job: CrewNeedJob): boolean {
   if (!(job.scheduled_date ?? '').trim()) return false;
   if (isFinishedCrewStatus(job.status)) return false;
-  return (job.assigned_team ?? []).every(id => !id?.trim());
+  const team = job.assigned_team;
+  if (!Array.isArray(team)) return true;
+  return team.every(id => typeof id !== 'string' || !id.trim());
 }
 
 export function countNeedsCrew(jobs: readonly CrewNeedJob[]): number {

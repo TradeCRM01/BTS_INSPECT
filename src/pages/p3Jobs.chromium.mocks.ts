@@ -60,10 +60,10 @@ function liveJobs() {
   const base = jobBase();
   const fillers = [4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({
     ...base,
-    id: n === 4 ? 'p3-void-parent' : n === 5 ? 'p3-void-child' : `p3-j${n}`,
+    id: n === 4 ? 'p3-void-parent' : n === 5 ? 'p3-void-child' : n === 11 ? 'x-unknown-crew' : `p3-j${n}`,
     client_id: 'p3-client-36',
-    title: n === 4 ? 'Void parent invoice' : n === 5 ? 'Child of void parent' : `Filler job ${n}`,
-    status: n === 4 || n === 5 ? 'completed' : n === 12 ? 'in_progress' : 'scheduled',
+    title: n === 4 ? 'Void parent invoice' : n === 5 ? 'Child of void parent' : n === 11 ? 'Unknown status dated with crew' : `Filler job ${n}`,
+    status: n === 4 || n === 5 ? 'completed' : n === 12 ? 'in_progress' : n === 11 ? 'awaiting_parts' : 'scheduled',
     scheduled_date: '2026-10-20',
     start_time: '08:00',
     end_time: '12:00',
