@@ -154,7 +154,7 @@ export function TodayBoardView({
             <CalendarDays size={20} aria-hidden />
             Week board
           </Link>
-          <button type="button" className="btn-primary today-btn-primary" onClick={onNewJob}>
+          <button type="button" className="today-btn-primary" onClick={onNewJob}>
             <Plus size={20} aria-hidden />
             New job
           </button>

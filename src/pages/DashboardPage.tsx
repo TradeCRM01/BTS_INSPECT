@@ -73,7 +73,8 @@ import {
   isRetiredDashboardWidgetType,
   measureDashboardCanvasWidth,
   pickerDashboardWidgets,
-  layoutDashboardWidgetsForEdit,
+  DASHBOARD_EDIT_CHROME_TOP,
+  DASHBOARD_EDIT_CHROME_BOTTOM,
   placeAddedDashboardWidget,
   repairDashboardWidgetLayout,
   defaultDashboardWidgetInserts,
@@ -1092,18 +1093,14 @@ export function DashboardPage() {
     if (rs?.last) persistWidget(rs.id, rs.last);
   }, [persistWidget, onResizeMove]);
 
-  const editCanvasWidgets = useMemo(
-    () => (editMode ? layoutDashboardWidgetsForEdit(shownWidgets) : shownWidgets),
-    [shownWidgets, editMode],
-  );
-
   const canvasHeight = useMemo(() => {
-    const ws = editCanvasWidgets;
+    const ws = shownWidgets;
     const floor = editMode ? 320 : 0;
     if (!ws.length) return floor;
+    const extra = editMode ? DASHBOARD_EDIT_CHROME_TOP + DASHBOARD_EDIT_CHROME_BOTTOM : 0;
     const maxBottom = Math.max(...ws.map(w => w.grid_y + w.grid_h));
-    return Math.max(floor, maxBottom + CANVAS_PAD);
-  }, [editCanvasWidgets, editMode]);
+    return Math.max(floor, maxBottom + extra + CANVAS_PAD);
+  }, [shownWidgets, editMode]);
 
   const viewWidgets = useMemo(
     () => sortDashboardWidgetsForView(shownWidgets),
@@ -1273,20 +1270,17 @@ export function DashboardPage() {
                           className={`dashboard-home-canvas relative overflow-x-auto is-editing`}
                           style={{ height: canvasHeight, minWidth: '100%' }}
                         >
-                          {editCanvasWidgets.map(w => {
-                            const stored = shownWidgets.find(row => row.id === w.id) ?? w;
-                            return (
+                          {shownWidgets.map(w => (
                               <FreeWidget
                                 key={w.id}
                                 widget={w}
                                 editMode={editMode}
                                 onRemove={() => removeWidget(w.id)}
-                                onResizeStart={(e) => startResize(e, stored)}
+                                onResizeStart={(e) => startResize(e, w)}
                                 onConfigChange={(c) => updateWidgetConfig(w.id, c)}
                                 isDragging={activeId === w.id}
                               />
-                            );
-                          })}
+                            ))}
                         </div>
                       </DndContext>
                     </div>
@@ -1533,7 +1527,7 @@ function FreeWidget({
       ref={setNodeRef}
       data-dashboard-widget-id={widget.id}
       style={{ ...posStyle, ...dragStyle }}
-      className={`absolute flex flex-col ${isDragging || isDragActive ? 'z-50' : 'z-10'} ${isDragActive ? 'select-none' : ''}`}
+      className={`absolute overflow-visible ${isDragging || isDragActive ? 'z-50' : 'z-10'} ${isDragActive ? 'select-none' : ''}`}
     >
       {editMode && (
         <div className="dashboard-home-edit-chrome">

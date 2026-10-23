@@ -120,6 +120,7 @@
   cursor: pointer;
 }
 
+button.today-btn-primary,
 .today-btn-primary {
   background: var(--g-inverse);
   color: var(--g-inverse-ink);
