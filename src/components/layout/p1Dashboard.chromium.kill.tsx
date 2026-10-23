@@ -360,8 +360,16 @@ async function openLookDist(origin: string, width: number, path = '/?look=dashbo
     const ms = Date.parse('2026-10-19T03:40:00.000Z');
     const FrozenDate = function FrozenDate() {
       if (arguments.length === 0) return new Real(ms);
-      const a = arguments;
-      return new Real(a[0], a[1], a[2], a[3], a[4], a[5], a[6]);
+      if (arguments.length === 1) return new Real(arguments[0] as string | number | Date);
+      return new Real(
+        arguments[0] as number,
+        arguments[1] as number,
+        arguments[2] as number | undefined,
+        arguments[3] as number | undefined,
+        arguments[4] as number | undefined,
+        arguments[5] as number | undefined,
+        arguments[6] as number | undefined,
+      );
     };
     FrozenDate.now = function () { return ms; };
     FrozenDate.parse = Real.parse;
