@@ -1,0 +1,56 @@
+{
+  "sha": "0898c3b93f167a090615232141bf73790bf731ef",
+  "viewport": {
+    "width": 1280,
+    "height": 4000
+  },
+  "path": "/?look=dashboard",
+  "produced": "DEV vite from git worktree 0898c3b9 at 127.0.0.1:5177. Frozen Date 2026-10-19T03:40:00.000Z. Production VITE_LOOK_PROOF on this SHA is DEV-gated, so the fixture is the DEV paint of that commit. Entered Customize for edit; left view for view. Measured .dashboard-home-widget getBoundingClientRect on [data-dashboard-widget-id] hosts, excluding the phone stack. sha256 is SHA-256 of JSON.stringify({edit,path,sha,view,viewport}) with sorted keys and no whitespace (python json.dumps(payload, separators=(',', ':'), sort_keys=True)). produced is excluded from the digest so this note can be updated.",
+  "edit": [
+    {
+      "id": "look-widget-upcoming-jobs",
+      "width": 360,
+      "height": 200,
+      "x": 57,
+      "y": 1037.75
+    },
+    {
+      "id": "look-widget-outstanding-invoices",
+      "width": 280,
+      "height": 200,
+      "x": 433,
+      "y": 1037.75
+    },
+    {
+      "id": "look-widget-compliance",
+      "width": 320,
+      "height": 200,
+      "x": 729,
+      "y": 1037.75
+    }
+  ],
+  "view": [
+    {
+      "id": "look-widget-outstanding-invoices",
+      "width": 279.5,
+      "height": 243.5,
+      "x": 57,
+      "y": 1037.75
+    },
+    {
+      "id": "look-widget-upcoming-jobs",
+      "width": 279.5,
+      "height": 243.5,
+      "x": 352.5,
+      "y": 1037.75
+    },
+    {
+      "id": "look-widget-compliance",
+      "width": 279.5,
+      "height": 243.5,
+      "x": 648,
+      "y": 1037.75
+    }
+  ],
+  "sha256": "869028a58f7c517660a78df15e448422d8a35786a5d34e65ebda13112ff20adb"
+}

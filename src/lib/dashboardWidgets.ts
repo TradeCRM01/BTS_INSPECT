@@ -27,8 +27,6 @@ export const DASHBOARD_PHONE_WIDGET_GAP = 20;
 /** Same floor as desktop resize. Shrink-in-place never goes below this. */
 export const DASHBOARD_WIDGET_MIN_W = 180;
 export const DASHBOARD_WIDGET_MIN_H = 120;
-export const DASHBOARD_EDIT_CHROME_TOP = 52;
-export const DASHBOARD_EDIT_CHROME_BOTTOM = 48;
 
 export type DashboardWidgetInsert = {
   widget_type: string;
@@ -97,44 +95,6 @@ export function dashboardWidgetRectsConflict(
     && b.grid_x < a.grid_x + a.grid_w + gap
     && a.grid_y < b.grid_y + b.grid_h + gap
     && b.grid_y < a.grid_y + a.grid_h + gap;
-}
-
-export type DashboardEditWidgetRect<T extends DashboardWidgetRect = DashboardWidgetRect> = T & {
-  content_h: number;
-};
-
-export function layoutDashboardWidgetsForEdit<T extends DashboardWidgetRect>(
-  widgets: readonly T[],
-  gap = DASHBOARD_WIDGET_GAP,
-): DashboardEditWidgetRect<T>[] {
-  const extra = DASHBOARD_EDIT_CHROME_TOP + DASHBOARD_EDIT_CHROME_BOTTOM;
-  const rows: DashboardEditWidgetRect<T>[] = widgets.map((row) => ({
-    ...row,
-    content_h: row.grid_h,
-    grid_h: row.grid_h + extra,
-  }));
-  rows.sort((a, b) => {
-    if (a.grid_y !== b.grid_y) return a.grid_y - b.grid_y;
-    if (a.grid_x !== b.grid_x) return a.grid_x - b.grid_x;
-    return (a.id ?? a.widget_type).localeCompare(b.id ?? b.widget_type);
-  });
-  const placed: DashboardEditWidgetRect<T>[] = [];
-  for (const row of rows) {
-    let y = row.grid_y;
-    let moved = true;
-    while (moved) {
-      moved = false;
-      for (const other of placed) {
-        const probe = { ...row, grid_y: y };
-        if (dashboardWidgetRectsConflict(probe, other, gap)) {
-          y = other.grid_y + other.grid_h + gap;
-          moved = true;
-        }
-      }
-    }
-    placed.push({ ...row, grid_y: y });
-  }
-  return placed;
 }
 
 export function dashboardWidgetLayoutOverlaps(widgets: readonly DashboardWidgetRect[]): boolean {

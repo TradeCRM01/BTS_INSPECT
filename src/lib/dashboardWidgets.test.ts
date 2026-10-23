@@ -16,7 +16,6 @@ import {
   dashboardWidgetPixelSize,
   dashboardWidgetRectsOverlap,
   decideDashboardWidgetSeed,
-  layoutDashboardWidgetsForEdit,
   defaultDashboardWidgetInserts,
   pickerDashboardWidgets,
   placeAddedDashboardWidget,
@@ -307,16 +306,6 @@ describe('dashboard widget grid placement', () => {
     expect(widgets.find(w => w.id === 'jobs')).toMatchObject({ grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270 });
     expect(rawLayoutOverlaps(widgets)).toBe(false);
     expect(dashboardWidgetLayoutOverlaps(widgets)).toBe(false);
-  });
-
-  it('grows edit cards for chrome and drops packed y so neighbours do not overlap', () => {
-    const packed = layoutDashboardWidgetsForEdit([
-      { id: 'a', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270 },
-      { id: 'b', widget_type: 'compliance_deadlines', grid_x: 20, grid_y: 306, grid_w: 390, grid_h: 270 },
-    ]);
-    expect(packed[0].content_h).toBe(270);
-    expect(packed[0].grid_h).toBe(370);
-    expect(packed[1].grid_y).toBeGreaterThan(packed[0].grid_y + packed[0].grid_h);
   });
 
   it('does not move a saved layout that already has no overlaps', () => {

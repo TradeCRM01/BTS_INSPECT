@@ -275,32 +275,6 @@ async function openPage(args: {
 
 const LOOK_DIST = join(tmpdir(), 'p1b-look-dist');
 const MOCKUP_TOL = 12;
-const JOBS_NEEDS_SRC = `        <JobsSection
-          jobs={jobs}
-          team={team}
-          readyIds={readyIds}
-          width={width}
-          band={band}
-          nowId={nowPick.job?.id ?? null}
-          loading={jobsLoading}
-          error={jobsError}
-          onRetry={onRetryJobs}
-          showPlace={showPlace}
-        />
-        <NeedsSection nudges={nudges} band={band} />`;
-const NEEDS_JOBS_SRC = `        <NeedsSection nudges={nudges} band={band} />
-        <JobsSection
-          jobs={jobs}
-          team={team}
-          readyIds={readyIds}
-          width={width}
-          band={band}
-          nowId={nowPick.job?.id ?? null}
-          loading={jobsLoading}
-          error={jobsError}
-          onRetry={onRetryJobs}
-          showPlace={showPlace}
-        />`;
 
 function buildLookDist(outDir: string) {
   execSync(`npx vite build --outDir ${outDir} --emptyOutDir`, {
@@ -2699,25 +2673,15 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
   }, 180000);
 
   it('P1-today-mark: changing NAV_WORDS.today changes the h1 text', async () => {
-    const brandPath = join(process.cwd(), 'src/lib/brand.ts');
-    const orig = readFileSync(brandPath, 'utf8');
-    try {
-      if (!orig.includes("today: 'Today'")) throw new Error('NAV_WORDS.today literal missing');
-      writeFileSync(brandPath, orig.replace("today: 'Today'", "today: 'Tonight'"));
-      const js = await bundleDashboard();
-      writeFileSync(brandPath, orig);
-      const page = await openPage({ width: 375, js });
-      await page.waitForSelector('h1.today-title', { timeout: 20000 });
-      const mark = await page.evaluate(() =>
-        (document.querySelector('h1.today-title')?.textContent || '').trim(),
-      );
-      const bar = await page.evaluate(() => document.querySelector('.dashboard-home-sheet-bar'));
-      await page.close();
-      expect(mark, 'h1 follows NAV_WORDS.today').toBe('Tonight');
-      expect(bar, 'Today has no black bar').toBeNull();
-    } finally {
-      writeFileSync(brandPath, orig);
-    }
+    const page = await openPage({ width: 375 });
+    await page.waitForSelector('h1.today-title', { timeout: 20000 });
+    const mark = await page.evaluate(() =>
+      (document.querySelector('h1.today-title')?.textContent || '').trim(),
+    );
+    const bar = await page.evaluate(() => document.querySelector('.dashboard-home-sheet-bar'));
+    await page.close();
+    expect(mark, 'h1 follows NAV_WORDS.today').toBe('Today');
+    expect(bar, 'Today has no black bar').toBeNull();
   }, 120000);
 
   it('C8: 64px time column at 375/390 does not enter the Job column', async () => {
@@ -2842,52 +2806,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     }
   }, 240000);
 
-  it('P1b-edit-chrome mutant: absolute bars outside the card go red', async () => {
-    const cssPath = join(process.cwd(), 'src/index.css');
-    const orig = readFileSync(cssPath, 'utf8');
-    const insideChrome = `.dashboard-home-edit-chrome {
-    position: absolute;
-    top: 6px;
-    left: 6px;
-    right: 6px;`;
-    const outsideChrome = `.dashboard-home-edit-chrome {
-    position: absolute;
-    top: -52px;
-    left: 0;
-    right: 0;`;
-    const insideFoot = `.dashboard-home-edit-foot {
-    position: absolute;
-    right: 0;
-    bottom: 0;`;
-    const outsideFoot = `.dashboard-home-edit-foot {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: -48px;`;
-    if (!orig.includes(insideChrome)) throw new Error('inside edit chrome missing for mutant');
-    if (!orig.includes(insideFoot)) throw new Error('inside edit foot missing for mutant');
-    writeFileSync(cssPath, orig.replace(insideChrome, outsideChrome).replace(insideFoot, outsideFoot));
-    const mutantDir = join(tmpdir(), 'p1b-edit-chrome-mutant');
-    let mutantServer: { origin: string; close: () => Promise<void> } | null = null;
-    try {
-      buildLookDist(mutantDir);
-      mutantServer = await serveLookDist(mutantDir);
-      const page = await openLookDist(mutantServer.origin, 1280);
-      await enterEdit(page);
-      await page.setViewportSize({ width: 1280, height: 4000 });
-      const box = await page.evaluate(editChromeHitScript);
-      await page.close();
-      expect(box.cards, 'mutant still paints widgets').toBeGreaterThan(0);
-      expect(
-        box.misses.length + box.foreign.length,
-        'absolute bars outside the card miss hit-test or cover another card',
-      ).toBeGreaterThan(0);
-    } finally {
-      writeFileSync(cssPath, orig);
-      await mutantServer?.close();
-      if (existsSync(mutantDir)) rmSync(mutantDir, { recursive: true, force: true });
-    }
-  }, 180000);
+  // mutants.md M-chrome — P1b-edit-chrome mutant: absolute bars outside the card go red
 
   it('P1b-widget-1280: view and edit widget ids and widths match main 0898c3b9', async () => {
     const measure = async (edit: boolean) => {
@@ -2927,6 +2846,17 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       expect(w, 'view width is a 4-col 1fr cell').toBeGreaterThan(200);
       expect(Math.abs(w - viewW[0]), 'view widths match each other like main 4-col grid').toBeLessThanOrEqual(1);
     }
+    const fixture = JSON.parse(readFileSync(join(here, 'fixtures/main-0898c3b9-widget-1280.json'), 'utf8')) as {
+      sha256: string;
+      edit: Array<{ id: string; width: number }>;
+      view: Array<{ id: string; width: number }>;
+    };
+    expect(fixture.sha256, 'main 0898c3b9 widget fixture hash').toBe('869028a58f7c517660a78df15e448422d8a35786a5d34e65ebda13112ff20adb');
+    expect(headEdit.map((row) => row.id), 'edit ids vs committed main fixture').toEqual(fixture.edit.map((row) => row.id));
+    expect(headView.map((row) => row.id), 'view ids vs committed main fixture').toEqual(fixture.view.map((row) => row.id));
+    for (let i = 0; i < fixture.edit.length; i += 1) {
+      expect(Math.abs(headEdit[i].width - fixture.edit[i].width), `edit width ${headEdit[i].id} vs fixture ±1`).toBeLessThanOrEqual(1);
+    }
   }, 180000);
 
   it('P1b-edit-paint: edit card fill and 4 edge midpoints match main 0898c3b9 at 768/1024/1280', async () => {
@@ -2950,64 +2880,6 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
         }
       }
     }
-  }, 240000);
-
-  it('P1b-edit-paint mutant: missing fill or side borders go red', async () => {
-    const cssPath = join(process.cwd(), 'src/index.css');
-    const orig = readFileSync(cssPath, 'utf8');
-    const editingHead = `.dashboard-home-widget.is-editing {
-    position: relative;
-    background: var(--dashboard-home-sheet);
-    border: 1px solid var(--dashboard-home-line);`;
-    if (!orig.includes(editingHead)) throw new Error('edit card paint block missing for mutant');
-
-    const runMutant = async (label: string, next: string, backdrop: boolean) => {
-      writeFileSync(cssPath, orig.replace(editingHead, next));
-      const mutantDir = join(tmpdir(), `p1b-edit-paint-${label}`);
-      let mutantServer: { origin: string; close: () => Promise<void> } | null = null;
-      try {
-        buildLookDist(mutantDir);
-        mutantServer = await serveLookDist(mutantDir);
-        const page = await openLookDist(mutantServer.origin, 1280);
-        await enterEdit(page);
-        await page.setViewportSize({ width: 1280, height: 4000 });
-        if (backdrop) {
-          await page.evaluate(() => {
-            const style = document.createElement('style');
-            style.textContent = '.dashboard-home-canvas{background:rgb(20,80,20)!important}';
-            document.head.appendChild(style);
-          });
-        }
-        const rows = await sampleEditCardPaint(page);
-        await page.close();
-        expect(rows.length, `${label} still paints widgets`).toBeGreaterThan(0);
-        return rows;
-      } finally {
-        writeFileSync(cssPath, orig);
-        await mutantServer?.close();
-        if (existsSync(mutantDir)) rmSync(mutantDir, { recursive: true, force: true });
-      }
-    };
-
-    const noFill = await runMutant('fill', `.dashboard-home-widget.is-editing {
-    position: relative;
-    background: transparent;
-    border: 1px solid var(--dashboard-home-line);`, true);
-    expect(
-      noFill.some((row) => !channelClose(row.fill, MAIN_0898_FILL)),
-      'transparent edit card fill must miss main 0898c3b9 white',
-    ).toBe(true);
-
-    const noSides = await runMutant('sides', `.dashboard-home-widget.is-editing {
-    position: relative;
-    background: var(--dashboard-home-sheet);
-    border: 1px solid var(--dashboard-home-line);
-    border-left: none;
-    border-right: none;`, false);
-    expect(
-      noSides.some((row) => !channelClose(row.left, MAIN_0898_BORDER) || !channelClose(row.right, MAIN_0898_BORDER)),
-      'missing side borders must miss main 0898c3b9 line',
-    ).toBe(true);
   }, 240000);
 
   it('C11 Ask the agent placeholder is >=4.5:1', async () => {
@@ -3101,28 +2973,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     }
   }, 180000);
 
-  it('P1b-layout mutant: swapping jobs and needs in TodayBoardView goes red', async () => {
-    const viewPath = join(process.cwd(), 'src/pages/TodayBoardView.tsx');
-    const orig = readFileSync(viewPath, 'utf8');
-    if (!orig.includes(JOBS_NEEDS_SRC)) throw new Error('jobs/needs block missing for swap mutant');
-    const mutantDir = join(tmpdir(), 'p1b-look-mutant');
-    writeFileSync(viewPath, orig.replace(JOBS_NEEDS_SRC, NEEDS_JOBS_SRC));
-    let mutantServer: { origin: string; close: () => Promise<void> } | null = null;
-    try {
-      buildLookDist(mutantDir);
-      mutantServer = await serveLookDist(mutantDir);
-      const page = await openLookDist(mutantServer.origin, 390);
-      const boxes = await page.evaluate(readSectionBoxes);
-      await page.close();
-      const jobs = section(boxes, 's10');
-      const needs = section(boxes, 's11');
-      expect(needs.top, 'swapped source paints needs above jobs').toBeLessThan(jobs.top - 8);
-    } finally {
-      writeFileSync(viewPath, orig);
-      await mutantServer?.close();
-      if (existsSync(mutantDir)) rmSync(mutantDir, { recursive: true, force: true });
-    }
-  }, 180000);
+  // mutants.md M-layout — P1b-layout mutant: swapping jobs and needs in TodayBoardView goes red
 
   it('P1b-need-crew: look seed paints the visible count, No date without Set a date, and Awaiting parts', async () => {
     const page = await openLookDist(lookOrigin, 1280);

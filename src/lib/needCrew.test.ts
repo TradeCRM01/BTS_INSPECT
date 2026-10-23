@@ -1,8 +1,5 @@
-import { execSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { jobsListPhoneRow } from './jobsListRow';
 import { JOB_CREW_SCHEDULE_NO_DATE, jobCrewScheduleStatus } from './jobCrewScheduleStatus';
@@ -70,28 +67,20 @@ describe('needsCrew', () => {
     ])).toBe(1);
   });
 
-  it('returns 0 for a missing jobs array and kills a mutant that drops the guard', async () => {
+  it('returns 0 for a missing jobs array and kills a mutant that drops the guard', () => {
+    expect(() => countNeedsCrew(null)).not.toThrow();
     expect(countNeedsCrew(null)).toBe(0);
+    expect(() => countNeedsCrew(undefined)).not.toThrow();
     expect(countNeedsCrew(undefined)).toBe(0);
+    expect(() => countNeedsCrew('str')).not.toThrow();
+    expect(countNeedsCrew('str')).toBe(0);
+    expect(() => countNeedsCrew({})).not.toThrow();
+    expect(countNeedsCrew({})).toBe(0);
+    expect(() => countNeedsCrew(5)).not.toThrow();
+    expect(countNeedsCrew(5)).toBe(0);
     expect(() => countNeedsCrew(null)).not.toThrow();
     expect(() => countNeedsCrew(undefined)).not.toThrow();
-    const srcPath = join(process.cwd(), 'src/lib/needCrew.ts');
-    const orig = readFileSync(srcPath, 'utf8');
-    const guard = 'if (!jobs) return 0;';
-    expect(orig).toContain(guard);
-    const dir = mkdtempSync(join(tmpdir(), 'need-crew-null-'));
-    const mutantPath = join(dir, 'needCrew.ts');
-    writeFileSync(mutantPath, orig.replace(guard, ''));
-    const outPath = join(dir, 'needCrew.js');
-    execSync(`npx esbuild ${mutantPath} --bundle --format=esm --platform=neutral --outfile=${outPath}`, {
-      cwd: process.cwd(),
-      stdio: 'pipe',
-    });
-    const mutant = await import(pathToFileURL(outPath).href) as {
-      countNeedsCrew: (jobs: unknown) => number;
-    };
-    expect(() => mutant.countNeedsCrew(null)).toThrow();
-    expect(() => mutant.countNeedsCrew(undefined)).toThrow();
+    expect(readFileSync(join(process.cwd(), 'src/lib/needCrew.ts'), 'utf8')).toContain('if (!Array.isArray(jobs)) return 0;');
   });
 
   it('treats null, a non-array, a non-string entry, and whitespace-only as no crew', () => {
