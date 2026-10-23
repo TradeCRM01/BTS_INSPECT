@@ -756,7 +756,9 @@ describe('P2 Schedule on the built dist', () => {
 
     const opened = await openState('week-1280');
     await opened.page.getByRole('button', { name: 'New job' }).first().click();
-    await opened.page.waitForSelector('[data-schedule-section="quickbook"][data-open="1"]');
+    const qb = opened.page.locator('[data-schedule-section="quickbook"][data-open="1"]');
+    await qb.waitFor({ timeout: 4_000 }).catch(() => {});
+    expect.soft(await qb.count(), 'header New job opens Quick book').toBeGreaterThan(0);
     expect.soft(await opened.page.locator('[data-schedule-quickbook-existing]').count(), 'header New job opens schedule existing').toBeGreaterThan(0);
     expect.soft(await opened.page.locator('[data-schedule-quickbook-new]').count(), 'header New job opens New job choice').toBeGreaterThan(0);
     expect.soft(await opened.page.locator('.hub-schedule-voice-mic').count(), 'header New job opens the mic').toBeGreaterThan(0);
