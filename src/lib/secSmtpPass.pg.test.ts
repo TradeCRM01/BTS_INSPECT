@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { createServer } from 'node:http';
 import { createServer as createNetServer } from 'node:net';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
@@ -26,7 +26,22 @@ const SECRET_ROTATE = 'sec-smtp-rotated-save-5a106e2d';
 const MIGRATION = 'supabase/migrations/20261023120000_sec_smtp_pass_lock.sql';
 const ROLLBACK = 'supabase/rollbacks/20261023120000_sec_smtp_pass_lock.rollback.sql';
 const JWT_SECRET = 'sec-smtp-local-jwt-secret-32chars!!';
-const POSTGREST_BIN = process.env.PGRST_BIN || '/tmp/postgrest-bin/postgrest';
+const PINNED_PGRST_SHA256 = '870a77f49508479bc87c5504b6b0c3715c7220926932d916b0d73952b297c617';
+const POSTGREST_BIN = process.env.PGRST_BIN || '';
+const gateMode = Boolean(process.env.GATES || process.env.CI);
+
+function postgrestReady(bin: string): boolean {
+  if (!bin || !existsSync(bin)) return false;
+  const got = createHash('sha256').update(readFileSync(bin)).digest('hex');
+  return got === PINNED_PGRST_SHA256;
+}
+
+function requirePostgrestBin(): string {
+  if (postgrestReady(POSTGREST_BIN)) return POSTGREST_BIN;
+  throw new Error(
+    `PostgREST v12.2.3 missing or unverifiable (PGRST_BIN=${POSTGREST_BIN || '(unset)'}). Expected sha256 ${PINNED_PGRST_SHA256}.`,
+  );
+}
 
 function findBin(name: string, version = '16'): string | null {
   const candidate = `/usr/lib/postgresql/${version}/bin/${name}`;
@@ -64,7 +79,7 @@ const initdb = findBin('initdb');
 const pgCtl = findBin('pg_ctl');
 const psqlBin = findBin('psql');
 const hasInitdb = Boolean(initdb && pgCtl && psqlBin);
-const hasPostgrest = existsSync(POSTGREST_BIN);
+const hasPostgrest = postgrestReady(POSTGREST_BIN);
 
 describe.skipIf(!hasInitdb)('SEC-SMTP grants and RPC on the real migration chain', () => {
   let dataDir = '';
@@ -550,6 +565,12 @@ unix_socket_directories = '${sockDir}'
     expect(runSql(`SELECT count(*)::text FROM public.email_settings WHERE company_id IN ('${COMPANY_A}', '${COMPANY_B}')`)).toBe('2');
   });
 
+  it('denies anon INSERT UPDATE DELETE TRUNCATE on email_settings', () => {
+    for (const priv of ['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE'] as const) {
+      expect(runSql(`SELECT has_table_privilege('anon', 'public.email_settings', '${priv}')`)).toBe('f');
+    }
+  });
+
   it('lets the service_role edge path read the secret and send', async () => {
     const edge = readFileSync(join(process.cwd(), 'supabase/functions/test-smtp/index.ts'), 'utf8');
     expect(edge).toContain('.select("smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, from_name, from_email")');
@@ -582,7 +603,8 @@ unix_socket_directories = '${sockDir}'
     expect(captured).toBe(`Bearer ${SECRET_A}`);
   });
 
-  it.skipIf(!hasPostgrest)('saves and rotates the SMTP password through the real PostgREST client path', async () => {
+  it.skipIf(!hasPostgrest && !gateMode)('saves and rotates the SMTP password through the real PostgREST client path', async () => {
+    requirePostgrestBin();
     expect(runSql(`SELECT count(*)::text FROM public.email_settings WHERE company_id = '${COMPANY_C}'`)).toBe('0');
     const client = adminClient(ADMIN_C);
     const publicPayload = {

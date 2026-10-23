@@ -90,5 +90,5 @@ GRANT SELECT (
   created_at,
   updated_at
 ) ON public.email_settings TO authenticated;
-GRANT INSERT, UPDATE ON public.email_settings TO authenticated;
+-- authenticated already has table INSERT/UPDATE from default privileges; a re-GRANT is a no-op (G1a).
 REVOKE ALL ON public.email_settings FROM anon;
