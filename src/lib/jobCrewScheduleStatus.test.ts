@@ -3,33 +3,41 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   JOB_CREW_SCHEDULE_BOOKED,
+  JOB_CREW_SCHEDULE_DONE,
   JOB_CREW_SCHEDULE_NEEDS_CREW,
-  JOB_CREW_SCHEDULE_NOT_SCHEDULED,
+  JOB_CREW_SCHEDULE_NO_DATE,
   jobCrewScheduleStatus,
 } from './jobCrewScheduleStatus';
 
 describe('jobCrewScheduleStatus', () => {
-  it('returns Not scheduled without a date', () => {
-    expect(jobCrewScheduleStatus(null, ['p1'])).toEqual({
-      label: JOB_CREW_SCHEDULE_NOT_SCHEDULED,
-      kind: 'not_scheduled',
+  it('returns No date without a date', () => {
+    expect(jobCrewScheduleStatus('scheduled', null, ['p1'])).toEqual({
+      label: JOB_CREW_SCHEDULE_NO_DATE,
+      kind: 'no_date',
     });
-    expect(jobCrewScheduleStatus('', [])).toMatchObject({ kind: 'not_scheduled' });
+    expect(jobCrewScheduleStatus('scheduled', '', [])).toMatchObject({ kind: 'no_date' });
   });
 
   it('returns Booked when dated with crew', () => {
-    expect(jobCrewScheduleStatus('2026-09-03', ['a'])).toEqual({
+    expect(jobCrewScheduleStatus('scheduled', '2026-09-03', ['a'])).toEqual({
       label: JOB_CREW_SCHEDULE_BOOKED,
       kind: 'booked',
     });
   });
 
   it('returns Needs crew when dated with no crew', () => {
-    expect(jobCrewScheduleStatus('2026-09-03', [])).toEqual({
+    expect(jobCrewScheduleStatus('scheduled', '2026-09-03', [])).toEqual({
       label: JOB_CREW_SCHEDULE_NEEDS_CREW,
       kind: 'needs_crew',
     });
-    expect(jobCrewScheduleStatus('2026-09-03', null)).toMatchObject({ kind: 'needs_crew' });
+    expect(jobCrewScheduleStatus('in_progress', '2026-09-03', null)).toMatchObject({ kind: 'needs_crew' });
+  });
+
+  it('returns Done for completed jobs even when they have no crew', () => {
+    expect(jobCrewScheduleStatus('completed', '2026-09-03', [])).toEqual({
+      label: JOB_CREW_SCHEDULE_DONE,
+      kind: 'done',
+    });
   });
 });
 

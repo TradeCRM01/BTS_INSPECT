@@ -77,6 +77,7 @@ export function writeJobSheetTab(params: URLSearchParams, tab: JobSheetTab): URL
 export type JobSheetOverviewTone = 'ok' | 'wait' | 'progress' | 'bad' | 'info' | 'warn';
 
 export interface JobSheetOverviewFacts {
+  jobStatus?: string | null;
   scheduledDate: string | null;
   startTime: string | null;
   crewNames: string[];
@@ -160,7 +161,11 @@ export function jobSheetOverviewRows(facts: JobSheetOverviewFacts): JobSheetOver
     : crewBusy
       ? [when, '…'].filter(Boolean).join(' · ')
       : [when, facts.crewNames.length > 0 ? facts.crewNames.join(', ') : 'Unassigned'].filter(Boolean).join(' · ');
-  const crewSchedule = jobCrewScheduleStatus(facts.scheduledDate, facts.crewNames);
+  const crewSchedule = jobCrewScheduleStatus(
+    facts.jobStatus ?? 'scheduled',
+    facts.scheduledDate,
+    facts.crewNames,
+  );
   return [
     {
       section: 'job-schedule',

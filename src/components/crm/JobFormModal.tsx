@@ -213,8 +213,8 @@ export function JobFormModal({
   );
   const pendingUnmatched = !!pendingClientName.trim() && !form.client_id;
   const scheduleStatus = useMemo(
-    () => jobCrewScheduleStatus(form.scheduled_date, form.assigned_team),
-    [form.scheduled_date, form.assigned_team],
+    () => jobCrewScheduleStatus(job?.status ?? 'scheduled', form.scheduled_date, form.assigned_team),
+    [job?.status, form.scheduled_date, form.assigned_team],
   );
   const scheduleStatusClass = [
     jobCrewScheduleNeedsCrewClass(scheduleStatus.kind),

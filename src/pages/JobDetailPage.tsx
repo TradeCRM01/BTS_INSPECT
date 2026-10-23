@@ -3038,6 +3038,7 @@ export function JobDetailPage() {
     address: job.address,
   });
   const laneRows = jobSheetOverviewRows({
+    jobStatus: job.status,
     scheduledDate: job.scheduled_date,
     startTime: job.start_time,
     crewNames: assigned,

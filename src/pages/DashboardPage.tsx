@@ -1083,7 +1083,7 @@ export function DashboardPage() {
                 </div>
                 {work.map(job => {
                   const place = dashboardJobPlace(job);
-                  const crewSchedule = jobCrewScheduleStatus(job.scheduled_date, job.assigned_team);
+                  const crewSchedule = jobCrewScheduleStatus(job.status, job.scheduled_date, job.assigned_team);
                   const crewScheduleClass = jobCrewScheduleNeedsCrewClass(crewSchedule.kind);
                   const clientPlace = dashboardJobMetaLine(job);
                   const metaParts = [

@@ -1071,7 +1071,7 @@ function JobRow({ job }: { job: JobRowModel }) {
   const site = visibleSite(job.address, job.client_address);
   const suburb = site ? suburbFromSite(site) : '';
   const jobHref = `/jobs/${job.id}`;
-  const crewSchedule = jobCrewScheduleStatus(job.scheduled_date, job.assigned_team);
+  const crewSchedule = jobCrewScheduleStatus(job.status, job.scheduled_date, job.assigned_team);
   const crewScheduleClass = jobCrewScheduleNeedsCrewClass(crewSchedule.kind);
   return (
     <div
