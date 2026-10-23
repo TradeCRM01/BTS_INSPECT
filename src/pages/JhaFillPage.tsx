@@ -8,6 +8,7 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { PageError } from '../components/ui/PageError';
 import { OpsStatus, opsSiteLabel } from '../components/ui';
 import { nanoid } from '../lib/nanoid';
+import { lookParam } from '../lib/lookParam';
 import { generateJhaPdf, jhaPdfCompanyFrom } from '../reports/generateJhaPdf';
 import { jhaDocumentColors } from '../reports/jha/theme';
 import {
@@ -141,8 +142,8 @@ export function JhaFillPage() {
   const { profile, company } = useAuth();
   const queryClient = useQueryClient();
 
-  const lookParam = searchParams.get('look');
-  const lookJhaCreator = jhaCreatorLookDoc(lookParam);
+  const look = lookParam(searchParams);
+  const lookJhaCreator = jhaCreatorLookDoc(look);
   const templateId = searchParams.get('templateId');
   const docId = lookJhaCreator ? lookJhaCreator.id : searchParams.get('docId');
   const presetJobId = searchParams.get('jobId') ?? '';

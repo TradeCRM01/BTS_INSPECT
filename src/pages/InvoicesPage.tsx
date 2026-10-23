@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { lookParam } from '../lib/lookParam';
 import { DATE_INVALID_MESSAGE } from '../lib/dateTimeIntegrity';
 import { AppShell } from '../components/layout/AppShell';
 import { AppDialog, DateFieldInput, EditorStickyFooter, PageError, EmptyState, SearchBar, useToast, OpsSiteRow, LoadingSpinner } from '../components/ui';
@@ -163,7 +164,7 @@ export function InvoicesPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const lookLetterhead = searchParams.get('look') === LETTERHEAD_LOOK;
+  const lookLetterhead = lookParam(searchParams) === LETTERHEAD_LOOK;
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(INVOICE_LIST_DEFAULT_FILTER);
   const [search, setSearch] = useState('');
   const [editingInvoice, setEditingInvoice] = useState<InvoiceWithDetails | null>(null);
@@ -176,10 +177,10 @@ export function InvoicesPage() {
     setSendingInvoiceId(invoiceId);
   };
   const invoiceIdParam = searchParams.get('id');
-  const paymentProof = isDevFieldAuditAuth() && searchParams.get('payment') === '1';
-  const money4PartPaidLook = isDevFieldAuditAuth() && searchParams.get('look') === 'money-4-part-paid';
-  const money4PartPaidOverdueLook = isDevFieldAuditAuth() && searchParams.get('look') === 'money-4-part-paid-overdue';
-  const sweep7IssuedLook = isDevFieldAuditAuth() && searchParams.get('look') === 'sweep7-issued';
+  const paymentProof = isDevFieldAuditAuth() && lookParam(searchParams, 'payment') === '1';
+  const money4PartPaidLook = isDevFieldAuditAuth() && lookParam(searchParams) === 'money-4-part-paid';
+  const money4PartPaidOverdueLook = isDevFieldAuditAuth() && lookParam(searchParams) === 'money-4-part-paid-overdue';
+  const sweep7IssuedLook = isDevFieldAuditAuth() && lookParam(searchParams) === 'sweep7-issued';
 
   const { data: smtpSettings } = useQuery<SmtpSettingsRow | null>({
     queryKey: ['email-settings', profile?.company_id],
@@ -903,8 +904,8 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
 }) {
   const { profile, company: authCompany } = useAuth();
   const [searchParams] = useSearchParams();
-  const money4PaymentsListLook = isDevFieldAuditAuth() && searchParams.get('look') === 'money-4-payments-list';
-  const company = companyWithLetterheadLookMark(authCompany, searchParams.get('look')) ?? authCompany;
+  const money4PaymentsListLook = isDevFieldAuditAuth() && lookParam(searchParams) === 'money-4-payments-list';
+  const company = companyWithLetterheadLookMark(authCompany, lookParam(searchParams)) ?? authCompany;
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [clients, setClients] = useState<Client[]>([]);
@@ -1363,7 +1364,7 @@ export function InvoiceEditorModal({ invoice, presetClientId, defaultTaxRate, sm
   const showSaveFooter = showEdit && !paidReadPath;
 
   useEffect(() => {
-    const look = searchParams.get('look');
+    const look = lookParam(searchParams);
     if (look === 'invoice-edit-paid') {
       setShowEdit(false);
       setRecordedPaid(grandTotal);

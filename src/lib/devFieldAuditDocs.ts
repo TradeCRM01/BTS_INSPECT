@@ -1,5 +1,6 @@
 import { DEV_AUDIT_COMPANY, DEV_AUDIT_PROFILE, isDevFieldAuditAuth } from './devFieldAuditAuth';
 import { conversationLookClientPhone } from './enquiryConversation';
+import { lookWindowParam } from './lookParam';
 import { withScheduleJobPatches } from './scheduleJobPatchStore';
 import type { Job } from '../types/crm';
 import type { ExpenseCostModel, JobCost } from '../types/fsm';
@@ -91,7 +92,7 @@ const AUDIT_P331_COST_MODEL_ID = 'audit-p331-loaded-hourly';
 export function auditLookTag(): string | null {
   if (!isDevFieldAuditAuth()) return null;
   try {
-    return new URLSearchParams(window.location.search).get('look');
+    return lookWindowParam();
   } catch {
     return null;
   }
@@ -730,7 +731,7 @@ export function getAuditClient(id: string) {
   if (!found) return found;
   let look: string | null = null;
   try {
-    look = new URLSearchParams(window.location.search).get('look');
+    look = lookWindowParam();
   } catch {
     look = null;
   }

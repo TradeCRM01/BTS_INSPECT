@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { lookParam } from '../lib/lookParam';
 import { getAuditClients, getAuditJobs, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { AppShell } from '../components/layout/AppShell';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
@@ -387,14 +388,14 @@ export function SchedulePage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const lookParam = searchParams.get('look');
-  const lookWeekBoard = lookParam === WEEK_BOARD_LOOK;
-  const lookFix3aBoard = lookParam === FIX3A_SCHEDULE_LOOK;
+  const look = lookParam(searchParams);
+  const lookWeekBoard = look === WEEK_BOARD_LOOK;
+  const lookFix3aBoard = look === FIX3A_SCHEDULE_LOOK;
   const fix3aUnscheduledCount = lookFix3aBoard
-    ? fix3aUnscheduledLookCount(searchParams.get('unscheduled'))
+    ? fix3aUnscheduledLookCount(lookParam(searchParams, 'unscheduled'))
     : undefined;
   const boardLookActive = lookWeekBoard || lookFix3aBoard;
-  const lookEarlyBar = lookWeekBoard && searchParams.get('early') === '1';
+  const lookEarlyBar = lookWeekBoard && lookParam(searchParams, 'early') === '1';
   const [currentDate, setCurrentDate] = useState(() => {
     if (lookFix3aBoard) return FIX3A_LOOK_ANCHOR;
     if (lookWeekBoard) {

@@ -8,6 +8,7 @@ import { LoadingSpinner, PageError, ContextMenu, useToast, OpsSiteRow } from '..
 import type { MenuEntry } from '../components/ui';
 import { EnquiryConversation, useEnquiryConversation } from '../components/crm/EnquiryConversation';
 import { conversationLookClientPhone } from '../lib/enquiryConversation';
+import { lookParam } from '../lib/lookParam';
 import { JobRelatedSection, JobRelatedRow } from '../components/jobs/JobRelatedSection';
 import { resolveTenantTimeZone } from '../lib/tenantTimeZone';
 import type { Client, JobWithClient } from '../types/crm';
@@ -140,7 +141,7 @@ export function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { profile, company } = useAuth();
   const [searchParams] = useSearchParams();
-  const lookParam = import.meta.env.DEV ? searchParams.get('look') : null;
+  const look = lookParam(searchParams);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -219,7 +220,7 @@ export function ClientDetailPage() {
   const { data: complianceItems, isPending: compliancePending, isError: complianceError, refetch: refetchCompliance } = useQuery<ComplianceItem[]>({
     queryKey: ['client-compliance', id],
     queryFn: async () => {
-      if (lookParam === 'hotfix-date-bad') {
+      if (look === 'hotfix-date-bad') {
         return [{
           id: 'hotfix-date-bad',
           company_id: profile!.company_id,
@@ -318,9 +319,9 @@ export function ClientDetailPage() {
   });
 
   const conversationMessages = useEnquiryConversation({
-    look: lookParam,
+    look,
     companyId: profile?.company_id,
-    callerPhone: conversationLookClientPhone(lookParam, client?.phone),
+    callerPhone: conversationLookClientPhone(look, client?.phone),
   });
   const tenantTimeZone = resolveTenantTimeZone(
     (company as { time_zone?: string | null } | null)?.time_zone,

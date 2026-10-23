@@ -45,7 +45,7 @@ describe('team list laptop LOOK — quote paper, overflow on the sheet', () => {
     expect(page).toContain('is-flip');
     expect(page).toContain('is-shift');
     expect(page).toContain('--hub-team-list-more-shift');
-    expect(page).toContain("look') === TEAM_LIST_LOOK");
+    expect(page).toContain('look === TEAM_LIST_LOOK');
     expect(page).toContain('Alex Nguyen');
     expect(page).toContain('Jordan Admin');
     expect(page).toContain('Sam Spark');

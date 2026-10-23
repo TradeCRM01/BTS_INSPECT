@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { lookParam } from '../lib/lookParam';
 import { AppShell } from '../components/layout/AppShell';
 import {
   ContextMenu,
@@ -213,8 +214,8 @@ export function ReportsListPage() {
   const queryClient = useQueryClient();
   const params = useParams<{ folderId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const lookReportsList = searchParams.get('look') === REPORTS_LIST_LOOK;
-  const lookReportsError = searchParams.get('look') === REPORTS_ERROR_LOOK;
+  const lookReportsList = lookParam(searchParams) === REPORTS_LIST_LOOK;
+  const lookReportsError = lookParam(searchParams) === REPORTS_ERROR_LOOK;
   const openId = parseReportsListOpenId(searchParams.get('id'));
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(params.folderId ?? null);
   const [folderStack, setFolderStack] = useState<{ id: string | null; name: string }[]>([{ id: null, name: 'Reports' }]);

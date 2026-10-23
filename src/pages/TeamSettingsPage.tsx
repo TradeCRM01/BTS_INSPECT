@@ -51,6 +51,7 @@ import {
 } from '../lib/updateMemberSettings';
 import type { ExpenseCostModel } from '../types/fsm';
 import { DEV_AUDIT_PROFILE } from '../lib/devFieldAuditAuth';
+import { lookParam } from '../lib/lookParam';
 import { UserPlus, Mail, Eye, CreditCard as Edit2, EyeOff, Trash2, Crown, X, Check, AlertCircle, Send, Copy, MoreHorizontal } from 'lucide-react';
 import { safeFormatDate } from '../lib/safeDate';
 
@@ -719,12 +720,12 @@ export function TeamSettingsPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const lookTeamList = searchParams.get('look') === TEAM_LIST_LOOK;
-  const lookPersonTickets = searchParams.get('look') === PERSON_TICKETS_LOOK;
-  const lookParam = searchParams.get('look');
-  const lookP331Team = lookParam === 'p331-team-select' || lookParam === 'p331-team-empty' || lookParam === 'p331-team-fail' || lookParam === 'p331-team-persist';
+  const look = lookParam(searchParams);
+  const lookTeamList = look === TEAM_LIST_LOOK;
+  const lookPersonTickets = look === PERSON_TICKETS_LOOK;
+  const lookP331Team = look === 'p331-team-select' || look === 'p331-team-empty' || look === 'p331-team-fail' || look === 'p331-team-persist';
   const lookTeamSeed = lookTeamList || lookPersonTickets || lookP331Team;
-  const lookFail = lookParam === 'p331-team-fail';
+  const lookFail = look === 'p331-team-fail';
   const [search, setSearch] = useState('');
   const [memberSettingsError, setMemberSettingsError] = useState(lookFail ? MEMBER_SETTINGS_NO_ROW : '');
   const [costModelDraft, setCostModelDraft] = useState<string | null>(null);
@@ -829,7 +830,7 @@ export function TeamSettingsPage() {
   });
 
   const costModelsQuery = useQuery<ExpenseCostModel[]>({
-    queryKey: ['expense-cost-models-team', company?.id, lookParam],
+    queryKey: ['expense-cost-models-team', company?.id, look],
     queryFn: async () => {
       const audit = getAuditExpenseCostModels();
       if (audit) return audit;

@@ -27,7 +27,7 @@ describe('schedule desktop 1280 — week board min height and capped needs-date 
     expect(lgBlock).toContain('.hub-schedule-needs-date-rail > .ops-tray-head');
     expect(page).toContain('hub-schedule-needs-date-rail');
     expect(page).toContain('fix3aUnscheduledLookCount');
-    expect(page).toContain("searchParams.get('unscheduled')");
+    expect(page).toContain("lookParam(searchParams, 'unscheduled')");
   });
 
   it('supports 17 and 60 unscheduled LOOK seeds without changing phone layout classes', () => {

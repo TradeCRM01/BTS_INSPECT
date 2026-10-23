@@ -11,6 +11,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth, pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { lookParam, lookWindowSearch } from '../lib/lookParam';
 import { DATE_INVALID_MESSAGE, DATE_REQUIRED_MESSAGE, isoDateKey } from '../lib/dateTimeIntegrity';
 import {
   auditExpenseReceiptSeed,
@@ -960,8 +961,8 @@ export function ExpensesPage() {
 
   useEffect(() => {
     try {
-      const params = new URLSearchParams(window.location.search);
-      const look = params.get('look');
+      const params = lookWindowSearch();
+      const look = lookParam(params);
       if (look === SCAN_LOOK_BUNNINGS) {
         setReceiptPrefill(auditExpenseReceiptSeed());
         setReceiptPreviewUrl(BUNNINGS_RECEIPT_PREVIEW);
@@ -1004,7 +1005,7 @@ export function ExpensesPage() {
         return;
       }
       if (!isDevFieldAuditAuth()) return;
-      if (params.get('scanReceipt') !== '1') return;
+      if (lookParam(params, 'scanReceipt') !== '1') return;
       setReceiptPrefill(auditExpenseReceiptSeed());
       setReceiptPreviewUrl(BUNNINGS_RECEIPT_PREVIEW);
       setEditing(null);

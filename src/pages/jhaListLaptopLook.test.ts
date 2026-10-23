@@ -46,7 +46,7 @@ describe('JHA list laptop LOOK — quote paper, overflow on the sheet', () => {
     expect(page).toContain('is-flip');
     expect(page).toContain('is-shift');
     expect(page).toContain('--hub-jha-list-more-shift');
-    expect(page).toContain("look') === JHA_LIST_LOOK");
+    expect(page).toContain('lookParam(searchParams) === JHA_LIST_LOOK');
     expect(page).toContain('Northside Electrical');
     expect(page).toContain('Harbour Lights');
     expect(page).toContain('Midland Workshops');

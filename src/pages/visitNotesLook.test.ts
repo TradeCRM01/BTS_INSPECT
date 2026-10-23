@@ -136,7 +136,7 @@ describe('job-sheet Job notes & photos LOOK', () => {
     expect(lookCss).not.toContain('hub-jobs-tools .btn-primary');
     expect(lookCss).not.toContain('ops-next-control-block');
     expect(lookCss).not.toMatch(/\bute\b/i);
-    expect(src('src/lib/devFieldAuditAuth.ts')).toContain("params.get('look') === 'visit-notes'");
+    expect(src('src/lib/devFieldAuditAuth.ts')).toContain("look === 'visit-notes'");
   });
 
   it('keeps Arriving shortly as the one 44px #2E75B6 and does not rewrite persist', () => {
@@ -165,8 +165,8 @@ describe('job-sheet Job notes & photos LOOK', () => {
 
   it('gates the look harness to DEV and leaves stay-off floors alone', () => {
     const page = src('src/pages/JobDetailPage.tsx');
-    expect(page).toContain("if (!import.meta.env.DEV) return null");
-    expect(page).toContain(".get('look')");
+    expect(page).toContain('lookWindowParam()');
+    expect(page).toContain('lookParam(searchParams)');
     expect(page).toContain('visit-notes');
     expect(page).not.toContain('MarketingPage');
     expect(page).not.toContain('hub-expenses');

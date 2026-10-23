@@ -30,7 +30,7 @@ describe('Expenses scan-receipt cream paper look', () => {
     expect(page).toContain('.hub-expenses-class.is-on');
     expect(page).toContain("const SCAN_LOOK_BUNNINGS = 'scan-bunnings'");
     expect(page).toContain("const SCAN_LOOK_OVERHEAD = 'scan-overhead'");
-    expect(page).toContain("params.get('look')");
+    expect(page).toContain('lookParam(params)');
     expect(page).toContain('look === SCAN_LOOK_BUNNINGS');
     expect(page).toContain('look === SCAN_LOOK_OVERHEAD');
     expect(page).toContain('OVERHEAD_RECEIPT_PREVIEW');

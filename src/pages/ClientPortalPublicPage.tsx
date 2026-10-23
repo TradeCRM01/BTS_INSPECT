@@ -16,6 +16,7 @@ import {
   portalErrorCard,
   shouldRetryPortalQuery,
 } from '../lib/clientPortalFetch';
+import { lookParam } from '../lib/lookParam';
 
 type PortalCompany = {
   name: string;
@@ -111,7 +112,7 @@ export type PortalPayload =
 type PortalAuditPayload = Extract<PortalPayload, { kind: 'portal' }>;
 
 export function isDevClientPortalAudit(params: URLSearchParams): boolean {
-  return import.meta.env.DEV && params.get('auditAuth') === '1';
+  return import.meta.env.DEV && lookParam(params, 'auditAuth') === '1';
 }
 
 export function clientPortalAuditFixture(look?: string | null): PortalAuditPayload {
@@ -291,9 +292,8 @@ export function ClientPortalPublicPage() {
   const [params] = useSearchParams();
   const token = useMemo(() => (params.get('t') || params.get('token') || '').trim(), [params]);
   const auditPortal = isDevClientPortalAudit(params);
-  const portalLook = params.get('look');
   const [auditData, setAuditData] = useState<PortalAuditPayload | null>(
-    () => auditPortal ? clientPortalAuditFixture(portalLook) : null,
+    () => auditPortal ? clientPortalAuditFixture(lookParam(params)) : null,
   );
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [acceptError, setAcceptError] = useState<string | null>(null);

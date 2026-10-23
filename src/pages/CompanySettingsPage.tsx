@@ -12,6 +12,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { invalidateAllJobBillInvoicePreviews } from '../lib/jobBillInvoicePreviewQuery';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
+import { lookParam } from '../lib/lookParam';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
 import { ArrowRight, Check, Upload, Plus, Trash2, Mail, Eye, EyeOff, AlertCircle, CheckCircle2, Users, Palette, Download } from 'lucide-react';
@@ -630,10 +631,10 @@ export function CompanySettingsPage() {
   const queryClient = useQueryClient();
   const { company: authCompany, profile, refreshProfile } = useAuth();
   const [searchParams] = useSearchParams();
-  const lookParam = import.meta.env.DEV ? searchParams.get('look') : null;
-  const company = companyWithLetterheadLookMark(authCompany, searchParams.get('look')) ?? authCompany;
+  const look = lookParam(searchParams);
+  const company = companyWithLetterheadLookMark(authCompany, look) ?? authCompany;
   const isAdmin = profile?.role === 'admin';
-  const smsTextbackLook = smsTextbackLookKind(lookParam);
+  const smsTextbackLook = smsTextbackLookKind(look);
   const showSmsTextback = smsTextbackLook != null || ENQUIRY_SURFACE_LIVE;
   const settingsNavChips = companySettingsNavChips({
     isAdmin,
@@ -888,15 +889,15 @@ export function CompanySettingsPage() {
 
   async function loadSmsTextback() {
     if (!company) return;
-    const seeded = lookSmsTextbackSettings(lookParam);
-    const seededReplies = lookSmsReplyTemplates(lookParam);
+    const seeded = lookSmsTextbackSettings(look);
+    const seededReplies = lookSmsReplyTemplates(look);
     if (seeded) {
       setSmsTextback(seeded);
       setSmsTextbackError(smsDisplayNameError(seeded.businessName) ?? '');
       if (seededReplies) setSmsReplies(seededReplies);
       return;
     }
-    if (!shouldQueryLiveSmsTextback(lookParam) && !shouldQueryLiveSmsReplies(lookParam)) return;
+    if (!shouldQueryLiveSmsTextback(look) && !shouldQueryLiveSmsReplies(look)) return;
     const { data, error } = await supabase
       .from('sms_automation_settings')
       .select('enabled, business_name, test_mode, hourly_message_cap, daily_message_cap, monthly_message_cap, ack_template, thanks_template, help_template')
@@ -915,7 +916,7 @@ export function CompanySettingsPage() {
       setSmsTextback(next);
       return;
     }
-    if (!shouldQueryLiveSmsTextback(lookParam)) return;
+    if (!shouldQueryLiveSmsTextback(look)) return;
     setSavingSmsTextback(true);
     const result = await saveSmsTextbackSettings({
       enabled: next.enabled,
@@ -1007,7 +1008,7 @@ export function CompanySettingsPage() {
       setTimeout(() => setSmsRepliesSaved(false), 2000);
       return;
     }
-    if (!shouldQueryLiveSmsReplies(lookParam)) return;
+    if (!shouldQueryLiveSmsReplies(look)) return;
     setSavingSmsReplies(true);
     const result = await saveSmsReplyTemplates({
       ...smsReplies,

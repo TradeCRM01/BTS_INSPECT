@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { lookProofOn } from './lookParam';
 import { ENQUIRY_SURFACE_LIVE } from './missedCallEnquiry';
 import { gsm7Segments, isGsm7, renderMissedCallAck } from './missedCallSmsCopy';
 
@@ -35,7 +36,7 @@ export const emptySmsTextbackSettings: SmsTextbackSettings = {
 export function smsTextbackLookKind(
   look: string | null | undefined,
 ): 'ready' | 'invalid' | null {
-  if (!import.meta.env.DEV) return null;
+  if (!lookProofOn()) return null;
   if (look === SMS_SETTINGS_LOOK) return 'ready';
   if (look === SMS_SETTINGS_INVALID_LOOK) return 'invalid';
   return null;

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Copy, FileText, MoreHorizontal, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
+import { lookParam } from '../lib/lookParam';
 import {
   AUDIT_JHA_DOC_ID,
   getAuditClient,
@@ -153,7 +154,7 @@ export function JhaDocumentsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
-  const lookJhaList = searchParams.get('look') === JHA_LIST_LOOK;
+  const lookJhaList = lookParam(searchParams) === JHA_LIST_LOOK;
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<JhaListFilter>(lookJhaList ? 'all' : 'open');
   const [dupError, setDupError] = useState('');

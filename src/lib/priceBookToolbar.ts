@@ -1,4 +1,5 @@
 import { formatMoney, type PriceBookItem } from '../types/fsm';
+import { lookProofOn } from './lookParam';
 
 export const PRICE_BOOKS_SUBTITLE = 'Your prices for quick, consistent quotes.';
 export const PRICE_BOOKS_LOOK = 'price-books';
@@ -7,7 +8,7 @@ export const PRICE_BOOKS_LOOK = 'price-books';
 export const PB_LOOK_LABOUR_ACTIVE_KEY = 'pb-look-labour-active';
 
 export function setPbLookLabourActive(active: boolean): void {
-  if (!import.meta.env.DEV) return;
+  if (!lookProofOn()) return;
   try {
     sessionStorage.setItem(PB_LOOK_LABOUR_ACTIVE_KEY, active ? '1' : '0');
   } catch {
@@ -16,7 +17,7 @@ export function setPbLookLabourActive(active: boolean): void {
 }
 
 export function readPbLookLabourActive(): boolean | null {
-  if (!import.meta.env.DEV) return null;
+  if (!lookProofOn()) return null;
   try {
     const v = sessionStorage.getItem(PB_LOOK_LABOUR_ACTIVE_KEY);
     if (v === '1') return true;

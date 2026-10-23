@@ -45,7 +45,7 @@ describe('compliance list laptop LOOK — quote paper, overflow on the sheet', (
     expect(page).toContain('is-flip');
     expect(page).toContain('is-shift');
     expect(page).toContain('--hub-compliance-list-more-shift');
-    expect(page).toContain("look') === COMPLIANCE_LIST_LOOK");
+    expect(page).toContain('lookParam(searchParams) === COMPLIANCE_LIST_LOOK');
     expect(page).toContain('Annual RCD test');
     expect(page).toContain('Fire extinguisher service');
     expect(page).toContain('Switchboard warranty');

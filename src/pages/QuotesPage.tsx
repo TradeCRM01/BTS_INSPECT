@@ -11,6 +11,7 @@ import {
   isDevFieldAuditAuth,
   pageQueryBlocked,
 } from '../lib/devFieldAuditAuth';
+import { lookParam, lookWindowParam } from '../lib/lookParam';
 import {
   AUDIT_DOC_CLIENT_ID,
   AUDIT_CONVERT_JOB_73_ID,
@@ -175,7 +176,7 @@ function fieldAuditIssuedSweep7Quote(): QuoteListItem | null {
   if (!isDevFieldAuditAuth()) return null;
   let look: string | null = null;
   try {
-    look = new URLSearchParams(window.location.search).get('look');
+    look = lookWindowParam();
   } catch {
     look = null;
   }
@@ -476,7 +477,7 @@ export function QuotesPage() {
   const [focusConvert, setFocusConvert] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const lookLetterhead = searchParams.get('look') === LETTERHEAD_LOOK;
+  const lookLetterhead = lookParam(searchParams) === LETTERHEAD_LOOK;
   const [presetClientId, setPresetClientId] = useState<string | null>(null);
   const [sendingQuoteId, setSendingQuoteId] = useState<string | null>(null);
   const [chasingQuoteId, setChasingQuoteId] = useState<string | null>(null);
@@ -488,7 +489,7 @@ export function QuotesPage() {
   const sendCompany = quoteSendCompanyFrom(company);
   const Speech = browserSpeechRecognition();
 
-  const sweep7IssuedLook = searchParams.get('look') === 'sweep7-issued';
+  const sweep7IssuedLook = lookParam(searchParams) === 'sweep7-issued';
   const { data: quotes, isLoading, isPending, error } = useQuery<QuoteListItem[]>({
     queryKey: ['quotes', sweep7IssuedLook ? 'sweep7-issued' : 'live'],
     queryFn: async () => {
@@ -1072,7 +1073,7 @@ export function QuoteEditorModal({ quote, presetClientId, defaultTaxRate, focusC
 }) {
   const { profile, company: authCompany } = useAuth();
   const [searchParams] = useSearchParams();
-  const company = companyWithLetterheadLookMark(authCompany, searchParams.get('look')) ?? authCompany;
+  const company = companyWithLetterheadLookMark(authCompany, lookParam(searchParams)) ?? authCompany;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast } = useToast();

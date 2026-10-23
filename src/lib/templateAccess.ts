@@ -1,3 +1,5 @@
+import { lookWindowParam } from './lookParam';
+
 export type TemplateAccessLevel = 'view' | 'edit' | 'none';
 
 export type TemplateAccessProfile = {
@@ -30,11 +32,7 @@ export function throwIfNoRows(result: {
 }
 
 export function templatesLookDenied(): boolean {
-  try {
-    return new URLSearchParams(window.location.search).get('look') === 'p331-templates-none';
-  } catch {
-    return false;
-  }
+  return lookWindowParam() === 'p331-templates-none';
 }
 
 export function canViewTemplates(profile: TemplateAccessProfile | null | undefined): boolean {
