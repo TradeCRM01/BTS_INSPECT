@@ -13,6 +13,10 @@ describe('P1b Today board layout', () => {
     const src = readFileSync(resolve(process.cwd(), 'src/components/layout/p1Dashboard.chromium.kill.tsx'), 'utf8');
     expect(src).toContain("P1b-layout: painted section rects match the light mockup at 390 and 1280");
     expect(src).toContain('P1b-layout mutant: swapping jobs and needs in TodayBoardView goes red');
+    expect(src).toContain('P1b-board-above-grid: board bottom sits before the widget grid top at 375/390/768/1024/1280');
+    expect(src).toContain('P1b-grid-clip: no clipped text on any grid card in view and edit, no id filter');
+    expect(src).toContain('P1b-edit-overlap: edit handles miss card text at 375/390/768/1024/1280');
+    expect(src).toContain('C7 painted: overdue copy sits in a warn pill rect');
     expect(src).not.toContain("expect(ids).toEqual(['s1', 's2', 's3', 's4', 's6', 's10', 's11', 's13', 's14', 's15', 's12'])");
   });
 });

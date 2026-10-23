@@ -13200,8 +13200,25 @@
 
   .dashboard-home-widget.is-editing {
     outline: 1px solid color-mix(in srgb, var(--g-accent) 35%, var(--dashboard-home-line));
+  }
+
+  .dashboard-home-edit-chrome {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 52px;
+    padding: 0 4px;
     box-sizing: border-box;
-    padding: 52px 52px 48px 52px;
+    flex-shrink: 0;
+  }
+
+  .dashboard-home-edit-foot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    height: 48px;
+    box-sizing: border-box;
+    flex-shrink: 0;
   }
 
   .dashboard-home-widget.is-dragging {

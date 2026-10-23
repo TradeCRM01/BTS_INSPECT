@@ -73,6 +73,7 @@ import {
   isRetiredDashboardWidgetType,
   measureDashboardCanvasWidth,
   pickerDashboardWidgets,
+  layoutDashboardWidgetsForEdit,
   placeAddedDashboardWidget,
   repairDashboardWidgetLayout,
   defaultDashboardWidgetInserts,
@@ -233,7 +234,7 @@ function dashboardLookWidgets(): DashboardWidget[] {
       grid_x: 0,
       grid_y: 0,
       grid_w: 360,
-      grid_h: 200,
+      grid_h: 280,
       config: {
         lookJobs: [
           {
@@ -263,7 +264,7 @@ function dashboardLookWidgets(): DashboardWidget[] {
       grid_x: 376,
       grid_y: 0,
       grid_w: 280,
-      grid_h: 200,
+      grid_h: 280,
       config: {
         lookInvoices: {
           count: 1,
@@ -287,7 +288,7 @@ function dashboardLookWidgets(): DashboardWidget[] {
       grid_x: 672,
       grid_y: 0,
       grid_w: 320,
-      grid_h: 200,
+      grid_h: 280,
       config: {
         lookCompliance: {
           upcoming: [
@@ -1091,13 +1092,18 @@ export function DashboardPage() {
     if (rs?.last) persistWidget(rs.id, rs.last);
   }, [persistWidget, onResizeMove]);
 
+  const editCanvasWidgets = useMemo(
+    () => (editMode ? layoutDashboardWidgetsForEdit(shownWidgets) : shownWidgets),
+    [shownWidgets, editMode],
+  );
+
   const canvasHeight = useMemo(() => {
-    const ws = shownWidgets;
+    const ws = editCanvasWidgets;
     const floor = editMode ? 320 : 0;
     if (!ws.length) return floor;
     const maxBottom = Math.max(...ws.map(w => w.grid_y + w.grid_h));
     return Math.max(floor, maxBottom + CANVAS_PAD);
-  }, [shownWidgets, editMode]);
+  }, [editCanvasWidgets, editMode]);
 
   const viewWidgets = useMemo(
     () => sortDashboardWidgetsForView(shownWidgets),
@@ -1164,6 +1170,7 @@ export function DashboardPage() {
               needCrewCount={needCrewCount}
             />
 
+            <div className="today-grid-below" data-today-grid="1">
             <section className="today-sec today-reminders dashboard-home-strip" data-today-section="s12" data-dashboard-reminders="1">
               <div className="today-sec-h dashboard-home-section-head">
                 <h2 className="ops-section-title" id="today-reminders-h">Reminders</h2>
@@ -1266,17 +1273,20 @@ export function DashboardPage() {
                           className={`dashboard-home-canvas relative overflow-x-auto is-editing`}
                           style={{ height: canvasHeight, minWidth: '100%' }}
                         >
-                          {shownWidgets.map(w => (
-                            <FreeWidget
-                              key={w.id}
-                              widget={w}
-                              editMode={editMode}
-                              onRemove={() => removeWidget(w.id)}
-                              onResizeStart={(e) => startResize(e, w)}
-                              onConfigChange={(c) => updateWidgetConfig(w.id, c)}
-                              isDragging={activeId === w.id}
-                            />
-                          ))}
+                          {editCanvasWidgets.map(w => {
+                            const stored = shownWidgets.find(row => row.id === w.id) ?? w;
+                            return (
+                              <FreeWidget
+                                key={w.id}
+                                widget={w}
+                                editMode={editMode}
+                                onRemove={() => removeWidget(w.id)}
+                                onResizeStart={(e) => startResize(e, stored)}
+                                onConfigChange={(c) => updateWidgetConfig(w.id, c)}
+                                isDragging={activeId === w.id}
+                              />
+                            );
+                          })}
                         </div>
                       </DndContext>
                     </div>
@@ -1302,6 +1312,7 @@ export function DashboardPage() {
                 )}
               </div>
             )}
+            </div>
           </div>
         </article>
       </div>
@@ -1493,7 +1504,7 @@ function DashboardHomeMore({
 function FreeWidget({
   widget, editMode, onRemove, onResizeStart, onConfigChange, isDragging,
 }: {
-  widget: DashboardWidget;
+  widget: DashboardWidget & { content_h?: number };
   editMode: boolean;
   onRemove: () => void;
   onResizeStart: (e: React.PointerEvent) => void;
@@ -1509,6 +1520,7 @@ function FreeWidget({
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
     : {};
 
+  const contentH = widget.content_h ?? widget.grid_h;
   const posStyle: React.CSSProperties = {
     left: widget.grid_x,
     top: widget.grid_y,
@@ -1521,60 +1533,56 @@ function FreeWidget({
       ref={setNodeRef}
       data-dashboard-widget-id={widget.id}
       style={{ ...posStyle, ...dragStyle }}
-      className={`absolute ${isDragging || isDragActive ? 'z-50' : 'z-10'} ${isDragActive ? 'select-none' : ''}`}
+      className={`absolute flex flex-col ${isDragging || isDragActive ? 'z-50' : 'z-10'} ${isDragActive ? 'select-none' : ''}`}
     >
+      {editMode && (
+        <div className="dashboard-home-edit-chrome">
+          <button
+            {...attributes}
+            {...listeners}
+            className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-md bg-white border border-gray-200 shadow-sm text-gray-400 cursor-grab active:cursor-grabbing hover:text-gray-600 hover:bg-gray-50 transition-colors touch-none"
+            title="Drag to move"
+          >
+            <GripVertical size={14} />
+          </button>
+          <button
+            onClick={onRemove}
+            className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-md bg-white border border-gray-200 shadow-sm text-red-500 hover:bg-red-50 transition-colors"
+            title="Remove widget"
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
+      )}
+
       <div
-        className={`dashboard-home-widget h-full w-full overflow-hidden ${
+        className={`dashboard-home-widget w-full overflow-hidden ${
           editMode ? 'is-editing' : ''
         } ${isDragging || isDragActive ? 'is-dragging' : ''}`}
+        style={{ height: contentH }}
       >
-        {/* Edit-mode controls bar */}
-        {editMode && (
-          <div className="absolute top-1.5 left-1.5 z-20 flex items-center gap-1">
-            <button
-              {...attributes}
-              {...listeners}
-              className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-md bg-white border border-gray-200 shadow-sm text-gray-400 cursor-grab active:cursor-grabbing hover:text-gray-600 hover:bg-gray-50 transition-colors touch-none"
-              title="Drag to move"
-            >
-              <GripVertical size={14} />
-            </button>
-          </div>
-        )}
-
-        {editMode && (
-          <div className="absolute top-1.5 right-1.5 z-20">
-            <button
-              onClick={onRemove}
-              className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-md bg-white border border-gray-200 shadow-sm text-red-500 hover:bg-red-50 transition-colors"
-              title="Remove widget"
-            >
-              <Trash2 size={13} />
-            </button>
-          </div>
-        )}
-
-        <div className={`dashboard-home-widget-ink h-full ${editMode ? 'is-editing' : ''}`}>
+        <div className="dashboard-home-widget-ink h-full">
           <WidgetRenderer
             type={widget.widget_type}
             config={(widget.config as Record<string, unknown>) ?? {}}
             onConfigChange={onConfigChange}
           />
         </div>
+      </div>
 
-        {/* Resize handle */}
-        {editMode && (
+      {editMode && (
+        <div className="dashboard-home-edit-foot">
           <div
             onPointerDown={onResizeStart}
-            className="dashboard-home-widget-resize absolute bottom-0 right-0 z-20 min-w-[44px] min-h-[44px] w-11 h-11 cursor-se-resize touch-none flex items-end justify-end"
+            className="dashboard-home-widget-resize min-w-[44px] min-h-[44px] w-11 h-11 cursor-se-resize touch-none flex items-end justify-end"
             title="Drag to resize"
           >
             <svg width="10" height="10" viewBox="0 0 10 10" className="text-gray-400">
               <path d="M9 1L1 9M9 5L5 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
             </svg>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

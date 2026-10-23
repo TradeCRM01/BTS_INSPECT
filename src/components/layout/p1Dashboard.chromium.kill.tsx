@@ -372,6 +372,92 @@ function section(boxes: SectionBox[], id: string): SectionBox {
   return row;
 }
 
+function readBoardGridEdges(): { boardBottom: number; gridTop: number; boardTop: number; gridBottom: number } {
+  const board = document.querySelector('[data-today-board]') as HTMLElement | null;
+  const grid = document.querySelector('[data-today-grid]') as HTMLElement | null;
+  if (!board || !grid) throw new Error('today board or grid missing');
+  const b = board.getBoundingClientRect();
+  const g = grid.getBoundingClientRect();
+  return { boardBottom: b.bottom, gridTop: g.top, boardTop: b.top, gridBottom: g.bottom };
+}
+
+function gridCardClipScript(): { cards: number; hits: Array<{ id: string; text: string; why: string }> } {
+  const vis = (el: Element) => {
+    const s = getComputedStyle(el as HTMLElement);
+    const r = el.getBoundingClientRect();
+    return s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0
+      && r.width > 0 && r.height > 0;
+  };
+  const inter = (a: DOMRect, b: DOMRect) => {
+    const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+    const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+    if (w <= 0 || h <= 0) return 0;
+    return Math.min(w, h);
+  };
+  const clips = (el: Element) => {
+    const s = getComputedStyle(el as HTMLElement);
+    return /hidden|clip/.test(s.overflow) || /hidden|clip/.test(s.overflowX) || /hidden|clip/.test(s.overflowY);
+  };
+  const contentRect = (el: HTMLElement) => {
+    const r = el.getBoundingClientRect();
+    const s = getComputedStyle(el);
+    return {
+      left: r.left + parseFloat(s.paddingLeft) + parseFloat(s.borderLeftWidth),
+      top: r.top + parseFloat(s.paddingTop) + parseFloat(s.borderTopWidth),
+      right: r.right - parseFloat(s.paddingRight) - parseFloat(s.borderRightWidth),
+      bottom: r.bottom - parseFloat(s.paddingBottom) - parseFloat(s.borderBottomWidth),
+    };
+  };
+  const clipBox = (el: Element) => {
+    let n = el.parentElement;
+    const box = { left: -Infinity, top: -Infinity, right: Infinity, bottom: Infinity };
+    while (n) {
+      if (clips(n)) {
+        const r = contentRect(n);
+        box.left = Math.max(box.left, r.left);
+        box.top = Math.max(box.top, r.top);
+        box.right = Math.min(box.right, r.right);
+        box.bottom = Math.min(box.bottom, r.bottom);
+      }
+      n = n.parentElement;
+    }
+    return box;
+  };
+  const handleSel = '[title="Drag to move"], [title="Remove widget"], .dashboard-home-widget-resize, .dashboard-home-phone-remove';
+  const cards = [...document.querySelectorAll('[data-today-grid] [data-dashboard-widget-id]')].filter(vis) as HTMLElement[];
+  const hits: Array<{ id: string; text: string; why: string }> = [];
+  for (const host of cards) {
+    const controls = [...host.querySelectorAll(handleSel)].filter(vis) as HTMLElement[];
+    const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+      const text = (node.textContent || '').replace(/\s+/g, ' ').trim();
+      const parent = node.parentElement;
+      if (text && parent && !parent.closest(`${handleSel}, svg`)) {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const textRects = [...range.getClientRects()].filter((r) => r.width > 0.5 && r.height > 0.5);
+        const box = clipBox(parent);
+        for (const tr of textRects) {
+          const clipped = tr.left < box.left - 0.5 || tr.top < box.top - 0.5
+            || tr.right > box.right + 0.5 || tr.bottom > box.bottom + 0.5;
+          const covered = controls.some((ctrl) => inter(ctrl.getBoundingClientRect(), tr) > 0);
+          if (clipped || covered) {
+            hits.push({
+              id: host.getAttribute('data-dashboard-widget-id') || '',
+              text: text.slice(0, 80),
+              why: covered ? 'covered' : 'clipped',
+            });
+            break;
+          }
+        }
+      }
+      node = walker.nextNode();
+    }
+  }
+  return { cards: cards.length, hits };
+}
+
 function contrastRgb(a: { r: number; g: number; b: number }, b: { r: number; g: number; b: number }): number {
   const lin = (c: number) => {
     const x = c / 255;
@@ -454,7 +540,7 @@ async function paintLookFakes(page: KillPage, want: {
   await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
   await page.evaluate(async () => {
     for (let i = 0; i < 80; i += 1) {
-      const ledger = !!document.querySelector('.dashboard-home-ledger')
+      const ledger = !!document.querySelector('.today-jobs, [data-today-board]')
         || /Nothing on today/.test(document.body.textContent || '');
       const rem = document.querySelectorAll('.reminders-title').length >= 2;
       if (ledger && rem) return;
@@ -471,7 +557,7 @@ async function paintLookFakes(page: KillPage, want: {
     const remTitles = [...document.querySelectorAll('.reminders-title')]
       .map((el) => (el.textContent || '').trim())
       .filter(Boolean);
-    const crewText = [...document.querySelectorAll('[data-dashboard-job], .dashboard-home-ref')]
+    const crewText = [...document.querySelectorAll('[data-dashboard-job], .today-job-meta')]
       .map((el) => el.textContent || '')
       .join('\n');
     return {
@@ -690,7 +776,7 @@ function measureScript() {
     '.dashboard-home.ops-page input',
     '.dashboard-home.ops-page [role="button"]',
     '.dashboard-home.ops-page [role="menuitem"]',
-    '.dashboard-home.ops-page .dashboard-home-row',
+    '.dashboard-home.ops-page .today-job-row',
     '.dashboard-home-picker button',
     '.dashboard-home-picker a',
     '.reminders-tick',
@@ -950,7 +1036,7 @@ const NAVY_EXCLUDE = [
   { r: 74, g: 85, b: 104 },
   { r: 24, g: 63, b: 184 },
 ] as const;
-const T2_CSS = ':root,.dashboard-home{--ops-navy:#2B4A6F}.dashboard-home-hero::after{content:"";display:block;height:4px;background:var(--ops-navy)}';
+const T2_CSS = ':root,.dashboard-home{--ops-navy:#2B4A6F}.today-title::after{content:"";display:block;height:4px;background:var(--ops-navy)}';
 
 type CreamMask = { x: number; y: number; w: number; h: number };
 type CreamClip = { x: number; y: number; width: number; height: number };
@@ -1290,8 +1376,8 @@ function overflowScript() {
       clipHits.push((el.className || el.tagName).toString().slice(0, 80));
     }
   }
-  for (const seg of document.querySelectorAll('.dashboard-home-ref-seg')) {
-    const cell = seg.closest('.dashboard-home-ref') as HTMLElement | null;
+  for (const seg of document.querySelectorAll('.today-job-meta .today-seg')) {
+    const cell = seg.closest('.today-job-meta') as HTMLElement | null;
     if (!cell) continue;
     const cs = getComputedStyle(cell);
     const ss = getComputedStyle(seg as HTMLElement);
@@ -1453,7 +1539,7 @@ async function addPickerWidget(page: KillPage, category: string, label: string) 
 
 async function theadAxExposed(page: KillPage) {
   const hid = await page.evaluate(() => {
-    const thead = document.querySelector('.dashboard-home-thead') as HTMLElement | null;
+    const thead = document.querySelector('.today-jobs-thead') as HTMLElement | null;
     if (!thead) return true;
     const s = getComputedStyle(thead);
     return s.visibility === 'hidden'
@@ -1471,7 +1557,7 @@ async function theadAxExposed(page: KillPage) {
     };
     const found = await session.send('DOM.querySelector', {
       nodeId: doc.root.nodeId,
-      selector: '.dashboard-home-thead',
+      selector: '.today-jobs-thead',
     }) as { nodeId: number };
     if (!found.nodeId) return { Time: false, Job: false, Place: false };
     const desc = await session.send('DOM.describeNode', { nodeId: found.nodeId }) as {
@@ -2009,7 +2095,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
   it('P1-schedule-stack: 375/390 time stays left of Job with 0 overlap', async () => {
     for (const width of [375, 390] as const) {
       const page = await openPage({ width, js: dashJsNoProof, path: '/?look=dashboard' });
-      await page.waitForSelector('.dashboard-home-row .dashboard-home-title', { timeout: 20000 });
+      await page.waitForSelector('.today-job-row .today-job-title', { timeout: 20000 });
       const rows = await page.evaluate(() => {
         const inter = (a: DOMRect, b: DOMRect) => {
           const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
@@ -2017,11 +2103,11 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
           if (w <= 0 || h <= 0) return 0;
           return Math.min(w, h);
         };
-        return [...document.querySelectorAll('.dashboard-home-row')].map((row) => {
-          const time = row.querySelector('.dashboard-home-time') as HTMLElement | null;
-          const title = row.querySelector('.dashboard-home-title') as HTMLElement | null;
-          const meta = row.querySelector('.dashboard-home-ref') as HTMLElement | null;
-          const pill = row.querySelector('.dashboard-home-crew-schedule') as HTMLElement | null;
+        return [...document.querySelectorAll('.today-job-row')].map((row) => {
+          const time = row.querySelector('.today-time') as HTMLElement | null;
+          const title = row.querySelector('.today-job-title') as HTMLElement | null;
+          const meta = row.querySelector('.today-job-meta') as HTMLElement | null;
+          const pill = row.querySelector('.today-pill') as HTMLElement | null;
           if (!time || !title || !meta || !pill) throw new Error('schedule row missing time/title/meta/pill');
           const t = time.getBoundingClientRect();
           const ti = title.getBoundingClientRect();
@@ -2053,9 +2139,9 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
   it('P1-schedule-thead: no visible Time/Job thead below 640, still in the a11y tree', async () => {
     for (const width of [375, 390] as const) {
       const page = await openPage({ width, js: dashJsNoProof, path: '/?look=dashboard' });
-      await page.waitForSelector('.dashboard-home-thead', { timeout: 20000, state: 'attached' });
+      await page.waitForSelector('.today-jobs-thead', { timeout: 20000, state: 'attached' });
       const read = () => page.evaluate(() => {
-        const thead = document.querySelector('.dashboard-home-thead') as HTMLElement | null;
+        const thead = document.querySelector('.today-jobs-thead') as HTMLElement | null;
         if (!thead) throw new Error('thead missing');
         const s = getComputedStyle(thead);
         const r = thead.getBoundingClientRect();
@@ -2099,12 +2185,12 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
   it('P1-schedule-meta: #0141 wraps ≤2 lines and only after · at 375/390', async () => {
     for (const width of [375, 390] as const) {
       const page = await openPage({ width, js: dashJsNoProof, path: '/?look=dashboard' });
-      await page.waitForSelector('.dashboard-home-ref-seg', { timeout: 20000 });
+      await page.waitForSelector('.today-seg', { timeout: 20000 });
       const box = await page.evaluate((want: string) => {
-        const ref = [...document.querySelectorAll('.dashboard-home-ref')]
+        const ref = [...document.querySelectorAll('.today-job-meta')]
           .find((el) => (el.textContent || '').includes('#0141.A$')) as HTMLElement | undefined;
         if (!ref) throw new Error('0141 meta missing');
-        const segs = [...ref.querySelectorAll('.dashboard-home-ref-seg')] as HTMLElement[];
+        const segs = [...ref.querySelectorAll('.today-seg')] as HTMLElement[];
         const lineCount = (el: Element) => {
           const cr = (el as HTMLElement).getBoundingClientRect();
           const range = document.createRange();
@@ -2173,15 +2259,15 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
   it('P1-schedule-meta-long: a single long segment does not overflow at 375/390', async () => {
     for (const width of [375, 390] as const) {
       const page = await openPage({ width, js: dashJsNoProof, path: '/?look=dashboard' });
-      await page.waitForSelector('.dashboard-home-ref-seg', { timeout: 20000 });
+      await page.waitForSelector('.today-seg', { timeout: 20000 });
       const box = await page.evaluate((long: string) => {
-        const segs = [...document.querySelectorAll('.today-jobs-table .dashboard-home-ref-seg')] as HTMLElement[];
-        const cell = (segs[0]?.closest('td') || segs[0]?.closest('.dashboard-home-ref')) as HTMLElement | null;
+        const segs = [...document.querySelectorAll('.today-jobs-table .today-seg')] as HTMLElement[];
+        const cell = (segs[0]?.closest('td') || segs[0]?.closest('.today-job-meta')) as HTMLElement | null;
         if (!segs.length || !cell) throw new Error('meta seg missing');
         segs[0].textContent = long;
         return {
           segs: segs.map((seg) => {
-            const host = (seg.closest('td') || seg.closest('.dashboard-home-ref')) as HTMLElement;
+            const host = (seg.closest('td') || seg.closest('.today-job-meta')) as HTMLElement;
             return {
               right: Math.min(seg.getBoundingClientRect().right, host.getBoundingClientRect().right),
               cellRight: host.getBoundingClientRect().right,
@@ -2203,9 +2289,9 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
   it('P1-schedule-meta-ellipsis: 768/1024 #0141 painted meta prefix equals main', async () => {
     const painted = async (width: number, css?: string) => {
       const page = await openPage({ width, js: dashJsNoProof, path: '/?look=dashboard', css });
-      await page.waitForSelector('.dashboard-home-ref-seg', { timeout: 20000 });
+      await page.waitForSelector('.today-seg', { timeout: 20000 });
       const s = await page.evaluate(() => {
-        const ref = [...document.querySelectorAll('.dashboard-home-ref')]
+        const ref = [...document.querySelectorAll('.today-job-meta')]
           .find((el) => (el.textContent || '').includes('#0141.A$')) as HTMLElement | undefined;
         if (!ref) throw new Error('0141 meta missing');
         const cr = ref.getBoundingClientRect();
@@ -2226,7 +2312,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
         let n: Node | null;
         while (!cut && (n = w.nextNode())) {
           const t = n as Text;
-          const atom = t.parentElement?.closest('.dashboard-home-ref-seg') as HTMLElement | null;
+          const atom = t.parentElement?.closest('.today-seg') as HTMLElement | null;
           if (
             atom
             && /inline-block/.test(getComputedStyle(atom).display)
@@ -2261,16 +2347,16 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
   it('P1-schedule-tracks: 768/1024/1280 header cell x equals row cell x', async () => {
     for (const width of [768, 1024, 1280] as const) {
       const page = await openPage({ width });
-      await page.waitForSelector('.dashboard-home-row', { timeout: 20000 });
+      await page.waitForSelector('.today-job-row', { timeout: 20000 });
       const box = await page.evaluate(() => {
         const table = document.querySelector('.today-jobs-table') as HTMLElement | null;
-        const thead = (table?.querySelector('.dashboard-home-thead') || document.querySelector('.dashboard-home-thead')) as HTMLElement | null;
-        const row = (table?.querySelector('.dashboard-home-row') || document.querySelector('.dashboard-home-row')) as HTMLElement | null;
+        const thead = (table?.querySelector('.today-jobs-thead') || document.querySelector('.today-jobs-thead')) as HTMLElement | null;
+        const row = (table?.querySelector('.today-job-row') || document.querySelector('.today-job-row')) as HTMLElement | null;
         if (!thead || !row) throw new Error('thead/row missing');
         const heads = [...thead.querySelectorAll('th')] as HTMLElement[];
         const cells = [
-          row.querySelector('.dashboard-home-time'),
-          row.querySelector('.dashboard-home-job'),
+          row.querySelector('.today-time'),
+          row.querySelector('.today-job-cell'),
           row.querySelector('.dashboard-home-place'),
         ] as Array<HTMLElement | null>;
         return heads.slice(0, 3).map((head, i) => ({
@@ -2289,9 +2375,9 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
   it('P1-schedule-pill: Booked pill width is content width, not the column', async () => {
     for (const width of WIDTHS) {
       const page = await openPage({ width, js: dashJsNoProof, path: '/?look=dashboard' });
-      await page.waitForSelector('.dashboard-home-crew-schedule', { timeout: 20000 });
+      await page.waitForSelector('.today-pill', { timeout: 20000 });
       const box = await page.evaluate(() => {
-        const pill = document.querySelector('.dashboard-home-crew-schedule') as HTMLElement | null;
+        const pill = document.querySelector('.today-pill') as HTMLElement | null;
         if (!pill) throw new Error('pill missing');
         const row = (pill.closest('tr') || pill.parentElement) as HTMLElement;
         return {
@@ -2316,9 +2402,9 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       const js = await bundleDashboard();
       writeFileSync(brandPath, orig);
       const page = await openPage({ width: 375, js });
-      await page.waitForSelector('h1.today-title, h1.dashboard-home-hero', { timeout: 20000 });
+      await page.waitForSelector('h1.today-title', { timeout: 20000 });
       const mark = await page.evaluate(() =>
-        (document.querySelector('h1.today-title, h1.dashboard-home-hero')?.textContent || '').trim(),
+        (document.querySelector('h1.today-title')?.textContent || '').trim(),
       );
       const bar = await page.evaluate(() => document.querySelector('.dashboard-home-sheet-bar'));
       await page.close();
@@ -2404,18 +2490,18 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     }
   }, 240000);
 
-  it('P1b-edit-overlap mutant: padding 0 restores handle/text overlap', async () => {
+  it('P1b-edit-overlap mutant: covering handles restore handle/text overlap', async () => {
     const page = await openPage({
       width: 1024,
       path: '/?look=dashboard',
-      css: `${distCss}.dashboard-home-widget.is-editing{padding:0!important}`,
+      css: `${distCss}[data-dashboard-widget-id]{overflow:visible!important}[data-dashboard-widget-id] [title="Drag to move"]{position:absolute!important;top:70px!important;left:12px!important;width:240px!important;height:80px!important;max-width:none!important;z-index:80!important}`,
     });
     await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
     await enterEdit(page);
     const box = await page.evaluate(editOverlapScript);
     await page.close();
     expect(box.cards, 'mutant still paints widgets').toBeGreaterThan(0);
-    expect(box.maxOverlap, 'reverted padding overlaps card text').toBeGreaterThan(0);
+    expect(box.maxOverlap, 'covering handles overlap card text').toBeGreaterThan(0);
   }, 120000);
 
   it('C11 Ask the agent placeholder is >=4.5:1', async () => {
@@ -2685,27 +2771,126 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       path: '/?look=dashboard-seed',
       css: `${distCss}\n.bg-blue-700{background-color:#3B82F6!important}`,
     });
-    const ratio = await page.evaluate(() => {
+    const box = await page.evaluate(() => {
       const today = String(new Date().getDate());
       const cell = [...document.querySelectorAll('div')].find((el) => (
         el.className.includes('font-bold') && el.textContent?.trim() === today && el.className.includes('bg-blue')
       ));
-      if (!cell) return 99;
-      const cs = getComputedStyle(cell);
-      const parse = (value: string) => {
-        const m = value.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
-        if (!m) return null;
-        const lin = (c: number) => {
-          const x = c / 255;
-          return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
-        };
-        return 0.2126 * lin(Number(m[1])) + 0.7152 * lin(Number(m[2])) + 0.0722 * lin(Number(m[3]));
-      };
-      const a = parse(cs.color);
-      const b = parse(cs.backgroundColor);
-      return a == null || b == null ? 99 : (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+      if (!cell) return null;
+      cell.scrollIntoView({ block: 'center' });
+      const r = cell.getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height, fg: getComputedStyle(cell).color };
+    });
+    expect(box, 'calendar today painted').toBeTruthy();
+    const parseRgb = (value: string) => {
+      const m = value.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+      if (!m) return { r: 0, g: 0, b: 0 };
+      return { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]) };
+    };
+    const pix = await sampleClipCenter(page, {
+      x: Math.max(0, (box?.x ?? 0) + 1),
+      y: Math.max(0, (box?.y ?? 0) + 1),
+      width: 2,
+      height: 2,
     });
     await page.close();
-    expect(ratio, 'bg-blue-500 today fill stays under 4.5:1').toBeLessThan(4.5);
+    expect(contrastRgb(parseRgb(box?.fg ?? ''), pix), 'painted bg-blue-500 today fill stays under 4.5:1').toBeLessThan(4.5);
+  }, 120000);
+
+  it('P1b-board-above-grid: board bottom sits before the widget grid top at 375/390/768/1024/1280', async () => {
+    for (const width of WIDTHS) {
+      const page = await openLookDist(lookOrigin, width);
+      await page.waitForSelector('[data-today-board]', { timeout: 20000 });
+      await page.waitForSelector('[data-today-grid]', { timeout: 20000 });
+      const box = await page.evaluate(readBoardGridEdges);
+      await page.close();
+      expect(box.boardBottom, `board above grid at ${width}`).toBeLessThanOrEqual(box.gridTop + 0.5);
+    }
+  }, 180000);
+
+  it('P1b-board-above-grid mutant: reversing the sheet body stacks the grid first', async () => {
+    const page = await openPage({
+      width: 390,
+      path: '/?look=dashboard',
+      css: `${distCss}\n.dashboard-home-sheet-body{display:flex!important;flex-direction:column-reverse!important}`,
+    });
+    await page.waitForSelector('[data-today-board]', { timeout: 20000 });
+    const box = await page.evaluate(readBoardGridEdges);
+    await page.close();
+    expect(box.gridTop, 'reversed sheet paints the grid above the board').toBeLessThan(box.boardTop - 8);
+  }, 120000);
+
+  it('P1b-grid-clip: no clipped text on any grid card in view and edit, no id filter', async () => {
+    for (const width of WIDTHS) {
+      for (const mode of ['view', 'edit'] as const) {
+        const page = await openLookDist(lookOrigin, width);
+        await page.waitForSelector('[data-today-grid] [data-dashboard-widget-id]', { timeout: 20000 });
+        if (mode === 'edit') await enterEdit(page);
+        await page.setViewportSize({ width, height: 4000 });
+        const box = await page.evaluate(gridCardClipScript);
+        await page.close();
+        expect(box.cards, `grid cards at ${width} ${mode}`).toBeGreaterThan(0);
+        expect(box.hits, `no clipped grid text at ${width} ${mode}`).toEqual([]);
+      }
+    }
+  }, 240000);
+
+  it('P1b-grid-clip mutant: a 24px card height clips grid text', async () => {
+    const page = await openPage({
+      width: 1280,
+      path: '/?look=dashboard',
+      css: `${distCss}\n[data-today-grid] .dashboard-home-widget{overflow:hidden!important;max-height:24px!important}`,
+    });
+    await page.waitForSelector('[data-today-grid] [data-dashboard-widget-id]', { timeout: 20000 });
+    const box = await page.evaluate(gridCardClipScript);
+    await page.close();
+    expect(box.cards, 'mutant still paints grid cards').toBeGreaterThan(0);
+    expect(box.hits.length, '24px height clips card text').toBeGreaterThan(0);
+  }, 120000);
+
+  it('C7 painted: overdue copy sits in a warn pill rect, and the pill fill is not page grey', async () => {
+    const page = await openLookDist(lookOrigin, 1280);
+    await page.waitForSelector('.today-out-list .today-pill.is-warn', { timeout: 20000 });
+    const box = await page.evaluate(() => {
+      const pill = document.querySelector('.today-out-list .today-pill.is-warn') as HTMLElement | null;
+      if (!pill) throw new Error('warn pill missing');
+      const pr = pill.getBoundingClientRect();
+      const walker = document.createTreeWalker(pill, NodeFilter.SHOW_TEXT);
+      let overdueInPill = false;
+      let node = walker.nextNode();
+      while (node) {
+        if (/overdue/i.test(node.textContent || '')) {
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          overdueInPill = [...range.getClientRects()].every((r) => (
+            r.width < 0.5
+            || (
+              r.left >= pr.left - 1
+              && r.top >= pr.top - 1
+              && r.right <= pr.right + 1
+              && r.bottom <= pr.bottom + 1
+            )
+          ));
+          break;
+        }
+        node = walker.nextNode();
+      }
+      return {
+        pill: { x: pr.x, y: pr.y, width: pr.width, height: pr.height },
+        overdueInPill,
+        label: (pill.textContent || '').replace(/\s+/g, ' ').trim(),
+      };
+    });
+    expect(box.overdueInPill, 'overdue copy sits inside the warn pill rect').toBe(true);
+    const pix = await sampleClipCenter(page, {
+      x: Math.max(0, box.pill.x + 2),
+      y: Math.max(0, box.pill.y + 2),
+      width: Math.max(2, Math.min(8, box.pill.width - 4)),
+      height: Math.max(2, Math.min(8, box.pill.height - 4)),
+    });
+    await page.close();
+    const grey = pix.r > 80 && Math.abs(pix.r - pix.g) < 12 && Math.abs(pix.g - pix.b) < 12;
+    expect(grey, `warn pill fill is not page grey (${pix.r},${pix.g},${pix.b})`).toBe(false);
+    expect(pix.r, 'warn pill is warm').toBeGreaterThan(pix.b);
   }, 120000);
 });

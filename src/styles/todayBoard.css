@@ -473,7 +473,7 @@
   overflow: visible;
 }
 
-.today-jobs-table td.dashboard-home-job {
+.today-jobs-table td.today-job-cell {
   min-width: 0;
   width: 100%;
 }
@@ -528,8 +528,7 @@
   line-height: 20px;
 }
 
-.today-job-meta,
-.dashboard-home-ref {
+.today-job-meta {
   display: block;
   overflow: hidden;
   overflow-x: hidden;

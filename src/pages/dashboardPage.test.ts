@@ -18,7 +18,9 @@ describe('signed-in dashboard today floor', () => {
     expect(page).toContain('getAuditJobs()');
     expect(page).toContain('attachJobClients');
     expect(page).toContain('data-dashboard-home="1"');
-    expect(src('src/pages/TodayBoardView.tsx')).toContain('ops-page-title dashboard-home-hero today-title">{NAV_WORDS.today}');
+    expect(page).toContain('data-today-grid="1"');
+    expect(src('src/pages/TodayBoardView.tsx')).toContain('data-today-board="1"');
+    expect(src('src/pages/TodayBoardView.tsx')).toContain('ops-page-title today-title">{NAV_WORDS.today}');
     expect(page).not.toContain('Your dashboard is empty');
   });
 
@@ -155,13 +157,15 @@ describe('signed-in dashboard document sheet look', () => {
     expect(page).not.toContain('<header className="dashboard-home-sheet-bar">');
     expect(page).not.toContain('dashboard-home-mark">{NAV_WORDS.today}');
     expect(page).toContain('dashboard-home-sheet-body');
-    expect(src('src/pages/TodayBoardView.tsx')).toContain('dashboard-home-hero');
+    expect(src('src/pages/TodayBoardView.tsx')).toContain('today-title');
     expect(page).toContain('TodayBoardView');
     const board = src('src/pages/TodayBoardView.tsx');
     expect(board).toContain('today-eyebrow');
     expect(board).toContain('today-sub');
-    expect(board).toContain('dashboard-home-ledger');
-    expect(board).toContain('dashboard-home-row');
+    expect(board).toContain('today-jobs');
+    expect(board).toContain('today-job-row');
+    expect(board).not.toContain('dashboard-home-');
+    expect(board).not.toContain('dashboard-nudge');
     expect(page).toContain('dashboard-home-primary');
     expect(board).toContain('dashboardJobPlace(job)');
     expect(board).toContain('todayJobMeta');

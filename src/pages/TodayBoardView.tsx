@@ -108,13 +108,13 @@ export function TodayBoardView({
   const crewLine = !jobsLoading && jobs.length > 0 ? todayWhisperCrew(crewOut) : null;
 
   return (
-    <>
+    <div className="today-board" data-today-board="1">
       <header className="today-head" data-today-section="s1">
         <p className="today-eyebrow">
           <time dateTime={now.toISOString()}>{todayEyebrow(now, band !== 'p')}</time>
         </p>
         <div className="today-title-row" data-today-section="s2">
-          <h1 className="ops-page-title dashboard-home-hero today-title">{NAV_WORDS.today}</h1>
+          <h1 className="ops-page-title today-title">{NAV_WORDS.today}</h1>
           <div className="today-title-more">{band === 'p' ? more : null}</div>
         </div>
         <p className="today-sub" data-today-section="s3">
@@ -154,7 +154,7 @@ export function TodayBoardView({
             <CalendarDays size={20} aria-hidden />
             Week board
           </Link>
-          <button type="button" className="btn-primary dashboard-home-primary today-btn-primary" onClick={onNewJob}>
+          <button type="button" className="btn-primary today-btn-primary" onClick={onNewJob}>
             <Plus size={20} aria-hidden />
             New job
           </button>
@@ -207,7 +207,7 @@ export function TodayBoardView({
           <ComingSection coming={coming} team={team} />
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -441,10 +441,10 @@ function JobsSection({
   const cap = todayJobsCap(band);
   const shown = jobs.slice(0, cap);
   return (
-    <section className="today-sec today-jobs dashboard-home-ledger" data-today-section="s10" data-today-band={band} aria-labelledby="today-jobs-h">
+    <section className="today-sec today-jobs" data-today-section="s10" data-today-band={band} aria-labelledby="today-jobs-h">
       <div className="today-sec-h">
         <h2 id="today-jobs-h">Today's jobs</h2>
-        <Link to="/schedule" className="today-quiet dashboard-home-all">{band === 'p' ? 'Week' : 'Schedule'} ›</Link>
+        <Link to="/schedule" className="today-quiet">{band === 'p' ? 'Week' : 'Schedule'} ›</Link>
       </div>
       {loading ? (
         <div className="today-skel" style={{ height: 180 }} />
@@ -461,7 +461,7 @@ function JobsSection({
       ) : (
         <table className="today-jobs-table" data-today-band={band} role={band === 'p' ? 'table' : undefined}>
           <caption className="today-sr">Today's jobs</caption>
-          <thead className="dashboard-home-thead">
+          <thead className="today-jobs-thead">
             <tr>
               <th scope="col">Time</th>
               <th scope="col">Job</th>
@@ -476,32 +476,32 @@ function JobsSection({
               return (
                 <tr
                   key={job.id}
-                  className="dashboard-home-row"
+                  className="today-job-row"
                   data-dashboard-job={job.id}
                   aria-current={job.id === nowId ? 'true' : undefined}
                   role={band === 'p' ? 'row' : undefined}
                 >
-                  <td className="today-time dashboard-home-time" role={band === 'p' ? 'cell' : undefined}>
+                  <td className="today-time" role={band === 'p' ? 'cell' : undefined}>
                     {band === 'p'
                       ? todayClockLines(job.start_time, job.end_time).map((line, i) => (
                         <span key={`${job.id}-t-${i}`} className="today-time-line">{line}</span>
                       ))
                       : todayClockLabel(job.start_time, job.end_time)}
                   </td>
-                  <td className="dashboard-home-job" role={band === 'p' ? 'cell' : undefined}>
-                    <Link className="today-job-title dashboard-home-title" to={dashboardJobHref(job.id)} aria-label="Open">
+                  <td className="today-job-cell" role={band === 'p' ? 'cell' : undefined}>
+                    <Link className="today-job-title" to={dashboardJobHref(job.id)} aria-label="Open">
                       {job.title}
                     </Link>
-                    <p className="today-job-meta dashboard-home-ref">
+                    <p className="today-job-meta">
                       {meta.map((part, i) => (
-                        <span key={`${job.id}-m-${i}`} className="today-seg dashboard-home-ref-seg">
+                        <span key={`${job.id}-m-${i}`} className="today-seg">
                           {part}{i < meta.length - 1 ? ' · ' : ''}
                         </span>
                       ))}
                     </p>
                     {band === 'p' ? (
                       <>
-                        <span className={`today-pill is-${pill.tone} dashboard-home-crew-schedule`} data-crew-schedule={pill.kind}>
+                        <span className={`today-pill is-${pill.tone}`} data-crew-schedule={pill.kind}>
                           <span className="today-pill-dot" aria-hidden />
                           {pill.label}
                         </span>
@@ -514,11 +514,11 @@ function JobsSection({
                     ) : null}
                   </td>
                   {showPlace ? (
-                    <td className="today-job-meta dashboard-home-place">{dashboardJobPlace(job)}</td>
+                    <td className="today-job-meta today-job-place">{dashboardJobPlace(job)}</td>
                   ) : null}
                   {band !== 'p' ? (
                     <td className="is-status" data-crew-schedule={pill.kind}>
-                      <span className={`today-pill is-${pill.tone} dashboard-home-crew-schedule`}>
+                      <span className={`today-pill is-${pill.tone}`}>
                         <span className="today-pill-dot" aria-hidden />
                         {pill.label}
                       </span>
@@ -556,14 +556,14 @@ function NeedsSection({ nudges }: { nudges: TodayNudge[] }) {
       {nudges.length === 0 ? (
         <p className="today-empty">Nothing needs you right now</p>
       ) : (
-        <ul className="today-needs-list dashboard-nudges">
+        <ul className="today-needs-list">
           {nudges.map(nudge => (
             <li key={nudge.key}>
-              <Link to={nudge.href} className="today-need-row dashboard-nudge" data-nudge-kind={nudge.kind}>
+              <Link to={nudge.href} className="today-need-row" data-nudge-kind={nudge.kind}>
                 <span className={`today-need-dot ${needDot(nudge.kind)}`} aria-hidden />
                 <span className="today-need-copy">
-                  <span className="today-need-title dashboard-nudge-label">{nudge.label}</span>
-                  <span className="today-need-meta dashboard-nudge-detail">{nudge.detail}</span>
+                  <span className="today-need-title">{nudge.label}</span>
+                  <span className="today-need-meta">{nudge.detail}</span>
                 </span>
                 <ChevronRight className="today-need-caret" size={20} aria-hidden />
               </Link>

@@ -69,8 +69,10 @@ describe('reminders LOOK — same paper as the signed-in home', () => {
     expect(home).toContain('todayReminders(');
     expect(home).toContain('deriveNudges(');
     const board = src('src/pages/TodayBoardView.tsx');
-    expect(board).toContain('className="today-need-row dashboard-nudge" data-nudge-kind={nudge.kind}');
-    expect(board).toContain('to="/schedule" className="today-quiet dashboard-home-all"');
+    expect(board).toContain('className="today-need-row" data-nudge-kind={nudge.kind}');
+    expect(board).toContain('to="/schedule" className="today-quiet"');
+    expect(board).not.toContain('dashboard-nudge');
+    expect(board).not.toContain('dashboard-home-');
     expect(home.indexOf('TodayBoardView')).toBeLessThan(home.indexOf('data-dashboard-reminders'));
   });
 
