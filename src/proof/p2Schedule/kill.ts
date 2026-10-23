@@ -738,7 +738,8 @@ describe('P2 Schedule on the built dist', () => {
 
     const phone = await measure('week-390');
     expect.soft(phone.chrome.headerTop, '390 header not clipped at the top').toBeGreaterThanOrEqual(0);
-    expect.soft(Math.abs(phone.chrome.todayTop - phone.chrome.rangeTop), 'Today on the range row').toBeLessThanOrEqual(12);
+    expect.soft(phone.chrome.sameRangeRow, 'Today shares the range row').toBe(true);
+    expect.soft(Math.abs(phone.chrome.todayTop - phone.chrome.rangeTop), 'Today on the range row').toBeLessThanOrEqual(24);
     expect.soft(phone.chrome.quickBookTop > phone.chrome.rangeTop + 16, 'Quick book on its own row').toBe(true);
   });
 });

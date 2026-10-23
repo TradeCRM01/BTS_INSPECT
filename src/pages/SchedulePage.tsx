@@ -915,32 +915,34 @@ export function SchedulePage() {
         </button>
       </div>
       <div className="hub-week-tools">
-        <button
-          type="button"
-          className="hub-week-quiet hub-week-nav-box"
-          aria-label={viewMode === 'day' ? 'Previous day' : 'Previous week'}
-          onClick={() => applySchedule(viewMode, viewMode === 'day' ? addDays(currentDate, -1) : addWeeks(currentDate, -1))}
-        >
-          <ChevronLeft size={16} />
-        </button>
-        <p className="hub-week-range">
-          <span className="hub-week-range-full">{boardRangeLabel}</span>
-          <span className="hub-week-range-short">{viewMode === 'day' ? dayRangeShort : weekRangeShort}</span>
-        </p>
-        <button
-          type="button"
-          className="hub-week-quiet hub-week-nav-box"
-          aria-label={viewMode === 'day' ? 'Next day' : 'Next week'}
-          onClick={() => applySchedule(viewMode, viewMode === 'day' ? addDays(currentDate, 1) : addWeeks(currentDate, 1))}
-        >
-          <ChevronRight size={16} />
-        </button>
+        <div className="hub-week-range-row">
+          <button
+            type="button"
+            className="hub-week-quiet hub-week-nav-box"
+            aria-label={viewMode === 'day' ? 'Previous day' : 'Previous week'}
+            onClick={() => applySchedule(viewMode, viewMode === 'day' ? addDays(currentDate, -1) : addWeeks(currentDate, -1))}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <p className="hub-week-range">
+            <span className="hub-week-range-full">{boardRangeLabel}</span>
+            <span className="hub-week-range-short">{viewMode === 'day' ? dayRangeShort : weekRangeShort}</span>
+          </p>
+          <button
+            type="button"
+            className="hub-week-quiet hub-week-nav-box"
+            aria-label={viewMode === 'day' ? 'Next day' : 'Next week'}
+            onClick={() => applySchedule(viewMode, viewMode === 'day' ? addDays(currentDate, 1) : addWeeks(currentDate, 1))}
+          >
+            <ChevronRight size={16} />
+          </button>
+          <button type="button" className="hub-week-quiet hub-week-today" onClick={() => applySchedule(viewMode, new Date())}>
+            Today
+          </button>
+        </div>
         <div className="hub-week-search" data-schedule-search="1">
           {weekSearch}
         </div>
-        <button type="button" className="hub-week-quiet hub-week-today" onClick={() => applySchedule(viewMode, new Date())}>
-          Today
-        </button>
         <details className="hub-schedule-crew-filter" data-schedule-crew-filter="1">
           <summary className="hub-week-quiet">Crew</summary>
           <div className="hub-schedule-crew-menu" role="group" aria-label="Crew filter">
