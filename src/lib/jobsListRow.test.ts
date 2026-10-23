@@ -4,11 +4,14 @@ import { describe, expect, it } from 'vitest';
 import {
   JOB_CLIENT_ATTACH_PLACEHOLDER,
   JOBS_LIST_NO_CLIENT,
+  JOBS_LIST_NO_CREW,
+  jobsListCrewLabel,
   jobsListCustomer,
   jobsListPhoneDate,
   jobsListPhoneNextLabel,
   jobsListPhoneRow,
   jobsListTitle,
+  jobsListUndatedNextLabel,
 } from './jobsListRow';
 
 function src(rel: string): string {
@@ -43,7 +46,7 @@ describe('jobs list rows use the helpers on desktop and phone', () => {
     expect(page).toContain('hub-jobs-title');
     expect(page).toContain('290 data prove A — delete ok');
     expect(page).toContain('client_id: null');
-    expect(page).toContain('<JobRow key={job.id} job={job} />');
+    expect(page).toContain('<JobRow key={job.id} job={job}');
     expect(page).not.toContain('function JobCard');
     expect(page).not.toMatch(/Relovi|Littleloop/);
     expect(JOB_CLIENT_ATTACH_PLACEHOLDER).toBe('Add client…');
@@ -52,76 +55,80 @@ describe('jobs list rows use the helpers on desktop and phone', () => {
     expect(sheet).not.toContain('<option value="">Client</option>');
   });
 
-  it('stacks the phone row: full title, client · suburb, one status, date, and a 44px next', () => {
+  it('stacks the phone row: full title, ref · suburb · crew, status pill, and a 44px next', () => {
     const page = src('src/pages/JobsPage.tsx');
     const css = src('src/index.css');
-    expect(page).toContain('jobsListPhoneRow(job)');
+    expect(page).toContain('jobsListPhoneRow({');
     expect(page).toContain('data-jobs-phone-list');
     expect(page).toContain('data-jobs-phone-row');
     expect(page).toContain('hub-jobs-phone-row');
     expect(page).toContain('hub-jobs-phone-title');
     expect(page).toContain('hub-jobs-phone-meta');
     expect(page).toContain('row.statusClass');
-    expect(src('src/lib/jobsListRow.ts')).toContain('jobCrewScheduleStatus');
-    expect(page).toContain('hub-jobs-phone-date');
+    expect(src('src/lib/jobsListRow.ts')).toContain('jobsListCrewLabel');
     expect(page).toContain('hub-jobs-phone-next');
     expect(page).toContain('hub-jobs-desktop-list');
     expect(page).toContain('function JobPhoneRow');
-    expect(page).not.toContain('hub-jobs-pill');
-    expect(page).not.toMatch(/data-jobs-phone-row[\s\S]{0,900}ItemMenu/);
     expect(css).toContain('.hub-jobs-phone-list');
     expect(css).toContain('.hub-jobs-phone-row');
     expect(css).toContain('overflow-wrap: anywhere');
     expect(css).toContain('white-space: normal');
     expect(css).toContain('.hub-jobs-phone-row .hub-jobs-phone-next');
-    expect(css).toContain('display: inline-flex');
-    expect(css).toContain('align-items: center');
     expect(css).toMatch(/\.hub-jobs-phone-row \.hub-jobs-phone-next \{[\s\S]*min-height: 44px;/);
     expect(css).toMatch(/\.hub-jobs-phone-row \.hub-jobs-phone-next \{[\s\S]*min-width: 44px;/);
-    expect(css).toContain('.hub-jobs-desktop-list {\n      display: none;');
     const phone = page.slice(page.indexOf('function JobPhoneRow'), page.indexOf('function JobRow'));
     const desktop = page.slice(page.indexOf('function JobRow'));
     expect(phone).toContain('jobsListPhoneNextLabel(next)');
     expect(phone).toContain('aria-label={`Open job ${row.title}`}');
     expect(phone).toContain('{phoneNext ? (');
-    expect(phone).not.toContain('hub-jobs-muted">{next.label}');
-    expect(desktop).toContain('{next.actionable ? (');
-    expect(desktop).not.toContain('hub-jobs-muted">{next.label}');
+    expect(desktop).toContain('{nextLabel ? (');
   });
 });
 
 describe('jobsListPhoneNextLabel', () => {
   it('hides Next when it is not actionable so the status pill stands alone', () => {
     expect(jobsListPhoneNextLabel({ actionable: false, label: 'Cancelled' })).toBeNull();
-    expect(jobsListPhoneNextLabel({ actionable: false, label: 'Completed' })).toBeNull();
+    expect(jobsListPhoneNextLabel({ actionable: false, label: 'Done' })).toBeNull();
     expect(jobsListPhoneNextLabel({ actionable: false, label: 'Invoiced' })).toBeNull();
     expect(jobsListPhoneNextLabel({ actionable: true, label: 'Invoice' })).toBe('Invoice');
     expect(jobsListPhoneNextLabel({ actionable: true, label: 'Assign crew' })).toBe('Assign crew');
-    expect(jobsListPhoneNextLabel({ actionable: false, label: 'Scheduled' })).toBeNull();
-    expect(jobsListPhoneNextLabel({ actionable: false, label: 'Today' })).toBeNull();
-    expect(jobsListPhoneNextLabel({ actionable: false, label: 'On site' })).toBeNull();
-    expect(jobsListPhoneNextLabel({ actionable: false, label: 'Still open' })).toBeNull();
+    expect(jobsListUndatedNextLabel('no_date', null)).toBe('Set a date');
   });
 });
 
 describe('jobsListPhoneRow', () => {
-  it('keeps the full title and client next to suburb, with one status and the date', () => {
+  it('keeps the full title and prints #0036 · Stafford · Dean, Tom', () => {
     const row = jobsListPhoneRow({
       title: '291 prove switchboard and after-hours commissioning on a live site',
-      job_number: 291,
-      client_name: 'Client Services Northside Body Corporate',
-      address: '18 William St, Perth WA 6000',
-      status: 'scheduled',
-      scheduled_date: '2026-09-11',
-      assigned_team: ['look-jobs-dave'],
-    });
+      job_number: 36,
+      client_name: 'Brooke Lawson',
+      address: '12 Grange Rd, Stafford QLD 4053',
+      status: 'completed',
+      scheduled_date: '2026-10-19',
+      assigned_team: ['dean', 'tom'],
+      invoices: [],
+    }, jobsListCrewLabel(['dean', 'tom'], [
+      { id: 'dean', name: 'Dean Moretti' },
+      { id: 'tom', name: 'Tom Nguyen' },
+    ]));
     expect(row.title).toBe('291 prove switchboard and after-hours commissioning on a live site');
-    expect(row.title).not.toContain('…');
-    expect(row.ref).toBe('#0291');
-    expect(row.meta).toBe('Client Services Northside Body Corporate · Perth');
-    expect(row.meta).not.toContain('…');
-    expect(row.status).toBe('Booked');
-    expect(row.date).toBe(jobsListPhoneDate('2026-09-11'));
-    expect(row.date).toBe('11 Sep');
+    expect(row.ref).toBe('#0036');
+    expect(row.line2).toBe('#0036 · Stafford · Dean Moretti, Tom Nguyen');
+    expect(row.line3).toBe('Brooke Lawson · 19 Oct');
+    expect(row.status).toBe('Ready to invoice');
+  });
+
+  it('prints No crew yet on a dated job with an empty team', () => {
+    const row = jobsListPhoneRow({
+      title: 'Jet the line',
+      job_number: 12,
+      client_name: 'Northside',
+      address: '1 Main St, Stafford QLD 4053',
+      status: 'scheduled',
+      scheduled_date: '2026-10-20',
+      assigned_team: [],
+    });
+    expect(row.line2).toContain(JOBS_LIST_NO_CREW);
+    expect(row.status).toBe('Needs crew');
   });
 });

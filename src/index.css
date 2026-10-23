@@ -12277,6 +12277,140 @@
     }
   }
 
+  .hub-jobs-list-doc .hub-jobs-sheet {
+    background: var(--g-surface);
+    border: 1px solid var(--g-line);
+    box-shadow: none;
+  }
+
+  .hub-jobs-list-doc .hub-jobs-list-bar,
+  .hub-jobs-list-doc .hub-jobs-list-mark {
+    display: none;
+  }
+
+  .hub-jobs-list-doc .hub-jobs-list-body {
+    background: var(--g-surface);
+    box-shadow: none;
+  }
+
+  .hub-jobs-list-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .hub-jobs-list-head .btn-primary {
+    min-height: 44px;
+    height: 44px;
+    flex: 0 0 auto;
+  }
+
+  .hub-jobs-list-doc .ops-page-title {
+    color: var(--g-ink);
+    font-size: 34px !important;
+    line-height: 38px;
+  }
+
+  .hub-jobs-list-whisper {
+    color: var(--g-ink-subtle);
+  }
+
+  .hub-jobs-list-search {
+    margin-top: 16px;
+  }
+
+  .hub-jobs-list-search .form-input {
+    min-height: 44px;
+    width: 100%;
+  }
+
+  .hub-jobs-list-doc .hub-jobs-list-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 8px;
+    margin-top: 16px;
+    border-bottom: none;
+    overflow: visible;
+    overflow-x: visible;
+    scroll-snap-type: none;
+  }
+
+  .hub-jobs-list-doc .hub-jobs-list-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: var(--g-surface-2);
+    color: var(--g-ink);
+    box-shadow: none;
+    white-space: nowrap;
+  }
+
+  .hub-jobs-list-doc .hub-jobs-list-filter.is-on {
+    background: var(--g-ink);
+    color: var(--g-surface);
+    box-shadow: none;
+  }
+
+  .hub-jobs-list-filter-count {
+    font-variant-numeric: tabular-nums;
+    color: inherit;
+  }
+
+  .hub-jobs-phone-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .hub-jobs-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .hub-jobs-pill.is-ok { color: var(--g-ok); background: var(--g-ok-bg); }
+  .hub-jobs-pill.is-warn { color: var(--g-warn); background: var(--g-warn-bg); }
+  .hub-jobs-pill.is-bad { color: var(--g-bad); background: var(--g-bad-bg); }
+  .hub-jobs-pill.is-live { color: var(--g-live); background: var(--g-live-bg); }
+  .hub-jobs-pill.is-sched { color: var(--g-sched); background: var(--g-sched-bg); }
+  .hub-jobs-pill.is-draft { color: var(--g-draft); background: var(--g-draft-bg); }
+
+  .hub-jobs-row-mid-meta {
+    display: none;
+    color: var(--g-ink-subtle);
+    font-size: 13px;
+  }
+
+  @media (max-width: 1023px) {
+    .hub-jobs-col-crew,
+    .hub-jobs-col-date {
+      display: none;
+    }
+
+    .hub-jobs-row-mid-meta {
+      display: block;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .hub-jobs-list-doc .hub-jobs-thead,
+    .hub-jobs-list-doc .hub-jobs-row {
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.9fr) 72px minmax(88px, max-content) minmax(88px, max-content);
+    }
+  }
+
   /* End jobs list document */
 
   .hub-jobs-list-views {
