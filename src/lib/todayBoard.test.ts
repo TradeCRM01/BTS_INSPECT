@@ -172,6 +172,24 @@ describe('Q-A ready to invoice', () => {
     expect(readyToInvoiceDetail(ready)).toBe('#0011');
   });
 
+  it('D4d: 30-day window uses the last child visit date, not the first', () => {
+    const parent = 'p-last';
+    const firstOutside = job({ id: 'v-first', job_number: 50, parent_job_id: parent, scheduled_date: '2026-09-01' });
+    const lastInside = job({ id: 'v-last', job_number: 51, parent_job_id: parent, scheduled_date: '2026-10-10' });
+    const extra = [
+      job({ id: parent, job_number: 12, status: 'scheduled', scheduled_date: '2026-08-01' }),
+      firstOutside,
+      lastInside,
+    ];
+    const ready = rollupReadyToInvoice([firstOutside, lastInside], extra, [], WINDOW);
+    expect(WINDOW).toBe('2026-09-19');
+    expect(firstOutside.scheduled_date && firstOutside.scheduled_date < WINDOW).toBe(true);
+    expect(lastInside.scheduled_date && lastInside.scheduled_date >= WINDOW).toBe(true);
+    expect(ready.map(row => row.id)).toEqual([parent]);
+    expect(ready[0]?.scheduled_date).toBe('2026-10-10');
+    expect(ready[0]?.scheduled_date).not.toBe('2026-09-01');
+  });
+
   it('D4: any non-void invoice including draft counts as invoiced, void stays ready, 40-day jobs drop', () => {
     const completed = [
       job({ id: 'drafted', job_number: 20, scheduled_date: '2026-10-10' }),
