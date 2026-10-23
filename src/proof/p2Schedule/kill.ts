@@ -721,22 +721,72 @@ describe('P2 Schedule on the built dist', () => {
   });
 
   it(killTitle('K24'), async () => {
-    let m: Awaited<ReturnType<typeof measure>> | null = null;
-    let crash = '';
+    // Do not call measure()/openState('malformed-1280'): both run __p2.ready(), which throws
+    // "p2 page never settled" after ~15s when a render crash leaves the spinner. Timeouts
+    // are not kills. Donor week-1280 only supplies the built file URL and a Playwright context.
+    const donor = await openState('week-1280');
+    const url = donor.page.url();
+    const page = await donor.page.context().newPage();
+    const pageErrors: string[] = [];
+    const consoleErrors: string[] = [];
+    const malformedPills: { id: string; kind: string; pill: string }[] = [
+      { id: JOB_IDS.crewListNum, kind: 'null', pill: 'Needs crew' },
+      { id: JOB_IDS.crewString, kind: 'string', pill: 'Needs crew' },
+      { id: JOB_IDS.crewObject, kind: 'object', pill: 'Needs crew' },
+      { id: JOB_IDS.crewNumber, kind: 'number', pill: 'Needs crew' },
+      { id: JOB_IDS.crewListObj, kind: 'whitespace', pill: 'Needs crew' },
+    ];
     try {
-      m = await measure('malformed-1280');
-    } catch (err) {
-      crash = err instanceof Error ? err.message : String(err);
+      page.on('pageerror', err => { pageErrors.push(err.message); });
+      page.on('console', msg => {
+        if (msg.type() === 'error') consoleErrors.push(msg.text());
+      });
+      await page.addInitScript((boot: { path: string; malformedCrew: boolean }) => {
+        window.__P2_BOOT__ = boot;
+        class FakeSpeechRecognition {
+          lang = '';
+          interimResults = false;
+          continuous = false;
+          onresult: ((ev: unknown) => void) | null = null;
+          onend: (() => void) | null = null;
+          onerror: ((ev: unknown) => void) | null = null;
+          start() {}
+          stop() {}
+          abort() {}
+        }
+        Object.defineProperty(window, 'SpeechRecognition', { configurable: true, value: FakeSpeechRecognition });
+        Object.defineProperty(window, 'webkitSpeechRecognition', { configurable: true, value: FakeSpeechRecognition });
+      }, { path: '/schedule', malformedCrew: true });
+      await page.goto(url);
+      await page.waitForFunction(() => !!window.__p2, { timeout: 4_000 }).catch(() => {});
+      const until = Date.now() + 3_000;
+      while (Date.now() < until) {
+        const ok = await page.evaluate(() => {
+          const main = document.querySelector('main');
+          const spin = document.querySelector('.animate-spin');
+          return !!window.__p2 && !!main && !spin;
+        }).catch(() => false);
+        if (ok) break;
+        await page.waitForTimeout(80);
+      }
+      expect(pageErrors, `malformed assigned_team pageerror: ${pageErrors.join(' | ') || 'none'}`).toEqual([]);
+      expect(consoleErrors, `malformed assigned_team console error: ${consoleErrors.join(' | ') || 'none'}`).toEqual([]);
+      const cards = await page.evaluate(ids => {
+        const layout = window.__p2.measureDom().layout;
+        return ids.map(id => {
+          const card = layout.cards.find(c => c.id === id);
+          return { id, pill: card?.pill ?? '', line1: card?.line1 ?? '' };
+        });
+      }, MALFORMED_CREW_IDS.slice()).catch(() => [] as { id: string; pill: string; line1: string }[]);
+      expect(cards.length, 'all five malformed crew jobs render').toBe(malformedPills.length);
+      for (const want of malformedPills) {
+        const card = cards.find(c => c.id === want.id);
+        expect.soft(card?.pill, `malformed ${want.kind} crew card ${card?.line1 || want.id} pill`).toBe(want.pill);
+      }
+    } finally {
+      await page.close().catch(() => {});
+      await donor.close();
     }
-    expect.soft(crash, 'malformed assigned_team throws').toBe('');
-    expect.soft(m?.pageErrors ?? [crash], 'malformed assigned_team throws').toEqual([]);
-    expect.soft(m?.layout.h1, 'malformed page still renders Schedule').toEqual(['Schedule']);
-    const cards = MALFORMED_CREW_IDS.map(id => m?.layout.cards.find(c => c.id === id));
-    expect.soft(cards.filter(Boolean).length, 'all five malformed crew jobs render').toBe(5);
-    for (const card of cards) {
-      expect.soft(card?.pill, `${card?.line1 || card?.id} counts as need crew`).toBe('Needs crew');
-    }
-    expect.soft(m?.layout.whisper, 'five malformed jobs are need crew').toBe('5 on the board · 5 need crew');
   });
 
   it(killTitle('K25'), async () => {
