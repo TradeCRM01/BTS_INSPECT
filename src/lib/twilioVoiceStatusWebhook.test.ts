@@ -87,7 +87,7 @@ function voicePayload(overrides: Partial<Record<string, string>> = {}): Record<s
   return {
     AccountSid: 'AC111',
     CallSid: `CA${'1'.repeat(32)}`,
-    From: '+61418893602',
+    From: '+61400000000',
     To: '+15555550101',
     CallStatus: 'no-answer',
     Direction: 'inbound',
@@ -126,7 +126,7 @@ describe('Twilio missed-call status webhook', () => {
       companyId: 'company-a',
       id: 'sender-a',
     });
-    store.consent.set('company-a:+61418893602', 'consented');
+    store.consent.set('company-a:+61400000000', 'consented');
 
     const first = await handleTwilioVoiceStatusWebhook(
       await signedVoiceRequest(voicePayload()),
@@ -152,7 +152,7 @@ describe('Twilio missed-call status webhook', () => {
       companyId: 'company-a',
       id: 'sender-a',
     });
-    store.consent.set('company-a:+61418893602', 'opted_out');
+    store.consent.set('company-a:+61400000000', 'opted_out');
 
     const response = await handleTwilioVoiceStatusWebhook(
       await signedVoiceRequest(voicePayload()),
@@ -180,8 +180,8 @@ describe('Twilio missed-call status webhook', () => {
         id: 'sender-b',
       },
     );
-    store.consent.set('company-a:+61418893602', 'opted_out');
-    store.consent.set('company-b:+61418893602', 'consented');
+    store.consent.set('company-a:+61400000000', 'opted_out');
+    store.consent.set('company-b:+61400000000', 'consented');
 
     await handleTwilioVoiceStatusWebhook(
       await signedVoiceRequest(voicePayload({
@@ -228,7 +228,7 @@ describe('Twilio missed-call status webhook', () => {
     await store.ingest({
       providerAccountSid: 'AC111',
       providerCallSid: `CA${'3'.repeat(32)}`,
-      fromPhoneE164: '+61418893602',
+      fromPhoneE164: '+61400000000',
       toPhoneE164: '+15555550101',
       callStatus: 'no-answer',
       direction: 'inbound',
@@ -252,7 +252,7 @@ describe('missed-call SMS worker', () => {
       claim_token: 'claim-1',
       provider_account_sid: 'AC111',
       from_phone_e164: '+15555550101',
-      to_phone_e164: '+61418893602',
+      to_phone_e164: '+61400000000',
       body: approvedBody,
     };
     const send = vi.fn();
@@ -283,7 +283,7 @@ describe('missed-call SMS worker', () => {
       claim_token: 'claim-1',
       provider_account_sid: 'AC111',
       from_phone_e164: '+15555550101',
-      to_phone_e164: '+61418893602',
+      to_phone_e164: '+61400000000',
       body: approvedBody,
     };
     const complete = vi.fn(async () => true);
