@@ -373,6 +373,12 @@ export type ChromeProbe = {
   timeZone: string;
   tzOffset: number;
   segActiveInk: string;
+  searchLeft: number;
+  searchRight: number;
+  dayGroupLeft: number;
+  cardLeft: number;
+  barBottom: number;
+  eyebrowTop: number;
 };
 
 export type LookPins = {
@@ -405,6 +411,18 @@ export type LookPins = {
   eyebrowTransform: string;
   eyebrowLetterSpacing: string;
   segActiveInk: string;
+};
+
+export type PhoneLookPins = {
+  headerLeft: number;
+  searchLeft: number;
+  searchRight: number;
+  dayGroupLeft: number;
+  cardLeft: number;
+  barBottom: number;
+  eyebrowTop: number;
+  eyebrowGap: number;
+  geistCheck: boolean;
 };
 export type ReachBox = { top: number; bottom: number; height: number; visible: number };
 export type ReachProbe = { tray: ReachBox; lastLane: ReachBox; agenda: ReachBox; agendaFirst: ReachBox; vh: number };
@@ -658,7 +676,7 @@ export const SCOPE = {
   ],
   forbiddenDirs: ['docs/look/p1/'],
   cssFile: 'src/index.css',
-  cssBaseRanges: [[6088, 8800]],
+  cssBaseRanges: [[6088, 9024]],
   exactLine: { file: 'src/pages/SchedulePage.tsx', line: 219, text: "  const lookParam = searchParams.get('look');" },
   lookParamText: "  const lookParam = searchParams.get('look');",
   tscMax: 180,

@@ -739,6 +739,9 @@ function chrome(): ChromeProbe {
   const navs = [...document.querySelectorAll('.hub-week-nav-box')].filter(visible);
   const range = [...document.querySelectorAll('.hub-week-range-full, .hub-week-range-short')].find(visible) ?? null;
   const search = [...document.querySelectorAll('.hub-week-search')].find(visible) ?? null;
+  const dayGroup = [...document.querySelectorAll('.hub-week-agenda-head')].find(visible) ?? null;
+  const card = [...document.querySelectorAll('.hub-week-agenda-row')].find(visible) ?? null;
+  const bar = document.querySelector('.shell-header');
   const today = [...document.querySelectorAll('.hub-week-today')].find(visible) ?? null;
   const toolbar = document.querySelector('.hub-week-track');
   const board = document.querySelector('[data-schedule-section="board"]');
@@ -867,6 +870,12 @@ function chrome(): ChromeProbe {
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     tzOffset: new Date().getTimezoneOffset(),
     segActiveInk: '',
+    searchLeft: searchR?.left ?? -1,
+    searchRight: searchR?.right ?? -1,
+    dayGroupLeft: dayGroup?.getBoundingClientRect().left ?? -1,
+    cardLeft: card?.getBoundingClientRect().left ?? -1,
+    barBottom: bar?.getBoundingClientRect().bottom ?? -1,
+    eyebrowTop: eyebrow?.getBoundingClientRect().top ?? -1,
   };
 }
 

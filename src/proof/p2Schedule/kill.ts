@@ -6,7 +6,7 @@ import {
 } from './matrix.ts';
 import { JOBS, JOB_IDS, MALFORMED_CREW_IDS, SAM, SCHEDULE_FIXTURE } from './fixture.ts';
 import { STATUS_FALLBACK } from '../../lib/scheduleInvoiceStatus';
-import { bundleReport, closeHarness, measure, measureAll, measureMockup1280, openState, token, writeCapture } from './harness.ts';
+import { bundleReport, closeHarness, measure, measureAll, measureMockup1280, measureMockup390, openState, token, writeCapture } from './harness.ts';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -871,14 +871,23 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(day.chrome.dayCrewLines, 'day crew names stay one line').toBe(1);
 
     const phone = await measure('week-390');
+    const phoneMock = await measureMockup390();
     expect.soft(phone.chrome.headerTop, '390 header not clipped at the top').toBeGreaterThanOrEqual(0);
     expect.soft(Math.abs(phone.chrome.todayTop - phone.chrome.rangeTop), 'Today on the range row').toBeLessThanOrEqual(24);
+    const gutters: Record<string, Awaited<ReturnType<typeof measure>>> = { 'week-390': phone };
     for (const id of ['week-375', 'week-390', 'week-768'] as const) {
       const g = id === 'week-390' ? phone : await measure(id);
+      gutters[id] = g;
       expect.soft(Math.abs(g.chrome.headerLeft - 16), `${id} header-block left ${g.chrome.headerLeft}`).toBeLessThanOrEqual(1);
       expect.soft(Math.abs(g.chrome.listLeft - 16), `${id} list left ${g.chrome.listLeft}`).toBeLessThanOrEqual(1);
       expect.soft(Math.abs(g.chrome.headerLeft - g.chrome.listLeft), `${id} header-block left = list left`).toBeLessThanOrEqual(1);
+      expect.soft(Math.abs(g.chrome.searchLeft - g.chrome.headerLeft), `${id} search left ${g.chrome.searchLeft} vs header ${g.chrome.headerLeft}`).toBeLessThanOrEqual(1);
+      expect.soft(Math.abs(g.chrome.searchRight - (g.iw - 16)), `${id} search right ${g.chrome.searchRight} vs ${g.iw - 16}`).toBeLessThanOrEqual(1);
     }
+    expect.soft(gutters['week-768'].chrome.headerLeft, '768 header left equals list left exactly').toBe(gutters['week-768'].chrome.listLeft);
+    expect.soft(Math.abs(phone.chrome.dayGroupLeft - phoneMock.dayGroupLeft), `390 day-group left ${phone.chrome.dayGroupLeft} vs mock ${phoneMock.dayGroupLeft}`).toBeLessThanOrEqual(1);
+    expect.soft(Math.abs(phone.chrome.cardLeft - phoneMock.cardLeft), `390 card left ${phone.chrome.cardLeft} vs mock ${phoneMock.cardLeft}`).toBeLessThanOrEqual(1);
+    expect.soft(Math.abs((phone.chrome.eyebrowTop - phone.chrome.barBottom) - phoneMock.eyebrowGap), `390 eyebrow gap ${phone.chrome.eyebrowTop - phone.chrome.barBottom} vs mock ${phoneMock.eyebrowGap}`).toBeLessThanOrEqual(1);
 
     const opened = await openState('week-1280');
     await opened.page.getByRole('button', { name: 'New job' }).first().click();
