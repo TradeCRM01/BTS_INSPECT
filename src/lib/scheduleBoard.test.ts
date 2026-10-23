@@ -222,6 +222,7 @@ describe('crew filter and labels', () => {
     expect(scheduleCrewLabel(['emp-a', 'emp-b'], members)).toBe('Alex Crew, Blair Hand');
     expect(scheduleCrewLabel([], members)).toBe('Unassigned');
     expect(scheduleCrewLabel(['ghost'], members)).toBe('Crew');
+    expect(scheduleCrewLabel([' '], members)).toBe('Unassigned');
   });
 
   it('treats a non-array assigned_team as empty on week and day', () => {
@@ -270,6 +271,9 @@ describe('scheduleAgendaClock', () => {
     expect(scheduleAgendaClock(null, null)).toBe('No time set');
     expect(scheduleAgendaClock(null, null, null)).toBe(AGENDA_NO_TIME_LABEL);
     expect(scheduleAgendaClock(null, null, '2026-10-09')).toContain('Add a time');
+    expect(scheduleAgendaClock(null, null, '2026-10-09')).toMatch(/^Booked /);
+    expect(scheduleAgendaClock(null, null, '2026-10-22', { status: 'quoted', scheduled_date: '2026-10-22', assigned_team: [] }))
+      .not.toMatch(/Booked/);
     expect(scheduleAgendaClock(null, null)).not.toBe('—');
     expect(scheduleAgendaClock(null, null)).not.toBe(TIME_NOT_SET_LABEL);
   });
@@ -280,6 +284,11 @@ describe('scheduleChipClock', () => {
     expect(scheduleChipClock('09:00:00', '12:00:00')).toBe('09:00–12:00');
     expect(scheduleChipClock(null, null)).toBe(TIME_NOT_SET_LABEL);
     expect(scheduleChipClock(null, null, '2026-10-09')).toContain('Add a time');
+    expect(scheduleChipClock(null, null, '2026-10-09')).toMatch(/^Booked /);
+    expect(scheduleChipClock(null, null, '2026-10-22', { status: 'quoted', scheduled_date: '2026-10-22', assigned_team: [] }))
+      .not.toMatch(/Booked/);
+    expect(scheduleChipClock(null, null, '2026-10-23', { status: 'quoted', scheduled_date: '2026-10-23', assigned_team: ['crew-1'] }))
+      .not.toMatch(/Booked/);
   });
 });
 
@@ -583,9 +592,19 @@ describe('schedule pills and invoiced ids', () => {
     expect(schedulePill(voidOnly, invoiced)).toEqual({ label: 'Ready to invoice', kind: 'ready' });
     expect(schedulePill(drafted, invoiced)).toEqual({ label: 'Done', kind: 'done' });
     expect(schedulePill(child, invoiced)).toEqual({ label: 'Done', kind: 'done' });
-    expect(schedulePill({ id: 'open', status: 'in_progress', scheduled_date: '2026-10-19' }))
+    expect(schedulePill({ id: 'open', status: 'in_progress', scheduled_date: '2026-10-19', assigned_team: ['crew-1'] }))
       .toEqual({ label: 'In progress', kind: 'progress' });
     expect(schedulePill({ id: 'undated', status: 'scheduled', scheduled_date: null }))
       .toEqual({ label: 'No date', kind: 'nodate' });
+    expect(schedulePill({ id: 'quoted-open', status: 'quoted', scheduled_date: '2026-10-22', assigned_team: [] }))
+      .toEqual({ label: 'Needs crew', kind: 'needcrew' });
+    expect(schedulePill({ id: 'quoted-crew', status: 'quoted', scheduled_date: '2026-10-22', assigned_team: ['crew-1'] }))
+      .toEqual({ label: 'Quoted', kind: 'status' });
+    expect(schedulePill({ id: 'space-crew', status: 'scheduled', scheduled_date: '2026-10-20', assigned_team: [' '] }))
+      .toEqual({ label: 'Needs crew', kind: 'needcrew' });
+    expect(schedulePill({ id: 'cancel-open', status: 'cancelled', scheduled_date: '2026-10-23', assigned_team: [] }))
+      .toEqual({ label: 'Cancelled', kind: 'cancelled' });
+    expect(schedulePill({ id: 'empty-status', status: '', scheduled_date: '2026-10-19', assigned_team: [] }))
+      .toEqual({ label: 'Needs crew', kind: 'needcrew' });
   });
 });

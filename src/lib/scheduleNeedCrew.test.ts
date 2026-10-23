@@ -12,6 +12,12 @@ describe('isNeedCrewJob', () => {
     expect(isNeedCrewJob({ status: 'completed', scheduled_date: '2026-10-19', assigned_team: [] })).toBe(false);
     expect(isNeedCrewJob({ status: 'Done', scheduled_date: '2026-10-19', assigned_team: [] })).toBe(false);
     expect(isNeedCrewJob({ status: 'cancelled', scheduled_date: '2026-10-19', assigned_team: [] })).toBe(false);
+    expect(isNeedCrewJob({ status: 'quoted', scheduled_date: '2026-10-22', assigned_team: [] })).toBe(true);
+    expect(isNeedCrewJob({ status: 'scheduled', scheduled_date: '2026-10-19', assigned_team: [' '] })).toBe(true);
+    expect(() => isNeedCrewJob({ status: 'scheduled', scheduled_date: '2026-10-19', assigned_team: 'crew-1' })).not.toThrow();
+    expect(isNeedCrewJob({ status: 'scheduled', scheduled_date: '2026-10-19', assigned_team: 'crew-1' })).toBe(true);
+    expect(() => isNeedCrewJob({ status: 'scheduled', scheduled_date: '2026-10-19', assigned_team: { id: 'x' } })).not.toThrow();
+    expect(isNeedCrewJob({ status: 'scheduled', scheduled_date: '2026-10-19', assigned_team: { id: 'x' } })).toBe(true);
   });
 
   it('drops an undated in_progress crewless job from a one-plus-one pair', () => {

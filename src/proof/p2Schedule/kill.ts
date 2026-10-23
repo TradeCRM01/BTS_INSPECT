@@ -95,11 +95,15 @@ describe('P2 Schedule on the built dist', () => {
         }
       });
       const untimed = m.rows.filter(r => UNTIMED.test(r.time.lines.join(' ').replace(/\s+/g, ' ')));
-      expect.soft(untimed.length, `${m.id} untimed rows carry the Booked · Add a time line`).toBe(UNTIMED_JOBS);
+      expect.soft(untimed.length, `${m.id} untimed rows carry the Add a time line`).toBe(UNTIMED_JOBS);
       untimed.forEach(row => {
         const at = `${m.id} untimed "${row.title.lines[0] ?? ''}"`;
-        expect.soft(row.timeInk, `${at} Booked line ink`).toBe(token('g-ink-muted'));
-        if (m.iw < ROWS.stackBelow) {
+        const line = row.time.lines.join(' ').replace(/\s+/g, ' ');
+        expect.soft(row.timeInk, `${at} Add a time ink`).toBe(token('g-ink-muted'));
+        expect.soft(line, `${at} keeps Add a time`).toMatch(/Add a time/);
+        if (/Quoted crewless/.test(row.title.lines.join(' '))) {
+          expect.soft(line, `${at} unknown/need-crew omits Booked`).not.toMatch(/^Booked /);
+        } else if (m.iw < ROWS.stackBelow) {
           expect.soft(row.time.lines[0], `${at} Booked line is the first line`).toMatch(/^Booked /);
           expect.soft(Math.abs(row.time.width - row.title.width), `${at} Booked line spans the title width, no column of its own`).toBeLessThanOrEqual(ROWS.alignPx);
         }
@@ -124,6 +128,8 @@ describe('P2 Schedule on the built dist', () => {
       for (const b of m.buttons) {
         expect.soft(b.sw, `${m.id} button "${b.label}" scrollWidth`).toBeLessThanOrEqual(b.cw);
       }
+      const clipOutside = m.clips.filter(c => c.right > m.iw + TOLERANCE_PX && !c.clip.includes(SOLE_SCROLLER.slice(1)));
+      expect.soft(clipOutside, `${m.id} clipped past innerWidth by a non-allowlisted ancestor`).toEqual([]);
     }
   });
 
@@ -327,10 +333,8 @@ describe('P2 Schedule on the built dist', () => {
       expect.soft(t?.before, `${m.id} tray before any tap`).toMatchObject({ expanded: false, listShown: false });
       expect.soft(t?.after, `${m.id} tray after one tap`).toMatchObject({ expanded: true, listShown: true, cards: Number(/\d+/.exec(t?.before.label ?? '')?.[0] ?? -1) });
       const chip = m.taps.find(x => x.cls.includes('hub-phone-unscheduled-chip'));
-      const dates = m.taps.filter(x => x.cls.includes('hub-schedule-set-date'));
       expect.soft(chip ? Math.min(chip.w, chip.h) : 0, `${m.id} tray chip hit`).toBeGreaterThanOrEqual(TAP_MIN);
-      expect.soft(dates.length, `${m.id} Set a date buttons measured`).toBeGreaterThan(0);
-      for (const d of dates) expect.soft(Math.min(d.w, d.h), `${m.id} Set a date hit`).toBeGreaterThanOrEqual(TAP_MIN);
+      expect.soft(m.taps.filter(x => x.cls.includes('hub-schedule-set-date')).length, `${m.id} Set a date stays off the tray card`).toBe(0);
     }
   });
 
@@ -404,7 +408,7 @@ describe('P2 Schedule on the built dist', () => {
     const dean = m.layout.lanes.find(l => l.name === 'Dean Walsh');
     const unassigned = m.layout.lanes[m.layout.lanes.length - 1];
     expect.soft(dean?.count.includes('job'), 'Dean count says jobs').toBe(true);
-    expect.soft(unassigned, 'Unassigned last').toMatchObject({ name: 'Unassigned', count: '2 need crew' });
+    expect.soft(unassigned, 'Unassigned last').toMatchObject({ name: 'Unassigned', count: '4 need crew' });
     const two = m.layout.cards.find(c => c.ref === SCHEDULE_FIXTURE.twoCrewRef);
     expect.soft(two?.lanes.length, '#0036 counts in both lanes').toBe(2);
   });
@@ -523,9 +527,20 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(rail.layout.traySub.includes('3'), 'tray sub has N').toBe(true);
     expect.soft(rail.layout.trayCards.length, 'one card per needsDate').toBe(3);
     expect.soft(rail.layout.trayCards.some(c => c.meta.includes('#0048') && c.meta.includes('Luke Ferris')), 'ref · client · suburb').toBe(true);
-    expect.soft(rail.taps.filter(t => t.label === 'Set a date').length, 'Set a date present').toBeGreaterThan(0);
+    for (const card of rail.layout.trayCards) {
+      expect.soft(card.pill, `rail card "${card.meta}" pill`).toBe('No date');
+      expect.soft(card.text, `rail card "${card.meta}" keeps No date`).toMatch(/No date/);
+      expect.soft(card.text, `rail card "${card.meta}" keeps Set a date off the card`).not.toMatch(/Set a date/);
+    }
     const tray = await measure('tray-390');
     expect.soft(tray.tray?.after.listShown, 'phone tray opens').toBe(true);
+    for (const card of tray.layout.trayCards) {
+      expect.soft(card.pill, `tray card "${card.meta}" pill`).toBe('No date');
+      expect.soft(card.text, `tray card "${card.meta}" keeps No date`).toMatch(/No date/);
+      expect.soft(card.text, `tray card "${card.meta}" keeps Set a date off the card`).not.toMatch(/Set a date/);
+    }
+    const sheet = await measure('sheet-390');
+    expect.soft(sheet.layout.setDate.some(label => label === 'Set a date'), 'sheet owns Set a date').toBe(true);
   });
 
   it(killTitle('K12'), async () => {
@@ -612,5 +627,48 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(m.layout.whisper, 'undated in_progress plus one dated crewless').toBe(
       '1 on the board · 1 need crew · 1 without a date',
     );
+  });
+
+  it(killTitle('K20'), async () => {
+    for (const m of await states('K20')) {
+      const clocks = m.clocks.filter(c => c.cls.includes('hub-week-chip-clock'));
+      expect.soft(clocks.length, `${m.id} laptop clocks`).toBeGreaterThan(0);
+      for (const c of clocks) {
+        expect.soft(c.fits, `${m.id} "${c.text}" clipped by ${c.clipEl || 'viewport'} ${c.textRight}>${c.clipRight}`).toBe(true);
+      }
+    }
+  });
+
+  it(killTitle('K21'), async () => {
+    for (const m of await states('K21')) {
+      if (m.iw <= 390) {
+        expect.soft(m.reach.agendaFirst.height, `${m.id} agenda first day height`).toBeGreaterThan(0);
+        expect.soft(m.reach.agendaFirst.visible, `${m.id} agenda first day visible height`).toBeGreaterThan(0);
+        const first = m.layout.agendaDays[0];
+        expect.soft(first?.h ?? 0, `${m.id} first agenda day layout height`).toBeGreaterThan(0);
+      } else {
+        expect.soft(m.reach.tray.visible, `${m.id} tray visible after scroll-to-end`).toBeGreaterThan(0);
+        expect.soft(m.reach.lastLane.visible, `${m.id} last lane visible after scroll-to-end`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it(killTitle('K22'), async () => {
+    const m = await measure('week-1280');
+    const quoted = m.layout.cards.find(c => c.id === JOB_IDS.quotedOpen);
+    const space = m.layout.cards.find(c => c.id === JOB_IDS.spaceCrew);
+    expect.soft(quoted?.pill, '#0202 dated crewless quoted').toBe('Needs crew');
+    expect.soft(`${quoted?.clock} ${quoted?.line1}`, '#0202 never Booked').not.toMatch(/Booked/);
+    expect.soft(quoted?.pill, '#0202 never Scheduled').not.toBe('Scheduled');
+    expect.soft(space?.pill, "[' '] counts as no crew").toBe('Needs crew');
+  });
+
+  it(killTitle('K23'), async () => {
+    const m = await measure('week-1280');
+    const quoted = m.layout.cards.find(c => c.id === JOB_IDS.quotedCrew);
+    expect.soft(quoted?.pill, '#0206 quoted with crew').toBe('Quoted');
+    expect.soft(quoted?.pill, '#0206 never Scheduled').not.toBe('Scheduled');
+    expect.soft(quoted?.pill, '#0206 never Booked').not.toBe('Booked');
+    expect.soft(`${quoted?.clock} ${quoted?.line1}`, '#0206 clock never Booked').not.toMatch(/Booked/);
   });
 });

@@ -115,7 +115,7 @@ const JobBlock = memo(function JobBlock({
 }: JobBlockProps) {
   const chip = weekBoardChip(job);
   const clock = scheduleClockLabel(job.start_time, job.end_time)
-    ?? scheduleChipClock(job.start_time, job.end_time, job.scheduled_date);
+    ?? scheduleChipClock(job.start_time, job.end_time, job.scheduled_date, job);
   const suburb = jobsListSuburbFromSite(jobsListSite(job.address, job.client_address));
   const pill = schedulePill(job, invoicedJobIds);
   const track = scheduleTimeTrack(job.start_time, job.end_time);
@@ -197,11 +197,11 @@ function UnscheduledJobCards({
             draggable
             aria-pressed={selected}
             onDragStart={e => onDragStart(e, job.id)}
-            onClick={() => onJobClick(job)}
+            onClick={() => (onSetScheduleDate ?? onJobClick)(job)}
             onKeyDown={e => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                onJobClick(job);
+                (onSetScheduleDate ?? onJobClick)(job);
               }
             }}
             data-schedule-job={job.id}
@@ -215,26 +215,6 @@ function UnscheduledJobCards({
               <p className="hub-schedule-ref">{meta}</p>
               <span className="hub-schedule-pill" data-kind={pill.kind}>{pill.label}</span>
               <div className="ops-card-footer">
-                <button
-                  type="button"
-                  className="hub-schedule-set-date hub-schedule-next"
-                  data-schedule-set-date={job.id}
-                  onClick={e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onSetScheduleDate?.(job);
-                  }}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onSetScheduleDate?.(job);
-                    }
-                  }}
-                  onPointerDown={e => e.stopPropagation()}
-                >
-                  Set a date
-                </button>
                 {onOpenJob ? (
                   <a
                     href={scheduleJobHref(job.id)}
@@ -279,7 +259,7 @@ export const NeedsDateRail = memo(function NeedsDateRail({
         <p className="ops-card-kicker">Unscheduled</p>
         <span className="ops-meta">{jobs.length === 0 ? 'No unscheduled jobs' : String(jobs.length)}</span>
       </div>
-      <div className="p-2 space-y-2 max-h-[70vh] overflow-y-auto">
+      <div className="hub-schedule-tray-cards">
         {jobs.length === 0 ? (
           <p className="ops-meta ops-tray-empty px-1 py-2">No unscheduled jobs.</p>
         ) : (
@@ -365,7 +345,7 @@ function WeekJobChip({
 }) {
   const chip = weekBoardChip(job, familyJobs);
   const clock = scheduleClockLabel(job.start_time, job.end_time)
-    ?? scheduleChipClock(job.start_time, job.end_time, job.scheduled_date);
+    ?? scheduleChipClock(job.start_time, job.end_time, job.scheduled_date, job);
   const suburb = jobsListSuburbFromSite(jobsListSite(job.address, job.client_address));
   const pill = schedulePill(job, invoicedJobIds);
   const track = scheduleTimeTrack(job.start_time, job.end_time);
@@ -496,7 +476,7 @@ export const PhoneWeekList = memo(function PhoneWeekList({
                 {day.jobs.map(job => {
                   const suburb = jobsListSuburbFromSite(jobsListSite(job.address, job.client_address));
                   const pill = schedulePill(job, invoicedJobIds);
-                  const clock = scheduleAgendaClock(job.start_time, job.end_time, job.scheduled_date);
+                  const clock = scheduleAgendaClock(job.start_time, job.end_time, job.scheduled_date, job);
                   return (
                     <li key={job.id}>
                       <button
@@ -844,7 +824,7 @@ export const DayBoardView = memo(function DayBoardView({
                         data-untimed-chip={job.id}
                         style={{
                           left: 2,
-                          width: gridWidth - 4,
+                          width: Math.min(220, hourWidth * 2.2),
                           top: ROW_PAD + placed.lane * ALL_DAY_H,
                           height: ALL_DAY_H - 4,
                         }}

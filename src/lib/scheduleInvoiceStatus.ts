@@ -1,10 +1,14 @@
+import { isNeedCrewJob } from './scheduleNeedCrew';
+
 export type SchedulePillKind =
   | 'ready'
   | 'done'
   | 'progress'
   | 'scheduled'
   | 'cancelled'
-  | 'nodate';
+  | 'nodate'
+  | 'needcrew'
+  | 'status';
 
 export type SchedulePill = {
   label: string;
@@ -22,7 +26,21 @@ export type SchedulePillJob = {
   status?: string | null;
   scheduled_date?: string | null;
   parent_job_id?: string | null;
+  assigned_team?: unknown;
 };
+
+const KNOWN_PILL_STATUS = new Set(['scheduled', 'in_progress', 'completed', 'Done', 'cancelled']);
+
+export function sentenceStatus(status: string | null | undefined): string {
+  const raw = (status ?? '').trim();
+  if (!raw) return 'Scheduled';
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
+export function isUnknownScheduleStatus(status: string | null | undefined): boolean {
+  const raw = (status ?? '').trim();
+  return raw !== '' && !KNOWN_PILL_STATUS.has(raw);
+}
 
 export function scheduleInvoicedQueryIds(jobs: SchedulePillJob[]): string[] {
   const ids = new Set<string>();
@@ -54,9 +72,8 @@ export function schedulePill(
   job: SchedulePillJob,
   invoicedJobIds: Set<string> = new Set(),
 ): SchedulePill {
-  if (!job.scheduled_date) return { label: 'No date', kind: 'nodate' };
+  if (!(job.scheduled_date ?? '').trim()) return { label: 'No date', kind: 'nodate' };
   if (job.status === 'cancelled') return { label: 'Cancelled', kind: 'cancelled' };
-  if (job.status === 'in_progress') return { label: 'In progress', kind: 'progress' };
   if (job.status === 'completed') {
     const invoiced = invoicedJobIds.has(job.id)
       || (!!job.parent_job_id && invoicedJobIds.has(job.parent_job_id));
@@ -64,5 +81,10 @@ export function schedulePill(
       ? { label: 'Done', kind: 'done' }
       : { label: 'Ready to invoice', kind: 'ready' };
   }
-  return { label: 'Scheduled', kind: 'scheduled' };
+  if (isNeedCrewJob(job)) return { label: 'Needs crew', kind: 'needcrew' };
+  if (job.status === 'in_progress') return { label: 'In progress', kind: 'progress' };
+  if (!job.status || job.status === 'scheduled' || job.status === 'Done') {
+    return { label: 'Scheduled', kind: 'scheduled' };
+  }
+  return { label: sentenceStatus(job.status), kind: 'status' };
 }

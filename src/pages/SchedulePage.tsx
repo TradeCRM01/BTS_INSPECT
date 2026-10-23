@@ -59,7 +59,6 @@ import {
   fix3aUnscheduledLookCount,
 } from '../lib/fix3aScheduleLookSeed';
 
-/** Signed week-board frame seed — Schedule look only, not a live company. */
 const WEEK_BOARD_LOOK = 'week-board';
 const WEEK_BOARD_LOOK_ANCHOR = new Date(2025, 2, 31);
 const WEEK_BOARD_LOOK_DAY_ANCHOR = new Date(2025, 3, 1);
@@ -841,8 +840,8 @@ export function SchedulePage() {
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON });
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON });
-  const weekRangeLabel = `${format(weekStart, 'EEE d MMM')} – ${format(weekEnd, 'EEE d MMM yyyy')}`;
-  const weekRangeShort = `${format(weekStart, 'd MMM')} – ${format(weekEnd, 'd MMM')}`;
+  const weekRangeLabel = `${format(weekStart, 'd')} to ${format(weekEnd, 'd MMM')}`;
+  const weekRangeShort = weekRangeLabel;
   const dayRangeLabel = format(currentDate, 'EEE d MMM yyyy');
   const dayRangeShort = format(currentDate, 'EEE d MMM');
   const needCrew = countNeedCrewJobs(boardJobs);
@@ -918,7 +917,7 @@ export function SchedulePage() {
       <div className="hub-week-tools">
         <button
           type="button"
-          className="hub-week-quiet"
+          className="hub-week-quiet hub-week-nav-box"
           aria-label={viewMode === 'day' ? 'Previous day' : 'Previous week'}
           onClick={() => applySchedule(viewMode, viewMode === 'day' ? addDays(currentDate, -1) : addWeeks(currentDate, -1))}
         >
@@ -930,7 +929,7 @@ export function SchedulePage() {
         </p>
         <button
           type="button"
-          className="hub-week-quiet"
+          className="hub-week-quiet hub-week-nav-box"
           aria-label={viewMode === 'day' ? 'Next day' : 'Next week'}
           onClick={() => applySchedule(viewMode, viewMode === 'day' ? addDays(currentDate, 1) : addWeeks(currentDate, 1))}
         >
@@ -939,7 +938,7 @@ export function SchedulePage() {
         <div className="hub-week-search" data-schedule-search="1">
           {weekSearch}
         </div>
-        <button type="button" className="hub-week-quiet" onClick={() => applySchedule(viewMode, new Date())}>
+        <button type="button" className="hub-week-quiet hub-week-today" onClick={() => applySchedule(viewMode, new Date())}>
           Today
         </button>
         <details className="hub-schedule-crew-filter" data-schedule-crew-filter="1">

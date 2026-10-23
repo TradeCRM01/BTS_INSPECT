@@ -59,7 +59,6 @@ export function todaysDashboardJobs<T extends DashboardTodayJob>(
   return jobs.filter(job => isDashboardTodayWork(job, now)).sort(compareScheduleJobs);
 }
 
-/** Dashboard keeps spaces around the en-dash. Schedule clock does not. */
 export function dashboardClockLabel(
   start: string | null | undefined,
   end?: string | null,

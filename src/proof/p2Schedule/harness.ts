@@ -180,8 +180,8 @@ async function openSheet(page: Page, _w: StateSpec['w']) {
     const chip = document.querySelector<HTMLElement>('[data-schedule-unscheduled-chip]');
     if (chip?.getAttribute('aria-expanded') !== 'true') chip?.click();
   });
-  await orTimeout(page.waitForSelector('[data-schedule-unscheduled-list] .hub-schedule-set-date', { timeout: 5_000 }));
-  await page.locator('[data-schedule-unscheduled-list] .hub-schedule-set-date').first().evaluate(el => (el as HTMLElement).click());
+  await orTimeout(page.waitForSelector('[data-schedule-unscheduled-list] [data-schedule-job]', { timeout: 5_000 }));
+  await page.locator('[data-schedule-unscheduled-list] [data-schedule-job]').first().evaluate(el => (el as HTMLElement).click());
   await page.waitForSelector('[role="dialog"]');
 }
 
@@ -203,7 +203,7 @@ const RECIPES: Readonly<Record<Recipe, (page: Page, spec: StateSpec, notes: Note
     await page.evaluate(() => {
       document.querySelector('[data-schedule-unscheduled-after-week]')?.scrollIntoView({ block: 'end' });
       document.querySelector('[data-schedule-unscheduled-chip]')?.scrollIntoView({ block: 'nearest' });
-      document.querySelector('[data-schedule-unscheduled-list] .hub-schedule-set-date')?.scrollIntoView({ block: 'nearest' });
+      document.querySelector('[data-schedule-unscheduled-list] [data-schedule-job]')?.scrollIntoView({ block: 'nearest' });
     });
   },
   rail: async page => {
@@ -611,6 +611,9 @@ function row(m: Measure): Row {
   return {
     view, w: Number(w) || m.iw, state: m.id, iw: m.iw, docSW: m.docSW, bodySW: m.bodySW, maxRight: m.maxRight, maxEl: m.maxEl,
     unexemptedMaxRight: unexemptedMaxRight(m),
+    clips: m.clips,
+    clocks: m.clocks,
+    reach: m.reach,
     buttons: m.buttons,
     buttonOverflow: m.buttons.filter(b => b.sw > b.cw),
     offenders: m.offenders,
@@ -701,12 +704,25 @@ export async function writeCapture(dir: string): Promise<{ written: string[] }> 
 function tables(after: Row[], before: Row[]): string {
   const b = (r: Row) => before.find(x => x.view === r.view && x.w === r.w);
   const out: string[] = [];
-  out.push('## Overflow (docSW / unexempted rect.right / chrome button sw≤cw)', '', '| state | iw | docSW | bodySW | maxRight raw | max unexempted right | buttons | sw>cw |', '|---|---:|---:|---:|---:|---:|---:|---|');
+  out.push('## Overflow (docSW / unexempted rect.right / chrome button sw≤cw / clip ancestors)', '', '| state | iw | docSW | bodySW | maxRight raw | max unexempted right | buttons | sw>cw | clips |', '|---|---:|---:|---:|---:|---:|---:|---|---:|');
   for (const r of after) {
     const buttons = (r.buttons as Measure['buttons']) ?? [];
     const overflow = (r.buttonOverflow as Measure['buttons']) ?? buttons.filter(x => x.sw > x.cw);
     const overflowLabel = overflow.length ? overflow.slice(0, 3).map(x => `${x.label} ${x.sw}>${x.cw}`).join('; ') : 'none';
-    out.push(`| ${r.state} | ${r.iw} | ${r.docSW} | ${r.bodySW} | ${r.maxRight} | ${r.unexemptedMaxRight} | ${buttons.length} | ${overflowLabel} |`);
+    const clips = (r.clips as Measure['clips']) ?? [];
+    out.push(`| ${r.state} | ${r.iw} | ${r.docSW} | ${r.bodySW} | ${r.maxRight} | ${r.unexemptedMaxRight} | ${buttons.length} | ${overflowLabel} | ${clips.length} |`);
+  }
+  out.push('', '## Reach (tray / last lane after scroll-to-end; 390 agenda at rest)', '', '| state | vh | agenda h | agenda visible | tray visible | last lane visible |', '|---|---:|---:|---:|---:|---:|');
+  for (const r of after) {
+    const reach = r.reach as Measure['reach'] | undefined;
+    if (!reach) continue;
+    out.push(`| ${r.state} | ${reach.vh} | ${reach.agendaFirst.height} | ${reach.agendaFirst.visible} | ${reach.tray.visible} | ${reach.lastLane.visible} |`);
+  }
+  out.push('', '## Clocks vs clipping ancestors', '', '| state | clocks | clipped |', '|---|---:|---|');
+  for (const r of after) {
+    const clocks = (r.clocks as Measure['clocks']) ?? [];
+    const clipped = clocks.filter(c => !c.fits);
+    out.push(`| ${r.state} | ${clocks.length} | ${clipped.slice(0, 3).map(c => `${c.text} ${c.textRight}>${c.clipRight}`).join('; ') || 'none'} |`);
   }
   out.push('', '## Contrast, lowest ratio per role (before overall min in brackets)', '', '| state | text | cta | chip | pill | link | below bar |', '|---|---|---|---|---|---|---|');
   for (const r of after) {
