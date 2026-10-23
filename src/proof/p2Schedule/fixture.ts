@@ -34,6 +34,11 @@ export const JOB_IDS = {
   cancelOpen: 'aaaaaaaa-0204-4000-8000-000000000204',
   longDay: 'aaaaaaaa-0205-4000-8000-000000000205',
   quotedCrew: 'aaaaaaaa-0206-4000-8000-000000000206',
+  crewString: 'aaaaaaaa-0207-4000-8000-000000000207',
+  crewObject: 'aaaaaaaa-0208-4000-8000-000000000208',
+  crewNumber: 'aaaaaaaa-0209-4000-8000-000000000209',
+  crewListNum: 'aaaaaaaa-0210-4000-8000-000000000210',
+  crewListObj: 'aaaaaaaa-0211-4000-8000-000000000211',
 } as const;
 
 const C = {
@@ -57,7 +62,7 @@ type JobInput = {
   end_time?: string | null;
   status?: string;
   address?: string | null;
-  assigned_team?: string[];
+  assigned_team?: unknown;
   description?: string | null;
   parent_job_id?: string | null;
   cost_code?: string | null;
@@ -330,6 +335,63 @@ export const JOBS: readonly Row[] = [
     assigned_team: [DEAN],
   }),
 ];
+
+export const MALFORMED_CREW_JOBS: readonly Row[] = [
+  job({
+    id: JOB_IDS.crewString,
+    job_number: 207,
+    title: 'Crew as string',
+    client_id: C.luke,
+    scheduled_date: '2026-10-19',
+    start_time: '08:00:00',
+    end_time: '09:00:00',
+    assigned_team: 'dean',
+  }),
+  job({
+    id: JOB_IDS.crewObject,
+    job_number: 208,
+    title: 'Crew as object',
+    client_id: C.nora,
+    scheduled_date: '2026-10-20',
+    start_time: '08:00:00',
+    end_time: '09:00:00',
+    assigned_team: { id: 'x' },
+  }),
+  job({
+    id: JOB_IDS.crewNumber,
+    job_number: 209,
+    title: 'Crew as number',
+    client_id: C.alex,
+    scheduled_date: '2026-10-21',
+    start_time: '08:00:00',
+    end_time: '09:00:00',
+    assigned_team: 1,
+  }),
+  job({
+    id: JOB_IDS.crewListNum,
+    job_number: 210,
+    title: 'Crew as [1]',
+    client_id: C.priya,
+    scheduled_date: '2026-10-22',
+    start_time: '08:00:00',
+    end_time: '09:00:00',
+    assigned_team: [1],
+  }),
+  job({
+    id: JOB_IDS.crewListObj,
+    job_number: 211,
+    title: 'Crew as [{}]',
+    client_id: C.luke,
+    scheduled_date: '2026-10-23',
+    start_time: '08:00:00',
+    end_time: '09:00:00',
+    assigned_team: [{}],
+  }),
+];
+
+export const MALFORMED_CREW_IDS = [
+  JOB_IDS.crewString, JOB_IDS.crewObject, JOB_IDS.crewNumber, JOB_IDS.crewListNum, JOB_IDS.crewListObj,
+] as const;
 
 export const NEED_CREW_PAIR: readonly Row[] = [
   job({

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { COMPANY, MEMBERS, NEED_CREW_PAIR, PROFILE, TABLES, type Row } from './fixture.ts';
+import { COMPANY, MALFORMED_CREW_JOBS, MEMBERS, NEED_CREW_PAIR, PROFILE, TABLES, type Row } from './fixture.ts';
 import type { LedgerRead, LedgerWrite } from './matrix.ts';
 
 export const ledger: { writes: LedgerWrite[]; unmocked: string[]; reads: LedgerRead[] } = {
@@ -97,7 +97,9 @@ class Query implements PromiseLike<Result> {
       ? []
       : boot()?.needCrewPair && this.table === 'jobs'
         ? NEED_CREW_PAIR
-        : TABLES[this.table];
+        : boot()?.malformedCrew && this.table === 'jobs'
+          ? MALFORMED_CREW_JOBS
+          : TABLES[this.table];
     if (!source) {
       ledger.unmocked.push(`from(${this.table})`);
       return { data: this.one ? null : [], error: null, count: 0 };

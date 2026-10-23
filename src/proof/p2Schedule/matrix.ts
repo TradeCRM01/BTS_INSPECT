@@ -14,7 +14,7 @@ export const viewportHeight = (w: number): number => (w < 768 ? 812 : 900);
 export const isTouch = (w: number): boolean => w < 1024;
 
 export type View = 'week' | 'day';
-export type Recipe = 'none' | 'lineprobe' | 'tray' | 'rail' | 'sheet' | 'prefill' | 'more' | 'save' | 'tab' | 'field' | 'empty' | 'jobserror' | 'search' | 'needcrew';
+export type Recipe = 'none' | 'lineprobe' | 'tray' | 'rail' | 'sheet' | 'prefill' | 'more' | 'save' | 'tab' | 'field' | 'empty' | 'jobserror' | 'search' | 'needcrew' | 'malformed';
 export type Shot = 'top' | 'scrolled' | 'dark' | 'empty' | 'chips' | 'focus' | 'middle' | 'end';
 export type Frames = Readonly<Partial<Record<Shot, string>>>;
 
@@ -64,6 +64,7 @@ export const STATES = {
   'error-1280': { path: '/schedule', w: 1280, recipe: 'jobserror', frames: {} },
   'search-1280': { path: '/schedule', w: 1280, recipe: 'search', frames: {} },
   'needcrew-1280': { path: '/schedule', w: 1280, recipe: 'needcrew', frames: {} },
+  'malformed-1280': { path: '/schedule', w: 1280, recipe: 'malformed', frames: {} },
   'edit-375': { path: '/schedule', w: 375, recipe: 'sheet', frames: {} },
   'edit-768': { path: '/schedule', w: 768, recipe: 'sheet', frames: {} },
   'edit-1024': { path: '/schedule', w: 1024, recipe: 'sheet', frames: {} },
@@ -96,7 +97,7 @@ export type KillId =
   | 'P2-tracker' | 'P2-chip' | 'P2-focus' | 'P2-now' | 'P2-day-board' | 'P2-scroller' | 'P2-sheet' | 'P2-tray' | 'P2-status'
   | 'K1' | 'K2' | 'K3' | 'K4' | 'K5' | 'K6' | 'K7' | 'K8' | 'K9' | 'K10'
   | 'K11' | 'K12' | 'K13' | 'K14' | 'K15' | 'K16' | 'K17' | 'K18' | 'K19'
-  | 'K20' | 'K21' | 'K22' | 'K23';
+  | 'K20' | 'K21' | 'K22' | 'K23' | 'K24' | 'K25';
 
 export const KILLS: Readonly<Record<KillId, { readonly title: string; readonly states: readonly StateId[] }>> = {
   'P2-palette': { title: 'no navy or cream pixels outside data colour', states: [...BOARD, 'sheet-390'] },
@@ -144,7 +145,14 @@ export const KILLS: Readonly<Record<KillId, { readonly title: string; readonly s
   K21: { title: 'tray and last lane stay reachable at 900 tall; 390 agenda never collapses to 0', states: ['week-390', 'tray-390', 'week-1024', 'week-1280', 'day-1280'] },
   K22: { title: 'dated crewless unknown status shows Needs crew, never Scheduled or Booked', states: ['week-1280'] },
   K23: { title: 'dated crewed unknown status shows a sentence-case pill, never Scheduled or Booked', states: ['week-1280'] },
+  K24: { title: 'malformed assigned_team never throws and each dated job counts as need crew', states: ['malformed-1280'] },
+  K25: { title: '1280 mockup chrome and 390 tools row match the signed schedule paper', states: ['week-1280', 'rail-1280', 'day-1280', 'week-390', 'tray-390', 'sheet-390'] },
 };
+
+/** Every P2/K* kill opens a Playwright Chromium page against the built dist. None run in jsdom. */
+export const KILL_RUNTIME: Readonly<Record<KillId, 'chromium'>> = Object.fromEntries(
+  (Object.keys(KILLS) as KillId[]).map(id => [id, 'chromium']),
+) as Readonly<Record<KillId, 'chromium'>>;
 export const killTitle = (id: KillId): string => `${id}: ${KILLS[id].title}`;
 
 export const PALETTE = {
@@ -270,6 +278,40 @@ export type TrayProbe = { before: TrayState; after: TrayState };
 export type Offender = { el: string; right: number; scroller: { classes: string[]; right: number } | null };
 export type ClipProbe = { el: string; right: number; clip: string; clipRight: number };
 export type ClockProbe = { text: string; cls: string; textRight: number; clipRight: number; clipEl: string; fits: boolean };
+export type OverflowSkip = { el: string; right: number; reason: 'sole-allowlisted-scroller' | 'ellipsis-self' | 'clip-inside-allowlisted-scroller' };
+export type TrackLabel = { el: string; text: string; card: string; fitsCard: boolean; fitsClip: boolean; clipEl: string };
+export type DayTrackInfo = { overflowX: string; sw: number; cw: number; right: number };
+export type ChromeProbe = {
+  headerAlign: string;
+  headerLeft: number;
+  headerTop: number;
+  newJobLeft: number;
+  newJobRight: number;
+  segRadius: number;
+  segBorder: number;
+  navBoxed: number;
+  range: string;
+  searchWidth: number;
+  todayBorder: number;
+  dayHeadFullShown: number;
+  dayHeadShortShown: number;
+  dayHeadAlign: string;
+  dayHeadLines: number;
+  line1_0036: string;
+  titleClamp: number;
+  trayHeadingPx: number;
+  trayHeadingTransform: string;
+  trayCols: number;
+  dayUntimedWidth: number;
+  dayTrackWidth: number;
+  dayCrewWrap: string;
+  weekCrewWrap: string;
+  quickBookTop: number;
+  rangeTop: number;
+  todayTop: number;
+  quickBookWidth: number;
+  toolsWidth: number;
+};
 export type ReachBox = { top: number; bottom: number; height: number; visible: number };
 export type ReachProbe = { tray: ReachBox; lastLane: ReachBox; agenda: ReachBox; agendaFirst: ReachBox; vh: number };
 export type TrackProbe = {
@@ -277,12 +319,13 @@ export type TrackProbe = {
   sw: number;
   cw: number;
   right: number;
+  overflowX: string;
   cutHourPx: { shown: number; hidden: number };
   wheelAt: string;
   wheelX: { trackLeft: number };
   wheelY: { deltaY: number; pageMoved: number; trackTop: number };
 };
-export type TrackShape = Pick<TrackProbe, 'classes' | 'sw' | 'cw' | 'right' | 'cutHourPx'>;
+export type TrackShape = Pick<TrackProbe, 'classes' | 'sw' | 'cw' | 'right' | 'overflowX' | 'cutHourPx'>;
 export type DomMeasure = {
   iw: number;
   docSW: number;
@@ -294,6 +337,10 @@ export type DomMeasure = {
   clips: ClipProbe[];
   clocks: ClockProbe[];
   reach: ReachProbe;
+  overflowSkips: OverflowSkip[];
+  trackLabels: TrackLabel[];
+  dayTrack: DayTrackInfo | null;
+  chrome: ChromeProbe;
   texts: TextProbe[];
   taps: TapProbe[];
   rows: RowProbe[];
@@ -456,6 +503,12 @@ export const MUTANTS: readonly MutantSpec[] = [
   css('page-height-lock', 'K21', '.hub-board-cal.is-week-doc.ops-page {', 'height: auto;\n    padding: 12px 16px 16px;\n    overflow: visible;', 'height: calc(100dvh - 3.5rem);\n    padding: 12px 16px 16px;\n    overflow: hidden;', 'lock the week page to 100dvh and clip'),
   { id: 'agenda-min-zero', kill: 'K21', file: BOARD_VIEWS, find: '{days.map(day => {\n        const date = parseISO(`${day.date}T00:00:00`);', replace: '{days.slice(0, 0).map(day => {\n        const date = parseISO(`${day.date}T00:00:00`);', brief: '390 agenda collapses to 0' },
   { id: 'quoted-as-scheduled', kill: 'K23', file: 'src/lib/scheduleInvoiceStatus.ts', find: 'return { label: sentenceStatus(job.status), kind: \'status\' };', replace: "return { label: 'Scheduled', kind: 'scheduled' };", brief: 'unknown status paints as Scheduled' },
+  { id: 'drop-array-guard', kill: 'K24', file: 'src/lib/dispatch.ts', find: 'if (!Array.isArray(value)) return [];\n  return value.filter((id): id is string => typeof id === \'string\' && id.length > 0);', replace: 'return (value as string[]).filter((id): id is string => typeof id === \'string\' && id.length > 0);', brief: 'drop the asTeamIds array guard' },
+  { id: 'head-full-hidden', kill: 'K25', file: 'src/index.css', find: '    .hub-week-head-full {\n      display: inline;\n      text-align: left;\n      white-space: nowrap;\n    }', replace: '    .hub-week-head-full {\n      display: none;\n      text-align: left;\n      white-space: nowrap;\n    }', brief: 'hide the one-line laptop day heads' },
+  { id: 'tray-kicker-tiny', kill: 'K25', file: 'src/index.css', find: '      font-size: 20px;\n      font-weight: 600;\n      letter-spacing: 0;\n      text-transform: none;\n      color: var(--g-ink);', replace: '      font-size: 11px;\n      font-weight: 700;\n      letter-spacing: 0.12em;\n      text-transform: uppercase;\n      color: var(--g-ink-muted);', brief: 'shrink the tray heading back to an 11px kicker' },
+  { id: 'untimed-span-track', kill: 'K25', file: BOARD_VIEWS, find: 'width: Math.min(220, hourWidth * 2.2),', replace: 'width: hourWidth * hours.length,', brief: 'untimed day card spans the whole track' },
+  { id: 'today-off-range', kill: 'K25', file: 'src/index.css', find: '    .hub-week-tools .hub-week-today { order: 3; }', replace: '    .hub-week-tools .hub-week-today { order: 12; }', brief: 'Today leaves the 390 range row' },
+  css('day-clock-clip', 'P2-overflow', '.hub-week-chip-clock {', 'max-width: none;', 'max-width: 2ch;\n    overflow: hidden;\n    text-overflow: clip;', 'clip day-track clock labels inside the card'),
 ];
 
 export const SCOPE = {

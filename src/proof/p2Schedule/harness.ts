@@ -230,6 +230,7 @@ const RECIPES: Readonly<Record<Recipe, (page: Page, spec: StateSpec, notes: Note
   empty: async () => {},
   jobserror: async () => {},
   needcrew: async () => {},
+  malformed: async () => {},
   search: async (page) => {
     const box = page.locator('[data-schedule-search] input, .hub-week-search input').first();
     await box.fill('Luke');
@@ -329,13 +330,14 @@ export async function openState(id: StateId, build: Build = 'branch', height = v
     const page = await context.newPage();
     page.on('websocket', ws => websockets.push(ws.url()));
     page.on('pageerror', err => pageErrors.push(err.message));
-    await page.addInitScript((boot: { path: string; empty?: boolean; jobsError?: boolean; needCrewPair?: boolean }) => {
+    await page.addInitScript((boot: { path: string; empty?: boolean; jobsError?: boolean; needCrewPair?: boolean; malformedCrew?: boolean }) => {
       window.__P2_BOOT__ = boot;
     }, {
       path: spec.path,
       empty: spec.recipe === 'empty',
       jobsError: spec.recipe === 'jobserror',
       needCrewPair: spec.recipe === 'needcrew',
+      malformedCrew: spec.recipe === 'malformed',
     });
     await page.goto(url);
     await page.waitForFunction(() => !!window.__p2);
@@ -614,6 +616,10 @@ function row(m: Measure): Row {
     clips: m.clips,
     clocks: m.clocks,
     reach: m.reach,
+    overflowSkips: m.overflowSkips,
+    trackLabels: m.trackLabels,
+    dayTrack: m.dayTrack,
+    chrome: m.chrome,
     buttons: m.buttons,
     buttonOverflow: m.buttons.filter(b => b.sw > b.cw),
     offenders: m.offenders,
@@ -704,13 +710,23 @@ export async function writeCapture(dir: string): Promise<{ written: string[] }> 
 function tables(after: Row[], before: Row[]): string {
   const b = (r: Row) => before.find(x => x.view === r.view && x.w === r.w);
   const out: string[] = [];
-  out.push('## Overflow (docSW / unexempted rect.right / chrome button sw≤cw / clip ancestors)', '', '| state | iw | docSW | bodySW | maxRight raw | max unexempted right | buttons | sw>cw | clips |', '|---|---:|---:|---:|---:|---:|---:|---|---:|');
+  out.push('## Overflow (docSW / unexempted rect.right / chrome button sw≤cw / clip ancestors)', '', '| state | iw | docSW | bodySW | maxRight raw | max unexempted right | buttons | sw>cw | clips | skips |', '|---|---:|---:|---:|---:|---:|---:|---|---:|---|');
   for (const r of after) {
     const buttons = (r.buttons as Measure['buttons']) ?? [];
     const overflow = (r.buttonOverflow as Measure['buttons']) ?? buttons.filter(x => x.sw > x.cw);
     const overflowLabel = overflow.length ? overflow.slice(0, 3).map(x => `${x.label} ${x.sw}>${x.cw}`).join('; ') : 'none';
     const clips = (r.clips as Measure['clips']) ?? [];
-    out.push(`| ${r.state} | ${r.iw} | ${r.docSW} | ${r.bodySW} | ${r.maxRight} | ${r.unexemptedMaxRight} | ${buttons.length} | ${overflowLabel} | ${clips.length} |`);
+    const skips = (r.overflowSkips as Measure['overflowSkips']) ?? [];
+    const skipLabel = skips.length
+      ? `${skips.length}: ${[...new Set(skips.map(s => s.reason))].join(', ')}`
+      : 'none';
+    out.push(`| ${r.state} | ${r.iw} | ${r.docSW} | ${r.bodySW} | ${r.maxRight} | ${r.unexemptedMaxRight} | ${buttons.length} | ${overflowLabel} | ${clips.length} | ${skipLabel} |`);
+  }
+  out.push('', '## Overflow skips (named elements the kill does not treat as overflow)', '', '| state | el | right | reason |', '|---|---|---:|---|');
+  for (const r of after) {
+    const skips = (r.overflowSkips as Measure['overflowSkips']) ?? [];
+    for (const s of skips.slice(0, 12)) out.push(`| ${r.state} | ${s.el} | ${s.right} | ${s.reason} |`);
+    if (!skips.length && String(r.state).startsWith('day-')) out.push(`| ${r.state} | — | — | none |`);
   }
   out.push('', '## Reach (tray / last lane after scroll-to-end; 390 agenda at rest)', '', '| state | vh | agenda h | agenda visible | tray visible | last lane visible |', '|---|---:|---:|---:|---:|---:|');
   for (const r of after) {
