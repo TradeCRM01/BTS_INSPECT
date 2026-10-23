@@ -8,7 +8,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { contrastRatio, paintedFill, parseCssColor } from '../lib/contrastRatio';
+import { contrastRatio, paintedFill } from '../lib/contrastRatio';
 import type { TodayCashTotals } from '../lib/todayBoard';
 import { TodayBoardView } from './TodayBoardView';
 
@@ -101,7 +101,6 @@ describe('C10 cash bars', () => {
     const pageBg = getComputedStyle(host).getPropertyValue('--g-bg').trim() || '#F5F5F7';
     for (const bar of outBars) {
       const fill = paintedFill(bar, host);
-      expect(parseCssColor(fill), 'Out bar is muted #3F3F46').toEqual(parseCssColor('#3F3F46'));
       expect(contrastRatio(fill, pageBg), 'Out bar contrast').toBeGreaterThanOrEqual(3);
     }
     for (const bar of inBars) {

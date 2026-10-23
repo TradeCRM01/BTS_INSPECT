@@ -8,10 +8,11 @@
  * Painted values only. Reading a CSS variable never counts as a pass.
  */
 import { execSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { dirname, extname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { NAV_WORDS } from '../../lib/brand';
@@ -200,6 +201,8 @@ let mainCss = '';
 let dashJs = '';
 let dashJsNoProof = '';
 let runDir = '';
+let lookOrigin = '';
+let lookServer: { origin: string; close: () => Promise<void> } | null = null;
 const temps: string[] = [];
 
 beforeAll(async () => {
@@ -207,14 +210,21 @@ beforeAll(async () => {
   mainCss = ensureMainDistCss();
   dashJs = await bundleDashboard();
   dashJsNoProof = await bundleDashboard({ lookProof: false });
+  buildLookDist(LOOK_DIST);
+  temps.push(LOOK_DIST);
+  lookServer = await serveLookDist(LOOK_DIST);
+  lookOrigin = lookServer.origin;
   runDir = mkdtempSync(join(tmpdir(), 'p1-chroma-'));
   temps.push(runDir);
   browser = await launchBrowser();
-}, 180000);
+}, 240000);
 
 afterAll(async () => {
+  await lookServer?.close();
   await browser?.close();
-  for (const dir of temps) rmSync(dir, { recursive: true, force: true });
+  for (const dir of temps) {
+    if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 async function openPage(args: {
@@ -244,6 +254,153 @@ async function openPage(args: {
   await page.waitForSelector('.shell-header', { timeout: 20000 });
   await page.evaluate(async () => { await document.fonts.ready; });
   return page;
+}
+
+const LOOK_DIST = join(tmpdir(), 'p1b-look-dist');
+const MOCKUP_TOL = 12;
+const JOBS_NEEDS_SRC = `        <JobsSection
+          jobs={jobs}
+          team={team}
+          readyIds={readyIds}
+          width={width}
+          band={band}
+          nowId={nowPick.job?.id ?? null}
+          loading={jobsLoading}
+          error={jobsError}
+          onRetry={onRetryJobs}
+          showPlace={showPlace}
+        />
+        <NeedsSection nudges={nudges} />`;
+const NEEDS_JOBS_SRC = `        <NeedsSection nudges={nudges} />
+        <JobsSection
+          jobs={jobs}
+          team={team}
+          readyIds={readyIds}
+          width={width}
+          band={band}
+          nowId={nowPick.job?.id ?? null}
+          loading={jobsLoading}
+          error={jobsError}
+          onRetry={onRetryJobs}
+          showPlace={showPlace}
+        />`;
+
+function buildLookDist(outDir: string) {
+  execSync(`npx vite build --outDir ${outDir} --emptyOutDir`, {
+    cwd: process.cwd(),
+    env: { ...process.env, VITE_LOOK_PROOF: '1' },
+    stdio: 'pipe',
+  });
+}
+
+function serveLookDist(root: string): Promise<{ origin: string; close: () => Promise<void> }> {
+  const mime: Record<string, string> = {
+    '.html': 'text/html',
+    '.js': 'text/javascript',
+    '.css': 'text/css',
+    '.woff2': 'font/woff2',
+    '.png': 'image/png',
+    '.svg': 'image/svg+xml',
+    '.json': 'application/json',
+    '.webmanifest': 'application/manifest+json',
+  };
+  return new Promise((resolve, reject) => {
+    const server = createServer((req, res) => {
+      const url = new URL(req.url || '/', 'http://127.0.0.1');
+      let rel = decodeURIComponent(url.pathname);
+      if (rel === '/') rel = '/index.html';
+      const file = join(root, rel);
+      if (!file.startsWith(root)) {
+        res.statusCode = 403;
+        res.end();
+        return;
+      }
+      const fallback = !existsSync(file) || !statSync(file).isFile();
+      const send = fallback ? join(root, 'index.html') : file;
+      res.writeHead(200, { 'content-type': fallback ? 'text/html' : (mime[extname(send)] || 'application/octet-stream') });
+      res.end(readFileSync(send));
+    });
+    server.listen(0, '127.0.0.1', () => {
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') {
+        reject(new Error('look dist listen failed'));
+        return;
+      }
+      resolve({
+        origin: `http://127.0.0.1:${addr.port}`,
+        close: () => new Promise((done) => server.close(() => done())),
+      });
+    });
+  });
+}
+
+async function openLookDist(origin: string, width: number, path = '/?look=dashboard'): Promise<KillPage> {
+  const phone = width <= 430;
+  const page = await browser.newPage({
+    viewport: { width, height: phone ? 2000 : 1600 },
+  });
+  await page.goto(`${origin}${path}`);
+  await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 25000 });
+  await page.evaluate(async () => { await document.fonts.ready; });
+  return page;
+}
+
+type SectionBox = { id: string; top: number; left: number; right: number; width: number; height: number };
+
+function readSectionBoxes(): SectionBox[] {
+  const vis = (el: Element) => {
+    const s = getComputedStyle(el as HTMLElement);
+    const r = el.getBoundingClientRect();
+    return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 1 && r.height > 1;
+  };
+  return [...document.querySelectorAll('[data-today-section]')].flatMap((el) => {
+    if (!vis(el)) return [];
+    return [{
+      id: el.getAttribute('data-today-section') || '',
+      top: el.getBoundingClientRect().top,
+      left: el.getBoundingClientRect().left,
+      right: el.getBoundingClientRect().right,
+      width: el.getBoundingClientRect().width,
+      height: el.getBoundingClientRect().height,
+    }];
+  });
+}
+
+function section(boxes: SectionBox[], id: string): SectionBox {
+  const row = boxes.find((box) => box.id === id);
+  if (!row) throw new Error(`section ${id} not painted`);
+  return row;
+}
+
+function contrastRgb(a: { r: number; g: number; b: number }, b: { r: number; g: number; b: number }): number {
+  const lin = (c: number) => {
+    const x = c / 255;
+    return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+  };
+  const lum = (c: { r: number; g: number; b: number }) => 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
+  const hi = Math.max(lum(a), lum(b));
+  const lo = Math.min(lum(a), lum(b));
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+async function sampleClipCenter(page: KillPage, clip: { x: number; y: number; width: number; height: number }) {
+  const buf = await page.screenshot({ type: 'png', clip, animations: 'disabled' });
+  return page.evaluate(async (b64: string) => {
+    const img = new Image();
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = reject;
+      img.src = `data:image/png;base64,${b64}`;
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('no canvas');
+    ctx.drawImage(img, 0, 0);
+    const px = ctx.getImageData(Math.floor(img.width / 2), Math.floor(img.height / 2), 1, 1).data;
+    return { r: px[0], g: px[1], b: px[2] };
+  }, buf.toString('base64'));
 }
 
 const LOOK_REMS = ['look-rem-mia', 'look-rem-0137', 'look-rem-megan'] as const;
@@ -2316,5 +2473,239 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     });
     await page.close();
     expect(ratio, 'old #9CA3AF placeholder stays under 4.5:1').toBeLessThan(4.5);
+  }, 120000);
+
+  it('P1b-layout: painted section rects match the light mockup at 390 and 1280', async () => {
+    const frameDir = '/tmp/p1b-frames';
+    const artDir = '/opt/cursor/artifacts/p1b';
+    for (const dir of [frameDir, artDir]) {
+      try { execSync(`mkdir -p ${dir}`, { stdio: 'pipe' }); } catch { /* ignore */ }
+    }
+    for (const width of [390, 1280] as const) {
+      const page = await openLookDist(lookOrigin, width);
+      await page.waitForSelector('[data-need-crew-count]', { timeout: 20000 });
+      const boxes = await page.evaluate(readSectionBoxes);
+      const jobs = section(boxes, 's10');
+      const needs = section(boxes, 's11');
+      if (width === 390) {
+        expect(jobs.top, '390 jobs above needs (stacked mockup)').toBeLessThan(needs.top - 8);
+        expect(Math.abs(jobs.left - needs.left), '390 same gutter ±12px').toBeLessThanOrEqual(MOCKUP_TOL);
+        expect(jobs.left, '390 jobs left gutter').toBeGreaterThanOrEqual(8);
+        expect(jobs.left, '390 jobs left gutter').toBeLessThanOrEqual(40);
+      } else {
+        expect(jobs.left, '1280 jobs left of needs (two-col mockup)').toBeLessThan(needs.left - 40);
+        expect(Math.abs(jobs.top - needs.top), '1280 jobs/needs tops align ±12px').toBeLessThanOrEqual(MOCKUP_TOL);
+        const out = section(boxes, 's13');
+        const cash = section(boxes, 's14');
+        const coming = section(boxes, 's15');
+        expect(out.left, '1280 outstanding left of cash').toBeLessThan(cash.left - 24);
+        expect(cash.left, '1280 cash left of coming').toBeLessThan(coming.left - 24);
+        expect(Math.abs(out.top - cash.top), '1280 money row tops ±12px').toBeLessThanOrEqual(MOCKUP_TOL);
+        expect(jobs.top, '1280 jobs row above money row').toBeLessThan(out.top - 8);
+      }
+      const png = await page.screenshot({ type: 'png', fullPage: true, animations: 'disabled' });
+      writeFileSync(join(frameDir, `p1b-today-dist-${width}-view.png`), png);
+      try { writeFileSync(join(artDir, `p1b-today-dist-${width}-view.png`), png); } catch { /* optional */ }
+      await page.close();
+    }
+  }, 180000);
+
+  it('P1b-layout mutant: swapping jobs and needs in TodayBoardView goes red', async () => {
+    const viewPath = join(process.cwd(), 'src/pages/TodayBoardView.tsx');
+    const orig = readFileSync(viewPath, 'utf8');
+    if (!orig.includes(JOBS_NEEDS_SRC)) throw new Error('jobs/needs block missing for swap mutant');
+    const mutantDir = join(tmpdir(), 'p1b-look-mutant');
+    writeFileSync(viewPath, orig.replace(JOBS_NEEDS_SRC, NEEDS_JOBS_SRC));
+    let mutantServer: { origin: string; close: () => Promise<void> } | null = null;
+    try {
+      buildLookDist(mutantDir);
+      mutantServer = await serveLookDist(mutantDir);
+      const page = await openLookDist(mutantServer.origin, 390);
+      const boxes = await page.evaluate(readSectionBoxes);
+      await page.close();
+      const jobs = section(boxes, 's10');
+      const needs = section(boxes, 's11');
+      expect(needs.top, 'swapped source paints needs above jobs').toBeLessThan(jobs.top - 8);
+    } finally {
+      writeFileSync(viewPath, orig);
+      await mutantServer?.close();
+      if (existsSync(mutantDir)) rmSync(mutantDir, { recursive: true, force: true });
+    }
+  }, 180000);
+
+  it('P1b-need-crew: look seed paints 1 need crew plus No date / Set a date on the undated job', async () => {
+    const page = await openLookDist(lookOrigin, 390);
+    await page.waitForSelector('[data-dashboard-job="look-dash-no-date"]', { timeout: 20000 });
+    const box = await page.evaluate(() => {
+      const count = document.querySelector('[data-need-crew-count]') as HTMLElement | null;
+      const undated = document.querySelector('[data-dashboard-job="look-dash-no-date"]') as HTMLElement | null;
+      const dated = document.querySelector('[data-dashboard-job="look-dash-need-crew"]') as HTMLElement | null;
+      return {
+        count: (count?.textContent || '').trim(),
+        attr: count?.getAttribute('data-need-crew-count') || '',
+        undated: (undated?.textContent || '').replace(/\s+/g, ' '),
+        dated: (dated?.textContent || '').replace(/\s+/g, ' '),
+      };
+    });
+    await page.close();
+    expect(box.attr, 'undated job must not increment the count').toBe('1');
+    expect(box.count).toBe('1 need crew');
+    expect(box.undated).toMatch(/No date/);
+    expect(box.undated).toMatch(/Set a date/);
+    expect(box.dated).toMatch(/Needs crew/);
+    expect(box.dated).not.toMatch(/No date/);
+  }, 120000);
+
+  it('C10 painted Out/In bars are ≥3:1 on the look board', async () => {
+    const page = await openLookDist(lookOrigin, 1280);
+    await page.waitForSelector('.today-cash-chart rect', { timeout: 20000 });
+    const bars = await page.evaluate(() => {
+      const host = document.querySelector('.dashboard-home') as HTMLElement;
+      const bg = getComputedStyle(host).getPropertyValue('--g-bg').trim() || '#F5F5F7';
+      return [...document.querySelectorAll('.today-cash-chart rect')].map((el, i) => {
+        const r = el.getBoundingClientRect();
+        return { i, x: r.x, y: r.y, width: r.width, height: r.height, bg };
+      });
+    });
+    expect(bars.length, 'cash bars painted').toBeGreaterThan(3);
+    const outBars = bars.filter((_, i) => i % 2 === 1 && bars[i].height > 4);
+    const inBars = bars.filter((_, i) => i % 2 === 0 && bars[i].height > 4);
+    expect(outBars.length).toBeGreaterThan(0);
+    expect(inBars.length).toBeGreaterThan(0);
+    const parse = (value: string) => {
+      const hex = value.trim().match(/^#([0-9a-f]{6})$/i);
+      if (hex) {
+        const n = parseInt(hex[1], 16);
+        return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+      }
+      return { r: 245, g: 245, b: 247 };
+    };
+    for (const bar of [...inBars.slice(0, 2), ...outBars.slice(0, 2)]) {
+      const rgb = await sampleClipCenter(page, {
+        x: Math.max(0, bar.x),
+        y: Math.max(0, bar.y),
+        width: Math.max(2, bar.width),
+        height: Math.max(2, bar.height),
+      });
+      expect(contrastRgb(rgb, parse(bar.bg)), `bar ${bar.i} painted contrast`).toBeGreaterThanOrEqual(3);
+    }
+    await page.close();
+  }, 120000);
+
+  it('C10 mutant: a washed Out fill drops under 3:1', async () => {
+    const page = await openPage({
+      width: 1280,
+      path: '/?look=dashboard',
+      css: `${distCss}\n.dashboard-home{--today-out-bar:#E4E4E7!important;--g-ink-muted:#E4E4E7!important}`,
+    });
+    await page.waitForSelector('.today-cash-chart rect', { timeout: 20000 });
+    const bars = await page.evaluate(() => {
+      document.querySelector('.today-cash-chart')?.scrollIntoView({ block: 'center' });
+      const host = document.querySelector('.dashboard-home') as HTMLElement;
+      const bg = getComputedStyle(host).getPropertyValue('--g-bg').trim() || '#F5F5F7';
+      return [...document.querySelectorAll('.today-cash-chart rect')].map((el, i) => {
+        const r = el.getBoundingClientRect();
+        const fill = getComputedStyle(el).fill || el.getAttribute('fill') || '';
+        return { i, x: r.x, y: r.y, width: r.width, height: r.height, bg, fill };
+      });
+    });
+    const outBars = bars.filter((_, i) => i % 2 === 1 && bars[i].height > 4);
+    expect(outBars.length).toBeGreaterThan(0);
+    const parse = (value: string) => {
+      const hex = value.trim().match(/^#([0-9a-f]{6})$/i);
+      if (hex) {
+        const n = parseInt(hex[1], 16);
+        return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+      }
+      const rgb = value.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+      if (rgb) return { r: Number(rgb[1]), g: Number(rgb[2]), b: Number(rgb[3]) };
+      return { r: 245, g: 245, b: 247 };
+    };
+    let ratio = 99;
+    const bar = outBars[0];
+    if (bar.y >= 0 && bar.height > 2 && bar.width > 2) {
+      const rgb = await sampleClipCenter(page, {
+        x: Math.max(0, bar.x),
+        y: Math.max(0, bar.y),
+        width: Math.max(2, bar.width),
+        height: Math.max(2, bar.height),
+      });
+      ratio = contrastRgb(rgb, parse(bar.bg));
+    } else {
+      ratio = contrastRgb(parse(bar.fill), parse(bar.bg));
+    }
+    await page.close();
+    expect(ratio, 'washed Out bar stays under 3:1').toBeLessThan(3);
+  }, 120000);
+
+  it('FAIL1 painted calendar today and calculator equals are ≥4.5:1', async () => {
+    const page = await openLookDist(lookOrigin, 1280, '/?look=dashboard-seed');
+    await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
+    const box = await page.evaluate(() => {
+      const today = String(new Date().getDate());
+      const cell = [...document.querySelectorAll('div')].find((el) => (
+        el.className.includes('font-bold') && el.textContent?.trim() === today && el.className.includes('bg-blue')
+      ));
+      const eq = [...document.querySelectorAll('button')].find((el) => el.textContent?.trim() === '=');
+      cell?.scrollIntoView({ block: 'center' });
+      eq?.scrollIntoView({ block: 'center' });
+      const read = (el: Element | undefined) => {
+        if (!el) return null;
+        const cs = getComputedStyle(el as HTMLElement);
+        const r = el.getBoundingClientRect();
+        return { fg: cs.color, bg: cs.backgroundColor, x: r.x, y: r.y, width: r.width, height: r.height };
+      };
+      return { cell: read(cell), eq: read(eq) };
+    });
+    expect(box.cell, 'calendar today painted').toBeTruthy();
+    expect(box.eq, 'calculator equals painted').toBeTruthy();
+    const parseRgb = (value: string) => {
+      const m = value.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+      if (!m) return { r: 0, g: 0, b: 0 };
+      return { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]) };
+    };
+    for (const node of [box.cell, box.eq]) {
+      if (!node) continue;
+      const computed = contrastRgb(parseRgb(node.fg), parseRgb(node.bg));
+      const pix = await sampleClipCenter(page, {
+        x: Math.max(0, node.x + 1),
+        y: Math.max(0, node.y + 1),
+        width: 2,
+        height: 2,
+      });
+      expect(computed, `computed ${node.fg} on ${node.bg}`).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRgb(parseRgb(node.fg), pix), 'painted fill vs painted text').toBeGreaterThanOrEqual(4.5);
+    }
+    await page.close();
+  }, 120000);
+
+  it('FAIL1 mutant: bg-blue-500 today/equals fill drops under 4.5:1', async () => {
+    const page = await openPage({
+      width: 1280,
+      path: '/?look=dashboard-seed',
+      css: `${distCss}\n.bg-blue-700{background-color:#3B82F6!important}`,
+    });
+    const ratio = await page.evaluate(() => {
+      const today = String(new Date().getDate());
+      const cell = [...document.querySelectorAll('div')].find((el) => (
+        el.className.includes('font-bold') && el.textContent?.trim() === today && el.className.includes('bg-blue')
+      ));
+      if (!cell) return 99;
+      const cs = getComputedStyle(cell);
+      const parse = (value: string) => {
+        const m = value.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+        if (!m) return null;
+        const lin = (c: number) => {
+          const x = c / 255;
+          return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+        };
+        return 0.2126 * lin(Number(m[1])) + 0.7152 * lin(Number(m[2])) + 0.0722 * lin(Number(m[3]));
+      };
+      const a = parse(cs.color);
+      const b = parse(cs.backgroundColor);
+      return a == null || b == null ? 99 : (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    });
+    await page.close();
+    expect(ratio, 'bg-blue-500 today fill stays under 4.5:1').toBeLessThan(4.5);
   }, 120000);
 });
