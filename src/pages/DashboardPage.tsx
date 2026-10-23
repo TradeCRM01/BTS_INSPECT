@@ -9,6 +9,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { EmptyState, LoadingSpinner, PageError, useToast } from '../components/ui';
 import { ReminderRow } from '../components/reminders/ReminderRow';
 import { deriveNudges, type NudgeInvoice, type NudgeQuote } from '../lib/nudges';
+import { TODAY_NUDGE_INVOICE_STATUSES } from '../lib/todayBoard';
 import {
   canTickReminder,
   listReminderJobsById,
@@ -459,7 +460,7 @@ function withClientName<T extends ClientRef>(row: T, names: Map<string, string>)
 }
 
 /** Today's and tomorrow's jobs, sent quotes, and unpaid invoices, each carrying its client name. */
-async function loadDashboardNudgeData(todayKey: string, tomorrowKey: string): Promise<DashboardNudgeData> {
+export async function loadDashboardNudgeData(todayKey: string, tomorrowKey: string): Promise<DashboardNudgeData> {
   const [jobsRes, quotesRes, invoicesRes] = await Promise.all([
     supabase
       .from('jobs')
@@ -473,7 +474,7 @@ async function loadDashboardNudgeData(todayKey: string, tomorrowKey: string): Pr
     supabase
       .from('invoices')
       .select('id, invoice_number, status, due_date, updated_at, total, chased_at, client_id')
-      .in('status', ['sent', 'overdue']),
+      .in('status', [...TODAY_NUDGE_INVOICE_STATUSES]),
   ]);
   if (jobsRes.error) throw jobsRes.error;
   if (quotesRes.error) throw quotesRes.error;
