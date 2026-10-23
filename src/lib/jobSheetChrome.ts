@@ -77,3 +77,41 @@ export function jobSheetBillTotals(preview: JobSheetBillPreview | null | undefin
     total: formatMoney(preview.totalIncGst),
   };
 }
+
+export type JobSheetBillLine = {
+  id: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  cost_type: string;
+  charge_type: string | null;
+};
+
+export function jobSheetBillLineKind(line: {
+  cost_type?: string | null;
+  charge_type?: string | null;
+}): string {
+  const charge = (line.charge_type || '').trim();
+  if (charge && !/^fixed$/i.test(charge)) return charge;
+  const cost = (line.cost_type || '').trim().toLowerCase();
+  if (cost === 'labor' || cost === 'labour') return 'Labour';
+  if (cost === 'materials' || cost === 'material') return 'Materials';
+  if (cost === 'other') return 'Other';
+  return charge || 'Other';
+}
+
+/** Real job-line sub, e.g. 'Labour · 2 h × $165.00'. */
+export function jobSheetBillLineSub(line: {
+  quantity: number;
+  unit_price: number;
+  cost_type?: string | null;
+  charge_type?: string | null;
+}): string {
+  const kind = jobSheetBillLineKind(line);
+  const qty = Number(line.quantity);
+  const shown = Number.isInteger(qty) ? String(qty) : String(qty);
+  const unit = formatMoney(Number(line.unit_price) || 0);
+  if (kind === 'Labour') return `${kind} · ${shown} h × ${unit}`;
+  return `${kind} · ${shown} × ${unit}`;
+}
