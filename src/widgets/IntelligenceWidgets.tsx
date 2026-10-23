@@ -125,7 +125,7 @@ export function AiAgentWidget({}: WidgetProps) {
         <p className="text-[11px] text-[#5B6B7C] leading-snug">
           Add a company AI key in AI Settings to use the agent.
         </p>
-        <Link to="/settings/ai" className="text-[10px] font-medium text-[#2E75B6] hover:underline mt-2">
+        <Link to="/settings/ai" className="text-[10px] font-medium text-[var(--g-accent)] hover:underline mt-2">
           AI Settings
         </Link>
       </div>
@@ -136,7 +136,7 @@ export function AiAgentWidget({}: WidgetProps) {
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-2 shrink-0">
         <div className="flex items-center gap-1.5">
-          <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#0A2540] to-[#2E75B6] flex items-center justify-center">
+          <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[var(--g-inverse)] to-[var(--g-accent)] flex items-center justify-center">
             <Bot size={12} className="text-white" />
           </div>
           <span className="text-xs font-semibold text-[#1A1A1A]">AI Agent</span>
@@ -145,20 +145,20 @@ export function AiAgentWidget({}: WidgetProps) {
           </span>
         </div>
         <button onClick={() => navigate('/ai-assistant')}
-          className="text-[10px] text-[#2E75B6] hover:underline">Expand</button>
+          className="text-[10px] text-[var(--g-accent)] hover:underline">Expand</button>
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-auto min-h-0 -mx-1 px-1 space-y-2">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center px-2">
             <div className="w-8 h-8 rounded-xl bg-[#EFF6FF] flex items-center justify-center mb-2">
-              <Sparkles size={16} className="text-[#2E75B6]" />
+              <Sparkles size={16} className="text-[var(--g-accent)]" />
             </div>
             <p className="text-[11px] text-[#4A5568] mb-2">Ask me to take action, check on work, or create reminders.</p>
             <div className="space-y-1 w-full">
               {AGENT_SUGGESTIONS.map(s => (
                 <button key={s} onClick={() => send(s)}
-                  className="w-full text-left px-2 py-1.5 rounded-lg bg-[#F9FAFB] hover:bg-[#EFF6FF] border border-[#E5E7EB] hover:border-[#2E75B6] text-[10px] text-[#4A5568] transition-colors">
+                  className="w-full text-left px-2 py-1.5 rounded-lg bg-[#F9FAFB] hover:bg-[#EFF6FF] border border-[#E5E7EB] hover:border-[var(--g-accent)] text-[10px] text-[#4A5568] transition-colors">
                   {s}
                 </button>
               ))}
@@ -168,12 +168,12 @@ export function AiAgentWidget({}: WidgetProps) {
 
         {messages.map((m, i) => (
           <div key={i} className={`flex gap-1.5 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-            <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${m.role === 'user' ? 'bg-[#0A2540]' : 'bg-[#2E75B6]'}`}>
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${m.role === 'user' ? 'bg-[var(--g-inverse)]' : 'bg-[var(--g-accent)]'}`}>
               {m.role === 'user' ? <User size={10} className="text-white" /> : <Bot size={10} className="text-white" />}
             </div>
             <div className={`max-w-[85%] rounded-lg px-2.5 py-1.5 text-[11px] leading-relaxed whitespace-pre-wrap break-words ${
               m.role === 'user'
-                ? 'bg-[#0A2540] text-white'
+                ? 'bg-[var(--g-inverse)] text-white'
                 : 'bg-[#F9FAFB] border border-[#E5E7EB] text-[#1A1A1A]'
             }`}>
               {m.content || (busy ? '...' : '')}
@@ -189,10 +189,10 @@ export function AiAgentWidget({}: WidgetProps) {
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
           disabled={busy}
           placeholder="Ask the agent…"
-          className="flex-1 min-w-0 min-h-[44px] text-[11px] border border-[#E5E7EB] rounded-lg px-2 py-2 outline-none focus:border-[#2E75B6] disabled:opacity-50"
+          className="flex-1 min-w-0 min-h-[44px] text-[11px] border border-[#E5E7EB] rounded-lg px-2 py-2 outline-none focus:border-[var(--g-accent)] disabled:opacity-50"
         />
         <button onClick={() => send()} disabled={!input.trim() || busy}
-          className="w-7 h-7 rounded-lg bg-[#0A2540] text-white flex items-center justify-center disabled:opacity-40 shrink-0">
+          className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg bg-[var(--g-inverse)] text-white flex items-center justify-center disabled:opacity-40 shrink-0">
           {busy ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
         </button>
       </div>
@@ -234,7 +234,7 @@ export function IndustryNewsWidget() {
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center gap-1.5 mb-2 shrink-0">
-        <Newspaper size={14} className="text-[#2E75B6]" />
+        <Newspaper size={14} className="text-[var(--g-accent)]" />
         <span className="text-xs font-semibold text-[#4A5568]">Industry News</span>
         <span className="text-[9px] text-gray-400 ml-auto">Live</span>
       </div>
@@ -246,7 +246,7 @@ export function IndustryNewsWidget() {
         ) : news.map((n, i) => (
           <a key={i} href={n.link} target="_blank" rel="noreferrer"
             className="block px-1.5 py-1.5 rounded-lg hover:bg-gray-50 transition-colors group">
-            <p className="text-[11px] font-medium text-[#1A1A1A] leading-snug line-clamp-2 group-hover:text-[#2E75B6]">{n.title}</p>
+            <p className="text-[11px] font-medium text-[#1A1A1A] leading-snug line-clamp-2 group-hover:text-[var(--g-accent)]">{n.title}</p>
             <p className="text-[9px] text-gray-400 mt-0.5">
               {n.source}
               {n.pubDate && ` · ${formatDistanceToNow(new Date(n.pubDate), { addSuffix: true })}`}
@@ -299,18 +299,20 @@ export function ComplianceDeadlinesWidget({ config }: WidgetProps) {
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-2 shrink-0">
         <div className="flex items-center gap-1.5">
-          <Shield size={14} className="text-[#2E75B6]" />
+          <Shield size={14} className="text-[var(--g-accent)]" />
           <span className="text-xs font-semibold text-[#4A5568]">Compliance</span>
         </div>
-        <Link to="/compliance" className="text-[10px] text-[#2E75B6] hover:underline">View all</Link>
+        <Link to="/compliance" className="min-h-[44px] min-w-[44px] inline-flex items-center text-[10px] text-[var(--g-accent)] hover:underline">View all</Link>
       </div>
       {kind === 'error' ? (
         <div className="flex-1 flex items-center justify-center text-xs text-gray-400">Couldn't load compliance</div>
       ) : kind === 'loading' ? (
         <div className="flex-1 flex items-center justify-center text-xs text-gray-400">{copy}</div>
       ) : kind === 'empty' ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-xs text-green-600">
-          <CheckCircle size={18} className="mb-1" /> {copy}
+        <div className="flex-1 flex flex-col items-center justify-center gap-1.5 text-xs text-[var(--g-ink)]">
+          <CheckCircle size={18} className="mb-1 text-[var(--g-ok)]" />
+          <span>{copy}</span>
+          <span className="dashboard-home-pill dashboard-home-pill-ok">OK</span>
         </div>
       ) : (
         <div className="flex-1 overflow-auto -mx-1 px-1 space-y-1 min-h-0" data-compliance-deadlines="1">
@@ -322,8 +324,9 @@ export function ComplianceDeadlinesWidget({ config }: WidgetProps) {
               <AlertCircle size={14} className="text-[#EF4444] shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] font-medium text-[#1A1A1A] truncate">{item.title as string}</p>
-                <p className="text-[9px] text-[#EF4444] font-medium">
-                  Overdue · {due ? complianceDueDayLabel(due) : ''}
+                <p className="text-[9px] font-medium text-[var(--g-ink-muted)]">
+                  <span className="dashboard-home-pill dashboard-home-pill-bad">Overdue</span>
+                  {due ? ` · ${complianceDueDayLabel(due)}` : ''}
                 </p>
               </div>
             </Link>
@@ -338,8 +341,9 @@ export function ComplianceDeadlinesWidget({ config }: WidgetProps) {
               <Clock size={14} className="text-[#D97706] shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] font-medium text-[#1A1A1A] truncate">{item.title as string}</p>
-                <p className="text-[9px] text-[#D97706]">
-                  Due {due ? complianceDueDayLabel(due) : ''}{hint ? ` · ${hint}` : ''}
+                <p className="text-[9px] text-[var(--g-ink-muted)]">
+                  <span className="dashboard-home-pill dashboard-home-pill-warn">Due</span>
+                  {due ? ` ${complianceDueDayLabel(due)}` : ''}{hint ? ` · ${hint}` : ''}
                 </p>
               </div>
             </Link>
@@ -382,7 +386,7 @@ export function CashFlowWidget() {
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center gap-1.5 mb-2">
-        <Zap size={14} className="text-[#2E75B6]" />
+        <Zap size={14} className="text-[var(--g-accent)]" />
         <span className="text-xs font-semibold text-[#4A5568]">Cash Flow (7d)</span>
       </div>
       {isLoading ? (
@@ -451,7 +455,7 @@ export function KpiScorecardWidget() {
   });
 
   const kpis = [
-    { label: 'Active Jobs', value: data?.openJobs ?? 0, icon: Briefcase, color: 'text-[#2E75B6]', bg: 'bg-[#EFF6FF]' },
+    { label: 'Active Jobs', value: data?.openJobs ?? 0, icon: Briefcase, color: 'text-[var(--g-accent)]', bg: 'bg-[#EFF6FF]' },
     { label: 'Inspections Today', value: data?.inspectionsToday ?? 0, icon: FileText, color: 'text-green-600', bg: 'bg-green-50' },
     { label: 'Overdue Inv.', value: data?.overdueInvoices ?? 0, icon: AlertTriangle, color: 'text-red-500', bg: 'bg-red-50' },
     { label: 'Stock Items', value: data?.stockItems ?? 0, icon: Activity, color: 'text-amber-600', bg: 'bg-amber-50' },
@@ -460,7 +464,7 @@ export function KpiScorecardWidget() {
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center gap-1.5 mb-2">
-        <TrendingUp size={14} className="text-[#2E75B6]" />
+        <TrendingUp size={14} className="text-[var(--g-accent)]" />
         <span className="text-xs font-semibold text-[#4A5568]">KPI Scorecard</span>
       </div>
       {isLoading ? (
@@ -523,7 +527,7 @@ export function TeamActivityWidget() {
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center gap-1.5 mb-2">
-        <Users size={14} className="text-[#2E75B6]" />
+        <Users size={14} className="text-[var(--g-accent)]" />
         <span className="text-xs font-semibold text-[#4A5568]">Team Activity</span>
       </div>
       <div className="flex-1 overflow-auto -mx-1 px-1 space-y-1.5 min-h-0">
@@ -533,7 +537,7 @@ export function TeamActivityWidget() {
           <div className="flex items-center justify-center h-full text-xs text-gray-400">No recent activity</div>
         ) : data.map(a => (
           <div key={a.id} className="flex items-start gap-2">
-            <div className="w-6 h-6 rounded-full bg-[#2E75B6] flex items-center justify-center shrink-0">
+            <div className="w-6 h-6 rounded-full bg-[var(--g-accent)] flex items-center justify-center shrink-0">
               <span className="text-[9px] font-semibold text-white">{initials(a.person)}</span>
             </div>
             <div className="flex-1 min-w-0">
@@ -576,7 +580,7 @@ export function AgentRemindersWidget() {
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center gap-1.5 mb-2">
-        <CheckCircle size={14} className="text-[#2E75B6]" />
+        <CheckCircle size={14} className="text-[var(--g-accent)]" />
         <span className="text-xs font-semibold text-[#4A5568]">Reminders</span>
       </div>
       <div className="flex-1 overflow-auto -mx-1 px-1 space-y-1.5 min-h-0">
@@ -584,7 +588,7 @@ export function AgentRemindersWidget() {
           <div className="flex items-center justify-center h-full text-xs text-gray-400">Loading…</div>
         ) : !pending.length ? (
           <div className="flex flex-col items-center justify-center h-full text-xs text-gray-400 text-center px-2">
-            <CheckCircle size={18} className="mb-1 text-[#2E75B6]" />
+            <CheckCircle size={18} className="mb-1 text-[var(--g-accent)]" />
             Nothing to remember.<br />Add one from Reminders.
           </div>
         ) : pending.map(r => (
@@ -593,7 +597,7 @@ export function AgentRemindersWidget() {
               type="button"
               aria-label="Mark as done"
               onClick={() => complete(r.id)}
-              className="w-4 h-4 rounded border-2 border-gray-300 hover:border-[#2E75B6] shrink-0 mt-0.5 transition-colors"
+              className="w-4 h-4 rounded border-2 border-gray-300 hover:border-[var(--g-accent)] shrink-0 mt-0.5 transition-colors"
             />
             <div className="flex-1 min-w-0">
               <p className="text-[11px] text-[#1A1A1A] leading-snug">{r.title}</p>
@@ -606,7 +610,7 @@ export function AgentRemindersWidget() {
           </div>
         ))}
       </div>
-      <Link to="/reminders" className="mt-2 text-[11px] font-medium text-[#2E75B6] hover:underline shrink-0">
+      <Link to="/reminders" className="mt-2 text-[11px] font-medium text-[var(--g-accent)] hover:underline shrink-0">
         All reminders
       </Link>
     </div>
@@ -618,14 +622,14 @@ export function AgentRemindersWidget() {
 // ────────────────────────────────────────────────────────────────────────────
 
 const ACTION_ICONS: Record<string, { icon: typeof Bot; color: string; bg: string }> = {
-  send_email: { icon: Send, color: 'text-[#2E75B6]', bg: 'bg-[#EFF6FF]' },
+  send_email: { icon: Send, color: 'text-[var(--g-accent)]', bg: 'bg-[#EFF6FF]' },
   create_job: { icon: Briefcase, color: 'text-green-600', bg: 'bg-green-50' },
   create_reminder: { icon: CheckCircle, color: 'text-amber-600', bg: 'bg-amber-50' },
-  create_compliance_item: { icon: Shield, color: 'text-[#2E75B6]', bg: 'bg-[#EFF6FF]' },
+  create_compliance_item: { icon: Shield, color: 'text-[var(--g-accent)]', bg: 'bg-[#EFF6FF]' },
   web_search: { icon: Newspaper, color: 'text-purple-600', bg: 'bg-purple-50' },
   query_database: { icon: Activity, color: 'text-gray-600', bg: 'bg-gray-100' },
   execute_sql: { icon: Wrench, color: 'text-gray-600', bg: 'bg-gray-100' },
-  other: { icon: Bot, color: 'text-[#2E75B6]', bg: 'bg-[#EFF6FF]' },
+  other: { icon: Bot, color: 'text-[var(--g-accent)]', bg: 'bg-[#EFF6FF]' },
 };
 
 export function AgentActivityWidget() {
@@ -667,7 +671,7 @@ export function AgentActivityWidget() {
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center gap-1.5 mb-2 shrink-0">
-        <Activity size={14} className="text-[#2E75B6]" />
+        <Activity size={14} className="text-[var(--g-accent)]" />
         <span className="text-xs font-semibold text-[#4A5568]">Agent Activity</span>
         <span className="text-[9px] text-gray-400 ml-auto flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Live

@@ -1,9 +1,10 @@
-import { useState, useCallback, useRef, useMemo, useEffect, useLayoutEffect, type ReactNode } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect, useLayoutEffect, Fragment, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { NAV_WORDS } from '../lib/brand';
 import { AppShell } from '../components/layout/AppShell';
 import { EmptyState, LoadingSpinner, PageError, useToast } from '../components/ui';
 import { ReminderRow } from '../components/reminders/ReminderRow';
@@ -20,6 +21,7 @@ import {
   splitReminderLists,
   todayReminders,
   type PostponeChoice,
+  type Reminder,
 } from '../lib/reminders';
 import { getAuditClients, getAuditDashboardWidgets, getAuditJobs, getAuditTeamMembers } from '../lib/devFieldAuditDocs';
 import { pageQueryBlocked } from '../lib/devFieldAuditAuth';
@@ -189,6 +191,31 @@ const DASHBOARD_LOOK_DAY = '2026-09-03';
 
 function dashboardLookNow(): Date {
   return new Date(2026, 8, 3);
+}
+
+const DASHBOARD_LOOK_OWNER = '00000000-0000-0000-0000-000000000002';
+
+function dashboardLookReminders(ownerId: string): Reminder[] {
+  const dueAt = new Date(2026, 8, 3, 8, 0, 0).toISOString();
+  const row = (id: string, title: string): Reminder => ({
+    id,
+    ownerId,
+    title,
+    details: '',
+    dueAt,
+    jobId: null,
+    relatedHref: null,
+    completed: false,
+    completedAt: null,
+    visibility: 'private',
+    taggedUserIds: [],
+    createdAt: dueAt,
+  });
+  return [
+    row('look-rem-mia', 'Call Mia about quote follow-up before Friday'),
+    row('look-rem-0137', '#0137 · Replace kitchen mixer today'),
+    row('look-rem-megan', 'Ring Megan re valve Tuesday morning on site'),
+  ];
 }
 
 function dashboardLookWidgets(): DashboardWidget[] {
@@ -477,7 +504,7 @@ export function DashboardPage() {
   const { profile, company } = useAuth();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
-  const lookParam = searchParams.get('look');
+  const lookParam = (import.meta.env.DEV || import.meta.env.VITE_LOOK_PROOF === '1') ? searchParams.get('look') : null;
   const lookCrewS8dDashboard = lookParam === CREW_S8D_DASHBOARD_NEEDS;
   const lookDashboardJack = lookParam === DASHBOARD_LOOK_JACK_LAYOUT;
   const lookDashboardSeed = lookParam === DASHBOARD_LOOK_SEED;
@@ -672,7 +699,10 @@ export function DashboardPage() {
     queryFn: () => listReminders(companyId),
     enabled: liveCompany,
   });
-  const stripRows = todayReminders(splitReminderLists(reminders ?? []).upcoming, now);
+  const lookNow = lookDashboard ? dashboardLookNow() : now;
+  const stripRows = lookDashboard
+    ? dashboardLookReminders(profile?.id ?? DASHBOARD_LOOK_OWNER)
+    : todayReminders(splitReminderLists(reminders ?? []).upcoming, now);
   const linkedJobIds = [...new Set(stripRows.map(r => r.jobId).filter(Boolean))] as string[];
   const { data: linkedJobs } = useQuery({
     queryKey: ['reminders-linked-jobs', linkedJobIds],
@@ -938,10 +968,10 @@ export function DashboardPage() {
       <div className="ops-page dashboard-home is-day-open">
         <article className="dashboard-home-sheet" data-dashboard-home="1">
           <header className="dashboard-home-sheet-bar">
-            <span className="dashboard-home-mark">Today</span>
+            <span className="dashboard-home-mark">{NAV_WORDS.today}</span>
           </header>
           <div className="dashboard-home-sheet-body">
-            <h1 className="ops-page-title dashboard-home-hero">Dashboard</h1>
+            <h1 className="ops-page-title dashboard-home-hero">{NAV_WORDS.today}</h1>
             <p className="hub-look-eyebrow dashboard-home-label dashboard-home-whisper">{whisper}</p>
 
             <div className="dashboard-home-tools">
@@ -1006,7 +1036,7 @@ export function DashboardPage() {
                       crewNames={crewNames}
                       isMine={reminder.ownerId === profile?.id}
                       canTick={canTickReminder(reminder, profile?.id ?? '')}
-                      now={now}
+                      now={lookNow}
                       onToggleDone={toggleReminderDone}
                       onPostpone={postponeReminderTo}
                     />
@@ -1055,11 +1085,12 @@ export function DashboardPage() {
                   const place = dashboardJobPlace(job);
                   const crewSchedule = jobCrewScheduleStatus(job.scheduled_date, job.assigned_team);
                   const crewScheduleClass = jobCrewScheduleNeedsCrewClass(crewSchedule.kind);
-                  const meta = [
+                  const clientPlace = dashboardJobMetaLine(job);
+                  const metaParts = [
                     formatJobRef(job),
-                    dashboardJobMetaLine(job) || place,
+                    ...(clientPlace ? clientPlace.split(' · ') : [place].filter(Boolean)),
                     dashboardCrewLabel(job.assigned_team, teamMembers),
-                  ].filter(Boolean).join(' · ');
+                  ].filter(Boolean);
                   return (
                     <Link
                       key={job.id}
@@ -1073,7 +1104,14 @@ export function DashboardPage() {
                       </span>
                       <span className="dashboard-home-job">
                         <span className="dashboard-home-title">{job.title}</span>
-                        <span className="dashboard-home-ref">{meta}</span>
+                        <span className="dashboard-home-ref">
+                          {metaParts.map((part, i) => (
+                            <Fragment key={`${job.id}-meta-${i}`}>
+                              {i > 0 ? ' · ' : null}
+                              <span className="dashboard-home-ref-seg">{part}</span>
+                            </Fragment>
+                          ))}
+                        </span>
                         <span
                           className={[
                             'dashboard-home-crew-schedule',
@@ -1377,7 +1415,7 @@ function FreeWidget({
             <button
               {...attributes}
               {...listeners}
-              className="w-7 h-7 flex items-center justify-center rounded-md bg-white border border-gray-200 shadow-sm text-gray-400 cursor-grab active:cursor-grabbing hover:text-gray-600 hover:bg-gray-50 transition-colors touch-none"
+              className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-md bg-white border border-gray-200 shadow-sm text-gray-400 cursor-grab active:cursor-grabbing hover:text-gray-600 hover:bg-gray-50 transition-colors touch-none"
               title="Drag to move"
             >
               <GripVertical size={14} />
@@ -1389,7 +1427,7 @@ function FreeWidget({
           <div className="absolute top-1.5 right-1.5 z-20">
             <button
               onClick={onRemove}
-              className="w-7 h-7 flex items-center justify-center rounded-md bg-white border border-gray-200 shadow-sm text-red-500 hover:bg-red-50 transition-colors"
+              className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-md bg-white border border-gray-200 shadow-sm text-red-500 hover:bg-red-50 transition-colors"
               title="Remove widget"
             >
               <Trash2 size={13} />
@@ -1409,7 +1447,7 @@ function FreeWidget({
         {editMode && (
           <div
             onPointerDown={onResizeStart}
-            className="absolute bottom-0 right-0 z-20 w-5 h-5 cursor-se-resize touch-none flex items-end justify-end"
+            className="dashboard-home-widget-resize absolute bottom-0 right-0 z-20 min-w-[44px] min-h-[44px] w-11 h-11 cursor-se-resize touch-none flex items-end justify-end"
             title="Drag to resize"
           >
             <svg width="10" height="10" viewBox="0 0 10 10" className="text-gray-400">
@@ -1436,7 +1474,7 @@ function WidgetPicker({
   const filtered = pickerDashboardWidgets(category);
 
   return (
-    <div className="overlay-backdrop">
+    <div className="overlay-backdrop dashboard-home-picker">
       <div
         className="overlay-panel-xl"
         onClick={e => e.stopPropagation()}
@@ -1447,7 +1485,7 @@ function WidgetPicker({
             <Sparkles size={18} className="text-blue-500" />
             <h2 className="text-base font-semibold text-[#1A1A1A]">Add a Widget</h2>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600">
             <X size={18} />
           </button>
         </div>

@@ -7,14 +7,14 @@ function src(rel: string): string {
 }
 
 describe('AppShell nav follows the job (source reads, not kills)', () => {
-  it('puts Dashboard, CRM, Field Work, Financials, Inventory in that order on desktop and phone (not a kill)', () => {
+  it('puts Today, Jobs, Field, Money, Stock in that order on desktop and phone (not a kill)', () => {
     const shell = src('src/components/layout/AppShell.tsx');
     expect(shell).toContain(`const NAV_GROUPS: NavGroup[] = [
-  OFFICE_GROUPS[0], // Dashboard
-  OFFICE_GROUPS[1], // CRM
+  OFFICE_GROUPS[0], // Today
+  OFFICE_GROUPS[1], // Jobs
   FIELD_GROUP,
-  OFFICE_GROUPS[2], // Financials
-  OFFICE_GROUPS[3], // Inventory
+  OFFICE_GROUPS[2], // Money
+  OFFICE_GROUPS[3], // Stock
 ];`);
     expect(shell).not.toContain('[FIELD_GROUP, ...OFFICE_GROUPS]');
     expect(shell).not.toContain('FIELD_SHORTCUTS');

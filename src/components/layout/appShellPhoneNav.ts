@@ -1,3 +1,5 @@
+import { NAV_WORDS } from '../../lib/brand';
+
 export type PhoneTabId = 'today' | 'schedule' | 'jobs' | 'more';
 
 export interface PhoneTab {
@@ -8,10 +10,10 @@ export interface PhoneTab {
 }
 
 export const PHONE_TABS: readonly PhoneTab[] = [
-  { id: 'today', label: 'Today', to: '/' },
-  { id: 'schedule', label: 'Schedule', to: '/schedule' },
-  { id: 'jobs', label: 'Jobs', to: '/jobs' },
-  { id: 'more', label: 'More', to: null },
+  { id: 'today', label: NAV_WORDS.today, to: '/' },
+  { id: 'schedule', label: NAV_WORDS.schedule, to: '/schedule' },
+  { id: 'jobs', label: NAV_WORDS.jobs, to: '/jobs' },
+  { id: 'more', label: NAV_WORDS.more, to: null },
 ];
 
 function pathWithin(pathname: string, root: string): boolean {

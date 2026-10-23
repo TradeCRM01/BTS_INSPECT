@@ -21,14 +21,14 @@ describe('dashboard laptop LOOK — quote paper, overflow on the sheet', () => {
     expect(page).toContain('dashboard-home');
     expect(page).toContain('dashboard-home-sheet');
     expect(page).toContain('dashboard-home-sheet-bar');
-    expect(page).toContain('dashboard-home-mark">Today');
+    expect(page).toContain('dashboard-home-mark">{NAV_WORDS.today}');
     expect(page).toContain('dashboard-home-sheet-body');
     expect(page).toContain('dashboard-home-whisper');
     expect(page).toContain('dashboard-home-tools');
     expect(page).toContain('dashboard-home-row');
     expect(page).toContain('Time');
     expect(page).toContain('Place');
-    expect(page).toContain('ops-page-title dashboard-home-hero">Dashboard');
+    expect(page).toContain('ops-page-title dashboard-home-hero">{NAV_WORDS.today}');
     expect(page).toContain('aria-label="Open"');
     expect(page).toContain('className="btn-primary dashboard-home-primary"');
     expect(page).toContain('Week board');
@@ -38,7 +38,7 @@ describe('dashboard laptop LOOK — quote paper, overflow on the sheet', () => {
     expect(page).not.toContain('dashboard-home-next');
     expect(page).not.toContain('>Open<');
     expect(page).not.toContain('dashboard-home-mark">Dashboard');
-    expect(page).not.toContain('ops-page-title">Today');
+    expect(page).not.toContain('ops-page-title dashboard-home-hero">Dashboard');
     expect(page).not.toMatch(/>Book<|>Ledger<|>Register</);
     expect(page).toContain('placeMoreMenu');
     expect(page).toContain('is-flip');

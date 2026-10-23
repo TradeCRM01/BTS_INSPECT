@@ -106,7 +106,7 @@ describe('tablet nav jsdom probe (not a kill; S3 is the Chromium layout kill)', 
     }
     const jobs = document.querySelector('[data-shell-nav-group="Jobs"]');
     expect(jobs).not.toBeNull();
-    expect(jobs?.getAttribute('aria-label')).toBe('CRM');
+    expect(jobs?.getAttribute('aria-label')).toBe('Jobs');
     const size = getComputedStyle(jobs as HTMLElement);
     expect(size.minHeight).toBe('44px');
     expect(size.minWidth).toBe('44px');

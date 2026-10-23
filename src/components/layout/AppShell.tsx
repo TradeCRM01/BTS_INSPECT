@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { DevConsole } from '../ui/DevConsole';
 import { BrandLockup } from '../brand/BrandLockup';
-import { BRAND_NAME } from '../../lib/brand';
+import { BRAND_NAME, NAV_WORDS } from '../../lib/brand';
 import { PHONE_TABS, activePhoneTab, type PhoneTabId } from './appShellPhoneNav';
 import {
   ClipboardList, LayoutTemplate, Settings, LogOut, Bell,
@@ -28,10 +28,11 @@ interface NavGroup {
 }
 
 const FIELD_GROUP: NavGroup = {
-  label: 'Field Work',
-  shortLabel: 'Field',
+  label: NAV_WORDS.field,
+  shortLabel: NAV_WORDS.field,
   icon: Wrench,
   items: [
+    { to: '/schedule', label: NAV_WORDS.schedule, icon: Calendar },
     { to: '/inspections', label: 'Inspections', icon: ClipboardList },
     { to: '/jha', label: 'JHA documents', icon: ShieldCheck },
     { to: '/jha/take5', label: 'Take 5', icon: ShieldAlert },
@@ -43,19 +44,18 @@ const FIELD_GROUP: NavGroup = {
 
 const OFFICE_GROUPS: NavGroup[] = [
   {
-    label: 'Dashboard',
-    shortLabel: 'Today',
+    label: NAV_WORDS.today,
+    shortLabel: NAV_WORDS.today,
     icon: Home,
     items: [
       { to: '/', label: 'Overview', icon: Zap },
       { to: '/reminders', label: 'Reminders', icon: Bell },
-      { to: '/schedule', label: 'Schedule', icon: Calendar },
       { to: '/reports-advanced', label: 'Reports & KPIs', icon: BarChart3 },
     ],
   },
   {
-    label: 'CRM',
-    shortLabel: 'Jobs',
+    label: NAV_WORDS.jobs,
+    shortLabel: NAV_WORDS.jobs,
     icon: Briefcase,
     items: [
       { to: '/jobs', label: 'Jobs', icon: Briefcase },
@@ -67,8 +67,8 @@ const OFFICE_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'Financials',
-    shortLabel: 'Money',
+    label: NAV_WORDS.money,
+    shortLabel: NAV_WORDS.money,
     icon: FileText,
     items: [
       { to: '/quotes', label: 'Quotes', icon: FileText },
@@ -78,8 +78,8 @@ const OFFICE_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'Inventory',
-    shortLabel: 'Stock',
+    label: NAV_WORDS.stock,
+    shortLabel: NAV_WORDS.stock,
     icon: Package,
     items: [
       { to: '/stock', label: 'Stock', icon: Package },
@@ -91,11 +91,11 @@ const OFFICE_GROUPS: NavGroup[] = [
 ];
 
 const NAV_GROUPS: NavGroup[] = [
-  OFFICE_GROUPS[0], // Dashboard
-  OFFICE_GROUPS[1], // CRM
+  OFFICE_GROUPS[0], // Today
+  OFFICE_GROUPS[1], // Jobs
   FIELD_GROUP,
-  OFFICE_GROUPS[2], // Financials
-  OFFICE_GROUPS[3], // Inventory
+  OFFICE_GROUPS[2], // Money
+  OFFICE_GROUPS[3], // Stock
 ];
 
 function isNavItemActive(item: { to: string }, pathname: string, allItems?: { to: string }[]): boolean {
@@ -491,7 +491,7 @@ export function AppShell({ children }: AppShellProps) {
                   </button>
                   {isExpanded && (
                     <div className="pb-1">
-                      {visibleItems(group).map((item) => {
+                      {visibleItems(group).filter((item) => item.to !== '/schedule').map((item) => {
                         const ItemIcon = item.icon;
                         const itemActive = isNavItemActive(item, location.pathname, visibleItems(group));
                         return (

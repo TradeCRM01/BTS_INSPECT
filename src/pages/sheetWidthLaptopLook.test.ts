@@ -50,8 +50,13 @@ describe('list/dashboard sheet width — one shared paper, not nine 1100 islands
     const afterShared = css.indexOf('.ops-page-fill');
     for (const [start, end] of LIST_SHEETS) {
       const chunk = sheetChunk(css, start, end, afterShared);
-      expect(chunk).toContain('background: #FFFDF8');
-      expect(chunk).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
+      if (start.includes('dashboard-home-sheet')) {
+        expect(chunk).toContain('background: var(--dashboard-home-sheet)');
+        expect(chunk).toContain('box-shadow: var(--g-sh-1)');
+      } else {
+        expect(chunk).toContain('background: #FFFDF8');
+        expect(chunk).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
+      }
       expect(chunk).not.toContain('1100px');
     }
   });

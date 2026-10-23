@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { NAV_WORDS } from '../../lib/brand';
 import { PHONE_TABS, activePhoneTab, type PhoneTabId } from './appShellPhoneNav';
 
 describe('phone bottom nav tabs', () => {
   it('lists Today, Schedule, Jobs, More in that order', () => {
-    expect(PHONE_TABS.map((tab) => tab.label)).toEqual(['Today', 'Schedule', 'Jobs', 'More']);
+    expect(PHONE_TABS.map((tab) => tab.label)).toEqual([
+      NAV_WORDS.today,
+      NAV_WORDS.schedule,
+      NAV_WORDS.jobs,
+      NAV_WORDS.more,
+    ]);
     expect(PHONE_TABS.map((tab) => tab.id)).toEqual(['today', 'schedule', 'jobs', 'more']);
   });
 
