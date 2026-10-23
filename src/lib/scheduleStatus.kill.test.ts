@@ -76,5 +76,20 @@ describe('schedule status and date never throw', () => {
     expect(isNeedCrewJob({ scheduled_date: 20261019, assigned_team: [], status: 'scheduled' })).toBe(false);
     expect(() => scheduleDayKey(20261019)).not.toThrow();
     expect(scheduleDayKey(20261019)).toBe(null);
+    for (const value of [20261019, { y: 2026, m: 10, d: 19 }, ['2026-10-19']] as const) {
+      expect(() => asDateText(value)).not.toThrow();
+      expect(asDateText(value)).toBe('');
+      expect(() => schedulePill({ id: 'd', scheduled_date: value, assigned_team: [], status: 'scheduled' })).not.toThrow();
+      expect(schedulePill({ id: 'd', scheduled_date: value, assigned_team: [], status: 'scheduled' }).label).toBe('No date');
+      expect(schedulePill({ ...dated, scheduled_date: value }).label).not.toBe('Scheduled');
+      expect(schedulePill({ ...dated, scheduled_date: value }).label).not.toBe('Booked');
+      expect(() => scheduleChipClock(null, null, value, { scheduled_date: value, status: 'scheduled' })).not.toThrow();
+      expect(scheduleChipClock(null, null, value, { scheduled_date: value, status: 'scheduled' })).not.toMatch(/Booked/);
+      expect(scheduleChipClock(null, null, value, { scheduled_date: value, status: 'scheduled' })).not.toMatch(/Scheduled/);
+      expect(() => isNeedCrewJob({ scheduled_date: value, assigned_team: [], status: 'scheduled' })).not.toThrow();
+      expect(isNeedCrewJob({ scheduled_date: value, assigned_team: [], status: 'scheduled' })).toBe(false);
+      expect(() => scheduleDayKey(value)).not.toThrow();
+      expect(scheduleDayKey(value)).toBe(null);
+    }
   });
 });

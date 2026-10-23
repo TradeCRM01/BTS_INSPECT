@@ -1,12 +1,12 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import {
   CONTRAST, EMPTY_COPY, FADE, FOCUS, FROZEN_NOW_PLUS_1, IN_PROGRESS, JOB_REF, KILLS, NOW, PALETTE, PHONE_BOARD_BREAKPOINT, PHONE_TABS, ROWS, SAME_COLOUR,
-  SHEET, TAP_MIN, TIMEZONE, TODAY, TRACK_PROBE, UNTIMED, WEEK, channelGap, isAmber, isNavy, killTitle, rgbOf,
+  SHEET, TAP_MIN, TODAY, TRACK_PROBE, UNTIMED, WEEK, channelGap, isAmber, isNavy, killTitle, rgbOf,
   type KillId, type Measure, type Offender, type Stroke,
 } from './matrix.ts';
 import { JOBS, JOB_IDS, MALFORMED_CREW_IDS, SAM, SCHEDULE_FIXTURE } from './fixture.ts';
 import { STATUS_FALLBACK } from '../../lib/scheduleInvoiceStatus';
-import { bundleReport, closeHarness, measure, measureAll, measureMockup1280, measureMockup390, openState, token, writeCapture } from './harness.ts';
+import { bundleReport, closeHarness, measure, measureAll, measureMockup1280, openState, token, writeCapture } from './harness.ts';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -510,8 +510,6 @@ describe('P2 Schedule on the built dist', () => {
     await o.page.clock.setFixedTime(new Date(FROZEN_NOW_PLUS_1));
     await o.page.waitForFunction(() => (document.querySelector('.hub-week-now')?.textContent ?? '').includes('13:41'));
     expect.soft(await o.page.locator('.hub-week-now').innerText(), 'advanced Now').toBe('Now 13:41');
-    expect.soft(m.chrome.timeZone, 'Playwright timezoneId follows env TZ').toBe(TIMEZONE);
-    expect.soft(m.chrome.tzOffset, 'browser Date offset minutes').toBe(TIMEZONE === 'UTC' || TIMEZONE === 'Etc/UTC' ? 0 : -600);
     await o.close();
   });
 
@@ -828,7 +826,7 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(c.searchWidth, `search width ${c.searchWidth} vs fixture ${mock.searchW}`).toBe(mock.searchW);
     expect.soft(Math.abs(c.todayRight - c.toolbarRight), `Today.right ${c.todayRight} vs toolbar.right ${c.toolbarRight}`).toBeLessThanOrEqual(1);
     expect.soft(c.crewToolbarShown, 'Crew is not a toolbar label').toBe(0);
-    expect.soft(c.todayPainted, 'Today paints an outline').toBeGreaterThanOrEqual(4);
+    expect.soft(c.todayPainted, 'Today paints a sampled-pixel stroke (not computed style)').toBeGreaterThanOrEqual(4);
     expect.soft(c.todayCornerCut, 'Today keeps a radius').toBe(true);
     expect.soft(Math.abs(c.toolbarBottom - c.boardTop), `toolbar.bottom ${c.toolbarBottom} vs board.top ${c.boardTop}`).toBeLessThanOrEqual(1);
     expect.soft(c.dayHeadShortShown, 'day headers one left-aligned line').toBe(7);
@@ -850,6 +848,10 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(c.newJobW, 'New job width vs fixture').toBe(mock.newJobW);
     expect.soft(c.newJobH, 'New job height vs fixture').toBe(mock.newJobH);
     expect.soft(c.segTrackPaint, 'Week/Day track painted vs fixture').toBe(mock.segTrackPaint);
+    expect.soft(c.segActivePaint, 'Week/Day active fill painted vs fixture').toBe(mock.segActivePaint);
+    expect.soft(c.segActiveInk, 'Week/Day active ink painted vs fixture').toBe(mock.segActiveInk);
+    expect.soft(c.geistCheck, 'Geist 16px after fonts.ready').toBe(true);
+    expect.soft(mock.geistCheck, 'fixture Geist 16px after fonts.ready').toBe(true);
     expect.soft(c.searchH, 'search height vs fixture').toBe(mock.searchH);
     expect.soft(c.todayW, 'Today width vs fixture').toBe(mock.todayW);
     expect.soft(c.todayH, 'Today height vs fixture').toBe(mock.todayH);
@@ -871,9 +873,14 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(day.chrome.dayCrewLines, 'day crew names stay one line').toBe(1);
 
     const phone = await measure('week-390');
-    const phoneMock = await measureMockup390();
     expect.soft(phone.chrome.headerTop, '390 header not clipped at the top').toBeGreaterThanOrEqual(0);
     expect.soft(Math.abs(phone.chrome.todayTop - phone.chrome.rangeTop), 'Today on the range row').toBeLessThanOrEqual(24);
+    expect.soft(phone.docSW, '390 documentElement.scrollWidth').toBeLessThanOrEqual(phone.iw);
+    const phoneOutside = phone.offenders.filter(o => !exempt(o, phone.iw));
+    expect.soft(phoneOutside, '390 elements past innerWidth outside the sole scroller').toEqual([]);
+    expect.soft(phoneOutside.reduce((max, o) => Math.max(max, o.right), 0), '390 max unexempted rect.right').toBeLessThanOrEqual(phone.iw + TOLERANCE_PX);
+    expect.soft(Math.abs(phone.chrome.dayGroupLeft - 16), `390 day-group left ${phone.chrome.dayGroupLeft}`).toBeLessThanOrEqual(1);
+    expect.soft(Math.abs(phone.chrome.cardLeft - 16), `390 card left ${phone.chrome.cardLeft}`).toBeLessThanOrEqual(1);
     const gutters: Record<string, Awaited<ReturnType<typeof measure>>> = { 'week-390': phone };
     for (const id of ['week-375', 'week-390', 'week-768'] as const) {
       const g = id === 'week-390' ? phone : await measure(id);
@@ -885,9 +892,6 @@ describe('P2 Schedule on the built dist', () => {
       expect.soft(Math.abs(g.chrome.searchRight - (g.iw - 16)), `${id} search right ${g.chrome.searchRight} vs ${g.iw - 16}`).toBeLessThanOrEqual(1);
     }
     expect.soft(gutters['week-768'].chrome.headerLeft, '768 header left equals list left exactly').toBe(gutters['week-768'].chrome.listLeft);
-    expect.soft(Math.abs(phone.chrome.dayGroupLeft - phoneMock.dayGroupLeft), `390 day-group left ${phone.chrome.dayGroupLeft} vs mock ${phoneMock.dayGroupLeft}`).toBeLessThanOrEqual(1);
-    expect.soft(Math.abs(phone.chrome.cardLeft - phoneMock.cardLeft), `390 card left ${phone.chrome.cardLeft} vs mock ${phoneMock.cardLeft}`).toBeLessThanOrEqual(1);
-    expect.soft(Math.abs((phone.chrome.eyebrowTop - phone.chrome.barBottom) - phoneMock.eyebrowGap), `390 eyebrow gap ${phone.chrome.eyebrowTop - phone.chrome.barBottom} vs mock ${phoneMock.eyebrowGap}`).toBeLessThanOrEqual(1);
 
     const opened = await openState('week-1280');
     await opened.page.getByRole('button', { name: 'New job' }).first().click();
@@ -925,6 +929,18 @@ describe('P2 Schedule on the built dist', () => {
     const dateNum = m.layout.trayCards.find(c => c.id === JOB_IDS.dateNum)
       ?? m.layout.trayCards.find(c => c.text.includes('#0304') || c.text.includes('#304'))
       ?? m.layout.cards.find(c => c.id === JOB_IDS.dateNum);
+    const dateObj = m.layout.trayCards.find(c => c.id === JOB_IDS.dateObj)
+      ?? m.layout.cards.find(c => c.id === JOB_IDS.dateObj);
+    const dateArr = m.layout.trayCards.find(c => c.id === JOB_IDS.dateArr)
+      ?? m.layout.cards.find(c => c.id === JOB_IDS.dateArr);
     expect.soft(dateNum?.pill, 'non-string scheduled_date is undated').toBe('No date');
+    expect.soft(dateNum?.pill, 'number scheduled_date never Scheduled').not.toBe('Scheduled');
+    expect.soft(dateNum?.pill, 'number scheduled_date never Booked').not.toMatch(/Booked/);
+    expect.soft(dateObj?.pill, 'object scheduled_date is undated').toBe('No date');
+    expect.soft(dateObj?.pill, 'object scheduled_date never Scheduled').not.toBe('Scheduled');
+    expect.soft(dateObj?.pill, 'object scheduled_date never Booked').not.toMatch(/Booked/);
+    expect.soft(dateArr?.pill, 'array scheduled_date is undated').toBe('No date');
+    expect.soft(dateArr?.pill, 'array scheduled_date never Scheduled').not.toBe('Scheduled');
+    expect.soft(dateArr?.pill, 'array scheduled_date never Booked').not.toMatch(/Booked/);
   });
 });

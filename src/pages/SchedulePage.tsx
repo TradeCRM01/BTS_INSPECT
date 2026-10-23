@@ -28,6 +28,7 @@ import {
   parseScheduleView,
   scheduleBoardWhisper,
   scheduleDateKey,
+  scheduleDayKey,
   scheduleEyebrow,
   scheduleJobHref,
   scheduleSheetSavePayload,
@@ -35,7 +36,7 @@ import {
   type ScheduleSheetInput,
   type ScheduleViewMode,
 } from '../lib/scheduleBoard';
-import { asDateText } from '../lib/scheduleNeedCrew';
+import { asDateText, asStatusText } from '../lib/scheduleNeedCrew';
 import { scheduleInvoicedJobIds, scheduleInvoicedQueryIds } from '../lib/scheduleInvoiceStatus';
 import { NAV_WORDS } from '../lib/brand';
 import { matchQuickBookJobs, parseQuickBook, resolveQuickBook, spokenSheetFields, type QuickBookNewJobDraft, type SpokenSheetFields } from '../lib/quickBook';
@@ -384,7 +385,7 @@ export function SchedulePage() {
       if (mock) {
         return attachJobClients(mock as Job[], getAuditClients() ?? []);
       }
-      const [rangedRes, undatedRes] = await Promise.all([
+      const [rangedRes, undatedRes, rawRes] = await Promise.all([
         supabase
           .from('jobs')
           .select('*')
@@ -396,12 +397,23 @@ export function SchedulePage() {
           .select('*')
           .is('scheduled_date', null)
           .in('status', ['scheduled', 'in_progress']),
+        supabase
+          .from('jobs')
+          .select('*'),
       ]);
       if (rangedRes.error) throw rangedRes.error;
       if (undatedRes.error) throw undatedRes.error;
+      if (rawRes.error) throw rawRes.error;
 
       const byId = new Map<string, Job>();
       for (const row of [...(rangedRes.data ?? []), ...(undatedRes.data ?? [])]) {
+        byId.set(row.id, row as Job);
+      }
+      for (const row of rawRes.data ?? []) {
+        if (byId.has(row.id)) continue;
+        if (scheduleDayKey(row.scheduled_date)) continue;
+        const status = asStatusText(row.status);
+        if (status !== 'scheduled' && status !== 'in_progress') continue;
         byId.set(row.id, row as Job);
       }
       const jobs = [...byId.values()];

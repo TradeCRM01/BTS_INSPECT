@@ -1267,6 +1267,7 @@ window.__p2 = {
   },
 
   async chromePaint(png, chrome) {
+    await document.fonts.ready;
     const img = await decode(png);
     const dpr = window.devicePixelRatio || img.width / Math.max(1, window.innerWidth);
     const scale = (b: { x: number; y: number; w: number; h: number } | null) =>
@@ -1319,6 +1320,7 @@ window.__p2 = {
       segActivePaint: trackOf(segOnBox),
       segActiveInk: inkOf(segOnBox),
       todayFill: fillOf(scale(chrome.todayBox)),
+      geistCheck: document.fonts.check('16px Geist'),
     };
   },
 

@@ -9,7 +9,7 @@ import { chromium, type Browser, type Page } from 'playwright';
 import {
   BASE_SHA, BEFORE_DIR, CONTRAST, FOCUS, FROZEN_NOW, HOVERS, KILLS, SHEET, STATES, TAP_MIN, TIMEZONE, TRACK_PROBE, QUICK_BOOK_PHRASE,
   isTouch, viewportHeight,
-  type Box, type Build, type FadeProbe, type FocusProbe, type FocusSide, type HoverProbe, type KillId, type LookPins, type Measure, type NowProbe, type PhoneLookPins,
+  type Box, type Build, type FadeProbe, type FocusProbe, type FocusSide, type HoverProbe, type KillId, type LookPins, type Measure, type NowProbe,
   type PaletteCount, type Recipe, type Shot, type StateId, type StateSpec, type TrackProbe, type TrackShape, type TrayProbe,
 } from './matrix.ts';
 import type { Run } from './entry.tsx';
@@ -809,82 +809,6 @@ async function measureMockup1280Once(): Promise<LookPins> {
       eyebrowLetterSpacing: pins.eyebrowLetterSpacing,
       segActiveInk: paints.segActiveInk,
     };
-  } finally {
-    await context.close();
-    await new Promise<void>(resolve => server.close(() => resolve()));
-  }
-}
-
-let phoneMockupPins: Promise<PhoneLookPins> | null = null;
-
-export function measureMockup390(): Promise<PhoneLookPins> {
-  phoneMockupPins ??= measureMockup390Once();
-  return phoneMockupPins;
-}
-
-async function measureMockup390Once(): Promise<PhoneLookPins> {
-  const root = mkdtempSync(join(tmpdir(), 'p2-mockup-390-'));
-  temps.push(root);
-  const htmlDir = join(root, 'directions/4-dark-light/html');
-  mkdirSync(htmlDir, { recursive: true });
-  mkdirSync(join(root, 'directions/_src'), { recursive: true });
-  const fixtures = join(REPO_ROOT, 'docs/look/p2/fixtures');
-  copyFileSync(join(fixtures, 'schedule-390-light.html'), join(htmlDir, 'schedule-390-light.html'));
-  copyFileSync(join(fixtures, 'direction.css'), join(htmlDir, 'direction.css'));
-  copyFileSync(join(fixtures, 'tokens.css'), join(root, 'directions/4-dark-light/tokens.css'));
-  copyFileSync(join(fixtures, 'app.css'), join(root, 'directions/_src/app.css'));
-  const font = join(REPO_ROOT, 'public/fonts/Geist-Variable.woff2');
-  const server = createServer((req, res) => {
-    const urlPath = decodeURIComponent((req.url ?? '/').split('?')[0] ?? '/');
-    const file = urlPath.includes('Geist-VariableFont_wght')
-      ? font
-      : join(root, urlPath);
-    if (!existsSync(file) || statSync(file).isDirectory()) {
-      res.statusCode = 404;
-      res.end();
-      return;
-    }
-    const ext = file.split('.').pop() ?? '';
-    const types: Record<string, string> = { html: 'text/html; charset=utf-8', css: 'text/css', woff2: 'font/woff2', ttf: 'font/woff2' };
-    res.setHeader('content-type', types[ext] ?? 'application/octet-stream');
-    res.end(readFileSync(file));
-  });
-  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
-  const { port } = server.address() as { port: number };
-  const context = await (await browser()).newContext({
-    viewport: { width: 390, height: 812 },
-    deviceScaleFactor: 1,
-    colorScheme: 'light',
-    reducedMotion: 'reduce',
-  });
-  try {
-    const page = await context.newPage();
-    await page.goto(`http://127.0.0.1:${port}/directions/4-dark-light/html/schedule-390-light.html`, { waitUntil: 'load' });
-    await page.waitForSelector('.s-head .h1, .day-head, .fld');
-    const pins = await page.evaluate(async () => {
-      await document.fonts.ready;
-      const box = (sel: string) => document.querySelector(sel)?.getBoundingClientRect() ?? null;
-      const header = box('.s-head .eyebrow') ?? box('.s-head');
-      const search = box('.fld');
-      const day = box('.day-head');
-      const card = box('.card');
-      const bar = box('.topnav');
-      const eyebrow = box('.eyebrow');
-      const barBottom = bar?.bottom ?? -1;
-      const eyebrowTop = eyebrow?.top ?? -1;
-      return {
-        headerLeft: header?.left ?? -1,
-        searchLeft: search?.left ?? -1,
-        searchRight: search?.right ?? -1,
-        dayGroupLeft: day?.left ?? -1,
-        cardLeft: card?.left ?? -1,
-        barBottom,
-        eyebrowTop,
-        eyebrowGap: eyebrowTop - barBottom,
-        geistCheck: document.fonts.check('16px Geist'),
-      };
-    });
-    return pins;
   } finally {
     await context.close();
     await new Promise<void>(resolve => server.close(() => resolve()));

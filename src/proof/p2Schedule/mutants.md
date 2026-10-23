@@ -1,4 +1,4 @@
-# r8c real-file src mutants (outside the suite)
+# r9 real-file src mutants (outside the suite)
 
 No test writes a tracked file. No in-test rebuild. Harvest is: patch the listed `find` → `replace` in the listed src file, `npm run build` when the kill reads dist, run the listed vitest command, confirm the AssertionError, then `git checkout -- <file>`.
 
@@ -6,21 +6,26 @@ Named harness `?mutant=` queries do not count.
 
 Deleted grep (standing-rule exception): `src/pages/schedulePage.test.ts` `expect(page).toContain('countNeedCrewJobs')` — the void-shim grep. Named here because the standing rule allows that one deletion.
 
-## it() file:line (r8c)
+r9 CoS deletions (cite the ruling): invented `docs/look/p2/fixtures/schedule-390-light.html`; K25 dayGroupLeft / cardLeft / eyebrowGap pins measured from it; `measureMockup390` import/helper and PhoneLookPins; fixture sha pin for that file; compare.md 390 MATCH rows; TZ-dependent `tzOffset`/`timeZone` expects at K8; `dateCell()` in mocks.ts. cssBaseRanges reverted to `[[6088, 8600]]`.
+
+## it() file:line (r9)
 
 | kill | it() |
 |---|---|
 | P2-overflow | `src/proof/p2Schedule/kill.ts:125` |
 | P2-focus | `src/proof/p2Schedule/kill.ts:271` (inverse-fill assert left unchanged) |
 | K8 | `src/proof/p2Schedule/kill.ts:506` |
-| K24 | `src/proof/p2Schedule/kill.ts:731` |
-| K25 | `src/proof/p2Schedule/kill.ts:816` |
-| K25 search-width / today-beside-arrows | `src/proof/p2Schedule/kill.ts:828` |
-| K25 header-gutter 16±1 | `src/proof/p2Schedule/kill.ts:879` |
-| K25 phone-search full width | `src/proof/p2Schedule/kill.ts:884` |
-| K25 768 header=list exact | `src/proof/p2Schedule/kill.ts:887` |
-| K25 390 day-group / card / eyebrow gap | `src/proof/p2Schedule/kill.ts:888` |
-| K26 | `src/proof/p2Schedule/kill.ts:910` |
+| K24 | `src/proof/p2Schedule/kill.ts:729` |
+| K25 | `src/proof/p2Schedule/kill.ts:814` |
+| K25 search-width / today-beside-arrows | `src/proof/p2Schedule/kill.ts:826` |
+| K25 today painted stroke | `src/proof/p2Schedule/kill.ts:829` |
+| K25 Week/Day active fill/ink + Geist | `src/proof/p2Schedule/kill.ts:851` |
+| K25 header-gutter 16±1 | `src/proof/p2Schedule/kill.ts:888` |
+| K25 phone-search full width | `src/proof/p2Schedule/kill.ts:891` |
+| K25 768 header=list exact | `src/proof/p2Schedule/kill.ts:894` |
+| K25 390 gutter + overflow | `src/proof/p2Schedule/kill.ts:878` |
+| K25 390 day-group / card = 16 | `src/proof/p2Schedule/kill.ts:882` |
+| K26 | `src/proof/p2Schedule/kill.ts:914` |
 | unit status | `src/lib/scheduleStatus.kill.test.ts` (10 `it()`s) |
 | fixture pin | `src/pages/schedule1280Light.fixture.test.ts:16` |
 
@@ -181,7 +186,7 @@ TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof
 # harvested: src/proof/p2Schedule/kill.ts:816 K25 / kill.ts:884 search left
 git checkout -- src/index.css
 
-# K25 phone-list-inset — day-group / card leave the mock 16
+# K25 phone-list-inset — list leaves the 16 gutter
 python3 - <<'PY'
 from pathlib import Path
 p = Path('src/index.css')
@@ -199,28 +204,8 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
-# expected AssertionError: 390 day-group left 28 vs mock 16: expected 12 to be less than or equal to 1
-# harvested: src/proof/p2Schedule/kill.ts:816 K25 / kill.ts:888 day-group left
-git checkout -- src/index.css
-
-# K25 phone-eyebrow-flush — no gap under the app bar
-python3 - <<'PY'
-from pathlib import Path
-p = Path('src/index.css')
-old = """    .hub-board-cal.is-week-doc .ops-page-head {
-      padding-top: 16px;
-    }"""
-new = """    .hub-board-cal.is-week-doc .ops-page-head {
-      padding-top: 0;
-    }"""
-t = p.read_text()
-if old not in t: raise SystemExit('phone-eyebrow-flush find missed')
-p.write_text(t.replace(old, new, 1))
-PY
-npm run build
-TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
-# expected AssertionError: 390 eyebrow gap 0 vs mock 16: expected 16 to be less than or equal to 1
-# harvested: src/proof/p2Schedule/kill.ts:816 K25 / kill.ts:890 eyebrow gap
+# expected AssertionError: 390 day-group left 28: expected 12 to be less than or equal to 1
+# harvested: src/proof/p2Schedule/kill.ts:814 K25 / kill.ts:882 day-group left
 git checkout -- src/index.css
 
 # K25 today-beside-arrows (search-width pin)
@@ -279,31 +264,34 @@ TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof
 # expected AssertionError: search width … vs fixture …
 git checkout -- src/index.css
 
-# K25 today-no-stroke
+# K25 today-no-stroke — remove the Today border/ring at index.css ~:7340
 python3 - <<'PY'
 from pathlib import Path
 p = Path('src/index.css')
-old = """    .hub-board-cal.is-week-doc .hub-week-today {
-      width: 85.25px;
-      min-width: 85.25px;
-      height: 48px;
-      min-height: 48px;
-      margin-left: auto;
-      padding: 0 20px;"""
-new = """    .hub-board-cal.is-week-doc .hub-week-today {
-      width: auto;
-      min-width: 0;
-      height: 32px;
-      min-height: 32px;
-      margin-left: 0;
-      padding: 0 20px;"""
+old = """  .hub-week-today {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    border: 1px solid var(--g-line-strong);
+    border-radius: 10px;"""
+new = """  .hub-week-today {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    border: none;
+    border-radius: 10px;"""
 t = p.read_text()
 if old not in t: raise SystemExit('today-no-stroke find missed')
 p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
-# expected AssertionError: Today width … vs fixture … / Today height …
+# expected AssertionError: Today paints a sampled-pixel stroke (not computed style): expected 0 to be greater than or equal to 4
+# harvested: src/proof/p2Schedule/kill.ts:814 K25 / kill.ts:829 todayPainted
 git checkout -- src/index.css
 ```
 
