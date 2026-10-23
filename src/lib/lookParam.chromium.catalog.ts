@@ -141,6 +141,30 @@ export const LOOK_PAGE_KILLS: LookPageKill[] = [
     looks: [{ value: 'templates-snapshot', fixtures: ['Switchboard'] }],
   },
   {
+    id: 'templates-denied',
+    file: 'src/lib/templateAccess.ts',
+    component: 'TemplateAccessRoute',
+    path: '/templates',
+    wait: '.shell-header',
+    looks: [{ value: 'p331-templates-none', fixtures: ['No access'] }],
+  },
+  {
+    id: 'job-detail-window',
+    file: 'src/pages/JobDetailPage.tsx',
+    component: 'JobDetailPage',
+    path: '/jobs/live-job-0141',
+    wait: '.hub-jobs, .shell-header',
+    looks: [{ value: 'testing-due-rows', fixtures: ['RCD test'] }],
+  },
+  {
+    id: 'client-detail',
+    file: 'src/pages/ClientDetailPage.tsx',
+    component: 'ClientDetailPage',
+    path: '/clients/live-client-owen',
+    wait: '.shell-header',
+    looks: [{ value: 'hotfix-date-bad', fixtures: ['Backflow test delete ok'] }],
+  },
+  {
     id: 'quotes',
     file: 'src/pages/QuotesPage.tsx',
     component: 'QuotesPage',
@@ -253,6 +277,27 @@ export type LookFillKill = {
   wait: string;
   fixtures: string[];
 };
+
+export type LookParamSiteKill = {
+  id: string;
+  file: string;
+  path: string;
+  wait: string;
+  fixtures: string[];
+  extraUngate?: string;
+};
+
+/** :1550 lookParam(searchParams) — conversation is also lookProofOn-gated in enquiryConversation. */
+export const LOOK_PARAM_SITE_KILLS: LookParamSiteKill[] = [
+  {
+    id: 'job-detail-param',
+    file: 'src/pages/JobDetailPage.tsx',
+    path: '/jobs/live-job-0141?look=conversation',
+    wait: '.hub-jobs, .shell-header',
+    fixtures: ['Hot water is out, Paddington'],
+    extraUngate: 'src/lib/enquiryConversation.ts',
+  },
+];
 
 export const LOOK_FILL_KILLS: LookFillKill[] = [
   {

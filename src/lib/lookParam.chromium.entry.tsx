@@ -17,6 +17,9 @@ import { ReportsListPage } from '../pages/ReportsListPage';
 import { SchedulePage } from '../pages/SchedulePage';
 import { Take5Page } from '../pages/Take5Page';
 import { TeamSettingsPage } from '../pages/TeamSettingsPage';
+import { TemplateAccessRoute } from '../components/layout/TemplateAccessRoute';
+import { ClientDetailPage } from '../pages/ClientDetailPage';
+import { JobDetailPage } from '../pages/JobDetailPage';
 import { TemplatesPage } from '../pages/TemplatesPage';
 
 type Cfg = { path?: string };
@@ -34,7 +37,9 @@ createRoot(rootEl).render(
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/clients" element={<ClientsPage />} />
+          <Route path="/clients/:id" element={<ClientDetailPage />} />
           <Route path="/jobs" element={<JobsPage />} />
+          <Route path="/jobs/:id" element={<JobDetailPage />} />
           <Route path="/inspections" element={<InspectionsPage />} />
           <Route path="/jha" element={<JhaDocumentsPage />} />
           <Route path="/jha/take5" element={<Take5Page />} />
@@ -43,7 +48,7 @@ createRoot(rootEl).render(
           <Route path="/price-books" element={<PriceBooksPage />} />
           <Route path="/compliance" element={<CompliancePage />} />
           <Route path="/settings/team" element={<TeamSettingsPage />} />
-          <Route path="/templates" element={<TemplatesPage />} />
+          <Route path="/templates" element={<TemplateAccessRoute><TemplatesPage /></TemplateAccessRoute>} />
           <Route path="/quotes" element={<QuotesPage />} />
           <Route path="/invoices" element={<InvoicesPage />} />
           <Route path="/expenses" element={<ExpensesPage />} />
