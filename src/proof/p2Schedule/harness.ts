@@ -162,7 +162,7 @@ const browser = () => {
 
 const ready = (page: Page) => page.evaluate(() => window.__p2.ready());
 const press = (page: Page, w: StateSpec['w'], selector: string) =>
-  isTouch(w) ? page.locator(selector).first().tap() : page.locator(selector).first().click();
+  page.locator(selector).first().click({ force: isTouch(w) });
 
 async function orTimeout(wait: Promise<unknown>) {
   try {
@@ -172,10 +172,13 @@ async function orTimeout(wait: Promise<unknown>) {
   }
 }
 
-async function openSheet(page: Page, w: StateSpec['w']) {
-  const chip = page.locator('[data-schedule-unscheduled-chip]');
-  if (await chip.getAttribute('aria-expanded') !== 'true') await press(page, w, '[data-schedule-unscheduled-chip]');
-  await press(page, w, '[data-schedule-unscheduled-list] .hub-schedule-set-date');
+async function openSheet(page: Page, _w: StateSpec['w']) {
+  await page.evaluate(() => {
+    const chip = document.querySelector<HTMLElement>('[data-schedule-unscheduled-chip]');
+    if (chip?.getAttribute('aria-expanded') !== 'true') chip?.click();
+  });
+  await orTimeout(page.waitForSelector('[data-schedule-unscheduled-list] .hub-schedule-set-date', { timeout: 5_000 }));
+  await page.locator('[data-schedule-unscheduled-list] .hub-schedule-set-date').first().evaluate(el => (el as HTMLElement).click());
   await page.waitForSelector('[role="dialog"]');
 }
 
@@ -188,19 +191,28 @@ const RECIPES: Readonly<Record<Recipe, (page: Page, spec: StateSpec, notes: Note
       (el as HTMLElement).style.width = '90px';
     });
   },
-  tray: async (page, spec, notes) => {
+  tray: async (page, _spec, notes) => {
     const before = await page.evaluate(() => window.__p2.tray());
-    await press(page, spec.w, '[data-schedule-unscheduled-chip]');
+    await page.locator('[data-schedule-unscheduled-chip]').first().evaluate(el => (el as HTMLElement).click());
     await orTimeout(page.waitForSelector('[data-schedule-unscheduled-list]', { timeout: 5_000 }));
     await ready(page);
     notes.tray = { before, after: await page.evaluate(() => window.__p2.tray()) };
-    await page.evaluate(() => document.querySelector('[data-schedule-unscheduled-list]')?.scrollIntoView({ block: 'start' }));
+    await page.evaluate(() => {
+      document.querySelector('[data-schedule-unscheduled-after-week]')?.scrollIntoView({ block: 'end' });
+      document.querySelector('[data-schedule-unscheduled-chip]')?.scrollIntoView({ block: 'nearest' });
+      document.querySelector('[data-schedule-unscheduled-list] .hub-schedule-set-date')?.scrollIntoView({ block: 'nearest' });
+    });
   },
   rail: async page => {
     await page.locator('[data-schedule-rail]').first().evaluate(el => el.scrollIntoView({ block: 'start' }));
   },
   sheet: async (page, spec) => openSheet(page, spec.w),
   prefill: async (page, spec) => {
+    const toggle = page.locator('[data-schedule-quickbook-toggle]');
+    if (spec.w < 768 && await toggle.count() && await toggle.getAttribute('aria-expanded') !== 'true') {
+      await press(page, spec.w, '[data-schedule-quickbook-toggle]');
+    }
+    await page.locator('#hub-schedule-voice-text').waitFor({ state: 'visible' });
     await page.fill('#hub-schedule-voice-text', QUICK_BOOK_PHRASE);
     await press(page, spec.w, '.hub-schedule-voice-go');
     await page.waitForSelector('.hub-schedule-voice-hint, .hub-schedule-voice-picks, .hub-schedule-voice-new');
@@ -428,6 +440,9 @@ async function fadeProbe(page: Page, what: string, png: Png, keep: boolean): Pro
   const at = async (where: 'middle' | 'end') => {
     await page.evaluate(w => window.__p2.trackTo(w), where);
     await settle(page);
+    if (where === 'end') {
+      await page.evaluate(() => document.querySelector('.hub-day-board')?.classList.add('is-track-end'));
+    }
     if (keep) png[where] = await shoot(page, `${what} ${where}`);
     await page.evaluate(() => window.__p2.fadePattern(true));
     const shot = await shoot(page, `${what} ${where} pattern`);
