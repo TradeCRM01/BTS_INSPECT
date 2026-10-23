@@ -1,7 +1,7 @@
 // Pure data shared by the browser probes, the kill file, the harness and scripts/p2-schedule.mjs.
 // No runtime imports and erasable syntax only, so Node type stripping can load it from the script.
 
-export const BASE_SHA = '30cb09d96410c1d05171c8bc13bbbd998e4cda77';
+export const BASE_SHA = '0898c3b93f167a090615232141bf73790bf731ef';
 export const FROZEN_NOW = '2026-10-19T13:40:00+10:00';
 export const TIMEZONE = 'Australia/Brisbane';
 export const BEFORE_DIR = '/tmp/p2-proofs/before';
@@ -47,7 +47,10 @@ export const STATES = {
   'day-768': board('day', 768),
   'day-1024': board('day', 1024),
   'day-1280': board('day', 1280),
+  'tray-375': { path: '/schedule', w: 375, recipe: 'tray', frames: {} },
   'tray-390': { path: '/schedule', w: 390, recipe: 'tray', frames: { top: 'schedule-unscheduled-tray-390.png' } },
+  'tray-768': { path: '/schedule', w: 768, recipe: 'tray', frames: {} },
+  'rail-1024': { path: '/schedule', w: 1024, recipe: 'rail', frames: {} },
   'sheet-390': { path: '/schedule', w: 390, recipe: 'sheet', frames: { top: 'schedule-quickbook-sheet-390.png' } },
   'rail-1280': { path: '/schedule', w: 1280, recipe: 'rail', frames: { top: 'schedule-needs-date-rail-1280.png' } },
   'prefill-390': { path: '/schedule', w: 390, recipe: 'prefill', frames: { top: 'schedule-quickbook-prefill-390.png' } },
@@ -107,7 +110,7 @@ export const KILLS: Readonly<Record<KillId, { readonly title: string; readonly s
   'P2-m2': { title: 'stacked rows below 640 and one shared track at 640 and up, the untimed Booked line leads in muted ink', states: AGENDA },
   'P2-dark': { title: 'forced dark changes 0 px', states: SCHEDULE },
   'P2-overflow': { title: 'no overflow outside the sole allowlisted scroller', states: [
-    ...SCHEDULE, 'edit-375', 'edit-768', 'edit-1024', 'edit-1280', 'shell-800', 'shell-900', 'shell-1000',
+    ...SCHEDULE, 'tray-375', 'tray-768', 'rail-1024', 'edit-375', 'edit-768', 'edit-1024', 'edit-1280', 'shell-800', 'shell-900', 'shell-1000',
   ] },
   'P2-day-track': { title: 'a real wheel scrolls the day track sideways and never traps vertical scroll', states: PHONE_DAY },
   'P2-nav-phone': { title: 'phone tabs reach Schedule in one tap', states: ['tabs-375', 'tabs-390'] },
@@ -234,6 +237,8 @@ export const PHONE_TABS = ['Today', 'Schedule', 'Jobs', 'More'] as const;
 export const QUICK_BOOK_PHRASE = 'Leaking tap tomorrow 9am Dean';
 export const MOCKUP_SEARCH_WIDTH = 772.55;
 export const MOCKUP_SEARCH_TOL = 2;
+export const MOCKUP_H1_LEFT = 32;
+export const MOCKUP_TRAY_HEADING_H = 32;
 export const WEEK = ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25'] as const;
 export const TODAY = '2026-10-19';
 export const EMPTY_COPY = /\b(nothing scheduled|no jobs|no bookings)\b/i;
@@ -282,12 +287,21 @@ export type ClipProbe = { el: string; right: number; clip: string; clipRight: nu
 export type ClockProbe = { text: string; cls: string; textRight: number; clipRight: number; clipEl: string; fits: boolean };
 export type OverflowSkip = { el: string; right: number; reason: 'sole-allowlisted-scroller' | 'ellipsis-self' | 'clip-inside-allowlisted-scroller' };
 export type TrackLabel = { el: string; text: string; card: string; fitsCard: boolean; fitsClip: boolean; clipEl: string };
-export type DayTrackInfo = { overflowX: string; sw: number; cw: number; right: number };
+export type DayTrackInfo = { overflowX: string; sw: number; cw: number; left: number; right: number; top: number; bottom: number };
 export type ChromeBox = { x: number; y: number; w: number; h: number };
 export type ChromeProbe = {
   headerAlign: string;
   headerLeft: number;
+  headerRight: number;
   headerTop: number;
+  h1Left: number;
+  eyebrowLeft: number;
+  h1ParentLeft: number;
+  pageLeft: number;
+  pageRight: number;
+  pagePadLeft: number;
+  toolbarBoxRight: number;
+  trayRight: number;
   newJobLeft: number;
   newJobRight: number;
   segPainted: number;
@@ -343,6 +357,7 @@ export type TrackProbe = {
 export type TrackShape = Pick<TrackProbe, 'classes' | 'sw' | 'cw' | 'right' | 'overflowX' | 'cutHourPx'>;
 export type DomMeasure = {
   iw: number;
+  ih: number;
   docSW: number;
   bodySW: number;
   maxRight: number;
@@ -514,7 +529,7 @@ export const MUTANTS: readonly MutantSpec[] = [
   { id: 'cancelled-counted', kill: 'K4', file: 'src/lib/scheduleNeedCrew.ts', find: "return status === 'completed' || status === 'Done' || status === 'cancelled';", replace: "return status === 'completed' || status === 'Done';", brief: 'cancelled dated crewless counts as need-crew' },
   { id: 'nodate-pill-gone', kill: 'K11', file: 'src/lib/scheduleInvoiceStatus.ts', find: "if (!(job.scheduled_date ?? '').trim()) return { label: 'No date', kind: 'nodate' };", replace: "if (!(job.scheduled_date ?? '').trim()) return { label: 'Undated', kind: 'nodate' };", brief: 'rename the No date pill' },
   { id: 'set-date-on-card', kill: 'K11', file: BOARD_VIEWS, find: '<span className="hub-schedule-pill" data-kind={pill.kind}>{pill.label}</span>\n              <div className="ops-card-footer">', replace: '<span className="hub-schedule-pill" data-kind={pill.kind}>{pill.label}</span>\n              <button type="button" className="hub-schedule-set-date" data-schedule-set-date={job.id}>Set a date</button>\n              <div className="ops-card-footer">', brief: 'put Set a date back on the undated card' },
-  css('clock-narrow-col', 'K20', '.hub-week-chip-clock {', 'max-width: none;', 'max-width: 6ch;\n    overflow: hidden;\n    text-overflow: ellipsis;', 'narrow the clock with ellipsis'),
+  css('clock-narrow-col', 'K20', '.hub-week-chip-clock {', 'max-width: 100%;', 'max-width: 6ch;\n    overflow: hidden;\n    text-overflow: ellipsis;', 'narrow the clock with ellipsis'),
   css('page-height-lock', 'K21', '.hub-board-cal.is-week-doc.ops-page {', 'height: auto;\n    padding: 12px 16px 16px;\n    overflow: visible;', 'height: calc(100dvh - 3.5rem);\n    padding: 12px 16px 16px;\n    overflow: hidden;', 'lock the week page to 100dvh and clip'),
   { id: 'agenda-min-zero', kill: 'K21', file: BOARD_VIEWS, find: '{days.map(day => {\n        const date = parseISO(`${day.date}T00:00:00`);', replace: '{days.slice(0, 0).map(day => {\n        const date = parseISO(`${day.date}T00:00:00`);', brief: '390 agenda collapses to 0' },
   { id: 'quoted-as-scheduled', kill: 'K23', file: 'src/lib/scheduleInvoiceStatus.ts', find: 'return { label: sentenceStatus(job.status), kind: \'status\' };', replace: "return { label: 'Scheduled', kind: 'scheduled' };", brief: 'unknown status paints as Scheduled' },
@@ -544,7 +559,9 @@ export const MUTANTS: readonly MutantSpec[] = [
       </div>`, brief: 'Today sits beside the arrows' },
   { id: 'quickbook-keeps-gap', kill: 'K25', file: 'src/index.css', find: '  .hub-schedule-quickbook:not([data-open="1"]) {\n    display: none;\n  }', replace: '  .hub-schedule-quickbook:not([data-open="1"]) {\n    display: block;\n    min-height: 72px;\n  }', brief: 'closed Quick book keeps a row under the toolbar' },
   { id: 'newjob-opens-form', kill: 'K25', file: 'src/pages/SchedulePage.tsx', find: 'onClick={() => setQuickBookOpen(open => !open)}', replace: 'onClick={openNewJob}', brief: 'header New job opens the form instead of Quick book' },
-  css('day-clock-clip', 'P2-overflow', '.hub-week-chip-clock {', 'max-width: none;', 'max-width: 2ch;\n    overflow: hidden;\n    text-overflow: clip;', 'clip day-track clock labels inside the card'),
+  css('page-pad-16', 'K25', '.hub-board-cal.is-week-doc.ops-page {', 'padding: 32px 32px 20px;', 'padding: 12px 16px 16px;', 'laptop page pad drops from 32 to 16'),
+  css('day-clock-clip', 'P2-overflow', '.hub-week-chip-clock {', 'max-width: 100%;', 'max-width: 2ch;\n    overflow: hidden;\n    text-overflow: clip;', 'clip day-track clock labels inside the card'),
+  css('clock-nowrap-spill', 'P2-overflow', '.hub-week-chip-clock {', 'white-space: normal;\n    overflow: hidden;\n    overflow-wrap: anywhere;', 'white-space: nowrap;\n    overflow: visible;\n    overflow-wrap: normal;', 'nowrap clock with no ellipsis or overflow handling'),
 ];
 
 export const SCOPE = {
