@@ -208,12 +208,13 @@ describe('boardDispatchHint', () => {
 });
 
 describe('partitionScheduleJobs', () => {
-  it('keeps open jobs with no date findable, not on the dated board', () => {
+  it('keeps completed dated jobs on the board and drops cancelled jobs', () => {
     const jobs = [
       { id: '1', status: 'scheduled' as const, scheduled_date: null },
       { id: '2', status: 'scheduled' as const, scheduled_date: '2026-08-20' },
       { id: '3', status: 'cancelled' as const, scheduled_date: null },
       { id: '4', status: 'completed' as const, scheduled_date: '2026-08-20' },
+      { id: '5', status: 'cancelled' as const, scheduled_date: '2026-08-20' },
     ];
     const { needsDate, onBoard } = partitionScheduleJobs(jobs, now);
     expect(needsDate.map(j => j.id)).toEqual(['1']);

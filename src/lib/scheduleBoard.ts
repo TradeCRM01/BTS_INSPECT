@@ -1,8 +1,9 @@
-import { addDays, startOfWeek } from 'date-fns';
+import { addDays, format, startOfWeek } from 'date-fns';
 import { SAFE_DATE_FALLBACK, safeFormatDate, safeLocaleDateString } from './safeDate';
-import { UNASSIGNED_ROW_ID, asTeamIds } from './dispatch';
+import { DAY_HOUR_COUNT, DAY_START_HOUR, UNASSIGNED_ROW_ID, asTeamIds } from './dispatch';
 import { formatJobRef } from './jobRef';
-import { pickJobColor } from './jobColors';
+import { jobColorToStore, pickJobColor } from './jobColors';
+import { isNeedCrewJob } from './scheduleNeedCrew';
 
 /** AU trade week — Monday first, matching the existing board. */
 export const SCHEDULE_WEEK_STARTS_ON = 1 as const;
@@ -220,7 +221,7 @@ export function weekBoardCrewLabel(name: string | null | undefined): string {
   const trimmed = (name ?? '').trim();
   if (!trimmed) return 'Crew';
   if (/^unassigned$/i.test(trimmed)) return 'Unassigned';
-  return trimmed.split(/\s+/)[0] || 'Crew';
+  return trimmed;
 }
 
 export const TIME_NOT_SET_LABEL = 'Time not set';
@@ -258,7 +259,7 @@ export function scheduleClockLabel(
   const from = start.slice(0, 5);
   if (!from) return null;
   const to = end?.slice(0, 5);
-  return to ? `${from} – ${to}` : from;
+  return to ? `${from}–${to}` : from;
 }
 
 /** Chip clock: stored times, or an honest untimed label. */
@@ -365,8 +366,8 @@ export function weekBoardRows<T extends WeekBoardJob>(
   const visible = filterJobsByCrew(jobs, filteredIds);
   const crews = weekBoardCrews(members, filteredIds);
   const rows: ScheduleCrewMember[] = [
-    { id: WEEK_UNASSIGNED_CREW_ID, name: 'Unassigned' },
     ...crews,
+    { id: WEEK_UNASSIGNED_CREW_ID, name: 'Unassigned' },
   ];
 
   return rows.map(crew => ({
@@ -384,3 +385,93 @@ export function weekBoardRows<T extends WeekBoardJob>(
     }),
   }));
 }
+
+export function scheduleLaneJobCount<T extends WeekBoardJob>(row: WeekBoardRow<T>): number {
+  return row.cells.reduce((sum, cell) => sum + cell.jobs.length, 0);
+}
+
+export function scheduleLaneCountLabel(crewId: string, count: number): string {
+  if (crewId === WEEK_UNASSIGNED_CREW_ID) {
+    return count === 1 ? '1 need crew' : `${count} need crew`;
+  }
+  return count === 1 ? '1 job' : `${count} jobs`;
+}
+
+export function weekHasWeekendJobs<T extends WeekBoardJob>(rows: WeekBoardRow<T>[]): boolean {
+  return rows.some(row => row.cells.slice(5).some(cell => cell.jobs.length > 0));
+}
+
+const CREW_TOKEN_FALLBACK = [
+  'var(--g-crew-1)',
+  'var(--g-crew-2)',
+  'var(--g-crew-3)',
+  'var(--g-crew-4)',
+  'var(--g-crew-5)',
+  'var(--g-crew-6)',
+] as const;
+
+export function scheduleLaneColor(
+  crewId: string,
+  scheduleColor?: string | null,
+): string {
+  if (crewId === WEEK_UNASSIGNED_CREW_ID) return 'var(--g-line-strong)';
+  const saved = jobColorToStore(scheduleColor);
+  if (saved) return saved;
+  let hash = 0;
+  for (let i = 0; i < crewId.length; i += 1) {
+    hash = ((hash << 5) - hash) + crewId.charCodeAt(i);
+    hash |= 0;
+  }
+  return CREW_TOKEN_FALLBACK[Math.abs(hash) % CREW_TOKEN_FALLBACK.length];
+}
+
+function clockMinutes(value: string): number {
+  const [hours, minutes] = value.slice(0, 5).split(':').map(Number);
+  return (hours || 0) * 60 + (minutes || 0);
+}
+
+export function scheduleTimeTrack(
+  start: string | null | undefined,
+  end?: string | null,
+): { left: number; width: number; stored: boolean } {
+  const plot = schedulePlotTimes({ start_time: start, end_time: end });
+  if (!plot.stored || !plot.start_time) return { left: 0, width: 0, stored: false };
+  const dayStart = DAY_START_HOUR * 60;
+  const span = DAY_HOUR_COUNT * 60;
+  const startMin = clockMinutes(plot.start_time);
+  const endMin = clockMinutes(plot.end_time || plot.start_time);
+  const left = Math.min(1, Math.max(0, (startMin - dayStart) / span));
+  const right = Math.min(1, Math.max(0, (endMin - dayStart) / span));
+  return { left, width: Math.max(0, right - left), stored: true };
+}
+
+export function scheduleNowMark(now: Date): string {
+  return format(now, 'HH:mm');
+}
+
+export function scheduleEyebrow(view: ScheduleViewMode, date: Date): string {
+  if (view === 'day') return format(date, 'EEEE d MMMM');
+  return `Week of ${format(startOfWeek(date, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON }), 'd MMMM')}`;
+}
+
+export function scheduleBoardWhisper(parts: {
+  onBoard: number;
+  needCrew: number;
+  needsDate: number;
+}): string {
+  return [
+    `${parts.onBoard} on the board`,
+    parts.needCrew > 0 ? `${parts.needCrew} need crew` : '',
+    parts.needsDate > 0 ? `${parts.needsDate} without a date` : '',
+  ].filter(Boolean).join(' · ');
+}
+
+export function countNeedCrewJobs<T extends NeedCrewCountable>(jobs: T[]): number {
+  return jobs.filter(isNeedCrewJob).length;
+}
+
+type NeedCrewCountable = {
+  status?: string | null;
+  assigned_team?: unknown;
+};
+
