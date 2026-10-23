@@ -22,6 +22,20 @@ describe('JobFormModal schedule status (A1)', () => {
     expect(form).toContain('hub-job-form-crew-chip');
   });
 
+  it('is a phone bottom sheet and a 560px modal from 768, with sentence-case titles', () => {
+    expect(form).toContain('job-form-sheet');
+    expect(form).toContain('job-form-footer');
+    expect(form).toContain('New job');
+    expect(form).toContain('Edit job');
+    expect(form).not.toContain('New Job');
+    expect(form).not.toContain('Edit Job');
+    const css = src('src/index.css');
+    expect(css).toContain('.job-form-sheet');
+    expect(css).toContain('560px');
+    expect(css).toContain('safe-area-inset-bottom');
+    expect(css).toContain('max-width: 767px');
+  });
+
   it('orders client before title and keeps schedule before budget fields', () => {
     const clientIdx = form.indexOf('Existing client');
     const titleIdx = form.indexOf('Job Title');
