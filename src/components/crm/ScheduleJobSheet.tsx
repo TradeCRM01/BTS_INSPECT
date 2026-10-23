@@ -174,7 +174,9 @@ export function ScheduleJobSheet({
         </label>
         <label className="block">
           <span className="ops-field-label">
-            Date
+            <span data-schedule-set-date={job && !(job.scheduled_date ?? '').trim() ? job.id : undefined}>
+              {job && !(job.scheduled_date ?? '').trim() ? 'Set a date' : 'Date'}
+            </span>
             <FromBooking show={fromBookingTag(fromBooking?.date, dateEdited)} />
             {dateCheck ? (
               <span className="hub-schedule-from-booking">{dateCheck}</span>

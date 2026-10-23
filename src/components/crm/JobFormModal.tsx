@@ -376,16 +376,10 @@ export function JobFormModal({
   return (
     <OverlayPortal>
     <div className="overlay-backdrop hub-ops-form-backdrop">
-      <div
-        className="overlay-panel-xl hub-ops-form-sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="job-form-title"
-        onClick={e => e.stopPropagation()}
-      >
+      <div className="overlay-panel-xl hub-ops-form-sheet" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#E2D9CC]">
           <div className="flex items-center gap-2">
-            <h2 id="job-form-title" className="text-base font-semibold text-navy">
+            <h2 className="text-base font-semibold text-navy">
               {job ? (detailsOnly ? 'Job details' : 'Edit Job') : presetParentJobId ? 'New stage' : 'New Job'}
             </h2>
             {job && (

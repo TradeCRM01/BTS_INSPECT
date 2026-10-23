@@ -3,7 +3,8 @@ import { SAFE_DATE_FALLBACK, safeFormatDate, safeLocaleDateString } from './safe
 import { DAY_HOUR_COUNT, DAY_START_HOUR, UNASSIGNED_ROW_ID, asTeamIds } from './dispatch';
 import { formatJobRef } from './jobRef';
 import { jobColorToStore, pickJobColor } from './jobColors';
-import { isNeedCrewJob } from './scheduleNeedCrew';
+import { crewIds, isNeedCrewJob, type NeedCrewJob } from './scheduleNeedCrew';
+import { isUnknownScheduleStatus } from './scheduleInvoiceStatus';
 
 /** AU trade week — Monday first, matching the existing board. */
 export const SCHEDULE_WEEK_STARTS_ON = 1 as const;
@@ -202,7 +203,7 @@ export function scheduleCrewNames(
   members: ScheduleCrewMember[] | null | undefined,
 ): string[] {
   const list = members ?? [];
-  return asTeamIds(assigned)
+  return crewIds(assigned)
     .map(id => list.find(member => member.id === id)?.name?.trim())
     .filter((name): name is string => !!name);
 }
@@ -213,7 +214,7 @@ export function scheduleCrewLabel(
 ): string {
   const names = scheduleCrewNames(assigned, members);
   if (names.length > 0) return names.join(', ');
-  if (asTeamIds(assigned).length > 0) return 'Crew';
+  if (crewIds(assigned).length > 0) return 'Crew';
   return 'Unassigned';
 }
 
@@ -228,7 +229,10 @@ export const TIME_NOT_SET_LABEL = 'Time not set';
 export const AGENDA_NO_TIME_LABEL = 'No time set';
 export const SCHEDULE_ADD_TIME_LABEL = 'Add a time';
 
-export function scheduleBookedAddTimeLabel(scheduledDate: string | null | undefined): string {
+export function scheduleBookedAddTimeLabel(
+  scheduledDate: string | null | undefined,
+  job?: NeedCrewJob | null,
+): string {
   if (!scheduledDate) return AGENDA_NO_TIME_LABEL;
   const key = scheduleDayKey(scheduledDate);
   if (!key) return AGENDA_NO_TIME_LABEL;
@@ -236,7 +240,9 @@ export function scheduleBookedAddTimeLabel(scheduledDate: string | null | undefi
   const day = new Date(y, m - 1, d);
   const weekday = safeLocaleDateString(day, 'en-AU', { weekday: 'short' });
   const month = safeLocaleDateString(day, 'en-AU', { month: 'short' });
-  return `Booked ${weekday} ${d} ${month} · ${SCHEDULE_ADD_TIME_LABEL}`;
+  const when = `${weekday} ${d} ${month} · ${SCHEDULE_ADD_TIME_LABEL}`;
+  if (job && (isNeedCrewJob(job) || isUnknownScheduleStatus(job.status))) return when;
+  return `Booked ${when}`;
 }
 
 /** Phone week agenda clock. Untimed jobs stay honest, not an em dash. */
@@ -244,10 +250,11 @@ export function scheduleAgendaClock(
   start: string | null | undefined,
   end?: string | null,
   scheduledDate?: string | null,
+  job?: NeedCrewJob | null,
 ): string {
   const timed = scheduleClockLabel(start, end);
   if (timed) return timed;
-  return scheduleBookedAddTimeLabel(scheduledDate);
+  return scheduleBookedAddTimeLabel(scheduledDate, job);
 }
 
 /** 24h clock from stored `HH:MM:SS` — untimed jobs stay blank. */
@@ -267,10 +274,11 @@ export function scheduleChipClock(
   start: string | null | undefined,
   end?: string | null,
   scheduledDate?: string | null,
+  job?: NeedCrewJob | null,
 ): string {
   const timed = scheduleClockLabel(start, end);
   if (timed) return timed;
-  if (scheduledDate) return scheduleBookedAddTimeLabel(scheduledDate);
+  if (scheduledDate) return scheduleBookedAddTimeLabel(scheduledDate, job);
   return TIME_NOT_SET_LABEL;
 }
 

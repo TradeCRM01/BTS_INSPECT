@@ -8,8 +8,8 @@ import { ToastProvider } from '../../components/ui/Toast';
 import { ledger } from './mocks.ts';
 import {
   FADE, PALETTE, ROOTS, ROWS, TAP_MIN, TRACK_PROBE, isCream, isNavy,
-  type Box, type ChipProbe, type DayBoardProbe, type DomMeasure, type MaskPart, type Offender, type PaletteCount, type Paint,
-  type LayoutProbe, type PartProbe, type RowProbe, type SheetProbe, type Stroke, type TapProbe, type TextProbe, type TextRole,
+  type Box, type ChipProbe, type ClockProbe, type ClipProbe, type DayBoardProbe, type DomMeasure, type MaskPart, type Offender, type PaletteCount, type Paint,
+  type LayoutProbe, type PartProbe, type ReachBox, type ReachProbe, type RowProbe, type SheetProbe, type Stroke, type TapProbe, type TextProbe, type TextRole,
   type TrackShape, type TrackerProbe, type TrayState,
 } from './matrix.ts';
 import { FOCUS } from './matrix.ts';
@@ -489,11 +489,83 @@ function sheet(): SheetProbe | null {
   };
 }
 
-function overflow(): Pick<DomMeasure, 'iw' | 'docSW' | 'bodySW' | 'maxRight' | 'maxEl' | 'offenders' | 'buttons'> {
+function clipBox(el: Element, includeSelf = false) {
+  let left = -Infinity;
+  let top = -Infinity;
+  let right = Infinity;
+  let bottom = Infinity;
+  let clipEl = '';
+  for (let node: Element | null = includeSelf ? el : el.parentElement; node; node = node.parentElement) {
+    const s = getComputedStyle(node);
+    if (s.overflowX === 'visible' && s.overflowY === 'visible') continue;
+    const b = node.getBoundingClientRect();
+    left = Math.max(left, b.left);
+    top = Math.max(top, b.top);
+    right = Math.min(right, b.right);
+    bottom = Math.min(bottom, b.bottom);
+    if (!clipEl) clipEl = describe(node);
+    if (classesOf(node).includes(TRACK_PROBE.selector.slice(1))) break;
+  }
+  return { left, top, right, bottom, clipEl };
+}
+
+function intersectBox(el: Element | null): ReachBox {
+  if (!el) return { top: 0, bottom: 0, height: 0, visible: 0 };
+  const r = el.getBoundingClientRect();
+  const top = Math.max(0, r.top);
+  const bottom = Math.min(window.innerHeight, r.bottom);
+  return { top: r.top, bottom: r.bottom, height: r.height, visible: Math.max(0, bottom - top) };
+}
+
+function clocks(): ClockProbe[] {
+  const out: ClockProbe[] = [];
+  for (const el of document.querySelectorAll('.hub-week-chip-clock, .hub-week-agenda-time')) {
+    if (!visible(el)) continue;
+    const textR = textBox(el) ?? el.getBoundingClientRect();
+    const clip = clipBox(el, true);
+    out.push({
+      text: (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 48),
+      cls: describe(el),
+      textRight: Math.round(textR.right * 10) / 10,
+      clipRight: Number.isFinite(clip.right) ? Math.round(clip.right * 10) / 10 : textR.right,
+      clipEl: clip.clipEl,
+      fits: textR.left >= clip.left - 0.5 && textR.right <= clip.right + 0.5,
+    });
+  }
+  return out;
+}
+
+function reach(): ReachProbe {
+  const agendaFirst = intersectBox(document.querySelector('[data-agenda-day]'));
+  const saved = saveScroll();
+  const root = document.scrollingElement ?? document.documentElement;
+  root.scrollTop = root.scrollHeight;
+  const m = main();
+  if (m) m.scrollTop = m.scrollHeight;
+  for (const el of document.querySelectorAll('.hub-week-sheet-body, .hub-board-cal, .hub-week-document, .hub-phone-week-list')) {
+    if (['auto', 'scroll'].includes(getComputedStyle(el).overflowY)) (el as HTMLElement).scrollTop = el.scrollHeight;
+  }
+  const tray = document.querySelector('[data-schedule-rail], [data-schedule-section="tray"], [data-schedule-phone-unscheduled]');
+  const lanes = [...document.querySelectorAll('[data-week-crew], [data-crew-lane]')];
+  const lastLane = lanes.length ? lanes[lanes.length - 1] : null;
+  tray?.scrollIntoView({ block: 'end' });
+  lastLane?.scrollIntoView({ block: 'end' });
+  const out = {
+    tray: intersectBox(tray),
+    lastLane: intersectBox(lastLane),
+    agendaFirst,
+    vh: window.innerHeight,
+  };
+  restore(saved);
+  return out;
+}
+
+function overflow(): Pick<DomMeasure, 'iw' | 'docSW' | 'bodySW' | 'maxRight' | 'maxEl' | 'offenders' | 'buttons' | 'clips'> {
   const iw = window.innerWidth;
   let maxRight = 0;
   let maxEl = '';
   const offenders: Offender[] = [];
+  const clips: ClipProbe[] = [];
   for (const el of document.body.querySelectorAll('*')) {
     const r = el.getBoundingClientRect();
     if (r.width <= 1 || r.height <= 1) continue;
@@ -501,6 +573,18 @@ function overflow(): Pick<DomMeasure, 'iw' | 'docSW' | 'bodySW' | 'maxRight' | '
     if (r.right > maxRight) {
       maxRight = r.right;
       maxEl = describe(el);
+    }
+    const own = getComputedStyle(el);
+    if (own.textOverflow !== 'ellipsis') {
+      const clip = clipBox(el, false);
+      if (Number.isFinite(clip.right) && r.right > clip.right + 0.5 && !clip.clipEl.includes(TRACK_PROBE.selector.slice(1))) {
+        clips.push({
+          el: describe(el),
+          right: Math.round(r.right * 10) / 10,
+          clip: clip.clipEl,
+          clipRight: Math.round(clip.right * 10) / 10,
+        });
+      }
     }
     if (r.right <= iw + 0.5) continue;
     let scroller: Offender['scroller'] = null;
@@ -545,6 +629,7 @@ function overflow(): Pick<DomMeasure, 'iw' | 'docSW' | 'bodySW' | 'maxRight' | '
     maxEl,
     offenders: offenders.slice(0, 60),
     buttons,
+    clips: clips.slice(0, 40),
   };
 }
 
@@ -659,7 +744,7 @@ function layoutProbe(): LayoutProbe {
     if (prev) prev.lanes.push(...card.lanes);
     else byId.set(card.id, { ...card, lanes: [...card.lanes] });
   }
-  const tray = document.querySelector('[data-schedule-rail]');
+  const tray = document.querySelector('[data-schedule-rail], [data-schedule-unscheduled-list], [data-schedule-phone-unscheduled]');
   return {
     h1: [...document.querySelectorAll('h1')].filter(visible).map(el => (el.textContent ?? '').trim()),
     eyebrow: (document.querySelector('[data-schedule-eyebrow]')?.textContent ?? '').trim(),
@@ -689,7 +774,9 @@ function layoutProbe(): LayoutProbe {
     trayCards: [...(tray?.querySelectorAll('[data-schedule-rail-job]') ?? [])].map(el => ({
       meta: (el.querySelector('.hub-schedule-ref')?.textContent ?? '').trim(),
       pill: (el.querySelector('.hub-schedule-pill')?.textContent ?? '').trim(),
+      text: (el.textContent ?? '').replace(/\s+/g, ' ').trim(),
     })),
+    setDate: [...document.querySelectorAll('[data-schedule-set-date]')].filter(visible).map(el => (el.textContent ?? '').replace(/\s+/g, ' ').trim()),
     allCrews: !!document.querySelector('[data-schedule-all-crews]'),
     quickBook: [...document.querySelectorAll('[data-schedule-section="quickbook"], [data-schedule-quickbook-toggle]')].some(visible),
     pageError: (document.querySelector('main')?.textContent ?? '').includes('Could not load schedule')
@@ -758,6 +845,8 @@ window.__p2 = {
       menu: menu ? [...menu.querySelectorAll('a, button')].filter(visible).map(el => (el.textContent ?? '').trim()) : null,
       path: currentPath,
       layout: layoutProbe(),
+      clocks: clocks(),
+      reach: reach(),
     };
   },
 

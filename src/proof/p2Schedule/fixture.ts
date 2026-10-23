@@ -1,5 +1,5 @@
 // K0 SCHEDULE_FIXTURE: the signed mockup week, frozen Monday 19 Oct 2026 13:40.
-// 4 crews, 14 on the board, 2 need crew, 3 undated, plus the named card types.
+// 4 crews, 18 on the board, 4 need crew, 3 undated, plus the named card types.
 
 export type Row = Readonly<Record<string, unknown>>;
 
@@ -29,6 +29,11 @@ export const JOB_IDS = {
   undated1: 'aaaaaaaa-0048-4000-8000-000000000048',
   undated2: 'aaaaaaaa-0049-4000-8000-000000000049',
   undated3: 'aaaaaaaa-0052-4000-8000-000000000052',
+  quotedOpen: 'aaaaaaaa-0202-4000-8000-000000000202',
+  spaceCrew: 'aaaaaaaa-0203-4000-8000-000000000203',
+  cancelOpen: 'aaaaaaaa-0204-4000-8000-000000000204',
+  longDay: 'aaaaaaaa-0205-4000-8000-000000000205',
+  quotedCrew: 'aaaaaaaa-0206-4000-8000-000000000206',
 } as const;
 
 const C = {
@@ -276,6 +281,54 @@ export const JOBS: readonly Row[] = [
     client_id: C.priya,
     status: 'in_progress',
   }),
+  job({
+    id: JOB_IDS.quotedOpen,
+    job_number: 202,
+    title: 'Quoted crewless switchboard',
+    client_id: C.luke,
+    status: 'quoted',
+    scheduled_date: '2026-10-22',
+    address: WAVELL,
+  }),
+  job({
+    id: JOB_IDS.spaceCrew,
+    job_number: 203,
+    title: 'Whitespace crew only',
+    client_id: C.alex,
+    scheduled_date: '2026-10-20',
+    start_time: '16:00:00',
+    end_time: '17:00:00',
+    assigned_team: [' '],
+  }),
+  job({
+    id: JOB_IDS.cancelOpen,
+    job_number: 204,
+    title: 'Cancelled crewless dated',
+    client_id: C.nora,
+    status: 'cancelled',
+    scheduled_date: '2026-10-23',
+  }),
+  job({
+    id: JOB_IDS.longDay,
+    job_number: 205,
+    title: 'Long day range',
+    client_id: C.nora,
+    scheduled_date: '2026-10-21',
+    start_time: '07:30:00',
+    end_time: '16:00:00',
+    assigned_team: [DEAN],
+  }),
+  job({
+    id: JOB_IDS.quotedCrew,
+    job_number: 206,
+    title: 'Quoted with crew',
+    client_id: C.priya,
+    status: 'quoted',
+    scheduled_date: '2026-10-23',
+    start_time: '10:00:00',
+    end_time: '11:00:00',
+    assigned_team: [DEAN],
+  }),
 ];
 
 export const NEED_CREW_PAIR: readonly Row[] = [
@@ -303,10 +356,10 @@ const client = (id: string, name: string, address: string | null, phone: string 
 });
 
 export const CLIENTS: readonly Row[] = [
-  client(C.luke, 'Luke Ferris', WAVELL, '0400 111 222'),
+  client(C.luke, 'Luke Ferris', WAVELL, '0400 000 000'),
   client(C.nora, 'Nora Bennett', KEDRON, '0400 000 000'),
-  client(C.alex, 'Alex Rivera', '15 Queen St, Brisbane QLD 4000', '0412 555 301'),
-  client(C.priya, 'Priya Shah', '22 Latrobe Tce, Paddington QLD 4064', '0400 000 789'),
+  client(C.alex, 'Alex Rivera', '15 Queen St, Brisbane QLD 4000', '0400 000 000'),
+  client(C.priya, 'Priya Shah', '22 Latrobe Tce, Paddington QLD 4064', '0400 000 000'),
 ];
 
 export const MEMBERS: readonly Row[] = [
@@ -344,11 +397,11 @@ export const TABLES: Readonly<Record<string, readonly Row[]>> = {
 
 export const SAVE_JOB_TITLE = 'Undated Luke Ferris';
 export const SCHEDULE_FIXTURE = {
-  onBoard: 14,
-  needCrew: 2,
+  onBoard: 18,
+  needCrew: 4,
   needsDate: 3,
   crews: 4,
-  whisper: '14 on the board · 2 need crew · 3 without a date',
+  whisper: '18 on the board · 4 need crew · 3 without a date',
   twoCrewRef: '#0036',
   longRef: '#0141.A',
   clock: '07:00–10:30',
