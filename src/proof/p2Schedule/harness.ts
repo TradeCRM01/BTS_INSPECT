@@ -211,9 +211,8 @@ const RECIPES: Readonly<Record<Recipe, (page: Page, spec: StateSpec, notes: Note
   },
   sheet: async (page, spec) => openSheet(page, spec.w),
   prefill: async (page, spec) => {
-    const toggle = page.locator('[data-schedule-quickbook-toggle]');
-    if (spec.w < 768 && await toggle.count()) {
-      if (!(await toggle.isVisible())) return;
+    const toggle = page.locator('[data-schedule-quickbook-toggle]').first();
+    if (await toggle.count()) {
       if (await toggle.getAttribute('aria-expanded') !== 'true') {
         await press(page, spec.w, '[data-schedule-quickbook-toggle]');
       }
@@ -224,7 +223,14 @@ const RECIPES: Readonly<Record<Recipe, (page: Page, spec: StateSpec, notes: Note
     await page.waitForSelector('.hub-schedule-voice-hint, .hub-schedule-voice-picks, .hub-schedule-voice-new');
   },
   more: async (page, spec) => {
-    await press(page, spec.w, '[data-schedule-crew-filter] summary');
+    const summaries = page.locator('[data-schedule-crew-filter] summary');
+    const n = await summaries.count();
+    for (let i = 0; i < n; i += 1) {
+      if (await summaries.nth(i).isVisible()) {
+        await summaries.nth(i).click({ force: isTouch(spec.w) });
+        break;
+      }
+    }
     await orTimeout(page.waitForSelector('[data-schedule-crew-filter][open], .hub-schedule-crew-menu', { timeout: 5_000 }));
   },
   empty: async () => {},
@@ -332,6 +338,19 @@ export async function openState(id: StateId, build: Build = 'branch', height = v
     page.on('pageerror', err => pageErrors.push(err.message));
     await page.addInitScript((boot: { path: string; empty?: boolean; jobsError?: boolean; needCrewPair?: boolean; malformedCrew?: boolean }) => {
       window.__P2_BOOT__ = boot;
+      class FakeSpeechRecognition {
+        lang = '';
+        interimResults = false;
+        continuous = false;
+        onresult: ((ev: unknown) => void) | null = null;
+        onend: (() => void) | null = null;
+        onerror: ((ev: unknown) => void) | null = null;
+        start() {}
+        stop() {}
+        abort() {}
+      }
+      Object.defineProperty(window, 'SpeechRecognition', { configurable: true, value: FakeSpeechRecognition });
+      Object.defineProperty(window, 'webkitSpeechRecognition', { configurable: true, value: FakeSpeechRecognition });
     }, {
       path: spec.path,
       empty: spec.recipe === 'empty',

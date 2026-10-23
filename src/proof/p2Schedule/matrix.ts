@@ -232,6 +232,8 @@ export const ROWS = {
 } as const;
 export const PHONE_TABS = ['Today', 'Schedule', 'Jobs', 'More'] as const;
 export const QUICK_BOOK_PHRASE = 'Leaking tap tomorrow 9am Dean';
+export const MOCKUP_SEARCH_WIDTH = 772.55;
+export const MOCKUP_SEARCH_TOL = 2;
 export const WEEK = ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25'] as const;
 export const TODAY = '2026-10-19';
 export const EMPTY_COPY = /\b(nothing scheduled|no jobs|no bookings)\b/i;
@@ -294,6 +296,11 @@ export type ChromeProbe = {
   navCornerCut: boolean;
   range: string;
   searchWidth: number;
+  todayRight: number;
+  toolbarRight: number;
+  toolbarBottom: number;
+  boardTop: number;
+  crewToolbarShown: number;
   todayPainted: number;
   todayCornerCut: boolean;
   dayHeadFullShown: number;
@@ -479,7 +486,7 @@ export const MUTANTS: readonly MutantSpec[] = [
   { id: 'tray-noop', kill: 'P2-tray', file: BOARD_VIEWS, find: 'setExpanded(open => !open);', replace: 'setExpanded(open => open);', brief: 'the tray chip toggle does nothing' },
   css('agenda-time-ink', 'P2-m2', '.hub-week-agenda-time {', 'color: var(--g-ink-muted);', 'color: var(--g-ink);', 'the agenda time line in full ink'),
   css('pill-amber', 'P2-status', '.hub-schedule-pill[data-kind="scheduled"] {', 'background: var(--g-sched-bg);', 'background: var(--g-warn-bg);', 'amber scheduled pills'),
-  { id: 'hide-header', kill: 'K1', file: 'src/index.css', rule: '.hub-board-cal .ops-page-head {', find: 'max-width: 1400px;', replace: 'display: none;\n    max-width: 1400px;', brief: 'hide the live header (restore F1)' },
+  { id: 'hide-header', kill: 'K1', file: 'src/index.css', rule: '.hub-board-cal .ops-page-head {', find: 'max-width: none;', replace: 'display: none;\n    max-width: none;', brief: 'hide the live header (restore F1)' },
   { id: 'need-crew-all', kill: 'K1', file: 'src/lib/scheduleNeedCrew.ts', find: 'return crewIds(job.assigned_team).length === 0;', replace: 'return true;', brief: 'count crewed jobs as need-crew' },
   { id: 'need-crew-undated', kill: 'K19', file: 'src/lib/scheduleNeedCrew.ts', find: "if (!(job.scheduled_date ?? '').trim()) return false;\n  if (isFinishedCrewStatus(job.status)) return false;\n  return crewIds(job.assigned_team).length === 0;", replace: "if (isFinishedCrewStatus(job.status)) return false;\n  if (asTeamIds(job.assigned_team).length > 0) return false;\n  return job.status === 'scheduled' || job.status === 'in_progress';", brief: 'restore || in_progress without a date gate' },
   { id: 'next-backwards', kill: 'K2', file: 'src/pages/SchedulePage.tsx', find: 'addWeeks(currentDate, 1)', replace: 'addWeeks(currentDate, -1)', brief: 'next week walks backwards' },
@@ -497,8 +504,8 @@ export const MUTANTS: readonly MutantSpec[] = [
   { id: 'fade-auto-k10', kill: 'K10', file: BOARD_VIEWS, find: '{!phone && onJobResize && plot.stored ? (', replace: '{false && !phone && onJobResize && plot.stored ? (', brief: 'resize handles never mount' },
   { id: 'tray-slice', kill: 'K11', file: BOARD_VIEWS, find: 'function UnscheduledJobCards({\n  jobs, teamMembers, onJobClick, onDragStart, selectedId = null, onOpenJob, onSetScheduleDate,\n  invoicedJobIds = NO_INVOICED,\n}: UnscheduledRailProps) {\n  return (\n    <>\n      {jobs.map(job => {', replace: 'function UnscheduledJobCards({\n  jobs, teamMembers, onJobClick, onDragStart, selectedId = null, onOpenJob, onSetScheduleDate,\n  invoicedJobIds = NO_INVOICED,\n}: UnscheduledRailProps) {\n  return (\n    <>\n      {jobs.slice(0, 2).map(job => {', brief: 'needsDate.slice(0,2)' },
   { id: 'hide-empty-agenda', kill: 'K12', file: BOARD_VIEWS, find: '{days.map(day => {\n        const date = parseISO(`${day.date}T00:00:00`);', replace: '{days.filter(day => day.jobs.length > 0).map(day => {\n        const date = parseISO(`${day.date}T00:00:00`);', brief: 'filter out zero-job days' },
-  { id: 'quickbook-desk-only', kill: 'K13', file: 'src/index.css', rule: '.hub-week-quiet.hub-schedule-quickbook-toggle {', find: 'display: none;', replace: 'display: none !important;', brief: 'hide the phone Quick book toggle' },
-  { id: 'drop-today', kill: 'K14', file: 'src/pages/SchedulePage.tsx', find: '<button type="button" className="hub-week-quiet hub-week-today" onClick={() => applySchedule(viewMode, new Date())}>\n            Today\n          </button>', replace: '', brief: 'delete Today from the tools row' },
+  inject('quickbook-desk-only', 'K13', '  [data-schedule-quickbook-toggle] { display: none !important; }\n', 'hide the header Quick book control'),
+  { id: 'drop-today', kill: 'K14', file: 'src/pages/SchedulePage.tsx', find: '<button type="button" className="hub-week-quiet hub-week-today" onClick={() => applySchedule(viewMode, new Date())}>\n        Today\n      </button>', replace: '', brief: 'delete Today from the tools row' },
   { id: 'invoice-paid-at', kill: 'K15', file: 'src/pages/SchedulePage.tsx', find: ".select('id, job_id, status')", replace: ".select('id, job_id, status, paid_at')", brief: 'add invoices.paid_at to Q-S1' },
   { id: 'swap-tray-board', kill: 'K17', file: 'src/pages/SchedulePage.tsx', find: '<div data-schedule-section="board">', replace: '<div data-schedule-section="tray">', brief: 'label the board section as tray' },
   { id: 'hardcode-count', kill: 'K18', file: 'src/lib/scheduleBoard.ts', find: '`${parts.onBoard} on the board`', replace: '`14 on the board`', brief: 'hardcode a fallback board count' },
@@ -513,14 +520,30 @@ export const MUTANTS: readonly MutantSpec[] = [
   { id: 'quoted-as-scheduled', kill: 'K23', file: 'src/lib/scheduleInvoiceStatus.ts', find: 'return { label: sentenceStatus(job.status), kind: \'status\' };', replace: "return { label: 'Scheduled', kind: 'scheduled' };", brief: 'unknown status paints as Scheduled' },
   { id: 'drop-array-guard', kill: 'K24', file: 'src/lib/dispatch.ts', find: 'if (!Array.isArray(value)) return [];\n  return value.filter((id): id is string => typeof id === \'string\' && id.length > 0);', replace: 'return (value as string[]).filter((id): id is string => typeof id === \'string\' && id.length > 0);', brief: 'drop the asTeamIds array guard' },
   { id: 'head-short-hidden', kill: 'K25', file: 'src/index.css', find: '    .hub-week-head-short {\n      display: inline-flex;\n      flex-direction: row;\n      align-items: center;\n      gap: 6px;\n    }', replace: '    .hub-week-head-short {\n      display: none;\n      flex-direction: row;\n      align-items: center;\n      gap: 6px;\n    }', brief: 'hide the one-line laptop day heads' },
-  { id: 'tray-kicker-tiny', kill: 'K25', file: 'src/index.css', find: '      font-size: 20px;\n      font-weight: 600;\n      letter-spacing: 0;\n      text-transform: none;\n      color: var(--g-ink);', replace: '      font-size: 11px;\n      font-weight: 700;\n      letter-spacing: 0.12em;\n      text-transform: uppercase;\n      color: var(--g-ink-muted);', brief: 'shrink the tray heading back to an 11px kicker' },
+  { id: 'tray-kicker-tiny', kill: 'K25', file: 'src/index.css', find: '      font-size: 28px;\n      font-weight: 700;\n      line-height: 32px;\n      letter-spacing: 0;\n      text-transform: none;\n      color: var(--g-ink);', replace: '      font-size: 11px;\n      font-weight: 700;\n      letter-spacing: 0.12em;\n      text-transform: uppercase;\n      color: var(--g-ink-muted);', brief: 'shrink the tray heading back to an 11px kicker' },
   { id: 'untimed-span-track', kill: 'K25', file: BOARD_VIEWS, find: 'width: Math.min(220, hourWidth * 2.2),', replace: 'width: hourWidth * hours.length,', brief: 'untimed day card spans the whole track' },
-  { id: 'today-off-range', kill: 'K25', file: 'src/index.css', find: '  .hub-week-range-row {\n    display: flex;\n    flex-wrap: nowrap;\n    align-items: center;\n    gap: 8px;\n    min-width: 0;\n    flex: 1 1 auto;\n  }', replace: '  .hub-week-range-row {\n    display: flex;\n    flex-wrap: wrap;\n    align-items: center;\n    gap: 8px;\n    min-width: 0;\n    flex: 1 1 auto;\n  }\n  .hub-week-range-row .hub-week-today { flex: 1 1 100%; }', brief: 'Today leaves the 390 range row' },
+  { id: 'today-off-range', kill: 'K25', file: 'src/index.css', find: '    .hub-week-track .hub-week-today { order: 2; }', replace: '    .hub-week-track .hub-week-today { order: 20; flex: 1 1 100%; }', brief: 'Today leaves the 390 range row' },
   css('title-one-line', 'K25', '.hub-week-chip-desc {', 'font-size: 14px;\n    font-weight: 600;\n    line-height: 18px;\n    opacity: 1;', 'font-size: 14px;\n    font-weight: 600;\n    line-height: 18px;\n    opacity: 1;\n    -webkit-line-clamp: 1;\n    white-space: nowrap;\n    max-height: 18px;', 'titles collapse to one line'),
   css('crew-name-wrap', 'K25', '.hub-week-document .hub-week-crew .hub-schedule-crew-name,\n  .hub-week-document .hub-day-crew-lock .hub-schedule-crew-name {', 'white-space: nowrap;', 'white-space: normal;\n    max-width: 36px;', 'crew names wrap onto two lines'),
   css('seg-no-stroke', 'K25', '.hub-week-seg {', 'border: 1px solid var(--g-line-strong);\n    border-radius: 999px;', 'border: none;\n    border-radius: 0;', 'pill seg loses its painted stroke and radius'),
   css('nav-no-stroke', 'K25', '.hub-week-nav-box {', 'border: 1px solid var(--g-line-strong);\n    border-radius: 10px;', 'border: none;\n    border-radius: 0;', 'nav boxes lose their painted stroke'),
   css('today-no-stroke', 'K25', '.hub-week-today {', 'border: 1px solid var(--g-line-strong);\n    border-radius: 10px;', 'border: none;\n    border-radius: 0;', 'Today loses its painted outline'),
+  css('search-fixed-width', 'K25', '.hub-week-search {', 'flex: 1 1 auto;\n    min-width: 0;', 'flex: 0 0 200px;\n    width: 200px;\n    max-width: 200px;', 'fix the search at 200px'),
+  { id: 'today-beside-arrows', kill: 'K25', file: 'src/pages/SchedulePage.tsx', find: `      </div>
+      <div className="hub-week-search" data-schedule-search="1">
+        {weekSearch}
+      </div>
+      <button type="button" className="hub-week-quiet hub-week-today" onClick={() => applySchedule(viewMode, new Date())}>
+        Today
+      </button>`, replace: `        <button type="button" className="hub-week-quiet hub-week-today" onClick={() => applySchedule(viewMode, new Date())}>
+          Today
+        </button>
+      </div>
+      <div className="hub-week-search" data-schedule-search="1">
+        {weekSearch}
+      </div>`, brief: 'Today sits beside the arrows' },
+  { id: 'quickbook-keeps-gap', kill: 'K25', file: 'src/index.css', find: '  .hub-schedule-quickbook:not([data-open="1"]) {\n    display: none;\n  }', replace: '  .hub-schedule-quickbook:not([data-open="1"]) {\n    display: block;\n    min-height: 72px;\n  }', brief: 'closed Quick book keeps a row under the toolbar' },
+  { id: 'newjob-opens-form', kill: 'K25', file: 'src/pages/SchedulePage.tsx', find: 'onClick={() => setQuickBookOpen(open => !open)}', replace: 'onClick={openNewJob}', brief: 'header New job opens the form instead of Quick book' },
   css('day-clock-clip', 'P2-overflow', '.hub-week-chip-clock {', 'max-width: none;', 'max-width: 2ch;\n    overflow: hidden;\n    text-overflow: clip;', 'clip day-track clock labels inside the card'),
 ];
 
@@ -550,7 +573,7 @@ export const SCOPE = {
   forbiddenDirs: ['docs/look/p1/'],
   cssFile: 'src/index.css',
   cssBaseRanges: [[6088, 8600]],
-  exactLine: { file: 'src/pages/SchedulePage.tsx', line: 221, text: "  const lookParam = searchParams.get('look');" },
+  exactLine: { file: 'src/pages/SchedulePage.tsx', line: 219, text: "  const lookParam = searchParams.get('look');" },
   lookParamText: "  const lookParam = searchParams.get('look');",
   tscMax: 180,
   mustStayGreen: ['src/pages/schedulePage.test.ts', 'src/pages/scheduleDesktop1280.test.ts'],

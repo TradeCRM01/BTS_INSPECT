@@ -74,6 +74,7 @@ export interface BoardProps {
   filteredEmployeeIds: Set<string>;
   onSelectDay?: (date: Date) => void;
   invoicedJobIds?: Set<string>;
+  crewFilter?: ReactNode;
 }
 
 const DAY_START = DAY_START_HOUR;
@@ -935,7 +936,7 @@ function CurrentTimeVerticalIndicator({ hourWidth, dayStart }: { hourWidth: numb
 
 export const WeekBoardView = memo(function WeekBoardView({
   jobs, teamMembers, currentDate, onJobClick, onDayClick, onJobDrop, filteredEmployeeIds, onSelectDay,
-  invoicedJobIds,
+  invoicedJobIds, crewFilter,
 }: BoardProps) {
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dropHoverKey, setDropHoverKey] = useState<string | null>(null);
@@ -984,7 +985,7 @@ export const WeekBoardView = memo(function WeekBoardView({
     <div className="ops-board hub-week-board" data-schedule-week="1" data-week-board="1">
       <div className="hub-week-grid" data-weekend-jobs={weekendJobs ? '1' : '0'}>
         <div className="hub-week-corner">
-          <span className="hub-schedule-label">Crew</span>
+          {crewFilter ?? <span className="hub-schedule-label">Crew</span>}
         </div>
         {days.map(day => {
           const ds = dateKey(day);

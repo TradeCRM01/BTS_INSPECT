@@ -717,6 +717,10 @@ function chrome(): ChromeProbe {
   const range = [...document.querySelectorAll('.hub-week-range-full, .hub-week-range-short')].find(visible) ?? null;
   const search = [...document.querySelectorAll('.hub-week-search')].find(visible) ?? null;
   const today = [...document.querySelectorAll('.hub-week-today')].find(visible) ?? null;
+  const toolbar = document.querySelector('.hub-week-track');
+  const board = document.querySelector('[data-schedule-section="board"]');
+  const toolbarPadRight = toolbar ? parseFloat(getComputedStyle(toolbar).paddingRight) || 0 : 0;
+  const crewOnToolbar = [...document.querySelectorAll('.hub-week-track .hub-schedule-crew-filter > summary')].filter(visible);
   const fulls = [...document.querySelectorAll('.hub-week-head-full')].filter(visible);
   const shorts = [...document.querySelectorAll('.hub-week-head-short')].filter(visible);
   const heads = [...document.querySelectorAll('.hub-week-head')].filter(visible);
@@ -748,6 +752,11 @@ function chrome(): ChromeProbe {
     navCornerCut: false,
     range: (range?.textContent ?? '').replace(/\s+/g, ' ').trim(),
     searchWidth: search?.getBoundingClientRect().width ?? 0,
+    todayRight: today?.getBoundingClientRect().right ?? -1,
+    toolbarRight: toolbar ? toolbar.getBoundingClientRect().right - toolbarPadRight : -1,
+    toolbarBottom: toolbar?.getBoundingClientRect().bottom ?? -1,
+    boardTop: board?.getBoundingClientRect().top ?? -1,
+    crewToolbarShown: crewOnToolbar.length,
     todayPainted: 0,
     todayCornerCut: false,
     dayHeadFullShown: fulls.length,
