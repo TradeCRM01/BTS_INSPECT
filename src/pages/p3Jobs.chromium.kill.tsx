@@ -229,6 +229,7 @@ async function openPage(args: {
   clientsError?: boolean;
   extrasError?: boolean;
   height?: number;
+  timezoneId?: string;
 }): Promise<KillPage> {
   const html = fixtureHtml({
     js: args.js ?? jobsJs,
@@ -245,7 +246,7 @@ async function openPage(args: {
   const phone = args.width <= 430;
   const context = await browser.newContext({
     viewport: { width: args.width, height: args.height ?? (phone ? 844 : 900) },
-    timezoneId: KILL_TZ,
+    timezoneId: args.timezoneId ?? KILL_TZ,
   });
   contexts.push(context);
   const page = await context.newPage();
@@ -1073,23 +1074,47 @@ describe('P3 overview people form bar', () => {
         const date = new Date(iso);
         return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
       };
+      const painted = (el: Element | null) => {
+        if (!el) return false;
+        const node = el as HTMLElement;
+        if (typeof node.checkVisibility === 'function' && !node.checkVisibility()) return false;
+        const box = node.getBoundingClientRect();
+        const style = getComputedStyle(node);
+        return box.width > 0 && box.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+      };
       const kv = [...document.querySelectorAll('[data-job-sheet^="kv-"]')].map((el) => (
         el.getAttribute('data-job-sheet')
       ));
+      const site = document.querySelector('[data-job-sheet="kv-site"]') as HTMLElement | null;
+      const label = site?.querySelector('.job-sheet-kv-label') as HTMLElement | null;
+      const value = site?.querySelector('.job-sheet-kv-value') as HTMLElement | null;
       const go = document.querySelector('[data-job-sheet="kv-site"] a') as HTMLAnchorElement | null;
       const call = document.querySelector('[data-job-sheet="kv-phone"] a') as HTMLAnchorElement | null;
-      const notes = document.querySelector('[data-job-sheet="notes"]')?.textContent ?? '';
-      const photos = document.querySelectorAll('.job-sheet-photo').length;
+      const notes = document.querySelector('[data-job-sheet="notes"]') as HTMLElement | null;
+      const crew = document.querySelector('[data-job-sheet="kv-crew"]') as HTMLElement | null;
+      const detail = document.querySelector('.ops-next-detail') as HTMLElement | null;
+      const shell = document.querySelector('.shell-header') as HTMLElement | null;
+      const appbar = document.querySelector('.job-sheet-appbar') as HTMLElement | null;
+      const labelBox = label?.getBoundingClientRect();
+      const valueBox = value?.getBoundingClientRect();
+      const notesBox = notes?.getBoundingClientRect();
+      const crewBox = crew?.getBoundingClientRect();
       const all = document.body.innerText;
       return {
         kv,
         go: go?.href ?? '',
         call: call?.getAttribute('href') ?? '',
-        notes,
-        photos,
+        notes: notes?.textContent ?? '',
+        photos: document.querySelectorAll('.job-sheet-photo').length,
         all,
         tom: hmm(stamps.tom),
         dean: hmm(stamps.dean),
+        labelAboveValue: (labelBox?.bottom ?? 99) <= (valueBox?.top ?? 0) + 2,
+        notesBelowCrew: (notesBox?.top ?? 0) >= (crewBox?.bottom ?? 99) - 2,
+        fromJobPainted: painted(detail) || (all.includes('From job') && painted(detail)),
+        fromJobText: all.includes('From job'),
+        shellPainted: painted(shell),
+        appbarPainted: painted(appbar),
       };
     }, { tom: NOTE_TOM_ISO, dean: NOTE_DEAN_ISO });
     await page.close();
@@ -1103,6 +1128,46 @@ describe('P3 overview people form bar', () => {
     expect(read.all).toContain('Total inc GST');
     expect(read.all).toContain('$919.05');
     expect(read.all).toContain('Edit bill');
+    expect(read.labelAboveValue, 'Site label sits over the address').toBe(true);
+    expect(read.notesBelowCrew, 'Notes stay under Crew, not beside it').toBe(true);
+    expect(read.fromJobPainted, 'From job line stays off the sheet').toBe(false);
+    expect(read.fromJobText, 'From job copy stays off the sheet').toBe(false);
+    expect(read.shellPainted, 'GRAFTER shell header stays off the phone sheet').toBe(false);
+    expect(read.appbarPainted, 'back-bar with search and avatar paints').toBe(true);
+
+    const wide = await openPage({ width: 1280, path: '/jobs/p3-0036' });
+    await waitSheet(wide);
+    const wideRead = await wide.evaluate(() => {
+      const notes = document.querySelector('[data-job-sheet="notes"]') as HTMLElement | null;
+      const photos = document.querySelector('[data-job-sheet="photos"]') as HTMLElement | null;
+      const crew = document.querySelector('[data-job-sheet="kv-crew"]') as HTMLElement | null;
+      return {
+        notesWidth: notes?.getBoundingClientRect().width ?? 0,
+        photosWidth: photos?.getBoundingClientRect().width ?? 0,
+        notesTop: notes?.getBoundingClientRect().top ?? 0,
+        crewBottom: crew?.getBoundingClientRect().bottom ?? 0,
+        innerWidth: window.innerWidth,
+      };
+    });
+    await wide.close();
+    expect(wideRead.notesWidth, '1280 Notes not a sub-column').toBeGreaterThan(720);
+    expect(wideRead.photosWidth, '1280 Photos not a sub-column').toBeGreaterThan(720);
+    expect(wideRead.notesTop, '1280 Notes stay under Crew').toBeGreaterThan(wideRead.crewBottom - 2);
+
+    for (const tz of ['UTC', 'Australia/Brisbane', 'America/Los_Angeles'] as const) {
+      const tzPage = await openPage({ width: 390, path: '/jobs/p3-0036', timezoneId: tz });
+      await waitSheet(tzPage);
+      const stamp = await tzPage.evaluate((tomIso: string) => {
+        const date = new Date(tomIso);
+        const hmm = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+        return {
+          painted: document.querySelector('[data-job-sheet="notes"]')?.textContent ?? '',
+          hmm,
+        };
+      }, NOTE_TOM_ISO);
+      await tzPage.close();
+      expect(stamp.painted, `K8 Tom stamp under ${tz}`).toContain(`Tom Nguyen · ${stamp.hmm}`);
+    }
   });
 
   killIt('K8 mutant drops the notes section', async () => {
@@ -1451,7 +1516,7 @@ describe('P3 overview people form bar', () => {
     const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
     await waitSheet(page);
     const read = await page.evaluate(() => {
-      const sels = ['.job-sheet-back', '.job-sheet-tab', '.btn-primary', '.job-sheet-link', '.job-sheet-photo'];
+      const sels = ['.job-sheet-back', '.job-sheet-tab', '.btn-primary', '.job-sheet-kv-act', '.job-sheet-photo', '.job-sheet-section-head .job-sheet-link'];
       return sels.map((sel) => {
         const el = document.querySelector(sel) as HTMLElement | null;
         const r = el?.getBoundingClientRect();
@@ -1477,7 +1542,8 @@ describe('P3 overview people form bar', () => {
         const page = await openPage({ width: 390, path: '/jobs/p3-0036', css });
         await waitSheet(page);
         const h = await page.evaluate(() => (
-          (document.querySelector('.job-sheet-link') as HTMLElement | null)?.getBoundingClientRect().height ?? 0
+          (document.querySelector('.job-sheet-section-head .job-sheet-link') as HTMLElement | null)
+            ?.getBoundingClientRect().height ?? 0
         ));
         await page.close();
         expect(h).toBeGreaterThanOrEqual(44);
