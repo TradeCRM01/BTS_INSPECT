@@ -21,8 +21,11 @@
     "budget",
     "parent_job_id",
     "cost_code",
-    "client_reminder_sent_at",
-    "client_reminder_sent_for_date"
+    "dispatch_ready",
+    "dispatch_version",
+    "created_via",
+    "automation_ref",
+    "creator_name_snapshot"
   ],
   "invoices": [
     "id",
@@ -37,13 +40,17 @@
     "tax_rate",
     "tax_amount",
     "total",
-    "amount_paid",
     "payment_terms",
     "due_date",
     "notes",
     "created_by",
     "created_at",
-    "updated_at"
+    "updated_at",
+    "inclusions",
+    "exclusions",
+    "source",
+    "chased_at",
+    "amount_paid"
   ],
   "invoice_payments": [
     "id",

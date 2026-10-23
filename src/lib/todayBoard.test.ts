@@ -425,6 +425,9 @@ describe('K13 schema', () => {
     assertSchema('clients', TODAY_QD_CLIENT_COLUMNS);
     expect(TODAY_QE_INVOICE_COLUMNS.includes('paid_at')).toBe(false);
     expect(SCHEMA.invoices.includes('paid_at')).toBe(false);
+    expect(SCHEMA.jobs.includes('client_reminder_sent_at')).toBe(false);
+    expect(SCHEMA.jobs.includes('client_reminder_sent_for_date')).toBe(false);
+    expect(SCHEMA.invoices.includes('chased_at')).toBe(true);
   });
 
   it('keeps every today-board filter column inside the information_schema snapshot', async () => {
