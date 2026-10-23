@@ -559,10 +559,11 @@ async function samplePaintedPixels(page: KillPage, sel: string, pad = 2): Promis
     return { x: box.x, y: box.y, width: box.width, height: box.height };
   }, sel);
   if (!clip || clip.width < 1 || clip.height < 1) throw new Error(`${sel} has no painted rect`);
+  const vp = await page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }));
   const x = Math.max(0, Math.floor(clip.x) - pad);
   const y = Math.max(0, Math.floor(clip.y) - pad);
-  const width = Math.max(3, Math.ceil(clip.width) + pad * 2);
-  const height = Math.max(3, Math.ceil(clip.height) + pad * 2);
+  const width = Math.max(3, Math.min(vp.w - x, Math.ceil(clip.width) + pad * 2));
+  const height = Math.max(3, Math.min(vp.h - y, Math.ceil(clip.height) + pad * 2));
   const buf = await page.screenshot({
     type: 'png',
     animations: 'disabled',
@@ -617,6 +618,21 @@ function nearestPainted(
     }
   }
   return { rgb: best, dist: bestDist };
+}
+
+async function hideFixedNav(page: KillPage) {
+  await page.evaluate(() => {
+    document.querySelectorAll('.shell-bottom-nav, .tabbar, .home-ind').forEach((el) => {
+      (el as HTMLElement).style.setProperty('display', 'none', 'important');
+    });
+  });
+}
+
+async function revealEl(page: KillPage, sel: string) {
+  await hideFixedNav(page);
+  await page.evaluate((selector) => {
+    (document.querySelector(selector) as HTMLElement | null)?.scrollIntoView({ block: 'center', inline: 'nearest' });
+  }, sel);
 }
 
 const MOCKUP_FIXTURE = join(process.cwd(), 'docs/look/p3/fixtures');
@@ -1785,9 +1801,33 @@ describe('P3 r9 mockup vs head at 390', () => {
       const note = document.querySelector(mock ? '.note' : '.job-sheet-note') as HTMLElement | null;
       const noteBy = document.querySelector(mock ? '.note .by' : '.job-sheet-note-by') as HTMLElement | null;
       const noteP = document.querySelector(mock ? '.note p' : '.job-sheet-note p') as HTMLElement | null;
+      const notesSec = mock
+        ? ([...document.querySelectorAll('section.sec')] as HTMLElement[])
+          .find((sec) => /Notes/.test((sec.querySelector('.h2')?.textContent || ''))) ?? null
+        : document.querySelector('[data-job-sheet="notes"]') as HTMLElement | null;
+      const notesH = (notesSec?.querySelector(mock ? '.h2' : 'h2') || null) as HTMLElement | null;
+      const notesExtraEl = mock
+        ? (notesSec?.querySelector('.row .small, .row .muted') as HTMLElement | null)
+        : (notesSec?.querySelector('.job-sheet-link') as HTMLElement | null);
       const photos = document.querySelector(mock ? '.photos' : '.job-sheet-photo-grid') as HTMLElement | null;
-      const photo = document.querySelector(mock ? '.ph' : '.job-sheet-photo') as HTMLElement | null;
+      const photoTiles = [...document.querySelectorAll(mock ? '.ph' : '.job-sheet-photo')] as HTMLElement[];
+      const photo = photoTiles.find((tile) => {
+        const img = tile.querySelector('img') as HTMLImageElement | null;
+        if (!img) return true;
+        const st = img.getAttribute('style') || '';
+        const cs = getComputedStyle(img);
+        return cs.display === 'none' || /display:\s*none/i.test(st) || (img.getAttribute('src') || '').includes('example.test');
+      }) ?? photoTiles[0] ?? null;
       const photoBox = photo?.getBoundingClientRect();
+      const photoIcon = (photo?.querySelector('.job-sheet-photo-ic, svg.ic, svg') as HTMLElement | null);
+      const photoCap = (photo?.querySelector('.job-sheet-photo-cap') as HTMLElement | null)
+        ?? (photo
+          ? [...photo.querySelectorAll('span')].find((el) => (
+            (el.textContent || '').trim() && !el.querySelector('svg') && !el.classList.contains('job-sheet-photo-ic')
+          )) ?? null
+          : null);
+      const iconBox = photoIcon?.getBoundingClientRect();
+      const capBox = photoCap?.getBoundingClientRect();
       const bill3 = document.querySelector(mock ? '.bill3' : '.job-sheet-bill3') as HTMLElement | null;
       const billL = document.querySelector(mock ? '.bill3 .l' : '.job-sheet-bill-l') as HTMLElement | null;
       const billV = document.querySelector(mock ? '.bill3 .v' : '.job-sheet-bill-v') as HTMLElement | null;
@@ -1854,13 +1894,24 @@ describe('P3 r9 mockup vs head at 390', () => {
         noteByColor: noteBy ? getComputedStyle(noteBy).color : '',
         notePSize: noteP ? parseFloat(getComputedStyle(noteP).fontSize) : -1,
         notePLh: noteP ? parseFloat(getComputedStyle(noteP).lineHeight) : -1,
+        notePWeight: noteP ? getComputedStyle(noteP).fontWeight : '',
         notePad: note ? parseFloat(getComputedStyle(note).paddingTop) : -1,
         noteBorder: note ? getComputedStyle(note).borderBottomWidth : '',
+        notesHSize: notesH ? parseFloat(getComputedStyle(notesH).fontSize) : -1,
+        notesHWeight: notesH ? getComputedStyle(notesH).fontWeight : '',
+        notesExtra: (notesExtraEl?.textContent || '').replace(/\s+/g, ' ').trim(),
         photoCols: photos ? getComputedStyle(photos).gridTemplateColumns.split(' ').filter(Boolean).length : 0,
         photoGap: photos ? parseFloat(getComputedStyle(photos).columnGap || getComputedStyle(photos).gap) : -1,
         photoRatio: photoBox && photoBox.height > 0 ? photoBox.width / photoBox.height : 0,
         photoRadius: photo ? parseFloat(getComputedStyle(photo).borderRadius) : -1,
         photoShadow: photo ? getComputedStyle(photo).boxShadow : '',
+        photoHasIcon: !!photoIcon && (iconBox?.width || 0) > 0 && (iconBox?.height || 0) > 0,
+        photoIconX: photoBox && iconBox ? iconBox.left - photoBox.left : -1,
+        photoIconY: photoBox && iconBox ? iconBox.top - photoBox.top : -1,
+        photoCapX: photoBox && capBox ? capBox.left - photoBox.left : -1,
+        photoCapBottom: photoBox && capBox ? photoBox.bottom - capBox.bottom : -1,
+        photoCapAlign: photoCap ? getComputedStyle(photoCap).textAlign : (photo ? getComputedStyle(photo).textAlign : ''),
+        photoCapClamp: photoCap ? getComputedStyle(photoCap).webkitLineClamp : '',
         bill3Display: bill3 ? getComputedStyle(bill3).display : '',
         bill3Cols: billCellLefts.length,
         bill3Rows: billCellTops.length,
@@ -1932,12 +1983,16 @@ describe('P3 r9 mockup vs head at 390', () => {
     await pinTabLabels(mockPage, '.segc.fill', mockLabels);
     const mockup = await mockPage.evaluate(measure, selectors.mockup);
     const mockCtaRgb = await sampleCtaPaintedRgb(mockPage, selectors.mockup.cta);
+    await revealEl(mockPage, '.ph');
+    const mockPhotoShot = await samplePaintedPixels(mockPage, '.ph', 2);
     await mockPage.close();
     const headPage = await openPage({ width: 390, path: '/jobs/p3-0036' });
     await waitSheet(headPage);
     await pinTabLabels(headPage, '.job-sheet-tabs', mockLabels);
     const head = await headPage.evaluate(measure, selectors.head);
     const headCtaRgb = await sampleCtaPaintedRgb(headPage, selectors.head.cta);
+    await revealEl(headPage, '.job-sheet-photo');
+    const headPhotoShot = await samplePaintedPixels(headPage, '.job-sheet-photo', 2);
     await headPage.close();
     if (process.env.P3_PROPS === '1') {
       console.log(`P3_PROPS ${JSON.stringify({ mockup, head, mockCtaRgb, headCtaRgb })}`);
@@ -2021,6 +2076,14 @@ describe('P3 r9 mockup vs head at 390', () => {
     expect(near(mockup.notePSize, 16)).toBe(true);
     expect(near(head.notePLh, 24)).toBe(true);
     expect(near(mockup.notePLh, 24)).toBe(true);
+    expect(Number(head.notePWeight), 'head note body weight 400').toBe(400);
+    expect(Number(mockup.notePWeight), 'mock note body weight 400').toBe(400);
+    expect(near(head.notesHSize, mockup.notesHSize), `Notes h size head ${head.notesHSize} mock ${mockup.notesHSize}`).toBe(true);
+    expect(Number(head.notesHWeight), 'head Notes heading weight').toBe(Number(mockup.notesHWeight));
+    expect(near(head.notesHSize, 20)).toBe(true);
+    expect(Number(head.notesHWeight)).toBe(600);
+    expect(mockup.notesExtra, 'mock Notes header has no extra (disclosed)').toBe('');
+    expect(head.notesExtra, 'head Notes header extra disclosed; mock has none').toBe('All notes');
     expect(near(head.notePad, 14)).toBe(true);
     expect(near(mockup.notePad, 14)).toBe(true);
     expect(head.noteBorder).toBe('1px');
@@ -2034,6 +2097,44 @@ describe('P3 r9 mockup vs head at 390', () => {
     expect(near(head.photoRadius, mockup.photoRadius)).toBe(true);
     expect(head.photoShadow).toMatch(/inset/i);
     expect(mockup.photoShadow).toMatch(/inset/i);
+    expect(head.photoHasIcon, 'head placeholder camera icon').toBe(true);
+    expect(mockup.photoHasIcon, 'mock placeholder camera icon').toBe(true);
+    expect(near(head.photoIconX, mockup.photoIconX), `photo icon X head ${head.photoIconX} mock ${mockup.photoIconX}`).toBe(true);
+    expect(near(head.photoIconY, mockup.photoIconY), `photo icon Y head ${head.photoIconY} mock ${mockup.photoIconY}`).toBe(true);
+    expect(near(head.photoCapX, mockup.photoCapX), `photo cap X head ${head.photoCapX} mock ${mockup.photoCapX}`).toBe(true);
+    expect(near(head.photoCapBottom, mockup.photoCapBottom), `photo cap bottom head ${head.photoCapBottom} mock ${mockup.photoCapBottom}`).toBe(true);
+    expect(['left', 'start'].includes(head.photoCapAlign), `head photo cap align ${head.photoCapAlign}`).toBe(true);
+    expect(['left', 'start'].includes(mockup.photoCapAlign), `mock photo cap align ${mockup.photoCapAlign}`).toBe(true);
+    expect(String(head.photoCapClamp), 'head caption 2-line clamp').toBe('2');
+    const photoFillTarget: [number, number, number] = [235, 235, 238];
+    const photoRingTarget: [number, number, number] = [228, 228, 231];
+    const photoFillRegion = (shot: { width: number; height: number }) => {
+      const midX = Math.floor(shot.width / 2);
+      const midY = Math.floor(shot.height / 2);
+      return {
+        x0: Math.max(0, midX - 4),
+        x1: Math.min(shot.width, midX + 5),
+        y0: Math.max(0, midY - 4),
+        y1: Math.min(shot.height, midY + 5),
+      };
+    };
+    const photoRingRegion = (shot: { width: number; height: number }) => {
+      const midY = Math.floor(shot.height / 2);
+      return {
+        x0: 2,
+        x1: Math.min(shot.width, 5),
+        y0: Math.max(0, midY - 4),
+        y1: Math.min(shot.height, midY + 5),
+      };
+    };
+    const mockPhotoFill = nearestPainted(mockPhotoShot, photoFillTarget, photoFillRegion(mockPhotoShot));
+    const headPhotoFill = nearestPainted(headPhotoShot, photoFillTarget, photoFillRegion(headPhotoShot));
+    const mockPhotoRing = nearestPainted(mockPhotoShot, photoRingTarget, photoRingRegion(mockPhotoShot));
+    const headPhotoRing = nearestPainted(headPhotoShot, photoRingTarget, photoRingRegion(headPhotoShot));
+    expect(mockPhotoFill.dist, `mock photo fill ${mockPhotoFill.rgb} d${mockPhotoFill.dist}`).toBeLessThanOrEqual(3);
+    expect(headPhotoFill.dist, `head photo fill ${headPhotoFill.rgb} d${headPhotoFill.dist}`).toBeLessThanOrEqual(3);
+    expect(mockPhotoRing.dist, `mock photo ring ${mockPhotoRing.rgb} d${mockPhotoRing.dist}`).toBeLessThanOrEqual(3);
+    expect(headPhotoRing.dist, `head photo ring ${headPhotoRing.rgb} d${headPhotoRing.dist}`).toBeLessThanOrEqual(3);
     expect(head.bill3Display).toBe('grid');
     expect(mockup.bill3Display).toBe('grid');
     expect(head.bill3Cols, 'bill3 three painted columns').toBe(3);
@@ -2394,6 +2495,9 @@ describe('P3 r9 mockup vs head at 390', () => {
     expect(Math.abs(edge.rgb[0] - 229), `Actions border R ${edge.rgb} d${edge.dist}`).toBeLessThanOrEqual(18);
     expect(Math.abs(edge.rgb[1] - 231), `Actions border G ${edge.rgb}`).toBeLessThanOrEqual(18);
     expect(Math.abs(edge.rgb[2] - 235), `Actions border B ${edge.rgb}`).toBeLessThanOrEqual(18);
+    expect(Math.abs(edge.rgb[0] - 229), `Actions border R tight ${edge.rgb}`).toBeLessThanOrEqual(3);
+    expect(Math.abs(edge.rgb[1] - 231), `Actions border G tight ${edge.rgb}`).toBeLessThanOrEqual(3);
+    expect(Math.abs(edge.rgb[2] - 235), `Actions border B tight ${edge.rgb}`).toBeLessThanOrEqual(3);
     const creamDist = Math.abs(edge.rgb[0] - 245) + Math.abs(edge.rgb[1] - 245) + Math.abs(edge.rgb[2] - 247);
     expect(edge.dist < creamDist, `Actions border closer to #E5E7EB than cream ${edge.rgb} d${edge.dist} cream${creamDist}`).toBe(true);
     const fillCream = Math.abs(fill.rgb[0] - 245) + Math.abs(fill.rgb[1] - 245) + Math.abs(fill.rgb[2] - 247);
