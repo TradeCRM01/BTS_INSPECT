@@ -1152,6 +1152,90 @@ function overflowScript() {
   };
 }
 
+type EditOverlapHit = {
+  widget: string;
+  control: string;
+  text: string;
+  overlap: number;
+};
+
+type EditOverlapReport = {
+  cards: number;
+  maxOverlap: number;
+  hits: EditOverlapHit[];
+  taps: Array<{ name: string; w: number; h: number }>;
+};
+
+function editOverlapScript(): EditOverlapReport {
+  const vis = (el: Element) => {
+    const s = getComputedStyle(el as HTMLElement);
+    const r = el.getBoundingClientRect();
+    return s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0
+      && r.width > 0 && r.height > 0;
+  };
+  const inter = (a: DOMRect, b: DOMRect) => {
+    const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+    const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+    if (w <= 0 || h <= 0) return 0;
+    return Math.min(w, h);
+  };
+  const cards = [
+    ...document.querySelectorAll('[data-dashboard-widget-id]'),
+  ].filter(vis) as HTMLElement[];
+  const hits: EditOverlapHit[] = [];
+  const taps: Array<{ name: string; w: number; h: number }> = [];
+  for (const host of cards) {
+    const widget = host.getAttribute('data-dashboard-widget-id') || '';
+    const controls = [
+      ...host.querySelectorAll('[title="Drag to move"], [title="Remove widget"], .dashboard-home-widget-resize, .dashboard-home-phone-edit-bar button'),
+    ].filter(vis) as HTMLElement[];
+    for (const ctrl of controls) {
+      const cr = ctrl.getBoundingClientRect();
+      taps.push({
+        name: (ctrl.getAttribute('title') || ctrl.getAttribute('aria-label') || ctrl.className || '').toString().slice(0, 48),
+        w: cr.width,
+        h: cr.height,
+      });
+    }
+    const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+      const text = (node.textContent || '').replace(/\s+/g, ' ').trim();
+      const parent = node.parentElement;
+      if (
+        text
+        && parent
+        && !parent.closest('[title="Drag to move"], [title="Remove widget"], .dashboard-home-widget-resize, .dashboard-home-phone-edit-bar, svg')
+      ) {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const textRects = [...range.getClientRects()].filter((r) => r.width > 0.5 && r.height > 0.5);
+        for (const ctrl of controls) {
+          const cr = ctrl.getBoundingClientRect();
+          for (const tr of textRects) {
+            const overlap = inter(cr, tr);
+            if (overlap > 0) {
+              hits.push({
+                widget,
+                control: (ctrl.getAttribute('title') || ctrl.getAttribute('aria-label') || 'resize').toString(),
+                text: text.slice(0, 48),
+                overlap,
+              });
+            }
+          }
+        }
+      }
+      node = walker.nextNode();
+    }
+  }
+  return {
+    cards: cards.length,
+    maxOverlap: hits.length ? Math.max(...hits.map((h) => h.overlap)) : 0,
+    hits,
+    taps,
+  };
+}
+
 async function enterEdit(page: KillPage) {
   await page.evaluate(async () => {
     const more = document.querySelector('.dashboard-home-more') as HTMLDetailsElement | null;
@@ -2132,5 +2216,34 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     });
     await page.close();
     expect(overlap, 'wide time mutant overlaps the Job column').toBeGreaterThan(0);
+  }, 120000);
+
+  it('P1b-edit-overlap: edit handles miss card text at 375/390/768/1024/1280', async () => {
+    for (const width of WIDTHS) {
+      const page = await openPage({ width, path: '/?look=dashboard' });
+      await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
+      await enterEdit(page);
+      await page.setViewportSize({ width, height: 4000 });
+      const box = await page.evaluate(editOverlapScript);
+      expect(box.cards, `widgets in edit at ${width}`).toBeGreaterThan(0);
+      expect(box.taps.length, `edit controls at ${width}`).toBeGreaterThan(0);
+      expect(box.hits, `handle/text overlap at ${width}`).toEqual([]);
+      expect(box.maxOverlap, `max overlap at ${width}`).toBe(0);
+      await page.close();
+    }
+  }, 240000);
+
+  it('P1b-edit-overlap mutant: padding 0 restores handle/text overlap', async () => {
+    const page = await openPage({
+      width: 1024,
+      path: '/?look=dashboard',
+      css: `${distCss}.dashboard-home-widget.is-editing{padding:0!important}`,
+    });
+    await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 20000 });
+    await enterEdit(page);
+    const box = await page.evaluate(editOverlapScript);
+    await page.close();
+    expect(box.cards, 'mutant still paints widgets').toBeGreaterThan(0);
+    expect(box.maxOverlap, 'reverted padding overlaps card text').toBeGreaterThan(0);
   }, 120000);
 });

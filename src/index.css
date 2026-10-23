@@ -13190,6 +13190,8 @@
 
   .dashboard-home-widget.is-editing {
     outline: 1px solid color-mix(in srgb, var(--g-accent) 35%, var(--dashboard-home-line));
+    box-sizing: border-box;
+    padding: 52px 52px 48px 52px;
   }
 
   .dashboard-home-widget.is-dragging {
