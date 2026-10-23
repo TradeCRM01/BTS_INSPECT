@@ -107,10 +107,11 @@ interface JobBlockProps {
   detail?: boolean;
   laneColor?: string;
   invoicedJobIds?: Set<string>;
+  children?: ReactNode;
 }
 
 const JobBlock = memo(function JobBlock({
-  job, onClick, onDragStart, dragging, laneColor, invoicedJobIds = NO_INVOICED,
+  job, onClick, onDragStart, dragging, laneColor, invoicedJobIds = NO_INVOICED, compact = false, children,
 }: JobBlockProps) {
   const chip = weekBoardChip(job);
   const clock = scheduleClockLabel(job.start_time, job.end_time)
@@ -140,15 +141,16 @@ const JobBlock = memo(function JobBlock({
       }`}
       style={{ ['--hub-lane' as string]: laneColor ?? scheduleLaneColor(WEEK_UNASSIGNED_CREW_ID) }}
     >
+      {children}
       <span className="hub-week-chip-rail" aria-hidden />
       <span className="hub-day-chip-pin" data-day-chip-pin="1">
         <span className="hub-week-chip-line1">
-          <span className="hub-week-chip-clock">{clock}</span>
-          {' · '}
+          {compact ? null : <span className="hub-week-chip-clock">{clock}</span>}
+          {compact ? null : ' · '}
           <span className="hub-week-chip-ref">{chip.ref}</span>
         </span>
-        {chip.description ? <span className="hub-week-chip-desc">{chip.description}</span> : null}
-        {suburb ? <span className="hub-week-chip-suburb">{suburb}</span> : null}
+        {compact ? null : chip.description ? <span className="hub-week-chip-desc">{chip.description}</span> : null}
+        {compact ? null : suburb ? <span className="hub-week-chip-suburb">{suburb}</span> : null}
         <span className="hub-schedule-pill" data-kind={pill.kind}>{pill.label}</span>
         <span className="hub-week-chip-track" data-stored={track.stored ? '1' : '0'}>
           {track.stored ? (
@@ -275,7 +277,7 @@ export const NeedsDateRail = memo(function NeedsDateRail({
     <div className={`ops-tray ${className}`.trim()} data-schedule-rail="1">
       <div className="ops-tray-head">
         <p className="ops-card-kicker">Unscheduled</p>
-        <span className="ops-meta">{jobs.length}</span>
+        <span className="ops-meta">{jobs.length === 0 ? 'No unscheduled jobs' : String(jobs.length)}</span>
       </div>
       <div className="p-2 space-y-2 max-h-[70vh] overflow-y-auto">
         {jobs.length === 0 ? (
@@ -309,6 +311,7 @@ export const PhoneUnscheduledTray = memo(function PhoneUnscheduledTray({
       className="hub-phone-unscheduled"
       data-schedule-phone-unscheduled="1"
       data-schedule-phone-section="unscheduled"
+      data-schedule-section="tray"
     >
       <button
         type="button"
@@ -614,7 +617,7 @@ export const DayBoardView = memo(function DayBoardView({
     const pin = () => {
       const scrollLeft = el.scrollLeft;
       const board = el.closest('.hub-day-board');
-      board?.classList.toggle('is-track-end', scrollLeft + el.clientWidth >= el.scrollWidth - 1);
+      board?.classList.toggle('is-track-end', scrollLeft + el.clientWidth >= el.scrollWidth - 16);
       for (const pinEl of el.querySelectorAll<HTMLElement>('[data-day-chip-pin="1"]')) {
         const bar = pinEl.closest('.absolute');
         if (!(bar instanceof HTMLElement)) continue;
@@ -756,7 +759,7 @@ export const DayBoardView = memo(function DayBoardView({
       >
           <div className="hub-day-crew-lock hub-day-crew-head border-r border-b border-rule">
             <div className="px-3 flex items-center gap-1.5 h-full">
-              <Users size={13} />
+              <Users size={13} className="hub-schedule-label" />
               <span className="hub-schedule-label">Crew</span>
             </div>
           </div>
@@ -865,7 +868,7 @@ export const DayBoardView = memo(function DayBoardView({
                   const endM = timeToMinutes(preview?.end_time ?? plot.end_time) ?? (startM ?? dayStart * 60) + 60;
                   if (startM == null) return null;
                   const left = Math.max(0, (startM / 60 - dayStart) * hourWidth + 2);
-                  const width = Math.max(60, ((endM - startM) / 60) * hourWidth - 4);
+                  const width = Math.max(96, ((endM - startM) / 60) * hourWidth - 4);
                   const top = ROW_PAD + painted.layout.allDayCount * ALL_DAY_H + placed.lane * TIMED_H;
                   const displayJob = preview
                     ? { ...job, start_time: preview.start_time, end_time: preview.end_time }
@@ -876,32 +879,6 @@ export const DayBoardView = memo(function DayBoardView({
                       className="absolute"
                       style={{ left, width, top, height: TIMED_H - 4 }}
                     >
-                      {onJobResize && plot.stored && (
-                        <>
-                          <div
-                            role="separator"
-                            aria-label="Drag to change start time"
-                            className="hub-day-resize hub-day-resize-start absolute left-0 top-0 bottom-0 w-2 z-10 cursor-ew-resize rounded-l"
-                            onPointerDown={e => {
-                              const grid = (e.currentTarget as HTMLElement).closest('[data-day-grid]');
-                              if (grid instanceof HTMLElement) beginResize(e, job, 'start', grid);
-                            }}
-                            onClick={e => e.stopPropagation()}
-                            onDragStart={e => e.preventDefault()}
-                          />
-                          <div
-                            role="separator"
-                            aria-label="Drag to change finish time"
-                            className="hub-day-resize hub-day-resize-end absolute right-0 top-0 bottom-0 w-2 z-10 cursor-ew-resize rounded-r"
-                            onPointerDown={e => {
-                              const grid = (e.currentTarget as HTMLElement).closest('[data-day-grid]');
-                              if (grid instanceof HTMLElement) beginResize(e, job, 'end', grid);
-                            }}
-                            onClick={e => e.stopPropagation()}
-                            onDragStart={e => e.preventDefault()}
-                          />
-                        </>
-                      )}
                       <JobBlock
                         job={displayJob}
                         teamMembers={teamMembers}
@@ -911,7 +888,34 @@ export const DayBoardView = memo(function DayBoardView({
                         invoicedJobIds={invoicedJobIds}
                         onClick={() => onJobClick(job)}
                         onDragStart={e => handleDragStart(e, job.id)}
-                      />
+                      >
+                        {!phone && onJobResize && plot.stored ? (
+                          <>
+                            <div
+                              role="separator"
+                              aria-label="Drag to change start time"
+                              className="hub-day-resize hub-day-resize-start absolute left-0 top-0 bottom-0 w-2 z-10 cursor-ew-resize rounded-l"
+                              onPointerDown={e => {
+                                const grid = (e.currentTarget as HTMLElement).closest('[data-day-grid]');
+                                if (grid instanceof HTMLElement) beginResize(e, job, 'start', grid);
+                              }}
+                              onClick={e => e.stopPropagation()}
+                              onDragStart={e => e.preventDefault()}
+                            />
+                            <div
+                              role="separator"
+                              aria-label="Drag to change finish time"
+                              className="hub-day-resize hub-day-resize-end absolute right-0 top-0 bottom-0 w-2 z-10 cursor-ew-resize rounded-r"
+                              onPointerDown={e => {
+                                const grid = (e.currentTarget as HTMLElement).closest('[data-day-grid]');
+                                if (grid instanceof HTMLElement) beginResize(e, job, 'end', grid);
+                              }}
+                              onClick={e => e.stopPropagation()}
+                              onDragStart={e => e.preventDefault()}
+                            />
+                          </>
+                        ) : null}
+                      </JobBlock>
                     </div>
                   );
                 })}
@@ -940,11 +944,9 @@ function CurrentTimeVerticalIndicator({ hourWidth, dayStart }: { hourWidth: numb
   if (h < dayStart || h > DAY_END) return null;
   const left = (h - dayStart) * hourWidth;
   return (
-    <div className="absolute top-0 bottom-0 z-20 pointer-events-none" style={{ left }}>
-      <div className="flex flex-col items-center h-full">
-        <div className="hub-day-now-dot w-2 h-2 rounded-full -mt-1" />
-        <div className="hub-day-now-line flex-1" />
-      </div>
+    <div className="hub-day-now pointer-events-none" style={{ left }}>
+      <div className="hub-day-now-dot" />
+      <div className="hub-day-now-line" />
     </div>
   );
 }
@@ -1055,6 +1057,7 @@ export const WeekBoardView = memo(function WeekBoardView({
                   onDragOver={e => { e.preventDefault(); setDropHoverKey(hoverKey); }}
                   onDrop={e => handleDrop(e, cell.date, row.crewId)}
                   onClick={() => onDayClick(cell.date, crewId)}
+                  tabIndex={cell.chips.length === 0 ? 0 : undefined}
                   className={`hub-week-cell ${hovering ? 'is-hover' : ''} ${cell.chips.length === 0 ? 'is-empty' : ''} ${weekend ? 'is-weekend' : ''}`}
                 >
                   {cell.jobs.map(job => (
