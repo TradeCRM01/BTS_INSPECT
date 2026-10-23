@@ -669,7 +669,7 @@ function layoutProbe(): LayoutProbe {
       pill: (el.querySelector('.hub-schedule-pill')?.textContent ?? '').trim(),
     })),
     allCrews: !!document.querySelector('[data-schedule-all-crews]'),
-    quickBook: !!document.querySelector('[data-schedule-section="quickbook"], [data-schedule-quickbook-toggle]'),
+    quickBook: [...document.querySelectorAll('[data-schedule-section="quickbook"], [data-schedule-quickbook-toggle]')].some(visible),
     pageError: (document.querySelector('main')?.textContent ?? '').includes('Could not load schedule')
       ? 'Could not load schedule'
       : '',

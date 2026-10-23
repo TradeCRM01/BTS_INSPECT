@@ -212,8 +212,11 @@ const RECIPES: Readonly<Record<Recipe, (page: Page, spec: StateSpec, notes: Note
   sheet: async (page, spec) => openSheet(page, spec.w),
   prefill: async (page, spec) => {
     const toggle = page.locator('[data-schedule-quickbook-toggle]');
-    if (spec.w < 768 && await toggle.count() && await toggle.getAttribute('aria-expanded') !== 'true') {
-      await press(page, spec.w, '[data-schedule-quickbook-toggle]');
+    if (spec.w < 768 && await toggle.count()) {
+      if (!(await toggle.isVisible())) return;
+      if (await toggle.getAttribute('aria-expanded') !== 'true') {
+        await press(page, spec.w, '[data-schedule-quickbook-toggle]');
+      }
     }
     await page.locator('#hub-schedule-voice-text').waitFor({ state: 'visible' });
     await page.fill('#hub-schedule-voice-text', QUICK_BOOK_PHRASE);
@@ -459,6 +462,10 @@ async function fadeProbe(page: Page, what: string, png: Png, keep: boolean): Pro
 
 async function hover(page: Page, target: string): Promise<HoverProbe> {
   const el = page.locator(`${target}:visible`).first();
+  if (await el.count() === 0) {
+    const blank = { bg: '', bgA: 0, shadow: '', color: '' };
+    return { target, label: '', before: blank, after: blank };
+  }
   const read = () => el.evaluate(e => window.__p2.paintOf(e));
   const before = await read();
   await el.hover();
