@@ -58,6 +58,21 @@ type KillPage = {
   close: () => Promise<void>;
 };
 
+type KillBrowser = {
+  newContext: (opts: {
+    viewport?: { width: number; height: number };
+    timezoneId?: string;
+  }) => Promise<{
+    newPage: () => Promise<KillPage>;
+    close: () => Promise<void>;
+  }>;
+  close: () => Promise<void>;
+};
+
+const KILL_TZ = 'Australia/Brisbane';
+const NOTE_TOM_ISO = '2026-10-19T07:40:00.000Z';
+const NOTE_DEAN_ISO = '2026-10-19T08:10:00.000Z';
+
 type RedHit = { file: string; line: number; message: string; mutant: string };
 type OverflowRow = {
   width: number;
@@ -87,10 +102,7 @@ async function launchBrowser() {
     try {
       const mod = await import(spec) as {
         chromium: {
-          launch: (opts: { headless: boolean; executablePath?: string; args?: string[] }) => Promise<{
-            newPage: (opts?: { viewport?: { width: number; height: number } }) => Promise<KillPage>;
-            close: () => Promise<void>;
-          }>;
+          launch: (opts: { headless: boolean; executablePath?: string; args?: string[] }) => Promise<KillBrowser>;
         };
       };
       return await mod.chromium.launch({
@@ -180,11 +192,12 @@ function fixtureHtml(args: { js: string; css: string; path: string; empty?: bool
 </html>`;
 }
 
-let browser: Awaited<ReturnType<typeof launchBrowser>>;
+let browser: KillBrowser;
 let distCss = '';
 let jobsJs = '';
 let jobsJsNoProof = '';
 const temps: string[] = [];
+const contexts: Array<{ close: () => Promise<void> }> = [];
 
 beforeAll(async () => {
   distCss = readDistCss();
@@ -194,6 +207,9 @@ beforeAll(async () => {
 }, 180000);
 
 afterAll(async () => {
+  for (const context of contexts.splice(0)) {
+    try { await context.close(); } catch { /* already closed */ }
+  }
   await browser?.close();
   writeFileSync('/tmp/p3-kill-proof.json', JSON.stringify({ redHits, overflowRows }, null, 2));
 });
@@ -219,9 +235,12 @@ async function openPage(args: {
   const file = join(dir, 't.html');
   writeFileSync(file, html);
   const phone = args.width <= 430;
-  const page = await browser.newPage({
+  const context = await browser.newContext({
     viewport: { width: args.width, height: args.height ?? (phone ? 844 : 900) },
+    timezoneId: KILL_TZ,
   });
+  contexts.push(context);
+  const page = await context.newPage();
   await page.goto(pathToFileURL(file).href);
   await page.waitForSelector('#root', { timeout: 20000 });
   return page;
@@ -820,7 +839,11 @@ describe('P3 overview people form bar', () => {
   killIt('K8 overview kv, notes, 6 photos, bill', async () => {
     const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
     await waitSheet(page);
-    const read = await page.evaluate(() => {
+    const read = await page.evaluate((stamps: { tom: string; dean: string }) => {
+      const hmm = (iso: string) => {
+        const date = new Date(iso);
+        return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+      };
       const kv = [...document.querySelectorAll('[data-job-sheet^="kv-"]')].map((el) => (
         el.getAttribute('data-job-sheet')
       ));
@@ -829,14 +852,23 @@ describe('P3 overview people form bar', () => {
       const notes = document.querySelector('[data-job-sheet="notes"]')?.textContent ?? '';
       const photos = document.querySelectorAll('.job-sheet-photo').length;
       const all = document.body.innerText;
-      return { kv, go: go?.href ?? '', call: call?.getAttribute('href') ?? '', notes, photos, all };
-    });
+      return {
+        kv,
+        go: go?.href ?? '',
+        call: call?.getAttribute('href') ?? '',
+        notes,
+        photos,
+        all,
+        tom: hmm(stamps.tom),
+        dean: hmm(stamps.dean),
+      };
+    }, { tom: NOTE_TOM_ISO, dean: NOTE_DEAN_ISO });
     await page.close();
     expect(read.kv).toEqual(['kv-site', 'kv-client', 'kv-phone', 'kv-email', 'kv-crew']);
     expect(read.go).toContain('maps.google.com');
     expect(read.call).toMatch(/tel:0400/);
-    expect(read.notes).toContain('Tom Nguyen · 07:40');
-    expect(read.notes).toContain('Dean Walsh · 08:10');
+    expect(read.notes).toContain(`Tom Nguyen · ${read.tom}`);
+    expect(read.notes).toContain(`Dean Walsh · ${read.dean}`);
     expect(read.photos).toBe(6);
     expect(read.all).toContain('All photos');
     expect(read.all).toContain('Total inc GST');
@@ -856,11 +888,16 @@ describe('P3 overview people form bar', () => {
         const js = await bundleJobs();
         const page = await openPage({ width: 390, path: '/jobs/p3-0036', js });
         await waitSheet(page);
-        const notes = await page.evaluate(() => (
-          document.querySelector('[data-job-sheet="notes"]')?.textContent ?? ''
-        ));
+        const notes = await page.evaluate((tomIso: string) => {
+          const date = new Date(tomIso);
+          const hmm = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+          return {
+            text: document.querySelector('[data-job-sheet="notes"]')?.textContent ?? '',
+            tom: hmm,
+          };
+        }, NOTE_TOM_ISO);
         await page.close();
-        expect(notes).toContain('Tom Nguyen · 07:40');
+        expect(notes.text).toContain(`Tom Nguyen · ${notes.tom}`);
       },
     });
     expect(red.line).toBeGreaterThan(0);
