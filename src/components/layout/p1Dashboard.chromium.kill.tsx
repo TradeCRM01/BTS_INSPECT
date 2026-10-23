@@ -3256,7 +3256,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
   it('P1b-query-cash-out: non-look fixture Out excludes wages and super', async () => {
     const page = await openPage({ width: 1280, js: dashJsNoProof, path: '/' });
     await page.waitForSelector('[data-today-section="s14"]', { timeout: 20000 });
-    const text = await waitForSectionText(page, 's14', '1,862.75');
+    const text = await waitForSectionText(page, 's14', '$');
     await page.close();
     expect(text).toMatch(/1,862\.75/);
     expect(text).not.toMatch(/4,052\.75/);
@@ -3265,7 +3265,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
   it('P1b-query-outstanding: non-look fixture outstanding is company-scoped', async () => {
     const page = await openPage({ width: 1280, js: dashJsNoProof, path: '/' });
     await page.waitForSelector('[data-today-section="s6"]', { timeout: 20000 });
-    const text = await waitForSectionText(page, 's6', '3,579.65');
+    const text = await waitForSectionText(page, 's6', '$');
     await page.close();
     expect(text).toMatch(/3,579\.65/);
     expect(text).not.toMatch(/8,579\.65/);
