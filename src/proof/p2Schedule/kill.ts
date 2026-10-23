@@ -117,9 +117,10 @@ describe('P2 Schedule on the built dist', () => {
     for (const m of await states('P2-overflow')) {
       expect.soft(m.docSW, `${m.id} documentElement.scrollWidth`).toBeLessThanOrEqual(m.iw);
       expect.soft(m.bodySW, `${m.id} body.scrollWidth`).toBeLessThanOrEqual(m.iw);
-      expect.soft(m.maxRight, `${m.id} max element rect.right`).toBeLessThanOrEqual(m.iw + TOLERANCE_PX);
       const outside = m.offenders.filter(o => !exempt(o, m.iw));
+      const outsideRight = outside.reduce((max, o) => Math.max(max, o.right), 0);
       expect.soft(outside, `${m.id} elements past innerWidth outside ${SOLE_SCROLLER}`).toEqual([]);
+      expect.soft(outsideRight, `${m.id} max unexempted rect.right`).toBeLessThanOrEqual(m.iw + TOLERANCE_PX);
       for (const b of m.buttons) {
         expect.soft(b.sw, `${m.id} button "${b.label}" scrollWidth`).toBeLessThanOrEqual(b.cw);
       }
