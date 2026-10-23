@@ -67,6 +67,7 @@ describe('P2 Schedule on the built dist', () => {
       if (m.id === 'lineprobe-375') continue;
       m.rows.forEach((row, i) => {
         expect.soft(row.meta.lines.length, `${m.id} row ${i} meta lines`).toBeLessThanOrEqual(ROWS.maxMetaLines);
+        expect.soft(row.meta.lines.join(' '), `${m.id} row ${i} meta keeps a dot`).toMatch(/·/);
         for (const line of row.meta.lines.slice(0, -1)) {
           expect.soft(line, `${m.id} row ${i} meta breaks only after a dot`).toMatch(/·$/);
         }
@@ -372,7 +373,7 @@ describe('P2 Schedule on the built dist', () => {
       return !!el && (el.textContent ?? '').trim() !== prev;
     }, before);
     const after = await o.page.locator('.hub-week-range-full').innerText();
-    expect.soft(after.includes('26'), 'next week moves the range by 7 days').toBe(true);
+    expect.soft(after.includes('26 Oct'), 'next week moves the range by 7 days').toBe(true);
     await o.page.locator('main').getByRole('button', { name: 'Today' }).click();
     await o.page.waitForFunction(() => (document.querySelector('[data-schedule-eyebrow]')?.textContent ?? '').includes('19 October'));
     await o.page.locator('.hub-week-seg-btn', { hasText: 'Day' }).click();
@@ -493,6 +494,7 @@ describe('P2 Schedule on the built dist', () => {
     const phone = await measure('day-390');
     expect.soft(phone.track, 'phone track').not.toBeNull();
     expect.soft((phone.track?.sw ?? 0) > (phone.track?.cw ?? 0), 'phone track overflows').toBe(true);
+    expect.soft((phone.track?.wheelX.trackLeft ?? 0) > 0, 'phone track scrolls sideways').toBe(true);
     const o = await openState('day-1280');
     const handle = o.page.locator('.hub-day-board:not([data-day-phone]) .hub-day-resize-end').first();
     if (await handle.count() && await handle.isVisible()) {
