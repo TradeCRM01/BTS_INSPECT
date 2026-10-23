@@ -29,7 +29,7 @@ export function jobCrewScheduleStatus(
   scheduledDate: string | null | undefined,
   assignedTeam: string[] | null | undefined,
 ): JobCrewScheduleStatus {
-  if (status === 'completed') {
+  if (status === 'completed' || status === 'Done') {
     return { label: JOB_CREW_SCHEDULE_DONE, kind: 'done' };
   }
   if (status === 'cancelled') {

@@ -9,6 +9,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { EmptyState, LoadingSpinner, PageError, useToast } from '../components/ui';
 import { ReminderRow } from '../components/reminders/ReminderRow';
 import { deriveNudges, type NudgeInvoice, type NudgeQuote } from '../lib/nudges';
+import { countNeedsCrew } from '../lib/needCrew';
 import { TODAY_NUDGE_INVOICE_STATUSES, visibleTodayNudges, visibleTodayWidgets } from '../lib/todayBoard';
 import {
   canTickReminder,
@@ -962,6 +963,7 @@ export function DashboardPage() {
   }
 
   const work = todayJobs ?? [];
+  const needCrewCount = countNeedsCrew(work);
   const jobCountLabel = work.length === 1 ? '1 job' : `${work.length} jobs`;
   const whisper = [
     dashboardHeadingDate(lookDashboard ? dashboardLookNow() : undefined),
@@ -978,7 +980,7 @@ export function DashboardPage() {
           </header>
           <div className="dashboard-home-sheet-body">
             <h1 className="ops-page-title dashboard-home-hero">{NAV_WORDS.today}</h1>
-            <p className="hub-look-eyebrow dashboard-home-label dashboard-home-whisper">{whisper}</p>
+            <p className="hub-look-eyebrow dashboard-home-label dashboard-home-whisper" data-need-crew-count={needCrewCount}>{whisper}</p>
 
             <div className="dashboard-home-tools">
               {editMode ? (

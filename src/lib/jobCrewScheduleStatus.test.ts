@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { needsCrew } from './needCrew';
 import {
   JOB_CREW_SCHEDULE_BOOKED,
   JOB_CREW_SCHEDULE_DONE,
@@ -38,6 +39,16 @@ describe('jobCrewScheduleStatus', () => {
       label: JOB_CREW_SCHEDULE_DONE,
       kind: 'done',
     });
+  });
+
+  it('kills an unknown dated job with no crew falling through to Booked', () => {
+    const status = jobCrewScheduleStatus('on_hold', '2026-10-19', []);
+    expect(status).toEqual({
+      label: JOB_CREW_SCHEDULE_NEEDS_CREW,
+      kind: 'needs_crew',
+    });
+    expect(status.kind).not.toBe('booked');
+    expect(needsCrew({ status: 'on_hold', scheduled_date: '2026-10-19', assigned_team: [] })).toBe(true);
   });
 });
 

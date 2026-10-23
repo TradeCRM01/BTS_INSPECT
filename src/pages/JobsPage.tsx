@@ -15,6 +15,7 @@ import { jobInvoiceActionFlags, jobOpenNext } from '../lib/jobNextAction';
 import { formatJobRef, withParentJobNumbers } from '../lib/jobRef';
 import { jobsListCustomer, jobsListPhoneNextLabel, jobsListPhoneRow, jobsListTitle } from '../lib/jobsListRow';
 import { jobCrewScheduleNeedsCrewClass, jobCrewScheduleStatus } from '../lib/jobCrewScheduleStatus';
+import { countNeedsCrew } from '../lib/needCrew';
 import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
 import { listCountWhisper, listQueryBusy } from '../lib/listQueryReady';
 import { Plus, Briefcase, MoreHorizontal, MessageSquare } from 'lucide-react';
@@ -573,6 +574,7 @@ export function JobsPage() {
     }
     return result;
   }, [listRows, statusFilter, search]);
+  const needCrewCount = countNeedsCrew(filtered);
 
   const enquiryRows = lookEnquirySeed ? lookEnquiryRows : (liveEnquiries ?? []);
   const filteredEnquiries = useMemo(() => {
@@ -709,7 +711,7 @@ export function JobsPage() {
             ) : (
               <h1 className="ops-page-title">Jobs</h1>
             )}
-            <p className="hub-jobs-list-whisper">{whisper}</p>
+            <p className="hub-jobs-list-whisper" data-need-crew-count={needCrewCount}>{whisper}</p>
             {lookJobsList || lookP307 || lookCrewS8dSeed || !enquirySurface ? null : (
             <div className="hub-jobs-list-views" role="tablist" aria-label="Jobs or enquiries">
               <button

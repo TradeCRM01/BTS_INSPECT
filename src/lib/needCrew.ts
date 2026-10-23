@@ -6,9 +6,16 @@ export type CrewNeedJob = {
   assigned_team?: string[] | null;
 };
 
+export function isFinishedCrewStatus(status: string | null | undefined): boolean {
+  return status === 'completed' || status === 'Done' || status === 'cancelled';
+}
+
 export function needsCrew(job: CrewNeedJob): boolean {
-  const status = job.status ?? '';
-  if (status === 'completed' || status === 'cancelled') return false;
-  if (status !== 'scheduled' && status !== 'in_progress') return false;
+  if (!(job.scheduled_date ?? '').trim()) return false;
+  if (isFinishedCrewStatus(job.status)) return false;
   return (job.assigned_team ?? []).every(id => !id?.trim());
+}
+
+export function countNeedsCrew(jobs: readonly CrewNeedJob[]): number {
+  return jobs.filter(needsCrew).length;
 }
