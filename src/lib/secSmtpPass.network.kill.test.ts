@@ -212,9 +212,12 @@ async function readBody(req: IncomingMessage): Promise<string> {
 
 describe('SEC-SMTP Playwright network as admin', { timeout: 120000 }, () => {
   const traffic: Traffic[] = [];
+  const store = seedStore();
+  let readyOverride: boolean | null = null;
   let apiPort = 0;
   let vitePort = 0;
   let apiUrl = '';
+  let api: ReturnType<typeof createServer> | undefined;
   let vite: ChildProcess | undefined;
   let browser: { close: () => Promise<void> } | undefined;
   let page: {
@@ -223,10 +226,38 @@ describe('SEC-SMTP Playwright network as admin', { timeout: 120000 }, () => {
     addInitScript: (script: () => void, arg?: unknown) => Promise<void>;
     content: () => Promise<string>;
     url: () => string;
-    locator: (sel: string) => { first: () => { waitFor: (opts?: { timeout?: number }) => Promise<void> } };
+    locator: (sel: string) => {
+      first: () => {
+        waitFor: (opts?: { timeout?: number }) => Promise<void>;
+        fill: (value: string) => Promise<void>;
+        click: () => Promise<void>;
+        textContent: () => Promise<string | null>;
+        getAttribute: (name: string) => Promise<string | null>;
+      };
+    };
     on: (event: string, fn: (payload: unknown) => void) => void;
   };
   const token = adminJwt();
+
+  function smtpReady(): boolean {
+    if (readyOverride !== null) return readyOverride;
+    return store.email_settings.some((row) => (
+      String(row.smtp_host ?? '').toLowerCase().includes('resend')
+      && String(row.smtp_pass ?? '').trim() !== ''
+      && String(row.from_email ?? '').trim() !== ''
+    ));
+  }
+
+  function bodyHasSecret(raw: string): boolean {
+    if (!raw.trim()) return false;
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      const rows = Array.isArray(parsed) ? parsed : [parsed];
+      return rows.some((row) => row && typeof row === 'object' && Object.prototype.hasOwnProperty.call(row, 'smtp_pass'));
+    } catch {
+      return raw.includes('smtp_pass');
+    }
+  }
 
   function record(entry: Traffic) {
     traffic.push(entry);
@@ -256,7 +287,6 @@ describe('SEC-SMTP Playwright network as admin', { timeout: 120000 }, () => {
   }
 
   beforeAll(async () => {
-    const store = seedStore();
     const user = {
       id: ADMIN,
       aud: 'authenticated',
@@ -267,7 +297,7 @@ describe('SEC-SMTP Playwright network as admin', { timeout: 120000 }, () => {
       created_at: '2026-01-01T00:00:00.000Z',
     };
 
-    const api = createServer(async (req, res) => {
+    const apiServer = createServer(async (req, res) => {
       const url = new URL(req.url ?? '/', `http://127.0.0.1:${apiPort || 80}`);
       const body = req.method === 'GET' || req.method === 'OPTIONS' ? '' : await readBody(req);
       if (req.method === 'OPTIONS') {
@@ -297,8 +327,31 @@ describe('SEC-SMTP Playwright network as admin', { timeout: 120000 }, () => {
       if (rpc) {
         const name = rpc[1];
         if (name === 'email_smtp_ready') {
-          record({ method: req.method ?? 'POST', url: url.href, path: url.pathname, search: url.search, body, status: 200, response: 'true' });
-          send(res, 200, true);
+          const ready = smtpReady();
+          record({ method: req.method ?? 'POST', url: url.href, path: url.pathname, search: url.search, body, status: 200, response: JSON.stringify(ready) });
+          send(res, 200, ready);
+          return;
+        }
+        if (name === 'email_smtp_set_pass') {
+          const parsed = body ? JSON.parse(body) as { p_pass?: string } : {};
+          const pass = String(parsed.p_pass ?? '').trim();
+          const row = store.email_settings.find((item) => item.company_id === COMPANY);
+          if (row) row.smtp_pass = pass;
+          else {
+            store.email_settings.push({
+              id: '5a106e2d-0000-4000-8000-000000000051',
+              company_id: COMPANY,
+              smtp_host: 'smtp.resend.com',
+              smtp_port: 587,
+              smtp_secure: false,
+              smtp_user: 'resend',
+              smtp_pass: pass,
+              from_name: 'Probe A',
+              from_email: 'a@probe.test',
+            });
+          }
+          record({ method: req.method ?? 'POST', url: url.href, path: url.pathname, search: url.search, body, status: 204, response: '' });
+          send(res, 204, '');
           return;
         }
         if (name === 'get_company_members') {
@@ -314,11 +367,21 @@ describe('SEC-SMTP Playwright network as admin', { timeout: 120000 }, () => {
       const rest = url.pathname.match(/^\/rest\/v1\/([^/]+)$/);
       if (rest) {
         const table = rest[1];
-        if (asksForSecret(table, url.search)) {
+        if (asksForSecret(table, url.search) || ((req.method === 'POST' || req.method === 'PATCH' || req.method === 'PUT') && bodyHasSecret(body))) {
           const err = { code: '42501', message: 'permission denied for column smtp_pass' };
           record({ method: req.method ?? 'GET', url: url.href, path: url.pathname, search: url.search, body, status: 42501, response: JSON.stringify(err) });
           send(res, 401, err);
           return;
+        }
+        if (req.method === 'POST' || req.method === 'PATCH' || req.method === 'PUT') {
+          const parsed = body ? JSON.parse(body) as Record<string, unknown> | Record<string, unknown>[] : {};
+          const payloads = Array.isArray(parsed) ? parsed : [parsed];
+          store[table] = store[table] ?? [];
+          for (const payload of payloads) {
+            const idx = store[table].findIndex((row) => String(row.company_id) === String(payload.company_id ?? COMPANY));
+            if (idx >= 0) Object.assign(store[table][idx], payload);
+            else store[table].push({ id: `5a106e2d-0000-4000-8000-0000000000${store[table].length + 60}`, company_id: COMPANY, ...payload });
+          }
         }
         const rows = (store[table] ?? []).filter((row) => matchRow(row, url.search)).map((row) => project(row, url.search));
         const accept = String(req.headers.accept ?? '');
@@ -342,8 +405,9 @@ describe('SEC-SMTP Playwright network as admin', { timeout: 120000 }, () => {
       send(res, 200, {});
     });
 
-    await new Promise<void>((resolve) => api.listen(0, '127.0.0.1', () => resolve()));
-    const apiAddr = api.address();
+    api = apiServer;
+    await new Promise<void>((resolve) => apiServer.listen(0, '127.0.0.1', () => resolve()));
+    const apiAddr = apiServer.address();
     if (!apiAddr || typeof apiAddr === 'string') throw new Error('api listen failed');
     apiPort = apiAddr.port;
     apiUrl = `http://127.0.0.1:${apiPort}`;
@@ -427,7 +491,16 @@ describe('SEC-SMTP Playwright network as admin', { timeout: 120000 }, () => {
     await browser?.close();
     if (vite?.pid) {
       try { process.kill(vite.pid, 'SIGTERM'); } catch { /* already gone */ }
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      try { process.kill(vite.pid, 'SIGKILL'); } catch { /* already gone */ }
     }
+    await new Promise<void>((resolve) => {
+      if (!api) {
+        resolve();
+        return;
+      }
+      api.close(() => resolve());
+    });
   });
 
   async function openAdmin(path: string) {
@@ -462,7 +535,53 @@ describe('SEC-SMTP Playwright network as admin', { timeout: 120000 }, () => {
 
   it('loads company settings as admin with a set indicator and no smtp secret on the wire', async () => {
     const html = await openAdmin('/settings/company');
-    expect(html).toMatch(/data-smtp-secret-state="set"|set/);
+    expect(html).toContain('data-smtp-secret-state="set"');
+  }, 60000);
+
+  it('shows not-set when a settings row exists and the ready RPC is false', async () => {
+    readyOverride = false;
+    const html = await openAdmin('/settings/company');
+    readyOverride = null;
+    expect(html).toContain('data-smtp-secret-state="unset"');
+    expect(html).toContain('not set');
+    expect(html).not.toContain('data-smtp-secret-state="set"');
+  }, 60000);
+
+  it('saves and rotates the SMTP password on Settings without upserting the secret', async () => {
+    store.email_settings.length = 0;
+    readyOverride = null;
+    await openAdmin('/settings/company');
+    expect(await page.locator('[data-smtp-secret-state]').first().getAttribute('data-smtp-secret-state')).toBe('unset');
+
+    const first = 'sec-smtp-typed-first-5a106e2d';
+    const rotate = 'sec-smtp-typed-rotate-5a106e2d';
+    await page.locator('input[placeholder="smtp.resend.com"]').first().fill('smtp.resend.com');
+    await page.locator('#smtp-from').first().fill('c@probe.test');
+    await page.locator('input[placeholder="Grafter"]').first().fill('Probe C');
+    await page.locator('input[autocomplete="new-password"]').first().fill(first);
+    const beforeFirst = traffic.length;
+    await page.locator('#settings-email button[type="submit"]').first().click();
+    await waitFor(() => traffic.slice(beforeFirst).some((row) => row.path.endsWith('/rpc/email_smtp_set_pass') && row.status < 400));
+    await waitFor(() => traffic.slice(beforeFirst).some((row) => (
+      row.path.endsWith('/rpc/email_smtp_ready') && row.response.includes('true')
+    )));
+    expect(await page.locator('[data-smtp-secret-state]').first().getAttribute('data-smtp-secret-state')).toBe('set');
+    expect(store.email_settings[0]?.smtp_pass).toBe(first);
+
+    await page.locator('input[autocomplete="new-password"]').first().fill(rotate);
+    const beforeRotate = traffic.length;
+    await page.locator('#settings-email button[type="submit"]').first().click();
+    await waitFor(() => traffic.slice(beforeRotate).some((row) => row.path.endsWith('/rpc/email_smtp_set_pass') && row.status < 400));
+    expect(store.email_settings[0]?.smtp_pass).toBe(rotate);
+    expect(await page.locator('[data-smtp-secret-state]').first().getAttribute('data-smtp-secret-state')).toBe('set');
+
+    const writes = traffic.filter((row) => (
+      row.path.endsWith('/email_settings') && ['POST', 'PATCH', 'PUT'].includes(row.method)
+    ));
+    expect(writes.length).toBeGreaterThan(0);
+    expect(writes.every((row) => !row.body.includes('smtp_pass'))).toBe(true);
+    expect(denied()).toEqual([]);
+    expect(traffic.filter((row) => row.path.endsWith('/rpc/email_smtp_set_pass')).length).toBeGreaterThanOrEqual(2);
   }, 60000);
 });
 

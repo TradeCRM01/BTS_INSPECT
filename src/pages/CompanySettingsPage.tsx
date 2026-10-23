@@ -12,7 +12,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { invalidateAllJobBillInvoicePreviews } from '../lib/jobBillInvoicePreviewQuery';
 import { useAuth } from '../contexts/AuthContext';
 import { isDevFieldAuditAuth } from '../lib/devFieldAuditAuth';
-import { EMAIL_SETTINGS_PUBLIC_COLUMNS, smtpSecretColumn } from '../lib/emailSmtpClient';
+import {
+  EMAIL_SETTINGS_PUBLIC_COLUMNS,
+  fetchEmailSmtpReady,
+  saveCompanyEmailSettings,
+} from '../lib/emailSmtpClient';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/layout/AppShell';
 import { ArrowRight, Check, Upload, Plus, Trash2, Mail, Eye, EyeOff, AlertCircle, CheckCircle2, Users, Palette, Download } from 'lucide-react';
@@ -835,11 +839,15 @@ export function CompanySettingsPage() {
       return;
     }
     setLoadingEmail(true);
-    const { data } = await supabase
-      .from('email_settings')
-      .select(EMAIL_SETTINGS_PUBLIC_COLUMNS)
-      .eq('company_id', company.id)
-      .maybeSingle();
+    const [{ data }, ready] = await Promise.all([
+      supabase
+        .from('email_settings')
+        .select(EMAIL_SETTINGS_PUBLIC_COLUMNS)
+        .eq('company_id', company.id)
+        .maybeSingle(),
+      fetchEmailSmtpReady(supabase).catch(() => false),
+    ]);
+    setSmtpSecretSet(ready === true);
     if (data) {
       const next = {
         smtp_host: data.smtp_host ?? '',
@@ -851,11 +859,9 @@ export function CompanySettingsPage() {
       };
       setEmailSettings(next);
       setSmtpSecretDraft('');
-      setSmtpSecretSet(true);
       setSmtpOriginal({ from_email: next.from_email, smtp_port: next.smtp_port });
     } else {
       setSmtpSecretDraft('');
-      setSmtpSecretSet(false);
       setSmtpOriginal({
         from_email: defaultEmailSettings.from_email,
         smtp_port: defaultEmailSettings.smtp_port,
@@ -1080,26 +1086,19 @@ export function CompanySettingsPage() {
       company_id: company.id,
     };
     const secretDraft = smtpSecretDraft.trim();
-    if (secretDraft) payload[smtpSecretColumn()] = secretDraft;
-    const { error } = await supabase
-      .from('email_settings')
-      .upsert(payload, { onConflict: 'company_id' })
-      .select(EMAIL_SETTINGS_PUBLIC_COLUMNS)
-      .maybeSingle();
-
-    if (error) {
-      setEmailError(fieldSaveMiss(error));
-    } else {
-      if (secretDraft) {
-        setSmtpSecretSet(true);
-        setSmtpSecretDraft('');
-      }
+    try {
+      await saveCompanyEmailSettings(supabase, payload, secretDraft);
+      const ready = await fetchEmailSmtpReady(supabase);
+      setSmtpSecretSet(ready === true);
+      if (secretDraft) setSmtpSecretDraft('');
       setSmtpOriginal({
         from_email: emailSettings.from_email,
         smtp_port: String(Number(emailSettings.smtp_port) || 587),
       });
       setEmailSaved(true);
       setTimeout(() => setEmailSaved(false), 2000);
+    } catch (error) {
+      setEmailError(fieldSaveMiss(error));
     }
     setSavingEmail(false);
   }

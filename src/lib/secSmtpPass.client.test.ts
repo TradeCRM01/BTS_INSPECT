@@ -6,10 +6,11 @@ import {
   EMAIL_SETTINGS_PUBLIC_COLUMNS,
   EMAIL_SETTINGS_REMINDER_COLUMNS,
   EMAIL_SMTP_READY_RPC,
+  EMAIL_SMTP_SET_PASS_RPC,
   emailSettingsPublicSelect,
   fetchEmailSmtpReady,
   loadBrowserEmailSettings,
-  smtpSecretColumn,
+  saveCompanyEmailSettings,
 } from './emailSmtpClient';
 import { emailSettingsReady } from './jobReminder';
 import {
@@ -51,23 +52,23 @@ describe('SEC-SMTP client selects', () => {
       contractId: '5a106e2d-0000-4000-8000-000000000010',
     }).smtp.columns).toBe(EMAIL_SETTINGS_CLIENT_COLUMNS);
     expect(emailSettingsPublicSelect('*')).toBe(false);
-    expect(emailSettingsPublicSelect(`smtp_host, ${smtpSecretColumn()}, from_email`)).toBe(false);
+    expect(emailSettingsPublicSelect('smtp_host, not_a_public_column, from_email')).toBe(false);
   });
 
-  it('treats a client row without the secret as ready when host and from are set', () => {
+  it('fails closed when host and from are set but readiness is unknown', () => {
     expect(emailSettingsReady({
       smtp_host: 'smtp.resend.com',
       from_email: 'office@co.com.au',
-    })).toBe(true);
-    expect(emailSettingsReady({
-      smtp_host: 'smtp.resend.com',
-      from_email: 'office@co.com.au',
-      [smtpSecretColumn()]: '',
     })).toBe(false);
     expect(emailSettingsReady({
       smtp_host: 'smtp.resend.com',
       from_email: 'office@co.com.au',
-      [smtpSecretColumn()]: SECRET,
+      extra: '',
+    })).toBe(false);
+    expect(emailSettingsReady({
+      smtp_host: 'smtp.resend.com',
+      from_email: 'office@co.com.au',
+      extra: SECRET,
     })).toBe(true);
     expect(emailSettingsReady({
       smtp_host: 'smtp.mailgun.org',
@@ -84,7 +85,7 @@ describe('SEC-SMTP client selects', () => {
   it('reads company SMTP readiness from the status RPC, not a secret column', async () => {
     const calls: string[] = [];
     const ready = await fetchEmailSmtpReady({
-      rpc: async (fn) => {
+      rpc: async (fn: string) => {
         calls.push(fn);
         return { data: true, error: null };
       },
@@ -108,7 +109,46 @@ describe('SEC-SMTP client selects', () => {
       }),
     }, '5a106e2d-0000-4000-8000-000000000001');
     expect(loaded?.ready).toBe(false);
-    expect(loaded).not.toHaveProperty(smtpSecretColumn());
+    expect(loaded).not.toHaveProperty('smtp_pass');
+  });
+
+  it('upserts public columns then sets the password through the setter RPC', async () => {
+    const upserts: Array<Record<string, unknown>> = [];
+    const rpcs: Array<{ fn: string; args?: Record<string, unknown> }> = [];
+    const saved = await saveCompanyEmailSettings({
+      rpc: async (fn: string, args?: Record<string, unknown>) => {
+        rpcs.push({ fn, args });
+        return { data: null, error: null };
+      },
+      from: () => ({
+        upsert: (payload: Record<string, unknown>) => {
+          upserts.push(payload);
+          return {
+            select: (columns: string) => {
+              expect(emailSettingsPublicSelect(columns)).toBe(true);
+              return {
+                maybeSingle: async () => ({
+                  data: { company_id: '5a106e2d-0000-4000-8000-000000000001' },
+                  error: null,
+                }),
+              };
+            },
+          };
+        },
+      }),
+    }, {
+      company_id: '5a106e2d-0000-4000-8000-000000000001',
+      smtp_host: 'smtp.resend.com',
+      from_email: 'a@probe.test',
+    }, SECRET);
+    expect(upserts).toEqual([{
+      company_id: '5a106e2d-0000-4000-8000-000000000001',
+      smtp_host: 'smtp.resend.com',
+      from_email: 'a@probe.test',
+    }]);
+    expect(upserts[0]).not.toHaveProperty('smtp_pass');
+    expect(rpcs).toEqual([{ fn: EMAIL_SMTP_SET_PASS_RPC, args: { p_pass: SECRET } }]);
+    expect(saved).toEqual({ company_id: '5a106e2d-0000-4000-8000-000000000001' });
   });
 
   it('keeps the SMTP secret out of product source', () => {

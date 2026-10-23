@@ -23,6 +23,8 @@ const harness = vi.hoisted(() => ({
     from_name: string;
   },
   emailUpsertError: null as unknown,
+  smtpReady: true,
+  setPassError: null as unknown,
   profile: { id: 'u1', company_id: 'co1', role: 'admin' },
   company: {
     id: 'co1',
@@ -104,7 +106,14 @@ vi.mock('../lib/supabase', () => ({
         },
       };
     },
-    rpc: async () => ({ data: [], error: null }),
+    rpc: async (fn: string, args?: unknown) => {
+      if (fn === 'email_smtp_ready') return { data: harness.smtpReady, error: null };
+      if (fn === 'email_smtp_set_pass') {
+        harness.writes.push({ table: 'email_smtp_set_pass', op: 'rpc', payload: args });
+        return { data: null, error: harness.setPassError };
+      }
+      return { data: [], error: null };
+    },
   },
 }));
 
@@ -171,6 +180,8 @@ beforeEach(() => {
   harness.refreshed = false;
   harness.emailSettings = { smtp_port: 587, from_email: '', from_name: '' };
   harness.emailUpsertError = null;
+  harness.smtpReady = true;
+  harness.setPassError = null;
   harness.company.abn = '';
   harness.company.phone = '';
   harness.company.email = 'jack@example.com';
@@ -407,6 +418,27 @@ describe('Company Settings field validation', () => {
     });
     expect(write?.payload).not.toHaveProperty('smtp_pass');
     expect(typeof (write?.payload as { smtp_port: unknown }).smtp_port).toBe('number');
+  });
+
+  it('writes a typed SMTP password through the setter RPC, not the upsert payload', async () => {
+    await renderPage();
+    const secret = container.querySelector('input[autocomplete="new-password"]') as HTMLInputElement;
+    await act(async () => {
+      setInput(secret, 'sec-smtp-typed-first-5a106e2d');
+    });
+    const saveEmail = Array.from(container.querySelectorAll('button')).find(btn =>
+      btn.textContent?.includes('Save Email Settings'),
+    );
+    await act(async () => {
+      saveEmail!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const write = harness.writes.find(row => row.table === 'email_settings' && row.op === 'upsert');
+    expect(write?.payload).not.toHaveProperty('smtp_pass');
+    expect(harness.writes.find(row => row.table === 'email_smtp_set_pass' && row.op === 'rpc')?.payload).toEqual({
+      p_pass: 'sec-smtp-typed-first-5a106e2d',
+    });
   });
 
   it('blocks company email junk, 1.5abc tax, lettered BSB, and a 7-digit BSB', async () => {
@@ -747,6 +779,21 @@ describe('Company Settings field validation', () => {
     expect(state?.getAttribute('data-smtp-secret-state')).toBe('set');
     const secretInput = container.querySelector('input[autocomplete="new-password"]') as HTMLInputElement;
     expect(secretInput?.value).toBe('');
+  });
+
+  it('shows not-set when a settings row exists and the ready RPC is false', async () => {
+    harness.smtpReady = false;
+    harness.emailSettings = {
+      smtp_port: 587,
+      from_email: 'quotes@co.com.au',
+      from_name: 'Office',
+      smtp_host: 'smtp.resend.com',
+      smtp_user: 'resend',
+    } as typeof harness.emailSettings;
+    await renderPage();
+    const state = container.querySelector('[data-smtp-secret-state]');
+    expect(state?.textContent).toBe('not set');
+    expect(state?.getAttribute('data-smtp-secret-state')).toBe('unset');
   });
 
   it('shows the miss copy on a permission-denied SMTP save and does not leak the raw error', async () => {

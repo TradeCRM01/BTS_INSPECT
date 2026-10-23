@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 
 const FILES = {
   client: resolve('src/lib/emailSmtpClient.ts'),
+  reminder: resolve('src/lib/jobReminder.ts'),
   migration: resolve('supabase/migrations/20261023120000_sec_smtp_pass_lock.sql'),
   settings: resolve('src/pages/CompanySettingsPage.tsx'),
 };
@@ -81,9 +82,91 @@ const MUTANTS = [
     testFile: 'src/lib/secSmtpPass.network.kill.test.ts',
     testSrc: resolve('src/lib/secSmtpPass.network.kill.test.ts'),
     vitest: ['src/lib/secSmtpPass.network.kill.test.ts', '-t', 'production bundle'],
-    find: "export const EMAIL_SMTP_READY_RPC = 'email_smtp_ready';",
-    replace: "export const EMAIL_SMTP_READY_RPC = 'email_smtp_ready';\nexport const SMTP_SECRET_LEAK = 'smtp_pass';",
+    find: "export const EMAIL_SETTINGS_PUBLIC_COLUMNS =\n  'id, company_id, smtp_host, smtp_port, smtp_secure, smtp_user, from_name, from_email, created_at, updated_at';",
+    replace: "export const EMAIL_SETTINGS_PUBLIC_COLUMNS =\n  'id, company_id, smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, from_name, from_email, created_at, updated_at';",
     rebuild: true,
+  },
+  {
+    name: 'save upserts the secret then selects (PostgREST)',
+    file: 'client',
+    testFile: 'src/lib/secSmtpPass.pg.test.ts',
+    testSrc: resolve('src/lib/secSmtpPass.pg.test.ts'),
+    vitest: ['src/lib/secSmtpPass.pg.test.ts', '-t', 'real PostgREST client path'],
+    find: '  const payload = { ...publicPayload };',
+    replace: '  const payload = { ...publicPayload, smtp_pass: String(secretDraft ?? \'\') };',
+  },
+  {
+    name: 'save upserts the secret then selects (Settings)',
+    file: 'client',
+    testFile: 'src/lib/secSmtpPass.network.kill.test.ts',
+    testSrc: resolve('src/lib/secSmtpPass.network.kill.test.ts'),
+    vitest: ['src/lib/secSmtpPass.network.kill.test.ts', '-t', 'saves and rotates the SMTP password on Settings'],
+    find: '  const payload = { ...publicPayload };',
+    replace: '  const payload = { ...publicPayload, smtp_pass: String(secretDraft ?? \'\') };',
+  },
+  {
+    name: 'email_smtp_ready takes a company argument',
+    file: 'migration',
+    testFile: 'src/lib/secSmtpPass.pg.test.ts',
+    testSrc: resolve('src/lib/secSmtpPass.pg.test.ts'),
+    vitest: ['src/lib/secSmtpPass.pg.test.ts', '-t', 'takes no arguments on email_smtp_ready'],
+    edits: [
+      {
+        find: 'CREATE OR REPLACE FUNCTION public.email_smtp_ready()',
+        replace: 'CREATE OR REPLACE FUNCTION public.email_smtp_ready(p_company uuid DEFAULT NULL)',
+      },
+      {
+        find: 'ON FUNCTION public.email_smtp_ready()',
+        replace: 'ON FUNCTION public.email_smtp_ready(uuid)',
+        all: true,
+      },
+    ],
+  },
+  {
+    name: 'drop search_path on email_smtp_ready',
+    file: 'migration',
+    testFile: 'src/lib/secSmtpPass.pg.test.ts',
+    testSrc: resolve('src/lib/secSmtpPass.pg.test.ts'),
+    vitest: ['src/lib/secSmtpPass.pg.test.ts', '-t', 'pins search_path'],
+    find: `STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_company uuid;
+BEGIN
+  SELECT p.company_id
+    INTO v_company
+    FROM public.profiles p
+   WHERE p.id = auth.uid();`,
+    replace: `STABLE
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_company uuid;
+BEGIN
+  SELECT p.company_id
+    INTO v_company
+    FROM public.profiles p
+   WHERE p.id = auth.uid();`,
+  },
+  {
+    name: 'emailSettingsReady fails open without a secret',
+    file: 'reminder',
+    testFile: 'src/lib/secSmtpPass.client.test.ts',
+    testSrc: resolve('src/lib/secSmtpPass.client.test.ts'),
+    vitest: ['src/lib/secSmtpPass.client.test.ts', '-t', 'fails closed when host and from'],
+    find: '  if (secret === undefined) return false;',
+    replace: '  if (secret === undefined) return true;',
+  },
+  {
+    name: 'Settings set indicator follows row existence',
+    file: 'settings',
+    testFile: 'src/lib/secSmtpPass.network.kill.test.ts',
+    testSrc: resolve('src/lib/secSmtpPass.network.kill.test.ts'),
+    vitest: ['src/lib/secSmtpPass.network.kill.test.ts', '-t', 'shows not-set when a settings row exists'],
+    find: '    setSmtpSecretSet(ready === true);',
+    replace: '    setSmtpSecretSet(Boolean(data));',
   },
 ];
 
@@ -126,14 +209,25 @@ const lines = [
   '| --- | --- | --- | --- |',
 ];
 
+function applyMutant(original, mutant) {
+  const edits = mutant.edits ?? [{ find: mutant.find, replace: mutant.replace, all: mutant.all }];
+  let next = original;
+  for (const edit of edits) {
+    if (!next.includes(edit.find)) return null;
+    next = edit.all ? next.split(edit.find).join(edit.replace) : next.replace(edit.find, edit.replace);
+  }
+  return next;
+}
+
 try {
   for (const mutant of MUTANTS) {
     const original = snapshots[mutant.file];
-    if (!original.includes(mutant.find)) {
+    const next = applyMutant(original, mutant);
+    if (!next) {
       lines.push(`| ${mutant.name} | ${mutant.testFile} | find missed | SURVIVED |`);
       continue;
     }
-    writeFileSync(FILES[mutant.file], original.replace(mutant.find, mutant.replace));
+    writeFileSync(FILES[mutant.file], next);
     const result = runTests(mutant.vitest, mutant.rebuild);
     writeFileSync(FILES[mutant.file], original);
     if (mutant.rebuild) {
@@ -148,6 +242,7 @@ try {
     const first = kills[0];
     const red = [...stripAnsi(result.output).matchAll(/❯\s+([^\n]+:\d+:\d+)/g)][0]?.[1]
       ?? [...stripAnsi(result.output).matchAll(/at\s+\S+\s+\(([^)]+:\d+:\d+)\)/g)][0]?.[1]
+      ?? [...stripAnsi(result.output).matchAll(/(src\/\S+\.(?:ts|tsx):\d+:\d+)/g)].at(-1)?.[1]
       ?? 'assertion failed';
     lines.push(`| ${mutant.name} | ${first ? `${first.name} (${first.loc})` : mutant.testFile} | yes | ${red} |`);
   }

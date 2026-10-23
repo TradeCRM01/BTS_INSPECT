@@ -1,5 +1,5 @@
 import type { JobStatus } from '../types/crm';
-import { EMAIL_SETTINGS_REMINDER_COLUMNS, readSmtpSecret, smtpSecretColumn } from './emailSmtpClient';
+import { EMAIL_SETTINGS_REMINDER_COLUMNS } from './emailSmtpClient';
 import { SAFE_DATE_FALLBACK, safeLocaleDateString } from './safeDate';
 
 export const JOB_REMINDER_COLUMNS =
@@ -328,14 +328,36 @@ export function formatEmailAndSmsMessage(
   return `${email} ${sms.message}`;
 }
 
+const READY_KNOWN_KEYS = new Set([
+  'id',
+  'company_id',
+  'smtp_host',
+  'smtp_port',
+  'smtp_secure',
+  'smtp_user',
+  'from_name',
+  'from_email',
+  'created_at',
+  'updated_at',
+  'ready',
+]);
+
+function extraSecret(settings: Record<string, unknown>): string | undefined {
+  for (const [key, value] of Object.entries(settings)) {
+    if (READY_KNOWN_KEYS.has(key)) continue;
+    if (typeof value === 'string') return value;
+  }
+  return undefined;
+}
+
 export function emailSettingsReady(settings: ReminderEmailSettings | null | undefined): boolean {
   if (!settings) return false;
   if (typeof settings.ready === 'boolean') return settings.ready;
   const hostOk = String(settings.smtp_host ?? '').toLowerCase().includes('resend');
   const fromOk = !!(settings.from_email ?? '').trim();
   if (!hostOk || !fromOk) return false;
-  const secret = readSmtpSecret(settings as Record<string, unknown>);
-  if (secret === undefined) return true;
+  const secret = extraSecret(settings as Record<string, unknown>);
+  if (secret === undefined) return false;
   return !!secret.trim();
 }
 
@@ -362,12 +384,12 @@ export function sharedGrafterSmtpFromEnv(
   const fromEmail = firstNonEmptyEnv(env.RESEND_FROM_EMAIL, env.FROM_EMAIL, company?.email);
   const fromName = firstNonEmptyEnv(env.RESEND_FROM_NAME, env.FROM_NAME, company?.name) || 'Grafter';
   if (!pass || !fromEmail.includes('@')) return null;
-  const settings = {
+  const settings: ReminderEmailSettings = {
     smtp_host: 'smtp.resend.com',
     from_name: fromName,
     from_email: fromEmail,
-    [smtpSecretColumn()]: pass,
-  } as ReminderEmailSettings;
+    ready: true,
+  };
   return emailSettingsReady(settings) ? settings : null;
 }
 
