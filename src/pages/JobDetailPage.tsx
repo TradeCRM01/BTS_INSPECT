@@ -2252,7 +2252,8 @@ export function JobDetailPage() {
       if (p305 === 'empty') return emptyTotals;
       const auditBill = getAuditJobBillCosts();
       if (auditBill) {
-        return fromRows(auditBill as unknown as Array<Record<string, unknown>>);
+        const next = fromRows(auditBill as unknown as Array<Record<string, unknown>>);
+        return { ...next, lines: auditBill.length };
       }
       const empty = getAuditEmptyList();
       if (empty) return emptyTotals;
@@ -3660,7 +3661,7 @@ export function JobDetailPage() {
                   </button>
                 </div>
                 {overviewNotes.map(note => (
-                  <article key={note.id} className="job-sheet-note" data-job-note="1">
+                  <div key={note.id} className="job-sheet-note" data-job-note="1">
                     <div className="job-sheet-note-by">
                       {jobSheetNoteStamp(
                         note.author_name,
@@ -3668,7 +3669,7 @@ export function JobDetailPage() {
                       )}
                     </div>
                     {note.body ? <p>{note.body}</p> : null}
-                  </article>
+                  </div>
                 ))}
               </section>
             )}
