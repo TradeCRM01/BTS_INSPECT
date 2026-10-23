@@ -42,7 +42,7 @@ const PROD_REMINDER_TITLES = [
 ] as const;
 const PROD_REMINDER_META = '#0137 · Replace kitchen mixer tap · Overdue · Wed 21 Oct · Company';
 const PROD_REMINDER_TEXTS = [...PROD_REMINDER_TITLES, PROD_REMINDER_META] as const;
-const LIVE_JOB_META = '#0141.A$ · Owen Price — delete ok · CoS Invitee Test';
+const LIVE_JOB_META = '#0141.A$ · Ashgrove · CoS Invitee Test';
 const LONG_META_SEG = `A$LONG${'W'.repeat(80)}`;
 
 type KillCDP = {
@@ -358,10 +358,11 @@ async function openLookDist(origin: string, width: number, path = '/?look=dashbo
   await page.addInitScript(() => {
     const Real = Date;
     const ms = Date.parse('2026-10-19T03:40:00.000Z');
-    function FrozenDate(this: Date) {
+    const FrozenDate = function FrozenDate() {
       if (arguments.length === 0) return new Real(ms);
-      return new (Function.prototype.bind.apply(Real, [null].concat([].slice.call(arguments))))();
-    }
+      const a = arguments;
+      return new Real(a[0], a[1], a[2], a[3], a[4], a[5], a[6]);
+    };
     FrozenDate.now = function () { return ms; };
     FrozenDate.parse = Real.parse;
     FrozenDate.UTC = Real.UTC;
