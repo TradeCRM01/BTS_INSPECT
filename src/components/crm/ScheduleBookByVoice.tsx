@@ -93,6 +93,7 @@ export function ScheduleBookByVoice({
           <input
             id="hub-schedule-voice-text"
             className="form-input"
+            data-schedule-quickbook-existing="1"
             value={phrase}
             onChange={e => {
               setPhrase(e.target.value);
@@ -155,9 +156,10 @@ export function ScheduleBookByVoice({
         <button
           type="button"
           className="hub-schedule-voice-new"
+          data-schedule-quickbook-new="1"
           onClick={onNewJob}
         >
-          New job from this
+          {hints?.job ? 'New job from this' : 'New job'}
         </button>
       ) : null}
     </div>

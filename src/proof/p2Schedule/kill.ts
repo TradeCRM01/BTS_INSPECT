@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import {
-  CONTRAST, EMPTY_COPY, FADE, FOCUS, IN_PROGRESS, JOB_REF, KILLS, NOW, PALETTE, PHONE_BOARD_BREAKPOINT, PHONE_TABS, ROWS, SAME_COLOUR,
+  CONTRAST, EMPTY_COPY, FADE, FOCUS, IN_PROGRESS, JOB_REF, KILLS, MOCKUP_SEARCH_TOL, MOCKUP_SEARCH_WIDTH, NOW, PALETTE, PHONE_BOARD_BREAKPOINT, PHONE_TABS, ROWS, SAME_COLOUR,
   SHEET, TAP_MIN, TODAY, TRACK_PROBE, UNTIMED, WEEK, channelGap, isAmber, isNavy, killTitle, rgbOf,
   type KillId, type Measure, type Offender, type Stroke,
 } from './matrix.ts';
@@ -383,9 +383,14 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(week.layout.newJob, 'one New job').toBe(1);
     const before = week.writes.length;
     const opened = await openState('week-1280');
-    await opened.page.getByRole('button', { name: 'New job' }).click();
+    await opened.page.getByRole('button', { name: 'New job' }).first().click();
+    await opened.page.waitForSelector('[data-schedule-section="quickbook"][data-open="1"]');
+    expect.soft(await opened.page.locator('[data-schedule-quickbook-existing]').count(), 'Quick book keeps schedule existing').toBeGreaterThan(0);
+    expect.soft(await opened.page.locator('[data-schedule-quickbook-new]').count(), 'Quick book keeps New job').toBeGreaterThan(0);
+    expect.soft(await opened.page.locator('.hub-schedule-voice-mic').count(), 'Quick book keeps the mic').toBeGreaterThan(0);
+    await opened.page.locator('[data-schedule-quickbook-new]').click();
     await opened.page.waitForSelector('.hub-ops-form-sheet');
-    expect.soft(await opened.page.locator('.hub-ops-form-sheet').count(), 'New job opens a modal').toBeGreaterThan(0);
+    expect.soft(await opened.page.locator('.hub-ops-form-sheet').count(), 'New job choice opens a modal').toBeGreaterThan(0);
     await opened.close();
     expect.soft(before, 'New job is a local modal, not a write').toBe(0);
   });
@@ -624,9 +629,7 @@ describe('P2 Schedule on the built dist', () => {
 
   it(killTitle('K17'), async () => {
     for (const m of await states('K17')) {
-      const wanted = m.iw < 768
-        ? ['header', 'tools', 'board', 'tray']
-        : ['header', 'tools', 'quickbook', 'board', 'tray'];
+      const wanted = ['header', 'tools', 'board', 'tray'];
       const seen = [...new Set(m.layout.sections.filter(s => wanted.includes(s.id)).sort((a, b) => a.top - b.top).map(s => s.id))];
       expect.soft(seen, `${m.id} section order`).toEqual(wanted);
     }
@@ -723,9 +726,12 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(c.navPainted, 'boxed ‹ › paint a border').toBeGreaterThanOrEqual(4);
     expect.soft(c.navCornerCut, 'nav boxes keep a radius').toBe(true);
     expect.soft(c.range, 'week range').toBe('19 to 25 Oct');
-    expect.soft(c.searchWidth, 'wide search').toBeGreaterThanOrEqual(200);
+    expect.soft(Math.abs(c.searchWidth - MOCKUP_SEARCH_WIDTH), `search width ${c.searchWidth} vs mockup ${MOCKUP_SEARCH_WIDTH}`).toBeLessThanOrEqual(MOCKUP_SEARCH_TOL);
+    expect.soft(Math.abs(c.todayRight - c.toolbarRight), `Today.right ${c.todayRight} vs toolbar.right ${c.toolbarRight}`).toBeLessThanOrEqual(1);
+    expect.soft(c.crewToolbarShown, 'Crew is not a toolbar label').toBe(0);
     expect.soft(c.todayPainted, 'Today paints an outline').toBeGreaterThanOrEqual(4);
     expect.soft(c.todayCornerCut, 'Today keeps a radius').toBe(true);
+    expect.soft(Math.abs(c.toolbarBottom - c.boardTop), `toolbar.bottom ${c.toolbarBottom} vs board.top ${c.boardTop}`).toBeLessThanOrEqual(1);
     expect.soft(c.dayHeadShortShown, 'day headers one left-aligned line').toBe(7);
     expect.soft(c.dayHeadFullShown, 'month-long heads hidden at 1280').toBe(0);
     expect.soft(c.dayHeadLines, 'day heads stay one line').toBeLessThanOrEqual(1);
@@ -735,7 +741,7 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(c.weekCrewLines, 'week crew names stay one line').toBe(1);
 
     const rail = await measure('rail-1280');
-    expect.soft(rail.chrome.trayHeadingH, 'tray large heading').toBeGreaterThanOrEqual(20);
+    expect.soft(Math.abs(rail.chrome.trayHeadingH - 32), 'tray heading matches mockup 32').toBeLessThanOrEqual(1);
     expect.soft(rail.chrome.trayHeadingText, 'tray heading').toBe('Unscheduled');
     expect.soft(rail.chrome.trayCols, 'tray 3 compact columns').toBe(3);
 
@@ -746,8 +752,14 @@ describe('P2 Schedule on the built dist', () => {
 
     const phone = await measure('week-390');
     expect.soft(phone.chrome.headerTop, '390 header not clipped at the top').toBeGreaterThanOrEqual(0);
-    expect.soft(phone.chrome.sameRangeRow, 'Today shares the range row').toBe(true);
     expect.soft(Math.abs(phone.chrome.todayTop - phone.chrome.rangeTop), 'Today on the range row').toBeLessThanOrEqual(24);
-    expect.soft(phone.chrome.quickBookTop > phone.chrome.rangeTop + 16, 'Quick book on its own row').toBe(true);
+
+    const opened = await openState('week-1280');
+    await opened.page.getByRole('button', { name: 'New job' }).first().click();
+    await opened.page.waitForSelector('[data-schedule-section="quickbook"][data-open="1"]');
+    expect.soft(await opened.page.locator('[data-schedule-quickbook-existing]').count(), 'header New job opens schedule existing').toBeGreaterThan(0);
+    expect.soft(await opened.page.locator('[data-schedule-quickbook-new]').count(), 'header New job opens New job choice').toBeGreaterThan(0);
+    expect.soft(await opened.page.locator('.hub-schedule-voice-mic').count(), 'header New job opens the mic').toBeGreaterThan(0);
+    await opened.close();
   });
 });

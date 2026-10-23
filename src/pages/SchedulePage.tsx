@@ -896,6 +896,33 @@ export function SchedulePage() {
     />
   );
 
+  const renderCrewFilter = () => (
+    <details className="hub-schedule-crew-filter" data-schedule-crew-filter="1">
+      <summary className="hub-week-quiet"><span className="hub-schedule-label">Crew</span></summary>
+      <div className="hub-schedule-crew-menu" role="group" aria-label="Crew filter">
+        <button
+          type="button"
+          className="hub-week-quiet"
+          data-schedule-all-crews="1"
+          onClick={clearEmployeeFilters}
+        >
+          All crews
+        </button>
+        {boardCrew.map(member => (
+          <button
+            key={member.id}
+            type="button"
+            className={`hub-week-quiet${filteredEmployeeIds.has(member.id) ? ' is-on' : ''}`}
+            aria-pressed={filteredEmployeeIds.has(member.id)}
+            onClick={() => toggleEmployeeFilter(member.id)}
+          >
+            {member.name}
+          </button>
+        ))}
+      </div>
+    </details>
+  );
+
   const boardTrack = (
     <div className="hub-week-track" data-week-track="1" data-schedule-section="tools">
       <div className="hub-week-seg" data-week-seg="1">
@@ -914,68 +941,36 @@ export function SchedulePage() {
           Day
         </button>
       </div>
-      <div className="hub-week-tools">
-        <div className="hub-week-range-row">
-          <button
-            type="button"
-            className="hub-week-quiet hub-week-nav-box"
-            aria-label={viewMode === 'day' ? 'Previous day' : 'Previous week'}
-            onClick={() => applySchedule(viewMode, viewMode === 'day' ? addDays(currentDate, -1) : addWeeks(currentDate, -1))}
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <p className="hub-week-range">
-            <span className="hub-week-range-full">{boardRangeLabel}</span>
-            <span className="hub-week-range-short">{viewMode === 'day' ? dayRangeShort : weekRangeShort}</span>
-          </p>
-          <button
-            type="button"
-            className="hub-week-quiet hub-week-nav-box"
-            aria-label={viewMode === 'day' ? 'Next day' : 'Next week'}
-            onClick={() => applySchedule(viewMode, viewMode === 'day' ? addDays(currentDate, 1) : addWeeks(currentDate, 1))}
-          >
-            <ChevronRight size={16} />
-          </button>
-          <button type="button" className="hub-week-quiet hub-week-today" onClick={() => applySchedule(viewMode, new Date())}>
-            Today
-          </button>
-        </div>
-        <div className="hub-week-search" data-schedule-search="1">
-          {weekSearch}
-        </div>
-        <details className="hub-schedule-crew-filter" data-schedule-crew-filter="1">
-          <summary className="hub-week-quiet">Crew</summary>
-          <div className="hub-schedule-crew-menu" role="group" aria-label="Crew filter">
-            <button
-              type="button"
-              className="hub-week-quiet"
-              data-schedule-all-crews="1"
-              onClick={clearEmployeeFilters}
-            >
-              All crews
-            </button>
-            {boardCrew.map(member => (
-              <button
-                key={member.id}
-                type="button"
-                className={`hub-week-quiet${filteredEmployeeIds.has(member.id) ? ' is-on' : ''}`}
-                aria-pressed={filteredEmployeeIds.has(member.id)}
-                onClick={() => toggleEmployeeFilter(member.id)}
-              >
-                {member.name}
-              </button>
-            ))}
-          </div>
-        </details>
+      <div className="hub-week-range-row">
         <button
           type="button"
-          className="hub-week-quiet hub-schedule-quickbook-toggle"
-          aria-expanded={quickBookOpen}
-          data-schedule-quickbook-toggle="1"
-          onClick={() => setQuickBookOpen(open => !open)}
+          className="hub-week-quiet hub-week-nav-box"
+          aria-label={viewMode === 'day' ? 'Previous day' : 'Previous week'}
+          onClick={() => applySchedule(viewMode, viewMode === 'day' ? addDays(currentDate, -1) : addWeeks(currentDate, -1))}
         >
-          Quick book
+          <ChevronLeft size={16} />
         </button>
+        <p className="hub-week-range">
+          <span className="hub-week-range-full">{boardRangeLabel}</span>
+          <span className="hub-week-range-short">{viewMode === 'day' ? dayRangeShort : weekRangeShort}</span>
+        </p>
+        <button
+          type="button"
+          className="hub-week-quiet hub-week-nav-box"
+          aria-label={viewMode === 'day' ? 'Next day' : 'Next week'}
+          onClick={() => applySchedule(viewMode, viewMode === 'day' ? addDays(currentDate, 1) : addWeeks(currentDate, 1))}
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+      <div className="hub-week-search" data-schedule-search="1">
+        {weekSearch}
+      </div>
+      <button type="button" className="hub-week-quiet hub-week-today" onClick={() => applySchedule(viewMode, new Date())}>
+        Today
+      </button>
+      <div className="hub-week-tools-phone">
+        {renderCrewFilter()}
       </div>
     </div>
   );
@@ -994,8 +989,11 @@ export function SchedulePage() {
             <p className="ops-meta mt-2" data-schedule-whisper="1">{boardWhisper}</p>
           </div>
           <button
-            onClick={openNewJob}
+            type="button"
+            onClick={() => setQuickBookOpen(open => !open)}
             className="btn-primary shrink-0"
+            aria-expanded={quickBookOpen}
+            data-schedule-quickbook-toggle="1"
           >
             <Plus size={16} /> New job
           </button>
@@ -1019,7 +1017,7 @@ export function SchedulePage() {
                 hints={voiceHints ?? undefined}
                 jobPicks={voiceJobPicks}
                 onPickJob={pickVoiceJob}
-                onNewJob={voiceNewJob ? openVoiceNewJobForm : undefined}
+                onNewJob={voiceNewJob ? openVoiceNewJobForm : openNewJob}
               />
             </div>
             {pickedJob && boardCrew.length > 0 && (
@@ -1085,6 +1083,7 @@ export function SchedulePage() {
                       onJobDrop={placeExisting}
                       filteredEmployeeIds={filteredEmployeeIds}
                       invoicedJobIds={invoicedJobIds}
+                      crewFilter={renderCrewFilter()}
                     />
                   </div>
                 </>
