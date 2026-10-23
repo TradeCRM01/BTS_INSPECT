@@ -118,7 +118,7 @@ export type TodayFilterChain<T> = {
 } & TodayQueryResult<T>;
 
 export type TodayBoardClient = {
-  from: (table: string) => TodayFilterChain<Record<string, unknown>>;
+  from: (table: string) => TodayFilterChain<Record<string, unknown>> | TodayQueryResult<Record<string, unknown>>;
 };
 
 export function addIsoDays(iso: string, days: number): string {

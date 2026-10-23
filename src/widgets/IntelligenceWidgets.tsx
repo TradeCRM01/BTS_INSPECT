@@ -17,7 +17,9 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useCompanyAiKey } from '../lib/useCompanyAiKey';
 import { listReminders, setReminderDone } from '../lib/reminders';
-import { format, formatDistanceToNow, subDays } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
+import { dashboardTodayKey } from '../lib/dashboardHome';
+import { fetchTodayCash } from '../lib/todayBoard';
 import { parseToDate, safeFormatDate } from '../lib/safeDate';
 import {
   Bot, Send, User, Sparkles, TrendingUp, AlertTriangle,
@@ -360,23 +362,16 @@ export function ComplianceDeadlinesWidget({ config }: WidgetProps) {
 // ────────────────────────────────────────────────────────────────────────────
 
 export function CashFlowWidget() {
+  const { profile } = useAuth();
+  const companyId = profile?.company_id ?? '';
+  const todayKey = dashboardTodayKey();
   const { data, isLoading } = useQuery({
-    queryKey: ['widget-cash-flow'],
+    queryKey: ['widget-cash-flow', companyId, todayKey],
     queryFn: async () => {
-      const weekStart = subDays(new Date(), 7).toISOString();
-      const [{ data: paidInv }, { data: createdPOs }] = await Promise.all([
-        supabase.from('invoices')
-          .select('total, paid_at, status, updated_at')
-          .eq('status', 'paid')
-          .gte('updated_at', weekStart),
-        supabase.from('purchase_orders')
-          .select('total, status, created_at')
-          .gte('created_at', weekStart),
-      ]);
-      const moneyIn = (paidInv ?? []).reduce((s, r) => s + Number(r.total ?? 0), 0);
-      const moneyOut = (createdPOs ?? []).reduce((s, r) => s + Number(r.total ?? 0), 0);
-      return { moneyIn, moneyOut, net: moneyIn - moneyOut };
+      if (!companyId) return { moneyIn: 0, moneyOut: 0, net: 0 };
+      return fetchTodayCash(supabase as never, companyId, todayKey);
     },
+    enabled: !!companyId,
   });
 
   const net = data?.net ?? 0;
