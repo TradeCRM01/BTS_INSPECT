@@ -13747,6 +13747,70 @@
     }
   }
 
+  /* r15: Jack phone type below 768. Desktop r14 stays. */
+  @media (max-width: 767px) {
+    .hub-jobs-document .hub-jobs-hero {
+      font-size: 24px !important;
+      font-weight: 600;
+      line-height: 30px;
+      letter-spacing: -0.05em;
+    }
+
+    .hub-jobs-document .job-sheet-kv-row > .job-sheet-kv-label,
+    .hub-jobs-document .hub-jobs-contact-row > .job-sheet-kv-label {
+      font-weight: 400;
+    }
+
+    .hub-jobs-document .job-sheet-scope-h,
+    .hub-jobs-document .job-sheet-section-head h2 {
+      font-weight: 600;
+    }
+
+    .hub-jobs-document .hub-jobs-tools .btn-primary,
+    .hub-jobs-document .hub-jobs-tools .ops-next-control-block,
+    .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools .btn-primary,
+    .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools .ops-next-control-block {
+      font-weight: 600;
+    }
+
+    .hub-jobs-document .job-sheet-tabs .job-sheet-tab,
+    .hub-jobs-document .job-sheet-tab {
+      font-weight: 400;
+    }
+
+    .hub-jobs-document .job-sheet-tab.is-on,
+    .hub-jobs-document .job-sheet-tabs .job-sheet-tab.is-on {
+      font-weight: 500;
+    }
+
+    /* r15: mock .bill3 div also pads inner label/value; label inherits lh 24. */
+    .hub-jobs-document .job-sheet-bill3 div {
+      padding: 12px 0 12px 12px;
+      border-left: 1px solid var(--job-look-line);
+    }
+
+    .hub-jobs-document .job-sheet-bill3 div:first-child {
+      border-left: 0;
+      padding-left: 0;
+    }
+
+    .hub-jobs-document .job-sheet-bill-l {
+      line-height: 24px;
+    }
+
+    .hub-jobs-document .job-sheet-bill-tot {
+      line-height: 24px;
+    }
+
+    .hub-jobs-document .job-sheet-bill-tot.is-big {
+      line-height: 24px;
+    }
+
+    .hub-jobs-document .job-sheet-note-by {
+      line-height: 24px;
+    }
+  }
+
   .hub-jobs-document .hub-jobs-tools .btn-primary:disabled,
   .hub-jobs-document .hub-jobs-tools .ops-next-control-block:disabled,
   .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools .btn-primary:disabled,
