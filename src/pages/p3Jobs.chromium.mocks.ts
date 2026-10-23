@@ -77,7 +77,7 @@ function liveJobs() {
     ...base,
     id: 'p3-0036',
     client_id: 'p3-client-36',
-    title: 'Hot water replacement',
+    title: 'Blocked sewer, CCTV inspection',
     status: 'completed',
     scheduled_date: '2026-10-19',
     start_time: '07:00',
@@ -85,6 +85,7 @@ function liveJobs() {
     address: '12 Grange Rd, Stafford',
     assigned_team: ['p3-dean', 'p3-tom'],
     job_number: 36,
+    description: 'Sewer backing up at the overflow relief gully. Run CCTV from the gully to the boundary trap, locate the blockage and jet the line clear. Record root intrusion with footage and photos for the client.',
   }, {
     ...base,
     id: 'p3-need-crew',
@@ -303,6 +304,14 @@ function liveInvoices() {
 
 type MockRow = Record<string, unknown>;
 
+type JobUpdate = { table: string; values: Record<string, unknown>; id?: unknown };
+
+function jobUpdates(): JobUpdate[] {
+  const g = globalThis as unknown as { __P3_JOB_UPDATES__?: JobUpdate[] };
+  if (!g.__P3_JOB_UPDATES__) g.__P3_JOB_UPDATES__ = [];
+  return g.__P3_JOB_UPDATES__;
+}
+
 function tableRows(table: string): MockRow[] {
   if (table === 'jobs') return liveJobs() as unknown as MockRow[];
   if (table === 'clients') return liveClients() as unknown as MockRow[];
@@ -334,6 +343,11 @@ function from(table: string) {
   const chain: Record<string, unknown> = {};
   chain.select = () => chain;
   chain.eq = (column: string, value: unknown) => {
+    if (column === 'id') {
+      const updates = jobUpdates();
+      const last = updates[updates.length - 1];
+      if (last && last.table === table && last.id === undefined) last.id = value;
+    }
     rows = rows.filter((row) => row[column] === value);
     return chain;
   };
@@ -363,7 +377,10 @@ function from(table: string) {
     return chain;
   };
   chain.insert = () => chain;
-  chain.update = () => chain;
+  chain.update = (values: Record<string, unknown> = {}) => {
+    jobUpdates().push({ table, values });
+    return chain;
+  };
   chain.delete = () => chain;
   chain.maybeSingle = () => Promise.resolve({ data: rows[0] ?? null, error: null });
   chain.single = () => Promise.resolve({ data: rows[0] ?? null, error: null });

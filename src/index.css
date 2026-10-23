@@ -12188,13 +12188,15 @@
   }
 
   .job-sheet-appbar-avatar {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    border-radius: 999px;
-    background: #eeeae3;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    border-radius: 50%;
+    background: #0A0A0B;
+    color: #fff;
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 600;
   }
 
   .hub-jobs.is-record-open .breadcrumbs {
@@ -14215,18 +14217,24 @@
 
   .hub-jobs.is-record-open .job-sheet-appbar .job-sheet-back,
   .hub-jobs.is-record-open .job-sheet-back {
-    margin: 0 auto 0 0;
+    margin: 0 auto 0 -8px;
     justify-content: flex-start;
-    padding: 0;
+    padding: 0 8px 0 0;
+    gap: 2px;
+    min-height: 44px;
     font-family: var(--g-font-ui);
     font-size: 16px;
-    font-weight: 500;
+    font-weight: 600;
     letter-spacing: 0;
-    color: #0A0A0B;
+    color: #183FB8;
   }
 
   .hub-jobs.is-record-open .job-sheet-back-chevron {
-    color: #2E75B6;
+    display: block;
+    width: 22px;
+    height: 22px;
+    flex: none;
+    color: #183FB8;
   }
 
   .hub-jobs.is-record-open .job-sheet-appbar-search {
@@ -14257,9 +14265,9 @@
   }
 
   .hub-jobs-document .job-sheet-ref {
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    font-weight: 600;
+    font-weight: 500;
   }
 
   .hub-jobs-document .job-sheet-eyebrow .hub-jobs-status-whisper,
@@ -14284,12 +14292,8 @@
 
   .hub-jobs-document .hub-jobs-tools .btn-primary,
   .hub-jobs-document .hub-jobs-tools .ops-next-control-block,
-  .hub-jobs-document .hub-jobs-tools .btn-primary:disabled,
-  .hub-jobs-document .hub-jobs-tools .ops-next-control-block:disabled,
   .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools .btn-primary,
-  .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools .ops-next-control-block,
-  .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools .btn-primary:disabled,
-  .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools .ops-next-control-block:disabled {
+  .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools .ops-next-control-block {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -14303,7 +14307,6 @@
     font-family: var(--g-font-ui);
     font-size: 17px;
     font-weight: 600;
-    opacity: 1 !important;
     filter: none !important;
     box-shadow: none;
   }
@@ -14393,9 +14396,9 @@
     .hub-jobs-document .hub-jobs-hero {
       font-family: var(--g-font-title);
       font-size: 34px !important;
-      font-weight: 800;
+      font-weight: 600;
       line-height: 38px;
-      letter-spacing: 0;
+      letter-spacing: -0.035em;
     }
 
     .hub-jobs-document .job-sheet-tab {
@@ -14423,6 +14426,229 @@
     }
   }
 
+  /* r9: job-390-light painted frame. Later than r8. */
+  @media (max-width: 1023px) {
+    .hub-jobs.is-record-open.ops-page {
+      padding: 4px 16px 24px;
+    }
+
+    .hub-jobs.is-record-open .job-sheet-appbar {
+      margin: -4px -16px 0;
+    }
+  }
+
+  .hub-jobs.is-record-open .job-sheet-appbar {
+    height: 56px;
+    min-height: 56px;
+    padding: 0 8px 0 16px;
+    gap: 4px;
+  }
+
+  .hub-jobs-document .job-sheet-head {
+    gap: 0;
+    padding-top: 5px;
+  }
+
+  .hub-jobs-document .job-sheet-eyebrow {
+    min-height: 26px;
+    align-items: center;
+  }
+
+  .hub-jobs-document .job-sheet-eyebrow .hub-jobs-status-whisper,
+  .hub-jobs-document .job-sheet-eyebrow .hub-jobs-pill.hub-jobs-status-whisper {
+    height: 26px;
+    min-height: 26px;
+    padding: 0 10px 0 9px;
+  }
+
+  .hub-jobs-document .hub-jobs-hero {
+    margin-top: 10px;
+    font-weight: 600;
+  }
+
+  .hub-jobs-document .job-sheet-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    margin-top: 10px;
+  }
+
+  .hub-jobs-document .job-sheet-site,
+  .hub-jobs-document .job-sheet-when {
+    margin: 0;
+    font-size: 15px;
+    line-height: 20px;
+    min-height: 0;
+    flex: 0 1 auto;
+    white-space: nowrap;
+  }
+
+  .hub-jobs-document .hub-jobs-tools,
+  .hub-jobs-document .hub-job-invoice-next-preview {
+    margin-top: 18px;
+  }
+
+  .hub-jobs-document .hub-job-invoice-next-preview .hub-jobs-tools {
+    margin-top: 0;
+  }
+
+  .hub-jobs-document .job-sheet-sub {
+    margin-top: 6px;
+    font-size: 14px;
+    line-height: 20px;
+  }
+
+  .hub-jobs-document .job-sheet-tabs {
+    display: grid;
+    grid-template-columns: minmax(0, 0.86fr) minmax(0, 0.68fr) minmax(0, 1.23fr) minmax(0, 1.23fr);
+    align-items: stretch;
+    gap: 2px;
+    margin-top: 20px;
+    padding: 4px;
+    min-height: 52px;
+    height: 52px;
+    border: none;
+    border-radius: 14px;
+    background: #EBEBEE;
+    overflow: hidden;
+  }
+
+  .hub-jobs-document .job-sheet-tabs .job-sheet-tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 8px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: var(--job-look-muted);
+    font-family: var(--g-font-ui);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    box-shadow: none;
+  }
+
+  .hub-jobs-document .job-sheet-tab.is-on {
+    background: #fff;
+    color: var(--job-look-ink);
+    box-shadow: 0 1px 2px rgba(10, 10, 11, 0.06), 0 0 0 1px #E4E4E7;
+  }
+
+  @media (max-width: 390px) {
+    .hub-jobs-document .job-sheet-tabs .job-sheet-tab {
+      font-size: 11px;
+    }
+  }
+
+  .hub-jobs-document .job-sheet-kv-rule {
+    display: block;
+    height: 1px;
+    width: 100%;
+    background: #E4E4E7;
+  }
+
+  .hub-jobs-document .job-sheet-kv-row,
+  .hub-jobs-document .job-sheet-kv-row.hub-jobs-contact-row,
+  .hub-jobs-document .hub-jobs-identity .hub-jobs-contact > .job-sheet-kv-row,
+  .hub-jobs-document .hub-jobs-identity .job-sheet-kv-row {
+    min-height: 56px;
+    padding: 8px 0;
+    border-top: none;
+    border-bottom: none;
+  }
+
+  .hub-jobs-document .job-sheet-kv-row:has(.job-sheet-kv-act),
+  .hub-jobs-document .hub-jobs-identity .job-sheet-kv-row:has(.job-sheet-kv-act) {
+    min-height: 61px;
+  }
+
+  .hub-jobs-document .job-sheet-kv-act {
+    min-height: 44px;
+    padding: 0 12px;
+  }
+
+  .hub-jobs-document .job-sheet-kv-row:first-child {
+    border-top: 1px solid #E4E4E7;
+  }
+
+  .hub-jobs-document .job-sheet-kv-row > .job-sheet-kv-value,
+  .hub-jobs-document .hub-jobs-contact-row > .job-sheet-kv-value,
+  .hub-jobs-document .job-sheet-kv-name,
+  .hub-jobs-document a.job-sheet-kv-name {
+    font-weight: 500;
+  }
+
+  .hub-jobs-document .job-sheet-scope,
+  .hub-jobs-document .hub-jobs-scope {
+    margin-top: 28px;
+    width: 100%;
+  }
+
+  .hub-jobs-document .job-sheet-scope-h,
+  .hub-jobs-document .job-sheet-section-head h2 {
+    margin: 0 0 10px;
+    font-family: var(--g-font-title);
+    font-size: 20px;
+    line-height: 26px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: #0A0A0B;
+  }
+
+  .hub-jobs-document .job-sheet-scope-body {
+    margin: 0;
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 400;
+    color: #0A0A0B;
+    white-space: pre-wrap;
+  }
+
+  .hub-jobs-document .job-sheet-notes,
+  .hub-jobs-document .job-sheet-photos,
+  .hub-jobs-document .job-sheet-bill {
+    margin-top: 28px;
+  }
+
+  .job-sheet-more {
+    position: relative;
+    margin-top: 28px;
+  }
+
+  .job-sheet-more > summary {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    list-style: none;
+    cursor: pointer;
+    font-family: var(--g-font-ui);
+    font-size: 16px;
+    font-weight: 600;
+    color: #183FB8;
+  }
+
+  .job-sheet-more > summary::-webkit-details-marker,
+  .job-sheet-more > summary::marker {
+    display: none;
+  }
+
+  .hub-jobs-document .hub-jobs-tools .btn-primary:disabled,
+  .hub-jobs-document .hub-jobs-tools .ops-next-control-block:disabled,
+  .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools .btn-primary:disabled,
+  .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools .ops-next-control-block:disabled {
+    background: #ECECEE !important;
+    background-image: none !important;
+    color: #71717A !important;
+    opacity: 1;
+    filter: none !important;
+    box-shadow: none;
+  }
 
   .hub-jobs-list-views {
     display: flex;
@@ -19828,6 +20054,12 @@
     .hub-jobs-document .job-sheet-tab {
       min-width: 64px;
     }
+
+    /* r9: four labels + two-digit counts at 375. 64px min overflows the track. */
+    .hub-jobs-document .job-sheet-tabs .job-sheet-tab {
+      min-width: 0;
+    }
+
 
     /* Reveal/clear icons sit inside the field — a 44px hit box would cover the type. */
     .relative > button.absolute {
