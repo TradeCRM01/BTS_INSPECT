@@ -7,7 +7,6 @@ import {
   JOBS_LIST_NO_CREW,
   jobsListCrewLabel,
   jobsListCustomer,
-  jobsListPhoneDate,
   jobsListPhoneNextLabel,
   jobsListPhoneRow,
   jobsListTitle,

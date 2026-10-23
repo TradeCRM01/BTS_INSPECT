@@ -12182,6 +12182,8 @@
   }
 
   .hub-jobs-document .job-sheet-link {
+    display: inline-flex;
+    align-items: center;
     color: var(--job-sheet-link, #296AA5);
     background: none;
     border: none;
@@ -12298,14 +12300,48 @@
     .hub-jobs-document .hub-jobs-tools .ops-next-control-block {
       width: auto;
     }
+
+    .job-sheet-photo-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .hub-jobs-document {
+      max-width: 720px;
+    }
   }
 
   @media (min-width: 1024px) {
+    .hub-jobs-document .job-sheet-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+      column-gap: 24px;
+      align-items: start;
+    }
+
+    .hub-jobs-document .job-sheet-head .job-sheet-eyebrow,
+    .hub-jobs-document .job-sheet-head .hub-jobs-hero,
+    .hub-jobs-document .job-sheet-head .job-sheet-site,
+    .hub-jobs-document .job-sheet-head .job-sheet-when {
+      grid-column: 1;
+    }
+
+    .hub-jobs-document .job-sheet-head .hub-jobs-tools,
+    .hub-jobs-document .job-sheet-head .hub-job-invoice-next-preview,
+    .hub-jobs-document .job-sheet-head .job-sheet-sub {
+      grid-column: 2;
+    }
+
     .job-sheet-overview {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 32px;
       align-items: start;
+    }
+
+    .hub-jobs-document [data-job-tab]:not([data-job-tab="overview"]) {
+      max-width: 880px;
     }
   }
 
