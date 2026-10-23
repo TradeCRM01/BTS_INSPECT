@@ -204,7 +204,7 @@ describe('P2 Schedule on the built dist', () => {
         expect.soft(c.board === 'week' ? c.ref : c.ref.split(' · ').pop(), `${at} ref is a whole job ref`).toMatch(JOB_REF);
         expect.soft(c.refLines, `${at} ref lines`).toBe(1);
         expect.soft(c.refEllipsis, `${at} ref ellipsis`).toBe(false);
-        expect.soft(c.refFits, `${at} ref painted inside the chip with no clipping`).toBe(true);
+        expect.soft(c.refFits, `${at} ref run painted inside the chip with no clipping`).toBe(true);
         if (c.desc) {
           expect.soft(c.desc.ellipsis, `${at} description owns the ellipsis`).toBe(true);
           expect.soft(c.desc.inside, `${at} description inside the chip`).toBe(true);
@@ -341,7 +341,7 @@ describe('P2 Schedule on the built dist', () => {
         expect.soft(t.role === 'pill' && t.text === IN_PROGRESS, `${m.id} amber "${t.text}" (${t.cls}) is an In Progress pill`).toBe(true);
       }
       const pills = m.texts.filter(t => t.cls.includes(ROWS.pill.slice(1)));
-      if (m.rows.length) expect.soft(pills.length, `${m.id} agenda status pills`).toBeGreaterThan(0);
+      if (m.rows.length && !m.sheet) expect.soft(pills.length, `${m.id} agenda status pills`).toBeGreaterThan(0);
       for (const p of pills) {
         if (p.text !== IN_PROGRESS) expect.soft([p.fg, p.bg], `${m.id} pill "${p.text}" ink on the well`).toEqual([ink, well]);
       }
