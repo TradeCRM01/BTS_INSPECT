@@ -103,7 +103,7 @@ export type TodayOutstandingTotals = {
 };
 
 export type TodayQueryError = { message: string } | null;
-export type TodayQueryResult<T> = Promise<{ data: T[] | null; error: TodayQueryError }>;
+export type TodayQueryEnvelope<T> = { data: T[] | null; error: TodayQueryError };
 
 export type TodayFilterChain<T> = {
   select: (columns: string) => TodayFilterChain<T>;
@@ -115,10 +115,14 @@ export type TodayFilterChain<T> = {
   gt: (column: string, value: string) => TodayFilterChain<T>;
   order: (column: string, opts?: { ascending?: boolean }) => TodayFilterChain<T>;
   limit: (count: number) => TodayFilterChain<T>;
-} & TodayQueryResult<T>;
+  then: (
+    resolve: (value: TodayQueryEnvelope<T>) => unknown,
+    reject?: (reason: unknown) => unknown,
+  ) => Promise<unknown>;
+};
 
 export type TodayBoardClient = {
-  from: (table: string) => TodayFilterChain<Record<string, unknown>> | TodayQueryResult<Record<string, unknown>>;
+  from: (table: string) => TodayFilterChain<Record<string, unknown>>;
 };
 
 export function addIsoDays(iso: string, days: number): string {
@@ -456,10 +460,10 @@ export async function fetchOutstanding(
   return outstandingTotals(invoices, now);
 }
 
-async function readRows<T>(query: TodayQueryResult<T> | TodayFilterChain<T>): Promise<T[]> {
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data ?? []) as T[];
+async function readRows<T>(query: TodayFilterChain<Record<string, unknown>>): Promise<T[]> {
+  const envelope = await Promise.resolve(query as unknown as Promise<TodayQueryEnvelope<T>>);
+  if (envelope.error) throw envelope.error;
+  return (envelope.data ?? []) as T[];
 }
 
 function isoDate(iso: string): Date {
