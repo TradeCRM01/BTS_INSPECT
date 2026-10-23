@@ -2318,7 +2318,7 @@
   }
 
   .overlay-backdrop.hub-ops-form-backdrop {
-    background: color-mix(in srgb, #0A2540 45%, transparent);
+    background: color-mix(in srgb, var(--g-ink) 45%, transparent);
   }
 
   @media (max-width: 639px) {
@@ -2338,14 +2338,19 @@
   .hub-ops-form-sheet.overlay-panel,
   .hub-ops-form-sheet.overlay-panel-lg,
   .hub-ops-form-sheet.overlay-panel-xl {
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
+    background: var(--g-surface);
+    border: 1px solid var(--g-line);
     box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08);
     font-family: var(--g-font-ui);
   }
 
   .hub-ops-form-sheet .overlay-body {
-    background: #FFFDF8;
+    background: var(--g-surface);
+  }
+
+  .hub-ops-form-sheet .hub-ops-form-footer,
+  .job-form-footer {
+    background: var(--g-surface);
   }
 
   @media (max-width: 639px) {
@@ -2476,9 +2481,9 @@
     min-height: 44px;
     padding: 0 14px;
     border-radius: 12px;
-    border: 1px solid #E2D9CC;
-    background: #F5F0E6;
-    color: #0A2540;
+    border: 1px solid var(--g-line);
+    background: var(--g-surface-2);
+    color: var(--g-ink);
     font-size: 14px;
     font-weight: 600;
   }
@@ -2491,7 +2496,7 @@
 
   .hub-job-form-status-pill.is-booked {
     background: color-mix(in srgb, #2E75B6 10%, #fff);
-    color: #0A2540;
+    color: var(--g-ink);
     border-color: color-mix(in srgb, #2E75B6 25%, #e2d9cc);
   }
 
@@ -2509,14 +2514,14 @@
   }
 
   .hub-job-form-crew-chip.is-on {
-    background: #0A2540;
-    color: #FFFDF8;
-    border-color: #0A2540;
+    background: var(--g-ink);
+    color: var(--g-surface);
+    border-color: var(--g-ink);
   }
 
   .hub-job-form-crew-chip:not(.is-on) {
-    background: #F5F0E6;
-    color: #5B6B7C;
+    background: var(--g-surface-2);
+    color: var(--g-ink-muted);
   }
 
   .hub-job-create-client {
@@ -5529,7 +5534,7 @@
     #job-bill .job-bill-line-phone-row dd {
       margin: 0;
       text-align: right;
-      color: #0a2540;
+      color: var(--g-ink);
       font-weight: 600;
     }
 
@@ -5545,8 +5550,8 @@
     #job-bill .job-bill-line-btn {
       min-width: 44px;
       min-height: 44px;
-      border: 1px solid #e5e7eb;
-      background: #fffdf8;
+      border: 1px solid var(--g-line);
+      background: var(--g-surface);
     }
   }
 
@@ -11169,6 +11174,9 @@
   }
 
   .hub-jobs-document .job-sheet-status > summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     list-style: none;
     cursor: pointer;
   }
@@ -11951,8 +11959,8 @@
     z-index: 20;
     min-width: 200px;
     padding: 8px;
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
+    background: var(--g-surface);
+    border: 1px solid var(--g-line);
     border-radius: 16px;
     box-shadow: none;
   }
@@ -11975,7 +11983,7 @@
     border: none;
     border-radius: 12px;
     background: none;
-    color: #0A2540;
+    color: var(--g-ink);
     font-size: 14px;
     font-weight: 500;
     text-align: left;
@@ -12113,13 +12121,11 @@
     position: relative;
     min-height: 620px;
     margin: 0 auto;
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
-    border-radius: 16px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
     overflow: visible;
-    box-shadow:
-      inset 0 1px 0 #fff,
-      0 10px 28px rgba(10, 37, 64, 0.08);
+    box-shadow: none;
   }
 
   .hub-jobs-list-bar {
@@ -12467,7 +12473,7 @@
     border: none;
     border-radius: 12px;
     background: none;
-    color: #0A2540;
+    color: var(--g-ink);
     font-family: var(--g-font-ui);
     font-size: 12px;
     font-weight: 500;
@@ -12475,7 +12481,7 @@
   }
 
   .hub-jobs-list-more-menu button:hover {
-    background: #F5F0E6;
+    background: var(--g-surface-2);
   }
 
   .hub-jobs-list-doc .ops-section-title,
@@ -12740,6 +12746,254 @@
   .hub-jobs-list-filter-count {
     font-variant-numeric: tabular-nums;
     color: inherit;
+  }
+
+  /* r5: later identity/list rules must not flatten the 390 sheet or chip the list. */
+  .hub-jobs.ops-page,
+  .hub-jobs-list-doc.ops-page {
+    background: #fff;
+  }
+
+  .hub-jobs-list-doc .hub-jobs-list-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 2px;
+    width: 100%;
+    max-width: 100%;
+    margin-top: 16px;
+    padding: 3px;
+    border: none;
+    border-radius: 12px;
+    background: #eeeae3;
+    overflow: hidden;
+    overflow-x: hidden;
+    scroll-snap-type: none;
+  }
+
+  .hub-jobs-list-doc .hub-jobs-list-filter {
+    flex: 1 1 calc(25% - 2px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 44px;
+    padding: 0 6px;
+    border: none;
+    border-radius: 10px;
+    background: none;
+    color: var(--g-ink-muted);
+    box-shadow: none;
+    white-space: nowrap;
+  }
+
+  .hub-jobs-list-doc .hub-jobs-list-filter.is-on {
+    background: #fff;
+    color: var(--g-ink);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(10, 37, 64, 0.12);
+  }
+
+  .hub-jobs-document .hub-job-invoice-next-preview {
+    background: none;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    margin: 16px 0 0;
+  }
+
+  .hub-jobs-document .ops-next-detail,
+  .hub-jobs-document .hub-job-invoice-next-preview .ops-next-detail,
+  .hub-jobs-document .hub-job-invoice-next-preview .ops-next-detail[data-job-invoice-detail-reserved='1'] {
+    display: none;
+    min-height: 0;
+    height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .hub-jobs-document .job-sheet-overview-main.hub-jobs-identity {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+    border-bottom: none;
+  }
+
+  .hub-jobs-document .job-sheet-kv.hub-jobs-contact {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .hub-jobs-document .job-sheet-kv-row,
+  .hub-jobs-document .job-sheet-kv-row.hub-jobs-contact-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    column-gap: 12px;
+    align-items: center;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--job-look-line);
+  }
+
+  .hub-jobs-document .job-sheet-kv-row > .job-sheet-kv-label,
+  .hub-jobs-document .hub-jobs-contact-row > .job-sheet-kv-label {
+    display: block;
+    grid-column: 1;
+    grid-row: 1;
+    width: auto;
+    min-height: 0;
+    padding: 0;
+    border: none;
+    color: var(--job-look-muted);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .hub-jobs-document .job-sheet-kv-row > .job-sheet-kv-value,
+  .hub-jobs-document .hub-jobs-contact-row > .job-sheet-kv-value {
+    display: block;
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+    width: auto;
+    padding: 0;
+    border: none;
+    font-size: 16px;
+    line-height: 22px;
+    font-weight: 500;
+  }
+
+  .hub-jobs-document .job-sheet-kv-row > .job-sheet-kv-act,
+  .hub-jobs-document .hub-jobs-contact-row > .job-sheet-kv-act {
+    display: inline-flex;
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 10px;
+    box-shadow: inset 0 0 0 1px var(--job-look-line);
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .hub-jobs-document .job-sheet-notes,
+  .hub-jobs-document .job-sheet-photos,
+  .hub-jobs-document .hub-jobs-scope {
+    width: 100%;
+    max-width: none;
+    flex: 1 0 100%;
+  }
+
+  .job-sheet-photo-ph {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 12px;
+    line-height: 15px;
+    font-weight: 500;
+  }
+
+  @media (max-width: 1023px) {
+    .shell-root:has(.hub-jobs.is-record-open) .shell-header {
+      display: none;
+    }
+
+    .hub-jobs.is-record-open.ops-page {
+      padding: 0 16px 32px;
+      min-height: calc(100dvh - var(--shell-bottom-nav-h, 0px));
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .job-sheet-appbar {
+      display: none;
+    }
+
+    .hub-jobs-document .job-sheet-overview {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 380px);
+      column-gap: 48px;
+      row-gap: 28px;
+      align-items: start;
+    }
+
+    .hub-jobs-document .job-sheet-overview-main.hub-jobs-identity {
+      display: contents;
+    }
+
+    .hub-jobs-document .job-sheet-kv.hub-jobs-contact,
+    .hub-jobs-document .hub-jobs-scope {
+      grid-column: 1;
+    }
+
+    .hub-jobs-document .job-sheet-overview-side {
+      grid-column: 2;
+      grid-row: 1 / span 6;
+    }
+
+    .hub-jobs-document .job-sheet-notes,
+    .hub-jobs-document .job-sheet-photos {
+      grid-column: 1 / -1;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .hub-jobs-document #job-bill .job-bill-lines-wrap,
+    #job-bill .job-bill-lines-wrap {
+      overflow-x: hidden;
+      max-width: 100%;
+    }
+
+    .hub-jobs-document #job-bill .job-bill-lines-table,
+    #job-bill .job-bill-lines-table {
+      width: 100%;
+      max-width: 100%;
+      table-layout: fixed;
+    }
+
+    .hub-jobs-document #job-bill .job-bill-lines-table th,
+    .hub-jobs-document #job-bill .job-bill-lines-table td,
+    #job-bill .job-bill-lines-table th,
+    #job-bill .job-bill-lines-table td {
+      white-space: normal;
+      overflow: hidden;
+      overflow-wrap: anywhere;
+    }
+
+    #job-bill .job-bill-lines-table th:nth-child(1),
+    #job-bill .job-bill-lines-table td:nth-child(1),
+    #job-bill .job-bill-lines-table th:nth-child(2),
+    #job-bill .job-bill-lines-table td:nth-child(2),
+    #job-bill .job-bill-lines-table th:nth-child(3),
+    #job-bill .job-bill-lines-table td:nth-child(3),
+    #job-bill .job-bill-lines-table th:nth-child(5),
+    #job-bill .job-bill-lines-table td:nth-child(5),
+    #job-bill .job-bill-lines-table th:nth-child(6),
+    #job-bill .job-bill-lines-table td:nth-child(6),
+    #job-bill .job-bill-lines-table th:nth-child(7),
+    #job-bill .job-bill-lines-table td:nth-child(7),
+    #job-bill .job-bill-lines-table th:nth-child(8),
+    #job-bill .job-bill-lines-table td:nth-child(8),
+    #job-bill .job-bill-lines-table th:nth-child(9),
+    #job-bill .job-bill-lines-table td:nth-child(9) {
+      display: none;
+    }
+
+    #job-bill .job-bill-line-phone-stack {
+      display: block;
+      margin-top: 8px;
+    }
   }
 
   .hub-jobs-phone-title-row {

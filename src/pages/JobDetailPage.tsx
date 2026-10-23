@@ -3747,11 +3747,12 @@ export function JobDetailPage() {
                       >
                         <span className="job-sheet-photo-ph" aria-hidden="true">
                           <Camera size={18} />
+                          {photo.caption ? <span>{photo.caption}</span> : null}
                         </span>
                         {url && !url.includes('example.test') ? (
                           <img
                             src={url}
-                            alt=""
+                            alt={photo.caption ?? ''}
                             onError={(event) => {
                               event.currentTarget.style.display = 'none';
                             }}

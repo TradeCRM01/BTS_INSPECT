@@ -336,7 +336,7 @@ function enquiryLookRows(): EnquiryRow[] {
   return [
     {
       id: 'look-enquiry-today',
-      callerPhone: '+61400000000',
+      callerPhone: '0400000000',
       clientId: 'look-client-northside',
       clientName: 'Northside Mechanical',
       missedCallAt: '2026-10-09T22:15:00.000Z',
@@ -349,7 +349,7 @@ function enquiryLookRows(): EnquiryRow[] {
     },
     {
       id: 'look-enquiry-noreply',
-      callerPhone: '+61400000000',
+      callerPhone: '0400000000',
       clientId: null,
       clientName: null,
       missedCallAt: '2026-10-09T06:40:00.000Z',
@@ -375,7 +375,7 @@ function enquiryLookRows(): EnquiryRow[] {
     },
     {
       id: 'look-enquiry-approved',
-      callerPhone: '+61400000000',
+      callerPhone: '0400000000',
       clientId: 'look-client-northside',
       clientName: 'Northside Mechanical',
       missedCallAt: '2026-10-05T23:00:00.000Z',
