@@ -845,7 +845,7 @@ export function SchedulePage() {
   const weekRangeShort = `${format(weekStart, 'd MMM')} – ${format(weekEnd, 'd MMM')}`;
   const dayRangeLabel = format(currentDate, 'EEE d MMM yyyy');
   const dayRangeShort = format(currentDate, 'EEE d MMM');
-  const needCrew = countNeedCrewJobs(onBoard);
+  const needCrew = countNeedCrewJobs(boardJobs);
   const boardWhisper = scheduleBoardWhisper({
     onBoard: onBoard.length,
     needCrew,

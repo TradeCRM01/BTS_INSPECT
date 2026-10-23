@@ -229,6 +229,7 @@ const RECIPES: Readonly<Record<Recipe, (page: Page, spec: StateSpec, notes: Note
   },
   empty: async () => {},
   jobserror: async () => {},
+  needcrew: async () => {},
   search: async (page) => {
     const box = page.locator('[data-schedule-search] input, .hub-week-search input').first();
     await box.fill('Luke');
@@ -328,12 +329,13 @@ export async function openState(id: StateId, build: Build = 'branch', height = v
     const page = await context.newPage();
     page.on('websocket', ws => websockets.push(ws.url()));
     page.on('pageerror', err => pageErrors.push(err.message));
-    await page.addInitScript((boot: { path: string; empty?: boolean; jobsError?: boolean }) => {
+    await page.addInitScript((boot: { path: string; empty?: boolean; jobsError?: boolean; needCrewPair?: boolean }) => {
       window.__P2_BOOT__ = boot;
     }, {
       path: spec.path,
       empty: spec.recipe === 'empty',
       jobsError: spec.recipe === 'jobserror',
+      needCrewPair: spec.recipe === 'needcrew',
     });
     await page.goto(url);
     await page.waitForFunction(() => !!window.__p2);

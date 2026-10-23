@@ -117,8 +117,12 @@ describe('P2 Schedule on the built dist', () => {
     for (const m of await states('P2-overflow')) {
       expect.soft(m.docSW, `${m.id} documentElement.scrollWidth`).toBeLessThanOrEqual(m.iw);
       expect.soft(m.bodySW, `${m.id} body.scrollWidth`).toBeLessThanOrEqual(m.iw);
+      expect.soft(m.maxRight, `${m.id} max element rect.right`).toBeLessThanOrEqual(m.iw + TOLERANCE_PX);
       const outside = m.offenders.filter(o => !exempt(o, m.iw));
       expect.soft(outside, `${m.id} elements past innerWidth outside ${SOLE_SCROLLER}`).toEqual([]);
+      for (const b of m.buttons) {
+        expect.soft(b.sw, `${m.id} button "${b.label}" scrollWidth`).toBeLessThanOrEqual(b.cw);
+      }
     }
   });
 
@@ -600,5 +604,12 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(empty.pageErrors, 'empty has no page errors').toEqual([]);
     const err = await measure('error-1280');
     expect.soft(err.layout.pageError, 'jobs error').toBe('Could not load schedule');
+  });
+
+  it(killTitle('K19'), async () => {
+    const m = await measure('needcrew-1280');
+    expect.soft(m.layout.whisper, 'undated in_progress plus one dated crewless').toBe(
+      '1 on the board · 1 need crew · 1 without a date',
+    );
   });
 });
