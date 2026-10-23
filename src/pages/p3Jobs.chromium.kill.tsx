@@ -5,7 +5,7 @@
  * mounts plus a fixture data layer. Painted values only. Filename omits
  * `.test.` so default vitest misses it. gates.sh runs this after build.
  */
-import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -54,6 +54,7 @@ type KillPage = {
   evaluate: <T>(fn: (() => T | Promise<T>) | ((arg: never) => T | Promise<T>), arg?: unknown) => Promise<T>;
   waitForSelector: (sel: string, opts?: { timeout?: number; state?: 'attached' | 'visible' | 'hidden' }) => Promise<unknown>;
   setViewportSize: (size: { width: number; height: number }) => Promise<void>;
+  setContent: (html: string) => Promise<unknown>;
   screenshot: (opts?: {
     type?: 'png';
     clip?: { x: number; y: number; width: number; height: number };
@@ -451,31 +452,82 @@ async function samplePngFillAndText(buf: Buffer): Promise<{
   return { fill, text, contrast: contrastRatio(fill, text) };
 }
 
+async function sampleCtaPaintedRgb(page: KillPage, sel: string): Promise<{
+  center: [number, number, number];
+  fill: [number, number, number];
+}> {
+  const clip = await page.evaluate((selector) => {
+    const el = document.querySelector(selector) as HTMLElement | null;
+    if (!el) return null;
+    const box = el.getBoundingClientRect();
+    return { x: box.x, y: box.y, width: box.width, height: box.height };
+  }, sel);
+  if (!clip || clip.width < 8 || clip.height < 8) throw new Error(`CTA ${sel} has no painted rect`);
+  const buf = await page.screenshot({
+    type: 'png',
+    animations: 'disabled',
+    clip: {
+      x: Math.max(0, clip.x),
+      y: Math.max(0, clip.y),
+      width: clip.width,
+      height: clip.height,
+    },
+  });
+  const b64 = buf.toString('base64');
+  const probe = await browser.newContext({ viewport: { width: 64, height: 64 } });
+  contexts.push(probe);
+  const view = await probe.newPage();
+  await view.setContent(`<!doctype html><canvas id="c"></canvas><script>
+    window.__ready = new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.getElementById('c');
+        c.width = img.width; c.height = img.height;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const mid = ctx.getImageData(Math.floor(img.width / 2), Math.floor(img.height / 2), 1, 1).data;
+        const fillX = Math.min(img.width - 1, Math.max(0, Math.round(img.width * 0.08)));
+        const fill = ctx.getImageData(fillX, Math.floor(img.height / 2), 1, 1).data;
+        resolve({
+          center: [mid[0], mid[1], mid[2]],
+          fill: [fill[0], fill[1], fill[2]],
+        });
+      };
+      img.src = 'data:image/png;base64,${b64}';
+    });
+  </script>`);
+  const rgb = await view.evaluate(() => (
+    window as unknown as { __ready: Promise<{ center: [number, number, number]; fill: [number, number, number] }> }
+  ).__ready);
+  await probe.close();
+  return rgb;
+}
+
 function mockupHtmlPath(): string {
   const candidates = [
+    join(process.cwd(), 'docs/look/p3/job-390-light.html'),
+    '/home/ubuntu/.cursor/projects/workspace/uploads/job-390-light_20cf.html',
     '/home/ubuntu/.cursor/projects/workspace/uploads/job-390-light_dd3f.html',
     join(process.cwd(), 'html/job-390-light.html'),
-    join(process.cwd(), 'docs/look/job-390-light.html'),
   ];
   const found = candidates.find((path) => existsSync(path));
   if (!found) throw new Error('job-390-light.html missing');
   return found;
 }
 
+function mockupKitCss(): string {
+  const kit = join(process.cwd(), 'docs/look/p3/job-390-light-kit.css');
+  return existsSync(kit) ? readFileSync(kit, 'utf8') : '';
+}
+
 async function openMockup(width = 390): Promise<KillPage> {
   const raw = readFileSync(mockupHtmlPath(), 'utf8');
-  const tokens = existsSync(join(process.cwd(), 'src/styles/tokens.css'))
-    ? readFileSync(join(process.cwd(), 'src/styles/tokens.css'), 'utf8')
-    : '';
-  const measured = `<style>
-html,body{margin:0;background:#F5F5F7;color:#0A0A0B}
-.btn-primary{background:#0A0A0B;color:#fff}
-.appbar .back svg,.appbar .back .ic{color:#2E75B6}
-.eyebrow{text-transform:uppercase;letter-spacing:0.08em}
-.kv{display:grid;grid-template-columns:72px 1fr auto;align-items:center}
-${tokens}
-</style>`;
-  const html = raw.replace('</head>', `${measured}</head>`);
+  const kit = `<style>${mockupKitCss()}</style>`;
+  const html = raw
+    .replace('<link rel="stylesheet" href="../tokens.css">', '')
+    .replace('<link rel="stylesheet" href="../../_src/app.css">', '')
+    .replace('<link rel="stylesheet" href="direction.css">', '')
+    .replace('</head>', `${kit}</head>`);
   const dir = mkdtempSync(join(tmpdir(), 'p3-mock-'));
   temps.push(dir);
   const file = join(dir, 'mock.html');
@@ -1338,12 +1390,17 @@ describe('P3 r6 type, CTA contrast, hairlines', () => {
     expect(read.icon, 'receipt icon paints').toBe(true);
     expect(read.clip, 'CTA has a painted rect').toBeTruthy();
     const clip = read.clip!;
+    const paintedCta = await sampleCtaPaintedRgb(page, '[data-job-sheet="cta"]');
     const buf = await page.screenshot({
       type: 'png',
       clip,
       animations: 'disabled',
     });
     await page.close();
+    writeFileSync('/tmp/p3-r8-cta-center.json', JSON.stringify(paintedCta, null, 2));
+    expect(paintedCta.fill[0], `CTA fill ${paintedCta.fill} centre ${paintedCta.center}`).toBeLessThanOrEqual(22);
+    expect(paintedCta.fill[1], `CTA fill ${paintedCta.fill}`).toBeLessThanOrEqual(22);
+    expect(paintedCta.fill[2], `CTA fill ${paintedCta.fill}`).toBeLessThanOrEqual(22);
     const painted = await samplePngFillAndText(buf);
     expect(painted.fill[0], `painted fill ${painted.fill}`).toBeLessThanOrEqual(18);
     expect(painted.fill[1], 'CTA is not navy').toBeLessThanOrEqual(18);
@@ -1486,96 +1543,179 @@ describe('P3 Coach needCrew throw-safe and unknown status pills', () => {
 
 });
 
-describe('P3 r7 mockup vs head at 390', () => {
-  killIt('R7 job-390-light measured properties match the painted sheet', async () => {
-    const measure = (side: 'mockup' | 'head') => {
-      const pageEl = side === 'mockup'
-        ? (document.querySelector('body') as HTMLElement)
-        : (document.querySelector('.hub-jobs.is-record-open.ops-page') as HTMLElement | null);
-      const cta = (side === 'mockup'
-        ? document.querySelector('.btn-primary')
-        : document.querySelector('[data-job-sheet="cta"]')) as HTMLElement | null;
-      const gutterEl = side === 'mockup'
-        ? (document.querySelector('.j') as HTMLElement | null)
-        : pageEl;
-      const label = (side === 'mockup'
-        ? document.querySelector('.kv dt')
-        : document.querySelector('[data-job-sheet="kv-site"] .job-sheet-kv-label')) as HTMLElement | null;
-      const value = (side === 'mockup'
-        ? document.querySelector('.kv dd')
-        : document.querySelector('[data-job-sheet="kv-site"] .job-sheet-kv-value')) as HTMLElement | null;
-      const more = document.querySelector('.job-sheet-appbar .hub-job-more, .appbar [aria-label="More"]') as HTMLElement | null;
-      const search = (side === 'mockup'
-        ? document.querySelector('.appbar [aria-label="Search"]')
-        : document.querySelector('.job-sheet-appbar-search')) as HTMLElement | null;
-      const avatar = (side === 'mockup'
-        ? document.querySelector('.appbar .av')
-        : document.querySelector('.job-sheet-appbar-avatar')) as HTMLElement | null;
-      const chevron = (side === 'mockup'
-        ? document.querySelector('.appbar .back svg')
-        : document.querySelector('.job-sheet-back-chevron')) as HTMLElement | null;
-      const eyebrow = (side === 'mockup'
-        ? document.querySelector('.eyebrow')
-        : document.querySelector('.job-sheet-ref')) as HTMLElement | null;
-      const sub = (side === 'mockup'
-        ? document.querySelector('.cta p')
-        : document.querySelector('[data-job-sheet="sub"]')) as HTMLElement | null;
+describe('P3 r8 mockup vs head at 390', () => {
+  killIt('R8 job-390-light named elements match the painted sheet', async () => {
+    const selectors = {
+      mockup: {
+        cta: '.cta .btn.btn-primary',
+        page: 'body',
+        content: '.j .ref',
+        eyebrow: '.eyebrow',
+        title: 'h1.h1',
+        pill: '.pill.ok',
+        sub: '.cta p',
+        label: '.kv dt',
+        value: '.kv dd',
+        act: '.kv .act',
+        more: '.appbar [aria-label="More"]',
+        search: '.appbar [aria-label="Search"]',
+        avatar: '.appbar .av',
+        chevron: '.appbar .back .ic',
+        email: '.kv-email',
+      },
+      head: {
+        cta: '[data-job-sheet="cta"]',
+        page: '.hub-jobs.is-record-open.ops-page',
+        content: '.job-sheet-head',
+        eyebrow: '.job-sheet-ref',
+        title: 'h1.hub-jobs-hero',
+        pill: '[data-job-sheet-pill]',
+        sub: '[data-job-sheet="sub"]',
+        label: '[data-job-sheet="kv-site"] .job-sheet-kv-label',
+        value: '[data-job-sheet="kv-site"] .job-sheet-kv-value',
+        act: '[data-job-sheet="kv-site"] .job-sheet-kv-act',
+        more: '.job-sheet-appbar .hub-job-more',
+        search: '.job-sheet-appbar-search',
+        avatar: '.job-sheet-appbar-avatar',
+        chevron: '.job-sheet-back-chevron',
+        email: '.job-sheet-kv-email',
+      },
+    };
+    const measure = (sels: typeof selectors.mockup) => {
+      const pageEl = document.querySelector(sels.page) as HTMLElement | null;
+      const cta = document.querySelector(sels.cta) as HTMLElement | null;
+      const content = document.querySelector(sels.content) as HTMLElement | null;
+      const eyebrow = document.querySelector(sels.eyebrow) as HTMLElement | null;
+      const title = document.querySelector(sels.title) as HTMLElement | null;
+      const pill = document.querySelector(sels.pill) as HTMLElement | null;
+      const sub = document.querySelector(sels.sub) as HTMLElement | null;
+      const label = document.querySelector(sels.label) as HTMLElement | null;
+      const value = document.querySelector(sels.value) as HTMLElement | null;
+      const act = document.querySelector(sels.act) as HTMLElement | null;
+      const more = document.querySelector(sels.more) as HTMLElement | null;
+      const search = document.querySelector(sels.search) as HTMLElement | null;
+      const avatar = document.querySelector(sels.avatar) as HTMLElement | null;
+      const chevron = document.querySelector(sels.chevron) as HTMLElement | null;
+      const email = document.querySelector(sels.email) as HTMLElement | null;
       const labelBox = label?.getBoundingClientRect();
       const valueBox = value?.getBoundingClientRect();
+      const actBox = act?.getBoundingClientRect();
+      const moreBox = more?.getBoundingClientRect();
+      const emailBox = email?.getBoundingClientRect();
+      const moreStyle = more ? getComputedStyle(more) : null;
+      const emailStyle = email ? getComputedStyle(email) : null;
       return {
+        selectors: sels,
         ctaBg: cta ? getComputedStyle(cta).backgroundColor : '',
+        ctaOpacity: cta ? getComputedStyle(cta).opacity : '',
+        ctaDisabled: cta ? (cta as HTMLButtonElement).disabled === true : false,
         pageBg: pageEl ? getComputedStyle(pageEl).backgroundColor : '',
-        gutter: gutterEl ? parseFloat(getComputedStyle(gutterEl).paddingLeft) : -1,
+        contentLeft: content ? content.getBoundingClientRect().left : -1,
+        gutter: content ? content.getBoundingClientRect().left : -1,
         labelLeft: !!labelBox && !!valueBox && labelBox.right <= valueBox.left + 2,
-        morePresent: !!more && getComputedStyle(more).display !== 'none' && more.getBoundingClientRect().width > 0,
+        labelWidth: labelBox ? Math.round(labelBox.width) : 0,
+        actRightOfValue: !!valueBox && !!actBox && valueBox.right <= actBox.left + 2,
+        morePresent: !!more && moreStyle?.display !== 'none' && (moreBox?.width || 0) > 0,
         searchBesideAvatar: !!search && !!avatar
           && search.getBoundingClientRect().right <= avatar.getBoundingClientRect().left + 4,
         chevronColor: chevron ? getComputedStyle(chevron).color : '',
         eyebrow: (eyebrow?.textContent || '').trim(),
         eyebrowTransform: eyebrow ? getComputedStyle(eyebrow).textTransform : '',
         eyebrowTracking: eyebrow ? parseFloat(getComputedStyle(eyebrow).letterSpacing) : 0,
+        titleSize: title ? parseFloat(getComputedStyle(title).fontSize) : 0,
+        titleWeight: title ? getComputedStyle(title).fontWeight : '',
+        pillText: (pill?.textContent || '').replace(/\s+/g, ' ').trim(),
+        pillBg: pill ? getComputedStyle(pill).backgroundColor : '',
         subAlign: sub ? getComputedStyle(sub).textAlign : '',
+        emailPainted: !!email && emailStyle?.display !== 'none' && (emailBox?.width || 0) > 0 && (emailBox?.height || 0) > 0,
       };
     };
     const mockPage = await openMockup(390);
-    const mockup = await mockPage.evaluate(measure, 'mockup');
+    const mockup = await mockPage.evaluate(measure, selectors.mockup);
+    const mockCtaRgb = await sampleCtaPaintedRgb(mockPage, selectors.mockup.cta);
+    const mockShot = await mockPage.screenshot({ type: 'png', fullPage: true, animations: 'disabled' });
     await mockPage.close();
     const headPage = await openPage({ width: 390, path: '/jobs/p3-0036' });
     await waitSheet(headPage);
-    const head = await headPage.evaluate(measure, 'head');
+    const head = await headPage.evaluate(measure, selectors.head);
+    const headCtaRgb = await sampleCtaPaintedRgb(headPage, selectors.head.cta);
+    const headShot = await headPage.screenshot({ type: 'png', fullPage: true, animations: 'disabled' });
+    const tabs = await headPage.evaluate(() => {
+      const rail = document.querySelector('.job-sheet-tabs') as HTMLElement | null;
+      const labels = [...document.querySelectorAll('.job-sheet-tab')].map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim());
+      const box = rail?.getBoundingClientRect();
+      return {
+        labels,
+        w: box?.width || 0,
+        clip: box ? { x: box.x, y: box.y, width: box.width, height: box.height } : null,
+      };
+    });
+    const art = '/opt/cursor/artifacts/p3-r8';
+    mkdirSync(art, { recursive: true });
+    writeFileSync(`${art}/390-mockup.png`, mockShot);
+    writeFileSync(`${art}/390-sheet.png`, headShot);
+    if (tabs.clip) {
+      await headPage.screenshot({ path: `${art}/390-tabs.png`, type: 'png', clip: tabs.clip, animations: 'disabled' });
+    }
     await headPage.close();
+    const vs = await browser.newContext({ viewport: { width: 800, height: 900 } });
+    contexts.push(vs);
+    const vsPage = await vs.newPage();
+    const left = mockShot.toString('base64');
+    const right = headShot.toString('base64');
+    await vsPage.setContent(`<!doctype html><html><body style="margin:0;background:#111;display:flex">
+<div style="flex:1;background:#fff"><img alt="mockup" src="data:image/png;base64,${left}" style="width:100%;display:block"/></div>
+<div style="flex:1;background:#fff"><img alt="head" src="data:image/png;base64,${right}" style="width:100%;display:block"/></div>
+</body></html>`);
+    await vsPage.screenshot({ path: `${art}/390-sheet-vs-mockup.png`, type: 'png', fullPage: true, animations: 'disabled' });
+    await vs.close();
     const table = [
-      { property: 'ctaBg', mockup: mockup.ctaBg, head: head.ctaBg },
-      { property: 'pageBg', mockup: mockup.pageBg, head: head.pageBg },
-      { property: 'gutter', mockup: mockup.gutter, head: head.gutter },
-      { property: 'labelLeft', mockup: mockup.labelLeft, head: head.labelLeft },
-      { property: 'morePresent', mockup: mockup.morePresent, head: head.morePresent },
-      { property: 'searchBesideAvatar', mockup: mockup.searchBesideAvatar, head: head.searchBesideAvatar },
-      { property: 'chevronColor', mockup: mockup.chevronColor, head: head.chevronColor },
-      { property: 'eyebrow', mockup: mockup.eyebrow.toUpperCase(), head: head.eyebrow },
-      { property: 'eyebrowTransform', mockup: mockup.eyebrowTransform, head: head.eyebrowTransform },
-      { property: 'subAlign', mockup: mockup.subAlign, head: head.subAlign },
+      { property: 'ctaBg', mockup: mockup.ctaBg, head: head.ctaBg, mockupSel: selectors.mockup.cta, headSel: selectors.head.cta },
+      { property: 'ctaPaintedFill', mockup: mockCtaRgb.fill, head: headCtaRgb.fill, mockupSel: selectors.mockup.cta, headSel: selectors.head.cta },
+      { property: 'ctaPaintedCenter', mockup: mockCtaRgb.center, head: headCtaRgb.center, mockupSel: selectors.mockup.cta, headSel: selectors.head.cta },
+      { property: 'pageBg', mockup: mockup.pageBg, head: head.pageBg, mockupSel: selectors.mockup.page, headSel: selectors.head.page },
+      { property: 'contentLeft', mockup: mockup.contentLeft, head: head.contentLeft, mockupSel: selectors.mockup.content, headSel: selectors.head.content },
+      { property: 'labelLeft', mockup: mockup.labelLeft, head: head.labelLeft, mockupSel: selectors.mockup.label, headSel: selectors.head.label },
+      { property: 'actRightOfValue', mockup: mockup.actRightOfValue, head: head.actRightOfValue, mockupSel: selectors.mockup.act, headSel: selectors.head.act },
+      { property: 'morePresent', mockup: mockup.morePresent, head: head.morePresent, mockupSel: selectors.mockup.more, headSel: selectors.head.more },
+      { property: 'searchBesideAvatar', mockup: mockup.searchBesideAvatar, head: head.searchBesideAvatar, mockupSel: selectors.mockup.search, headSel: selectors.head.search },
+      { property: 'chevronColor', mockup: mockup.chevronColor, head: head.chevronColor, mockupSel: selectors.mockup.chevron, headSel: selectors.head.chevron },
+      { property: 'eyebrow', mockup: mockup.eyebrow.toUpperCase(), head: head.eyebrow, mockupSel: selectors.mockup.eyebrow, headSel: selectors.head.eyebrow },
+      { property: 'titleSize', mockup: mockup.titleSize, head: head.titleSize, mockupSel: selectors.mockup.title, headSel: selectors.head.title },
+      { property: 'pillText', mockup: mockup.pillText, head: head.pillText, mockupSel: selectors.mockup.pill, headSel: selectors.head.pill },
+      { property: 'subAlign', mockup: mockup.subAlign, head: head.subAlign, mockupSel: selectors.mockup.sub, headSel: selectors.head.sub },
+      { property: 'emailPainted', mockup: mockup.emailPainted, head: head.emailPainted, mockupSel: selectors.mockup.email, headSel: selectors.head.email },
     ];
-    writeFileSync('/tmp/p3-r7-mockup-table.json', JSON.stringify({ table, mockup, head }, null, 2));
-    expect(head.ctaBg.replace(/\s+/g, '')).toMatch(/rgb\(10,\s*10,\s*11\)/);
-    expect(mockup.ctaBg.replace(/\s+/g, '')).toMatch(/rgb\(10,\s*10,\s*11\)/);
+    writeFileSync('/tmp/p3-r8-mockup-table.json', JSON.stringify({ table, mockup, head, mockCtaRgb, headCtaRgb, tabs }, null, 2));
+    expect(head.ctaDisabled, 'invoice CTA is not disabled').toBe(false);
+    expect(head.ctaOpacity).toBe('1');
+    expect(headCtaRgb.fill[0], `head CTA fill ${headCtaRgb.fill} centre ${headCtaRgb.center}`).toBeLessThanOrEqual(22);
+    expect(headCtaRgb.fill[1], `head CTA fill ${headCtaRgb.fill}`).toBeLessThanOrEqual(22);
+    expect(headCtaRgb.fill[2], `head CTA fill ${headCtaRgb.fill}`).toBeLessThanOrEqual(22);
+    expect(mockCtaRgb.fill[0], `mockup CTA fill ${mockCtaRgb.fill}`).toBeLessThanOrEqual(22);
     expect(head.pageBg.replace(/\s+/g, '')).toMatch(/rgb\(245,\s*245,\s*247\)/);
     expect(mockup.pageBg.replace(/\s+/g, '')).toMatch(/rgb\(245,\s*245,\s*247\)/);
-    expect(head.gutter).toBe(16);
-    expect(mockup.gutter).toBe(16);
+    expect(Math.round(head.contentLeft), 'head first content left').toBeGreaterThanOrEqual(14);
+    expect(Math.round(head.contentLeft), 'head first content left').toBeLessThanOrEqual(18);
+    expect(Math.round(mockup.contentLeft), 'mockup first content left').toBeGreaterThanOrEqual(14);
+    expect(Math.round(mockup.contentLeft), 'mockup first content left').toBeLessThanOrEqual(18);
     expect(head.labelLeft).toBe(true);
     expect(mockup.labelLeft).toBe(true);
+    expect(head.actRightOfValue).toBe(true);
     expect(head.morePresent).toBe(false);
     expect(mockup.morePresent).toBe(false);
     expect(head.searchBesideAvatar).toBe(true);
-    expect(mockup.searchBesideAvatar).toBe(true);
     expect(head.chevronColor.replace(/\s+/g, '')).toMatch(/rgb\(46,\s*117,\s*182\)/);
-    expect(mockup.chevronColor.replace(/\s+/g, '')).toMatch(/rgb\(46,\s*117,\s*182\)/);
     expect(head.eyebrow).toBe('JOB #0036');
     expect(mockup.eyebrow.toUpperCase()).toBe('JOB #0036');
     expect(head.eyebrowTransform).toBe('uppercase');
     expect(head.eyebrowTracking).toBeGreaterThan(0);
+    expect(head.titleSize).toBeGreaterThanOrEqual(32);
+    expect(Number(head.titleWeight)).toBeGreaterThanOrEqual(700);
+    expect(head.pillText).toContain('Ready to invoice');
     expect(head.subAlign).toBe('center');
-    expect(mockup.subAlign).toBe('center');
+    expect(head.emailPainted, 'Email is not its own painted row').toBe(false);
+    expect(tabs.labels.some((label) => /Paperwork/.test(label) && /\d/.test(label))).toBe(true);
+    expect(tabs.labels.some((label) => /Materials/.test(label) && /\d/.test(label))).toBe(true);
   });
 });

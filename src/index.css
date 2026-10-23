@@ -13066,20 +13066,37 @@
 
   /* End jobs list document */
 
-  /* r7: measured job-390-light HTML. Later than 20px/whisper/12px/r6 rules. */
+  /* r8: painted job-390-light-vp-01. Later than 20px/whisper/12px/r6/r7. */
   .hub-jobs.is-record-open.ops-page,
   .hub-jobs.is-record-open .hub-jobs-sheet,
-  .hub-jobs.is-record-open .hub-jobs-document {
+  .hub-jobs.is-record-open .hub-jobs-document,
+  .hub-jobs.is-record-open .hub-jobs-sheet-body {
     background: #F5F5F7;
   }
 
-  @media (max-width: 639px) {
+  @media (max-width: 1023px) {
+    .shell-root:has(.hub-jobs.is-record-open),
+    .shell-root:has(.hub-jobs.is-record-open) .shell-main {
+      background: #F5F5F7;
+    }
+
     .hub-jobs.is-record-open.ops-page {
       padding: 4px 16px 24px;
     }
 
     .hub-jobs.is-record-open .hub-jobs-sheet-body {
       padding: 0;
+    }
+
+    .hub-jobs.is-record-open .job-sheet-appbar .hub-jobs-tools-overflow,
+    .hub-jobs.is-record-open .job-sheet-appbar .hub-job-more,
+    .job-sheet-appbar .hub-job-more {
+      display: none !important;
+    }
+
+    .hub-jobs-document .job-sheet-kv-email,
+    .hub-jobs-document .job-client-email-addr {
+      display: none !important;
     }
   }
 
@@ -13099,7 +13116,7 @@
     font-size: 16px;
     font-weight: 500;
     letter-spacing: 0;
-    color: var(--job-look-ink);
+    color: #0A0A0B;
   }
 
   .hub-jobs.is-record-open .job-sheet-back-chevron {
@@ -13108,13 +13125,6 @@
 
   .hub-jobs.is-record-open .job-sheet-appbar-search {
     margin-left: auto;
-  }
-
-  @media (max-width: 1023px) {
-    .hub-jobs.is-record-open .job-sheet-appbar .hub-jobs-tools-overflow,
-    .hub-jobs.is-record-open .job-sheet-appbar .hub-job-more {
-      display: none;
-    }
   }
 
   .job-sheet-appbar .hub-job-more > summary {
@@ -13168,8 +13178,12 @@
 
   .hub-jobs-document .hub-jobs-tools .btn-primary,
   .hub-jobs-document .hub-jobs-tools .ops-next-control-block,
+  .hub-jobs-document .hub-jobs-tools .btn-primary:disabled,
+  .hub-jobs-document .hub-jobs-tools .ops-next-control-block:disabled,
   .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools .btn-primary,
-  .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools .ops-next-control-block {
+  .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools .ops-next-control-block,
+  .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools .btn-primary:disabled,
+  .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools .ops-next-control-block:disabled {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -13177,12 +13191,15 @@
     width: 100%;
     min-height: 56px;
     height: 56px;
-    background: #0A0A0B; /* r7-cta-ink */
-    color: #fff;
+    background: #0A0A0B !important;
+    background-image: none !important;
+    color: #fff !important;
     font-family: var(--g-font-ui);
     font-size: 17px;
     font-weight: 600;
-    opacity: 1;
+    opacity: 1 !important;
+    filter: none !important;
+    box-shadow: none;
   }
 
   .hub-jobs-document .job-sheet-sub {
@@ -13229,14 +13246,15 @@
   }
 
   .hub-jobs-document .job-sheet-kv-name,
+  .hub-jobs-document a.job-sheet-kv-name,
   .hub-jobs-document .job-sheet-kv-row > .job-sheet-kv-value,
   .hub-jobs-document .hub-jobs-contact-row > .job-sheet-kv-value,
   .hub-jobs-document .job-sheet-kv-value .job-client-phone-num {
-    color: var(--job-look-ink);
+    color: #0A0A0B !important;
     font-size: 16px;
     line-height: 22px;
     font-weight: 500;
-    text-decoration: none;
+    text-decoration: none !important;
   }
 
   .hub-jobs-document .job-sheet-kv-act,
