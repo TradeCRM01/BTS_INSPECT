@@ -18,8 +18,8 @@ import {
 } from './jobSheetChrome';
 
 describe('job sheet chrome', () => {
-  it('prints JOB #0036, the when-sub line, and drops zero parts', () => {
-    expect(jobSheetEyebrow('#0036')).toBe('JOB #0036');
+  it('prints Job #0036, the when-sub line, and drops zero parts', () => {
+    expect(jobSheetEyebrow('#0036')).toBe('Job #0036');
     expect(jobSheetSubLine({ billLines: 4, minutes: 264 })).toBe('4 bill lines · 4.4 h logged');
     expect(jobSheetSubLine({ billLines: 1, minutes: 60 })).toBe('1 bill line · 1 h logged');
     expect(jobSheetSubLine({ billLines: 0, minutes: 264 })).toBe('4.4 h logged');

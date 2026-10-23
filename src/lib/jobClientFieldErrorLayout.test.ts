@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-const require = createRequire('/tmp/pw/package.json');
+const require = createRequire(import.meta.url);
 const { chromium } = require('playwright-core') as {
   chromium: {
     launch: (opts: { headless: boolean; executablePath?: string }) => Promise<{
