@@ -181,6 +181,7 @@ import {
   Clock,
   FileText, ShieldCheck, ShieldAlert, Receipt, DollarSign, Plus, ClipboardList, GitBranch,
   MoreHorizontal, MapPin, Camera, CheckCircle2, CornerDownRight, Lock, ChevronRight, Search,
+  Navigation, Phone,
 } from 'lucide-react';
 import {
   buildJobClockOffEntry,
@@ -3158,7 +3159,7 @@ export function JobDetailPage() {
           .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools .btn-primary,
           .hub-jobs.is-record-open .hub-jobs-sheet-body .hub-jobs-tools .ops-next-control-block {
             flex: 1 1 auto;
-            width: auto;
+            width: 100%;
             min-width: 0;
           }
           .hub-jobs.is-record-open .hub-jobs-tools-overflow {
@@ -3175,49 +3176,6 @@ export function JobDetailPage() {
           <button type="button" className="job-sheet-appbar-search" aria-label="Search">
             <Search size={22} />
           </button>
-          <span className="job-sheet-appbar-avatar" aria-label="Account">
-            {(profile?.name ?? 'DM').split(/\s+/).filter(Boolean).map((part: string) => part.charAt(0)).join('').slice(0, 2).toUpperCase()}
-          </span>
-        </header>
-        <Breadcrumbs items={[
-          { label: 'Jobs', to: '/jobs' },
-          { label: `${jobRef} ${job.title}` },
-        ]} />
-
-        <article
-          className="hub-jobs-document job-cal-host"
-          style={{
-            ['--job-sheet-head-bar' as string]: JOB_SHEET_HEAD_BAR,
-            ['--job-sheet-link' as string]: JOB_SHEET_LINK,
-          }}
-        >
-          <header className="hub-jobs-sheet-bar" aria-hidden="true" />
-          <div className="hub-jobs-sheet-body">
-            <div className="job-sheet-head">
-            <div className="job-sheet-eyebrow">
-              <span className="job-sheet-ref">{jobSheetEyebrow(jobRef)}</span>
-              <details className="job-sheet-status">
-                <summary
-                  className={`hub-jobs-pill is-${pill.tone} hub-jobs-status-whisper`}
-                  aria-label="Job status"
-                  data-job-sheet-pill={pill.kind}
-                >
-                  {pill.label}
-                </summary>
-                <div className="job-sheet-status-menu" role="listbox" aria-label="Set job status">
-                  {JOB_SHEET_STATUS_OPTIONS.map(opt => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      role="option"
-                      aria-selected={job.status === opt.value}
-                      onClick={() => updateStatus.mutate(opt.value)}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </details>
             <div className="hub-jobs-tools-overflow">
               <details ref={moreRef} className="hub-job-more">
                 <summary aria-label="More actions">
@@ -3323,6 +3281,49 @@ export function JobDetailPage() {
                 </div>
               </details>
             </div>
+          <span className="job-sheet-appbar-avatar" aria-label="Account">
+            {(profile?.name ?? 'DM').split(/\s+/).filter(Boolean).map((part: string) => part.charAt(0)).join('').slice(0, 2).toUpperCase()}
+          </span>
+        </header>
+        <Breadcrumbs items={[
+          { label: 'Jobs', to: '/jobs' },
+          { label: `${jobRef} ${job.title}` },
+        ]} />
+
+        <article
+          className="hub-jobs-document job-cal-host"
+          style={{
+            ['--job-sheet-head-bar' as string]: JOB_SHEET_HEAD_BAR,
+            ['--job-sheet-link' as string]: JOB_SHEET_LINK,
+          }}
+        >
+          <header className="hub-jobs-sheet-bar" aria-hidden="true" />
+          <div className="hub-jobs-sheet-body">
+            <div className="job-sheet-head">
+            <div className="job-sheet-eyebrow">
+              <span className="job-sheet-ref">{jobSheetEyebrow(jobRef)}</span>
+              <details className="job-sheet-status">
+                <summary
+                  className={`hub-jobs-pill is-${pill.tone} hub-jobs-status-whisper`}
+                  aria-label="Job status"
+                  data-job-sheet-pill={pill.kind}
+                >
+                  {pill.label}
+                </summary>
+                <div className="job-sheet-status-menu" role="listbox" aria-label="Set job status">
+                  {JOB_SHEET_STATUS_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="option"
+                      aria-selected={job.status === opt.value}
+                      onClick={() => updateStatus.mutate(opt.value)}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </details>
             </div>
             <h1 className="hub-jobs-hero">{job.title}</h1>
             {site ? (
@@ -3362,6 +3363,7 @@ export function JobDetailPage() {
                     <button
                       type="button"
                       className="btn-primary ops-next-control-block"
+                      data-job-sheet="cta"
                       title={next.detail}
                       disabled={nextBusy}
                       aria-busy={invoiceNextBusy ? true : undefined}
@@ -3372,7 +3374,12 @@ export function JobDetailPage() {
                           <LoadingSpinner size="sm" />
                           Creating…
                         </>
-                      ) : nextLabel}
+                      ) : (
+                        <>
+                          {invoiceCta ? <Receipt size={20} aria-hidden="true" /> : null}
+                          {nextLabel}
+                        </>
+                      )}
                     </button>
                   ) : (
                     <>
@@ -3466,10 +3473,12 @@ export function JobDetailPage() {
                       target="_blank"
                       rel="noreferrer"
                     >
+                      <Navigation size={16} aria-hidden="true" />
                       Go
                     </a>
                   ) : null}
                 </div>
+                <div className="job-sheet-kv-rule" data-job-kv-rule="1" aria-hidden="true" />
                 {parentJob && (
                   <Link to={`/jobs/${parentJob.id}`} className="inline-flex items-center gap-1 ops-meta job-sheet-link">
                     <GitBranch size={12} />
@@ -3513,7 +3522,7 @@ export function JobDetailPage() {
               ) : attachRow.kind === 'miss' ? (
                 <span className="ops-meta">{JOB_CLIENT_ATTACH_NO_CLIENTS}</span>
               ) : headerClient.kind === 'name' && job.client_id ? (
-                <Link to={clientRecordHref(job.client_id)} className="job-sheet-link">
+                <Link to={clientRecordHref(job.client_id)} className="job-sheet-kv-name">
                   {headerClient.name}
                 </Link>
               ) : headerClient.kind === 'pending' ? (
@@ -3521,8 +3530,59 @@ export function JobDetailPage() {
               ) : (
                 <span className="ops-meta">No client</span>
               )}
+                  <div className="job-sheet-kv-email">
+              {!contactHeld && emailRow.kind === 'mailto' && (
+                <a href={`mailto:${emailRow.email}`} className="job-client-email-addr job-sheet-link">
+                  {emailRow.email}
+                </a>
+              )}
+              {!contactHeld && emailRow.kind === 'edit' && (
+                <form
+                  className="job-client-email"
+                  noValidate
+                  onSubmit={e => {
+                    e.preventDefault();
+                    const emailDecision = decideJobClientEmailSave({
+                      clientId: job.client_id,
+                      email: clientEmailDraft,
+                    });
+                    if (emailDecision.action === 'miss') {
+                      setClientEmailError(FIELD_EMAIL);
+                      return;
+                    }
+                    setClientEmailError('');
+                    saveClientEmail.mutate();
+                  }}
+                >
+                  <input
+                    type="text"
+                    inputMode="email"
+                    value={clientEmailDraft}
+                    onChange={e => {
+                      setClientEmailDraft(e.target.value);
+                      setClientEmailError('');
+                    }}
+                    placeholder="Email"
+                    className={clientEmailError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
+                    aria-label="Client email"
+                    autoComplete="email"
+                    aria-invalid={clientEmailError ? true : undefined}
+                    aria-describedby={clientEmailError ? 'job-client-email-error' : undefined}
+                  />
+                  <button
+                    type="submit"
+                    className="job-client-email-save"
+                    disabled={saveClientEmail.isPending}
+                  >
+                    Save
+                  </button>
+                  {clientEmailError ? <p id="job-client-email-error" className="field-inline-error text-fail">{clientEmailError}</p> : null}
+                </form>
+              )}
+                  </div>
                   </span>
                 </div>
+                <div className="job-sheet-kv-rule" data-job-kv-rule="1" aria-hidden="true" />
                 <div className="job-sheet-kv-row" data-job-sheet="kv-phone">
                   <span className="job-sheet-kv-label">Phone</span>
                   <span className="job-sheet-kv-value">
@@ -3575,63 +3635,12 @@ export function JobDetailPage() {
                   </span>
                   {!contactHeld && phoneRow.kind === 'tel' ? (
                     <a href={`tel:${phoneRow.phone}`} className="job-sheet-link job-sheet-kv-act">
+                      <Phone size={16} aria-hidden="true" />
                       Call
                     </a>
                   ) : null}
                 </div>
-                <div className="job-sheet-kv-row" data-job-sheet="kv-email">
-                  <span className="job-sheet-kv-label">Email</span>
-                  <span className="job-sheet-kv-value">
-              {!contactHeld && emailRow.kind === 'mailto' && (
-                <a href={`mailto:${emailRow.email}`} className="job-client-email-addr job-sheet-link">
-                  {emailRow.email}
-                </a>
-              )}
-              {!contactHeld && emailRow.kind === 'edit' && (
-                <form
-                  className="job-client-email"
-                  noValidate
-                  onSubmit={e => {
-                    e.preventDefault();
-                    const emailDecision = decideJobClientEmailSave({
-                      clientId: job.client_id,
-                      email: clientEmailDraft,
-                    });
-                    if (emailDecision.action === 'miss') {
-                      setClientEmailError(FIELD_EMAIL);
-                      return;
-                    }
-                    setClientEmailError('');
-                    saveClientEmail.mutate();
-                  }}
-                >
-                  <input
-                    type="text"
-                    inputMode="email"
-                    value={clientEmailDraft}
-                    onChange={e => {
-                      setClientEmailDraft(e.target.value);
-                      setClientEmailError('');
-                    }}
-                    placeholder="Email"
-                    className={clientEmailError ? 'form-input-sm field-inline-invalid' : 'form-input-sm'}
-                    aria-label="Client email"
-                    autoComplete="email"
-                    aria-invalid={clientEmailError ? true : undefined}
-                    aria-describedby={clientEmailError ? 'job-client-email-error' : undefined}
-                  />
-                  <button
-                    type="submit"
-                    className="job-client-email-save"
-                    disabled={saveClientEmail.isPending}
-                  >
-                    Save
-                  </button>
-                  {clientEmailError ? <p id="job-client-email-error" className="field-inline-error text-fail">{clientEmailError}</p> : null}
-                </form>
-              )}
-                  </span>
-                </div>
+                <div className="job-sheet-kv-rule" data-job-kv-rule="1" aria-hidden="true" />
                 <div className="job-sheet-kv-row" data-job-sheet="kv-crew">
                   <span className="job-sheet-kv-label">Crew</span>
                   <span
