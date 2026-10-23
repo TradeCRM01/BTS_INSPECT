@@ -69,15 +69,19 @@ describe('needsCrew', () => {
   });
 
   it('mutant: restoring the assigned_team throw throws on a non-array', () => {
-    function needsCrewThrowing(job: { status?: string | null; scheduled_date?: string | null; assigned_team?: unknown }): boolean {
+    function needsCrewThrowing(job: {
+      status?: string | null;
+      scheduled_date?: string | null;
+      assigned_team?: string[] | null;
+    }): boolean {
       if (!(job.scheduled_date ?? '').trim()) return false;
       if (isFinishedCrewStatus(job.status)) return false;
-      return (job.assigned_team ?? []).every((id: { trim?: () => string }) => !id?.trim());
+      return (job.assigned_team ?? []).every(id => !id?.trim());
     }
     expect(() => needsCrewThrowing({
       status: 'scheduled',
       scheduled_date: '2026-10-19',
-      assigned_team: 'dave',
+      assigned_team: 'dave' as unknown as string[],
     })).toThrow();
     expect(() => needsCrew({
       status: 'scheduled',
