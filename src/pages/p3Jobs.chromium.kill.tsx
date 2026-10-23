@@ -1809,6 +1809,14 @@ describe('P3 r9 mockup vs head at 390', () => {
       const notesExtraEl = mock
         ? (notesSec?.querySelector('.row .small, .row .muted') as HTMLElement | null)
         : (notesSec?.querySelector('.job-sheet-link') as HTMLElement | null);
+      const photosSec = mock
+        ? ([...document.querySelectorAll('section.sec')] as HTMLElement[])
+          .find((sec) => /Photos/.test((sec.querySelector('.h2')?.textContent || ''))) ?? null
+        : document.querySelector('[data-job-sheet="photos"]') as HTMLElement | null;
+      const photosH = (photosSec?.querySelector(mock ? '.h2' : 'h2') || null) as HTMLElement | null;
+      const photosExtraEl = mock
+        ? (photosSec?.querySelector('.row .small, .row .muted') as HTMLElement | null)
+        : (photosSec?.querySelector('.job-sheet-link') as HTMLElement | null);
       const photos = document.querySelector(mock ? '.photos' : '.job-sheet-photo-grid') as HTMLElement | null;
       const photoTiles = [...document.querySelectorAll(mock ? '.ph' : '.job-sheet-photo')] as HTMLElement[];
       const photo = photoTiles.find((tile) => {
@@ -1834,6 +1842,7 @@ describe('P3 r9 mockup vs head at 390', () => {
       const billCells = [...(bill3?.children ?? [])] as HTMLElement[];
       const billCellLefts = [...new Set(billCells.map((cell) => Math.round(cell.getBoundingClientRect().left)))];
       const billCellTops = [...new Set(billCells.map((cell) => Math.round(cell.getBoundingClientRect().top)))];
+      const billCellVs = billCells.map((cell) => cell.querySelector(mock ? '.v' : '.job-sheet-bill-v') as HTMLElement | null);
       const billSubs = [...document.querySelectorAll(mock ? '.bl .s' : '.job-sheet-bill-s')] as HTMLElement[];
       const totBig = document.querySelector(mock ? '.tot.big' : '.job-sheet-bill-tot.is-big') as HTMLElement | null;
       return {
@@ -1900,6 +1909,8 @@ describe('P3 r9 mockup vs head at 390', () => {
         notesHSize: notesH ? parseFloat(getComputedStyle(notesH).fontSize) : -1,
         notesHWeight: notesH ? getComputedStyle(notesH).fontWeight : '',
         notesExtra: (notesExtraEl?.textContent || '').replace(/\s+/g, ' ').trim(),
+        photosH: (photosH?.textContent || '').replace(/\s+/g, ' ').trim(),
+        photosExtra: (photosExtraEl?.textContent || '').replace(/\s+/g, ' ').trim(),
         photoCols: photos ? getComputedStyle(photos).gridTemplateColumns.split(' ').filter(Boolean).length : 0,
         photoGap: photos ? parseFloat(getComputedStyle(photos).columnGap || getComputedStyle(photos).gap) : -1,
         photoRatio: photoBox && photoBox.height > 0 ? photoBox.width / photoBox.height : 0,
@@ -1929,6 +1940,13 @@ describe('P3 r9 mockup vs head at 390', () => {
         billVLh: billV ? parseFloat(getComputedStyle(billV).lineHeight) : -1,
         billVWeight: billV ? getComputedStyle(billV).fontWeight : '',
         billVVariant: billV ? getComputedStyle(billV).fontVariantNumeric : '',
+        billVInsets: billCells.map((cell, i) => {
+          const v = billCellVs[i];
+          return v ? v.getBoundingClientRect().left - cell.getBoundingClientRect().left : -1;
+        }),
+        billVSizes: billCellVs.map((v) => (v ? parseFloat(getComputedStyle(v).fontSize) : -1)),
+        billVLhs: billCellVs.map((v) => (v ? parseFloat(getComputedStyle(v).lineHeight) : -1)),
+        billVWeights: billCellVs.map((v) => (v ? getComputedStyle(v).fontWeight : '')),
         billSubCount: billSubs.length,
         billSubText: (billSubs[0]?.textContent || '').replace(/\s+/g, ' ').trim(),
         totBigSize: totBig ? parseFloat(getComputedStyle(totBig).fontSize) : -1,
@@ -2097,6 +2115,10 @@ describe('P3 r9 mockup vs head at 390', () => {
     expect(near(head.photoRadius, mockup.photoRadius)).toBe(true);
     expect(head.photoShadow).toMatch(/inset/i);
     expect(mockup.photoShadow).toMatch(/inset/i);
+    expect(mockup.photosH, 'mock Photos heading is the word Photos').toBe('Photos');
+    expect(mockup.photosExtra, 'mock Photos count format N · …').toMatch(/^\d+ · /);
+    expect(head.photosH, 'head Photos heading disclosed; count is data, format Photos · N not mock extra N · …').toMatch(/^Photos · \d+$/);
+    expect(head.photosExtra, 'head Photos extra disclosed; mock extra is N · placeholders').toBe('All photos');
     expect(head.photoHasIcon, 'head placeholder camera icon').toBe(true);
     expect(mockup.photoHasIcon, 'mock placeholder camera icon').toBe(true);
     expect(near(head.photoIconX, mockup.photoIconX), `photo icon X head ${head.photoIconX} mock ${mockup.photoIconX}`).toBe(true);
@@ -2154,6 +2176,10 @@ describe('P3 r9 mockup vs head at 390', () => {
     expect(head.billFirstBorderL).toBe(0);
     expect(head.billCellPadL).toBe(12);
     expect(head.billCellBorderL).toBe(1);
+    expect(mockup.billFirstPadL).toBe(0);
+    expect(mockup.billFirstBorderL).toBe(0);
+    expect(mockup.billCellPadL).toBe(12);
+    expect(mockup.billCellBorderL).toBe(1);
     expect(head.bill3BorderTop).toBe('1px');
     expect(head.bill3BorderBottom).toBe('1px');
     expect(near(head.billLSize, 13)).toBe(true);
@@ -2162,6 +2188,36 @@ describe('P3 r9 mockup vs head at 390', () => {
     expect(near(head.billVLh, 26)).toBe(true);
     expect(Number(head.billVWeight)).toBe(600);
     expect(head.billVVariant).toMatch(/tabular-nums/);
+    expect(near(mockup.billVSize, 20)).toBe(true);
+    expect(near(mockup.billVLh, 26)).toBe(true);
+    expect(Number(mockup.billVWeight)).toBe(600);
+    expect(mockup.billVVariant).toMatch(/tabular-nums/);
+    expect(head.billVInsets.length, 'head bill value insets').toBe(3);
+    expect(mockup.billVInsets.length, 'mock bill value insets').toBe(3);
+    expect(near(head.billVInsets[0], 0), `head Budget value inset ${head.billVInsets[0]}`).toBe(true);
+    expect(near(head.billVInsets[1], 12), `head Cost value inset ${head.billVInsets[1]}`).toBe(true);
+    expect(near(head.billVInsets[2], 12), `head Charge value inset ${head.billVInsets[2]}`).toBe(true);
+    expect(near(mockup.billVInsets[0], 0), `mock Budget value inset ${mockup.billVInsets[0]}`).toBe(true);
+    expect(near(mockup.billVInsets[1], 12), `mock Cost value inset ${mockup.billVInsets[1]}`).toBe(true);
+    expect(near(mockup.billVInsets[2], 12), `mock Charge value inset ${mockup.billVInsets[2]}`).toBe(true);
+    expect(near(head.billVSizes[0], 20), `head Budget .v size ${head.billVSizes[0]}`).toBe(true);
+    expect(near(head.billVSizes[1], 20), `head Cost .v size ${head.billVSizes[1]}`).toBe(true);
+    expect(near(head.billVSizes[2], 20), `head Charge .v size ${head.billVSizes[2]}`).toBe(true);
+    expect(near(head.billVLhs[0], 26), `head Budget .v lh ${head.billVLhs[0]}`).toBe(true);
+    expect(near(head.billVLhs[1], 26), `head Cost .v lh ${head.billVLhs[1]}`).toBe(true);
+    expect(near(head.billVLhs[2], 26), `head Charge .v lh ${head.billVLhs[2]}`).toBe(true);
+    expect(Number(head.billVWeights[0]), 'head Budget .v weight').toBe(600);
+    expect(Number(head.billVWeights[1]), 'head Cost .v weight').toBe(600);
+    expect(Number(head.billVWeights[2]), 'head Charge .v weight').toBe(600);
+    expect(near(mockup.billVSizes[0], 20), `mock Budget .v size ${mockup.billVSizes[0]}`).toBe(true);
+    expect(near(mockup.billVSizes[1], 20), `mock Cost .v size ${mockup.billVSizes[1]}`).toBe(true);
+    expect(near(mockup.billVSizes[2], 20), `mock Charge .v size ${mockup.billVSizes[2]}`).toBe(true);
+    expect(near(mockup.billVLhs[0], 26), `mock Budget .v lh ${mockup.billVLhs[0]}`).toBe(true);
+    expect(near(mockup.billVLhs[1], 26), `mock Cost .v lh ${mockup.billVLhs[1]}`).toBe(true);
+    expect(near(mockup.billVLhs[2], 26), `mock Charge .v lh ${mockup.billVLhs[2]}`).toBe(true);
+    expect(Number(mockup.billVWeights[0]), 'mock Budget .v weight').toBe(600);
+    expect(Number(mockup.billVWeights[1]), 'mock Cost .v weight').toBe(600);
+    expect(Number(mockup.billVWeights[2]), 'mock Charge .v weight').toBe(600);
     expect(head.billSubCount, 'real line sub-lines').toBeGreaterThan(0);
     expect(mockup.billSubCount).toBeGreaterThan(0);
     expect(head.billSubText).toMatch(/·/);
@@ -2216,6 +2272,10 @@ describe('P3 r9 mockup vs head at 390', () => {
     expect(box.bottom, `${width} Actions bottom`).toBeGreaterThan(0);
     expect(box.left, `${width} Actions left`).toBeLessThan(box.innerW);
     expect(box.right, `${width} Actions right`).toBeGreaterThan(0);
+    expect(box.top, `${width} Actions top`).toBeGreaterThanOrEqual(-1);
+    expect(box.bottom, `${width} Actions bottom`).toBeLessThanOrEqual(box.innerH + 1);
+    expect(box.left, `${width} Actions left`).toBeGreaterThanOrEqual(-1);
+    expect(box.right, `${width} Actions right`).toBeLessThanOrEqual(box.innerW + 1);
     expect(box.sumW, `${width} Actions summary width`).toBeGreaterThan(0);
     expect(box.sumH, `${width} Actions summary height`).toBeGreaterThan(0);
     expect(box.sumW, `${width} Actions summary fills gutters`).toBeGreaterThanOrEqual(box.innerW - 32 - 1);
