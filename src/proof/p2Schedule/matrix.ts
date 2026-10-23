@@ -2,15 +2,11 @@
 // No runtime imports and erasable syntax only, so Node type stripping can load it from the script.
 
 export const BASE_SHA = '0898c3b93f167a090615232141bf73790bf731ef';
-// process.env.TZ may be UTC for the Node suite. Guard the read so the browser
-// bundle never throws. Playwright timezoneId follows env TZ; FROZEN_NOW matches
-// so K8 still reads Now 13:40 / 13:41 under UTC and Brisbane.
-export const HARNESS_PROCESS_TZ = typeof process !== 'undefined' && process.env && process.env.TZ ? process.env.TZ : '';
-export const TIMEZONE = HARNESS_PROCESS_TZ || 'Australia/Brisbane';
-export const FROZEN_NOW_UTC = '2026-10-19T13:40:00.000Z';
-export const FROZEN_NOW_AEST = '2026-10-19T13:40:00+10:00';
-export const FROZEN_NOW = TIMEZONE === 'UTC' || TIMEZONE === 'Etc/UTC' ? FROZEN_NOW_UTC : FROZEN_NOW_AEST;
-export const FROZEN_NOW_PLUS_1 = TIMEZONE === 'UTC' || TIMEZONE === 'Etc/UTC' ? '2026-10-19T13:41:00.000Z' : '2026-10-19T13:41:00+10:00';
+// One fixed instant under every process TZ. Playwright timezoneId stays
+// Australia/Brisbane so K8 still reads Now 13:40 / 13:41; a UTC clock bug fails.
+export const TIMEZONE = 'Australia/Brisbane';
+export const FROZEN_NOW = '2026-10-19T13:40:00+10:00';
+export const FROZEN_NOW_PLUS_1 = '2026-10-19T13:41:00+10:00';
 export const BEFORE_DIR = '/tmp/p2-proofs/before';
 export const BASELINE_VITEST_LOG = '/tmp/p2-baseline/vitest-built.log';
 
@@ -413,17 +409,6 @@ export type LookPins = {
   segActiveInk: string;
 };
 
-export type PhoneLookPins = {
-  headerLeft: number;
-  searchLeft: number;
-  searchRight: number;
-  dayGroupLeft: number;
-  cardLeft: number;
-  barBottom: number;
-  eyebrowTop: number;
-  eyebrowGap: number;
-  geistCheck: boolean;
-};
 export type ReachBox = { top: number; bottom: number; height: number; visible: number };
 export type ReachProbe = { tray: ReachBox; lastLane: ReachBox; agenda: ReachBox; agendaFirst: ReachBox; vh: number };
 export type TrackProbe = {
@@ -629,7 +614,7 @@ export const MUTANTS: readonly MutantSpec[] = [
   { id: 'crew-name-wrap', kill: 'K25', file: 'src/index.css', find: '  .hub-board-cal .hub-schedule-crew-name,\n  .hub-week-crew-name,\n  .hub-week-document .hub-week-crew .hub-schedule-crew-name,\n  .hub-week-document .hub-day-crew-lock .hub-schedule-crew-name {\n    white-space: nowrap;\n  }', replace: '  .hub-board-cal .hub-schedule-crew-name,\n  .hub-week-crew-name,\n  .hub-week-document .hub-week-crew .hub-schedule-crew-name,\n  .hub-week-document .hub-day-crew-lock .hub-schedule-crew-name {\n    white-space: normal;\n    max-width: 36px;\n  }', brief: 'crew names wrap onto two lines' },
   { id: 'seg-no-stroke', kill: 'K25', file: 'src/index.css', find: '  .hub-week-seg {\n    display: inline-flex;\n    align-items: stretch;\n    flex: 0 0 auto;\n    gap: 2px;\n    border: 1px solid var(--g-line-strong);\n    border-radius: 14px;', replace: '  .hub-week-seg {\n    display: inline-flex;\n    align-items: stretch;\n    flex: 0 0 auto;\n    gap: 2px;\n    border: none;\n    border-radius: 0;', brief: 'pill seg loses its painted stroke and radius' },
   { id: 'nav-no-stroke', kill: 'K25', file: 'src/index.css', find: '  .hub-week-nav-box {\n    border: 1px solid var(--g-line-strong);\n    border-radius: 10px;', replace: '  .hub-week-nav-box {\n    border: none;\n    border-radius: 0;', brief: 'nav boxes lose their painted stroke' },
-  { id: 'today-no-stroke', kill: 'K25', file: 'src/index.css', find: '    .hub-board-cal.is-week-doc .hub-week-today {\n      width: 85.25px;\n      min-width: 85.25px;\n      height: 48px;\n      min-height: 48px;\n      margin-left: auto;\n      padding: 0 20px;', replace: '    .hub-board-cal.is-week-doc .hub-week-today {\n      width: auto;\n      min-width: 0;\n      height: 32px;\n      min-height: 32px;\n      margin-left: 0;\n      padding: 0 20px;', brief: 'Today loses its fixture-measured 85.25×48 white fill' },
+  { id: 'today-no-stroke', kill: 'K25', file: 'src/index.css', find: '  .hub-week-today {\n    flex: 0 0 auto;\n    width: auto;\n    min-width: 44px;\n    height: 44px;\n    min-height: 44px;\n    border: 1px solid var(--g-line-strong);\n    border-radius: 10px;', replace: '  .hub-week-today {\n    flex: 0 0 auto;\n    width: auto;\n    min-width: 44px;\n    height: 44px;\n    min-height: 44px;\n    border: none;\n    border-radius: 10px;', brief: 'Today loses its painted border/ring at :7340' },
   { id: 'search-fixed-width', kill: 'K25', file: 'src/index.css', find: '    .hub-board-cal.is-week-doc .hub-week-search {\n      flex: 1 1 755.265625px;\n      min-width: 0;\n      max-width: 755.265625px;\n      width: 755.265625px;\n      height: 48px;\n      min-height: 48px;\n    }', replace: '    .hub-board-cal.is-week-doc .hub-week-search {\n      flex: 0 0 200px;\n      min-width: 0;\n      max-width: 200px;\n      width: 200px;\n      height: 48px;\n      min-height: 48px;\n    }', brief: 'fix the laptop search at 200px' },
   { id: 'today-beside-arrows', kill: 'K25', file: 'src/pages/SchedulePage.tsx', find: `      </div>
       <div className="hub-week-search" data-schedule-search="1">
@@ -676,7 +661,7 @@ export const SCOPE = {
   ],
   forbiddenDirs: ['docs/look/p1/'],
   cssFile: 'src/index.css',
-  cssBaseRanges: [[6088, 9024]],
+  cssBaseRanges: [[6088, 8600]],
   exactLine: { file: 'src/pages/SchedulePage.tsx', line: 219, text: "  const lookParam = searchParams.get('look');" },
   lookParamText: "  const lookParam = searchParams.get('look');",
   tscMax: 180,

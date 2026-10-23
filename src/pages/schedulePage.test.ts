@@ -17,6 +17,8 @@ describe('schedule page week/day board', () => {
     expect(page).not.toContain('hidden lg:flex ops-seg');
     expect(page).not.toContain("useState<ViewMode>('day')");
     expect(page).toContain('hydrateJobParentNumbers(attachJobClients(jobs, [...clientMap.values()]))');
+    expect(page).toContain('scheduleDayKey');
+    expect(page).toContain('asStatusText');
   });
 
   it('opens the existing job page from the board, tray, and search', () => {

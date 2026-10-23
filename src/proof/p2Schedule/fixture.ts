@@ -45,6 +45,8 @@ export const JOB_IDS = {
   statusNum: 'aaaaaaaa-0302-4000-8000-000000000302',
   statusObj: 'aaaaaaaa-0303-4000-8000-000000000303',
   dateNum: 'aaaaaaaa-0304-4000-8000-000000000304',
+  dateObj: 'aaaaaaaa-0305-4000-8000-000000000305',
+  dateArr: 'aaaaaaaa-0306-4000-8000-000000000306',
 } as const;
 
 const C = {
@@ -460,6 +462,24 @@ export const STATUS_RULE_JOBS: readonly Row[] = [
     scheduled_date: 20261019,
     start_time: '08:00:00',
     end_time: '09:00:00',
+    assigned_team: [],
+    status: 'scheduled',
+  }),
+  job({
+    id: JOB_IDS.dateObj,
+    job_number: 305,
+    title: 'Date as object',
+    client_id: C.luke,
+    scheduled_date: { y: 2026, m: 10, d: 19 },
+    assigned_team: [],
+    status: 'scheduled',
+  }),
+  job({
+    id: JOB_IDS.dateArr,
+    job_number: 306,
+    title: 'Date as array',
+    client_id: C.nora,
+    scheduled_date: ['2026-10-19'],
     assigned_team: [],
     status: 'scheduled',
   }),
