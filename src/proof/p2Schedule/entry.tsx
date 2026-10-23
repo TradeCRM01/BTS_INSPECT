@@ -545,11 +545,14 @@ function reach(): ReachProbe {
   for (const el of document.querySelectorAll('.hub-week-sheet-body, .hub-board-cal, .hub-week-document, .hub-phone-week-list')) {
     if (['auto', 'scroll'].includes(getComputedStyle(el).overflowY)) (el as HTMLElement).scrollTop = el.scrollHeight;
   }
-  const tray = document.querySelector('[data-schedule-rail], [data-schedule-section="tray"], [data-schedule-phone-unscheduled]');
-  const lanes = [...document.querySelectorAll('[data-week-crew], [data-crew-lane]')];
+  const trays = [...document.querySelectorAll('[data-schedule-rail], [data-schedule-section="tray"], [data-schedule-phone-unscheduled]')];
+  const tray = trays.find(visible) ?? trays[0] ?? null;
+  const lanes = [...document.querySelectorAll('[data-week-crew], [data-crew-lane]')].filter(visible);
   const lastLane = lanes.length ? lanes[lanes.length - 1] : null;
   tray?.scrollIntoView({ block: 'end' });
   lastLane?.scrollIntoView({ block: 'end' });
+  root.scrollTop = root.scrollHeight;
+  if (m) m.scrollTop = m.scrollHeight;
   const out = {
     tray: intersectBox(tray),
     lastLane: intersectBox(lastLane),
@@ -744,7 +747,8 @@ function layoutProbe(): LayoutProbe {
     if (prev) prev.lanes.push(...card.lanes);
     else byId.set(card.id, { ...card, lanes: [...card.lanes] });
   }
-  const tray = document.querySelector('[data-schedule-rail], [data-schedule-unscheduled-list], [data-schedule-phone-unscheduled]');
+  const trays = [...document.querySelectorAll('[data-schedule-rail], [data-schedule-unscheduled-list], [data-schedule-phone-unscheduled]')];
+  const tray = trays.find(visible) ?? trays[0] ?? null;
   return {
     h1: [...document.querySelectorAll('h1')].filter(visible).map(el => (el.textContent ?? '').trim()),
     eyebrow: (document.querySelector('[data-schedule-eyebrow]')?.textContent ?? '').trim(),
