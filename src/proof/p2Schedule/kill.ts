@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import {
-  CONTRAST, EMPTY_COPY, FADE, FOCUS, IN_PROGRESS, JOB_REF, KILLS, MOCKUP_SEARCH_TOL, MOCKUP_SEARCH_WIDTH, NOW, PALETTE, PHONE_BOARD_BREAKPOINT, PHONE_TABS, ROWS, SAME_COLOUR,
+  CONTRAST, EMPTY_COPY, FADE, FOCUS, IN_PROGRESS, JOB_REF, KILLS, MOCKUP_H1_LEFT, MOCKUP_SEARCH_TOL, MOCKUP_SEARCH_WIDTH, MOCKUP_TRAY_HEADING_H, NOW, PALETTE, PHONE_BOARD_BREAKPOINT, PHONE_TABS, ROWS, SAME_COLOUR,
   SHEET, TAP_MIN, TODAY, TRACK_PROBE, UNTIMED, WEEK, channelGap, isAmber, isNavy, killTitle, rgbOf,
   type KillId, type Measure, type Offender, type Stroke,
 } from './matrix.ts';
@@ -139,14 +139,36 @@ describe('P2 Schedule on the built dist', () => {
       }
       if (m.dayTrack) {
         expect.soft(['auto', 'scroll'].includes(m.dayTrack.overflowX), `${m.id} ${SOLE_SCROLLER} overflow-x is a scroller`).toBe(true);
+        expect.soft(m.dayTrack.left, `${m.id} ${SOLE_SCROLLER} left stays in the viewport`).toBeGreaterThanOrEqual(-TOLERANCE_PX);
         expect.soft(m.dayTrack.right, `${m.id} ${SOLE_SCROLLER} stays on screen`).toBeLessThanOrEqual(m.iw + TOLERANCE_PX);
+        expect.soft(m.dayTrack.top, `${m.id} ${SOLE_SCROLLER} top stays in the viewport`).toBeGreaterThanOrEqual(-TOLERANCE_PX);
         if (m.iw < PHONE_BOARD_BREAKPOINT && m.id.startsWith('day-')) {
           expect.soft(m.dayTrack.sw, `${m.id} ${SOLE_SCROLLER} scrollWidth`).toBeGreaterThan(m.dayTrack.cw);
         }
       }
+      const chromeRight = [
+        ['page', m.chrome.pageRight],
+        ['header', m.chrome.headerRight],
+        ['toolbar', m.chrome.toolbarBoxRight],
+        ['tray', m.chrome.trayRight],
+      ] as const;
+      for (const [name, right] of chromeRight) {
+        if (right < 0) continue;
+        expect.soft(right, `${m.id} ${name} rect.right stays ≤ innerWidth`).toBeLessThanOrEqual(m.iw + TOLERANCE_PX);
+      }
+      const cardTexts = m.trackLabels.filter(lab => lab.card.includes('chip') || lab.card.includes('agenda-row') || lab.card.includes('schedule-job') || lab.card.includes('untimed') || lab.card.includes('rail-job'));
+      if (/^(week|day|tray|rail)-/.test(m.id)) {
+        expect.soft(cardTexts.length, `${m.id} card text descendants measured`).toBeGreaterThan(0);
+      }
       for (const lab of m.trackLabels) {
         expect.soft(lab.fitsCard, `${m.id} track label "${lab.text}" past card ${lab.card}`).toBe(true);
         expect.soft(lab.fitsClip, `${m.id} track label "${lab.text}" clipped by ${lab.clipEl || 'viewport'}`).toBe(true);
+      }
+      if (/^(week|day|tray)-/.test(m.id) && !m.sheet) {
+        const longest = m.trackLabels.filter(lab => /Add a time/.test(lab.text) || /Booked /.test(lab.text));
+        if (m.id.startsWith('week-') || m.id.startsWith('day-')) {
+          expect.soft(longest.length, `${m.id} longest status-plus-date string measured`).toBeGreaterThan(0);
+        }
       }
     }
   });
@@ -721,6 +743,8 @@ describe('P2 Schedule on the built dist', () => {
     const week = await measure('week-1280');
     const c = week.chrome;
     expect.soft(c.headerLeft < c.newJobLeft, 'New job sits to the right of the header').toBe(true);
+    expect.soft(Math.abs(c.h1Left - MOCKUP_H1_LEFT), `Schedule h1 left ${c.h1Left} vs mockup ${MOCKUP_H1_LEFT} (page ${c.pageLeft} pad ${c.pagePadLeft} parent ${c.h1ParentLeft})`).toBeLessThanOrEqual(1);
+    expect.soft(Math.abs(c.eyebrowLeft - MOCKUP_H1_LEFT), `eyebrow left ${c.eyebrowLeft} vs mockup ${MOCKUP_H1_LEFT}`).toBeLessThanOrEqual(1);
     expect.soft(c.segPainted, 'pill seg paints a border').toBeGreaterThanOrEqual(4);
     expect.soft(c.segCornerCut, 'pill seg radius cuts the corner').toBe(true);
     expect.soft(c.navPainted, 'boxed ‹ › paint a border').toBeGreaterThanOrEqual(4);
@@ -741,7 +765,7 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(c.weekCrewLines, 'week crew names stay one line').toBe(1);
 
     const rail = await measure('rail-1280');
-    expect.soft(Math.abs(rail.chrome.trayHeadingH - 32), 'tray heading matches mockup 32').toBeLessThanOrEqual(1);
+    expect.soft(Math.abs(rail.chrome.trayHeadingH - MOCKUP_TRAY_HEADING_H), `tray heading ${rail.chrome.trayHeadingH} vs measured mockup ${MOCKUP_TRAY_HEADING_H}`).toBeLessThanOrEqual(1);
     expect.soft(rail.chrome.trayHeadingText, 'tray heading').toBe('Unscheduled');
     expect.soft(rail.chrome.trayCols, 'tray 3 compact columns').toBe(3);
 

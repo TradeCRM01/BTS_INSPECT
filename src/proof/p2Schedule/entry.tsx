@@ -567,8 +567,9 @@ function reach(): ReachProbe {
   return out;
 }
 
-function overflow(): Pick<DomMeasure, 'iw' | 'docSW' | 'bodySW' | 'maxRight' | 'maxEl' | 'offenders' | 'buttons' | 'clips' | 'overflowSkips'> {
+function overflow(): Pick<DomMeasure, 'iw' | 'ih' | 'docSW' | 'bodySW' | 'maxRight' | 'maxEl' | 'offenders' | 'buttons' | 'clips' | 'overflowSkips'> {
   const iw = window.innerWidth;
+  const ih = window.innerHeight;
   let maxRight = 0;
   let maxEl = '';
   const offenders: Offender[] = [];
@@ -588,7 +589,7 @@ function overflow(): Pick<DomMeasure, 'iw' | 'docSW' | 'bodySW' | 'maxRight' | '
     const pastClip = Number.isFinite(clip.right) && r.right > clip.right + 0.5;
     if (pastClip && own.textOverflow === 'ellipsis') {
       overflowSkips.push({ el: describe(el), right: Math.round(r.right * 10) / 10, reason: 'ellipsis-self' });
-    } else if (pastClip && clip.clipEl.includes(trackClass)) {
+    } else if (pastClip && (clip.clipEl.includes(trackClass) || !!el.closest(TRACK_PROBE.selector))) {
       overflowSkips.push({ el: describe(el), right: Math.round(r.right * 10) / 10, reason: 'clip-inside-allowlisted-scroller' });
     } else if (pastClip) {
       clips.push({
@@ -640,6 +641,7 @@ function overflow(): Pick<DomMeasure, 'iw' | 'docSW' | 'bodySW' | 'maxRight' | '
     }));
   return {
     iw,
+    ih,
     docSW: document.documentElement.scrollWidth,
     bodySW: document.body.scrollWidth,
     maxRight: Math.round(maxRight * 10) / 10,
@@ -659,37 +661,49 @@ function dayTrackInfo(): DayTrackInfo | null {
     overflowX: getComputedStyle(el).overflowX,
     sw: el.scrollWidth,
     cw: el.clientWidth,
+    left: Math.round(r.left * 10) / 10,
     right: Math.round(r.right * 10) / 10,
+    top: Math.round(r.top * 10) / 10,
+    bottom: Math.round(r.bottom * 10) / 10,
   };
 }
 
 function trackLabels(): TrackLabel[] {
-  const host = track();
-  if (!host) return [];
+  const hosts = [...document.querySelectorAll('.hub-week-board, .hub-day-board, .hub-week-agenda, .hub-phone-week-list, [data-schedule-section="tray"], [data-schedule-rail], [data-schedule-unscheduled-list], .hub-phone-unscheduled')];
   const out: TrackLabel[] = [];
   const push = (el: Element, card: Element) => {
     if (!visible(el)) return;
+    if (!(el.textContent ?? '').trim()) return;
     const own = getComputedStyle(el);
     const clamp = (own.getPropertyValue('-webkit-line-clamp') || 'none') !== 'none' || own.textOverflow === 'ellipsis';
+    const clipsOwn = clamp || own.overflowX !== 'visible' || own.overflowY !== 'visible';
     const boxR = el.getBoundingClientRect();
-    const textR = clamp ? boxR : (textBox(el) ?? boxR);
+    const textR = clipsOwn ? boxR : (textBox(el) ?? boxR);
     const cardR = card.getBoundingClientRect();
     const clip = clipBox(el, true);
     const clipIsTrack = clip.clipEl.includes(TRACK_PROBE.selector.slice(1));
-    const fitsClip = clamp || clipIsTrack || !Number.isFinite(clip.right)
+    let clipOnCard = clipIsTrack;
+    for (let node: Element | null = el; node && node !== card.parentElement; node = node.parentElement) {
+      const s = getComputedStyle(node);
+      if (s.overflowX === 'visible' && s.overflowY === 'visible') continue;
+      clipOnCard = card === node || card.contains(node) || clipIsTrack;
+      break;
+    }
+    const fitsClip = clamp || clipOnCard || !Number.isFinite(clip.right)
       || (textR.left >= clip.left - 0.5 && textR.right <= clip.right + 0.5);
     out.push({
       el: describe(el),
       text: (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 48),
       card: describe(card),
-      fitsCard: textR.left >= cardR.left - 0.5 && textR.right <= cardR.right + 0.5,
+      fitsCard: textR.right <= cardR.right + 0.5,
       fitsClip,
       clipEl: clip.clipEl,
     });
   };
-  for (const card of host.querySelectorAll('.hub-week-chip, [data-untimed-chip]')) {
-    for (const el of card.querySelectorAll('.hub-week-chip-clock, .hub-week-chip-ref, .hub-week-chip-desc, .hub-week-chip-line1')) {
-      push(el, card);
+  for (const host of hosts) {
+    for (const card of host.querySelectorAll('.hub-week-chip, .hub-week-agenda-row, [data-untimed-chip], [data-schedule-rail-job], [data-schedule-job]')) {
+      if (!card.matches('.hub-week-chip, .hub-week-agenda-row') && card.querySelector('.hub-week-chip, .hub-week-agenda-row')) continue;
+      for (const el of card.querySelectorAll('*')) push(el, card);
     }
   }
   return out;
@@ -711,6 +725,9 @@ function lineCount(el: Element | null): number {
 
 function chrome(): ChromeProbe {
   const header = document.querySelector('.ops-page-head');
+  const page = document.querySelector('.hub-board-cal.ops-page');
+  const h1 = document.querySelector('.ops-page-head .ops-page-title, .ops-page-head h1');
+  const eyebrow = document.querySelector('[data-schedule-eyebrow], .hub-schedule-eyebrow');
   const newJob = [...document.querySelectorAll('button')].find(el => visible(el) && (el.textContent ?? '').includes('New job')) ?? null;
   const seg = document.querySelector('.hub-week-seg');
   const navs = [...document.querySelectorAll('.hub-week-nav-box')].filter(visible);
@@ -743,7 +760,16 @@ function chrome(): ChromeProbe {
   return {
     headerAlign: header ? getComputedStyle(header).textAlign : '',
     headerLeft: header?.getBoundingClientRect().left ?? -1,
+    headerRight: header?.getBoundingClientRect().right ?? -1,
     headerTop: header?.getBoundingClientRect().top ?? -1,
+    h1Left: h1?.getBoundingClientRect().left ?? -1,
+    eyebrowLeft: eyebrow?.getBoundingClientRect().left ?? -1,
+    h1ParentLeft: (h1?.parentElement ?? header)?.getBoundingClientRect().left ?? -1,
+    pageLeft: page?.getBoundingClientRect().left ?? -1,
+    pageRight: page?.getBoundingClientRect().right ?? -1,
+    pagePadLeft: page ? parseFloat(getComputedStyle(page).paddingLeft) || 0 : 0,
+    toolbarBoxRight: toolbar?.getBoundingClientRect().right ?? -1,
+    trayRight: tray?.getBoundingClientRect().right ?? -1,
     newJobLeft: newJob?.getBoundingClientRect().left ?? -1,
     newJobRight: newJob?.getBoundingClientRect().right ?? -1,
     segPainted: 0,
