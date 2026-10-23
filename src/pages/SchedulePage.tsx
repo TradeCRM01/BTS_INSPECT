@@ -590,7 +590,7 @@ export function SchedulePage() {
 
       return hydrateJobParentNumbers(attachJobClients(jobs, [...clientMap.values()]));
     },
-    enabled: !!profile,
+    enabled: !!profile && !boardLookActive,
   });
 
   useEffect(() => {
@@ -1106,7 +1106,7 @@ export function SchedulePage() {
     </div>
   );
 
-  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load schedule" /></AppShell>;
+  if (pageQueryBlocked(error) && !boardLookActive) return <AppShell><PageError message="Could not load schedule" /></AppShell>;
 
   return (
     <AppShell>

@@ -218,15 +218,28 @@ async function openLook(args: {
   const href = `${pathToFileURL(file).href}${args.path.includes('?') ? args.path.slice(args.path.indexOf('?')) : ''}`;
   await page.goto(href);
   await page.waitForSelector(args.wait || '.shell-header', { timeout: 20000 });
-  await page.evaluate(async () => { await document.fonts.ready; });
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  });
   return page;
+}
+
+async function waitForAnyText(page: KillPage, texts: string[], timeoutMs = 12000): Promise<string> {
+  const started = Date.now();
+  let painted = await pageText(page);
+  while (Date.now() - started < timeoutMs) {
+    if (texts.some((text) => painted.includes(text))) return painted;
+    await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 120)));
+    painted = await pageText(page);
+  }
+  return painted;
 }
 
 async function pageText(page: KillPage): Promise<string> {
   return page.evaluate(() => {
-    const html = document.documentElement.innerHTML;
-    const text = document.body.textContent || '';
-    return `${text}\n${html}`;
+    const root = document.getElementById('root') || document.body;
+    return `${root.textContent || ''}\n${root.innerHTML}`;
   });
 }
 
@@ -277,7 +290,7 @@ describe('lookParam chromium kills', () => {
       for (const look of page.looks) {
         const href = lookHref(page.path, look.value, look.search ? `&${look.search}` : '');
         const tab = await openLook({ path: href, js: proofJs, wait: page.wait });
-        const painted = await pageText(tab);
+        const painted = await waitForAnyText(tab, look.fixtures);
         await tab.close();
         const hit = look.fixtures.some((fixture) => painted.includes(fixture));
         expect(hit, `${page.id} ?look=${look.value} missing ${look.fixtures.join(' | ')}`).toBe(true);
@@ -290,7 +303,7 @@ describe('lookParam chromium kills', () => {
         const look = page.looks[0];
         const href = lookHref(page.path, look.value, look.search ? `&${look.search}` : '');
         const tab = await openLook({ path: href, js, wait: page.wait });
-        const painted = await pageText(tab);
+        const painted = await waitForAnyText(tab, look.fixtures);
         await tab.close();
         const hit = look.fixtures.some((fixture) => painted.includes(fixture));
         expect(hit, `${page.id} un-gate must leak ${look.fixtures.join(' | ')}`).toBe(true);

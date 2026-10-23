@@ -159,6 +159,37 @@ const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
   { key: 'paid', label: 'Paid' },
 ];
 
+function lookProofInvoiceRow(): InvoiceWithDetails {
+  return {
+    id: 'look-invoice-letterhead',
+    company_id: 'c1',
+    invoice_number: 2002,
+    client_id: null,
+    job_id: null,
+    quote_id: null,
+    status: 'sent',
+    line_items: [{ description: 'Site labour', quantity: 8, unit_price: 95 }],
+    subtotal: 760,
+    tax_rate: 10,
+    tax_amount: 76,
+    total: 836,
+    amount_paid: 0,
+    payment_terms: '14 days',
+    due_date: '2026-09-17',
+    notes: null,
+    inclusions: [],
+    exclusions: [],
+    created_by: '00000000-0000-0000-0000-000000000002',
+    created_at: '2026-08-24T00:00:00.000Z',
+    updated_at: '2026-08-24T00:00:00.000Z',
+    client_name: 'Northside Electrical',
+    client_email: 'accounts@northside.example',
+    client_phone: null,
+    job_title: null,
+    job_address: null,
+  };
+}
+
 export function InvoicesPage() {
   const { profile, company } = useAuth();
   const queryClient = useQueryClient();
@@ -180,7 +211,7 @@ export function InvoicesPage() {
   const paymentProof = isDevFieldAuditAuth() && lookParam(searchParams, 'payment') === '1';
   const money4PartPaidLook = isDevFieldAuditAuth() && lookParam(searchParams) === 'money-4-part-paid';
   const money4PartPaidOverdueLook = isDevFieldAuditAuth() && lookParam(searchParams) === 'money-4-part-paid-overdue';
-  const sweep7IssuedLook = isDevFieldAuditAuth() && lookParam(searchParams) === 'sweep7-issued';
+  const sweep7IssuedLook = lookParam(searchParams) === 'sweep7-issued';
 
   const { data: smtpSettings } = useQuery<SmtpSettingsRow | null>({
     queryKey: ['email-settings', profile?.company_id],
@@ -260,6 +291,16 @@ export function InvoicesPage() {
             due_date: paymentProof ? '2099-12-31' : merged.due_date,
           } as InvoiceWithDetails];
         }
+      }
+      const look = lookParam(searchParams);
+      if (
+        lookLetterhead
+        || look === 'sweep7-issued'
+        || look === 'invoice-edit-paid'
+        || look === 'invoice-edit-edit'
+        || look === 'invoice-edit-pdf'
+      ) {
+        return [lookProofInvoiceRow()];
       }
       const { data, error } = await supabase
         .from('invoices')
@@ -361,11 +402,16 @@ export function InvoicesPage() {
   }, [searchParams, openedInvoice, openedInvoiceError, setSearchParams]);
 
   useEffect(() => {
-    if (!lookLetterhead || !invoices?.length || showForm) return;
+    const look = lookParam(searchParams);
+    const openLook = lookLetterhead
+      || look === 'invoice-edit-paid'
+      || look === 'invoice-edit-edit'
+      || look === 'invoice-edit-pdf';
+    if (!openLook || !invoices?.length || showForm) return;
     setEditingInvoice(invoices[0]);
     setPresetClientId(null);
     setShowForm(true);
-  }, [lookLetterhead, invoices, showForm]);
+  }, [lookLetterhead, invoices, showForm, searchParams]);
 
   useEffect(() => {
     if (!sweep7IssuedLook || !invoices?.length || showForm) return;

@@ -21,10 +21,9 @@ export const LOOK_PAGE_KILLS: LookPageKill[] = [
     component: 'DashboardPage',
     path: '/',
     wait: '[data-dashboard-home="1"], .dashboard-home, .shell-header',
-    live: ['Owen Price — delete ok', 'CoS Invitee Test'],
     looks: [
-      { value: 'dashboard', fixtures: ['Thursday 3 September'] },
-      { value: 'dashboard-seed', fixtures: ['Thursday 3 September'] },
+      { value: 'dashboard', fixtures: ['Thursday 3 September', 'Northside Electrical'] },
+      { value: 'dashboard-seed', fixtures: ['Thursday 3 September', 'Northside Electrical'] },
       { value: 'dashboard-repro', fixtures: ['Thursday 3 September'] },
       { value: 'dashboard-jack', fixtures: ['Thursday 3 September'] },
       { value: 'crew-s8d-dashboard-needs', fixtures: ['Thursday 3 September'] },
@@ -49,7 +48,7 @@ export const LOOK_PAGE_KILLS: LookPageKill[] = [
     looks: [
       { value: 'jobs-list', fixtures: ['Northside Electrical'] },
       { value: 'enquiries', fixtures: ['From missed call'] },
-      { value: 'enquiries-empty', fixtures: ['From missed call'] },
+      { value: 'enquiries-empty', fixtures: ['No enquiries yet'] },
       { value: 'enquiries-one', fixtures: ['From missed call'] },
     ],
   },
@@ -71,8 +70,8 @@ export const LOOK_PAGE_KILLS: LookPageKill[] = [
   },
   {
     id: 'take5',
-    file: 'src/pages/Take5Page.tsx',
-    component: 'Take5Page',
+    file: 'src/pages/Take5ListPage.tsx',
+    component: 'Take5ListPage',
     path: '/jha/take5',
     wait: '.hub-take5, .shell-header',
     looks: [{ value: 'take5-list', fixtures: ['Northside Electrical'] }],
@@ -85,7 +84,7 @@ export const LOOK_PAGE_KILLS: LookPageKill[] = [
     wait: '.hub-reports, .shell-header',
     looks: [
       { value: 'reports-list', fixtures: ['RPT-2002'] },
-      { value: 'drive-error', fixtures: ['Could not load reports'] },
+      { value: 'drive-error', fixtures: ["Couldn't load reports"] },
     ],
   },
   {
@@ -95,8 +94,8 @@ export const LOOK_PAGE_KILLS: LookPageKill[] = [
     path: '/schedule',
     wait: '.hub-week, .hub-schedule, .shell-header',
     looks: [
-      { value: 'week-board', fixtures: ['PWD Group'] },
-      { value: 'fix3a-schedule', fixtures: ['PWD Group', 'Site measure'] },
+      { value: 'week-board', fixtures: ['Site measure'] },
+      { value: 'fix3a-schedule', fixtures: ['Heat pump service'] },
     ],
   },
   {
@@ -115,7 +114,7 @@ export const LOOK_PAGE_KILLS: LookPageKill[] = [
     wait: '.hub-compliance, .shell-header',
     looks: [
       { value: 'compliance-list', fixtures: ['Annual RCD test'] },
-      { value: 'hotfix-date-bad', fixtures: ['Annual RCD test'] },
+      { value: 'hotfix-date-bad', fixtures: ['Backflow test delete ok'] },
     ],
   },
   {
@@ -148,8 +147,8 @@ export const LOOK_PAGE_KILLS: LookPageKill[] = [
     path: '/quotes',
     wait: '.shell-header',
     looks: [
-      { value: 'letterhead', fixtures: ['wordmark-padded-field-audit.png'] },
-      { value: 'sweep7-issued', fixtures: ['wordmark-padded-field-audit.png'] },
+      { value: 'letterhead', fixtures: ['#2002', 'Northside Electrical'] },
+      { value: 'sweep7-issued', fixtures: ['Northside Electrical'] },
     ],
   },
   {
@@ -159,11 +158,11 @@ export const LOOK_PAGE_KILLS: LookPageKill[] = [
     path: '/invoices',
     wait: '.shell-header',
     looks: [
-      { value: 'letterhead', fixtures: ['wordmark-padded-field-audit.png'] },
-      { value: 'invoice-edit-paid', fixtures: ['wordmark-padded-field-audit.png'] },
-      { value: 'invoice-edit-edit', fixtures: ['wordmark-padded-field-audit.png'] },
-      { value: 'invoice-edit-pdf', fixtures: ['wordmark-padded-field-audit.png'] },
-      { value: 'sweep7-issued', fixtures: ['wordmark-padded-field-audit.png'] },
+      { value: 'letterhead', fixtures: ['#2002', 'Northside Electrical'] },
+      { value: 'invoice-edit-paid', fixtures: ['#2002'] },
+      { value: 'invoice-edit-edit', fixtures: ['#2002'] },
+      { value: 'invoice-edit-pdf', fixtures: ['#2002'] },
+      { value: 'sweep7-issued', fixtures: ['#2002'] },
     ],
   },
   {
@@ -173,7 +172,7 @@ export const LOOK_PAGE_KILLS: LookPageKill[] = [
     path: '/expenses',
     wait: '.hub-expenses, .shell-header',
     looks: [
-      { value: 'expense1-empty', fixtures: ['Add expense'] },
+      { value: 'expense1-empty', fixtures: ['What kind of cost is this?'] },
       { value: 'expense1-filled', fixtures: ['— delete ok'] },
       { value: 'scan-bunnings', fixtures: ['Bunnings'] },
       { value: 'scan-overhead', fixtures: ['CBRE Property'] },
@@ -187,8 +186,8 @@ export const LOOK_PAGE_KILLS: LookPageKill[] = [
     wait: '.shell-header',
     looks: [
       { value: 'letterhead', fixtures: ['wordmark-padded-field-audit.png'] },
-      { value: 'sms-settings', fixtures: ['Missed-call text-back'] },
-      { value: 'sms-settings-invalid', fixtures: ['Missed-call text-back'] },
+      { value: 'sms-settings', fixtures: ['Field Audit Co'] },
+      { value: 'sms-settings-invalid', fixtures: ['Twenty Character Name!'] },
     ],
   },
 ];

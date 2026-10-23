@@ -11,7 +11,7 @@ import {
   isDevFieldAuditAuth,
   pageQueryBlocked,
 } from '../lib/devFieldAuditAuth';
-import { lookParam, lookWindowParam } from '../lib/lookParam';
+import { lookParam } from '../lib/lookParam';
 import {
   AUDIT_DOC_CLIENT_ID,
   AUDIT_CONVERT_JOB_73_ID,
@@ -172,14 +172,7 @@ function quoteRef(quote: { quote_number?: number | null }): string {
   return quote.quote_number != null ? `#${padQuoteNumber(quote.quote_number)}` : 'Quote';
 }
 
-function fieldAuditIssuedSweep7Quote(): QuoteListItem | null {
-  if (!isDevFieldAuditAuth()) return null;
-  let look: string | null = null;
-  try {
-    look = lookWindowParam();
-  } catch {
-    look = null;
-  }
+function fieldAuditIssuedSweep7Quote(look: string | null): QuoteListItem | null {
   if (look !== 'sweep7-issued') return null;
   return {
     id: 'audit-quote-issued-sweep7',
@@ -215,8 +208,8 @@ function fieldAuditIssuedSweep7Quote(): QuoteListItem | null {
   };
 }
 
-function fieldAuditConvertQuote(): QuoteListItem | null {
-  if (!isDevFieldAuditAuth()) return null;
+function fieldAuditConvertQuote(look: string | null): QuoteListItem | null {
+  if (!isDevFieldAuditAuth() && look !== LETTERHEAD_LOOK) return null;
   return {
     id: 'audit-quote-convert',
     company_id: DEV_AUDIT_COMPANY.id,
@@ -493,9 +486,9 @@ export function QuotesPage() {
   const { data: quotes, isLoading, isPending, error } = useQuery<QuoteListItem[]>({
     queryKey: ['quotes', sweep7IssuedLook ? 'sweep7-issued' : 'live'],
     queryFn: async () => {
-      const issuedSweep7 = fieldAuditIssuedSweep7Quote();
+      const issuedSweep7 = fieldAuditIssuedSweep7Quote(lookParam(searchParams));
       if (issuedSweep7) return [issuedSweep7];
-      const convertQuote = fieldAuditConvertQuote();
+      const convertQuote = fieldAuditConvertQuote(lookParam(searchParams));
       if (convertQuote) {
         if (lookLetterhead) return [convertQuote];
         const shareQuote = fieldAuditShareQuote();
