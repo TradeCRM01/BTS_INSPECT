@@ -343,7 +343,7 @@ export function jobOnCrewRow(
   assigned: unknown,
   crewId: string,
 ): boolean {
-  const team = asTeamIds(assigned);
+  const team = crewIds(assigned);
   if (crewId === WEEK_UNASSIGNED_CREW_ID) return team.length === 0;
   return team.includes(crewId);
 }

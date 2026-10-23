@@ -232,6 +232,8 @@ describe('crew filter and labels', () => {
     expect(jobOnCrewRow({}, 'emp-a')).toBe(false);
     expect(jobOnCrewRow(null, WEEK_UNASSIGNED_CREW_ID)).toBe(true);
     expect(jobOnCrewRow(null, 'emp-a')).toBe(false);
+    expect(jobOnCrewRow([' '], WEEK_UNASSIGNED_CREW_ID)).toBe(true);
+    expect(jobOnCrewRow([' '], 'emp-a')).toBe(false);
     expect(scheduleCrewNames({}, members)).toEqual([]);
     expect(scheduleCrewNames(null, members)).toEqual([]);
     expect(scheduleCrewLabel({}, members)).toBe('Unassigned');
