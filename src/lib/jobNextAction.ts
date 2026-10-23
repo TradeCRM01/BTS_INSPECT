@@ -1,4 +1,5 @@
 import type { JobStatus } from '../types/crm';
+import { jobNeedsCrew } from './needCrew';
 import {
   JOB_BILL_INVOICE_EMPTY,
   JOB_BILL_INVOICE_PREVIEW_ERROR_DETAIL,
@@ -214,10 +215,10 @@ export function jobCardHint(
 ): string {
   if (job.status === 'cancelled') return 'Cancelled';
   if (job.status === 'completed') return completedListHint(invoices) ?? 'Completed';
-  if (!job.scheduled_date) return 'Set a date';
-  if (!job.assigned_team?.length) return 'Assign crew';
+  if (!(job.scheduled_date ?? '').toString().trim()) return 'Set a date';
+  if (jobNeedsCrew(job)) return 'Assign crew';
   if (job.status === 'in_progress') return 'On site';
-  const day = dateOnly(job.scheduled_date);
+  const day = dateOnly(job.scheduled_date ?? '');
   const today = vanTodayYmd(now);
   if (day === today) return 'Today';
   if (day < today) return 'Still open';
@@ -420,7 +421,7 @@ export function jobOpenNext(
   const action = recommendJobAction({
     status: job.status,
     scheduledDate: job.scheduled_date,
-    crewCount: (job.assigned_team ?? []).length,
+    crewCount: (job.assigned_team ?? []).filter((id) => typeof id === 'string' && id.trim()).length,
     jhaCount: sheet?.jhaCount ?? 0,
     inspectionCount: sheet?.inspectionCount ?? 0,
     invoiceCount: invoiceHint.invoiceCount ?? 0,

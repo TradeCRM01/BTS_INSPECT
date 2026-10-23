@@ -79,7 +79,7 @@ describe('job-sheet Testing due LOOK', () => {
 
   it('gates the look harness to DEV and leaves stay-off floors alone', () => {
     const page = src('src/pages/JobDetailPage.tsx');
-    expect(page).toContain("if (!(import.meta.env.DEV || import.meta.env.VITE_LOOK_PROOF === '1')) return null");
+    expect(page).toContain("if (!import.meta.env.DEV) return null");
     expect(page).toContain(".get('look')");
     expect(page).toContain('testing-due-empty');
     expect(page).toContain('testing-due-rows');

@@ -91,7 +91,9 @@ describe('jobsListPhoneNextLabel', () => {
     expect(jobsListPhoneNextLabel({ actionable: false, label: 'Invoiced' })).toBeNull();
     expect(jobsListPhoneNextLabel({ actionable: true, label: 'Invoice' })).toBe('Invoice');
     expect(jobsListPhoneNextLabel({ actionable: true, label: 'Assign crew' })).toBe('Assign crew');
-    expect(jobsListUndatedNextLabel('no_date', null)).toBe('Set a date');
+    expect(jobsListUndatedNextLabel('no_date', null)).toBeNull();
+    expect(jobsListUndatedNextLabel('no_date', 'Set a date')).toBeNull();
+    expect(jobsListUndatedNextLabel('needs_crew', 'Assign crew')).toBe('Assign crew');
   });
 });
 
