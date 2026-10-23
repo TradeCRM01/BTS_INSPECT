@@ -6664,7 +6664,28 @@
       flex: 0 0 auto;
     }
 
-    .hub-board-cal.is-week-doc .hub-week-document .hub-week-board,
+    .hub-board-cal.is-week-doc .hub-week-seg-btn {
+      padding: 0 16px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-range {
+      padding: 0 11px;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-today {
+      padding: 0 17px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-document .hub-week-board {
+      margin-top: 0;
+    }
+
     .hub-board-cal.is-week-doc .hub-week-document .hub-day-board {
       margin-top: 0;
     }
@@ -6996,13 +7017,13 @@
   .hub-week-seg-btn {
     min-width: 44px;
     min-height: 44px;
-    padding: 0 16px;
+    padding: 0 8px;
     border: none;
     background: none;
     color: var(--g-ink-muted);
     font-family: var(--g-font-ui);
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 12px;
+    font-weight: 500;
     cursor: pointer;
     box-shadow: none;
     border-radius: 0;
@@ -7153,10 +7174,9 @@
 
   .hub-week-range {
     margin: 0;
-    padding: 0 11px;
     font-family: var(--g-font-ui);
-    font-size: 16px;
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 500;
     color: var(--g-ink);
     white-space: nowrap;
   }
@@ -7172,10 +7192,8 @@
     flex: 0 0 auto;
     border: 1px solid var(--g-line-strong);
     border-radius: 10px;
-    padding: 0 17px;
+    padding: 0 12px;
     color: var(--g-ink);
-    font-size: 14px;
-    font-weight: 600;
   }
 
   .hub-week-range-row {
@@ -7210,7 +7228,6 @@
   }
 
   @media (max-width: 767px) {
-    .hub-week-track .hub-week-seg { order: 0; flex: 1 1 100%; }
     .hub-week-track .hub-week-range-row { order: 1; flex: 1 1 auto; min-width: 0; }
     .hub-week-track .hub-week-today { order: 2; }
     .hub-week-track .hub-week-search { order: 10; flex: 1 1 100%; }
