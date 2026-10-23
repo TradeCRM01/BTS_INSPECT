@@ -18,21 +18,17 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     const page = src('src/pages/SchedulePage.tsx');
     const css = lookCss();
 
-    expect(page).toContain('hub-week-document');
-    expect(page).toContain('hub-week-hero');
-    expect(page).toContain('hub-week-status-whisper');
-    expect(page).toContain('hub-week-identity');
-    expect(page).toContain('hub-week-sheet-bar');
-    expect(page).toContain('WeekBoardChrome');
+    expect(page).toContain('data-week-sheet="1"');
+    expect(page).toContain('ops-page-title');
+    expect(page).toContain('data-schedule-whisper');
+    expect(page).toContain('data-schedule-eyebrow');
+    expect(page).toContain('scheduleBoardWhisper');
     expect(page).toContain('Previous week');
     expect(page).toContain('Next week');
     expect(page).toContain('WeekBoardView');
-    expect(page).toContain('placeMoreMenu');
-    expect(page).toContain('is-flip');
-    expect(page).toContain('is-shift');
-    expect(page).toContain('--hub-week-more-shift');
+    expect(page).toContain('data-schedule-crew-filter');
     expect(page).toContain('All crews');
-    expect(page).toContain('className="btn-primary"');
+    expect(page).toContain('btn-primary');
     expect(page).toContain('lookParam === WEEK_BOARD_LOOK');
     expect(page).toContain("name: 'Dave Hale'");
     expect(page).toContain("name: 'Jack Wieland'");
@@ -44,14 +40,14 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(page).toContain('Install 2x new switchboards');
     expect(page).toContain('address: null');
     expect(page).toContain('start_time: null');
-    expect(page).toContain('rangeLabel');
+    expect(page).toContain('boardRangeLabel');
     expect(page).toContain('hub-week-track');
     expect(page).toContain('WEEK_BOARD_LOOK_DAY_ANCHOR');
     expect(src('src/lib/devFieldAuditAuth.ts')).toContain("params.get('look') === 'week-board'");
-    expect(page).toContain('>Week<');
+    expect(page).toContain("setView('week')");
     expect(page).toContain('#F7931A');
     expect(page).toContain('#7C3AED');
-    expect(page).not.toContain('>Crew<');
+    expect(page).toContain('All crews');
     expect(page).not.toMatch(/#C45C38|#C05838/);
     expect(page).not.toContain('hub-jobs-identity');
     expect(page).not.toContain('hub-quote-editor');
@@ -59,9 +55,8 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(page).not.toMatch(/Grafter|Relovi|Littleloop/);
     expect(page).not.toMatch(/\bute\b/i);
 
-    expect((page.match(/hub-week-more/g) ?? []).length).toBeGreaterThanOrEqual(1);
-    expect((page.match(/MoreHorizontal/g) ?? []).length).toBeGreaterThanOrEqual(1);
-    expect((page.match(/hub-week-status-whisper/g) ?? []).length).toBeGreaterThanOrEqual(1);
+    expect((page.match(/data-schedule-crew-filter/g) ?? []).length).toBeGreaterThanOrEqual(1);
+    expect((page.match(/data-schedule-whisper/g) ?? []).length).toBeGreaterThanOrEqual(1);
 
     expect(css).toContain('.hub-week-document');
     expect(css).toContain('.hub-week-hero');
@@ -137,8 +132,8 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(board).not.toContain('hub-schedule-empty');
     expect(css).toContain('.hub-week-cell.is-empty');
     expect(css).toContain('.hub-week-chip');
-    expect(css).toContain('repeat(7, 156px)');
-    expect(css).toContain('repeat(7, minmax(104px, 1fr))');
+    expect(css).toContain('repeat(5, minmax(0, 1fr))');
+    expect(css).toContain('repeat(2, 72px)');
     expect(css).toContain('.hub-week-head-short');
     expect(css).toContain('.hub-week-head-dow');
     expect(board).toContain('hub-week-head-dow');

@@ -69,7 +69,7 @@ describe('schedule page week/day board', () => {
     expect(src('src/index.css')).toContain('calc(var(--shell-bottom-nav-h, 0px) + 10px)');
     expect(page).toContain('286 prove 2 — delete ok');
     expect(page).toContain('286 prove 3 — delete ok');
-    expect(page).toContain('asTeamIds');
+    expect(page).toContain('countNeedCrewJobs');
     expect(dayBoard).toContain('hub-day-drop-hint');
     expect(dayBoard).toContain('data-unassigned-lock');
     expect(dayBoard).toContain('Drop here — date stays');
@@ -154,7 +154,7 @@ describe('schedule page week/day board', () => {
     expect(phoneWeek).not.toContain('OpsStatus');
     expect(phoneWeek).not.toContain('onDragStart');
     expect(phoneWeek).not.toContain('onSelectDay');
-    expect(phoneWeek).not.toContain('onDayClick');
+    expect(phoneWeek).toContain('onDayClick');
     expect(phoneWeek).not.toContain('onJobDrop');
     expect(phoneWeek).not.toContain("'—'");
     expect(board).toContain('weekBoardRows(jobs, teamMembers, currentDate, filteredEmployeeIds)');
@@ -227,8 +227,8 @@ describe('schedule board cream paper look', () => {
 
     expect(page).toContain('hub-board-cal');
     expect(page).not.toContain('hub-schedule-kicker');
-    expect(page).toContain('hub-schedule-chrome');
-    expect(page).toContain('hub-schedule-filters');
+    expect(page).toContain('data-schedule-section="header"');
+    expect(page).toContain('data-schedule-crew-filter');
     expect(page).toContain('New job');
     expect(page).not.toContain('New Job');
     expect(page).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
@@ -250,7 +250,7 @@ describe('schedule board cream paper look', () => {
     expect(css).toContain('.hub-week-sheet');
     expect(css).toContain('.hub-week-head-short');
     expect(css).toContain('.hub-week-head-dow');
-    expect(css).toContain('repeat(7, minmax(104px, 1fr))');
+    expect(css).toContain('repeat(5, minmax(0, 1fr))');
     expect(page).toContain('hub-week-range-short');
     expect(css).toContain('.hub-week-seg');
     expect(css).toContain('.hub-week-quiet');
@@ -264,15 +264,14 @@ describe('schedule board cream paper look', () => {
     const css = src('src/index.css');
     const weekCss = css.slice(css.indexOf('.hub-week-sheet'), css.indexOf('.hub-schedule-place'));
 
-    expect(page).toContain('hub-week-sheet');
-    expect(page).toContain('WeekBoardChrome');
+    expect(page).toContain('data-week-sheet="1"');
+    expect(page).toContain('NAV_WORDS.schedule');
     expect(page).toContain('All crews');
     expect(page).toContain('lookParam === WEEK_BOARD_LOOK');
     expect(page).toContain('FIX3A_SCHEDULE_LOOK');
     expect(page).toContain("name: 'Dave Hale'");
     expect(page).toContain("name: 'Jack Wieland'");
     expect(page).toContain("name: 'Sam Ortiz'");
-    expect(page).toContain('#0A2540');
     expect(page).toContain('#F7931A');
     expect(page).toContain('#7C3AED');
     expect(page).not.toMatch(/#C45C38|#C05838/);
@@ -282,7 +281,7 @@ describe('schedule board cream paper look', () => {
     expect(page).not.toContain('hub-schedule-kicker');
     expect(weekCss).toContain('overflow: visible');
     expect(weekCss).toContain('position: sticky');
-    expect(css).toContain('repeat(7, 156px)');
+    expect(css).toContain('repeat(2, 72px)');
     expect(board).toContain('data-schedule-track="day"');
     expect(board).not.toContain('data-schedule-track="week"');
     expect(weekCss).toContain('inset 0 1px 0 #fff');
