@@ -696,15 +696,22 @@ describe('P2 Schedule on the built dist', () => {
   });
 
   it(killTitle('K24'), async () => {
-    const m = await measure('malformed-1280');
-    expect.soft(m.pageErrors, 'malformed assigned_team throws').toEqual([]);
-    expect.soft(m.layout.h1, 'malformed page still renders Schedule').toEqual(['Schedule']);
-    const cards = MALFORMED_CREW_IDS.map(id => m.layout.cards.find(c => c.id === id));
+    let m: Awaited<ReturnType<typeof measure>> | null = null;
+    let crash = '';
+    try {
+      m = await measure('malformed-1280');
+    } catch (err) {
+      crash = err instanceof Error ? err.message : String(err);
+    }
+    expect.soft(crash, 'malformed assigned_team throws').toBe('');
+    expect.soft(m?.pageErrors ?? [crash], 'malformed assigned_team throws').toEqual([]);
+    expect.soft(m?.layout.h1, 'malformed page still renders Schedule').toEqual(['Schedule']);
+    const cards = MALFORMED_CREW_IDS.map(id => m?.layout.cards.find(c => c.id === id));
     expect.soft(cards.filter(Boolean).length, 'all five malformed crew jobs render').toBe(5);
     for (const card of cards) {
       expect.soft(card?.pill, `${card?.line1 || card?.id} counts as need crew`).toBe('Needs crew');
     }
-    expect.soft(m.layout.whisper, 'five malformed jobs are need crew').toBe('5 on the board · 5 need crew');
+    expect.soft(m?.layout.whisper, 'five malformed jobs are need crew').toBe('5 on the board · 5 need crew');
   });
 
   it(killTitle('K25'), async () => {
