@@ -130,7 +130,8 @@ function readDistCss(): string {
   if (!existsSync(dir)) throw new Error('dist/assets missing; run npm run build');
   const files = readdirSync(dir).filter((name) => name.endsWith('.css'));
   if (!files.length) throw new Error('no dist CSS; run npm run build');
-  return files.map((name) => readFileSync(join(dir, name), 'utf8')).join('\n');
+  return files.map((name) => readFileSync(join(dir, name), 'utf8')).join('\n')
+    .replace(/font-display:\s*optional/g, 'font-display:swap');
 }
 
 async function bundleJobs(opts?: { lookProof?: boolean; dev?: boolean }): Promise<string> {
@@ -316,7 +317,14 @@ async function waitList(page: KillPage) {
 
 async function waitSheet(page: KillPage) {
   await page.waitForSelector('h1.hub-jobs-hero', { timeout: 20000, state: 'attached' });
-  await page.evaluate(() => document.fonts.ready);
+  await page.evaluate(async () => {
+    try {
+      await document.fonts.load('600 14px Geist');
+    } catch {
+      /* already ready */
+    }
+    await document.fonts.ready;
+  });
   await page.evaluate(async () => {
     for (let i = 0; i < 100; i += 1) {
       const h1 = (document.querySelector('h1.hub-jobs-hero')?.textContent || '').trim();
@@ -539,38 +547,94 @@ async function sampleCtaPaintedRgb(page: KillPage, sel: string): Promise<{
   return rgb;
 }
 
-function firstExisting(paths: string[]): string {
-  const found = paths.find((path) => existsSync(path));
-  if (!found) throw new Error(`missing ${paths[0]}`);
-  return found;
+async function samplePaintedPixels(page: KillPage, sel: string, pad = 2): Promise<{
+  width: number;
+  height: number;
+  pixels: number[][];
+}> {
+  const clip = await page.evaluate((selector) => {
+    const el = document.querySelector(selector) as HTMLElement | null;
+    if (!el) return null;
+    const box = el.getBoundingClientRect();
+    return { x: box.x, y: box.y, width: box.width, height: box.height };
+  }, sel);
+  if (!clip || clip.width < 1 || clip.height < 1) throw new Error(`${sel} has no painted rect`);
+  const x = Math.max(0, Math.floor(clip.x) - pad);
+  const y = Math.max(0, Math.floor(clip.y) - pad);
+  const width = Math.max(3, Math.ceil(clip.width) + pad * 2);
+  const height = Math.max(3, Math.ceil(clip.height) + pad * 2);
+  const buf = await page.screenshot({
+    type: 'png',
+    animations: 'disabled',
+    clip: { x, y, width, height },
+  });
+  const b64 = buf.toString('base64');
+  const probe = await browser.newContext({ viewport: { width: Math.max(64, width), height: Math.max(64, height) } });
+  contexts.push(probe);
+  const view = await probe.newPage();
+  await view.setContent(`<!doctype html><canvas id="c"></canvas><script>
+    window.__ready = new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.getElementById('c');
+        c.width = img.width; c.height = img.height;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const data = ctx.getImageData(0, 0, img.width, img.height).data;
+        const pixels = [];
+        for (let i = 0; i < data.length; i += 4) pixels.push([data[i], data[i + 1], data[i + 2]]);
+        resolve({ width: img.width, height: img.height, pixels });
+      };
+      img.src = 'data:image/png;base64,${b64}';
+    });
+  </script>`);
+  const rgb = await view.evaluate(() => (
+    window as unknown as { __ready: Promise<{ width: number; height: number; pixels: number[][] }> }
+  ).__ready);
+  await probe.close();
+  return rgb;
 }
 
+function nearestPainted(
+  shot: { width: number; height: number; pixels: number[][] },
+  target: [number, number, number],
+  region?: { x0: number; x1: number; y0: number; y1: number },
+): { rgb: [number, number, number]; dist: number } {
+  const x0 = Math.max(0, region?.x0 ?? 0);
+  const y0 = Math.max(0, region?.y0 ?? 0);
+  const x1 = Math.min(shot.width, region?.x1 ?? shot.width);
+  const y1 = Math.min(shot.height, region?.y1 ?? shot.height);
+  let best: [number, number, number] = [255, 255, 255];
+  let bestDist = Infinity;
+  for (let y = y0; y < y1; y += 1) {
+    for (let x = x0; x < x1; x += 1) {
+      const p = shot.pixels[y * shot.width + x] as [number, number, number];
+      const dist = Math.abs(p[0] - target[0]) + Math.abs(p[1] - target[1]) + Math.abs(p[2] - target[2]);
+      if (dist < bestDist) {
+        best = p;
+        bestDist = dist;
+      }
+    }
+  }
+  return { rgb: best, dist: bestDist };
+}
+
+const MOCKUP_FIXTURE = join(process.cwd(), 'docs/look/p3/fixtures');
+
 function mockupHtmlPath(): string {
-  return firstExisting([
-    '/home/ubuntu/.cursor/projects/workspace/uploads/job-390-light_4016.html',
-    join(process.cwd(), 'docs/look/p3/job-390-light.html'),
-  ]);
+  return join(MOCKUP_FIXTURE, 'job-390-light.html');
 }
 
 function mockupTokensPath(): string {
-  return firstExisting([
-    '/home/ubuntu/.cursor/projects/workspace/uploads/tokens_938e.css',
-    join(process.cwd(), 'docs/look/p3/tokens.css'),
-  ]);
+  return join(MOCKUP_FIXTURE, 'tokens.css');
 }
 
 function mockupAppCssPath(): string {
-  return firstExisting([
-    '/home/ubuntu/.cursor/projects/workspace/uploads/app_f3c0.css',
-    join(process.cwd(), 'docs/look/p3/app.css'),
-  ]);
+  return join(MOCKUP_FIXTURE, 'app.css');
 }
 
 function mockupDirectionPath(): string {
-  return firstExisting([
-    '/home/ubuntu/.cursor/projects/workspace/uploads/direction_d5d7.css',
-    join(process.cwd(), 'docs/look/p3/direction.css'),
-  ]);
+  return join(MOCKUP_FIXTURE, 'direction.css');
 }
 
 const MOCKUP_MIME: Record<string, string> = {
@@ -846,13 +910,13 @@ describe('P3 list kills', () => {
       next: document.querySelector('[data-jobs-phone-row="p3-undated"] [data-job-list-next]')?.textContent ?? '',
     }));
     await page.close();
-    expect(read.line36).toBe('#0036 · Stafford · Dean, Tom');
+    expect(read.line36).toBe('#0036 · Stafford · Dean Moretti, Tom Nguyen');
     expect(read.undated).toContain('No crew yet');
     expect(read.undated).toContain('No date');
     expect(read.undated).not.toContain('Set a date');
     expect(read.next).toBe('');
-    expect(jobsListPhoneLine2({ ref: '#0036', suburb: 'Stafford', crew: 'Dean, Tom' }))
-      .toBe('#0036 · Stafford · Dean, Tom');
+    expect(jobsListPhoneLine2({ ref: '#0036', suburb: 'Stafford', crew: 'Dean Moretti, Tom Nguyen' }))
+      .toBe('#0036 · Stafford · Dean Moretti, Tom Nguyen');
   });
 
 });
@@ -976,6 +1040,7 @@ describe('P3 sheet pills CTA Q-J1 tabs', () => {
           rights: tabs.map((t) => t.getBoundingClientRect().right),
           tops,
           columns: getComputedStyle(rail).gridTemplateColumns.split(' ').filter(Boolean).length,
+          uniqueLefts: new Set(tabs.map((t) => Math.round(t.getBoundingClientRect().left))).size,
           viewW: window.innerWidth,
           scroll: rail.scrollWidth,
           client: rail.clientWidth,
@@ -990,6 +1055,7 @@ describe('P3 sheet pills CTA Q-J1 tabs', () => {
       expect(Math.max(...read.rights), `${width} tab right`).toBeLessThanOrEqual(read.viewW + 1);
       expect(read.scroll).toBeLessThanOrEqual(read.client + 1);
       expect(read.columns).toBe(4);
+      expect(read.uniqueLefts, `${width} unique tab columns`).toBe(4);
       expect(Math.max(...read.tops) - Math.min(...read.tops)).toBeLessThanOrEqual(2);
       expect(read.overlap, `${width} tabs overlap`).toBe(false);
       for (const [i, inside] of read.textInside.entries()) {
@@ -1367,7 +1433,16 @@ describe('P3 overview people form bar', () => {
         expect(clip.lastRight, '768 Materials last column right').toBeLessThanOrEqual(clip.wrapRight + 1);
         expect(clip.scrollWidth, '768 Materials wrap scrollWidth').toBeLessThanOrEqual(clip.clientWidth + 8);
         expect(clip.maxRight, '768 Materials maxRight').toBeLessThanOrEqual(clip.innerWidth);
+        await sheet.click('[data-tab="overview"]');
+        await waitSheet(sheet);
       }
+      await sheet.click('[data-job-sheet="actions"] > summary');
+      await sheet.click('[data-job-action="details"]');
+      await sheet.waitForSelector('[data-job-form="1"]', { timeout: 10000 });
+      const sheetEdit = await sheet.evaluate(overflowScript);
+      recordOverflow(w, 'EDIT', 'sheet', sheetEdit);
+      expect(sheetEdit.scrollWidth, `${w} sheet EDIT scrollWidth`).toBeLessThanOrEqual(sheetEdit.innerWidth);
+      expect(sheetEdit.maxRight, `${w} sheet EDIT maxRight`).toBeLessThanOrEqual(sheetEdit.innerWidth);
       await sheet.close();
     }
   }, 240000);
@@ -1512,23 +1587,23 @@ describe('P3 r6 type, CTA contrast, hairlines', () => {
         hairCount: hairs.length,
         pairs: hairs.map((hair, i) => {
           const box = hair.getBoundingClientRect();
-          const a = rows[i]?.getBoundingClientRect();
-          const b = rows[i + 1]?.getBoundingClientRect();
+          const row = rows[i]?.getBoundingClientRect();
+          const prev = i === 0 ? null : rows[i - 1]?.getBoundingClientRect();
           return {
             height: box.height,
             width: box.width,
-            between: !!a && !!b && box.top >= a.bottom - 2 && box.bottom <= b.top + 2,
+            above: !!row && box.bottom <= row.top + 2 && (!prev || box.top >= prev.bottom - 2),
           };
         }),
       };
     });
     await page.close();
     expect(read.rowCount).toBe(4);
-    expect(read.hairCount).toBe(3);
+    expect(read.hairCount).toBe(4);
     for (const pair of read.pairs) {
       expect(pair.height, 'hairline rect height').toBeGreaterThanOrEqual(1);
       expect(pair.width, 'hairline rect width').toBeGreaterThan(100);
-      expect(pair.between, 'hairline rect between rows').toBe(true);
+      expect(pair.above, 'hairline rect above its row').toBe(true);
     }
   });
 
@@ -1698,6 +1773,12 @@ describe('P3 r9 mockup vs head at 390', () => {
       const rail = document.querySelector(mock ? '.segc.fill' : '.job-sheet-tabs') as HTMLElement | null
         || document.querySelector('.segc') as HTMLElement | null
         || document.querySelector('.job-sheet-tabs') as HTMLElement | null;
+      if (rail) {
+        ['Overview', 'People', 'Paperwork 3', 'Materials 1'].forEach((label, i) => {
+          const child = rail.children[i] as HTMLElement | undefined;
+          if (child) child.textContent = label;
+        });
+      }
       const railStyle = rail ? getComputedStyle(rail) : null;
       const kvRows = [...document.querySelectorAll(mock ? '.kv' : '.job-sheet-kv-row')] as HTMLElement[];
       const appbar = document.querySelector(mock ? '.appbar' : '.job-sheet-appbar') as HTMLElement | null;
@@ -1745,14 +1826,65 @@ describe('P3 r9 mockup vs head at 390', () => {
           ? getComputedStyle(document.querySelector(mock ? '.sec .h2' : '.job-sheet-scope-h') as HTMLElement).fontSize
           : '',
         clientHref: (document.querySelector(mock ? '.kv dd' : 'a.job-sheet-kv-name') as HTMLAnchorElement | null)?.getAttribute('href') || '',
+        tabFontSize: rail ? parseFloat(getComputedStyle(rail.querySelector(mock ? 'a' : '.job-sheet-tab') as HTMLElement).fontSize) : -1,
+        tabFontWeight: rail ? getComputedStyle(rail.querySelector(mock ? 'a' : '.job-sheet-tab') as HTMLElement).fontWeight : '',
+        tabLabels: [...(rail?.children ?? [])].map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim()),
+        tabWidths: [...(rail?.children ?? [])].map((el) => (el as HTMLElement).getBoundingClientRect().width),
+        searchX: search ? search.getBoundingClientRect().left : -1,
+        avatarX: avatar ? avatar.getBoundingClientRect().left : -1,
+        eyebrowColor: eyebrow ? getComputedStyle(eyebrow).color : '',
+        subLh: sub ? parseFloat(getComputedStyle(sub).lineHeight) : -1,
+        crewText: (document.querySelector(mock ? '.kv:nth-of-type(4) dd' : '[data-job-sheet="kv-crew"] .job-sheet-kv-value')?.textContent || '').replace(/\s+/g, ' ').trim(),
       };
     };
+    const pinTabLabels = async (page: KillPage, sel: string, labels: string[]) => {
+      await page.evaluate(async ({ selector, next }) => {
+        const apply = () => {
+          const kids = [...document.querySelector(selector)?.children ?? []] as HTMLElement[];
+          kids.forEach((el, i) => {
+            if (next[i]) el.textContent = next[i];
+          });
+        };
+        try {
+          await document.fonts.load('600 14px Geist');
+        } catch {
+          /* font face may already be ready */
+        }
+        await document.fonts.ready;
+        let prev = '';
+        for (let i = 0; i < 40; i += 1) {
+          apply();
+          const kids = [...document.querySelector(selector)?.children ?? []] as HTMLElement[];
+          const texts = kids.map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim());
+          const widths = kids.map((el) => el.getBoundingClientRect().width);
+          const now = widths.map((w) => w.toFixed(2)).join(',');
+          const geistOn = document.fonts.check('600 14px Geist') || document.fonts.check('14px Geist');
+          const matchesMock = widths.length === 4
+            && Math.abs(widths[0] - 79) <= 1
+            && Math.abs(widths[1] - 75.8) <= 1
+            && Math.abs(widths[2] - 101.2) <= 1
+            && Math.abs(widths[3] - 87.9) <= 1;
+          if (
+            geistOn
+            && texts.join('|') === next.join('|')
+            && matchesMock
+            && now
+            && now === prev
+          ) return;
+          prev = now;
+          await new Promise((resolve) => window.setTimeout(resolve, 50));
+        }
+      }, { selector: sel, next: labels });
+    };
+    const mockLabels = ['Overview', 'People', 'Paperwork 3', 'Materials 1'];
     const mockPage = await openMockup(390);
+    await pinTabLabels(mockPage, '.segc.fill', mockLabels);
     const mockup = await mockPage.evaluate(measure, selectors.mockup);
     const mockCtaRgb = await sampleCtaPaintedRgb(mockPage, selectors.mockup.cta);
     await mockPage.close();
     const headPage = await openPage({ width: 390, path: '/jobs/p3-0036' });
     await waitSheet(headPage);
+    await pinTabLabels(headPage, '.job-sheet-tabs', mockLabels);
     const head = await headPage.evaluate(measure, selectors.head);
     const headCtaRgb = await sampleCtaPaintedRgb(headPage, selectors.head.cta);
     await headPage.close();
@@ -1799,8 +1931,29 @@ describe('P3 r9 mockup vs head at 390', () => {
     expect(near(head.tabGap, mockup.tabGap)).toBe(true);
     expect(near(head.tabRadius, mockup.tabRadius)).toBe(true);
     expect(near(head.tabH, mockup.tabH)).toBe(true);
-    expect(Number(head.kvValueWeight)).toBe(500);
-    expect(Number(mockup.kvValueWeight), 'mockup .kv dd has no weight in app.css').toBe(400);
+    expect(Number(head.kvValueWeight)).toBe(400);
+    expect(Number(mockup.kvValueWeight)).toBe(400);
+    expect(head.tabFontSize).toBe(14);
+    expect(mockup.tabFontSize).toBe(14);
+    expect(Number(head.tabFontWeight)).toBe(600);
+    expect(Number(mockup.tabFontWeight)).toBe(600);
+    expect(head.tabLabels, 'head tab labels pinned to mock').toEqual(mockLabels);
+    expect(mockup.tabLabels).toEqual(mockLabels);
+    expect(head.tabWidths.length, 'four tab columns').toBe(4);
+    expect(mockup.tabWidths.length).toBe(4);
+    const mockTabTargets = [79, 75.8, 101.2, 87.9];
+    head.tabWidths.forEach((w, i) => {
+      expect(near(w, mockup.tabWidths[i]), `tab ${i} width head ${w} mock ${mockup.tabWidths[i]}`).toBe(true);
+      expect(near(w, mockTabTargets[i]), `tab ${i} width head ${w} target ${mockTabTargets[i]}`).toBe(true);
+    });
+    expect(near(head.searchX, mockup.searchX), `searchX head ${head.searchX} mock ${mockup.searchX}`).toBe(true);
+    expect(near(head.avatarX, mockup.avatarX), `avatarX head ${head.avatarX} mock ${mockup.avatarX}`).toBe(true);
+    expect(head.eyebrowColor.replace(/\s+/g, '')).toMatch(/rgb\(74,\s*74,\s*82\)/);
+    expect(mockup.eyebrowColor.replace(/\s+/g, '')).toMatch(/rgb\(74,\s*74,\s*82\)/);
+    expect(near(head.subLh, 24)).toBe(true);
+    expect(near(mockup.subLh, 24)).toBe(true);
+    expect(head.crewText).toBe('Dean Moretti, Tom Nguyen');
+    expect(mockup.crewText).toBe('Dean Moretti, Tom Nguyen');
     expect(head.kvHeights[head.kvHeights.length - 1], `crew row ${head.kvHeights[head.kvHeights.length - 1]}`).toBeGreaterThanOrEqual(54);
     expect(head.pillText).toContain('Ready to invoice');
     expect(head.subAlign).toBe('center');
@@ -1809,18 +1962,42 @@ describe('P3 r9 mockup vs head at 390', () => {
     expect(head.scopeH).toMatch(/20px/);
   });
 
+  async function assertActionsVisible(page: KillPage, width: number) {
+    await page.evaluate(() => {
+      document.querySelector('[data-job-sheet="actions"]')?.scrollIntoView({ block: 'center' });
+    });
+    const box = await page.evaluate(() => {
+      const el = document.querySelector('[data-job-sheet="actions"]') as HTMLElement | null;
+      const style = el ? getComputedStyle(el) : null;
+      const r = el?.getBoundingClientRect();
+      return {
+        display: style?.display || '',
+        width: r?.width ?? 0,
+        height: r?.height ?? 0,
+        top: r?.top ?? -1,
+        bottom: r?.bottom ?? -1,
+        left: r?.left ?? -1,
+        right: r?.right ?? -1,
+        innerW: window.innerWidth,
+        innerH: window.innerHeight,
+      };
+    });
+    expect(box.display, `${width} Actions display`).not.toBe('none');
+    expect(box.width, `${width} Actions width`).toBeGreaterThan(0);
+    expect(box.height, `${width} Actions height`).toBeGreaterThan(0);
+    expect(box.top, `${width} Actions top`).toBeGreaterThanOrEqual(-1);
+    expect(box.bottom, `${width} Actions bottom`).toBeLessThanOrEqual(box.innerH + 1);
+    expect(box.left, `${width} Actions left`).toBeGreaterThanOrEqual(-1);
+    expect(box.right, `${width} Actions right`).toBeLessThanOrEqual(box.innerW + 1);
+    return box;
+  }
+
   killIt('R9 existing job edit save writes the new title', async () => {
     const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
     await waitSheet(page);
-    await page.evaluate(() => {
-      const more = document.querySelector('[data-job-sheet="actions"]') as HTMLDetailsElement | null;
-      if (more) more.open = true;
-    });
-    await page.evaluate(() => {
-      const item = [...document.querySelectorAll('[role="menuitem"]')]
-        .find((el) => (el.textContent || '').trim() === 'Details') as HTMLElement | undefined;
-      item?.click();
-    });
+    await assertActionsVisible(page, 390);
+    await page.click('[data-job-sheet="actions"] > summary');
+    await page.click('[data-job-action="details"]');
     await page.waitForSelector('[data-job-form="1"]', { timeout: 10000 });
     await page.evaluate(() => {
       const input = document.querySelector('[data-job-form="1"] input.form-input') as HTMLInputElement | null;
@@ -1855,20 +2032,26 @@ describe('P3 r9 mockup vs head at 390', () => {
     for (const width of [375, 390, 768] as const) {
       const page = await openPage({ width, path: '/jobs/p3-0036' });
       await waitSheet(page);
+      await assertActionsVisible(page, width);
+      await page.click('[data-job-sheet="actions"] > summary');
       const read = await page.evaluate(() => {
         const appMore = document.querySelector('.job-sheet-appbar .hub-job-more') as HTMLElement | null;
-        const sheetMore = document.querySelector('[data-job-sheet="actions"]') as HTMLDetailsElement | null;
-        if (sheetMore) sheetMore.open = true;
         const items = [...document.querySelectorAll('[data-job-sheet="actions"] [role="menuitem"]')]
           .map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim());
         const appStyle = appMore ? getComputedStyle(appMore) : null;
+        const details = document.querySelector('[data-job-action="details"]') as HTMLElement | null;
+        const d = details?.getBoundingClientRect();
         return {
           appMorePainted: !!appMore && appStyle?.display !== 'none' && (appMore.getBoundingClientRect().width || 0) > 0,
           items,
+          detailsW: d?.width ?? 0,
+          detailsH: d?.height ?? 0,
         };
       });
       await page.close();
       expect(read.appMorePainted, `${width} appbar …`).toBe(false);
+      expect(read.detailsW, `${width} Details width`).toBeGreaterThan(0);
+      expect(read.detailsH, `${width} Details height`).toBeGreaterThan(0);
       expect(read.items, `${width} actions`).toEqual(expect.arrayContaining([
         'Details',
         'Add to calendar',
@@ -1933,5 +2116,49 @@ describe('P3 r9 mockup vs head at 390', () => {
     const ink = painted.fill[0] <= 22 && painted.fill[1] <= 22 && painted.fill[2] <= 22;
     expect(ink, `disabled CTA fill ${painted.fill}`).toBe(false);
     expect(painted.fill[1], `disabled CTA stays grey ${painted.fill}`).toBeGreaterThan(80);
+  });
+
+  killIt('R10 Go/Call ring paints line-strong on the edge', async () => {
+    const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
+    await waitSheet(page);
+    const shot = await samplePaintedPixels(page, '[data-job-sheet="kv-site"] .job-sheet-kv-act', 2);
+    const midY = Math.floor(shot.height / 2);
+    const edge = nearestPainted(shot, [161, 161, 170], {
+      x0: 0,
+      x1: Math.min(6, shot.width),
+      y0: Math.max(0, midY - 4),
+      y1: Math.min(shot.height, midY + 5),
+    });
+    await page.close();
+    expect(Math.abs(edge.rgb[0] - 161), `Go ring R ${edge.rgb} d${edge.dist}`).toBeLessThanOrEqual(18);
+    expect(Math.abs(edge.rgb[1] - 161), `Go ring G ${edge.rgb}`).toBeLessThanOrEqual(18);
+    expect(Math.abs(edge.rgb[2] - 170), `Go ring B ${edge.rgb}`).toBeLessThanOrEqual(18);
+  });
+
+  killIt('R10 Site hairline paints above the first KV row', async () => {
+    const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
+    await waitSheet(page);
+    const shot = await samplePaintedPixels(page, '[data-job-sheet="kv"] > [data-job-kv-rule]', 2);
+    const hair = nearestPainted(shot, [228, 228, 231]);
+    await page.close();
+    expect(Math.abs(hair.rgb[0] - 228), `Site hair R ${hair.rgb} d${hair.dist}`).toBeLessThanOrEqual(12);
+    expect(Math.abs(hair.rgb[1] - 228), `Site hair G ${hair.rgb}`).toBeLessThanOrEqual(12);
+    expect(Math.abs(hair.rgb[2] - 231), `Site hair B ${hair.rgb}`).toBeLessThanOrEqual(12);
+  });
+
+  killIt('R10 KV value paints ink at weight 400', async () => {
+    const page = await openPage({ width: 390, path: '/jobs/p3-0036' });
+    await waitSheet(page);
+    const read = await page.evaluate(() => {
+      const value = document.querySelector('[data-job-sheet="kv-site"] .job-sheet-kv-value') as HTMLElement | null;
+      return value ? getComputedStyle(value).fontWeight : '';
+    });
+    const shot = await samplePaintedPixels(page, '[data-job-sheet="kv-site"] .job-sheet-kv-value', 1);
+    const ink = nearestPainted(shot, [10, 10, 11]);
+    await page.close();
+    expect(Number(read)).toBe(400);
+    expect(ink.rgb[0], `kv ink ${ink.rgb}`).toBeLessThanOrEqual(40);
+    expect(ink.rgb[1], `kv ink ${ink.rgb}`).toBeLessThanOrEqual(40);
+    expect(ink.rgb[2], `kv ink ${ink.rgb}`).toBeLessThanOrEqual(40);
   });
 });

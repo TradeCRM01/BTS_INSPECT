@@ -13394,7 +13394,9 @@
 
   .hub-jobs-document .job-sheet-tabs {
     display: grid;
-    grid-template-columns: minmax(0, 0.86fr) minmax(0, 0.68fr) minmax(0, 1.23fr) minmax(0, 1.23fr);
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(auto, 1fr);
+    grid-template-columns: repeat(4, minmax(auto, 1fr));
     align-items: stretch;
     gap: 2px;
     margin-top: 20px;
@@ -13407,11 +13409,19 @@
     overflow: hidden;
   }
 
+  @media (max-width: 389px) {
+    .hub-jobs.is-record-open.ops-page .hub-jobs-document .job-sheet-tabs {
+      width: calc(100% + 32px);
+      margin-left: -16px;
+      margin-right: -16px;
+    }
+  }
+
   .hub-jobs-document .job-sheet-tabs .job-sheet-tab {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 0;
+    min-width: min-content;
     min-height: 44px;
     height: 44px;
     padding: 0 8px;
@@ -13434,10 +13444,49 @@
     box-shadow: 0 1px 2px rgba(10, 10, 11, 0.06), 0 0 0 1px #E4E4E7;
   }
 
-  @media (max-width: 390px) {
-    .hub-jobs-document .job-sheet-tabs .job-sheet-tab {
-      font-size: 11px;
-    }
+  .hub-jobs-document .job-sheet-ref {
+    color: #4A4A52;
+  }
+
+  .hub-jobs-document .job-sheet-sub {
+    line-height: 24px;
+  }
+
+  .hub-jobs.is-record-open .job-sheet-appbar-search {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+
+  .job-sheet-appbar-account {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+    border: none;
+    background: none;
+  }
+
+  .hub-jobs-document .job-sheet-kv-row:first-child {
+    border-top: none;
+  }
+
+  .hub-jobs-document .job-sheet-kv-row > .job-sheet-kv-value,
+  .hub-jobs-document .hub-jobs-contact-row > .job-sheet-kv-value,
+  .hub-jobs-document .job-sheet-kv-name,
+  .hub-jobs-document a.job-sheet-kv-name {
+    font-weight: 400;
+  }
+
+  .hub-jobs-document .job-sheet-kv-act,
+  .hub-jobs-document .job-sheet-kv-row > .job-sheet-kv-act,
+  .hub-jobs-document .hub-jobs-contact-row > .job-sheet-kv-act {
+    box-shadow: inset 0 0 0 1px #A1A1AA;
   }
 
   .hub-jobs-document .job-sheet-kv-rule {
@@ -13467,15 +13516,11 @@
     padding: 0 12px;
   }
 
-  .hub-jobs-document .job-sheet-kv-row:first-child {
-    border-top: 1px solid #E4E4E7;
-  }
-
   .hub-jobs-document .job-sheet-kv-row > .job-sheet-kv-value,
   .hub-jobs-document .hub-jobs-contact-row > .job-sheet-kv-value,
   .hub-jobs-document .job-sheet-kv-name,
   .hub-jobs-document a.job-sheet-kv-name {
-    font-weight: 500;
+    font-weight: 400;
   }
 
   .hub-jobs-document .job-sheet-scope,
@@ -13518,6 +13563,8 @@
   .job-sheet-more > summary {
     display: flex;
     align-items: center;
+    width: auto;
+    height: auto;
     min-height: 44px;
     list-style: none;
     cursor: pointer;
@@ -18538,10 +18585,7 @@
       min-width: 64px;
     }
 
-    /* r9: four labels + two-digit counts at 375. 64px min overflows the track. */
-    .hub-jobs-document .job-sheet-tabs .job-sheet-tab {
-      min-width: 0;
-    }
+    /* r10: content-sized 1fr columns (minmax(auto, 1fr)). Keep 64px as the floor. */
 
 
     /* Reveal/clear icons sit inside the field — a 44px hit box would cover the type. */
