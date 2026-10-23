@@ -14,6 +14,7 @@ import {
   JOB_CREW_SCHEDULE_NO_DATE,
   jobCrewScheduleStatus,
 } from './jobCrewScheduleStatus';
+import { assignedTeamIds } from './needCrew';
 import { formatJobRef } from './jobRef';
 import type { ScheduleCrewMember } from './scheduleBoard';
 
@@ -86,20 +87,18 @@ export function todayCrewOut(jobs: readonly DashboardTodayJob[]): number {
   const ids = new Set<string>();
   for (const job of jobs) {
     if (job.status === 'cancelled') continue;
-    for (const id of job.assigned_team ?? []) {
-      const member = (id ?? '').trim();
-      if (member) ids.add(member);
-    }
+    for (const id of assignedTeamIds(job.assigned_team)) ids.add(id);
   }
   return ids.size;
 }
 
 export function todayCrewMeta(
-  assigned: string[] | null | undefined,
+  assigned: unknown,
   members: ScheduleCrewMember[] | null | undefined,
 ): string {
-  if (!(assigned ?? []).some(id => (id ?? '').trim())) return TODAY_CREW_NONE;
-  const label = dashboardCrewLabel(assigned, members);
+  const ids = assignedTeamIds(assigned);
+  if (!ids.length) return TODAY_CREW_NONE;
+  const label = dashboardCrewLabel(ids, members);
   return label === 'Unassigned' ? TODAY_CREW_NONE : label;
 }
 

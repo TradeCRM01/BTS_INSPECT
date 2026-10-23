@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { jobsListPhoneRow } from './jobsListRow';
 import { JOB_CREW_SCHEDULE_NO_DATE, jobCrewScheduleStatus } from './jobCrewScheduleStatus';
-import { countNeedsCrew, needsCrew } from './needCrew';
+import { assignedTeamIds, countNeedsCrew, isFinishedCrewStatus, needsCrew } from './needCrew';
 
 describe('needsCrew', () => {
   it('requires crew only for unfinished scheduled or in-progress jobs with no assigned member', () => {
@@ -48,5 +48,41 @@ describe('needsCrew', () => {
     const undatedProgress = { status: 'in_progress' as const, scheduled_date: '', assigned_team: [] as string[] };
     const datedOpen = { status: 'scheduled' as const, scheduled_date: '2026-10-19', assigned_team: [] as string[] };
     expect(countNeedsCrew([undatedScheduled, undatedProgress, datedOpen])).toBe(1);
+  });
+
+  it('treats null, a non-array, a non-string entry, and whitespace-only as no crew', () => {
+    const dated = { status: 'scheduled' as const, scheduled_date: '2026-10-19' };
+    expect(assignedTeamIds(null)).toEqual([]);
+    expect(assignedTeamIds('dave')).toEqual([]);
+    expect(assignedTeamIds([1])).toEqual([]);
+    expect(assignedTeamIds(['   '])).toEqual([]);
+    expect(needsCrew({ ...dated, assigned_team: null })).toBe(true);
+    expect(needsCrew({ ...dated, assigned_team: 'dave' })).toBe(true);
+    expect(needsCrew({ ...dated, assigned_team: [1] })).toBe(true);
+    expect(needsCrew({ ...dated, assigned_team: ['   '] })).toBe(true);
+    expect(countNeedsCrew([
+      { ...dated, assigned_team: null },
+      { ...dated, assigned_team: 'dave' },
+      { ...dated, assigned_team: [1] },
+      { ...dated, assigned_team: ['   '] },
+    ])).toBe(4);
+  });
+
+  it('mutant: restoring the assigned_team throw throws on a non-array', () => {
+    function needsCrewThrowing(job: { status?: string | null; scheduled_date?: string | null; assigned_team?: unknown }): boolean {
+      if (!(job.scheduled_date ?? '').trim()) return false;
+      if (isFinishedCrewStatus(job.status)) return false;
+      return (job.assigned_team ?? []).every((id: { trim?: () => string }) => !id?.trim());
+    }
+    expect(() => needsCrewThrowing({
+      status: 'scheduled',
+      scheduled_date: '2026-10-19',
+      assigned_team: 'dave',
+    })).toThrow();
+    expect(() => needsCrew({
+      status: 'scheduled',
+      scheduled_date: '2026-10-19',
+      assigned_team: 'dave',
+    })).not.toThrow();
   });
 });
