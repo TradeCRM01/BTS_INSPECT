@@ -44,6 +44,11 @@ const PROD_REMINDER_TEXTS = [...PROD_REMINDER_TITLES, PROD_REMINDER_META] as con
 const LIVE_JOB_META = '#0141.A$ · Owen Price — delete ok · Ashgrove · CoS Invitee Test';
 const LONG_META_SEG = `A$LONG${'W'.repeat(80)}`;
 
+type KillCDP = {
+  send: (method: string, params?: Record<string, unknown>) => Promise<unknown>;
+  detach: () => Promise<void>;
+};
+
 type KillPage = {
   goto: (url: string) => Promise<unknown>;
   evaluate: <T>(fn: (() => T | Promise<T>) | ((arg: never) => T | Promise<T>), arg?: unknown) => Promise<T>;
@@ -56,6 +61,7 @@ type KillPage = {
     animations?: 'disabled' | 'allow';
     clip?: { x: number; y: number; width: number; height: number };
   }) => Promise<Buffer>;
+  context: () => { newCDPSession: (page: KillPage) => Promise<KillCDP> };
   close: () => Promise<void>;
 };
 
@@ -1088,11 +1094,61 @@ function overflowScript() {
     const r = el.getBoundingClientRect();
     return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
   };
-  const rights = [...document.querySelectorAll('body *')].filter(vis).map((el) => el.getBoundingClientRect().right);
+  const clipsX = (v: string) => /hidden|clip|auto|scroll/.test(v);
+  const els = [...document.querySelectorAll('body *')].filter(vis);
+  const rights = els.map((el) => el.getBoundingClientRect().right);
+  const clipHits: string[] = [];
+  for (const el of els) {
+    const r = el.getBoundingClientRect();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const textRight = [...range.getClientRects()].reduce((max, tr) => Math.max(max, tr.right), r.right);
+    const contentRight = Math.max(r.right, textRight, r.left + (el as HTMLElement).scrollWidth);
+    let n: HTMLElement | null = el.parentElement;
+    let fullyClipped = false;
+    let skipEllipsis = false;
+    let clipRight = Infinity;
+    while (n) {
+      const s = getComputedStyle(n);
+      if (clipsX(s.overflowX) || clipsX(s.overflow)) {
+        const cr = n.getBoundingClientRect();
+        const interW = Math.min(r.right, cr.right) - Math.max(r.left, cr.left);
+        const interH = Math.min(r.bottom, cr.bottom) - Math.max(r.top, cr.top);
+        if (interW <= 0.5 || interH <= 0.5) {
+          fullyClipped = true;
+          break;
+        }
+        if (s.textOverflow === 'ellipsis' || s.clip === 'rect(0px, 0px, 0px, 0px)') {
+          skipEllipsis = true;
+        }
+        clipRight = Math.min(clipRight, cr.right);
+      }
+      n = n.parentElement;
+    }
+    if (fullyClipped || skipEllipsis) continue;
+    if (clipRight < Infinity && contentRight > clipRight + 1) {
+      clipHits.push((el.className || el.tagName).toString().slice(0, 80));
+    }
+  }
+  for (const seg of document.querySelectorAll('.dashboard-home-ref-seg')) {
+    const cell = seg.closest('.dashboard-home-ref') as HTMLElement | null;
+    if (!cell) continue;
+    const cs = getComputedStyle(cell);
+    if (clipsX(cs.overflowX) || clipsX(cs.overflow)) continue;
+    const range = document.createRange();
+    range.selectNodeContents(seg);
+    const textRight = [...range.getClientRects()].reduce((max, tr) => Math.max(max, tr.right), 0);
+    const right = Math.max(seg.getBoundingClientRect().right, textRight, seg.getBoundingClientRect().left + (seg as HTMLElement).scrollWidth);
+    if (right > cell.getBoundingClientRect().right + 1) {
+      clipHits.push('ref-seg>cell');
+    }
+  }
   return {
     innerWidth: window.innerWidth,
     scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
     maxRight: rights.length ? Math.max(...rights) : 0,
+    clipOverflows: clipHits.length,
+    clipSample: clipHits.slice(0, 3),
   };
 }
 
@@ -1148,6 +1204,77 @@ async function addPickerWidget(page: KillPage, category: string, label: string) 
       await new Promise((resolve) => window.setTimeout(resolve, 50));
     }
   });
+}
+
+async function theadAxExposed(page: KillPage) {
+  const hid = await page.evaluate(() => {
+    const thead = document.querySelector('.dashboard-home-thead') as HTMLElement | null;
+    if (!thead) return true;
+    const s = getComputedStyle(thead);
+    return s.visibility === 'hidden'
+      || s.display === 'none'
+      || thead.getAttribute('aria-hidden') === 'true'
+      || thead.closest('[aria-hidden="true"]') != null;
+  });
+  if (hid) return { Time: false, Job: false, Place: false };
+  const session = await page.context().newCDPSession(page);
+  try {
+    await session.send('DOM.enable');
+    await session.send('Accessibility.enable');
+    const doc = await session.send('DOM.getDocument', { depth: 0, pierce: true }) as {
+      root: { nodeId: number };
+    };
+    const found = await session.send('DOM.querySelector', {
+      nodeId: doc.root.nodeId,
+      selector: '.dashboard-home-thead',
+    }) as { nodeId: number };
+    if (!found.nodeId) return { Time: false, Job: false, Place: false };
+    const desc = await session.send('DOM.describeNode', { nodeId: found.nodeId }) as {
+      node: { backendNodeId: number };
+    };
+    const queried = await session.send('Accessibility.queryAXTree', {
+      backendNodeId: desc.node.backendNodeId,
+    }) as {
+      nodes?: Array<{ ignored?: boolean; name?: { value?: string } }>;
+    };
+    const names = new Set<string>();
+    for (const n of queried.nodes ?? []) {
+      if (!n.ignored && n.name?.value) names.add(n.name.value);
+    }
+    if (!names.has('Time') || !names.has('Job') || !names.has('Place')) {
+      const tree = await session.send('Accessibility.getFullAXTree') as {
+        nodes?: Array<{
+          nodeId: string;
+          parentId?: string;
+          backendDOMNodeId?: number;
+          ignored?: boolean;
+          name?: { value?: string };
+          childIds?: string[];
+        }>;
+      };
+      const nodes = tree.nodes ?? [];
+      const byId = new Map(nodes.map((n) => [n.nodeId, n]));
+      const root = nodes.find((n) => n.backendDOMNodeId === desc.node.backendNodeId);
+      const walk = (id: string | undefined) => {
+        if (!id) return;
+        const n = byId.get(id);
+        if (!n) return;
+        if (!n.ignored && n.name?.value) names.add(n.name.value);
+        const kids = n.childIds?.length
+          ? n.childIds
+          : nodes.filter((c) => c.parentId === id).map((c) => c.nodeId);
+        for (const c of kids) walk(c);
+      };
+      if (root) walk(root.nodeId);
+    }
+    return {
+      Time: names.has('Time'),
+      Job: names.has('Job'),
+      Place: names.has('Place'),
+    };
+  } finally {
+    await session.detach();
+  }
 }
 
 function navLabelsScript() {
@@ -1357,13 +1484,14 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
 
   it('P1-overflow: scrollWidth plus max rect.right is 0 overflow at 375/390/768/1024/1280, including header', async () => {
     for (const width of WIDTHS) {
-      const page = await openPage({ width });
+      const page = await openPage({ width, js: dashJsNoProof, path: '/?look=dashboard' });
       await page.waitForSelector('.shell-header', { timeout: 20000 });
       for (const mode of ['view', 'edit'] as const) {
         if (mode === 'edit') await enterEdit(page);
         const box = await page.evaluate(overflowScript);
         expect(box.scrollWidth, `scrollWidth at ${width} ${mode}`).toBeLessThanOrEqual(width);
         expect(box.maxRight, `max rect.right at ${width} ${mode}`).toBeLessThanOrEqual(width + 0.5);
+        expect(box.clipOverflows, `clip-ancestor overflow at ${width} ${mode}: ${box.clipSample.join(', ')}`).toBe(0);
       }
       await page.close();
     }
@@ -1629,29 +1757,46 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
 
   it('P1-schedule-stack: 375/390 time left equals Job title left', async () => {
     for (const width of [375, 390] as const) {
-      const page = await openPage({ width });
+      const page = await openPage({ width, js: dashJsNoProof, path: '/?look=dashboard' });
       await page.waitForSelector('.dashboard-home-row .dashboard-home-title', { timeout: 20000 });
-      const box = await page.evaluate(() => {
-        const row = document.querySelector('.dashboard-home-row') as HTMLElement | null;
-        const time = row?.querySelector('.dashboard-home-time') as HTMLElement | null;
-        const title = row?.querySelector('.dashboard-home-title') as HTMLElement | null;
-        if (!row || !time || !title) throw new Error('schedule row missing time/title');
-        return {
-          timeLeft: time.getBoundingClientRect().left,
-          titleLeft: title.getBoundingClientRect().left,
-        };
+      const rows = await page.evaluate(() => {
+        return [...document.querySelectorAll('.dashboard-home-row')].map((row) => {
+          const time = row.querySelector('.dashboard-home-time') as HTMLElement | null;
+          const title = row.querySelector('.dashboard-home-title') as HTMLElement | null;
+          const meta = row.querySelector('.dashboard-home-ref') as HTMLElement | null;
+          const pill = row.querySelector('.dashboard-home-crew-schedule') as HTMLElement | null;
+          if (!time || !title || !meta || !pill) throw new Error('schedule row missing time/title/meta/pill');
+          const t = time.getBoundingClientRect();
+          const ti = title.getBoundingClientRect();
+          const m = meta.getBoundingClientRect();
+          const p = pill.getBoundingClientRect();
+          return {
+            timeLeft: t.left,
+            titleLeft: ti.left,
+            gap: ti.top - t.bottom,
+            tops: [t.top, ti.top, m.top, p.top],
+          };
+        });
       });
       await page.close();
-      expect(
-        Math.abs(box.timeLeft - box.titleLeft),
-        `time left equals title left at ${width}`,
-      ).toBeLessThanOrEqual(1);
+      expect(rows.length, `schedule rows at ${width}`).toBeGreaterThan(0);
+      for (const [i, box] of rows.entries()) {
+        expect(
+          Math.abs(box.timeLeft - box.titleLeft),
+          `time left equals title left at ${width} row ${i}`,
+        ).toBeLessThanOrEqual(1);
+        expect(Math.abs(box.gap - 4), `time→title gap 4px at ${width} row ${i}`).toBeLessThanOrEqual(1);
+        expect(
+          box.tops[0] < box.tops[1] && box.tops[1] < box.tops[2] && box.tops[2] < box.tops[3],
+          `visual order time < title < meta < pill at ${width} row ${i}: ${box.tops.join(',')}`,
+        ).toBe(true);
+      }
     }
   }, 120000);
 
   it('P1-schedule-thead: no visible Time/Job thead below 640, still in the a11y tree', async () => {
     for (const width of [375, 390] as const) {
-      const page = await openPage({ width });
+      const page = await openPage({ width, js: dashJsNoProof, path: '/?look=dashboard' });
       await page.waitForSelector('.dashboard-home-thead', { timeout: 20000, state: 'attached' });
       const read = () => page.evaluate(() => {
         const thead = document.querySelector('.dashboard-home-thead') as HTMLElement | null;
@@ -1668,23 +1813,30 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
           display: s.display,
           text: (thead.textContent || '').replace(/\s+/g, ' ').trim(),
           visible,
-          inTree: document.body.contains(thead),
+          hidden: s.visibility === 'hidden' || thead.getAttribute('aria-hidden') === 'true',
         };
       });
+      const ax = () => theadAxExposed(page);
       const top = await read();
+      const topAx = await ax();
       await page.evaluate(() => {
         const main = document.querySelector('main');
         if (main) main.scrollTop = Math.min(main.scrollHeight, 240);
         else window.scrollTo(0, 240);
       });
       const scrolled = await read();
+      const scrolledAx = await ax();
       await page.close();
-      expect(top.inTree, `thead in tree at ${width} top`).toBe(true);
       expect(top.display, `thead not display:none at ${width} top`).not.toBe('none');
       expect(top.text, `thead labels at ${width}`).toMatch(/Time/);
       expect(top.visible, `thead hidden at ${width} top`).toBe(false);
+      expect(topAx.Time, `AX Time at ${width} top`).toBe(true);
+      expect(topAx.Job, `AX Job at ${width} top`).toBe(true);
+      expect(topAx.Place, `AX Place at ${width} top`).toBe(true);
       expect(scrolled.visible, `thead hidden at ${width} scrolled`).toBe(false);
-      expect(scrolled.inTree, `thead in tree at ${width} scrolled`).toBe(true);
+      expect(scrolledAx.Time, `AX Time at ${width} scrolled`).toBe(true);
+      expect(scrolledAx.Job, `AX Job at ${width} scrolled`).toBe(true);
+      expect(scrolledAx.Place, `AX Place at ${width} scrolled`).toBe(true);
     }
   }, 120000);
 
@@ -1701,6 +1853,18 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
           const range = document.createRange();
           range.selectNodeContents(el);
           return [...range.getClientRects()].map((r) => Math.round(r.top));
+        };
+        const lineCount = (tops: number[]) => {
+          const sorted = [...tops].sort((a, b) => a - b);
+          let n = 0;
+          let last = -999;
+          for (const t of sorted) {
+            if (t - last > 2) {
+              n += 1;
+              last = t;
+            }
+          }
+          return n;
         };
         const chars: Array<{ ch: string; top: number }> = [];
         const walker = document.createTreeWalker(ref, NodeFilter.SHOW_TEXT);
@@ -1732,9 +1896,8 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
         return {
           text: (ref.textContent || '').replace(/\s+/g, ' ').trim(),
           want,
-          lines: new Set(lineTops(ref)).size,
-          segLines: segs.map((seg) => new Set(lineTops(seg)).size),
-          nowrap: segs.map((seg) => getComputedStyle(seg).whiteSpace),
+          lines: lineCount(lineTops(ref)),
+          segLines: segs.map((seg) => lineCount(lineTops(seg))),
           wrapEnds: lineStrs.slice(0, -1).map((line) => / ·\s*$/.test(line)),
           lineStrs,
         };
@@ -1743,7 +1906,6 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       expect(box.text, `0141 meta at ${width}`).toBe(LIVE_JOB_META);
       expect(box.lines, `0141 line count at ${width}`).toBeLessThanOrEqual(2);
       expect(box.segLines.every((n) => n <= 1), `nowrap segments at ${width}`).toBe(true);
-      expect(box.nowrap.every((v) => v === 'nowrap'), `nowrap computed at ${width}`).toBe(true);
       expect(box.wrapEnds.every(Boolean), `breaks after · at ${width}`).toBe(true);
     }
   }, 120000);
@@ -1753,29 +1915,30 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       const page = await openPage({ width, js: dashJsNoProof, path: '/?look=dashboard' });
       await page.waitForSelector('.dashboard-home-ref-seg', { timeout: 20000 });
       const box = await page.evaluate((long: string) => {
-        const seg = document.querySelector('.dashboard-home-ref-seg') as HTMLElement | null;
-        const ref = seg?.parentElement as HTMLElement | null;
-        const row = seg?.closest('.dashboard-home-row') as HTMLElement | null;
-        if (!seg || !ref || !row) throw new Error('meta seg missing');
-        const wrap = getComputedStyle(seg).overflowWrap;
-        seg.textContent = long;
-        // nowrap keeps ordinary spaces together; overflow-wrap is the
-        // fallback for a single token wider than the line.
-        seg.style.whiteSpace = 'normal';
-        const overflowOf = () => {
-          const rs = ref.getBoundingClientRect();
-          const rowBox = row.getBoundingClientRect();
-          return ref.scrollWidth > ref.clientWidth + 1 || rs.right > rowBox.right + 1;
+        const segs = [...document.querySelectorAll('.dashboard-home-ref-seg')] as HTMLElement[];
+        const cell = segs[0]?.closest('.dashboard-home-ref') as HTMLElement | null;
+        if (!segs.length || !cell) throw new Error('meta seg missing');
+        segs[0].textContent = long;
+        return {
+          segs: segs.map((seg) => {
+            const host = seg.closest('.dashboard-home-ref') as HTMLElement;
+            const range = document.createRange();
+            range.selectNodeContents(seg);
+            const textRight = [...range.getClientRects()].reduce((max, r) => Math.max(max, r.right), 0);
+            return {
+              right: Math.max(seg.getBoundingClientRect().right, textRight),
+              cellRight: host.getBoundingClientRect().right,
+            };
+          }),
+          scrollWidth: cell.scrollWidth,
+          clientWidth: cell.clientWidth,
         };
-        const withWrap = overflowOf();
-        seg.style.overflowWrap = 'normal';
-        const withoutWrap = overflowOf();
-        return { wrap, withWrap, withoutWrap };
       }, LONG_META_SEG);
       await page.close();
-      expect(box.wrap, `overflow-wrap at ${width}`).toMatch(/anywhere|break-word/);
-      expect(box.withWrap, `long segment overflow at ${width}`).toBe(false);
-      expect(box.withoutWrap, `removing overflow-wrap overflows at ${width}`).toBe(true);
+      for (const [i, seg] of box.segs.entries()) {
+        expect(seg.right, `seg ${i} right ≤ cell at ${width}`).toBeLessThanOrEqual(seg.cellRight + 1);
+      }
+      expect(box.scrollWidth, `cell scrollWidth at ${width}`).toBeLessThanOrEqual(box.clientWidth + 1);
     }
   }, 120000);
 
@@ -1807,23 +1970,30 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
   }, 120000);
 
   it('P1-schedule-pill: Booked pill width is content width, not the column', async () => {
-    const page = await openPage({ width: 768 });
-    await page.waitForSelector('.dashboard-home-crew-schedule', { timeout: 20000 });
-    const box = await page.evaluate(() => {
-      const pill = document.querySelector('.dashboard-home-crew-schedule') as HTMLElement | null;
-      const job = pill?.closest('.dashboard-home-job') as HTMLElement | null;
-      if (!pill || !job) throw new Error('pill missing');
-      const align = getComputedStyle(pill).alignSelf;
-      return {
-        align,
-        pillW: pill.getBoundingClientRect().width,
-        jobW: job.getBoundingClientRect().width,
-      };
-    });
-    await page.close();
-    expect(box.align, 'pill align-self').toBe('flex-start');
-    expect(box.pillW, 'pill narrower than job column').toBeLessThan(box.jobW - 8);
-  }, 60000);
+    for (const width of WIDTHS) {
+      const page = await openPage({ width, js: dashJsNoProof, path: '/?look=dashboard' });
+      await page.waitForSelector('.dashboard-home-crew-schedule', { timeout: 20000 });
+      const box = await page.evaluate(() => {
+        const pill = document.querySelector('.dashboard-home-crew-schedule') as HTMLElement | null;
+        if (!pill) throw new Error('pill missing');
+        const cs = getComputedStyle(pill);
+        const range = document.createRange();
+        range.selectNodeContents(pill);
+        const textW = [...range.getClientRects()].reduce((max, r) => Math.max(max, r.width), 0);
+        const pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+        const border = parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+        return {
+          pillW: pill.getBoundingClientRect().width,
+          contentW: textW + pad + border,
+        };
+      });
+      await page.close();
+      expect(
+        Math.abs(box.pillW - box.contentW),
+        `pill width ≈ content at ${width} (${box.pillW} vs ${box.contentW})`,
+      ).toBeLessThanOrEqual(1);
+    }
+  }, 180000);
 
   it('P1-today-mark: changing NAV_WORDS.today changes the black bar text', async () => {
     const brandPath = join(process.cwd(), 'src/lib/brand.ts');

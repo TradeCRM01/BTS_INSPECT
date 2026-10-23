@@ -1,5 +1,7 @@
 /** Browser-side stubs for the S2 Chromium shell harness. Not imported by the app. */
 
+import { BRAND_NAME } from '../../lib/brand';
+
 export type S2ShellCfg = {
   companyName?: string;
   reportTheme?: Record<string, string> | null;
@@ -79,24 +81,24 @@ function liveJobs() {
     title: 'Mixer tap',
     status: 'scheduled',
     scheduled_date: day,
-    start_time: '07:30',
-    end_time: '16:00',
+    start_time: '13:00',
+    end_time: '15:00',
     address: '12 Example St, Ashgrove QLD 4060',
     assigned_team: ['live-crew-invitee'],
     job_number: 141,
     cost_code: 'A$',
   }, {
     ...base,
-    id: 'live-job-harbour',
-    client_id: 'live-client-harbour',
-    title: 'Warehouse lights',
+    id: 'live-job-0137',
+    client_id: 'live-client-megan',
+    title: 'Replace kitchen mixer tap',
     status: 'scheduled',
     scheduled_date: day,
-    start_time: '09:00',
-    end_time: '12:00',
-    address: '8 Wharf St, Fremantle WA 6160',
-    assigned_team: ['live-crew-invitee'],
-    job_number: 43,
+    start_time: '14:00',
+    end_time: '16:00',
+    address: '4 Example St, Wilston QLD 4051',
+    assigned_team: ['live-crew-0137'],
+    job_number: 137,
     cost_code: null,
   }];
 }
@@ -108,10 +110,10 @@ function liveClients() {
     phone: null,
     address: '12 Example St, Ashgrove QLD 4060',
   }, {
-    id: 'live-client-harbour',
-    name: 'Harbour Lights',
+    id: 'live-client-megan',
+    name: 'Megan Lowe',
     phone: null,
-    address: '8 Wharf St, Fremantle WA 6160',
+    address: '4 Example St, Wilston QLD 4051',
   }];
 }
 
@@ -136,7 +138,10 @@ function liveReminders() {
 }
 
 function liveCrew() {
-  return [{ id: 'live-crew-invitee', name: LIVE_DASH_CREW_NAME }];
+  return [
+    { id: 'live-crew-invitee', name: LIVE_DASH_CREW_NAME },
+    { id: 'live-crew-0137', name: `${BRAND_NAME} CoS Test` },
+  ];
 }
 
 type MockRow = Record<string, unknown>;

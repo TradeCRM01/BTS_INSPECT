@@ -12813,7 +12813,7 @@
   }
 
   .dashboard-home-ref-seg {
-    white-space: nowrap;
+    display: inline-block;
     overflow-wrap: anywhere;
   }
 
