@@ -46,7 +46,7 @@ describe('list-page quiet eyebrows (paper kit)', () => {
     const reports = src('src/pages/ReportsListPage.tsx');
     const compliance = src('src/pages/CompliancePage.tsx');
     const quotes = src('src/pages/QuotesPage.tsx');
-    const dashboard = src('src/pages/DashboardPage.tsx');
+    const dashboard = src('src/pages/TodayBoardView.tsx');
 
     expect(jobs).not.toContain('hub-look-eyebrow');
     expect(jobs).toContain('ops-page-title">Jobs');
@@ -75,7 +75,7 @@ describe('list-page quiet eyebrows (paper kit)', () => {
     expect(compliance).toContain('ops-page-title">Compliance');
     expect(compliance).toContain('hub-compliance-list-mark">List');
     expect(quotes).toContain('hub-look-eyebrow hub-quote-kicker');
-    expect(dashboard).toContain('hub-look-eyebrow dashboard-home-label');
+    expect(dashboard).toContain('today-eyebrow');
 
     expect(jobs).not.toMatch(/>JOBS</);
     expect(clients).not.toMatch(/>CLIENTS</);

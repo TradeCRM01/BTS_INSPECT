@@ -156,9 +156,10 @@ describe('signed-in dashboard document sheet look', () => {
     expect(page).not.toContain('dashboard-home-mark">{NAV_WORDS.today}');
     expect(page).toContain('dashboard-home-sheet-body');
     expect(src('src/pages/TodayBoardView.tsx')).toContain('dashboard-home-hero');
-    expect(page).toContain('dashboard-home-label');
     expect(page).toContain('TodayBoardView');
     const board = src('src/pages/TodayBoardView.tsx');
+    expect(board).toContain('today-eyebrow');
+    expect(board).toContain('today-sub');
     expect(board).toContain('dashboard-home-ledger');
     expect(board).toContain('dashboard-home-row');
     expect(page).toContain('dashboard-home-primary');
