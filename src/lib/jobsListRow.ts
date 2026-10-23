@@ -89,7 +89,7 @@ export function jobsListPhoneRow(job: {
   client_name?: string | null;
   address?: string | null;
   client_address?: string | null;
-  status: JobStatus;
+  status: JobStatus | string;
   scheduled_date?: string | null;
   assigned_team?: string[] | null;
   invoices?: JobStatusPillInput['invoices'];
