@@ -123,6 +123,7 @@ import {
   saveJobClientPhone,
 } from '../lib/saveJobClientPhone';
 import { FIELD_AU_PHONE, FIELD_EMAIL } from '../lib/fieldValidation';
+import { clientRecordHref } from '../lib/clientRecords';
 import {
   ARRIVING_NEXT_LABEL,
   isJobRescheduleQuery,
@@ -3171,115 +3172,15 @@ export function JobDetailPage() {
       `}</style>
       <div className={`ops-page hub-jobs hub-job-cal is-record-open${visitNotesLookOn() ? ' is-visit-notes-look' : ''}${jobPhotosLookOn() ? ' is-job-photos-look' : ''}`}>
         <header className="job-sheet-appbar">
-          <Link to="/jobs" className="hub-jobs-label job-sheet-back" aria-label={JOB_SHEET_BACK}><span className="job-sheet-back-chevron" aria-hidden="true">‹</span><span> Jobs</span></Link>
+          <Link to="/jobs" className="hub-jobs-label job-sheet-back" aria-label={JOB_SHEET_BACK}>
+            <svg className="job-sheet-back-chevron" width="22" height="22" aria-hidden="true" viewBox="0 0 256 256" fill="currentColor">
+              <path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z" />
+            </svg>
+            <span>Jobs</span>
+          </Link>
           <button type="button" className="job-sheet-appbar-search" aria-label="Search">
             <Search size={22} />
           </button>
-            <div className="hub-jobs-tools-overflow">
-              <details ref={moreRef} className="hub-job-more">
-                <summary aria-label="More actions">
-                  <MoreHorizontal size={18} />
-                </summary>
-                <div className="hub-job-more-menu" role="menu">
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => { closeMore(); revealSection('job-schedule'); }}
-                  >
-                    People
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => { closeMore(); openPostUpdate(); }}
-                  >
-                    Post update
-                  </button>
-                  {(jhaTemplates ?? []).length <= 1 ? (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => { closeMore(); startJha(); }}
-                    >
-                      {(jhas ?? []).length > 0 ? 'Another JHA' : 'Start JHA / SWMS'}
-                    </button>
-                  ) : (
-                    (jhaTemplates ?? []).map(t => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        role="menuitem"
-                        onClick={() => { closeMore(); navigate(jhaStartHref(t.id)); }}
-                      >
-                        {t.name}
-                      </button>
-                    ))
-                  )}
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => { closeMore(); navigate(inspectHref); }}
-                  >
-                    Start inspection
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => { closeMore(); revealSection('job-gallery'); }}
-                  >
-                    Gallery
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => { closeMore(); handleInvoice(); }}
-                    disabled={invoiceNextBusy}
-                  >
-                    Invoice
-                  </button>
-                  {runningEntry ? (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => { closeMore(); clockOffJob.mutate(); }}
-                      disabled={clockOffJob.isPending}
-                    >
-                      Clock off
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => { closeMore(); clockOnJob.mutate(); }}
-                      disabled={clockOnJob.isPending || job.status === 'cancelled'}
-                    >
-                      Clock on
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => { closeMore(); setShowEdit(true); }}
-                  >
-                    Details
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      closeMore();
-                      const preview = buildJobCalendar(job, {
-                        site: calendarSite(job.address, client?.address),
-                        crewNames: assigned,
-                      });
-                      if (preview.ok) downloadJobCalendar(preview);
-                    }}
-                  >
-                    Add to calendar
-                  </button>
-                </div>
-              </details>
-            </div>
           <span className="job-sheet-appbar-avatar" aria-label="Account">
             {(profile?.name ?? 'DM').split(/\s+/).filter(Boolean).map((part: string) => part.charAt(0)).join('').slice(0, 2).toUpperCase()}
           </span>
@@ -3325,13 +3226,14 @@ export function JobDetailPage() {
               </details>
             </div>
             <h1 className="hub-jobs-hero">{job.title}</h1>
+            <div className="job-sheet-meta">
             {site ? (
               <p className="job-sheet-site" data-job-sheet="site-line">
-                <MapPin size={14} /> {site}
+                <MapPin size={16} /> {site}
               </p>
             ) : null}
             <p className={`job-sheet-when${whenLine.undated ? ' is-undated' : ''}`} data-job-sheet="when">
-              <Clock size={14} /> {whenLine.text}
+              <Clock size={16} /> {whenLine.text}
               {whenLine.undated ? (
                 <button
                   type="button"
@@ -3342,6 +3244,7 @@ export function JobDetailPage() {
                 </button>
               ) : null}
             </p>
+            </div>
 
             {(() => {
               const nextTools = (
@@ -3521,7 +3424,7 @@ export function JobDetailPage() {
               ) : attachRow.kind === 'miss' ? (
                 <span className="ops-meta">{JOB_CLIENT_ATTACH_NO_CLIENTS}</span>
               ) : headerClient.kind === 'name' && job.client_id ? (
-                <span className="job-sheet-kv-name">{headerClient.name}</span>
+                <Link to={clientRecordHref(job.client_id)} className="job-sheet-kv-name">{headerClient.name}</Link>
               ) : headerClient.kind === 'pending' ? (
                 <span className="ops-meta" data-job-client="pending" />
               ) : (
@@ -3662,10 +3565,10 @@ export function JobDetailPage() {
               </div>
 
             {job.description && (
-              <div className="hub-jobs-ledger-row hub-jobs-scope" data-job-sheet="scope">
-                <p className="ops-meta">Scope of works</p>
-                <p className="whitespace-pre-wrap">{job.description}</p>
-              </div>
+              <section className="job-sheet-scope hub-jobs-scope" data-job-sheet="scope">
+                <h2 className="job-sheet-scope-h">Scope of works</h2>
+                <p className="job-sheet-scope-body">{job.description}</p>
+              </section>
             )}
 
             {laneRows.some(row => row.retry) ? (
@@ -3796,6 +3699,108 @@ export function JobDetailPage() {
                     <p className="ops-meta">{billBusy ? '…' : costTotalsError ? "Couldn't load materials." : 'No materials'}</p>
                   )}
                 </section>
+
+              <details ref={moreRef} className="hub-job-more job-sheet-more" data-job-sheet="actions">
+                <summary>Actions</summary>
+                <div className="hub-job-more-menu" role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); revealSection('job-schedule'); }}
+                  >
+                    People
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); openPostUpdate(); }}
+                  >
+                    Post update
+                  </button>
+                  {(jhaTemplates ?? []).length <= 1 ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => { closeMore(); startJha(); }}
+                    >
+                      {(jhas ?? []).length > 0 ? 'Another JHA' : 'Start JHA / SWMS'}
+                    </button>
+                  ) : (
+                    (jhaTemplates ?? []).map(t => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => { closeMore(); navigate(jhaStartHref(t.id)); }}
+                      >
+                        {t.name}
+                      </button>
+                    ))
+                  )}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); navigate(inspectHref); }}
+                  >
+                    Start inspection
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); revealSection('job-gallery'); }}
+                  >
+                    Gallery
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); handleInvoice(); }}
+                    disabled={invoiceNextBusy}
+                  >
+                    Invoice
+                  </button>
+                  {runningEntry ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => { closeMore(); clockOffJob.mutate(); }}
+                      disabled={clockOffJob.isPending}
+                    >
+                      Clock off
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => { closeMore(); clockOnJob.mutate(); }}
+                      disabled={clockOnJob.isPending || job.status === 'cancelled'}
+                    >
+                      Clock on
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { closeMore(); setShowEdit(true); }}
+                  >
+                    Details
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      closeMore();
+                      const preview = buildJobCalendar(job, {
+                        site: calendarSite(job.address, client?.address),
+                        crewNames: assigned,
+                      });
+                      if (preview.ok) downloadJobCalendar(preview);
+                    }}
+                  >
+                    Add to calendar
+                  </button>
+                </div>
+              </details>
 
         {stages.length > 0 && (
           <div data-job-sheet="stages">

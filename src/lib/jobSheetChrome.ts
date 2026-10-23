@@ -7,7 +7,7 @@ export const JOB_SHEET_SET_A_DATE = 'Set a date';
 export const JOB_SHEET_ALL_NOTES = 'All notes';
 export const JOB_SHEET_ALL_PHOTOS = 'All photos';
 export const JOB_SHEET_EDIT_BILL = 'Edit bill';
-export const JOB_SHEET_BACK = '‹ Jobs';
+export const JOB_SHEET_BACK = 'Jobs';
 
 export const JOB_SHEET_STATUS_OPTIONS: { value: JobStatus; label: string }[] = [
   { value: 'scheduled', label: 'Scheduled' },

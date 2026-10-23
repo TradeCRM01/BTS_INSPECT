@@ -43,7 +43,7 @@ describe('job sheet laptop LOOK — quote paper, one overflow, compact header', 
     expect(page).not.toMatch(/\bute\b/i);
 
     expect((page.match(/data-job-sheet="kv"/g) ?? []).length).toBe(1);
-    expect((page.match(/className="hub-job-more"/g) ?? []).length).toBe(1);
+    expect((page.match(/className="hub-job-more(?:\s|")/g) ?? []).length).toBe(1);
     expect((page.match(/MoreHorizontal/g) ?? []).length).toBeGreaterThanOrEqual(1);
 
     expect(css).toContain('.hub-jobs-identity');
