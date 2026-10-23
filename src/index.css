@@ -13636,17 +13636,29 @@
     margin-top: 28px;
   }
 
+  /* Unlayered: beat .hub-job-more > summary (none/44) and restore kit .btn-secondary. */
   .hub-jobs-document .job-sheet-more > summary.btn-secondary,
   .job-sheet-more > summary.btn-secondary {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
+    gap: 0.5rem;
+    box-sizing: border-box;
     width: auto;
     height: auto;
-    min-height: 44px;
+    min-height: 0;
+    padding: 0.5rem 0.75rem;
     list-style: none;
     cursor: pointer;
     text-align: center;
+    background: #fff;
+    color: #1A1A1A;
+    border: 1px solid #E5E7EB;
+    border-radius: 0.375rem;
+    box-shadow: none;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 500;
   }
 
   .job-sheet-more > summary::-webkit-details-marker,
@@ -13655,12 +13667,41 @@
     content: '';
   }
 
+  .hub-jobs-document .job-sheet-more > .hub-job-more-menu,
+  .job-sheet-more > .hub-job-more-menu,
+  .hub-jobs-document .job-sheet-more.is-shift > .hub-job-more-menu,
+  .job-sheet-more.is-shift > .hub-job-more-menu {
+    left: 0;
+    right: 0;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    transform: none;
+    box-sizing: border-box;
+  }
+
+  .job-sheet-more:not([open]) > .hub-job-more-menu {
+    display: none;
+  }
+
   @media (max-width: 768px) {
+    .hub-jobs.is-record-open.ops-page {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+
+    .hub-jobs.is-record-open .hub-jobs-sheet-body {
+      padding-left: 0;
+      padding-right: 0;
+    }
+
     .hub-jobs-document .job-sheet-more,
     .job-sheet-more,
     .hub-jobs-document .job-sheet-more > summary.btn-secondary,
     .job-sheet-more > summary.btn-secondary {
       width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
     }
   }
 
@@ -18671,6 +18712,36 @@
     a[data-jha-nav] {
       min-height: 44px;
     }
+  }
+}
+
+/* r12: unlayered ≤768 gutters. Layered 16px lost to .hub-jobs.ops-page 24px (720 at 768). */
+@media (max-width: 768px) {
+  .hub-jobs.is-record-open.ops-page {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .hub-jobs.is-record-open .hub-jobs-sheet,
+  .hub-jobs.is-record-open .hub-jobs-document,
+  .hub-jobs.is-record-open .hub-jobs-sheet-body {
+    padding-left: 0;
+    padding-right: 0;
+    margin-left: 0;
+    margin-right: 0;
+    max-width: none;
+  }
+
+  .hub-jobs-document .job-sheet-more > .hub-job-more-menu,
+  .job-sheet-more > .hub-job-more-menu,
+  .hub-jobs-document .job-sheet-more.is-shift > .hub-job-more-menu,
+  .job-sheet-more.is-shift > .hub-job-more-menu {
+    left: 0;
+    right: 0;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    transform: none;
   }
 }
 
