@@ -2356,9 +2356,9 @@ describe('P3 r9 mockup vs head at 390', () => {
       expect(w - pad, `tab ${i} content box >= ink`).toBeGreaterThanOrEqual(ink - 1);
       expect(head.tabScrollWidths[i], `tab ${i} label scrollWidth`).toBeLessThanOrEqual(head.tabClientWidths[i]);
     });
-    expect(head.tabOnShadow.replace(/\s+/g, ''), 'active tab --line ring').toMatch(/rgb\(228,228,231\)/);
     const headTabRing = tabRingPaint(headTabRingShot);
     expect(headTabRing.dist, `active tab ring paint ${headTabRing.rgb} d${headTabRing.dist}`).toBeLessThanOrEqual(12);
+    expect(head.tabOnShadow.replace(/\s+/g, ''), 'active tab --line ring').toMatch(/rgb\(228,228,231\)/);
     expect(near(head.searchX, mockup.searchX), `searchX head ${head.searchX} mock ${mockup.searchX}`).toBe(true);
     expect(near(head.avatarX, mockup.avatarX), `avatarX head ${head.avatarX} mock ${mockup.avatarX}`).toBe(true);
     expect(head.eyebrowColor.replace(/\s+/g, '')).toMatch(/rgb\(74,\s*74,\s*82\)/);
@@ -3122,8 +3122,8 @@ describe('P3 r15 phone type below 768', () => {
         expect(w - pad, `${width} tab ${i} content box >= ink`).toBeGreaterThanOrEqual(ink - 1);
         expect(read.tabScrollWidths[i], `${width} tab ${i} label scrollWidth`).toBeLessThanOrEqual(read.tabClientWidths[i]);
       });
-      expect(read.tabOnShadow.replace(/\s+/g, ''), `${width} active tab --line ring`).toMatch(/rgb\(228,228,231\)/);
       expect(paintedRing.dist, `${width} active tab ring paint ${paintedRing.rgb} d${paintedRing.dist}`).toBeLessThanOrEqual(12);
+      expect(read.tabOnShadow.replace(/\s+/g, ''), `${width} active tab --line ring`).toMatch(/rgb\(228,228,231\)/);
       expect(read.tabCols, `${width} tab columns`).toBe(4);
       expect(read.scrollWidth, `${width} docSW`).toBeLessThanOrEqual(read.innerWidth);
       expect(read.bodyScrollWidth, `${width} bodySW`).toBeLessThanOrEqual(read.innerWidth);
@@ -3536,7 +3536,44 @@ describe('P3 r16 WebKit 375/390', () => {
     }
     webkitItsRun += 1;
   });
+
+  killIt('R18 WebKit 320 bill values stay one line', async () => {
+    const page = await openWebkit(320, '/jobs/p3-0036');
+    await waitSettledLayout(page, '.job-sheet-bill3');
+    const read = await page.evaluate(billValueLineTops);
+    await page.close();
+    expect(read.length, 'webkit 320 bill values').toBeGreaterThanOrEqual(3);
+    for (const row of read) {
+      expect(row.lines, `webkit 320 bill ${row.text} line tops ${JSON.stringify(row.tops)}`).toBe(1);
+    }
+    webkitItsRun += 1;
+  });
 });
+
+function billValueLineTops() {
+  const values = [...document.querySelectorAll('.hub-jobs-document .job-sheet-bill-v')] as HTMLElement[];
+  return values.map((el) => {
+    const tops: number[] = [];
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+      if ((node.textContent || '').trim()) {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        for (const rect of range.getClientRects()) {
+          if (rect.width > 0 && rect.height > 0) tops.push(rect.top);
+        }
+      }
+      node = walker.nextNode();
+    }
+    const distinct = [...new Set(tops.map((top) => Math.round(top)))];
+    return {
+      text: (el.textContent || '').replace(/\s+/g, ' ').trim(),
+      lines: distinct.length,
+      tops: distinct,
+    };
+  });
+}
 
 function chipScrollerScript() {
   const hits: { cls: string; ox: string; sw: number; cw: number }[] = [];
@@ -3603,7 +3640,11 @@ describe('P3 r16 chip wrap', () => {
     await waitSheet(page);
     await waitSettledLayout(page, '.job-sheet-tabs');
     const read = await page.evaluate(() => {
+      const rail = document.querySelector('.job-sheet-tabs') as HTMLElement | null;
       const tabs = [...document.querySelectorAll('.job-sheet-tab')] as HTMLElement[];
+      const last = tabs[tabs.length - 1];
+      const railBox = rail?.getBoundingClientRect();
+      const lastBox = last?.getBoundingClientRect();
       return {
         sizes: tabs.map((tab) => parseFloat(getComputedStyle(tab).fontSize)),
         pads: tabs.map((tab) => {
@@ -3614,10 +3655,22 @@ describe('P3 r16 chip wrap', () => {
         scrollWidths: tabs.map((tab) => tab.scrollWidth),
         clientWidths: tabs.map((tab) => tab.clientWidth),
         labels: tabs.map((tab) => (tab.textContent || '').replace(/\s+/g, ' ').trim()),
+        railScrollWidth: rail?.scrollWidth ?? -1,
+        railClientWidth: rail?.clientWidth ?? -1,
+        lastTabRight: lastBox?.right ?? -1,
+        railRight: railBox?.right ?? -1,
       };
     });
     await page.close();
     expect(read.sizes.length, '320 tab count').toBe(4);
+    expect(
+      read.railScrollWidth,
+      `320 rail scrollWidth ${read.railScrollWidth} > client ${read.railClientWidth}`,
+    ).toBeLessThanOrEqual(read.railClientWidth);
+    expect(
+      read.lastTabRight,
+      `320 last tab right ${read.lastTabRight} > rail right ${read.railRight} - 2`,
+    ).toBeLessThanOrEqual(read.railRight - 2);
     for (const [i, size] of read.sizes.entries()) {
       expect(
         read.scrollWidths[i],
@@ -3626,6 +3679,18 @@ describe('P3 r16 chip wrap', () => {
       expect(size, `320 tab ${i} ${read.labels[i]} size`).toBe(14);
       expect(read.pads[i], `320 tab ${i} pad`).toBe(4);
       expect(read.minWidths[i] === '0px', `320 tab ${i} min-width not 0`).toBe(false);
+    }
+  });
+
+  killIt('R18 320 bill values stay one line', async () => {
+    const page = await openPage({ width: 320, path: '/jobs/p3-0036', height: 844 });
+    await waitSheet(page);
+    await waitSettledLayout(page, '.job-sheet-bill3');
+    const read = await page.evaluate(billValueLineTops);
+    await page.close();
+    expect(read.length, '320 bill values').toBeGreaterThanOrEqual(3);
+    for (const row of read) {
+      expect(row.lines, `320 bill ${row.text} line tops ${JSON.stringify(row.tops)}`).toBe(1);
     }
   });
 });

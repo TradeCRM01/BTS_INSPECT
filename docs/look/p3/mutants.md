@@ -1,25 +1,25 @@
-# P3 r17 mutants
+# P3 r18 mutants
 
 Real-file mutants. Edit `src`, `npm run build`, run the named Chromium `it()`, revert. Timeouts, injected CSS, in-suite rebuilds, and tests that write tracked files do not count. Each kill cites `it()` in `src/pages/p3Jobs.chromium.kill.tsx`.
 
 Portable mockup pin lives at `docs/look/p3/fixtures/{job-390-light.html,direction.css,tokens.css,app.css}`. `src/pages/job390Light.fixture.test.ts` sha256-checks those four files. No `/home/ubuntu` paths.
 
-R17 rebases onto main `aad2eef7` (P1b Today #403). Jack 08:42 AEST still beats the mockup below 768; re-pins stay exact `toBe`. Desktop 1024/1280 stays r14 type, now with ink/paint backstops. Commands below run **outside** the suite.
+R18 folds onto r17 `12d78a9c` (same branch, no loosening). Painted ring is asserted **ahead** of computed `boxShadow`. P3-owned `src/lib/jobNeedsCrew.p3.test.ts` pins `done→false` / `unknown→true`. 320 rail `scrollWidth≤clientWidth` and last-tab-right. 320 bill values stay one line (no `overflow-wrap:anywhere`). Commands below run **outside** the suite.
 
 Coach 12:38: do not bump `playwright` / `playwright-core` off **1.48.2**. Run WebKit on `mcr.microsoft.com/playwright:v1.48.2-jammy` or ubuntu-22.04. A WebKit that does not launch is a FAIL, never a skip. 0 WebKit tests run is a FAIL. A setup failure is a FAIL.
 
 ## Jack 08:42 AEST re-pins (below 768 only)
 
-r14 parent `1dd0d37b` → r15 → r16 → r17. Each is exact `toBe`, same selector, same real-file mutant still red. 1024/1280 stay r14 type.
+r14 parent `1dd0d37b` → r15 → r16 → r17 → r18. Each is exact `toBe`, same selector, same real-file mutant still red. 1024/1280 stay r14 type.
 
 | r14 file:line | old | new (current line) |
 | --- | --- | --- |
-| `p3Jobs.chromium.kill.tsx:1550` | `fontSize.toBeGreaterThanOrEqual(32)` | `fontSize.toBe(24)` at 375/390 (`:1681`) |
-| `p3Jobs.chromium.kill.tsx:1552` | `lines.toBe(2)` at 390 | `lines.toBe(1)` at 375/390 (`:1683`) |
-| `p3Jobs.chromium.kill.tsx:2044` | `near(head.titleSize, mockup.titleSize)` | `head.titleSize.toBe(24)` (`:2306`) + ADD `mockup.titleSize.toBe(34)` (`:2307`) |
-| `p3Jobs.chromium.kill.tsx:2048` | `near(head.ctaY, mockup.ctaY)` | `head.ctaY.toBe(titleBottom + mock gap)` (`:2311`) + ADD fixture `ctaY.toBe(199)` at 375/390 (`:2314`, `:3105`) |
-| `p3Jobs.chromium.kill.tsx:2062` | `tabFontWeight.toBe(600)` | `tabFontWeight.toBe(500)` (`:2331`) |
-| `p3Jobs.chromium.kill.tsx:2070-2072` | `near(w, mockup.tabWidths[i])` / `near(w, mockTabTargets[i])` | exact widths after `waitSettledLayout` (`:2351` R9 390 mock labels `[81.390625, 81.390625, 97.53125, 83.6875]`; Jack native 375 `[87.796875, 87.796875, 97.609375, 87.796875]` / 390 `[79.734375, 79.734375, 97.609375, 86.921875]`). 375 leftover tabs 0/1/3 share equally 87.797 (`:3111`); Paperwork stays content-min 97.609. Content-size is `width ≥ ink+pad` (`:2355` / `:3121`), not vacuous `\|width−scrollWidth\|≤1`. **Padding is caught by tab width `:2351` / `:3117`, not content-size.** Active tab ring is `--line` `rgb(228,228,231)` computed (`:2359` / `:3125`) plus painted sampled pixels (`:2361` / `:3126`). |
+| `1dd0d37b:p3Jobs.chromium.kill.tsx:1550` | `fontSize.toBeGreaterThanOrEqual(32)` | `fontSize.toBe(24)` at 375/390 (`:1681`) |
+| `1dd0d37b:p3Jobs.chromium.kill.tsx:1552` | `lines.toBe(2)` at 390 | `lines.toBe(1)` at 375/390 (`:1683`) |
+| `1dd0d37b:p3Jobs.chromium.kill.tsx:2044` | `near(head.titleSize, mockup.titleSize)` | `head.titleSize.toBe(24)` (`:2306`) + ADD `mockup.titleSize.toBe(34)` (`:2307`) |
+| `1dd0d37b:p3Jobs.chromium.kill.tsx:2048` | `near(head.ctaY, mockup.ctaY)` | `head.ctaY.toBe(titleBottom + mock gap)` (`:2311`) + ADD fixture `ctaY.toBe(199)` at 375/390 (`:2314`, `:3105`) |
+| `1dd0d37b:p3Jobs.chromium.kill.tsx:2062` | `tabFontWeight.toBe(600)` | `tabFontWeight.toBe(500)` (`:2331`) |
+| `p3Jobs.chromium.kill.tsx:2070-2072` | `near(w, mockup.tabWidths[i])` / `near(w, mockTabTargets[i])` | exact widths after `waitSettledLayout` (`:2351` R9 390 mock labels `[81.390625, 81.390625, 97.53125, 83.6875]`; Jack native 375 `[87.796875, 87.796875, 97.609375, 87.796875]` / 390 `[79.734375, 79.734375, 97.609375, 86.921875]`). 375 leftover tabs 0/1/3 share equally 87.797 (`:3111`); Paperwork stays content-min 97.609. Content-size is `width ≥ ink+pad` (`:2355` / `:3121`), not vacuous `\|width−scrollWidth\|≤1`. **Padding is caught by tab width `:2351` / `:3117`, not content-size.** Active tab ring is **painted first** (`tabRingPaint` `:415`, R9 `:2360` / Jack `:3125` `d≤12`) then computed `--line` `rgb(228,228,231)` (`:2361` / `:3126`). ring-removed first red is the painted assert. |
 
 ADD (not a re-pin): `R15 long title` `:1687` `'Hot water system replacement and backflow test'` wraps to `toBe(2)` at 375/390 (`:1701`), `scrollHeight ≤ clientHeight`, `scrollWidth ≤ clientWidth`, `rect.right ≤ innerWidth`. Jack 08:42 AEST.
 
@@ -72,12 +72,17 @@ ADD (not a re-pin): `R15 long title` `:1687` `'Hot water system replacement and 
 | r16-text-walk | hero `white-space:nowrap; letter-spacing:80px` | `R16 text-node walk at 320 375 390` :3315 | AssertionError `chromium 320 text-node rights` not `[]` |
 | r16-webkit | tab `letter-spacing:80px` | `R16 WebKit overflow` :3407 maxRight **and** :3315 text rights | AssertionError `webkit 375 maxRight` or bodySW |
 | r16-safe-area | `.shell-bottom-nav { padding-bottom: 99px }` | `R16 standalone safe-area` :3367 / :3371 | AssertionError `main nav pad-bottom … expected 99 to be 0`. Injected-header 47/34 is **coverage only**. Once #405 squashes, re-pin to 47/34 on the real shell without injected CSS/HTML. Do not fake it now. |
-| r16-chip-wrap | last `.hub-jobs-list-doc .hub-jobs-list-filters` `flex-wrap:nowrap; overflow-x:auto` and chips `flex: 0 0 auto` | `R16 Jobs filter chips wrap` :3579 `hits` **and** WebKit :3481 | AssertionError `chromium 320 overflow-x scrollers` not `[]` |
-| ring-removed | drop `box-shadow` on `.hub-jobs-document .job-sheet-tab.is-on` (`box-shadow: none`) | Jack `:3125` computed `--line` ring. Painted `:3126` / R9 `:2361` is the backstop (`tabRingPaint` `:415`). | AssertionError `375 active tab --line ring: expected 'none' to match /rgb(228,228,231)/` at :3125 |
+| r16-chip-wrap | last `.hub-jobs-list-doc .hub-jobs-list-filters` `flex-wrap:nowrap; overflow-x:auto` and chips `flex: 0 0 auto` | `R16 Jobs filter chips wrap` :3616 `hits` **and** WebKit :3481 | AssertionError `chromium 320 overflow-x scrollers` not `[]` |
+| ring-removed | drop `box-shadow` on `.hub-jobs-document .job-sheet-tab.is-on` (`box-shadow: none`) | Jack painted `:3125` (`tabRingPaint` `:415`) **ahead of** computed `:3126`. R9 painted `:2360` / computed `:2361`. | AssertionError `375 active tab ring paint 235,235,238 d21: expected 21 to be less than or equal to 12` at :3125 |
 | flex-1-inert | `flex: 1` on `.job-sheet-tabs .job-sheet-tab` | **INERT** on grid items. Jack `R15 Jack phone type` stayed green. Not a width kill. | (no red) |
 | minmax-0 | `.job-sheet-tabs` `minmax(auto, 1fr)` → `minmax(0, 1fr)` | Jack leftover `:3111`. Real kill for width ≥ ink+pad. | AssertionError `375 leftover tabs share equally: expected 90.25 to be 87.796875` at :3111 |
-| 320-clip | 320 tab `min-width: 0; max-width: 40px` (Jack 14px kept; clip assert is first) | `R17 320 tabs stay 14px and labels are not clipped` :3625 | AssertionError `320 tab 0 label scrollWidth 53 > client 40` at :3625 |
-| r17-sheet-scroller | same nowrap + overflow-x auto as r16-chip-wrap, asserted on the **job sheet** | Chromium `:3596` / WebKit `:3533` (per-element `scrollWidth ≤ clientWidth`, skip `.hub-day-track`) | AssertionError `chromium sheet 320 overflow-x scrollers` not `[]` |
+| 320-clip | 320 tab `min-width: 0; max-width: 40px` (Jack 14px kept; label clip after rail) | `R17 320 tabs stay 14px and labels are not clipped` :3678 | AssertionError `320 tab 0 label scrollWidth 53 > client 40` at :3678 |
+| r17-sheet-scroller | same nowrap + overflow-x auto as r16-chip-wrap, asserted on the **job sheet** | Chromium `:3633` / WebKit `:3533` (per-element `scrollWidth ≤ clientWidth`, skip `.hub-day-track`) | AssertionError `chromium sheet 320 overflow-x scrollers` not `[]` |
+| ring-clipped | `clip-path: inset(8px 0 0 0)` on `.hub-jobs-document .job-sheet-tab.is-on` (computed `boxShadow` still has `#E4E4E7`) | Jack painted `:3125`. Computed `:3126` stays green. | AssertionError `375 active tab ring paint 235,235,238 d21: expected 21 to be less than or equal to 12` at :3125 |
+| rail-spill | 320 tab `min-width: min-content` → `90px` (labels still fit; **not** label `max-width`) | `R17 320 tabs` rail `:3669` then last-tab-right `:3673` | AssertionError `320 rail scrollWidth 367 > client 320` at :3669 |
+| bill-wrap | re-add `overflow-wrap:anywhere` + `max-width:36px` + `white-space:normal` on 320 `.job-sheet-bill-v` | Chromium `R18 320 bill values` `:3693` / WebKit `:3547` (`Range.getClientRects` one line top) | AssertionError `320 bill $480.00 line tops [1510,1536]: expected 2 to be 1` at :3693 |
+| done-map | drop `'done'→'Done'` at `needCrew.ts:45-51` | P3-owned `src/lib/jobNeedsCrew.p3.test.ts:12` | AssertionError `expected true to be false` at :12 |
+| unknown-map | map `'unknown'→'Done'` at `needCrew.ts:45-51` | P3-owned `src/lib/jobNeedsCrew.p3.test.ts:16` | AssertionError `expected false to be true` at :16 |
 | r17-webkit-edit | hero `letter-spacing:80px; white-space:nowrap` then open the edit form | `R17 WebKit edit form text-walk at 320 375 390` :3519 (settle on `[data-job-form="1"]` before the walk) | AssertionError `webkit-edit 320 text-node rights` not `[]` |
 
 
@@ -1026,7 +1031,7 @@ print('mutated r16-chip-wrap')
 PY
 npm run build
 npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R16 Jobs filter chips wrap"
-# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3579
+# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3616
 #   chromium 320 overflow-x scrollers not []
 # WebKit same mutant: AssertionError at :3481 webkit 320 overflow-x scrollers not []
 git checkout -- src/index.css
@@ -1049,8 +1054,8 @@ PY
 npm run build
 npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R15 Jack phone type"
 # expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3125
-#   375 active tab --line ring: expected 'none' to match /rgb(228,228,231)/
-# painted backstop :3126 still red if :3125 is blanked
+#   375 active tab ring paint 235,235,238 d21: expected 21 to be less than or equal to 12
+# computed :3126 is second; first red is painted
 git checkout -- src/index.css
 ```
 
@@ -1112,9 +1117,9 @@ print('mutated 320-clip')
 PY
 npm run build
 npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R17 320 tabs stay 14px"
-# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3625
+# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3678
 #   320 tab 0 label scrollWidth 53 > client 40
-# clip assert is first so a 14px pin does not hide the clip
+# rail scrollWidth :3669 is first; this mutant shrinks tabs so rail stays green and label clip goes red
 git checkout -- src/index.css
 ```
 
@@ -1125,7 +1130,7 @@ Same src edit as r16-chip-wrap. Asserted on the job sheet, not only /jobs.
 ```sh
 # use the r16-chip-wrap python block, then:
 npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R17 job sheet has no overflow-x scrollers"
-# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3596
+# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3633
 #   chromium sheet 320 overflow-x scrollers not []
 # WebKit: :3533 webkit sheet 320 overflow-x scrollers not []
 git checkout -- src/index.css
@@ -1153,6 +1158,127 @@ npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chro
 git checkout -- src/index.css
 ```
 
+### ring-clipped
+
+Paint-only. Computed `boxShadow` still matches `--line`. `clip-path: inset(0)` is not enough — the 2px paint pad still sees the ring. Hide the sampled top edge.
+
+```sh
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = '  .hub-jobs-document .job-sheet-tab.is-on {\n    background: #fff;\n    color: var(--job-look-ink);\n    box-shadow: 0 1px 2px rgba(10, 10, 11, 0.06), 0 0 0 1px #E4E4E7;\n  }'
+new = '  .hub-jobs-document .job-sheet-tab.is-on {\n    background: #fff;\n    color: var(--job-look-ink);\n    box-shadow: 0 1px 2px rgba(10, 10, 11, 0.06), 0 0 0 1px #E4E4E7;\n    clip-path: inset(8px 0 0 0);\n  }'
+if old not in t:
+    raise SystemExit('ring-clipped anchor missing')
+p.write_text(t.replace(old, new, 1))
+print('mutated ring-clipped')
+PY
+npm run build
+npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R15 Jack phone type"
+# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3125
+#   375 active tab ring paint 235,235,238 d21: expected 21 to be less than or equal to 12
+# computed :3126 stays green (boxShadow still has rgb(228,228,231))
+git checkout -- src/index.css
+```
+
+### rail-spill
+
+Widen 320 tabs so labels still fit (no label `max-width`). Rail `overflow:hidden` would clip silently without the new asserts.
+
+```sh
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = '        font-size: 14px;\n        min-width: min-content;\n        padding: 0 2px;'
+new = '        font-size: 14px;\n        min-width: 90px;\n        padding: 0 2px;'
+if old not in t:
+    raise SystemExit('rail-spill anchor missing')
+p.write_text(t.replace(old, new, 1))
+print('mutated rail-spill')
+PY
+npm run build
+npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R17 320 tabs stay 14px"
+# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3669
+#   320 rail scrollWidth 367 > client 320
+# last-tab-right :3673 is next; label clip :3678 stays green (90px holds Paperwork)
+git checkout -- src/index.css
+```
+
+### bill-wrap
+
+```sh
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = '''      .hub-jobs-document .job-sheet-bill-v {
+        white-space: nowrap;
+        overflow-wrap: normal;
+        word-break: normal;
+      }'''
+new = '''      .hub-jobs-document .job-sheet-bill-v {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: normal;
+        max-width: 36px;
+      }'''
+if old not in t:
+    raise SystemExit('bill-wrap anchor missing')
+p.write_text(t.replace(old, new, 1))
+print('mutated bill-wrap')
+PY
+npm run build
+npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R18 320 bill values stay one line"
+# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3693
+#   320 bill $480.00 line tops [1510,1536]: expected 2 to be 1
+# WebKit same it: :3547
+git checkout -- src/index.css
+```
+
+### done-map
+
+P3-owned file. Do not edit `src/lib/needCrew.test.ts`.
+
+```sh
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/lib/needCrew.ts')
+t = p.read_text()
+old = "    status: job.status === 'done' ? 'Done' : job.status,"
+new = "    status: job.status,"
+if old not in t:
+    raise SystemExit('done-map anchor missing')
+p.write_text(t.replace(old, new, 1))
+print('mutated done-map')
+PY
+npx vitest run --maxWorkers=2 src/lib/jobNeedsCrew.p3.test.ts
+# expected AssertionError at src/lib/jobNeedsCrew.p3.test.ts:12
+#   expected true to be false
+git checkout -- src/lib/needCrew.ts
+```
+
+### unknown-map
+
+```sh
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/lib/needCrew.ts')
+t = p.read_text()
+old = "    status: job.status === 'done' ? 'Done' : job.status,"
+new = "    status: job.status === 'done' || job.status === 'unknown' ? 'Done' : job.status,"
+if old not in t:
+    raise SystemExit('unknown-map anchor missing')
+p.write_text(t.replace(old, new, 1))
+print('mutated unknown-map')
+PY
+npx vitest run --maxWorkers=2 src/lib/jobNeedsCrew.p3.test.ts
+# expected AssertionError at src/lib/jobNeedsCrew.p3.test.ts:16
+#   expected false to be true
+git checkout -- src/lib/needCrew.ts
+```
+
 ### r16 WebKit on jammy (Coach 12:38)
 
 Do not bump playwright. WebKit 18.0 is the 1.48.2 browser. Launch failure is a FAIL, never a skip.
@@ -1164,9 +1290,10 @@ sudo docker run --rm --ipc=host \
   -e PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
   mcr.microsoft.com/playwright:v1.48.2-jammy \
   bash -lc 'npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "WebKit"'
-# expected: WebKit 18.0; 6 WebKit its (5 coverage + launch pin); 0 skipped
+# expected: WebKit 18.0; 7 WebKit its (6 coverage + launch pin); 0 skipped
 # coverage: text-walk 320/375/390, safe-area 47/34 (coverage only; #405), chip wrap,
-# R17 edit-form text-walk 320/375/390 with settle on [data-job-form="1"], sheet scrollers.
+# R17 edit-form text-walk 320/375/390 with settle on [data-job-form="1"], sheet scrollers,
+# R18 320 bill values one line (Range.getClientRects).
 # Launch pin does not count as coverage. 0 run is a FAIL. Setup failure is a FAIL.
 # #405 HF-LAND-1 OPEN: once it squashes, re-pin safe-area to 47/34 on the real shell
 # without injected CSS/HTML. Do not fake it here.
