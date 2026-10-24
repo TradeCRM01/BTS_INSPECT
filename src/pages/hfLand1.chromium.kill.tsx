@@ -1,22 +1,31 @@
 /**
  * @vitest-environment node
  *
- * HF-LAND-1: landing hero wrap, text-past-viewport, overflow, and standalone
- * safe-area on WebKit and Chromium over built dist CSS.
+ * HF-LAND-1 FROZEN kill (CoS, r5). Do not edit.
  *
- * Standalone insets are substituted in the served CSS. env(safe-area-inset-top)
- * becomes 47px and env(safe-area-inset-bottom) becomes 34px. Not a second
- * custom-property term. Removing env() from a rule makes geometry go red.
+ * Landing hero wrap, text-past-viewport, overflow, toast, and standalone
+ * safe-area on WebKit and Chromium.
+ *
+ * Both sources are real in-run vite builds:
+ * - 'head' is a vite build of process.cwd() into a mkdtemp outDir.
+ * - 'aad2' is aad2eef7 from git archive into a mkdtemp dir. The SHA is checked
+ *   by rev-parse and by get-tar-commit-id. The hfLand1 entry files are copied
+ *   in and it is vite built into a mkdtemp outDir.
+ * There is no CSS overlay and no test-side patching of either build. The only
+ * served-CSS change is the standalone substitution:
+ * env(safe-area-inset-top) becomes 47px and env(safe-area-inset-bottom)
+ * becomes 34px.
  *
  * Filename omits `.test.` so the default include misses it.
  */
-import { execSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { execFile, execFileSync } from 'node:child_process';
+import { copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
@@ -34,10 +43,14 @@ const PUBLIC_STANDALONE_TOP = 63;
 const PHONE_TABS = ['today', 'schedule', 'jobs', 'more'] as const;
 const SAFE_TOP = 47;
 const SAFE_BOTTOM = 34;
+const INSET0_WIDTHS = [320, 375, 390, 768, 1280] as const;
+const AAD2_SHA = 'aad2eef7c11d90845a6e930ea36addfafc88aba6';
+const SOURCES = ['head', 'aad2'] as const;
 
 type Engine = (typeof BOTH)[number];
 type PageKind = (typeof PAGE_KINDS)[number];
 type PhoneTab = (typeof PHONE_TABS)[number];
+type Source = (typeof SOURCES)[number];
 
 type KillPage = {
   goto: (url: string) => Promise<unknown>;
@@ -64,6 +77,23 @@ type OverflowBox = {
 type HeroText = { lines: number; rights: number[]; whiteSpace: string };
 type TopPaint = { contentTop: number; headerPadTop: number; selector: string };
 type BottomPaint = { contentBottom: number; innerHeight: number; limit: number };
+type TopMeasure = { first: number; pad: number; tabs: Partial<Record<PhoneTab, { first: number; pad: number }>> };
+type GeistResult = { ok: boolean; error: string };
+type HtmlMeta = { statusBar: string | null; viewport: string | null };
+
+/** Frozen standalone (inset 47) first-content targets. Review and portal also re-derive from real aad2 internal spacing. */
+const STANDALONE_TARGET: Record<PageKind, number> = {
+  landing: 63,
+  pricing: 63,
+  privacy: 63,
+  terms: 63,
+  login: 63,
+  signup: 63,
+  portal: 62,
+  shell: 63,
+  review: 53,
+};
+
 
 const READY: Record<PageKind, string> = {
   landing: 'h1.hub-marketing-display',
@@ -121,107 +151,64 @@ async function launchEngine(engine: Engine): Promise<KillBrowser> {
   throw new Error(`${engine} launch failed (FAIL, not a skip): ${errors.join('; ')}. WebKit must run on mcr.microsoft.com/playwright:v1.48.2-jammy.`);
 }
 
-function readDistCss(): string {
-  const dir = join(process.cwd(), 'dist/assets');
-  if (!existsSync(dir)) throw new Error('dist/assets missing; run npm run build');
+
+function readBuiltCss(outDir: string): string {
+  const dir = join(outDir, 'assets');
+  if (!existsSync(dir)) throw new Error(`${outDir}/assets missing after vite build`);
   const files = readdirSync(dir).filter((name) => name.endsWith('.css'));
-  if (!files.length) throw new Error('no dist CSS; run npm run build');
+  if (!files.length) throw new Error(`no built CSS in ${dir}`);
   return files.map((name) => readFileSync(join(dir, name), 'utf8')).join('\n');
 }
 
-function sliceRule(css: string, start: string, end: string): string {
-  const from = css.lastIndexOf(start);
-  const to = css.indexOf(end, from + start.length);
-  if (from < 0 || to < 0) return '';
-  return css.slice(from, to);
-}
-
-function decl(rule: string, prop: string): string | null {
-  const match = rule.match(new RegExp(`${prop}:\\s*([^;]+);`));
-  return match ? match[1].trim() : null;
-}
-
-/** Live src/index.css wins over dist so a real-file mutant paints without a rebuild. */
-function srcOverlay(src: string): string {
-  const display = sliceRule(src, '.hub-marketing-display {', '.hub-marketing-display-sm');
-  const nav = sliceRule(src, '.hub-marketing-nav {', '.hub-marketing-nav-actions');
-  const legal = sliceRule(src, '.hub-legal-nav {', '.hub-legal-nav-actions');
-  const auth = sliceRule(src, '.hub-auth {', '.hub-auth-nav');
-  const portal = sliceRule(src, '#client-portal .portal-doc {', '#client-portal .portal-brand');
-  const header = sliceRule(src, '.shell-header {', '.shell-nav-btn');
-  const bottom = sliceRule(src, '.shell-bottom-nav {', '.shell-bottom-tab');
-  const phoneH = src.match(/@media \(max-width: 767px\) \{[\s\S]*?--shell-bottom-nav-h:\s*([^;]+);/);
-  const parts: string[] = [];
-  const displayWs = decl(display, 'white-space');
-  const displaySize = decl(display, 'font-size');
-  const displayOverflow = decl(display, 'overflow');
-  if (displayWs || displaySize) {
-    parts.push(`.hub-marketing-display{${displayWs ? `white-space:${displayWs};` : ''}${displaySize ? `font-size:${displaySize};` : ''}${displayOverflow ? `overflow:${displayOverflow};` : ''}}`);
-  }
-  const navPad = decl(nav, 'padding');
-  if (navPad) parts.push(`.hub-marketing-nav{padding:${navPad};}`);
-  const legalPad = decl(legal, 'padding');
-  if (legalPad) parts.push(`.hub-legal-nav{padding:${legalPad};}`);
-  const authPad = decl(auth, 'padding');
-  if (authPad) parts.push(`.hub-auth{padding:${authPad};}`);
-  const portalPad = decl(portal, 'padding');
-  if (portalPad) parts.push(`#client-portal .portal-doc{padding:${portalPad};}`);
-  const headerPad = decl(header, 'padding-top');
-  if (headerPad) parts.push(`.shell-header{padding-top:${headerPad};}`);
-  const review = sliceRule(src, '.insp-doc-theme .insp-review-head {', '.insp-doc-theme .insp-review-navy');
-  const reviewPad = decl(review, 'padding-top');
-  const reviewMin = decl(review, 'min-height');
-  const reviewH = decl(review, 'height');
-  if (reviewPad || reviewMin || reviewH) {
-    parts.push(`.insp-doc-theme .insp-review-head,.insp-review-head{${reviewPad ? `padding-top:${reviewPad};` : ''}${reviewMin ? `min-height:${reviewMin};` : ''}${reviewH ? `height:${reviewH};` : ''}}`);
-  }
-  const bottomPad = decl(bottom, 'padding-bottom');
-  if (bottomPad) parts.push(`.shell-bottom-nav{padding-bottom:${bottomPad};}`);
-  if (phoneH) parts.push(`@media (max-width: 767px){:root,.shell-root{--shell-bottom-nav-h:${phoneH[1].trim()}}}`);
-  const toastFrom = src.indexOf('\n  .ops-toast-host {');
-  const toastTo = src.indexOf('.ops-toast-host > *', toastFrom);
-  const toast = toastFrom >= 0 && toastTo > toastFrom ? src.slice(toastFrom, toastTo) : '';
-  if (toast) parts.push(toastDecls(toast));
-  const toastMediaNeedle = '@media (max-width: 767px) {\n    .ops-toast-host {';
-  const toastMediaFrom = src.indexOf(toastMediaNeedle);
-  if (toastMediaFrom >= 0) {
-    const ruleStart = src.indexOf('.ops-toast-host {', toastMediaFrom);
-    const ruleEnd = src.indexOf('}', ruleStart);
-    if (ruleStart >= 0 && ruleEnd > ruleStart) {
-      parts.push(`@media (max-width: 767px){${toastDecls(src.slice(ruleStart, ruleEnd + 1))}}`);
-    }
-  }
-  return parts.join('\n');
-}
-
-function toastDecls(rule: string): string {
-  const width = decl(rule, 'width');
-  const minW = decl(rule, 'min-width');
-  return `.ops-toast-host{position:fixed;left:${decl(rule, 'left') || 'auto'};right:${decl(rule, 'right') || 'auto'};${width ? `width:${width};` : ''}max-width:${decl(rule, 'max-width') || 'none'};${minW ? `min-width:${minW};` : 'min-width:auto;'}box-sizing:${decl(rule, 'box-sizing') || 'content-box'};}`;
-}
-
-function readGitFile(revPath: string, fallbackRel?: string): string {
-  const staged = process.env.HF_LAND1_AAD2_DIR;
-  if (staged && fallbackRel) {
-    const file = join(staged, fallbackRel);
-    if (existsSync(file)) return readFileSync(file, 'utf8');
-  }
-  const cwd = process.cwd();
-  return execSync(`git -c safe.directory=${cwd} show ${revPath}`, {
+function git(args: string[], input?: Buffer): string {
+  return execFileSync('git', ['-c', 'safe.directory=*', ...args], {
+    cwd: process.cwd(),
+    input,
     encoding: 'utf8',
-    maxBuffer: 12 * 1024 * 1024,
-    env: { ...process.env, GIT_CONFIG_GLOBAL: '/tmp/hf-land-1.gitconfig', HOME: '/tmp' },
+    maxBuffer: 64 * 1024 * 1024,
+  }).trim();
+}
+
+/** Async so the vitest worker keeps answering RPC while vite builds. */
+async function viteBuild(root: string, outDir: string): Promise<void> {
+  const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'production' };
+  for (const key of Object.keys(env)) if (key.startsWith('VITEST')) delete env[key];
+  await promisify(execFile)(process.execPath, [join(process.cwd(), 'node_modules/vite/bin/vite.js'), 'build', '--outDir', outDir, '--emptyOutDir', '--logLevel', 'warn'], {
+    cwd: root,
+    env,
+    maxBuffer: 64 * 1024 * 1024,
+    timeout: 900000,
   });
 }
 
+/** Real aad2eef7 tree in a mkdtemp dir with the hfLand1 entries copied in. */
+function checkoutAad2(): string {
+  const tree = mkdtempSync(join(tmpdir(), 'hf-land-1-aad2-'));
+  temps.push(tree);
+  const resolved = git(['rev-parse', '--verify', 'aad2eef7^{commit}']);
+  expect(resolved, 'aad2eef7 resolves to the frozen main SHA').toBe(AAD2_SHA);
+  const tar = join(tree, '.aad2.tar');
+  git(['archive', '--format=tar', '-o', tar, AAD2_SHA]);
+  const tarCommit = execFileSync('git', ['get-tar-commit-id'], { input: readFileSync(tar).subarray(0, 1024), encoding: 'utf8' }).trim();
+  expect(tarCommit, 'archived tree commit id').toBe(AAD2_SHA);
+  execFileSync('tar', ['-xf', tar, '-C', tree]);
+  rmSync(tar, { force: true });
+  expect(existsSync(join(tree, 'src/index.css')), 'aad2 tree has src/index.css').toBe(true);
+  const entries = readdirSync(here).filter((name) => /^hfLand1\..+\.entry\.tsx$/.test(name));
+  expect(entries.length, 'hfLand1 entry files to copy into aad2').toBeGreaterThanOrEqual(6);
+  for (const name of entries) copyFileSync(join(here, name), join(tree, 'src/pages', name));
+  expect(existsSync(join(tree, 'src/components/layout/s2Shell.chromium.mocks.ts')), 'aad2 has the shell mocks').toBe(true);
+  symlinkSync(join(process.cwd(), 'node_modules'), join(tree, 'node_modules'), 'dir');
+  links.push(join(tree, 'node_modules'));
+  return tree;
+}
+
 function startFixtureServer(root: string): Promise<{ origin: string; close: () => Promise<void> }> {
-  return new Promise((resolve, reject) => {
+  return new Promise((done, reject) => {
     const server = createServer((req, res) => {
       const url = new URL(req.url || '/', 'http://127.0.0.1');
-      const rel = decodeURIComponent(url.pathname).replace(/^\/+/, '');
-      const geistHit = rel.endsWith('Geist-Variable.woff2') ? geistSrc : '';
-      const file = geistHit || join(root, rel);
-      if ((!geistHit && !file.startsWith(root)) || !existsSync(file) || !statSync(file).isFile()) {
+      const file = resolve(root, decodeURIComponent(url.pathname).replace(/^\/+/, ''));
+      if (!file.startsWith(`${root}/`) || !existsSync(file) || !statSync(file).isFile()) {
         res.statusCode = 404;
         res.end();
         return;
@@ -233,6 +220,8 @@ function startFixtureServer(root: string): Promise<{ origin: string; close: () =
           : 'application/octet-stream';
       res.setHeader('Content-Type', type);
       res.setHeader('Access-Control-Allow-Origin', '*');
+      // Close each connection: a reused keep-alive socket that node idles out after 5s makes WebKit fail a font fetch.
+      res.setHeader('Connection', 'close');
       res.end(readFileSync(file));
     });
     server.listen(0, '127.0.0.1', () => {
@@ -241,9 +230,9 @@ function startFixtureServer(root: string): Promise<{ origin: string; close: () =
         reject(new Error('HF-LAND-1 fixture server failed to bind'));
         return;
       }
-      resolve({
+      done({
         origin: `http://127.0.0.1:${addr.port}`,
-        close: () => new Promise((done) => server.close(() => done())),
+        close: () => new Promise((fin) => server.close(() => fin())),
       });
     });
     server.on('error', reject);
@@ -256,9 +245,9 @@ function rewriteSafeAreaEnv(css: string, top: number, bottom: number): string {
     .replace(/env\(\s*safe-area-inset-bottom(?:\s*,\s*[^)]+)?\s*\)/g, `${bottom}px`);
 }
 
-async function bundleEntry(entry: string, mocks?: string): Promise<string> {
+async function bundleEntry(workDir: string, entry: string, mocks?: string): Promise<string> {
   const result = await esbuild.build({
-    absWorkingDir: process.cwd(),
+    absWorkingDir: workDir,
     entryPoints: [entry],
     bundle: true,
     format: 'iife',
@@ -299,13 +288,13 @@ async function bundleEntry(entry: string, mocks?: string): Promise<string> {
   return file.text;
 }
 
-function fixtureHtml(js: string, css: string): string {
+function fixtureHtml(js: string, css: string, source: Source): string {
   return `<!doctype html>
 <html lang="en-AU">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<style>@font-face{font-family:'Geist';src:url('/fonts/Geist-Variable.woff2') format('woff2');font-weight:100 900;font-style:normal;font-display:block}html,body{font-family:'Geist',sans-serif}</style>
+<style>@font-face{font-family:'Geist';src:url('/${source}/fonts/Geist-Variable.woff2') format('woff2');font-weight:100 900;font-style:normal;font-display:block}html,body{font-family:'Geist',sans-serif}</style>
 <style>${css}</style>
 </head>
 <body>
@@ -315,6 +304,7 @@ function fixtureHtml(js: string, css: string): string {
 </body>
 </html>`;
 }
+
 
 function textPastViewport(): TextHit[] {
   const hits: TextHit[] = [];
@@ -439,29 +429,32 @@ function bottomPaint(): BottomPaint {
   };
 }
 
-let distCss = '';
-let landingJs = '';
-let legalJs = '';
-let authJs = '';
-let portalJs = '';
-let shellJs = '';
-let reviewJs = '';
-let aad2Css = '';
-let aad2ShellPad = '';
+
+function builtHtmlMeta(): HtmlMeta {
+  return {
+    statusBar: document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')?.getAttribute('content') ?? null,
+    viewport: document.querySelector('meta[name="viewport"]')?.getAttribute('content') ?? null,
+  };
+}
+
+const ENTRY_KEYS = ['landing', 'legal', 'auth', 'portal', 'review', 'shell'] as const;
+type EntryKey = (typeof ENTRY_KEYS)[number];
+const builtCss: Record<Source, string> = { head: '', aad2: '' };
+const bundles: Record<Source, Partial<Record<EntryKey, string>>> = { head: {}, aad2: {} };
 let fixtureRoot = '';
 let fixtureOrigin = '';
 let fixtureServer: { origin: string; close: () => Promise<void> } | null = null;
-const geistSrc = join(process.cwd(), 'public/fonts/Geist-Variable.woff2');
 const browsers: Partial<Record<Engine, KillBrowser>> = {};
 const temps: string[] = [];
+const links: string[] = [];
 
-function jsFor(kind: PageKind): string {
-  if (kind === 'landing' || kind === 'pricing') return landingJs;
-  if (kind === 'privacy' || kind === 'terms') return legalJs;
-  if (kind === 'login' || kind === 'signup') return authJs;
-  if (kind === 'portal') return portalJs;
-  if (kind === 'review') return reviewJs;
-  return shellJs;
+function entryFor(kind: PageKind): EntryKey {
+  if (kind === 'landing' || kind === 'pricing') return 'landing';
+  if (kind === 'privacy' || kind === 'terms') return 'legal';
+  if (kind === 'login' || kind === 'signup') return 'auth';
+  if (kind === 'portal') return 'portal';
+  if (kind === 'review') return 'review';
+  return 'shell';
 }
 
 function hashFor(kind: PageKind): string {
@@ -471,45 +464,61 @@ function hashFor(kind: PageKind): string {
   return '';
 }
 
+async function bundleAll(source: Source, workDir: string): Promise<void> {
+  const pages = join(workDir, 'src/pages');
+  for (const key of ENTRY_KEYS) {
+    bundles[source][key] = await bundleEntry(
+      workDir,
+      join(pages, `hfLand1.${key}.entry.tsx`),
+      key === 'shell' ? join(workDir, 'src/components/layout/s2Shell.chromium.mocks.ts') : undefined,
+    );
+  }
+}
+
 beforeAll(async () => {
-  if (!existsSync(geistSrc)) throw new Error('public/fonts/Geist-Variable.woff2 missing (FAIL, not a skip)');
-  aad2Css = readGitFile('aad2eef7:src/index.css', 'index.css');
-  const app = readGitFile('aad2eef7:src/components/layout/AppShell.tsx', 'AppShell.tsx');
-  const inline = app.match(/paddingTop:\s*'([^']+)'/);
-  aad2ShellPad = inline ? inline[1] : '';
+  const cwd = process.cwd();
+  if (!existsSync(join(cwd, 'public/fonts/Geist-Variable.woff2'))) throw new Error('public/fonts/Geist-Variable.woff2 missing (FAIL, not a skip)');
   fixtureRoot = mkdtempSync(join(tmpdir(), 'hf-land-1-srv-'));
   temps.push(fixtureRoot);
-  copyFileSync(geistSrc, join(fixtureRoot, 'Geist-Variable.woff2'));
+  const aad2Tree = checkoutAad2();
+  await viteBuild(cwd, join(fixtureRoot, 'head'));
+  await viteBuild(aad2Tree, join(fixtureRoot, 'aad2'));
+  for (const source of SOURCES) {
+    const out = join(fixtureRoot, source);
+    expect(existsSync(join(out, 'fonts/Geist-Variable.woff2')), `${source} build ships fonts/Geist-Variable.woff2`).toBe(true);
+    builtCss[source] = readBuiltCss(out).replace(/url\((['"]?)\/fonts\//g, `url($1/${source}/fonts/`);
+  }
+  await bundleAll('head', cwd);
+  await bundleAll('aad2', aad2Tree);
   fixtureServer = await startFixtureServer(fixtureRoot);
   fixtureOrigin = fixtureServer.origin;
-  distCss = readDistCss();
-  landingJs = await bundleEntry(join(here, 'hfLand1.landing.entry.tsx'));
-  legalJs = await bundleEntry(join(here, 'hfLand1.legal.entry.tsx'));
-  authJs = await bundleEntry(join(here, 'hfLand1.auth.entry.tsx'));
-  portalJs = await bundleEntry(join(here, 'hfLand1.portal.entry.tsx'));
-  reviewJs = await bundleEntry(join(here, 'hfLand1.review.entry.tsx'));
-  shellJs = await bundleEntry(
-    join(here, 'hfLand1.shell.entry.tsx'),
-    join(here, '../components/layout/s2Shell.chromium.mocks.ts'),
-  );
   for (const engine of BOTH) {
     browsers[engine] = await launchEngine(engine);
   }
-}, 180000);
+}, 1800000);
 
 afterAll(async () => {
   for (const engine of BOTH) await browsers[engine]?.close();
   await fixtureServer?.close();
+  for (const link of links) {
+    if (existsSync(link) && lstatSync(link).isSymbolicLink()) unlinkSync(link);
+  }
   for (const dir of temps) rmSync(dir, { recursive: true, force: true });
 });
 
 async function assertGeistLoaded(page: KillPage): Promise<void> {
-  const ok = await page.evaluate(async () => {
-    await document.fonts.ready;
-    await document.fonts.load('16px Geist');
-    return document.fonts.check('16px Geist');
+  const res = await page.evaluate<GeistResult>(async () => {
+    try {
+      await document.fonts.ready;
+      await document.fonts.load('16px Geist');
+      return { ok: document.fonts.check('16px Geist'), error: '' };
+    } catch (err) {
+      const e = err as { name?: string; message?: string };
+      return { ok: false, error: `${e && e.name ? e.name : 'Error'}: ${e && e.message ? e.message : String(err)}` };
+    }
   });
-  expect(ok, 'Geist must load via file path (FAIL, not a skip)').toBe(true);
+  expect(res.error, 'Geist font load rejected (FAIL, not a skip)').toBe('');
+  expect(res.ok, 'Geist must load via the built file path (FAIL, not a skip)').toBe(true);
 }
 
 async function openPage(args: {
@@ -518,23 +527,16 @@ async function openPage(args: {
   width: number;
   standalone?: boolean;
   tab?: PhoneTab;
-  source?: 'live' | 'aad2';
+  source?: Source;
+  scrollToPricing?: boolean;
 }): Promise<KillPage> {
-  const src = args.source === 'aad2'
-    ? aad2Css
-    : readFileSync(join(process.cwd(), 'src/index.css'), 'utf8');
-  let live = `${distCss}\n${srcOverlay(src)}`;
-  if (args.source === 'aad2') {
-    if (aad2ShellPad) live += `\n.shell-header{padding-top:${aad2ShellPad};}`;
-    const reviewPad = decl(sliceRule(src, '.insp-doc-theme .insp-review-head {', '.insp-doc-theme .insp-review-navy'), 'padding-top');
-    if (!reviewPad) live += `\n.insp-review-head,.insp-doc-theme .insp-review-head{padding-top:0;}`;
-  }
+  const source = args.source ?? 'head';
+  const live = builtCss[source];
   const css = args.standalone ? rewriteSafeAreaEnv(live, SAFE_TOP, SAFE_BOTTOM) : live;
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  const dir = join(fixtureRoot, id);
+  const dir = join(fixtureRoot, source, '__hf', id);
   mkdirSync(dir, { recursive: true });
-  copyFileSync(geistSrc, join(dir, 'Geist-Variable.woff2'));
-  writeFileSync(join(dir, 't.html'), fixtureHtml(jsFor(args.kind), css));
+  writeFileSync(join(dir, 't.html'), fixtureHtml(bundles[source][entryFor(args.kind)]!, css, source));
   const page = await browsers[args.engine]!.newPage({ viewport: { width: args.width, height: 844 } });
   if (args.standalone) {
     await page.addInitScript(() => {
@@ -556,12 +558,17 @@ async function openPage(args: {
       }) as typeof window.matchMedia;
     });
   }
-  await page.goto(`${fixtureOrigin}/${id}/t.html${hashFor(args.kind)}`);
+  await page.goto(`${fixtureOrigin}/${source}/__hf/${id}/t.html${hashFor(args.kind)}`);
   await page.waitForSelector(READY[args.kind], { timeout: 15000 });
   await assertGeistLoaded(page);
   if (args.kind === 'pricing') {
-    await page.evaluate(() => document.querySelector('#pricing')?.scrollIntoView());
-    await page.waitForSelector('.hub-marketing-nav', { timeout: 5000 });
+    if (args.scrollToPricing === false) {
+      const y = await page.evaluate(() => { window.scrollTo(0, 0); return window.scrollY; });
+      expect(y, `${source} pricing scrollY at top`).toBe(0);
+    } else {
+      await page.evaluate(() => document.querySelector('#pricing')?.scrollIntoView());
+      await page.waitForSelector('.hub-marketing-nav', { timeout: 5000 });
+    }
   }
   if (args.kind === 'shell' && args.tab) {
     await page.click(`[data-phone-tab="${args.tab}"]`);
@@ -569,6 +576,26 @@ async function openPage(args: {
   }
   await page.evaluate(() => document.fonts.ready);
   return page;
+}
+
+async function measureTop(args: { engine: Engine; kind: PageKind; width: number; source: Source }): Promise<TopMeasure> {
+  const page = await openPage({ ...args, scrollToPricing: false });
+  const out: TopMeasure = {
+    first: await page.evaluate(navFirstTop, TOP_NAV[args.kind].header),
+    pad: (await page.evaluate(topPaint, TOP_NAV[args.kind])).headerPadTop,
+    tabs: {},
+  };
+  if (args.kind === 'shell' && args.width <= 390) {
+    for (const tab of PHONE_TABS) {
+      await page.click(`[data-phone-tab="${tab}"]`);
+      out.tabs[tab] = {
+        first: await page.evaluate(navFirstTop, TOP_NAV.shell.header),
+        pad: (await page.evaluate(topPaint, TOP_NAV.shell)).headerPadTop,
+      };
+    }
+  }
+  await page.close();
+  return out;
 }
 
 function measuredKills(engine: Engine) {
@@ -632,74 +659,81 @@ function measuredKills(engine: Engine) {
     }
   }, 360000);
 
-  it(`HF-LAND-1 ${engine} env=0: nav content top matches aad2eef7`, async () => {
+
+  it(`HF-LAND-1 ${engine} env=0: every nav pad and first content equal the real aad2eef7 build at 320/375/390/768/1280`, async () => {
     for (const kind of PAGE_KINDS) {
-      const aad2Page = await openPage({ engine, kind, width: 390, source: 'aad2' });
-      const aad2First = await aad2Page.evaluate(navFirstTop, TOP_NAV[kind].header);
-      const aad2Paint = await aad2Page.evaluate(topPaint, TOP_NAV[kind]);
-      await aad2Page.close();
-      const page = await openPage({ engine, kind, width: 390 });
-      const first = await page.evaluate(navFirstTop, TOP_NAV[kind].header);
-      const paint = await page.evaluate(topPaint, TOP_NAV[kind]);
-      console.log(`HF-LAND-1 geom inset0 ${engine} ${kind} first=${first} aad2=${aad2First} pad=${paint.headerPadTop} aad2Pad=${aad2Paint.headerPadTop}`);
-      expect(
-        Math.abs(first - aad2First),
-        `${engine} ${kind} inset-0 first nav top ${first} vs aad2 ${aad2First}`,
-      ).toBeLessThanOrEqual(0.5);
-      expect(
-        Math.abs(paint.headerPadTop - aad2Paint.headerPadTop),
-        `${engine} ${kind} inset-0 pad ${paint.headerPadTop} vs aad2 ${aad2Paint.headerPadTop}`,
-      ).toBeLessThanOrEqual(0.5);
-      if (kind === 'shell') {
+      for (const width of INSET0_WIDTHS) {
+        const base = await measureTop({ engine, kind, width, source: 'aad2' });
+        const got = await measureTop({ engine, kind, width, source: 'head' });
+        console.log(`HF-LAND-1 geom inset0 ${engine} ${kind} ${width} first=${got.first} aad2=${base.first} pad=${got.pad} aad2Pad=${base.pad}`);
+        expect(base.first, `${engine} ${kind} ${width} aad2 first measured`).toBeGreaterThanOrEqual(0);
+        expect(
+          Math.abs(got.first - base.first),
+          `${engine} ${kind} ${width} inset-0 first ${got.first} vs aad2 ${base.first}`,
+        ).toBeLessThanOrEqual(0.5);
+        expect(
+          Math.abs(got.pad - base.pad),
+          `${engine} ${kind} ${width} inset-0 pad ${got.pad} vs aad2 ${base.pad}`,
+        ).toBeLessThanOrEqual(0.5);
         for (const tab of PHONE_TABS) {
-          await page.click(`[data-phone-tab="${tab}"]`);
-          const tabFirst = await page.evaluate(navFirstTop, TOP_NAV.shell.header);
-          const tabPaint = await page.evaluate(topPaint, TOP_NAV.shell);
-          expect(Math.abs(tabFirst - aad2First), `${engine} ${tab} inset-0 first`).toBeLessThanOrEqual(0.5);
-          expect(Math.abs(tabPaint.headerPadTop - aad2Paint.headerPadTop), `${engine} ${tab} inset-0 pad`).toBeLessThanOrEqual(0.5);
+          const a = base.tabs[tab];
+          const g = got.tabs[tab];
+          if (kind !== 'shell' || width > 390) continue;
+          expect(a && g, `${engine} ${tab} ${width} tab measured on both builds`).toBeTruthy();
+          expect(Math.abs(g!.first - a!.first), `${engine} ${tab} ${width} inset-0 first ${g!.first} vs aad2 ${a!.first}`).toBeLessThanOrEqual(0.5);
+          expect(Math.abs(g!.pad - a!.pad), `${engine} ${tab} ${width} inset-0 pad ${g!.pad} vs aad2 ${a!.pad}`).toBeLessThanOrEqual(0.5);
+        }
+        if (kind === 'pricing') {
+          const page = await openPage({ engine, kind, width });
+          const scrolled = await page.evaluate(navFirstTop, TOP_NAV.pricing.header);
+          await page.close();
+          expect(Math.abs(scrolled - got.first), `${engine} pricing ${width} sticky nav first at #pricing ${scrolled} vs top ${got.first}`).toBeLessThanOrEqual(0.5);
         }
       }
-      await page.close();
     }
-  }, 180000);
+  }, 1200000);
 
-  it(`HF-LAND-1 ${engine} standalone: first nav text sits at ≥ 55 and not doubled`, async () => {
+  it(`HF-LAND-1 ${engine} standalone: first content hits the frozen inset-47 targets and is not doubled`, async () => {
     const floor = SAFE_TOP + INTERNAL_GAP;
     for (const kind of PAGE_KINDS) {
-      const aad2Page = await openPage({ engine, kind, width: 390, source: 'aad2' });
-      const aad2First = await aad2Page.evaluate(navFirstTop, TOP_NAV[kind].header);
-      const aad2Paint = await aad2Page.evaluate(topPaint, TOP_NAV[kind]);
-      await aad2Page.close();
-      const internal = aad2First - aad2Paint.headerPadTop;
       const bar = kind === 'shell' || kind === 'review' ? SAFE_TOP : PUBLIC_STANDALONE_TOP;
-      const exact = bar + internal;
+      const target = STANDALONE_TARGET[kind];
       const minFirst = kind === 'review' ? SAFE_TOP : floor;
       for (const width of TEXT_WIDTHS) {
+        if (kind === 'review' || kind === 'portal') {
+          const base = await measureTop({ engine, kind, width, source: 'aad2' });
+          const internal = base.first - base.pad;
+          expect(
+            Math.abs(bar + internal - target),
+            `${engine} ${kind} ${width} frozen target ${target} vs ${bar} + aad2 internal ${internal}`,
+          ).toBeLessThanOrEqual(0.5);
+        }
         const page = await openPage({ engine, kind, width, standalone: true });
         const first = await page.evaluate(navFirstTop, TOP_NAV[kind].header);
         const paint = await page.evaluate(topPaint, TOP_NAV[kind]);
-        console.log(`HF-LAND-1 geom standalone ${engine} ${kind} ${width} first=${first} exact=${exact} pad=${paint.headerPadTop} bar=${bar}`);
+        console.log(`HF-LAND-1 geom standalone ${engine} ${kind} ${width} first=${first} target=${target} pad=${paint.headerPadTop} bar=${bar}`);
         expect(first, `${engine} ${kind} ${width} first nav top`).toBeGreaterThanOrEqual(minFirst);
         expect(
           Math.abs(paint.headerPadTop - bar),
           `${engine} ${kind} ${width} pad ${paint.headerPadTop} vs bar ${bar}`,
         ).toBeLessThanOrEqual(0.5);
         expect(
-          Math.abs(first - exact),
-          `${engine} ${kind} ${width} first nav top ${first} vs exact ${exact}`,
+          Math.abs(first - target),
+          `${engine} ${kind} ${width} first nav top ${first} vs target ${target}`,
         ).toBeLessThanOrEqual(0.5);
         if (kind === 'shell') {
           for (const tab of PHONE_TABS) {
             await page.click(`[data-phone-tab="${tab}"]`);
             const tabFirst = await page.evaluate(navFirstTop, TOP_NAV.shell.header);
             expect(tabFirst, `${engine} ${tab} ${width} first nav top`).toBeGreaterThanOrEqual(floor);
-            expect(Math.abs(tabFirst - exact), `${engine} ${tab} ${width} first vs exact ${exact}`).toBeLessThanOrEqual(0.5);
+            expect(Math.abs(tabFirst - target), `${engine} ${tab} ${width} first ${tabFirst} vs target ${target}`).toBeLessThanOrEqual(0.5);
           }
         }
         await page.close();
       }
     }
-  }, 300000);
+  }, 600000);
+
 
   it(`HF-LAND-1 ${engine} ops-toast-host stays inside the viewport`, async () => {
     for (const kind of PAGE_KINDS) {
@@ -731,13 +765,23 @@ function measuredKills(engine: Engine) {
       await page.close();
     }
   }, 180000);
+
+  it(`HF-LAND-1 ${engine} built index.html keeps viewport-fit=cover and the default status-bar style (DOM)`, async () => {
+    const page = await browsers[engine]!.newPage({ viewport: { width: 390, height: 844 } });
+    await page.goto(`${fixtureOrigin}/head/index.html`);
+    const meta = await page.evaluate(builtHtmlMeta);
+    await page.close();
+    expect(meta.viewport, `${engine} built meta viewport`).toMatch(/viewport-fit=cover/);
+    expect(meta.statusBar, `${engine} built meta apple-mobile-web-app-status-bar-style`).toBe('default');
+  }, 60000);
 }
+
 
 describe('HF-LAND-1 chromium measured', () => {
   measuredKills('chromium');
 });
 
-const WEBKIT_TEST_COUNT = 8;
+const WEBKIT_TEST_COUNT = 9;
 
 describe('HF-LAND-1 webkit measured', () => {
   it('HF-LAND-1 webkit browser version and test count (0 skipped)', async () => {
@@ -756,13 +800,7 @@ describe('HF-LAND-1 webkit measured', () => {
 });
 
 describe('HF-LAND-1 source locks (after measured kills)', () => {
-  it('keeps viewport-fit=cover and default status-bar style', () => {
-    const html = readFileSync(join(process.cwd(), 'index.html'), 'utf8');
-    expect(html).toContain('viewport-fit=cover');
-    expect(html).toMatch(/name="viewport"[^>]*viewport-fit=cover/);
-    expect(html).toContain('apple-mobile-web-app-status-bar-style" content="default"');
-  });
-
+  /** The kicker nowrap lock stays a source lock: at 320 the kicker fits on one line either way, so no measurement can see it. */
   it('uses max(existing, inset + internal) and no second env term', () => {
     const css = readFileSync(join(process.cwd(), 'src/index.css'), 'utf8');
     expect(css).toContain('padding-top: max(12px, env(safe-area-inset-top, 0px))');
