@@ -13233,6 +13233,29 @@
     outline: 1px solid color-mix(in srgb, var(--g-accent) 35%, var(--dashboard-home-line));
   }
 
+  [data-dashboard-look="dashboard-repro"] .dashboard-home-widget.is-editing,
+  [data-dashboard-look="dashboard-all"] .dashboard-home-widget.is-editing {
+    height: 100% !important;
+    min-height: 0;
+  }
+
+  [data-dashboard-look="dashboard-repro"] .dashboard-home-widget-ink.is-editing,
+  [data-dashboard-look="dashboard-all"] .dashboard-home-widget-ink.is-editing {
+    height: 100% !important;
+    min-height: 0;
+    padding: 60px 16px 16px;
+  }
+
+  [data-dashboard-measuring] .dashboard-home-widget.is-editing,
+  [data-dashboard-measuring] .dashboard-home-widget-ink.is-editing {
+    height: auto !important;
+    min-height: min-content !important;
+  }
+
+  [data-dashboard-widget-type="agent_activity"] .dashboard-home-widget.is-editing {
+    overflow: visible;
+  }
+
   .dashboard-home-edit-chrome {
     position: absolute;
     top: 8px;

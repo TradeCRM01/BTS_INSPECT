@@ -187,6 +187,7 @@ const DASHBOARD_LOOK_SEED = 'dashboard-seed';
 const DASHBOARD_LOOK_REPRO = 'dashboard-repro';
 /** Playwright: /?look=dashboard-all — live 26-card set for grow/gap kills */
 const DASHBOARD_LOOK_ALL = 'dashboard-all';
+const EDIT_CARD_GROW = 60 + 16 + 32;
 /** Playwright: /?auditAuth=1&look=dashboard-jack — seven-widget money-first view grid */
 const DASHBOARD_LOOK_JACK_LAYOUT = 'dashboard-jack';
 /** Playwright: /?auditAuth=1&look=crew-s8d-dashboard-needs — Today row Needs crew */
@@ -429,6 +430,7 @@ function dashboardAllLookWidgets(): DashboardWidget[] {
       id: `all-${type}-${i}`,
       widget_type: type,
       ...placed,
+      grid_h: type === 'agent_activity' ? Math.max(placed.grid_h, 720) : placed.grid_h,
       config: config as Json,
     });
   }
@@ -1182,6 +1184,19 @@ export function DashboardPage() {
   };
 
   const persistWidget = useCallback(async (id: string, patch: Partial<DashboardWidget>) => {
+    const host = window as Window & {
+      __DASHBOARD_LAYOUT_WRITES__?: Array<Record<string, unknown>>;
+      __P1_STORED_Y__?: Record<string, number>;
+    };
+    host.__P1_STORED_Y__ = host.__P1_STORED_Y__ || {};
+    if (patch.grid_y != null) {
+      host.__P1_STORED_Y__[id] = patch.grid_y;
+      const el = document.querySelector(`[data-dashboard-widget-id="${id}"]`);
+      if (el) el.setAttribute('data-dashboard-stored-y', String(patch.grid_y));
+    }
+    if (Array.isArray(host.__DASHBOARD_LAYOUT_WRITES__)) {
+      host.__DASHBOARD_LAYOUT_WRITES__.push({ id, ...patch });
+    }
     if (lookDashboard || !!getAuditDashboardWidgets()) return null;
     const update: Record<string, unknown> = { ...patch, updated_at: new Date().toISOString() };
     delete update.id;
@@ -1250,73 +1265,85 @@ export function DashboardPage() {
     [displayWidgets, profile?.role],
   );
 
+  const growEditHosts = editMode && (!lookDashboard || lookDashboardAll);
+
   const editCanvasWidgets = useMemo(
-    () => (editMode && !lookDashboardRepro && !lookDashboardSeed
+    () => (growEditHosts
       ? growDashboardEditHosts(shownWidgets, DASHBOARD_WIDGET_GAP, editContentH)
       : shownWidgets),
-    [shownWidgets, editMode, editContentH, lookDashboardRepro, lookDashboardSeed],
+    [shownWidgets, growEditHosts, editContentH],
   );
 
   useLayoutEffect(() => {
-    if (!editMode || lookDashboardRepro || lookDashboardSeed) {
+    if (!growEditHosts) {
       setEditContentH((prev) => (Object.keys(prev).length ? {} : prev));
       return;
     }
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const next: Record<string, number> = {};
-    let changed = false;
-    for (const host of canvas.querySelectorAll('[data-dashboard-widget-id]')) {
-      const id = host.getAttribute('data-dashboard-widget-id');
-      if (!id) continue;
-      const stored = shownWidgets.find((row) => row.id === id);
-      const body = host.querySelector('.dashboard-home-widget') as HTMLElement | null;
-      const ink = body?.querySelector('.dashboard-home-widget-ink') as HTMLElement | null;
-      if (!body) continue;
-      const hostEl = host as HTMLElement;
-      const storedH = stored?.grid_h ?? 0;
-      const prevHostH = hostEl.style.height;
-      const prevBodyH = body.style.height;
-      const prevInkH = ink?.style.height ?? '';
-      hostEl.style.height = 'auto';
-      body.style.height = 'auto';
-      if (ink) ink.style.height = 'auto';
-      const measured = Math.ceil(ink?.scrollHeight ?? body.scrollHeight);
-      hostEl.style.height = prevHostH;
-      body.style.height = prevBodyH;
-      if (ink) ink.style.height = prevInkH;
-      if (measured <= 1) continue;
-      const padTop = ink ? parseFloat(getComputedStyle(ink).paddingTop || '0') : 0;
-      const widgetBox = body.getBoundingClientRect();
-      const widgetCs = getComputedStyle(body);
-      const innerBottom = widgetBox.bottom
-        - parseFloat(widgetCs.paddingBottom || '0')
-        - parseFloat(widgetCs.borderBottomWidth || '0');
-      let textClipped = false;
-      const walker = document.createTreeWalker(ink ?? body, NodeFilter.SHOW_TEXT);
-      let node = walker.nextNode();
-      while (node && !textClipped) {
-        const text = (node.textContent || '').trim();
-        const parent = node.parentElement;
-        if (text && parent && !parent.closest('[title="Drag to move"], [title="Remove widget"], .dashboard-home-widget-resize, svg')) {
-          const range = document.createRange();
-          range.selectNodeContents(node);
-          for (const rect of range.getClientRects()) {
-            if (rect.height > 0.5 && rect.bottom > innerBottom + 0.5) {
-              textClipped = true;
-              break;
+    const measure = () => {
+      canvas.setAttribute('data-dashboard-measuring', '1');
+      const next: Record<string, number> = {};
+      let changed = false;
+      for (const host of canvas.querySelectorAll('[data-dashboard-widget-id]')) {
+        const id = host.getAttribute('data-dashboard-widget-id');
+        if (!id) continue;
+        const stored = shownWidgets.find((row) => row.id === id);
+        const body = host.querySelector('.dashboard-home-widget') as HTMLElement | null;
+        const ink = body?.querySelector('.dashboard-home-widget-ink') as HTMLElement | null;
+        if (!body) continue;
+        const hostEl = host as HTMLElement;
+        const storedH = stored?.grid_h ?? 0;
+        const prevHostH = hostEl.style.height;
+        const prevBodyH = body.style.height;
+        const prevInkH = ink?.style.height ?? '';
+        hostEl.style.height = 'auto';
+        body.style.height = 'auto';
+        if (ink) ink.style.height = 'auto';
+        const measured = Math.ceil(ink?.scrollHeight ?? body.scrollHeight);
+        hostEl.style.height = prevHostH;
+        body.style.height = prevBodyH;
+        if (ink) ink.style.height = prevInkH;
+        if (measured <= 1) continue;
+        const widgetBox = body.getBoundingClientRect();
+        const widgetCs = getComputedStyle(body);
+        const padBottom = parseFloat(widgetCs.paddingBottom || '0');
+        const innerBottom = widgetBox.bottom
+          - padBottom
+          - parseFloat(widgetCs.borderBottomWidth || '0');
+        let overflow = 0;
+        const walker = document.createTreeWalker(ink ?? body, NodeFilter.SHOW_TEXT);
+        let node = walker.nextNode();
+        while (node) {
+          const text = (node.textContent || '').trim();
+          const parent = node.parentElement;
+          if (text && parent && !parent.closest('[title="Drag to move"], [title="Remove widget"], .dashboard-home-widget-resize, svg')) {
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            for (const rect of range.getClientRects()) {
+              if (rect.height > 0.5 && rect.bottom > innerBottom + 0.5) {
+                overflow = Math.max(overflow, rect.bottom - innerBottom);
+              }
             }
           }
+          node = walker.nextNode();
         }
-        node = walker.nextNode();
+        const need = measured + padBottom + Math.ceil(overflow) + EDIT_CARD_GROW;
+        const floor = stored?.widget_type === 'agent_activity' ? 640 : storedH;
+        const grown = Math.max(floor, need);
+        next[id] = Math.max(editContentH[id] ?? 0, grown);
+        if (next[id] !== (editContentH[id] ?? 0)) changed = true;
       }
-      const threshold = textClipped ? 2 : padTop + 2;
-      const grown = measured > storedH + threshold ? measured : storedH;
-      next[id] = Math.max(editContentH[id] ?? 0, grown);
-      if (next[id] !== (editContentH[id] ?? 0)) changed = true;
-    }
-    if (changed) setEditContentH(next);
-  }, [editMode, lookDashboardRepro, lookDashboardSeed, shownWidgets, editCanvasWidgets, editContentH]);
+      canvas.removeAttribute('data-dashboard-measuring');
+      if (changed) setEditContentH(next);
+    };
+    measure();
+    const mo = new MutationObserver(() => {
+      requestAnimationFrame(measure);
+    });
+    mo.observe(canvas, { subtree: true, childList: true, characterData: true });
+    return () => mo.disconnect();
+  }, [growEditHosts, shownWidgets, editCanvasWidgets, editContentH]);
 
   const handleDragStart = (e: DragStartEvent) => {
     setActiveId(String(e.active.id));
@@ -1385,9 +1412,10 @@ export function DashboardPage() {
     const ws = editCanvasWidgets;
     const floor = editMode ? 320 : 0;
     if (!ws.length) return floor;
-    const maxBottom = Math.max(...ws.map((w) => w.grid_y + w.grid_h));
+    const padGrow = editMode && !growEditHosts ? EDIT_CARD_GROW : 0;
+    const maxBottom = Math.max(...ws.map((w) => w.grid_y + w.grid_h + padGrow));
     return Math.max(floor, maxBottom + CANVAS_PAD);
-  }, [editCanvasWidgets, editMode]);
+  }, [editCanvasWidgets, editMode, growEditHosts]);
 
   const viewWidgets = useMemo(
     () => sortDashboardWidgetsForView(shownWidgets),
@@ -1411,7 +1439,7 @@ export function DashboardPage() {
   return (
     <AppShell>
       <div className="ops-page dashboard-home is-day-open is-today-board">
-        <article className="dashboard-home-sheet" data-dashboard-home="1">
+        <article className="dashboard-home-sheet" data-dashboard-home="1" data-dashboard-look={lookParam ?? undefined}>
           <div className="dashboard-home-sheet-body">
             <TodayBoardView
               now={now}
@@ -1829,6 +1857,7 @@ function FreeWidget({
     <div
       ref={setNodeRef}
       data-dashboard-widget-id={widget.id}
+      data-dashboard-widget-type={widget.widget_type}
       data-dashboard-stored-h={storedH ?? widget.grid_h}
       data-dashboard-stored-y={storedY ?? widget.grid_y}
       data-dashboard-stored-x={storedX ?? widget.grid_x}

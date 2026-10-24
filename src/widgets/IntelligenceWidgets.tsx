@@ -702,7 +702,7 @@ export function AgentActivityWidget({ config }: Partial<WidgetProps> = {}) {
                 <Icon size={12} className={failed ? 'text-red-500' : cfg.color} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className={`text-[11px] leading-snug break-words [overflow-wrap:anywhere] ${failed ? 'text-red-600' : 'text-[#1A1A1A]'}`}>
+                <p className={`text-[11px] leading-snug break-words break-all [overflow-wrap:anywhere] max-w-full ${failed ? 'text-red-600' : 'text-[#1A1A1A]'}`}>
                   {a.summary}
                 </p>
                 <p className="text-[9px] text-gray-400 mt-0.5">

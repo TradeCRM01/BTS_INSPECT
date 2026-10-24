@@ -342,7 +342,7 @@ git checkout -- src/pages/DashboardPage.tsx
 
 Expected AssertionError:
 
-`src/components/layout/p1Dashboard.chromium.kill.tsx:5141` `phone chrome at 375 edit`
+`src/components/layout/p1Dashboard.chromium.kill.tsx:5167` `phone chrome at 375 edit`
 
 ## Y200
 
@@ -364,9 +364,9 @@ git checkout -- src/pages/DashboardPage.tsx
 
 Expected AssertionError:
 
-`src/components/layout/p1Dashboard.chromium.kill.tsx:4725` `/?look=dashboard-repro 768 edit cross-card hits`
+`src/components/layout/p1Dashboard.chromium.kill.tsx:4741` `/?look=dashboard-repro 768 edit cross-card hits`
 
-Dashboard-all cites on the same kill: grow-ran `:4754` (`768 edit grow ran on live cards`).
+Dashboard-all cites on the same kill: grow-ran `:4770` (`768 edit grow ran on live cards`).
 
 ## CLIP
 
@@ -390,7 +390,7 @@ git checkout -- src/pages/DashboardPage.tsx
 
 Expected AssertionError:
 
-`src/components/layout/p1Dashboard.chromium.kill.tsx:4985` `/?look=dashboard-repro 768 clipped or scrolling cards`
+`src/components/layout/p1Dashboard.chromium.kill.tsx:5010` `/?look=dashboard-all 768 clipped or scrolling cards`
 
 ## BORDER
 
@@ -417,7 +417,7 @@ npm run build
 
 Expected AssertionError:
 
-`src/components/layout/p1Dashboard.chromium.kill.tsx:5054` `768 cards missing painted edit outline`
+`src/components/layout/p1Dashboard.chromium.kill.tsx:5080` `768 cards missing painted edit outline`
 
 ## GAP
 
@@ -438,4 +438,4 @@ git checkout -- src/lib/dashboardWidgets.ts
 
 Expected AssertionError:
 
-`src/components/layout/p1Dashboard.chromium.kill.tsx:5735` `/?look=dashboard-all 1024 all-calendar-6 edit gap must match in-run stored`
+`src/components/layout/p1Dashboard.chromium.kill.tsx:5760` `/?look=dashboard-all 1280 all-calendar-6 edit gap does not exceed in-run stored`
