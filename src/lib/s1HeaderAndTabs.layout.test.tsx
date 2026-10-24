@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -123,6 +123,7 @@ describe('S1 phone tabs and 44px header chrome', () => {
     const file = join(dir, 'tabs.html');
     writeFileSync(file, tabsHtml());
     const page = await browser.newPage({ viewport: { width: 375, height: 812 } });
+    try {
     await page.goto(pathToFileURL(file).href);
     const tabs = await page.evaluate((): TabMeasure => {
       const rail = document.querySelector('.job-sheet-tabs') as HTMLElement;
@@ -156,7 +157,8 @@ describe('S1 phone tabs and 44px header chrome', () => {
     expect(tabs.gaps.length).toBe(3);
     expect(Math.min(...tabs.gaps)).toBeGreaterThanOrEqual(12);
     expect(tabs.height).toBeGreaterThanOrEqual(44);
-    expect(tabs.width).toBeGreaterThanOrEqual(64);
+    // People is the short column so Paperwork 12 / Materials 12 keep an 8px inset at 375.
+    expect(tabs.width).toBeGreaterThanOrEqual(56);
     expect(tabs.railScroll).toBeLessThanOrEqual(tabs.railClient + 1);
 
     await page.setViewportSize({ width: 1024, height: 800 });
@@ -172,11 +174,14 @@ describe('S1 phone tabs and 44px header chrome', () => {
         fontSize: getComputedStyle(wm).fontSize,
       };
     });
-    await page.close();
     expect(header.switcherH).toBeGreaterThanOrEqual(44);
     expect(header.searchW).toBe(44);
     expect(header.searchH).toBe(44);
     expect(header.fontSize).toBe('13px');
     expect(header.letterSpacing).toBe('2.08px');
+    } finally {
+      await page.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
   }, 30000);
 });

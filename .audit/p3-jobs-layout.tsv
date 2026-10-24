@@ -1,0 +1,16 @@
+ts	phase	decision	why	evidence	result
+2026-10-23T10:16:00Z	start	resumed P3 on cursor/p3-jobs-layout-8567 from 30cb09d9	previous run died after the branch	branch cursor/p3-jobs-layout-8567	open
+2026-10-23T10:20:00Z	frame	brief sha256 matches Coach sign prefix 4b36740dc66f	Coach SIGN pinned that hash	uploads/P3-jobs-layout-brief_8020.md	verified
+2026-10-23T10:40:00Z	data	isolated need-crew in src/lib/needCrew.ts	P1b helper not here yet; swap stays one import	src/lib/needCrew.ts	unit tests written
+2026-10-23T10:40:00Z	data	dropped extras cover-photo signing	search: cover_photo_url only assigned, never rendered; photoByJob only fed that field	src/lib/jobCardExtras.test.ts	unused, dropped
+2026-10-23T10:40:00Z	data	extras and clients now throw on error; extras catch marks extrasError	K13 / Coach 12	src/pages/JobsPage.tsx	wired
+2026-10-23T10:40:00Z	data	chunk extras and clients at 100 ids	Coach 8	src/lib/jobIdBatch.ts	wired
+2026-10-23T10:27:00Z	list	rebuilt /jobs list to clients-list anatomy with D1 pills and wrapping chips	mockup wins over List bar and hidden search	src/pages/JobsPage.tsx	list unit tests green
+2026-10-23T10:40:00Z	sheet	rebuilt /jobs/:id header, People tab, Overview kv/notes/photos/bill, Q-J1, costing on open	lanes removed; Jack tokens; one back; breadcrumbs 1024+	src/pages/JobDetailPage.tsx	sheet unit tests green
+2026-10-23T10:43:00Z	form	phone bottom sheet + 560px modal from 768, sentence-case titles, sticky Save above safe area	fields and mutations unchanged	src/components/crm/JobFormModal.tsx	form unit tests green
+2026-10-23T11:20:00Z	look	left ?look= on DEV-only; LOOK-GATE owns VITE_LOOK_PROOF	brief off-limits	src/pages/JobsPage.tsx JobDetailPage.tsx	jobsEnquiriesLook pin restored
+2026-10-23T11:20:00Z	look	listEyebrowLook no longer pins the removed List bar	mockup wins; F8 List bar gone	src/pages/listEyebrowLook.test.ts	listed in PR
+2026-10-23T11:22:00Z	sheet	768 photo 4-col, 720 sheet, 1024 header split and Overview 2-col	§3	src/index.css	pending painted kills
+2026-10-23T11:25:00Z	kills	named K0–K18 painted Chromium + real-file mutants	never merge until green	src/pages/p3Jobs.chromium.kill.tsx	29 painted tests green
+2026-10-23T11:32:00Z	gates	tsc 180 = main 180; no new normalised entries	Go/Call min-height 44 via inline-flex	npx tsc -p tsconfig.app.json	180
+2026-10-23T11:32:00Z	frames	41 pngs in docs/look/p3 from dist CSS static fixture	live auditAuth not up; static fallback	scripts/capture-p3-jobs-look.mjs	wrote

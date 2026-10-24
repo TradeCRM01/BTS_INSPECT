@@ -26,7 +26,7 @@ describe('job hub open sheet LOOK', () => {
     expect(page).toContain('hub-jobs-tools');
     expect(page).toContain('className="btn-primary ops-next-control-block"');
     expect(page).toContain('hub-job-more');
-    expect(page).toContain('OpsSiteRow');
+    expect(page).toContain('job-sheet-kv');
     expect(page).toContain('Add to calendar');
     expect(page).toContain('buildJobCalendar');
     expect(page).toContain('job-sheet-tabs');
@@ -51,9 +51,9 @@ describe('job hub open sheet LOOK', () => {
 
     expect(list).toContain('hub-jobs-sheet');
     expect(list).toContain('jobOpenNext');
-    expect(list).toContain('hub-jobs-list-more');
+    expect(list).toContain('hub-jobs-list-doc');
     expect(list).toContain('hub-next');
-    expect(list).toContain('to={next.href}');
+    expect(list).toContain('to={nextHref}');
     expect(list).not.toContain('hub-jobs-document');
     expect(list).not.toContain('is-record-open');
 
@@ -132,14 +132,18 @@ describe('job hub open sheet LOOK', () => {
     expect(header).toContain('sheetNext.label');
     expect(header).toContain('hub-jobs-identity');
     expect(header).toContain('job.description');
-    expect(header.indexOf('hub-jobs-hero')).toBeLessThan(header.indexOf('hub-jobs-status-whisper'));
-    expect(header.indexOf('hub-jobs-status-whisper')).toBeLessThan(header.indexOf('className="hub-jobs-tools">'));
+    expect(header.indexOf('hub-jobs-status-whisper')).toBeLessThan(header.indexOf('hub-jobs-hero'));
+    expect(header.indexOf('hub-jobs-hero')).toBeLessThan(header.indexOf('className="hub-jobs-tools">'));
     expect(header.indexOf('className="hub-jobs-tools">')).toBeLessThan(header.indexOf('hub-jobs-identity'));
     expect(header.indexOf('hub-jobs-identity')).toBeLessThan(header.indexOf('job.description'));
+    expect(header).toContain('data-job-sheet="notes"');
+    expect(header).toContain('data-job-sheet="photos"');
+    expect(header).toContain('data-job-sheet="bill"');
+    expect(header).toContain('title="Project stages"');
+    expect(header.indexOf('data-job-sheet="notes"')).toBeLessThan(header.indexOf('data-job-sheet="photos"'));
+    expect(header.indexOf('data-job-sheet="photos"')).toBeLessThan(header.indexOf('data-job-sheet="bill"'));
 
     const markers = [
-      'id="job-lanes"',
-      'title="Project stages"',
       'ops-section-title">Job bill',
       "groupLabel('job-swms')",
       'title="JHA / SWMS"',
@@ -157,11 +161,9 @@ describe('job hub open sheet LOOK', () => {
     for (let i = 1; i < at.length; i++) {
       expect(at[i]).toBeGreaterThan(at[i - 1]);
     }
-    expect(trays).toContain('stages.length > 0');
+    expect(header).toContain('stages.length > 0');
     expect(trays).not.toContain('title="Time on this job"');
     expect(trays.indexOf('JOB_TESTING_DUE_TITLE')).toBeLessThan(trays.indexOf('title="Quotes"'));
-    expect(trays.indexOf('title="Project stages"')).toBeLessThan(trays.indexOf('ops-section-title">Job bill'));
-    expect(trays.indexOf('id="job-lanes"')).toBeLessThan(trays.indexOf('title="Project stages"'));
     const schedule = page.slice(page.indexOf('id="job-schedule"'), page.indexOf('</article>'));
     expect(schedule.indexOf('JobClientReminder')).toBeLessThan(schedule.indexOf('id="job-hours"'));
     expect(schedule.indexOf('id="job-hours"')).toBeLessThan(schedule.indexOf('title="Time on this job"'));
