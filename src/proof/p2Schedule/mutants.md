@@ -16,7 +16,7 @@ Named harness `?mutant=` queries do not count.
 | P2-dark | `src/proof/p2Schedule/kill.ts:126` |
 | P2-overflow | `src/proof/p2Schedule/kill.ts:134` |
 | P2-text | `src/proof/p2Schedule/kill.ts:198` |
-| P2-webkit | `src/proof/p2Schedule/kill.ts:204` |
+| P2-webkit | `src/proof/p2Schedule/kill.ts:206` |
 | P2-day-track | `src/proof/p2Schedule/kill.ts:220` |
 | P2-nav-phone | `src/proof/p2Schedule/kill.ts:236` |
 | P2-nav-desktop | `src/proof/p2Schedule/kill.ts:249` |
@@ -63,7 +63,7 @@ Named harness `?mutant=` queries do not count.
 | K25 Week/Day active fill/ink + Geist | `src/proof/p2Schedule/kill.ts:945` |
 | K25 header-gutter | `src/proof/p2Schedule/kill.ts:983` |
 | K25 phone-search | `src/proof/p2Schedule/kill.ts:986` |
-| K25 New job accessible name | `src/proof/p2Schedule/kill.ts:1018` |
+| K25 New job accessible name | `src/proof/p2Schedule/kill.ts:1043` |
 | K25 seg / range pins | `src/proof/p2Schedule/kill.ts:930` |
 | K26 | `src/proof/p2Schedule/kill.ts:1024` |
 | unit status | `src/lib/scheduleStatus.kill.test.ts` |
@@ -925,7 +925,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:672
+# expected AssertionError at src/proof/p2Schedule/kill.ts:710
 git checkout -- src/pages/SchedulePage.tsx
 
 # jobs-drop-company → K15 — drop the dated jobs company_id eq
@@ -940,7 +940,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:672
+# expected AssertionError at src/proof/p2Schedule/kill.ts:707
 git checkout -- src/pages/SchedulePage.tsx
 
 # jobs-drop-gte → K15 — drop the dated jobs week-start gte
@@ -955,7 +955,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:672
+# expected AssertionError at src/proof/p2Schedule/kill.ts:703
 git checkout -- src/pages/SchedulePage.tsx
 
 # jobs-drop-lte → K15 — drop the dated jobs week-end lte
@@ -970,7 +970,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:672
+# expected AssertionError at src/proof/p2Schedule/kill.ts:709
 git checkout -- src/pages/SchedulePage.tsx
 
 # jobs-select-star → K15 — dated jobs select *
@@ -985,7 +985,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:672
+# expected AssertionError at src/proof/p2Schedule/kill.ts:705
 git checkout -- src/pages/SchedulePage.tsx
 
 # jobs-bogus-column → K15 — add a bogus jobs column to SCHEDULE_BOARD_COLUMNS
@@ -1000,7 +1000,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:672
+# expected AssertionError at src/proof/p2Schedule/kill.ts:694
 git checkout -- src/lib/scheduleBoard.ts
 
 # undated-drop-company → K15 — drop the undated jobs company_id eq
@@ -1015,7 +1015,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:672
+# expected AssertionError at src/proof/p2Schedule/kill.ts:717
 git checkout -- src/pages/SchedulePage.tsx
 
 # undated-select-star → K15 — undated jobs select *
@@ -1030,7 +1030,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:672
+# expected AssertionError at src/proof/p2Schedule/kill.ts:715
 git checkout -- src/pages/SchedulePage.tsx
 
 # undated-drop-limit → K15 — drop the undated jobs .limit() bound
@@ -1045,7 +1045,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:672
+# expected AssertionError at src/proof/p2Schedule/kill.ts:718
 git checkout -- src/pages/SchedulePage.tsx
 
 # hide-more-jobs-line → K15 — remove the more-jobs line
@@ -1060,7 +1060,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:672
+# expected AssertionError at src/proof/p2Schedule/kill.ts:749
 git checkout -- src/pages/SchedulePage.tsx
 
 # rename-new-job-choice → K25 — rename the New job choice visible text
@@ -1075,7 +1075,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:905
+# expected AssertionError at src/proof/p2Schedule/kill.ts:1043
 git checkout -- src/components/crm/ScheduleBookByVoice.tsx
 
 # text-nowrap-320 → P2-text — Schedule title text paints past the 320 viewport
@@ -1120,7 +1120,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-webkit:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:219
+# expected AssertionError at src/proof/p2Schedule/kill.ts:222
 git checkout -- src/index.css
 
 # swap-tray-board → K17 — label the board section as tray
