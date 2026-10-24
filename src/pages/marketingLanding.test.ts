@@ -37,8 +37,12 @@ describe('public Grafter landing', () => {
     expect(displayRule).toMatch(/font-size:\s*clamp\(/);
     expect(displayRule).toContain('overflow: visible');
     expect(src('index.html')).toContain('viewport-fit=cover');
-    expect(src('src/index.css')).toContain('env(safe-area-inset-top, 0px) + var(--safe-area-inset-top, 0px)');
-    expect(src('src/index.css')).toContain('env(safe-area-inset-bottom, 0px) + var(--safe-area-inset-bottom, 0px)');
+    expect(src('index.html')).toContain('apple-mobile-web-app-status-bar-style" content="default"');
+    expect(src('src/index.css')).toContain('padding-top: max(12px, env(safe-area-inset-top))');
+    expect(src('src/index.css')).toContain('padding: max(16px, env(safe-area-inset-top)) 24px 8px');
+    expect(src('src/index.css')).toContain('padding-bottom: env(safe-area-inset-bottom, 0px)');
+    expect(src('src/index.css')).not.toContain('var(--safe-area-inset-top');
+    expect(src('src/index.css')).not.toContain('var(--safe-area-inset-bottom');
     expect(page).toContain('Quote, schedule, invoice.');
     expect(page).toContain('JobFrame');
     expect(page).toContain('ScheduleFrame');
