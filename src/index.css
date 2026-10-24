@@ -8884,7 +8884,15 @@
 
   /* Inspection review / sign-off chrome only. Complete stays pass green. */
   .insp-doc-theme .insp-review-head {
-    background: var(--insp-navy, #0A2540);
+    background-color: var(--insp-navy, #0A2540);
+    background-image: linear-gradient(
+      to bottom,
+      var(--g-surface) 0,
+      var(--g-surface)
+        env(safe-area-inset-top, 0px),
+      var(--insp-navy, #0A2540)
+        env(safe-area-inset-top, 0px)
+    );
     box-shadow: inset 0 -2px 0 var(--insp-accent, #2E75B6);
     padding-top: env(safe-area-inset-top, 0px);
     height: auto;
