@@ -1084,7 +1084,7 @@ from pathlib import Path
 p = Path("src/index.css")
 t = p.read_text()
 old = "  .hub-week-agenda-meta-part {"
-new = "  .hub-board-cal .ops-page-title { white-space: nowrap; font-size: 96px; overflow: visible; max-width: none; }\n  .hub-week-agenda-meta-part {"
+new = "  html, body, #root, main, .shell-root, .hub-board-cal.is-week-doc.ops-page, .ops-page-head { overflow: visible !important; }\n  html body .hub-board-cal.is-week-doc .ops-page-title { white-space: nowrap !important; font-size: 96px !important; overflow: visible !important; max-width: none !important; }\n  .hub-week-agenda-meta-part {"
 if old not in t: raise SystemExit("text-nowrap-320 find missed")
 p.write_text(t.replace(old, new, 1))
 PY
