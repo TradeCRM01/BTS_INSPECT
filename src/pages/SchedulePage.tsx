@@ -883,7 +883,7 @@ export function SchedulePage() {
   const weekStart = startOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON });
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: SCHEDULE_WEEK_STARTS_ON });
   const weekRangeLabel = `${format(weekStart, 'd')} to ${format(weekEnd, 'd MMM')}`;
-  const weekRangeShort = weekRangeLabel;
+  const weekRangeShort = `${format(weekStart, 'd MMM')} \u2013 ${format(weekEnd, 'd MMM')}`;
   const dayRangeLabel = format(currentDate, 'EEE d MMM yyyy');
   const dayRangeShort = format(currentDate, 'EEE d MMM');
   const needCrew = countNeedCrewJobs(boardJobs);
