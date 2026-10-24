@@ -349,6 +349,7 @@ if old not in t:
     raise SystemExit('edit card rule missing')
 p.write_text(t.replace(old, new, 1))
 PY
+VITE_LOOK_PROOF=1 npm run build
 TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768: Customize card widths hold main"
 git checkout -- src/index.css
 ```
