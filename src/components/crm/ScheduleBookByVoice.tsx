@@ -85,6 +85,25 @@ export function ScheduleBookByVoice({
 
   return (
     <div className="hub-schedule-voice" data-schedule-voice="1">
+      <div className="hub-schedule-voice-choices" role="group" aria-label="Quick book">
+        <button
+          type="button"
+          className="hub-schedule-voice-choice is-on"
+          data-schedule-quickbook-existing="1"
+        >
+          Schedule existing
+        </button>
+        {onNewJob ? (
+          <button
+            type="button"
+            className="hub-schedule-voice-choice hub-schedule-voice-new"
+            data-schedule-quickbook-new="1"
+            onClick={onNewJob}
+          >
+            {hints?.job ? 'New job from this' : 'New job'}
+          </button>
+        ) : null}
+      </div>
       <form className="hub-schedule-voice-form" onSubmit={onSubmit}>
         <label className="hub-schedule-voice-label" htmlFor="hub-schedule-voice-text">
           Quick book
@@ -150,15 +169,6 @@ export function ScheduleBookByVoice({
             </li>
           ))}
         </ul>
-      ) : null}
-      {onNewJob ? (
-        <button
-          type="button"
-          className="hub-schedule-voice-new"
-          onClick={onNewJob}
-        >
-          New job from this
-        </button>
       ) : null}
     </div>
   );

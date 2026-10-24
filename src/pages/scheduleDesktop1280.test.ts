@@ -19,7 +19,7 @@ describe('schedule desktop 1280 — week board min height and capped needs-date 
     expect(lgBlock).toContain('max-height: min(34vh, 300px)');
     expect(lgBlock).toContain('max-height: min(30vh, 260px)');
     expect(lgBlock).toContain('.hub-board-cal.is-week-doc .hub-week-sheet-body');
-    expect(lgBlock).toMatch(/hub-week-sheet-body[\s\S]{0,120}overflow-y: auto/);
+    expect(lgBlock).toMatch(/hub-week-sheet-body[\s\S]{0,120}overflow: visible/);
     expect(lgBlock).toContain('min-height: 0');
     expect(lgBlock).not.toContain('min(52vh, 480px)');
     expect(lgBlock).toMatch(/hub-week-mount\.lg\\:flex[\s\S]{0,120}flex: 0 0 auto/);
@@ -62,7 +62,7 @@ describe('schedule phone week footer (soft 1)', () => {
     expect(tray).toMatch(
       /hub-phone-unscheduled-footer > \.hub-phone-unscheduled[\s\S]{0,160}min-height: 0/,
     );
-    expect(tray).toMatch(/\.hub-phone-unscheduled-list[\s\S]{0,120}flex: 1 1 0/);
+    expect(tray).toMatch(/\.hub-phone-unscheduled-list[\s\S]{0,120}flex: 0 0 auto/);
   });
 
   it('uses a single shell nav clearance on the phone week mount (R4)', () => {

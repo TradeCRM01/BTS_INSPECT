@@ -6096,7 +6096,6 @@
     --job-action: var(--g-accent);
   }
 
-  /* Schedule board only: same cream paper kit as signed jobs + quotes. */
   .hub-board-cal {
     --job-page: var(--g-bg);
     --job-sheet: var(--g-surface);
@@ -6110,6 +6109,7 @@
     --schedule-muted: var(--g-ink-muted);
     --schedule-line: var(--g-line);
     --schedule-action: var(--g-accent);
+    --g-well: var(--g-surface-2);
     --schedule-pass: var(--g-ok);
     --schedule-fail: var(--g-bad);
     --schedule-warn: var(--g-warn);
@@ -6126,9 +6126,46 @@
     padding: 16px 24px 32px;
   }
 
-  .hub-board-cal.is-week-doc > .ops-page-head,
   .hub-board-cal.is-week-doc > .hub-schedule-chrome,
   .hub-board-cal.is-week-doc > .hub-schedule-sheet {
+    display: none;
+  }
+
+  .hub-schedule-eyebrow {
+    font-family: var(--g-font-ui);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 16px;
+    color: var(--g-ink-subtle);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin: 0 0 3px;
+  }
+
+  .hub-schedule-crew-filter {
+    position: relative;
+  }
+
+  .hub-schedule-crew-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 8;
+    display: flex;
+    flex-direction: column;
+    min-width: 160px;
+    padding: 8px;
+    background: var(--g-surface);
+    border: 1px solid var(--g-line);
+    border-radius: 12px;
+    box-shadow: var(--g-sh-2);
+  }
+
+  .hub-week-quiet.hub-schedule-quickbook-toggle {
+    display: none;
+  }
+
+  .hub-schedule-quickbook:not([data-open="1"]) {
     display: none;
   }
 
@@ -6143,12 +6180,29 @@
     margin: 0;
   }
 
+  @media (max-width: 1023px) {
+    .hub-board-cal .ops-page-title {
+      font-size: 32px !important;
+    }
+  }
+
   .hub-board-cal .ops-page-head {
-    max-width: 1400px;
-    margin: 0 auto 24px;
-    padding-top: 8px;
+    max-width: none;
+    margin: 0 0 20px;
+    padding-top: 0;
     align-items: flex-end;
+    justify-content: space-between;
     gap: 16px;
+    text-align: left;
+  }
+
+  .hub-board-cal .ops-page-head [data-schedule-whisper] {
+    margin-top: 8px;
+    font-family: var(--g-font-ui);
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 24px;
+    color: var(--g-ink-2);
   }
 
   .hub-schedule-kicker,
@@ -6201,8 +6255,8 @@
   }
 
   .hub-board-cal .btn-primary {
-    background: #2E75B6;
-    color: #fff;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
     min-height: 44px;
     height: 44px;
     padding: 0 16px;
@@ -6216,8 +6270,8 @@
   }
 
   .hub-board-cal .btn-primary:hover {
-    background: color-mix(in srgb, #2E75B6 86%, #0A2540);
-    color: #fff;
+    background: var(--g-inverse-hover);
+    color: var(--g-inverse-ink);
   }
 
   .hub-board-cal .btn-primary:active {
@@ -6274,8 +6328,8 @@
   }
 
   .hub-board-cal .hub-chrome-filter-on {
-    color: #2E75B6;
-    box-shadow: inset 0 -2px 0 #2E75B6;
+    color: var(--g-accent);
+    box-shadow: inset 0 -2px 0 var(--g-accent);
   }
 
   .hub-schedule-chrome .relative svg,
@@ -6300,7 +6354,7 @@
   }
 
   .hub-board-cal .form-input:focus {
-    border-color: #2E75B6;
+    border-color: var(--g-accent);
     box-shadow: none;
     outline: none;
     --tw-ring-shadow: 0 0 #0000;
@@ -6376,7 +6430,7 @@
   }
 
   .hub-board-cal .ops-link {
-    color: #2E75B6;
+    color: var(--g-accent);
     font-family: var(--g-font-ui);
     font-size: 14px;
     font-weight: 600;
@@ -6388,7 +6442,7 @@
   }
 
   .hub-schedule-next {
-    color: #2E75B6;
+    color: var(--g-accent);
     background: none;
     border: none;
     border-radius: 12px;
@@ -6509,23 +6563,23 @@
   }
 
   .hub-board-cal .ops-status-info {
-    color: #2E75B6;
-    background: color-mix(in srgb, #2E75B6 12%, #fff);
+    color: var(--g-accent);
+    background: var(--g-surface-2);
   }
 
   .hub-board-cal .ops-status-progress {
     color: var(--schedule-warn);
-    background: color-mix(in srgb, #B54708 12%, #fff);
+    background: var(--g-warn-bg);
   }
 
   .hub-board-cal .ops-status-ok {
     color: var(--schedule-pass);
-    background: color-mix(in srgb, #1B7F3A 12%, #fff);
+    background: var(--g-ok-bg);
   }
 
   .hub-board-cal .ops-status-bad {
     color: var(--schedule-fail);
-    background: color-mix(in srgb, #B42318 12%, #fff);
+    background: var(--g-bad-bg);
   }
 
   .hub-schedule-day {
@@ -6544,8 +6598,9 @@
   }
 
   .hub-schedule-day.is-today {
-    background: var(--schedule-ink);
-    color: #fff;
+    background: transparent;
+    color: var(--g-accent);
+    box-shadow: inset 0 -2px 0 var(--g-accent);
   }
 
   .hub-schedule-empty {
@@ -6567,16 +6622,15 @@
 
   /* Week-board document only. Same paper kit as signed quote / job sheet. */
   .hub-board-cal.is-week-doc.ops-page {
-    background: #F5F0E6;
-    display: flex;
-    flex-direction: column;
+    background: var(--g-bg);
+    display: block;
     box-sizing: border-box;
     width: 100%;
     max-width: none;
     min-height: calc(100dvh - 3.5rem);
-    height: calc(100dvh - 3.5rem);
+    height: auto;
     padding: 12px 16px 16px;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .hub-board-cal.is-week-doc .hub-schedule-desk,
@@ -6584,31 +6638,57 @@
     max-width: none;
     width: 100%;
     margin: 0;
-    flex: 1 1 auto;
-    display: flex;
-    flex-direction: column;
+    display: block;
     min-height: 0;
+    overflow: visible;
   }
 
   .hub-board-cal.is-week-doc .hub-week-document {
     max-width: none;
     width: 100%;
     margin: 0;
-    flex: 1 1 auto;
-    display: flex;
-    flex-direction: column;
+    display: block;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .hub-board-cal.is-week-doc .hub-week-sheet-body {
-    flex: 1 1 auto;
-    display: flex;
-    flex-direction: column;
+    display: block;
     min-height: 0;
   }
 
   @media (min-width: 1024px) {
+    .hub-board-cal.is-week-doc.ops-page {
+      padding: 32px 0 20px;
+    }
+
+    .hub-board-cal.is-week-doc .ops-page-head {
+      padding: 0 32px;
+      align-items: flex-end;
+    }
+
+    .hub-board-cal.is-week-doc .ops-page-head .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 128.21875px;
+      min-width: 128.21875px;
+      height: 48px;
+      min-height: 48px;
+      padding: 0 20px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 20px;
+      white-space: nowrap;
+    }
+
+    .hub-board-cal.is-week-doc .ops-page-head .btn-primary svg {
+      width: 18px;
+      height: 18px;
+    }
+
     .hub-board-cal.is-week-doc .hub-week-identity-row {
       align-items: flex-start;
       gap: 8px 16px;
@@ -6616,16 +6696,77 @@
     }
 
     .hub-board-cal.is-week-doc .hub-week-track {
-      margin-top: 10px;
-      padding-top: 8px;
-      padding-bottom: 8px;
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 9.5px;
+      margin-top: 0;
+      margin-bottom: 0;
+      padding: 0 32px 18px;
+      border: none;
       flex: 0 0 auto;
     }
 
+    .hub-board-cal.is-week-doc .hub-week-seg-btn {
+      padding: 0 16px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-range {
+      padding: 0 11px;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-today {
+      width: auto;
+      min-width: 44px;
+      height: 48px;
+      min-height: 48px;
+      margin-left: auto;
+      padding: 0 20px;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 20px;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-search {
+      flex: 1 1 auto;
+      min-width: 0;
+      height: 48px;
+      min-height: 48px;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-document {
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      max-width: none;
+      width: 100%;
+      margin: 0;
+    }
+
+    .hub-board-cal.is-week-doc [data-schedule-section="board"] {
+      width: 100%;
+      margin: 0;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-document .hub-week-board {
+      margin-top: 0;
+      border: none;
+      border-radius: 0;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-document .hub-day-board {
+      margin-top: 0;
+      border: none;
+      border-radius: 0;
+    }
+
     .hub-board-cal.is-week-doc .hub-week-sheet-body {
-      flex: 1 1 0;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
+      flex: none;
+      overflow: visible;
     }
 
     .hub-board-cal.is-week-doc .hub-week-mount.lg\:flex {
@@ -6644,8 +6785,8 @@
       min-height: 280px;
       height: auto;
       max-height: none;
-      overflow-x: auto;
-      overflow-y: hidden;
+      overflow-x: hidden;
+      overflow-y: visible;
     }
 
     .hub-board-cal.is-week-doc .hub-week-document .hub-day-board.ops-board {
@@ -6671,16 +6812,27 @@
       gap: 8px;
       width: 100%;
       padding: 8px 0 10px;
-      border-bottom: 1px solid #E2D9CC;
+      border-bottom: 1px solid var(--g-line);
+    }
+
+    .hub-week-document .hub-schedule-needs-date-rail {
+      padding: 24px 32px 40px;
     }
 
     .hub-week-document .hub-schedule-needs-date-rail > .ops-tray-head .ops-card-kicker {
       flex: 0 1 auto;
       margin: 0;
+      display: flex;
+      align-items: center;
+      height: 26px;
+      min-height: 26px;
       font-family: var(--g-font-title);
-      font-size: 11px;
-      font-weight: 700;
-      color: #5B6B7C;
+      font-size: 20px;
+      font-weight: 600;
+      line-height: 26px;
+      letter-spacing: 0;
+      text-transform: none;
+      color: var(--g-ink);
     }
 
     .hub-week-document .hub-schedule-needs-date-rail > .ops-tray-head .ops-meta {
@@ -6688,7 +6840,114 @@
       margin: 0;
       font-size: 12px;
       font-weight: 600;
-      color: #0A2540;
+      color: var(--g-ink);
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .hub-board-cal.is-week-doc .ops-page-title {
+      font-weight: 600;
+      letter-spacing: -0.035em;
+      line-height: 52px;
+      font-size: 48px !important;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-today {
+      width: 85.25px;
+      min-width: 85.25px;
+      height: 48px;
+      min-height: 48px;
+      margin-left: auto;
+      padding: 0 20px;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 20px;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-search {
+      flex: 1 1 755.265625px;
+      min-width: 755.265625px;
+      max-width: 755.265625px;
+      width: 755.265625px;
+      height: 48px;
+      min-height: 48px;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-seg {
+      width: 138px;
+      flex: 0 0 138px;
+      box-sizing: border-box;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-range-row {
+      width: 209px;
+      flex: 0 0 209px;
+      box-sizing: border-box;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-range {
+      padding: 0 8px;
+    }
+  }
+
+  @media (max-width: 639px) {
+    .hub-board-cal.is-week-doc .ops-page-head,
+    .hub-board-cal.is-week-doc .hub-week-identity-row,
+    .hub-board-cal.is-week-doc .hub-week-track,
+    .hub-board-cal.is-week-doc .hub-week-agenda {
+      margin-left: 16px;
+      margin-right: 16px;
+      width: auto;
+      max-width: calc(100% - 32px);
+      box-sizing: border-box;
+    }
+
+    .hub-board-cal.is-week-doc .ops-page-head {
+      padding-top: 16px;
+    }
+
+    .hub-week-track .hub-week-range-full { display: none; }
+    .hub-week-track .hub-week-range-short { display: inline; }
+    .hub-week-track .hub-week-range {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      min-width: 0;
+    }
+    .hub-week-track .hub-week-range-row {
+      min-width: 0;
+      max-width: 100%;
+      flex: 1 1 auto;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .hub-board-cal.is-week-doc .hub-week-document {
+      border: none;
+      box-shadow: none;
+      border-radius: 0;
+      max-width: none;
+      width: 100%;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-track {
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-search,
+    .hub-board-cal.is-week-doc .hub-week-search > .relative.min-w-0,
+    .hub-board-cal.is-week-doc .hub-week-search .form-input {
+      flex: 1 1 100%;
+      width: 100%;
+      max-width: none;
+      margin-left: 0;
+      margin-right: 0;
+      box-sizing: border-box;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-agenda {
+      padding-left: 0;
+      padding-right: 0;
     }
   }
 
@@ -6705,13 +6964,11 @@
   .hub-week-document {
     max-width: 1100px;
     margin: 0 auto;
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
+    background: var(--g-surface);
+    border: 1px solid var(--g-line);
     border-radius: 16px;
     overflow: visible;
-    box-shadow:
-      inset 0 1px 0 #fff,
-      0 10px 28px rgba(10, 37, 64, 0.08);
+    box-shadow: var(--g-sh-1);
   }
 
   .hub-week-sheet .hub-week-board.ops-board,
@@ -6719,7 +6976,7 @@
   .hub-week-document .ops-tray,
   .hub-week-document .ops-card,
   .hub-week-document .hub-schedule-sheet {
-    background: #FFFDF8;
+    background: var(--g-surface);
     border: none;
     border-radius: 0;
     box-shadow: none;
@@ -6729,7 +6986,7 @@
   .hub-week-document .ops-tray {
     margin-top: 8px;
     padding-top: 8px;
-    border-top: 1px solid #E2D9CC;
+    border-top: 1px solid var(--g-line);
   }
 
   .hub-week-document .ops-tray:has(.ops-tray-empty) {
@@ -6737,7 +6994,7 @@
   }
 
   .hub-week-sheet .hub-week-board.ops-board {
-    overflow-x: auto;
+    overflow-x: hidden;
     overflow-y: visible;
   }
 
@@ -6752,8 +7009,8 @@
     gap: 16px;
     min-height: 32px;
     padding: 10px 20px 0;
-    background: #FFFDF8;
-    color: #0A2540;
+    background: var(--g-surface);
+    color: var(--g-ink);
     border-bottom: none;
     border-radius: 16px 16px 0 0;
     box-shadow: inset 0 1px 0 #fff;
@@ -6764,7 +7021,7 @@
     font-weight: 600;
     font-size: 12px;
     letter-spacing: 0;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-week-sheet-bar .hub-week-range {
@@ -6775,8 +7032,8 @@
 
   .hub-week-sheet-body {
     padding: 8px 20px 14px;
-    background: #FFFDF8;
-    box-shadow: inset 0 1px 0 #fff;
+    background: var(--g-surface);
+    box-shadow: none;
   }
 
   .hub-week-identity-row {
@@ -6792,7 +7049,7 @@
     font-size: 32px !important;
     letter-spacing: 0.02em;
     line-height: 0.96;
-    color: #0A2540;
+    color: var(--g-ink);
     margin: 0;
   }
 
@@ -6810,7 +7067,7 @@
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-week-page-tools {
@@ -6823,8 +7080,8 @@
   }
 
   .hub-week-document .hub-week-page-tools .btn-primary {
-    background: #2E75B6;
-    color: #fff;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
     min-height: 44px;
     height: 44px;
     padding: 0 16px;
@@ -6866,7 +7123,7 @@
     letter-spacing: 0;
     text-transform: none;
     font-variant: normal;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-week-id-value {
@@ -6874,12 +7131,12 @@
     font-family: var(--g-font-ui);
     font-size: 14px;
     font-weight: 500;
-    color: #0A2540;
+    color: var(--g-ink);
   }
 
   .hub-week-search {
     margin: 0;
-    padding: 0 4px 8px;
+    padding: 0;
     max-width: none;
     border: none;
   }
@@ -6889,33 +7146,32 @@
   }
 
   .hub-week-document .hub-schedule-search-panel {
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
+    background: var(--g-surface);
+    border: 1px solid var(--g-line);
     border-radius: 12px;
     box-shadow: none;
   }
 
   .hub-week-document .hub-week-search svg {
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     left: 10px;
   }
 
   .hub-week-document .hub-week-search .form-input {
-    min-height: 0;
-    height: auto;
-    padding: 4px 8px 4px 28px;
-    border: none;
-    border-bottom: 1px solid #E2D9CC;
-    border-radius: 0;
-    background: none;
-    color: #5B6B7C;
-    font-size: 12px !important;
-    font-weight: 500;
+    min-height: 48px;
+    height: 48px;
+    padding: 0 14px 0 32px;
+    border: 1px solid var(--g-input-line, var(--g-line-strong));
+    border-radius: 10px;
+    background: var(--g-surface);
+    color: var(--g-ink-muted);
+    font-size: 15px !important;
+    font-weight: 400;
     box-shadow: none;
   }
 
   .hub-week-document .hub-week-search .form-input::placeholder {
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     opacity: 1;
   }
 
@@ -6923,19 +7179,21 @@
     display: inline-flex;
     align-items: stretch;
     flex: 0 0 auto;
-    gap: 0;
-    border: none;
-    border-radius: 0;
+    gap: 2px;
+    border: 1px solid var(--g-line-strong);
+    border-radius: 14px;
     overflow: visible;
-    background: none;
+    background: var(--g-surface-2);
+    padding: 4px;
   }
 
   .hub-week-seg-btn {
-    min-height: 32px;
+    min-width: 44px;
+    min-height: 44px;
     padding: 0 8px;
     border: none;
     background: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     font-family: var(--g-font-ui);
     font-size: 12px;
     font-weight: 500;
@@ -6945,17 +7203,27 @@
   }
 
   .hub-week-seg-btn.is-on {
-    background: none;
-    color: #0A2540;
-    box-shadow: inset 0 -2px 0 #2E75B6;
+    background: var(--g-surface);
+    color: var(--g-ink);
+    box-shadow: var(--g-sh-1), 0 0 0 1px var(--g-line);
+    border-radius: 8px;
+  }
+
+  .hub-week-seg-btn.is-on:focus-visible {
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    outline: 2px solid var(--g-accent);
+    outline-offset: 2px;
   }
 
   .hub-week-tools {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
     min-width: 0;
+    max-width: 100%;
+    flex: 1 1 auto;
   }
 
   .hub-week-quiet {
@@ -6963,12 +7231,13 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    min-height: 24px;
+    min-width: 44px;
+    min-height: 44px;
     padding: 0;
     border: none;
     border-radius: 0;
     background: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     font-family: var(--g-font-ui);
     font-size: 12px;
     font-weight: 500;
@@ -6978,8 +7247,15 @@
   }
 
   .hub-week-quiet:hover {
-    color: #0A2540;
+    color: var(--g-ink);
     background: none;
+  }
+
+  .hub-week-seg-btn:focus-visible,
+  .hub-week-quiet:focus-visible,
+  .hub-week-crew-opt:focus-visible {
+    outline: 2px solid var(--g-accent);
+    outline-offset: 2px;
   }
 
   .hub-week-quiet::-webkit-details-marker,
@@ -6992,7 +7268,7 @@
   .hub-week-nav {
     width: auto;
     padding: 0;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-week-crews,
@@ -7009,7 +7285,7 @@
     border: none;
     border-radius: 12px;
     background: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-week-crews-menu,
@@ -7020,8 +7296,8 @@
     z-index: 20;
     min-width: 240px;
     padding: 8px;
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
+    background: var(--g-surface);
+    border: 1px solid var(--g-line);
     border-radius: 16px;
     box-shadow: none;
   }
@@ -7045,7 +7321,7 @@
     border: none;
     border-radius: 12px;
     background: none;
-    color: #0A2540;
+    color: var(--g-ink);
     font-family: var(--g-font-ui);
     font-size: 12px;
     font-weight: 500;
@@ -7058,7 +7334,7 @@
     font-family: var(--g-font-ui);
     font-size: 12px;
     font-weight: 500;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-week-more-menu .hub-week-seg {
@@ -7073,7 +7349,7 @@
   }
 
   .hub-week-crew-opt:hover {
-    background: #F5F0E6;
+    background: var(--g-bg);
   }
 
   .hub-week-range {
@@ -7081,16 +7357,91 @@
     font-family: var(--g-font-ui);
     font-size: 14px;
     font-weight: 500;
-    color: #0A2540;
+    color: var(--g-ink);
+    white-space: nowrap;
+  }
+
+  .hub-week-nav-box {
+    border: 1px solid var(--g-line-strong);
+    border-radius: 10px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .hub-week-today {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    border: 1px solid var(--g-line-strong);
+    border-radius: 10px;
+    background: var(--g-surface);
+    padding: 0 12px;
+    color: var(--g-ink);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .hub-week-range-row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    flex: 0 0 auto;
+  }
+
+  .hub-week-search {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .hub-week-tools-phone {
+    display: none;
+  }
+
+  .hub-schedule-tray-cards {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  @media (min-width: 1024px) {
+    .hub-schedule-tray-cards {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 768px) {
+    .hub-week-track .hub-week-range-row {
+      order: 1;
+      flex: 1 1 0;
+      min-width: 0;
+      max-width: calc(100% - 72px);
+    }
+    .hub-week-track .hub-week-today { order: 2; flex: 0 0 auto; }
+    .hub-week-track .hub-week-search { order: 10; flex: 1 1 100%; }
+    .hub-week-tools-phone {
+      display: block;
+      order: 11;
+    }
+  }
+
+  .hub-board-cal .hub-schedule-crew-name,
+  .hub-week-crew-name,
+  .hub-week-document .hub-week-crew .hub-schedule-crew-name,
+  .hub-week-document .hub-day-crew-lock .hub-schedule-crew-name {
     white-space: nowrap;
   }
 
   .hub-week-place {
     padding: 16px 0;
-    border-bottom: 1px solid #E2D9CC;
+    border-bottom: 1px solid var(--g-line);
     font-family: var(--g-font-ui);
     font-size: 12px;
-    color: #0A2540;
+    color: var(--g-ink);
   }
 
   .hub-week-place-crew {
@@ -7101,13 +7452,13 @@
   }
 
   .hub-week-document .ops-status {
-    display: inline;
-    min-height: 0;
-    padding: 0;
-    border: none;
-    border-radius: 0;
-    background: none;
-    color: #5B6B7C;
+    display: inline-flex;
+    min-height: 24px;
+    padding: 0 8px;
+    border: 1px solid var(--g-line);
+    border-radius: 999px;
+    background: var(--g-well);
+    color: var(--g-ink-muted);
     font-family: var(--g-font-ui);
     font-size: 12px;
     font-weight: 500;
@@ -7118,14 +7469,19 @@
   .hub-week-document .ops-tray-head,
   .hub-week-document .ops-card-body {
     padding: 16px 0;
-    border-color: #E2D9CC;
+    border-color: var(--g-line);
     background: none;
   }
 
   .hub-week-document .hub-week-chip {
-    border: none;
-    border-radius: 4px;
+    border: 1px solid var(--g-line);
+    border-radius: 8px;
     box-shadow: none;
+    background: var(--g-surface);
+  }
+
+  .hub-week-document .hub-week-chip:hover {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--g-accent) 24%, transparent);
   }
 
   .hub-week-document .hub-week-chip-ref,
@@ -7135,14 +7491,16 @@
 
   .hub-week-track {
     display: flex;
-    flex-wrap: nowrap;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
     align-items: center;
     gap: 4px 12px;
+    min-height: 44px;
     margin-top: 6px;
-    padding: 4px 0 6px;
-    border-top: 1px solid #E2D9CC;
-    border-bottom: 1px solid #E2D9CC;
-    overflow-x: auto;
+    padding: 6px 4px 8px;
+    border-top: 1px solid var(--g-line);
+    border-bottom: 1px solid var(--g-line);
+    overflow: visible;
   }
 
   .hub-week-document .hub-week-board,
@@ -7157,31 +7515,83 @@
   }
 
   .hub-week-document .hub-day-board.ops-board,
-  .hub-week-document .hub-day-board .bg-white,
+  .hub-week-document .hub-day-board .bg-white {
+    background: var(--g-surface);
+    border-color: var(--g-line);
+    box-shadow: none;
+  }
+
   .hub-week-document .hub-day-board .bg-zebra {
-    background: #FFFDF8;
-    border-color: #E2D9CC;
+    background: var(--g-bg);
+    border-color: var(--g-line);
     box-shadow: none;
   }
 
   .hub-week-document .hub-day-board .border-rule {
-    border-color: #E2D9CC;
+    border-color: var(--g-line);
+  }
+
+  .hub-week-document .hub-day-board {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .hub-day-now {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 20;
+    width: 2px;
+    overflow: visible;
+    pointer-events: none;
+    background: var(--g-accent);
+  }
+
+  .hub-day-now-dot {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 8px;
+    height: 8px;
+    margin-left: -4px;
+    border-radius: 50%;
+    background: var(--g-accent);
+  }
+
+  .hub-day-now-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 2px;
+    min-width: 2px;
+    background: var(--g-accent);
   }
 
   .hub-week-document .hub-day-board .hub-week-chip {
-    border: none;
-    border-radius: 4px;
+    position: relative;
+    border: 1px solid var(--g-line);
+    border-radius: 8px;
     box-shadow: none;
+    background: var(--g-surface);
     height: 100%;
-    justify-content: center;
-    padding: 6px 8px;
+    overflow: visible;
+    justify-content: flex-start;
+    padding: 6px 8px 8px 11px;
   }
 
   .hub-week-document .hub-day-board .hub-day-chip-pin {
     display: flex;
     flex-direction: column;
+    align-self: stretch;
     gap: 1px;
+    width: 100%;
+    max-width: 100%;
     min-width: 0;
+    overflow: visible;
     text-align: left;
   }
 
@@ -7191,7 +7601,7 @@
     font-family: var(--g-font-ui);
     font-size: 12px;
     font-weight: 600;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-day-track {
@@ -7201,10 +7611,28 @@
     grid-template-rows: 44px var(--hub-day-rows, 72px);
     align-items: stretch;
     flex: 1 1 auto;
+    width: 100%;
     min-width: 0;
     min-height: 0;
     max-width: 100%;
-    overflow: auto;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .hub-board-cal .hub-day-resize::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+
+  .hub-board-cal .hub-day-resize:hover {
+    background: color-mix(in srgb, var(--g-accent) 16%, transparent);
   }
 
   .hub-day-crew-head,
@@ -7220,7 +7648,7 @@
     min-height: 0;
     padding-top: 6px;
     box-sizing: border-box;
-    background: #FFFDF8;
+    background: var(--g-surface);
   }
 
   .hub-day-crew-lock.hub-day-crew-head {
@@ -7230,7 +7658,8 @@
 
   .hub-week-board {
     width: 100%;
-    overflow-x: auto;
+    min-width: 0;
+    overflow-x: hidden;
   }
 
   .hub-week-swipe-helper {
@@ -7238,6 +7667,7 @@
   }
 
   .hub-week-agenda {
+    --hub-agenda-track: 5.5rem minmax(0, 1fr);
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -7250,7 +7680,7 @@
   }
 
   .hub-week-agenda-day + .hub-week-agenda-day {
-    border-top: 1px solid #E2D9CC;
+    border-top: 1px solid var(--g-line);
     padding-top: 8px;
   }
 
@@ -7263,12 +7693,12 @@
     font-family: var(--g-font-ui);
     font-size: 16px;
     font-weight: 700;
-    color: #0A2540;
+    color: var(--g-ink);
   }
 
   .hub-week-agenda-day.is-today .hub-week-agenda-head,
   .hub-week-agenda-today {
-    color: #2E75B6;
+    color: var(--g-accent);
   }
 
   .hub-week-agenda-today {
@@ -7278,12 +7708,30 @@
 
   .hub-week-agenda-empty {
     margin: 0;
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     font-family: var(--g-font-ui);
     font-size: 13px;
+    background: none;
+    border: none;
+  }
+
+  .hub-week-agenda-book {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 44px;
+    height: 44px;
+    max-height: none;
+    margin: 4px 0 0;
+    padding: 0 8px;
+    border: 1px dashed var(--g-line);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--g-ink-muted);
+    font-family: var(--g-font-ui);
+    font-size: 12px;
+    line-height: 1.2;
+    cursor: pointer;
   }
 
   .hub-week-agenda-list {
@@ -7293,26 +7741,32 @@
   }
 
   .hub-week-agenda-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
     align-items: flex-start;
-    gap: 12px;
+    gap: 2px;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     min-height: 44px;
     padding: 8px 0;
+    overflow: hidden;
     text-align: left;
     background: transparent;
     border: none;
-    border-bottom: 1px solid #E2D9CC;
-    color: #0A2540;
+    border-bottom: 1px solid var(--g-line);
+    color: var(--g-ink);
     cursor: pointer;
   }
 
   .hub-week-agenda-time {
-    flex: 0 0 5.5rem;
+    display: block;
+    width: 100%;
     padding-top: 2px;
     font-family: var(--g-font-ui);
     font-size: 13px;
     font-weight: 600;
+    color: var(--g-ink-muted);
     white-space: normal;
   }
 
@@ -7322,8 +7776,10 @@
     min-height: 22px;
     padding: 0 8px;
     border-radius: 999px;
-    background: #F5F0E6;
-    color: #0A2540;
+    align-self: flex-start;
+    width: fit-content;
+    background: var(--g-well);
+    color: var(--g-ink);
     font-size: 12px;
     font-weight: 600;
     white-space: nowrap;
@@ -7335,39 +7791,55 @@
     align-items: flex-start;
     gap: 2px;
     min-width: 0;
-    flex: 1 1 auto;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
   }
 
   .hub-week-agenda-title {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-family: var(--g-font-ui);
     font-size: 15px;
     font-weight: 600;
-    white-space: normal;
-    overflow-wrap: break-word;
   }
 
   .hub-week-agenda-meta,
   .hub-week-agenda-crew {
     font-family: var(--g-font-ui);
     font-size: 12px;
-    color: #5B6B7C;
-    white-space: normal;
+    color: var(--g-ink-muted);
+    overflow-wrap: anywhere;
+  }
+
+  .hub-week-agenda-meta-part {
+    white-space: nowrap;
   }
 
   .hub-week-grid {
     display: grid;
-    grid-template-columns: 104px repeat(7, minmax(104px, 1fr));
-    min-width: 880px;
-    border-top: 1px solid #E2D9CC;
+    grid-template-columns: 148px repeat(5, minmax(0, 1fr)) repeat(2, 72px);
+    width: 100%;
+    min-width: 0;
+    border-top: 1px solid var(--g-line);
+  }
+
+  .hub-week-grid[data-weekend-jobs="1"] {
+    grid-template-columns: 148px repeat(7, minmax(0, 1fr));
   }
 
   .hub-week-corner,
   .hub-week-head,
   .hub-week-crew,
   .hub-week-cell {
-    border-right: 1px solid #E2D9CC;
-    border-bottom: 1px solid #E2D9CC;
-    background: #FFFDF8;
+    border-right: 1px solid var(--g-line);
+    border-bottom: 1px solid var(--g-line);
+    background: var(--g-surface);
   }
 
   .hub-week-corner {
@@ -7380,11 +7852,12 @@
 
   .hub-week-head {
     display: flex;
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     min-height: 44px;
     padding: 8px 6px;
-    text-align: center;
+    text-align: left;
     font-family: var(--g-font-ui);
     font-size: 13px;
     font-weight: 600;
@@ -7393,18 +7866,47 @@
     background: var(--schedule-sheet);
     cursor: pointer;
     border: none;
-    border-right: 1px solid #E2D9CC;
-    border-bottom: 1px solid #E2D9CC;
+    border-right: 1px solid var(--g-line);
+    border-bottom: 1px solid var(--g-line);
     border-radius: 0;
     box-shadow: none;
   }
 
-  .hub-week-head-short {
+  .hub-week-head-full {
     display: none;
-    flex-direction: column;
+  }
+
+  .hub-week-head-short {
+    display: flex;
+    flex-direction: row;
     align-items: center;
-    gap: 1px;
+    gap: 6px;
     line-height: 1.1;
+  }
+
+  @media (min-width: 1024px) {
+    .hub-week-head {
+      flex-wrap: nowrap;
+      text-align: left;
+    }
+
+    .hub-week-head-full {
+      display: none;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .hub-week-head-short {
+      display: inline-flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hub-week-now {
+      display: inline;
+      margin-left: auto;
+    }
   }
 
   .hub-week-range-short {
@@ -7415,11 +7917,31 @@
     color: var(--schedule-ink);
     background: var(--schedule-sheet);
     font-weight: 700;
+    box-shadow: none;
+  }
+
+  .hub-week-head.is-today .hub-week-head-dom {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+  }
+
+  .hub-week-now {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--g-ink-muted);
   }
 
   .hub-week-crew {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
+    gap: 8px;
     padding: 6px 10px;
     min-height: 64px;
     position: sticky;
@@ -7454,23 +7976,120 @@
     background: var(--schedule-sheet);
   }
 
+  .hub-week-cell.is-weekend,
+  .hub-week-head.is-weekend {
+    background: var(--g-surface-2);
+  }
+
   .hub-week-cell.is-hover {
-    background: color-mix(in srgb, #0A2540 4%, #FFFDF8);
+    background: color-mix(in srgb, var(--g-ink) 4%, var(--g-surface));
   }
 
   .hub-week-chip {
+    position: relative;
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
     width: 100%;
     max-width: 100%;
-    overflow: visible;
-    border: none;
-    border-radius: 4px;
-    padding: 3px 6px;
+    min-width: 0;
+    overflow: hidden;
+    background: var(--g-surface);
+    color: var(--g-ink);
+    border: 1px solid var(--g-line);
+    border-radius: 8px;
+    padding: 6px 8px 8px 11px;
+    min-height: 44px;
     text-align: left;
     cursor: pointer;
     box-shadow: none;
+  }
+
+  .hub-week-chip-rail {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--hub-lane, var(--g-line-strong));
+    border-radius: 8px 0 0 8px;
+  }
+
+  .hub-week-chip-line1 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    min-width: 0;
+    max-width: 100%;
+    line-height: 1.3;
+    max-height: none;
+    overflow: visible;
+    color: var(--g-ink-muted);
+    font-size: 12px;
+  }
+
+  .hub-week-chip-line1 .hub-week-chip-clock,
+  .hub-week-chip-line1 .hub-week-chip-ref {
+    display: inline;
+    width: auto;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .hub-week-chip-track {
+    position: relative;
+    display: block;
+    height: 2px;
+    margin-top: 4px;
+    background: var(--g-line);
+  }
+
+  .hub-week-chip-span {
+    position: absolute;
+    top: 0;
+    height: 2px;
+    min-width: 2px;
+    background: var(--hub-lane, var(--g-line-strong));
+  }
+
+  .hub-schedule-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    width: fit-content;
+  }
+
+  .hub-schedule-pill[data-kind="ready"] {
+    background: var(--g-ok-bg);
+    color: var(--g-ok);
+  }
+
+  .hub-schedule-pill[data-kind="progress"] {
+    background: var(--g-live-bg);
+    color: var(--g-live);
+  }
+
+  .hub-schedule-pill[data-kind="scheduled"] {
+    background: var(--g-sched-bg);
+    color: var(--g-sched);
+  }
+
+  .hub-schedule-pill[data-kind="cancelled"] {
+    background: var(--g-bad-bg);
+    color: var(--g-bad);
+  }
+
+  .hub-schedule-pill[data-kind="done"],
+  .hub-schedule-pill[data-kind="nodate"],
+  .hub-schedule-pill[data-kind="needcrew"],
+  .hub-schedule-pill[data-kind="status"] {
+    background: var(--g-draft-bg);
+    color: var(--g-draft);
   }
 
   .hub-week-chip.is-dragging {
@@ -7482,10 +8101,30 @@
     display: block;
   }
 
+  .hub-week-chip-clock {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+  }
+
+  .hub-week-chip-desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
   .hub-week-chip-ref {
+    width: auto;
+    flex: 0 0 auto;
     overflow: visible;
     text-overflow: clip;
     white-space: nowrap;
+    color: var(--g-ink);
     font-family: var(--g-font-ui);
     font-size: 13px;
     font-weight: 700;
@@ -7493,15 +8132,28 @@
     line-height: 1.2;
   }
 
-  .hub-week-chip-desc {
-    overflow: visible;
-    white-space: normal;
-    overflow-wrap: break-word;
-    font-family: var(--g-font-ui);
+  .hub-week-chip-suburb {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--g-ink-muted);
     font-size: 12px;
-    font-weight: 500;
     line-height: 1.25;
-    opacity: 0.92;
+  }
+
+  .hub-week-chip-desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: normal;
+    font-family: var(--g-font-ui);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 18px;
+    opacity: 1;
   }
 
   .hub-schedule-place {
@@ -7515,7 +8167,7 @@
   }
 
   .hub-phone-crew-drop.is-hover {
-    border-color: #2E75B6;
+    border-color: var(--g-accent);
     background: var(--schedule-page);
   }
 
@@ -7555,7 +8207,7 @@
     font-family: var(--g-font-ui);
     font-size: 14px;
     font-weight: 600;
-    color: #0A2540;
+    color: var(--g-ink);
   }
 
   .hub-schedule-search-status {
@@ -7581,12 +8233,14 @@
   .hub-schedule-job-sheet {
     display: flex;
     flex-direction: column;
-    background: #FFFDF8;
-    color: #0A2540;
+    background: var(--g-surface);
+    color: var(--g-ink);
     width: 100%;
     max-width: 420px;
     margin-top: auto;
     border-radius: 16px 16px 0 0;
+    border-top: 1px solid var(--g-line);
+    box-shadow: var(--g-sh-1);
   }
 
   .hub-schedule-job-sheet-heading {
@@ -7594,7 +8248,7 @@
     font-family: var(--g-font-ui);
     font-size: 18px;
     font-weight: 700;
-    color: #0A2540;
+    color: var(--g-ink);
   }
 
   .hub-schedule-job-sheet-title {
@@ -7610,7 +8264,7 @@
     margin: 0 0 4px;
     font-family: var(--g-font-ui);
     font-size: 13px;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     white-space: normal;
   }
 
@@ -7618,7 +8272,7 @@
     margin: 8px 0;
     font-family: var(--g-font-ui);
     font-size: 13px;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     white-space: normal;
     overflow-wrap: break-word;
   }
@@ -7657,7 +8311,7 @@
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: #0A2540;
+    color: var(--g-ink);
     white-space: nowrap;
   }
 
@@ -7676,9 +8330,9 @@
     width: auto;
     min-height: 44px;
     height: 44px;
-    background: #FFFDF8;
-    color: #0A2540;
-    border: 1px solid #E2D9CC;
+    background: var(--g-surface);
+    color: var(--g-ink);
+    border: 1px solid var(--g-line);
     border-radius: 12px;
     box-shadow: none;
     padding: 0 12px;
@@ -7701,25 +8355,25 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: #FFFDF8;
-    color: #2E75B6;
-    border: 1px solid #E2D9CC;
+    background: var(--g-surface);
+    color: var(--g-accent);
+    border: 1px solid var(--g-line);
     border-radius: 12px;
     box-shadow: none;
   }
 
   .hub-schedule-voice-mic.is-on {
-    background: #2E75B6;
-    color: #FFFDF8;
-    border-color: #2E75B6;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    border-color: var(--g-inverse);
   }
 
   .hub-schedule-voice-go {
     height: 44px;
     padding: 0 16px;
-    background: #FFFDF8;
-    color: #0A2540;
-    border: 1px solid #0A2540;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    border: 1px solid var(--g-inverse);
     border-radius: 12px;
     box-shadow: none;
     font-family: var(--g-font-ui);
@@ -7733,7 +8387,7 @@
     margin: 8px 0 0;
     font-family: var(--g-font-ui);
     font-size: 13px;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     white-space: normal;
     overflow-wrap: break-word;
   }
@@ -7746,8 +8400,36 @@
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #2E75B6;
+    color: var(--g-accent);
     vertical-align: middle;
+  }
+
+  .hub-schedule-voice-choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 8px;
+  }
+
+  .hub-schedule-voice-choice {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 16px;
+    background: var(--g-surface);
+    color: var(--g-ink);
+    border: 1px solid var(--g-line-strong);
+    border-radius: 12px;
+    font-family: var(--g-font-ui);
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .hub-schedule-voice-choice.is-on {
+    background: var(--g-surface-2);
   }
 
   .hub-schedule-voice-picks {
@@ -7767,9 +8449,9 @@
     height: 44px;
     margin: 8px 0 0;
     padding: 0 16px;
-    background: #FFFDF8;
-    color: #0A2540;
-    border: 1px solid #0A2540;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    border: 1px solid var(--g-inverse);
     border-radius: 12px;
     box-shadow: none;
     font-family: var(--g-font-ui);
@@ -7780,9 +8462,9 @@
 
   .hub-schedule-voice-pick {
     padding: 0 12px;
-    background: #FFFDF8;
-    color: #0A2540;
-    border: 1px solid #E2D9CC;
+    background: var(--g-surface);
+    color: var(--g-ink);
+    border: 1px solid var(--g-line);
     border-radius: 12px;
     font-family: var(--g-font-ui);
     font-size: 14px;
@@ -7802,14 +8484,33 @@
   }
 
   .hub-schedule-job-sheet .hub-editor-sticky-footer {
-    padding: 12px 16px 16px;
+    padding: 12px 16px max(16px, env(safe-area-inset-bottom));
     margin: 0;
-    background: #FFFDF8;
+    background: var(--g-surface);
   }
 
   .hub-schedule-job-sheet .btn-primary.hub-editor-sticky-save {
-    background: #0A2540;
-    color: #FFFDF8;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+  }
+
+  .overlay-backdrop:has(.hub-schedule-job-sheet) {
+    background: rgba(10, 10, 11, 0.4) !important;
+  }
+
+  .hub-schedule-job-sheet .hub-editor-sticky-cancel {
+    background: var(--g-surface);
+    color: var(--g-ink);
+    border-color: var(--g-line);
+  }
+
+  .hub-board-cal .job-cal-miss,
+  .hub-board-cal .job-cal-host .ops-meta {
+    color: var(--g-ink-muted);
+  }
+
+  .hub-board-cal .hub-schedule-speech-status {
+    color: var(--g-ink-muted);
   }
 
   @media (min-width: 640px) {
@@ -7916,7 +8617,8 @@
     .hub-week-search {
       margin-left: 0;
       max-width: none;
-      flex-basis: 100%;
+      flex: 1 1 auto;
+      flex-basis: auto;
     }
 
     .hub-week-seg {
@@ -7932,18 +8634,54 @@
     }
 
     .hub-week-grid {
-      grid-template-columns: 80px repeat(7, 156px);
-      width: max-content;
-      min-width: 1172px;
+      grid-template-columns: 148px repeat(5, minmax(0, 1fr)) repeat(2, 72px);
+      width: 100%;
+      min-width: 0;
+    }
+
+    .hub-week-grid[data-weekend-jobs="1"] {
+      grid-template-columns: 148px repeat(7, minmax(0, 1fr));
     }
 
     .hub-day-track {
       --hub-day-crew: 88px;
+      position: relative;
+    }
+
+    .hub-week-document .hub-day-board::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 7;
+      width: 24px;
+      background: linear-gradient(to right, transparent, var(--g-surface));
+      pointer-events: none;
+    }
+
+    .hub-week-document .hub-day-board.is-track-end::after {
+      opacity: 0;
+      background: none;
     }
 
     .hub-week-document .hub-day-board .hub-week-chip {
       justify-content: flex-start;
+      overflow: visible;
+    }
+
+    .hub-week-document .hub-day-board .hub-week-chip-line1 {
+      flex-wrap: wrap;
+      overflow: visible;
+    }
+
+    .hub-week-document .hub-day-board .hub-week-chip-clock {
+      display: inline-block;
+      min-width: 0;
+      max-width: 100%;
       overflow: hidden;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
 
     .hub-week-document .hub-day-board .hub-day-chip-pin {
@@ -7968,17 +8706,18 @@
 
     .hub-week-corner,
     .hub-week-crew {
-      box-shadow: 6px 0 10px rgba(10, 37, 64, 0.06);
+      box-shadow: 6px 0 10px rgba(10, 10, 11, 0.06);
     }
   }
 
   @media (max-width: 639px) {
     .hub-board-cal.is-week-doc.ops-page {
       padding: 0;
-      height: calc(100dvh - 4.25rem);
+      height: auto;
       min-height: calc(100dvh - 4.25rem);
-      max-height: calc(100dvh - 4.25rem);
-      overflow: hidden;
+      max-height: none;
+      overflow-x: clip;
+      overflow-y: visible;
       display: flex;
       flex-direction: column;
     }
@@ -8002,7 +8741,8 @@
       display: flex;
       flex-direction: column;
       min-height: 0;
-      overflow: hidden;
+      overflow-x: clip;
+      overflow-y: visible;
       border-radius: 0;
       border: none;
       box-shadow: inset 0 1px 0 #fff;
@@ -8013,8 +8753,12 @@
     }
 
     .hub-board-cal.is-week-doc .hub-week-search {
-      padding: 0 12px 4px;
-      flex: 0 0 auto;
+      padding: 0 0 4px;
+      flex: 1 1 100%;
+      width: 100%;
+      max-width: none;
+      margin-left: 0;
+      margin-right: 0;
     }
 
     .hub-board-cal.is-week-doc .hub-week-sheet-body {
@@ -8026,12 +8770,12 @@
     }
 
     .hub-board-cal.is-week-doc .hub-week-identity-row {
-      padding: 0 12px;
+      padding: 0;
     }
 
     .hub-board-cal.is-week-doc .hub-week-track {
       margin-top: 4px;
-      padding: 2px 12px 4px;
+      padding: 2px 0 4px;
       flex: 0 0 auto;
     }
 
@@ -8045,27 +8789,35 @@
     }
 
     .hub-board-cal.is-week-doc .hub-week-document .hub-week-board {
-      flex: 1 1 0;
+      flex: 0 0 auto;
       display: flex;
       flex-direction: column;
-      min-height: calc(100dvh - 17rem);
-      height: 100%;
+      min-height: 0;
+      height: auto;
       margin-top: 4px;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
+      overflow: visible;
     }
 
     .hub-board-cal.is-week-doc .hub-week-document .hub-day-board {
-      flex: 1 1 0;
+      flex: 0 0 auto;
       display: flex;
       flex-direction: column;
       min-height: 0;
+      height: auto;
       margin-top: 4px;
+      width: 100%;
+      overflow: hidden;
     }
 
     .hub-board-cal.is-week-doc .hub-day-track {
-      flex: 1 1 0;
-      min-height: 0;
+      flex: 0 0 auto;
+      min-height: 520px;
+    }
+
+    .hub-week-agenda-row {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 2px;
+      min-height: 44px;
     }
 
     .hub-week-head-full {
@@ -8079,17 +8831,18 @@
     .hub-week-head-dow {
       font-size: 10px;
       font-weight: 600;
-      color: #5B6B7C;
+      color: var(--g-ink-muted);
     }
 
     .hub-week-head-dom {
       font-size: 13px;
       font-weight: 700;
-      color: #0A2540;
+      color: var(--g-ink);
     }
 
     .hub-week-head.is-today .hub-week-head-dom {
-      color: #2E75B6;
+      background: var(--g-inverse);
+      color: var(--g-inverse-ink);
     }
 
     .hub-week-tools .hub-week-range-full {
@@ -8105,17 +8858,18 @@
     }
 
     .hub-board-cal.is-week-doc .hub-week-agenda {
-      flex: 1 1 0;
-      min-height: 0;
+      flex: 0 0 auto;
+      min-height: 160px;
+      max-height: none;
+      overflow: visible;
     }
 
     .hub-phone-board-scroll {
-      flex: 1 1 0;
+      flex: 0 0 auto;
       display: flex;
       flex-direction: column;
       min-height: 0;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
+      overflow: visible;
     }
 
     .hub-phone-unscheduled-footer {
@@ -8123,15 +8877,19 @@
       margin-top: 8px;
       padding-top: 12px;
       padding-bottom: 8px;
-      border-top: 1px solid #E2D9CC;
+      border-top: 1px solid var(--g-line);
+      position: sticky;
+      bottom: 0;
+      z-index: 6;
+      background: var(--schedule-sheet, var(--g-surface));
     }
 
     .hub-phone-week-list:has([data-schedule-unscheduled-list="1"]) .hub-phone-unscheduled-footer {
-      flex: 1 1 0;
+      flex: 0 0 auto;
       min-height: 0;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+      overflow: visible;
     }
 
     .hub-phone-week-list:has([data-schedule-unscheduled-list="1"]) .hub-phone-unscheduled-footer > .hub-phone-unscheduled {
@@ -8145,20 +8903,23 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      position: relative;
+      z-index: 8;
       width: calc(100% - 24px);
       margin: 4px 12px 10px;
       touch-action: manipulation;
       min-height: 44px;
       padding: 10px 12px;
-      border: 1px solid var(--schedule-line, #E2D9CC);
+      border: 1px solid var(--schedule-line, var(--g-line));
       border-radius: 12px;
-      background: var(--schedule-page, #F5F0E6);
-      color: var(--schedule-ink, #0A2540);
+      background: var(--schedule-page, var(--g-bg));
+      color: var(--schedule-ink, var(--g-ink));
       font-family: var(--g-font-ui);
       font-size: 14px;
       font-weight: 600;
       line-height: 1.2;
-      white-space: nowrap;
+      white-space: normal;
+      overflow-wrap: anywhere;
       max-width: calc(100% - 24px);
       overflow: visible;
       text-overflow: clip;
@@ -8166,10 +8927,10 @@
     }
 
     .hub-phone-unscheduled-list {
-      flex: 1 1 0;
-      min-height: 0;
-      max-height: min(50vh, 360px);
-      overflow-y: auto;
+      flex: 0 0 auto;
+      min-height: 120px;
+      max-height: none;
+      overflow: visible;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-y;
       padding-left: 12px;
@@ -8180,19 +8941,19 @@
       display: flex;
       flex-direction: column;
       min-height: 0;
-      flex: 1 1 0;
-      overflow: hidden;
+      flex: 0 0 auto;
+      overflow: visible;
     }
 
     .hub-phone-week-list:has([data-schedule-unscheduled-list="1"]) > .hub-week-agenda {
-      flex: 0 1 28%;
-      max-height: 28%;
-      min-height: 0;
+      flex: 0 0 auto;
+      max-height: none;
+      min-height: 160px;
     }
 
     .hub-phone-week-list > .hub-week-agenda {
-      flex: 1 1 0;
-      min-height: 0;
+      flex: 0 0 auto;
+      min-height: 160px;
       padding-bottom: 12px;
     }
 
@@ -8205,7 +8966,7 @@
       margin: 0;
       border: none;
       background: transparent;
-      color: #2E75B6;
+      color: var(--g-accent);
       font-family: inherit;
       font-size: inherit;
       font-weight: 600;
@@ -8226,10 +8987,10 @@
     }
 
     .hub-week-grid {
-      grid-template-columns: 58px repeat(7, 156px);
+      grid-template-columns: 148px repeat(5, minmax(0, 1fr)) repeat(2, 72px);
       grid-template-rows: 40px;
       grid-auto-rows: minmax(64px, 1fr);
-      width: max-content;
+      width: 100%;
       min-width: 0;
       flex: 1 1 0;
       height: 100%;
@@ -8279,7 +9040,7 @@
     }
 
     .hub-week-document .hub-day-board .hub-week-chip-ref {
-      overflow: hidden;
+      overflow: visible;
       text-overflow: clip;
       white-space: nowrap;
     }
