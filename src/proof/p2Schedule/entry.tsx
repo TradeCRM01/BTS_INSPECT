@@ -30,6 +30,7 @@ export type NowPoints = {
 
 export type P2Probe = {
   ready(): Promise<void>;
+  settleForWalk(): Promise<void>;
   masks(): Box[];
   scrollPage(): number;
   restoreScroll(): void;
@@ -896,6 +897,8 @@ function chrome(): ChromeProbe {
     rangeW: document.querySelector('.hub-week-range-row')?.getBoundingClientRect().width ?? 0,
     moreJobs: (document.querySelector('[data-schedule-more-jobs]')?.textContent ?? '').replace(/\s+/g, ' ').trim(),
     moreJobsHref: document.querySelector('[data-schedule-more-jobs] a')?.getAttribute('href') ?? '',
+    unscheduledChip: (document.querySelector('[data-schedule-unscheduled-chip]')?.textContent ?? '').replace(/\s+/g, ' ').trim(),
+    undatedCardCount: document.querySelectorAll('[data-schedule-rail-job], [data-schedule-unscheduled-list] [data-schedule-job]').length,
     textPast: textPastViewport(),
     rangeShort: rangeShortEl ? (rangeShortEl.textContent ?? '').replace(/\s+/g, ' ').trim() : '',
     rangeShortPast: textRectsRaw(rangeShortEl).filter(hit => hit.right > window.innerWidth),
@@ -1158,6 +1161,24 @@ window.__p2 = {
     await sleep(250);
     await frame();
     await frame();
+  },
+
+  async settleForWalk() {
+    if (document.fonts?.ready) await document.fonts.ready;
+    await frame();
+    await frame();
+    await new Promise<void>(resolve => {
+      let timer = window.setTimeout(done, 500);
+      const ro = new ResizeObserver(() => {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(done, 500);
+      });
+      ro.observe(document.documentElement);
+      function done() {
+        ro.disconnect();
+        resolve();
+      }
+    });
   },
 
   masks() {

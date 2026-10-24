@@ -73,7 +73,9 @@ export const STATES = {
   'needcrew-1280': { path: '/schedule', w: 1280, recipe: 'needcrew', frames: {} },
   'malformed-1280': { path: '/schedule', w: 1280, recipe: 'malformed', frames: {} },
   'status-1280': { path: '/schedule', w: 1280, recipe: 'statusrules', frames: {} },
+  'edit-320': { path: '/schedule', w: 320, recipe: 'sheet', frames: {} },
   'edit-375': { path: '/schedule', w: 375, recipe: 'sheet', frames: {} },
+  'edit-390': { path: '/schedule', w: 390, recipe: 'sheet', frames: {} },
   'edit-768': { path: '/schedule', w: 768, recipe: 'sheet', frames: {} },
   'edit-1024': { path: '/schedule', w: 1024, recipe: 'sheet', frames: {} },
   'edit-1280': { path: '/schedule', w: 1280, recipe: 'sheet', frames: {} },
@@ -115,10 +117,10 @@ export const KILLS: Readonly<Record<KillId, { readonly title: string; readonly s
   'P2-m2': { title: 'stacked rows below 640 and one shared track at 640 and up, the untimed Booked line leads in muted ink', states: AGENDA },
   'P2-dark': { title: 'forced dark changes 0 px', states: SCHEDULE },
   'P2-overflow': { title: 'no overflow outside the sole allowlisted scroller', states: [
-    ...SCHEDULE, 'tray-375', 'tray-768', 'rail-1024', 'edit-375', 'edit-768', 'edit-1024', 'edit-1280', 'shell-800', 'shell-900', 'shell-1000',
+    ...SCHEDULE, 'tray-375', 'tray-768', 'rail-1024', 'edit-320', 'edit-375', 'edit-390', 'edit-768', 'edit-1024', 'edit-1280', 'shell-800', 'shell-900', 'shell-1000',
   ] },
   'P2-text': { title: 'no text rect past innerWidth at 320, 375, and 390', states: ['week-320', 'week-375', 'week-390'] },
-  'P2-webkit': { title: '320/375/390 range text rects and 375/390 overflow hold in WebKit', states: ['week-320', 'week-375', 'week-390'] },
+  'P2-webkit': { title: 'view and edit overflow plus text rects at 320, 375, and 390 in WebKit', states: ['week-320', 'week-375', 'week-390', 'edit-320', 'edit-375', 'edit-390'] },
   'P2-day-track': { title: 'a real wheel scrolls the day track sideways and never traps vertical scroll', states: PHONE_DAY },
   'P2-nav-phone': { title: 'phone tabs reach Schedule in one tap', states: ['tabs-375', 'tabs-390'] },
   'P2-nav-desktop': { title: 'Schedule is first in Field at 768 and up', states: ['nav-768', 'nav-1280'] },
@@ -397,6 +399,8 @@ export type ChromeProbe = {
   rangeW: number;
   moreJobs: string;
   moreJobsHref: string;
+  unscheduledChip: string;
+  undatedCardCount: number;
   textPast: { text: string; right: number }[];
   rangeShort: string;
   rangeShortPast: { text: string; right: number }[];
