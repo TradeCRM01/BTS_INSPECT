@@ -6911,6 +6911,19 @@
     .hub-board-cal.is-week-doc .ops-page-head {
       padding-top: 16px;
     }
+
+    .hub-week-track .hub-week-range-full { display: none; }
+    .hub-week-track .hub-week-range-short { display: inline; }
+    .hub-week-track .hub-week-range {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      min-width: 0;
+    }
+    .hub-week-track .hub-week-range-row {
+      min-width: 0;
+      max-width: 100%;
+      flex: 1 1 auto;
+    }
   }
 
   @media (max-width: 768px) {
