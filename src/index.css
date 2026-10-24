@@ -16971,7 +16971,7 @@
     border-bottom: 1px solid var(--g-glass-line);
     backdrop-filter: saturate(180%) blur(16px);
     -webkit-backdrop-filter: saturate(180%) blur(16px);
-    padding-top: max(12px, env(safe-area-inset-top));
+    padding-top: env(safe-area-inset-top, 0px);
     @apply sticky top-0 z-40 flex-shrink-0;
   }
 
@@ -17132,8 +17132,13 @@
 
   .ops-toast-host {
     position: fixed;
+    left: 1rem;
     right: 1rem;
     bottom: 1rem;
+    width: auto;
+    max-width: calc(100vw - 2rem);
+    min-width: 0;
+    box-sizing: border-box;
     z-index: 100;
     display: flex;
     flex-direction: column;
@@ -17150,6 +17155,10 @@
     .ops-toast-host {
       left: 1rem;
       right: 1rem;
+      width: auto;
+      max-width: calc(100vw - 2rem);
+      min-width: 0;
+      box-sizing: border-box;
       bottom: calc(var(--shell-bottom-nav-h, 0px) + 12px);
       align-items: stretch;
     }
@@ -17204,7 +17213,7 @@
 
   /* The open menu stops above the bar. Header = h-14, its safe-area top pad, and two hairlines. */
   .shell-phone-menu {
-    max-height: calc(100dvh - 58px - max(12px, env(safe-area-inset-top)) - var(--shell-bottom-nav-h, 0px));
+    max-height: calc(100dvh - 58px - env(safe-area-inset-top, 0px) - var(--shell-bottom-nav-h, 0px));
     background-color: var(--g-nav-bg);
     color: var(--g-nav-ink);
     border-top: 1px solid var(--g-glass-line);
@@ -17409,7 +17418,7 @@
   top: 0;
   z-index: 40;
   background: var(--ops-cream);
-  padding: max(16px, env(safe-area-inset-top)) 24px 8px;
+  padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 24px 8px;
   max-width: 1120px;
   margin: 0 auto;
 }
@@ -17497,6 +17506,7 @@
   text-transform: uppercase;
   color: var(--mkt-muted);
   margin-bottom: 8px;
+  white-space: normal;
 }
 
 .hub-marketing-display {
@@ -17515,6 +17525,7 @@
 .hub-marketing-display-sm {
   font-size: clamp(1.75rem, 3vw, 2.25rem);
   line-height: 1.1;
+  white-space: normal;
 }
 
 .hub-marketing-subhead {
@@ -17525,6 +17536,7 @@
   letter-spacing: 0.01em;
   margin-bottom: 8px;
   color: var(--mkt-ink);
+  white-space: normal;
 }
 
 .hub-marketing-lede,
@@ -17898,7 +17910,7 @@
   gap: 12px;
   max-width: 1120px;
   margin: 0 auto;
-  padding: max(16px, env(safe-area-inset-top)) 20px 0;
+  padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 20px 0;
 }
 
 .hub-legal-nav-actions {
@@ -18073,7 +18085,7 @@
   min-height: 100vh;
   background: var(--auth-look-page);
   color: var(--auth-look-ink);
-  padding: max(16px, env(safe-area-inset-top)) 20px 40px;
+  padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 20px 40px;
   font-family: var(--g-font-ui);
 }
 
@@ -18239,7 +18251,7 @@
 #client-portal .portal-doc {
   max-width: 720px;
   margin: 0 auto;
-  padding: max(16px, env(safe-area-inset-top)) 16px 32px;
+  padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 16px 32px;
   display: flex;
   flex-direction: column;
   gap: 16px;

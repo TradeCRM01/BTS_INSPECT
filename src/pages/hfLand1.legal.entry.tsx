@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
+import { ToastProvider } from '../components/ui/Toast';
 import { LegalShell } from '../components/legal/LegalShell';
 
 const rootEl = document.getElementById('root');
@@ -9,9 +10,11 @@ const title = window.location.hash === '#terms' ? 'Terms of Use' : 'Privacy Poli
 const seoKey = title === 'Terms of Use' ? 'terms' : 'privacy';
 
 createRoot(rootEl).render(
-  <MemoryRouter initialEntries={[seoKey === 'terms' ? '/terms' : '/privacy']}>
-    <LegalShell seoKey={seoKey} title={title}>
-      <p>Legal body for HF-LAND-1 geometry.</p>
-    </LegalShell>
-  </MemoryRouter>,
+  <ToastProvider>
+    <MemoryRouter initialEntries={[seoKey === 'terms' ? '/terms' : '/privacy']}>
+      <LegalShell seoKey={seoKey} title={title}>
+        <p>Legal body for HF-LAND-1 geometry.</p>
+      </LegalShell>
+    </MemoryRouter>
+  </ToastProvider>,
 );

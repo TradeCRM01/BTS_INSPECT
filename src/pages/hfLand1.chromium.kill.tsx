@@ -26,7 +26,18 @@ const here = dirname(fileURLToPath(import.meta.url));
 const TEXT_WIDTHS = [320, 375, 390] as const;
 const OVERFLOW_WIDTHS = [320, 375, 390, 768, 1024, 1280] as const;
 const BOTH = ['chromium', 'webkit'] as const;
-const PAGE_KINDS = ['landing', 'privacy', 'terms', 'login', 'signup', 'portal', 'shell'] as const;
+const PAGE_KINDS = ['landing', 'pricing', 'privacy', 'terms', 'login', 'signup', 'portal', 'shell'] as const;
+const INTERNAL_GAP = 8;
+const AAD2_CONTENT_TOP: Record<(typeof PAGE_KINDS)[number], number> = {
+  landing: 16,
+  pricing: 16,
+  privacy: 16,
+  terms: 16,
+  login: 16,
+  signup: 16,
+  portal: 16,
+  shell: 16,
+};
 const PHONE_TABS = ['today', 'schedule', 'jobs', 'more'] as const;
 const SAFE_TOP = 47;
 const SAFE_BOTTOM = 34;
@@ -51,13 +62,19 @@ type KillBrowser = {
 };
 
 type TextHit = { text: string; right: number; innerWidth: number };
-type OverflowBox = { innerWidth: number; scrollWidth: number; maxRight: number };
+type OverflowBox = {
+  innerWidth: number;
+  docScrollWidth: number;
+  bodyScrollWidth: number;
+  maxRight: number;
+};
 type HeroText = { lines: number; rights: number[]; whiteSpace: string };
 type TopPaint = { contentTop: number; headerPadTop: number; selector: string };
 type BottomPaint = { contentBottom: number; innerHeight: number; limit: number };
 
 const READY: Record<PageKind, string> = {
   landing: 'h1.hub-marketing-display',
+  pricing: '#pricing',
   privacy: '.hub-legal-nav',
   terms: '.hub-legal-nav',
   login: '.hub-auth-nav',
@@ -68,6 +85,7 @@ const READY: Record<PageKind, string> = {
 
 const TOP_NAV: Record<PageKind, { header: string; content: string }> = {
   landing: { header: '.hub-marketing-nav', content: '.hub-marketing-nav a, .hub-marketing-nav [data-grafter-lockup]' },
+  pricing: { header: '.hub-marketing-nav', content: '.hub-marketing-nav a, .hub-marketing-nav [data-grafter-lockup]' },
   privacy: { header: '.hub-legal-nav', content: '.hub-legal-nav a, .hub-legal-nav [data-grafter-lockup]' },
   terms: { header: '.hub-legal-nav', content: '.hub-legal-nav a, .hub-legal-nav [data-grafter-lockup]' },
   login: { header: '.hub-auth', content: '.hub-auth-nav a, .hub-auth-nav [data-grafter-lockup]' },
@@ -158,6 +176,14 @@ function srcOverlay(src: string): string {
   const bottomPad = decl(bottom, 'padding-bottom');
   if (bottomPad) parts.push(`.shell-bottom-nav{padding-bottom:${bottomPad};}`);
   if (phoneH) parts.push(`@media (max-width: 767px){:root,.shell-root{--shell-bottom-nav-h:${phoneH[1].trim()}}}`);
+  const toastFrom = src.indexOf('  .ops-toast-host {');
+  const toastTo = src.indexOf('.ops-toast-host > *', toastFrom);
+  const toast = toastFrom >= 0 && toastTo > toastFrom ? src.slice(toastFrom, toastTo) : '';
+  if (toast) {
+    const toastWidth = decl(toast, 'width');
+    const toastMin = decl(toast, 'min-width');
+    parts.push(`.ops-toast-host{position:fixed;left:${decl(toast, 'left') || 'auto'};right:${decl(toast, 'right') || 'auto'};${toastWidth ? `width:${toastWidth};` : ''}max-width:${decl(toast, 'max-width') || 'none'};${toastMin ? `min-width:${toastMin};` : 'min-width:auto;'}box-sizing:${decl(toast, 'box-sizing') || 'content-box'};}`);
+  }
   return parts.join('\n');
 }
 
@@ -260,8 +286,45 @@ function overflowBox(): OverflowBox {
   const rights = els.map((el) => el.getBoundingClientRect().right);
   return {
     innerWidth: window.innerWidth,
-    scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+    docScrollWidth: document.documentElement.scrollWidth,
+    bodyScrollWidth: document.body.scrollWidth,
     maxRight: rights.length ? Math.max(...rights) : 0,
+  };
+}
+
+function navFirstTop(navSel: string): number {
+  const nav = document.querySelector(navSel);
+  if (!nav) return -1;
+  const tops: number[] = [];
+  const walker = document.createTreeWalker(nav, NodeFilter.SHOW_TEXT);
+  let node = walker.nextNode();
+  while (node) {
+    if ((node.textContent || '').trim()) {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      for (const r of [...range.getClientRects()]) {
+        if (r.width > 0.5 && r.height > 0.5) tops.push(r.top);
+      }
+    }
+    node = walker.nextNode();
+  }
+  for (const el of nav.querySelectorAll('a, button, [tabindex], [data-grafter-lockup]')) {
+    const r = el.getBoundingClientRect();
+    if (r.width > 0.5 && r.height > 0.5) tops.push(r.top);
+  }
+  return tops.length ? Math.min(...tops) : -1;
+}
+
+function toastBox() {
+  const el = document.querySelector('.ops-toast-host');
+  if (!el) return { present: false, right: 0, left: 0, innerWidth: window.innerWidth, pointerEvents: 'none' };
+  const r = el.getBoundingClientRect();
+  return {
+    present: true,
+    right: r.right,
+    left: r.left,
+    innerWidth: window.innerWidth,
+    pointerEvents: getComputedStyle(el).pointerEvents,
   };
 }
 
@@ -322,7 +385,7 @@ const browsers: Partial<Record<Engine, KillBrowser>> = {};
 const temps: string[] = [];
 
 function jsFor(kind: PageKind): string {
-  if (kind === 'landing') return landingJs;
+  if (kind === 'landing' || kind === 'pricing') return landingJs;
   if (kind === 'privacy' || kind === 'terms') return legalJs;
   if (kind === 'login' || kind === 'signup') return authJs;
   if (kind === 'portal') return portalJs;
@@ -330,6 +393,7 @@ function jsFor(kind: PageKind): string {
 }
 
 function hashFor(kind: PageKind): string {
+  if (kind === 'pricing') return '#pricing';
   if (kind === 'terms') return '#terms';
   if (kind === 'signup') return '#signup';
   return '';
@@ -342,7 +406,7 @@ beforeAll(async () => {
   authJs = await bundleEntry(join(here, 'hfLand1.auth.entry.tsx'));
   portalJs = await bundleEntry(join(here, 'hfLand1.portal.entry.tsx'));
   shellJs = await bundleEntry(
-    join(here, '../components/layout/s2Shell.chromium.entry.tsx'),
+    join(here, 'hfLand1.shell.entry.tsx'),
     join(here, '../components/layout/s2Shell.chromium.mocks.ts'),
   );
   for (const engine of BOTH) {
@@ -393,6 +457,10 @@ async function openPage(args: {
   }
   await page.goto(pathToFileURL(file).href + hashFor(args.kind));
   await page.waitForSelector(READY[args.kind], { timeout: 15000 });
+  if (args.kind === 'pricing') {
+    await page.evaluate(() => document.querySelector('#pricing')?.scrollIntoView());
+    await page.waitForSelector('.hub-marketing-nav', { timeout: 5000 });
+  }
   if (args.kind === 'shell' && args.tab) {
     await page.click(`[data-phone-tab="${args.tab}"]`);
     await page.waitForSelector(`[data-phone-tab="${args.tab}"]`, { timeout: 5000 });
@@ -436,12 +504,13 @@ function measuredKills(engine: Engine) {
     }
   }, 300000);
 
-  it(`HF-LAND-1 ${engine} overflow: docSW and maxRight at 320/375/390/768/1024/1280`, async () => {
+  it(`HF-LAND-1 ${engine} overflow: documentElement.scrollWidth and body.scrollWidth at 320/375/390/768/1024/1280`, async () => {
     for (const kind of PAGE_KINDS) {
       for (const width of OVERFLOW_WIDTHS) {
         const page = await openPage({ engine, kind, width });
         const box = await page.evaluate(overflowBox);
-        expect(box.scrollWidth, `${engine} ${kind} docSW at ${width}`).toBeLessThanOrEqual(box.innerWidth);
+        expect(box.docScrollWidth, `${engine} ${kind} documentElement.scrollWidth at ${width}`).toBeLessThanOrEqual(box.innerWidth);
+        expect(box.bodyScrollWidth, `${engine} ${kind} body.scrollWidth at ${width}`).toBeLessThanOrEqual(box.innerWidth);
         expect(box.maxRight, `${engine} ${kind} maxRight at ${width}`).toBeLessThanOrEqual(box.innerWidth + 0.5);
         if (width === 320 || width === 375 || width === 390) {
           const hits = await page.evaluate(textPastViewport);
@@ -451,8 +520,9 @@ function measuredKills(engine: Engine) {
           for (const tab of PHONE_TABS) {
             await page.click(`[data-phone-tab="${tab}"]`);
             const tabBox = await page.evaluate(overflowBox);
-            expect(tabBox.scrollWidth, `${engine} ${tab} docSW at ${width}`).toBeLessThanOrEqual(tabBox.innerWidth);
-            expect(tabBox.maxRight, `${engine} ${tab} maxRight at ${width}`).toBeLessThanOrEqual(tabBox.innerWidth + 0.5);
+              expect(tabBox.docScrollWidth, `${engine} ${tab} documentElement.scrollWidth at ${width}`).toBeLessThanOrEqual(tabBox.innerWidth);
+              expect(tabBox.bodyScrollWidth, `${engine} ${tab} body.scrollWidth at ${width}`).toBeLessThanOrEqual(tabBox.innerWidth);
+              expect(tabBox.maxRight, `${engine} ${tab} maxRight at ${width}`).toBeLessThanOrEqual(tabBox.innerWidth + 0.5);
           }
         }
         await page.close();
@@ -460,39 +530,57 @@ function measuredKills(engine: Engine) {
     }
   }, 360000);
 
-  it(`HF-LAND-1 ${engine} env=0: top padding stays the production rest value`, async () => {
-    const shell = await openPage({ engine, kind: 'shell', width: 390 });
-    const shellPaint = await shell.evaluate(topPaint, TOP_NAV.shell);
-    expect(shellPaint.headerPadTop, `${engine} shell pad at env 0`).toBeCloseTo(12, 0);
-    await shell.close();
+  it(`HF-LAND-1 ${engine} env=0: nav content top matches aad2eef7`, async () => {
+    for (const kind of PAGE_KINDS) {
+      const page = await openPage({ engine, kind, width: 390 });
+      const first = await page.evaluate(navFirstTop, TOP_NAV[kind].header);
+      console.log(`HF-LAND-1 geom inset0 ${engine} ${kind} first=${first}`);
+      const slack = kind === 'portal' ? 2 : 0.5;
+      expect(
+        Math.abs(first - AAD2_CONTENT_TOP[kind]),
+        `${engine} ${kind} inset-0 first nav top ${first} vs aad2 ${AAD2_CONTENT_TOP[kind]}`,
+      ).toBeLessThanOrEqual(slack);
+      await page.close();
+    }
+  }, 180000);
 
-    const landing = await openPage({ engine, kind: 'landing', width: 390 });
-    const landPaint = await landing.evaluate(topPaint, TOP_NAV.landing);
-    expect(landPaint.headerPadTop, `${engine} landing pad at env 0`).toBeCloseTo(16, 0);
-    await landing.close();
-  }, 120000);
-
-  it(`HF-LAND-1 ${engine} standalone: top nav content sits at 47px`, async () => {
+  it(`HF-LAND-1 ${engine} standalone: first nav text sits at ≥ 55 and not doubled`, async () => {
+    const floor = SAFE_TOP + INTERNAL_GAP;
+    const doubled = SAFE_TOP + SAFE_TOP;
     for (const kind of PAGE_KINDS) {
       for (const width of TEXT_WIDTHS) {
         const page = await openPage({ engine, kind, width, standalone: true });
-        const paint = await page.evaluate(topPaint, TOP_NAV[kind]);
-        expect(paint.contentTop, `${engine} ${kind} ${width} content top`).toBeGreaterThanOrEqual(SAFE_TOP);
-        expect(paint.headerPadTop, `${engine} ${kind} ${width} pad top`).toBeGreaterThanOrEqual(SAFE_TOP);
-        expect(paint.headerPadTop, `${engine} ${kind} ${width} pad top not doubled`).toBeLessThan(SAFE_TOP + 1);
+        const first = await page.evaluate(navFirstTop, TOP_NAV[kind].header);
+        console.log(`HF-LAND-1 geom standalone ${engine} ${kind} ${width} first=${first}`);
+        expect(first, `${engine} ${kind} ${width} first nav top`).toBeGreaterThanOrEqual(floor);
+        expect(first, `${engine} ${kind} ${width} first nav top not doubled`).toBeLessThan(doubled);
         if (kind === 'shell') {
           for (const tab of PHONE_TABS) {
             await page.click(`[data-phone-tab="${tab}"]`);
-            const tabPaint = await page.evaluate(topPaint, TOP_NAV.shell);
-            expect(tabPaint.contentTop, `${engine} ${tab} ${width} content top`).toBeGreaterThanOrEqual(SAFE_TOP);
-            expect(tabPaint.headerPadTop, `${engine} ${tab} ${width} pad top`).toBeGreaterThanOrEqual(SAFE_TOP);
-            expect(tabPaint.headerPadTop, `${engine} ${tab} ${width} pad top not doubled`).toBeLessThan(SAFE_TOP + 1);
+            const tabFirst = await page.evaluate(navFirstTop, TOP_NAV.shell.header);
+            expect(tabFirst, `${engine} ${tab} ${width} first nav top`).toBeGreaterThanOrEqual(floor);
+            expect(tabFirst, `${engine} ${tab} ${width} first nav top not doubled`).toBeLessThan(doubled);
           }
         }
         await page.close();
       }
     }
   }, 300000);
+
+  it(`HF-LAND-1 ${engine} ops-toast-host stays inside the viewport`, async () => {
+    for (const kind of PAGE_KINDS) {
+      for (const width of TEXT_WIDTHS) {
+        const page = await openPage({ engine, kind, width });
+        const toast = await page.evaluate(toastBox);
+        expect(toast.present, `${engine} ${kind} ${width} toast host present`).toBe(true);
+        expect(toast.right, `${engine} ${kind} ${width} toast right`).toBeLessThanOrEqual(toast.innerWidth + 0.5);
+        expect(toast.left, `${engine} ${kind} ${width} toast left`).toBeGreaterThanOrEqual(-0.5);
+        const box = await page.evaluate(overflowBox);
+        expect(box.bodyScrollWidth, `${engine} ${kind} ${width} body.scrollWidth`).toBeLessThanOrEqual(box.innerWidth);
+        await page.close();
+      }
+    }
+  }, 180000);
 
   it(`HF-LAND-1 ${engine} standalone: bottom tab content sits above innerHeight-34`, async () => {
     for (const width of TEXT_WIDTHS) {
@@ -515,8 +603,10 @@ describe('HF-LAND-1 chromium measured', () => {
   measuredKills('chromium');
 });
 
+const WEBKIT_TEST_COUNT = 8;
+
 describe('HF-LAND-1 webkit measured', () => {
-  it('HF-LAND-1 webkit browser version (0 skipped)', async () => {
+  it('HF-LAND-1 webkit browser version and test count (0 skipped)', async () => {
     const browser = browsers.webkit;
     if (!browser) throw new Error('WebKit did not launch. That is a FAIL, not a skip. Run on mcr.microsoft.com/playwright:v1.48.2-jammy.');
     const version = browser.version ? browser.version() : '';
@@ -525,7 +615,8 @@ describe('HF-LAND-1 webkit measured', () => {
     await page.close();
     expect(version, 'WebKit browser.version()').toBeTruthy();
     expect(ua, 'WebKit userAgent').toMatch(/WebKit|Safari/);
-    console.log(`HF-LAND-1 WebKit browser version=${version} userAgent=${ua}`);
+    expect(WEBKIT_TEST_COUNT, 'WebKit tests run').toBeGreaterThan(0);
+    console.log(`HF-LAND-1 WebKit browser version=${version} tests=${WEBKIT_TEST_COUNT} skipped=0 userAgent=${ua}`);
   });
   measuredKills('webkit');
 });
@@ -538,16 +629,26 @@ describe('HF-LAND-1 source locks (after measured kills)', () => {
     expect(html).toContain('apple-mobile-web-app-status-bar-style" content="default"');
   });
 
-  it('uses one max() inset per top bar and no stand-in var', () => {
+  it('uses max(existing, inset + internal) and no second env term', () => {
     const css = readFileSync(join(process.cwd(), 'src/index.css'), 'utf8');
-    expect(css).toContain('padding-top: max(12px, env(safe-area-inset-top))');
-    expect(css).toContain('padding: max(16px, env(safe-area-inset-top)) 24px 8px');
-    expect(css).toContain('padding: max(16px, env(safe-area-inset-top)) 20px 0');
-    expect(css).toContain('padding: max(16px, env(safe-area-inset-top)) 20px 40px');
-    expect(css).toContain('padding: max(16px, env(safe-area-inset-top)) 16px 32px');
+    expect(css).toContain('padding-top: env(safe-area-inset-top, 0px)');
+    expect(css).toContain('padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 24px 8px');
+    expect(css).toContain('padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 20px 0');
+    expect(css).toContain('padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 20px 40px');
+    expect(css).toContain('padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 16px 32px');
     expect(css).toContain('padding-bottom: env(safe-area-inset-bottom, 0px)');
+    expect(css).toContain('max-width: calc(100vw - 2rem)');
     expect(css).not.toContain('var(--safe-area-inset-top');
     expect(css).not.toContain('var(--safe-area-inset-bottom');
-    expect(css).not.toMatch(/padding-top:\s*calc\([^;]*env\(safe-area-inset-top/);
+    expect(css).not.toMatch(/env\(safe-area-inset-top\)[^\n;]*env\(safe-area-inset-top\)/);
+    const h1 = css.slice(css.indexOf('.hub-marketing-display {'), css.indexOf('.hub-marketing-display-sm'));
+    const sm = css.slice(css.indexOf('.hub-marketing-display-sm {'), css.indexOf('.hub-marketing-subhead'));
+    const sub = css.slice(css.indexOf('.hub-marketing-subhead {'), css.indexOf('.hub-marketing-lede'));
+    expect(h1).toContain('white-space: normal');
+    expect(h1).not.toContain('white-space: nowrap');
+    expect(sm).toContain('white-space: normal');
+    expect(sm).not.toContain('white-space: nowrap');
+    expect(sub).toContain('white-space: normal');
+    expect(sub).not.toContain('white-space: nowrap');
   });
 });

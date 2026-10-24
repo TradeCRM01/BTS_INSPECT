@@ -38,8 +38,8 @@ describe('public Grafter landing', () => {
     expect(displayRule).toContain('overflow: visible');
     expect(src('index.html')).toContain('viewport-fit=cover');
     expect(src('index.html')).toContain('apple-mobile-web-app-status-bar-style" content="default"');
-    expect(src('src/index.css')).toContain('padding-top: max(12px, env(safe-area-inset-top))');
-    expect(src('src/index.css')).toContain('padding: max(16px, env(safe-area-inset-top)) 24px 8px');
+    expect(src('src/index.css')).toContain('padding-top: env(safe-area-inset-top, 0px)');
+    expect(src('src/index.css')).toContain('padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 24px 8px');
     expect(src('src/index.css')).toContain('padding-bottom: env(safe-area-inset-bottom, 0px)');
     expect(src('src/index.css')).not.toContain('var(--safe-area-inset-top');
     expect(src('src/index.css')).not.toContain('var(--safe-area-inset-bottom');
