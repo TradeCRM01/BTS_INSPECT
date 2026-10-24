@@ -69,6 +69,8 @@ import {
 } from '../lib/dashboardHome';
 import {
   DASHBOARD_WIDGET_CANVAS_W,
+  DASHBOARD_WIDGET_CELL_W,
+  DASHBOARD_WIDGET_MIN_W,
   applyDashboardWidgetDrag,
   applyDashboardWidgetResize,
   clampDashboardWidgetsToCanvas,
@@ -1202,10 +1204,22 @@ export function DashboardPage() {
     }
   }, [queryClient, widgets]);
 
-  const displayWidgets = useMemo(
-    () => clampDashboardWidgetsToCanvas(widgets ?? [], canvasW),
-    [widgets, canvasW],
-  );
+  const displayWidgets = useMemo(() => {
+    const rows = widgets ?? [];
+    let width = canvasW;
+    if (editMode) {
+      const crushed = rows.some((row) => {
+        const remaining = canvasW - row.grid_x;
+        return row.grid_x + row.grid_w > canvasW
+          && row.grid_x < canvasW
+          && remaining >= DASHBOARD_WIDGET_MIN_W
+          && remaining < row.grid_w
+          && row.grid_w >= DASHBOARD_WIDGET_CELL_W * 4;
+      });
+      if (crushed) width = Math.max(canvasW, DASHBOARD_WIDGET_CANVAS_W);
+    }
+    return clampDashboardWidgetsToCanvas(rows, width);
+  }, [widgets, canvasW, editMode]);
   const shownWidgets = useMemo(
     () => visibleTodayWidgets(displayWidgets, profile?.role),
     [displayWidgets, profile?.role],
