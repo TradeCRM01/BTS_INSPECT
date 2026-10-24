@@ -1120,7 +1120,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-webkit:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:204
+# expected AssertionError at src/proof/p2Schedule/kill.ts:219
 git checkout -- src/index.css
 
 # swap-tray-board → K17 — label the board section as tray
