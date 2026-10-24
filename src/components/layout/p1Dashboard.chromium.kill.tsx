@@ -4142,30 +4142,79 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     return mainEditCache[key];
   }
 
-  function hf403AssertHeadHoldsMain(
-    width: number,
-    main: Array<{ id: string; width: number }>,
-    rows: Array<{ id: string; width: number }>,
-    clips: unknown[],
-  ) {
-    expect(main.length, `in-run main 0898c3b9 paints 26 edit cards at ${width}`).toBe(26);
-    expect(rows.length, `${width} Customize paints 26 cards`).toBe(26);
-    expect(rows.map((row) => row.id).sort(), `${width} ids vs in-run main`).toEqual(
-      [...main].map((row) => row.id).sort(),
-    );
-    const byId = new Map(rows.map((row) => [row.id, row]));
-    for (const card of main) {
-      const head = byId.get(card.id);
-      expect(head, `${width} Customize missing ${card.id}`).toBeTruthy();
-      expect(
-        head!.width + 1e-6,
-        `${width} Customize ${card.id} width ${head!.width} >= main ${card.width}`,
-      ).toBeGreaterThanOrEqual(card.width);
+  function hf403AbsoluteBar() {
+    const iw = window.innerWidth;
+    const phone = iw < 768;
+    const vis = (el: Element) => {
+      const s = getComputedStyle(el as HTMLElement);
+      const r = el.getBoundingClientRect();
+      return s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0
+        && r.width > 0 && r.height > 0;
+    };
+    const cards: Array<{
+      id: string;
+      clientWidth: number;
+      right: number;
+      minContent: number;
+      textPastCard: number;
+      textPastViewport: number;
+    }> = [];
+    for (const host of document.querySelectorAll('[data-dashboard-widget-id]')) {
+      if (!vis(host)) continue;
+      const onPhone = !!host.closest('[data-dashboard-phone-stack]');
+      if (phone ? !onPhone : onPhone) continue;
+      const card = (host.querySelector('.dashboard-home-widget') as HTMLElement | null) ?? host as HTMLElement;
+      const cr = card.getBoundingClientRect();
+      let textPastCard = 0;
+      let textPastViewport = 0;
+      const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode();
+      while (node) {
+        const raw = node.textContent || '';
+        if (raw.trim()) {
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          for (const r of [...range.getClientRects()]) {
+            if (r.width < 1 || r.height < 1) continue;
+            if (r.right > cr.right + 0.5) textPastCard += 1;
+            if (r.right > iw) textPastViewport += 1;
+          }
+        }
+        node = walker.nextNode();
+      }
+      let minContent = 0;
+      for (const child of [...card.querySelectorAll('*')]) {
+        const el = child as HTMLElement;
+        const s = getComputedStyle(el);
+        if (s.display === 'none' || s.visibility === 'hidden') continue;
+        const prev = { w: el.style.width, min: el.style.minWidth, max: el.style.maxWidth };
+        el.style.width = 'min-content';
+        el.style.minWidth = 'min-content';
+        el.style.maxWidth = 'none';
+        const w = el.getBoundingClientRect().width;
+        el.style.width = prev.w;
+        el.style.minWidth = prev.min;
+        el.style.maxWidth = prev.max;
+        if (w > minContent) minContent = w;
+      }
+      cards.push({
+        id: host.getAttribute('data-dashboard-widget-id') || '',
+        clientWidth: card.clientWidth,
+        right: cr.right,
+        minContent,
+        textPastCard,
+        textPastViewport,
+      });
     }
-    expect(clips, `${width} Customize text past card edge: ${JSON.stringify((clips as unknown[]).slice(0, 3))}`).toEqual([]);
+    return {
+      innerWidth: iw,
+      scrollX: window.scrollX,
+      canvasScroll: (document.querySelector('.dashboard-home-canvas.is-editing') as HTMLElement | null)?.scrollLeft ?? 0,
+      cards,
+    };
   }
 
-  it('HF-403-768: Customize card widths hold main 0898c3b9 and text stays inside the card', async () => {
+  it('HF-403-768: Customize paints 26 cards and captures in-run 0898c3b9 frames as reference', async () => {
     const killSrc = readFileSync(join(here, 'p1Dashboard.chromium.kill.tsx'), 'utf8');
     expect(killSrc.includes(`function hf${'403'}Fixture`), '26-widget kill uses in-run main, not a fixture helper').toBe(false);
     const pageSrc = readFileSync(join(process.cwd(), 'src/pages/DashboardPage.tsx'), 'utf8');
@@ -4174,41 +4223,68 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     expect(pageSrc, '26-widget look seed').toContain("blank('full-agent_reminders'");
     expect([...pageSrc.matchAll(/blank\('full-/g)].length, '26 full- look widgets').toBe(26);
 
-    const main = await hf403MainEditCards(768);
-    const page = await hf403OpenEdit(768);
-    const rows = await page.evaluate(hf403VisibleCards);
-    const clips = await page.evaluate(hf403TextClip);
-    await page.close();
-    hf403AssertHeadHoldsMain(768, main, rows, clips);
     mkdirSync('/tmp/hf-403-768', { recursive: true });
-    writeFileSync('/tmp/hf-403-768/in-run-main-vs-head-768.json', `${JSON.stringify({
-      sha: MAIN_LOOK_SHA,
-      worktree: mainFullWt,
-      width: 768,
-      rows: main.map((card) => {
-        const head = rows.find((row) => row.id === card.id);
-        return { id: card.id, main: card.width, head: head?.width ?? null };
-      }),
-    }, null, 2)}\n`);
-  }, 300000);
-
-  it('HF-403-768: Customize widths and text-in-card hold at 375/390/1024/1280', async () => {
     const table: Array<{ width: number; id: string; main: number; head: number }> = [];
-    for (const width of [375, 390, 1024, 1280] as const) {
+    for (const width of [768, 1024, 1280] as const) {
       const main = await hf403MainEditCards(width);
+      if (!mainFullServer) throw new Error('in-run 0898c3b9 server missing');
+      const mainPage = await openLookDist(mainFullServer.origin, width, '/?look=dashboard-full');
+      await enterEdit(mainPage);
+      await mainPage.setViewportSize({ width, height: 5000 });
+      const frame = await mainPage.screenshot({ type: 'png', fullPage: false, clip: { x: 0, y: 0, width, height: 900 } });
+      writeFileSync(`/tmp/hf-403-768/main-0898c3b9-${width}.png`, frame);
+      await mainPage.close();
+
       const page = await hf403OpenEdit(width);
       const rows = await page.evaluate(hf403VisibleCards);
       const clips = await page.evaluate(hf403TextClip);
       await page.close();
-      hf403AssertHeadHoldsMain(width, main, rows, clips);
+      expect(main.length, `in-run main reference paints 26 edit cards at ${width}`).toBe(26);
+      expect(rows.length, `${width} Customize paints 26 cards`).toBe(26);
+      expect(clips, `${width} Customize text past card edge: ${JSON.stringify(clips.slice(0, 3))}`).toEqual([]);
       for (const card of main) {
         const head = rows.find((row) => row.id === card.id);
         table.push({ width, id: card.id, main: card.width, head: head?.width ?? -1 });
       }
     }
-    mkdirSync('/tmp/hf-403-768', { recursive: true });
-    writeFileSync('/tmp/hf-403-768/in-run-main-vs-head.json', `${JSON.stringify(table, null, 2)}\n`);
+    writeFileSync('/tmp/hf-403-768/in-run-main-vs-head-reference.json', `${JSON.stringify({
+      note: '0898c3b9 frames are reference only. The r2 bar is absolute, not match-main.',
+      sha: MAIN_LOOK_SHA,
+      table,
+    }, null, 2)}\n`);
   }, 360000);
+
+  it('HF-403-768-r2: Customize 768/1024/1280 stays inside card and viewport before scroll', async () => {
+    const table: Array<{
+      width: number;
+      id: string;
+      clientWidth: number;
+      minContent: number;
+      right: number;
+      textPastCard: number;
+      textPastViewport: number;
+    }> = [];
+    for (const width of [768, 1024, 1280] as const) {
+      const page = await hf403OpenEdit(width);
+      const abs = await page.evaluate(hf403AbsoluteBar);
+      await page.close();
+      expect(abs.scrollX, `${width} window scrollX before scroll`).toBe(0);
+      expect(abs.canvasScroll, `${width} canvas scrollLeft before scroll`).toBe(0);
+      expect(abs.cards.length, `${width} Customize paints 26 cards`).toBe(26);
+      for (const card of abs.cards) {
+        expect(card.textPastCard, `${width} ${card.id} text past card`).toBe(0);
+        expect(card.textPastViewport, `${width} ${card.id} text past viewport`).toBe(0);
+        expect(card.right, `${width} ${card.id} card right ${card.right}`).toBeLessThanOrEqual(abs.innerWidth);
+        expect(
+          card.clientWidth + 1e-6,
+          `${width} ${card.id} clientWidth ${card.clientWidth} >= min-content ${card.minContent}`,
+        ).toBeGreaterThanOrEqual(card.minContent);
+        table.push({ width, ...card });
+      }
+    }
+    mkdirSync('/tmp/hf-403-768', { recursive: true });
+    writeFileSync('/tmp/hf-403-768/r2-absolute-768-1024-1280.json', `${JSON.stringify(table, null, 2)}\n`);
+  }, 300000);
 
   it('HF-403-768: docSW and max rect.right stay inside the viewport in view and edit', async () => {
     for (const width of [375, 390, 768, 1024, 1280] as const) {

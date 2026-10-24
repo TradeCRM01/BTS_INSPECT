@@ -230,6 +230,91 @@ export function clampDashboardWidgetsToCanvas<T extends DashboardWidgetRect>(
   return repairDashboardWidgetLayout(fitted, width).widgets;
 }
 
+/** 1 = full-row (768), 2 = two-up (1024), 0 = keep stored + clamp (1280). */
+export function dashboardWidgetDisplayColumns(canvasW: number): 0 | 1 | 2 {
+  if (canvasW < 800) return 1;
+  if (canvasW < 1100) return 2;
+  return 0;
+}
+
+/** True when shrink-in-place would crush a 4-cell card that still fits the canvas. */
+export function dashboardWidgetsNeedDisplayReflow<T extends DashboardWidgetRect>(
+  widgets: readonly T[],
+  canvasW: number,
+): boolean {
+  const width = Math.max(1, Math.floor(canvasW));
+  return widgets.some((row) => {
+    const remaining = width - row.grid_x;
+    return row.grid_x + row.grid_w > width
+      && row.grid_x < width
+      && remaining >= DASHBOARD_WIDGET_MIN_W
+      && remaining < row.grid_w
+      && row.grid_w >= DASHBOARD_WIDGET_CELL_W * 4
+      && row.grid_w <= width;
+  });
+}
+
+/**
+ * Display-only pack. Does not mutate stored rows.
+ * Wide cards go full-row below 800px canvas; two-up below 1100.
+ */
+export function reflowDashboardWidgetsToCanvas<T extends DashboardWidgetRect>(
+  widgets: readonly T[],
+  canvasW: number,
+): T[] {
+  const width = Math.max(1, Math.floor(canvasW));
+  const cols = dashboardWidgetDisplayColumns(width);
+  if (cols === 0) return clampDashboardWidgetsToCanvas(widgets, width);
+
+  const origin = DASHBOARD_WIDGET_ORIGIN;
+  const gap = DASHBOARD_WIDGET_GAP;
+  const maxW = Math.max(1, width - origin);
+  const colW = cols === 1
+    ? maxW
+    : Math.max(DASHBOARD_WIDGET_MIN_W, Math.floor((width - origin - gap) / 2));
+  const ordered = [...widgets].sort((a, b) => {
+    if (a.grid_y !== b.grid_y) return a.grid_y - b.grid_y;
+    if (a.grid_x !== b.grid_x) return a.grid_x - b.grid_x;
+    return (a.id ?? a.widget_type).localeCompare(b.id ?? b.widget_type);
+  });
+
+  const next: T[] = [];
+  let y = origin;
+  let col = 0;
+  let rowH = 0;
+  for (const row of ordered) {
+    const wide = row.grid_w >= DASHBOARD_WIDGET_CELL_W * 4 || row.grid_w > colW;
+    if (cols === 1) {
+      const grid_w = wide ? maxW : Math.min(row.grid_w, maxW);
+      next.push({ ...row, grid_x: origin, grid_y: y, grid_w });
+      y += row.grid_h + gap;
+      continue;
+    }
+    if (wide) {
+      if (col === 1) {
+        y += rowH + gap;
+        col = 0;
+        rowH = 0;
+      }
+      next.push({ ...row, grid_x: origin, grid_y: y, grid_w: maxW });
+      y += row.grid_h + gap;
+      col = 0;
+      rowH = 0;
+      continue;
+    }
+    const grid_x = col === 0 ? origin : origin + colW + gap;
+    next.push({ ...row, grid_x, grid_y: y, grid_w: Math.min(row.grid_w, colW) });
+    rowH = Math.max(rowH, row.grid_h);
+    col += 1;
+    if (col >= 2) {
+      y += rowH + gap;
+      col = 0;
+      rowH = 0;
+    }
+  }
+  return next;
+}
+
 export function measureDashboardCanvasWidth(
   ...els: Array<{ clientWidth: number } | null | undefined>
 ): number {

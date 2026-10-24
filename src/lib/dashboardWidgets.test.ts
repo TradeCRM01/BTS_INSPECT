@@ -10,6 +10,8 @@ import {
   applyDashboardWidgetResize,
   clampDashboardWidgetToCanvas,
   clampDashboardWidgetsToCanvas,
+  dashboardWidgetDisplayColumns,
+  dashboardWidgetsNeedDisplayReflow,
   dashboardWidgetFitsCanvas,
   dashboardWidgetLayoutOverlaps,
   dashboardWidgetMinNeighborGap,
@@ -19,6 +21,7 @@ import {
   defaultDashboardWidgetInserts,
   pickerDashboardWidgets,
   placeAddedDashboardWidget,
+  reflowDashboardWidgetsToCanvas,
   repairDashboardWidgetLayout,
   resolveDashboardWidgets,
   type DashboardWidgetInsert,
@@ -626,5 +629,37 @@ describe('dashboard widget grid placement', () => {
     expect(data).toContain('weather');
     expect(system).toContain('upcoming_jobs');
     expect(placeAddedDashboardWidget([], 'bitcoin')).toBeNull();
+  });
+
+  it('reflows wide cards full-row at 744 and two-up at 960 without rewriting stored rows', () => {
+    const rows: DashboardWidgetRect[] = [
+      { id: 'jobs', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270 },
+      { id: 'weather', widget_type: 'weather', grid_x: 540, grid_y: 20, grid_w: 260, grid_h: 270 },
+      { id: 'inspect', widget_type: 'recent_inspections', grid_x: 540, grid_y: 1010, grid_w: 520, grid_h: 270 },
+      { id: 'remind', widget_type: 'agent_reminders', grid_x: 540, grid_y: 3530, grid_w: 390, grid_h: 270 },
+    ];
+    const stored = rows.map(row => ({ ...row }));
+    expect(dashboardWidgetDisplayColumns(744)).toBe(1);
+    expect(dashboardWidgetDisplayColumns(960)).toBe(2);
+    expect(dashboardWidgetDisplayColumns(1100)).toBe(0);
+    expect(dashboardWidgetsNeedDisplayReflow(rows, 744)).toBe(true);
+    expect(dashboardWidgetsNeedDisplayReflow(rows, 1100)).toBe(false);
+
+    const one = reflowDashboardWidgetsToCanvas(rows, 744);
+    const inspect = one.find(row => row.id === 'inspect')!;
+    expect(inspect.grid_x).toBe(20);
+    expect(inspect.grid_w).toBe(724);
+    expect(one.every(row => row.grid_x + row.grid_w <= 744)).toBe(true);
+    expect(dashboardWidgetLayoutOverlaps(one)).toBe(false);
+    expect(rows).toEqual(stored);
+
+    const two = reflowDashboardWidgetsToCanvas(rows, 960);
+    expect(two.every(row => row.grid_x + row.grid_w <= 960)).toBe(true);
+    expect(dashboardWidgetLayoutOverlaps(two)).toBe(false);
+    const left = two.filter(row => row.grid_x === 20);
+    const right = two.filter(row => row.grid_x > 20);
+    expect(left.length).toBeGreaterThan(0);
+    expect(right.length).toBeGreaterThan(0);
+    expect(rows).toEqual(stored);
   });
 });
