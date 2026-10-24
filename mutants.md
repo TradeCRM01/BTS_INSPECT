@@ -321,3 +321,121 @@ git checkout -- src/index.css
 
 Mutates `src/index.css:13080` to a 48px list clip (and drops `.flex-1` `min-height: min-content`, which otherwise beats `max-height`).  
 Red: `p1Dashboard.chromium.kill.tsx:3012` partial rows AssertionError, or `:3049` Plant ticket clip.
+
+## PHONE
+
+Patch the phone edit bar class in `src/pages/DashboardPage.tsx`.
+
+```
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/pages/DashboardPage.tsx')
+t = p.read_text()
+n = 'className="dashboard-home-phone-edit-bar"'
+m = 'className="dashboard-home-phone-edit-bar p1-phone-mutant"'
+if n not in t: raise SystemExit('PHONE needle missing')
+p.write_text(t.replace(n, m, 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/components/layout/p1Dashboard.chromium.kill.tsx -t 'P1-phone-unchanged'
+git checkout -- src/pages/DashboardPage.tsx
+```
+
+Expected AssertionError:
+
+`src/components/layout/p1Dashboard.chromium.kill.tsx:5141` `phone chrome at 375 edit`
+
+## Y200
+
+Patch `src/pages/DashboardPage.tsx` at `top: widget.grid_y,` (FreeWidget).
+
+```
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/pages/DashboardPage.tsx')
+t = p.read_text()
+n = "top: widget.grid_y,"
+m = "top: widget.id === 'w-compliance' ? widget.grid_y + 200 : widget.grid_y,"
+if n not in t: raise SystemExit('Y200 needle missing')
+p.write_text(t.replace(n, m, 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/components/layout/p1Dashboard.chromium.kill.tsx -t 'P1-edit-cross-card'
+git checkout -- src/pages/DashboardPage.tsx
+```
+
+Expected AssertionError:
+
+`src/components/layout/p1Dashboard.chromium.kill.tsx:4725` `/?look=dashboard-repro 768 edit cross-card hits`
+
+Dashboard-all cites on the same kill: grow-ran `:4754` (`768 edit grow ran on live cards`).
+
+## CLIP
+
+Turn grow off on the live 26-card set and restore inner scroll. No `|| true`.
+
+```
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/pages/DashboardPage.tsx')
+t = p.read_text()
+a = "? growDashboardEditHosts(shownWidgets, DASHBOARD_WIDGET_GAP, editContentH)"
+b = "? shownWidgets"
+c = "dashboard-home-widget h-full w-full overflow-hidden"
+d = "dashboard-home-widget h-full w-full overflow-auto"
+if a not in t or c not in t: raise SystemExit('CLIP needle missing')
+p.write_text(t.replace(a, b, 1).replace(c, d, 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/components/layout/p1Dashboard.chromium.kill.tsx -t 'P1-edit-content-clip'
+git checkout -- src/pages/DashboardPage.tsx
+```
+
+Expected AssertionError:
+
+`src/components/layout/p1Dashboard.chromium.kill.tsx:4985` `/?look=dashboard-repro 768 clipped or scrolling cards`
+
+## BORDER
+
+Drop the painted edit outline and the side borders. Rebuild dist CSS, then run the kill.
+
+```
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+p.write_text(t + """
+  .dashboard-home-widget.is-editing {
+    outline: none !important;
+    border-left: none !important;
+    border-right: none !important;
+  }
+""")
+PY
+npm run build
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/components/layout/p1Dashboard.chromium.kill.tsx -t 'P1-edit-side-border'
+git checkout -- src/index.css
+npm run build
+```
+
+Expected AssertionError:
+
+`src/components/layout/p1Dashboard.chromium.kill.tsx:5054` `768 cards missing painted edit outline`
+
+## GAP
+
+Push every conflicting card, including other columns.
+
+```
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/lib/dashboardWidgets.ts')
+t = p.read_text()
+n = "        if (!dashboardWidgetColumnsOverlap(row, other)) continue;\n"
+if n not in t: raise SystemExit('GAP needle missing')
+p.write_text(t.replace(n, '', 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/components/layout/p1Dashboard.chromium.kill.tsx -t 'P1-edit-grow-gap'
+git checkout -- src/lib/dashboardWidgets.ts
+```
+
+Expected AssertionError:
+
+`src/components/layout/p1Dashboard.chromium.kill.tsx:5735` `/?look=dashboard-all 1024 all-calendar-6 edit gap must match in-run stored`
