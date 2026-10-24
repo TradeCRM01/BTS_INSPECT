@@ -52,6 +52,7 @@ export function isDevFieldAuditAuth(): boolean {
       || params.get('look') === 'dashboard'
       || params.get('look') === 'dashboard-seed'
       || params.get('look') === 'dashboard-repro'
+      || params.get('look') === 'dashboard-full'
       || params.get('look') === 'visit-notes'
       || params.get('look') === 'job-photos'
       || params.get('look') === 'week-board'

@@ -621,3 +621,36 @@ git checkout -- src/index.css
 
 Removes `env()` from `.shell-header` only. The stand-in is a served-CSS rewrite of env(), so this goes red.  
 First red is measured: `first nav text sits` `toBeGreaterThanOrEqual(55)` AssertionError.
+
+## M-hf403-768 — restore the 180px Customize squeeze
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = """  .dashboard-home-widget.is-editing {
+    position: relative;
+    height: auto !important;
+    min-height: calc(168px + 60px + 16px + 32px);
+    padding-bottom: 32px;
+    box-sizing: border-box;
+    overflow: hidden;"""
+new = """  .dashboard-home-widget.is-editing {
+    position: relative;
+    height: auto !important;
+    min-height: calc(168px + 60px + 16px + 32px);
+    padding-bottom: 32px;
+    box-sizing: border-box;
+    width: 180px !important;
+    max-width: 180px !important;
+    overflow: hidden;"""
+if old not in t:
+    raise SystemExit('edit card rule missing')
+p.write_text(t.replace(old, new, 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768: Customize card widths hold main"
+git checkout -- src/index.css
+```
+
+Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:3958` `768 Customize full-upcoming_jobs width 180 >= main 390` AssertionError.
