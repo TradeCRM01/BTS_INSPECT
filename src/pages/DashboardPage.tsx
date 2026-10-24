@@ -69,11 +69,11 @@ import {
 } from '../lib/dashboardHome';
 import {
   DASHBOARD_WIDGET_CANVAS_W,
-  DASHBOARD_WIDGET_CELL_W,
-  DASHBOARD_WIDGET_MIN_W,
   applyDashboardWidgetDrag,
   applyDashboardWidgetResize,
   clampDashboardWidgetsToCanvas,
+  dashboardWidgetsNeedDisplayReflow,
+  reflowDashboardWidgetsToCanvas,
   isRetiredDashboardWidgetType,
   measureDashboardCanvasWidth,
   pickerDashboardWidgets,
@@ -1206,20 +1206,10 @@ export function DashboardPage() {
 
   const displayWidgets = useMemo(() => {
     const rows = widgets ?? [];
-    let width = canvasW;
-    if (editMode) {
-      const crushed = rows.some((row) => {
-        const remaining = canvasW - row.grid_x;
-        return row.grid_x + row.grid_w > canvasW
-          && row.grid_x < canvasW
-          && remaining >= DASHBOARD_WIDGET_MIN_W
-          && remaining < row.grid_w
-          && row.grid_w >= DASHBOARD_WIDGET_CELL_W * 4
-          && row.grid_w <= canvasW;
-      });
-      if (crushed) width = Math.max(canvasW, DASHBOARD_WIDGET_CANVAS_W);
+    if (editMode && dashboardWidgetsNeedDisplayReflow(rows, canvasW)) {
+      return reflowDashboardWidgetsToCanvas(rows, canvasW);
     }
-    return clampDashboardWidgetsToCanvas(rows, width);
+    return clampDashboardWidgetsToCanvas(rows, canvasW);
   }, [widgets, canvasW, editMode]);
   const shownWidgets = useMemo(
     () => visibleTodayWidgets(displayWidgets, profile?.role),
@@ -1234,12 +1224,12 @@ export function DashboardPage() {
     setActiveId(null);
     const { active, delta } = e;
     if (!delta.x && !delta.y) return;
-    const shown = displayWidgets.find(x => x.id === active.id);
-    if (!shown) return;
-    const next = applyDashboardWidgetDrag(shown, delta, canvasW);
+    const stored = (widgets ?? []).find(x => x.id === active.id);
+    if (!stored) return;
+    const next = applyDashboardWidgetDrag(stored, delta, canvasW);
     queryClient.setQueryData<DashboardWidget[]>(['dashboard-widgets'],
-      (widgets ?? []).map(x => x.id === shown.id ? { ...x, ...next } : x));
-    persistWidget(shown.id, next);
+      (widgets ?? []).map(x => x.id === stored.id ? { ...x, ...next } : x));
+    persistWidget(stored.id, next);
   };
 
   const resizeState = useRef<{

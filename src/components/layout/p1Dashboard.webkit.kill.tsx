@@ -1,8 +1,7 @@
 /** @vitest-environment node
  *
- * Phone-width dashboard kills (320/375/390). Stays green on aad2eef7 and on
- * M-hf403-768-clamp because those squeeze md+ Customize, not the phone stack.
- * Launch failure throws in beforeAll — this file has 0 skips.
+ * WebKit dashboard kills. Launch failure throws in beforeAll — 0 skips.
+ * Run on Playwright 1.48.2 jammy (docker mcr.microsoft.com/playwright:v1.48.2-jammy).
  */
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -30,6 +29,7 @@ async function launchWebkit() {
           launch: (opts: { headless: boolean }) => Promise<{
             newPage: (opts?: { viewport?: { width: number; height: number } }) => Promise<KillPage>;
             close: () => Promise<void>;
+            version: () => string;
           }>;
         };
       };
@@ -235,7 +235,88 @@ function webkitTextPastCard() {
   return clips;
 }
 
+function webkitAbsoluteBar() {
+  const iw = window.innerWidth;
+  const phone = iw < 768;
+  const vis = (el: Element) => {
+    const s = getComputedStyle(el as HTMLElement);
+    const r = el.getBoundingClientRect();
+    return s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0
+      && r.width > 0 && r.height > 0;
+  };
+  const cards: Array<{
+    id: string;
+    clientWidth: number;
+    right: number;
+    minContent: number;
+    textPastCard: number;
+    textPastViewport: number;
+  }> = [];
+  for (const host of document.querySelectorAll('[data-dashboard-widget-id]')) {
+    if (!vis(host)) continue;
+    const onPhone = !!host.closest('[data-dashboard-phone-stack]');
+    if (phone ? !onPhone : onPhone) continue;
+    const card = (host.querySelector('.dashboard-home-widget') as HTMLElement | null) ?? host as HTMLElement;
+    const cr = card.getBoundingClientRect();
+    let textPastCard = 0;
+    let textPastViewport = 0;
+    const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+      const raw = node.textContent || '';
+      if (raw.trim()) {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        for (const r of [...range.getClientRects()]) {
+          if (r.width < 1 || r.height < 1) continue;
+          if (r.right > cr.right + 0.5) textPastCard += 1;
+          if (r.right > iw) textPastViewport += 1;
+        }
+      }
+      node = walker.nextNode();
+    }
+    let minContent = 0;
+    for (const child of [...card.querySelectorAll('*')]) {
+      const el = child as HTMLElement;
+      const s = getComputedStyle(el);
+      if (s.display === 'none' || s.visibility === 'hidden') continue;
+      const prev = { w: el.style.width, min: el.style.minWidth, max: el.style.maxWidth };
+      el.style.width = 'min-content';
+      el.style.minWidth = 'min-content';
+      el.style.maxWidth = 'none';
+      const w = el.getBoundingClientRect().width;
+      el.style.width = prev.w;
+      el.style.minWidth = prev.min;
+      el.style.maxWidth = prev.max;
+      if (w > minContent) minContent = w;
+    }
+    cards.push({
+      id: host.getAttribute('data-dashboard-widget-id') || '',
+      clientWidth: card.clientWidth,
+      right: cr.right,
+      minContent,
+      textPastCard,
+      textPastViewport,
+    });
+  }
+  return {
+    innerWidth: iw,
+    scrollX: window.scrollX,
+    canvasScroll: (document.querySelector('.dashboard-home-canvas.is-editing') as HTMLElement | null)?.scrollLeft ?? 0,
+    cards,
+  };
+}
+
 describe('P1 dashboard WebKit kills (375/390 overflow and text)', () => {
+  it('HF-403-768-webkit: launcher version and 0 skips', async () => {
+    const src = readFileSync(join(here, 'p1Dashboard.webkit.kill.tsx'), 'utf8');
+    expect(src).toContain('webkit.launch');
+    expect(src, 'webkit kill has no skips').not.toMatch(/\bit\.skip\(|describe\.skip\(|\bxit\(/);
+    const version = browser.version();
+    console.log(`WEBKIT_VERSION ${version}`);
+    expect(version.length, 'webkit launched a real version').toBeGreaterThan(0);
+  });
+
   it('HF-403-768-webkit: 375/390 docSW, maxRight, and text stay inside view and Customize', async () => {
     const src = readFileSync(join(here, 'p1Dashboard.webkit.kill.tsx'), 'utf8');
     expect(src).toContain('webkit.launch');
@@ -282,4 +363,26 @@ describe('P1 dashboard WebKit kills (375/390 overflow and text)', () => {
       expect(editWalk, `webkit gate a text walk edit ${width}: ${JSON.stringify(editWalk.slice(0, 2))}`).toEqual([]);
     }
   }, 240000);
+
+  it('HF-403-768-r2: WebKit Customize 768/1024/1280 stays inside card and viewport before scroll', async () => {
+    for (const width of [768, 1024, 1280] as const) {
+      const edit = await openDash(width);
+      await enterEdit(edit);
+      await edit.setViewportSize({ width, height: 8000 });
+      const abs = await edit.evaluate(webkitAbsoluteBar);
+      await edit.close();
+      expect(abs.scrollX, `webkit ${width} window scrollX`).toBe(0);
+      expect(abs.canvasScroll, `webkit ${width} canvas scrollLeft`).toBe(0);
+      expect(abs.cards.length, `webkit ${width} Customize paints 26 cards`).toBe(26);
+      for (const card of abs.cards) {
+        expect(card.textPastCard, `webkit ${width} ${card.id} text past card`).toBe(0);
+        expect(card.textPastViewport, `webkit ${width} ${card.id} text past viewport`).toBe(0);
+        expect(card.right, `webkit ${width} ${card.id} card right`).toBeLessThanOrEqual(abs.innerWidth);
+        expect(
+          card.clientWidth + 1e-6,
+          `webkit ${width} ${card.id} clientWidth ${card.clientWidth} >= min-content ${card.minContent}`,
+        ).toBeGreaterThanOrEqual(card.minContent);
+      }
+    }
+  }, 300000);
 });

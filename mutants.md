@@ -322,7 +322,67 @@ git checkout -- src/index.css
 Mutates `src/index.css:13080` to a 48px list clip (and drops `.flex-1` `min-height: min-content`, which otherwise beats `max-height`).  
 Red: `p1Dashboard.chromium.kill.tsx:3012` partial rows AssertionError, or `:3049` Plant ticket clip.
 
-## M-hf403-768-squeeze-all — force every Customize card to 180px
+## M-hf403-768-clamp — restore aad2eef7's edit clamp
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/pages/DashboardPage.tsx')
+t = p.read_text()
+old = """  const displayWidgets = useMemo(() => {
+    const rows = widgets ?? [];
+    if (editMode && dashboardWidgetsNeedDisplayReflow(rows, canvasW)) {
+      return reflowDashboardWidgetsToCanvas(rows, canvasW);
+    }
+    return clampDashboardWidgetsToCanvas(rows, canvasW);
+  }, [widgets, canvasW, editMode]);"""
+new = """  const displayWidgets = useMemo(
+    () => clampDashboardWidgetsToCanvas(widgets ?? [], canvasW),
+    [widgets, canvasW],
+  );"""
+if old not in t:
+    raise SystemExit('display reflow missing')
+p.write_text(t.replace(old, new, 1))
+PY
+VITE_LOOK_PROOF=1 npm run build
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768-r2:"
+git checkout -- src/pages/DashboardPage.tsx
+```
+
+Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4281` `768 full-recent_inspections clientWidth 178 >= min-content 191`.
+
+## M-hf403-768-scroller — restore the 1100 scroll canvas
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/pages/DashboardPage.tsx')
+t = p.read_text()
+old = """  const displayWidgets = useMemo(() => {
+    const rows = widgets ?? [];
+    if (editMode && dashboardWidgetsNeedDisplayReflow(rows, canvasW)) {
+      return reflowDashboardWidgetsToCanvas(rows, canvasW);
+    }
+    return clampDashboardWidgetsToCanvas(rows, canvasW);
+  }, [widgets, canvasW, editMode]);"""
+new = """  const displayWidgets = useMemo(() => {
+    const rows = widgets ?? [];
+    let width = canvasW;
+    if (editMode) width = Math.max(canvasW, DASHBOARD_WIDGET_CANVAS_W);
+    return clampDashboardWidgetsToCanvas(rows, width);
+  }, [widgets, canvasW, editMode]);"""
+if old not in t:
+    raise SystemExit('display reflow missing')
+p.write_text(t.replace(old, new, 1))
+PY
+VITE_LOOK_PROOF=1 npm run build
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768-r2:"
+git checkout -- src/pages/DashboardPage.tsx
+```
+
+Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4276` `768 full-weather-a text past viewport`.
+
+## M-hf403-768-mincontent — narrow a Customize card below min-content
 
 ```bash
 python3 - <<'PY'
@@ -342,60 +402,19 @@ new = """  .dashboard-home-widget.is-editing {
     min-height: calc(168px + 60px + 16px + 32px);
     padding-bottom: 32px;
     box-sizing: border-box;
-    width: 180px !important;
-    max-width: 180px !important;
+    width: 80px !important;
+    max-width: 80px !important;
     overflow: hidden;"""
 if old not in t:
     raise SystemExit('edit card rule missing')
 p.write_text(t.replace(old, new, 1))
 PY
 VITE_LOOK_PROOF=1 npm run build
-TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768: Customize card widths hold main"
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768-r2:"
 git checkout -- src/index.css
 ```
 
-Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4163` `768 Customize full-upcoming_jobs width 180 >= main 390` AssertionError.
-This CSS force-squeezes every card, including `full-upcoming_jobs` which stays 390 on aad2eef7. It is not the #403 proof. The proof mutant is `M-hf403-768-clamp`.
-
-## M-hf403-768-clamp — restore aad2eef7's edit clamp
-
-```bash
-python3 - <<'PY'
-from pathlib import Path
-p = Path('src/pages/DashboardPage.tsx')
-t = p.read_text()
-old = """  const displayWidgets = useMemo(() => {
-    const rows = widgets ?? [];
-    let width = canvasW;
-    if (editMode) {
-      const crushed = rows.some((row) => {
-        const remaining = canvasW - row.grid_x;
-        return row.grid_x + row.grid_w > canvasW
-          && row.grid_x < canvasW
-          && remaining >= DASHBOARD_WIDGET_MIN_W
-          && remaining < row.grid_w
-          && row.grid_w >= DASHBOARD_WIDGET_CELL_W * 4
-          && row.grid_w <= canvasW;
-      });
-      if (crushed) width = Math.max(canvasW, DASHBOARD_WIDGET_CANVAS_W);
-    }
-    return clampDashboardWidgetsToCanvas(rows, width);
-  }, [widgets, canvasW, editMode]);"""
-new = """  const displayWidgets = useMemo(
-    () => clampDashboardWidgetsToCanvas(widgets ?? [], canvasW),
-    [widgets, canvasW],
-  );"""
-if old not in t:
-    raise SystemExit('edit clamp floor missing')
-p.write_text(t.replace(old, new, 1))
-PY
-VITE_LOOK_PROOF=1 npm run build
-TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768: Customize card widths hold main"
-git checkout -- src/pages/DashboardPage.tsx
-```
-
-Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4163` `768 Customize full-weather-a width 180 >= main 260` AssertionError.
-Widgets that drop below main at 768 under the aad2eef7 clamp: `full-weather-a`, `full-pending_reports`, `full-recent_inspections`, `full-inspection_stats`, `full-revenue_overview`, `full-calendar`, `full-ai_agent`, `full-kpi_scorecard`, `full-agent_reminders`.
+Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4275` `768 full-upcoming_jobs text past card` (80px card is below min-content).
 
 ## M-hf403-768-a — push dashboard text past the viewport at 320
 
@@ -450,4 +469,4 @@ git checkout -- src/index.css
 ```
 
 Red: `src/components/layout/p1Dashboard.webkit.kill.tsx` `webkit maxRight view 375` AssertionError (run cites the line).
-This file guards phone widths only. It stays green on aad2eef7 and on `M-hf403-768-clamp`.
+Run WebKit on `mcr.microsoft.com/playwright:v1.48.2-jammy`. A launcher that does not start is a FAIL. 0 skips.
