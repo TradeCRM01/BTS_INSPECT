@@ -32,6 +32,8 @@ import {
   scheduleEyebrow,
   scheduleJobHref,
   scheduleSheetSavePayload,
+  SCHEDULE_BOARD_COLUMNS,
+  SCHEDULE_BOARD_LIMIT,
   SCHEDULE_WEEK_STARTS_ON,
   type ScheduleSheetInput,
   type ScheduleViewMode,
@@ -385,35 +387,32 @@ export function SchedulePage() {
       if (mock) {
         return attachJobClients(mock as Job[], getAuditClients() ?? []);
       }
-      const [rangedRes, undatedRes, rawRes] = await Promise.all([
+      if (!profile?.company_id) return [];
+      const [rangedRes, undatedRes] = await Promise.all([
         supabase
           .from('jobs')
-          .select('*')
+          .select(SCHEDULE_BOARD_COLUMNS)
+          .eq('company_id', profile.company_id)
           .gte('scheduled_date', rangeStart)
           .lte('scheduled_date', rangeEnd)
-          .order('start_time', { ascending: true, nullsFirst: false }),
+          .order('start_time', { ascending: true, nullsFirst: false })
+          .limit(SCHEDULE_BOARD_LIMIT),
         supabase
           .from('jobs')
-          .select('*')
+          .select(SCHEDULE_BOARD_COLUMNS)
+          .eq('company_id', profile.company_id)
           .is('scheduled_date', null)
-          .in('status', ['scheduled', 'in_progress']),
-        supabase
-          .from('jobs')
-          .select('*'),
+          .in('status', ['scheduled', 'in_progress'])
+          .limit(SCHEDULE_BOARD_LIMIT),
       ]);
       if (rangedRes.error) throw rangedRes.error;
       if (undatedRes.error) throw undatedRes.error;
-      if (rawRes.error) throw rawRes.error;
 
       const byId = new Map<string, Job>();
       for (const row of [...(rangedRes.data ?? []), ...(undatedRes.data ?? [])]) {
-        byId.set(row.id, row as Job);
-      }
-      for (const row of rawRes.data ?? []) {
-        if (byId.has(row.id)) continue;
-        if (scheduleDayKey(row.scheduled_date)) continue;
+        const dated = scheduleDayKey(row.scheduled_date);
         const status = asStatusText(row.status);
-        if (status !== 'scheduled' && status !== 'in_progress') continue;
+        if (!dated && row.scheduled_date == null && status !== 'scheduled' && status !== 'in_progress') continue;
         byId.set(row.id, row as Job);
       }
       const jobs = [...byId.values()];

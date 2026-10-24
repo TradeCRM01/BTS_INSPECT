@@ -9,6 +9,11 @@ import { isUnknownScheduleStatus } from './scheduleInvoiceStatus';
 /** AU trade week — Monday first, matching the existing board. */
 export const SCHEDULE_WEEK_STARTS_ON = 1 as const;
 
+export const SCHEDULE_BOARD_COLUMNS =
+  'id, company_id, client_id, title, description, status, scheduled_date, start_time, end_time, address, assigned_team, job_number, parent_job_id, color, cost_code';
+
+export const SCHEDULE_BOARD_LIMIT = 200;
+
 export type ScheduleViewMode = 'day' | 'week';
 
 export type ScheduleDayJob = {
