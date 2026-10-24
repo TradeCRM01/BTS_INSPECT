@@ -17,7 +17,9 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useCompanyAiKey } from '../lib/useCompanyAiKey';
 import { listReminders, setReminderDone } from '../lib/reminders';
-import { format, formatDistanceToNow, subDays } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
+import { dashboardTodayKey } from '../lib/dashboardHome';
+import { fetchTodayCash } from '../lib/todayBoard';
 import { parseToDate, safeFormatDate } from '../lib/safeDate';
 import {
   Bot, Send, User, Sparkles, TrendingUp, AlertTriangle,
@@ -26,6 +28,7 @@ import {
   Loader2, Wrench, AlertCircle,
 } from 'lucide-react';
 import type { WidgetProps } from './WidgetComponents';
+import { industryNewsSource } from './industryNewsSource';
 
 // ────────────────────────────────────────────────────────────────────────────
 // AI Agent Widget — your on-dashboard assistant that can take real actions
@@ -189,7 +192,7 @@ export function AiAgentWidget({}: WidgetProps) {
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
           disabled={busy}
           placeholder="Ask the agent…"
-          className="flex-1 min-w-0 min-h-[44px] text-[11px] border border-[#E5E7EB] rounded-lg px-2 py-2 outline-none focus:border-[var(--g-accent)] disabled:opacity-50"
+          className="agent-ask-input flex-1 min-w-0 min-h-[44px] text-[11px] border border-[#E5E7EB] rounded-lg px-2 py-2 outline-none focus:border-[var(--g-accent)] disabled:opacity-50"
         />
         <button onClick={() => send()} disabled={!input.trim() || busy}
           className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg bg-[var(--g-inverse)] text-white flex items-center justify-center disabled:opacity-40 shrink-0">
@@ -222,7 +225,7 @@ export function IndustryNewsWidget() {
       return (json.items ?? []).slice(0, 8).map((item: Record<string, string>) => ({
         title: item.title ?? '',
         link: item.link ?? '#',
-        source: item.author ?? item.creator ?? 'Industry',
+        source: industryNewsSource(item.author, item.creator),
         pubDate: item.pubDate ?? '',
         snippet: (item.description ?? '').replace(/<[^>]+>/g, '').slice(0, 120),
       }));
@@ -360,23 +363,16 @@ export function ComplianceDeadlinesWidget({ config }: WidgetProps) {
 // ────────────────────────────────────────────────────────────────────────────
 
 export function CashFlowWidget() {
+  const { profile } = useAuth();
+  const companyId = profile?.company_id ?? '';
+  const todayKey = dashboardTodayKey();
   const { data, isLoading } = useQuery({
-    queryKey: ['widget-cash-flow'],
+    queryKey: ['widget-cash-flow', companyId, todayKey],
     queryFn: async () => {
-      const weekStart = subDays(new Date(), 7).toISOString();
-      const [{ data: paidInv }, { data: createdPOs }] = await Promise.all([
-        supabase.from('invoices')
-          .select('total, paid_at, status, updated_at')
-          .eq('status', 'paid')
-          .gte('updated_at', weekStart),
-        supabase.from('purchase_orders')
-          .select('total, status, created_at')
-          .gte('created_at', weekStart),
-      ]);
-      const moneyIn = (paidInv ?? []).reduce((s, r) => s + Number(r.total ?? 0), 0);
-      const moneyOut = (createdPOs ?? []).reduce((s, r) => s + Number(r.total ?? 0), 0);
-      return { moneyIn, moneyOut, net: moneyIn - moneyOut };
+      if (!companyId) return { moneyIn: 0, moneyOut: 0, net: 0 };
+      return fetchTodayCash(supabase as never, companyId, todayKey);
     },
+    enabled: !!companyId,
   });
 
   const net = data?.net ?? 0;

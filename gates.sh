@@ -59,7 +59,7 @@ ensure_postgrest() {
 ensure_postgrest
 export GATES=1
 
-npm run build
+VITE_LOOK_PROOF=1 npm run build
 vitest_rc=0
 npx vitest run --maxWorkers=2 "$@" || vitest_rc=$?
 npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts

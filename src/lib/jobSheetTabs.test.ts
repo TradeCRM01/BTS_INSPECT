@@ -153,7 +153,7 @@ describe('jobSheetOverviewRows', () => {
       billCost: 1250.5,
       billCharge: 1800,
     })).toEqual([
-      { section: 'job-schedule', label: 'Schedule & people', meta: 'Unassigned', status: 'Not scheduled', tone: 'wait' },
+      { section: 'job-schedule', label: 'Schedule & people', meta: 'Unassigned', status: 'No date', tone: 'wait' },
       { section: 'job-swms', label: 'Safety', meta: '1 JHA / SWMS · 2 Take 5', status: 'JHA on file', tone: 'ok' },
       { section: 'job-visit-notes', label: 'Field records', meta: '1 inspection · 6 photos · 1 test due', status: '1 note', tone: 'info' },
       { section: 'job-quotes', label: 'Quotes & invoices', meta: '', status: '1 quote · 2 invoices', tone: 'info' },

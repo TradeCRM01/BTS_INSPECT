@@ -1,14 +1,34 @@
-import { useState, useCallback, useRef, useMemo, useEffect, useLayoutEffect, Fragment, type ReactNode } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect, useLayoutEffect, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { NAV_WORDS } from '../lib/brand';
 import { AppShell } from '../components/layout/AppShell';
-import { EmptyState, LoadingSpinner, PageError, useToast } from '../components/ui';
+import { LoadingSpinner, PageError, useToast } from '../components/ui';
 import { ReminderRow } from '../components/reminders/ReminderRow';
-import { deriveNudges, type NudgeInvoice, type NudgeQuote } from '../lib/nudges';
+import { JobFormModal } from '../components/crm/JobFormModal';
+import { deriveNudges, type Nudge, type NudgeInvoice, type NudgeQuote } from '../lib/nudges';
+import { countNeedsCrew } from '../lib/needCrew';
+import {
+  TODAY_NUDGE_INVOICE_STATUSES,
+  canSeeTodayMoney,
+  fetchComingUp,
+  fetchOutstanding,
+  fetchReadyToInvoice,
+  fetchTodayCash,
+  todayCashRangeLabel,
+  todayCashWindow,
+  type ReadyToInvoiceJob,
+  type TodayCashTotals,
+  type TodayOutstandingRow,
+  type TodayOutstandingTotals,
+  readyToInvoiceDetail,
+  visibleTodayNudges,
+  visibleTodayWidgets,
+} from '../lib/todayBoard';
+import { todayBandFromWidth } from '../lib/todayLayout';
+import { TodayBoardView } from './TodayBoardView';
 import {
   canTickReminder,
   listReminderJobsById,
@@ -30,7 +50,7 @@ import {
   useDraggable,
 } from '@dnd-kit/core';
 import {
-  Plus, X, GripVertical, Trash2, Sparkles, Briefcase, MoreHorizontal,
+  Plus, X, GripVertical, Trash2, Sparkles, MoreHorizontal,
   ChevronUp, ChevronDown,
 } from 'lucide-react';
 import {
@@ -43,14 +63,7 @@ import { WidgetRenderer } from '../widgets/WidgetComponents';
 import type { Json } from '../types/database';
 import type { Client, Job, JobWithClient } from '../types/crm';
 import { attachJobClients, hydrateJobParentNumbers } from '../lib/scheduleJobSearch';
-import { formatJobRef } from '../lib/jobRef';
 import {
-  dashboardClockLabel,
-  dashboardCrewLabel,
-  dashboardHeadingDate,
-  dashboardJobHref,
-  dashboardJobMetaLine,
-  dashboardJobPlace,
   dashboardTodayKey,
   todaysDashboardJobs,
 } from '../lib/dashboardHome';
@@ -68,10 +81,6 @@ import {
   resolveDashboardWidgets,
 } from '../lib/dashboardWidgets';
 import type { ScheduleCrewMember } from '../lib/scheduleBoard';
-import {
-  jobCrewScheduleNeedsCrewClass,
-  jobCrewScheduleStatus,
-} from '../lib/jobCrewScheduleStatus';
 
 interface DashboardWidget {
   id: string;
@@ -82,6 +91,8 @@ interface DashboardWidget {
   grid_h: number; // pixel height
   config: Json;
 }
+
+const EDIT_CARD_GROW = 60 + 16 + 32;
 
 async function persistDashboardWidgetRepair(
   before: DashboardWidget[],
@@ -179,24 +190,31 @@ const CREW_S8D_DASHBOARD_NEEDS = 'crew-s8d-dashboard-needs';
 const DASHBOARD_LOOK_DAVE = 'look-dash-dave';
 const DASHBOARD_LOOK_JACK = 'look-dash-jack';
 
+const DASHBOARD_LOOK_TOM = 'look-dash-tom';
+const DASHBOARD_LOOK_JOSH = 'look-dash-josh';
+const DASHBOARD_LOOK_DEAN = 'look-dash-dean';
+
 function dashboardLookCrew(): ScheduleCrewMember[] {
   return [
     { id: DASHBOARD_LOOK_DAVE, name: 'Dave' },
     { id: DASHBOARD_LOOK_JACK, name: 'Jack' },
+    { id: DASHBOARD_LOOK_TOM, name: 'Tom Reid' },
+    { id: DASHBOARD_LOOK_JOSH, name: 'Josh Perm' },
+    { id: DASHBOARD_LOOK_DEAN, name: 'Dean Hollis' },
   ];
 }
 
 /** Same calendar day as the signed dashboard LOOK frames. */
-const DASHBOARD_LOOK_DAY = '2026-09-03';
+const DASHBOARD_LOOK_DAY = '2026-10-19';
 
 function dashboardLookNow(): Date {
-  return new Date(2026, 8, 3);
+  return new Date(2026, 9, 19, 13, 40, 0);
 }
 
 const DASHBOARD_LOOK_OWNER = '00000000-0000-0000-0000-000000000002';
 
 function dashboardLookReminders(ownerId: string): Reminder[] {
-  const dueAt = new Date(2026, 8, 3, 8, 0, 0).toISOString();
+  const dueAt = new Date(2026, 9, 19, 8, 0, 0).toISOString();
   const row = (id: string, title: string): Reminder => ({
     id,
     ownerId,
@@ -226,7 +244,7 @@ function dashboardLookWidgets(): DashboardWidget[] {
       grid_x: 0,
       grid_y: 0,
       grid_w: 360,
-      grid_h: 200,
+      grid_h: 280,
       config: {
         lookJobs: [
           {
@@ -256,7 +274,7 @@ function dashboardLookWidgets(): DashboardWidget[] {
       grid_x: 376,
       grid_y: 0,
       grid_w: 280,
-      grid_h: 200,
+      grid_h: 280,
       config: {
         lookInvoices: {
           count: 1,
@@ -280,7 +298,7 @@ function dashboardLookWidgets(): DashboardWidget[] {
       grid_x: 672,
       grid_y: 0,
       grid_w: 320,
-      grid_h: 200,
+      grid_h: 280,
       config: {
         lookCompliance: {
           upcoming: [
@@ -307,6 +325,7 @@ function dashboardSeedLookWidgets(): DashboardWidget[] {
     'quick_actions',
     'pending_reports',
     'agent_reminders',
+    'ai_agent',
     'kpi_scorecard',
   ] as const;
   for (const type of extra) {
@@ -390,7 +409,7 @@ function dashboardJackLookWidgets(): DashboardWidget[] {
 
 function dashboardLookJobs(needsCrewOnly = false): JobWithClient[] {
   const day = DASHBOARD_LOOK_DAY;
-  const stamp = '2026-09-03T00:00:00.000Z';
+  const stamp = '2026-10-19T03:40:00.000Z';
   const base = {
     company_id: 'look-dashboard',
     client_id: null as string | null,
@@ -447,6 +466,199 @@ function dashboardLookJobs(needsCrewOnly = false): JobWithClient[] {
       job_number: 43,
       client_name: 'Harbour Lights',
     },
+    {
+      ...base,
+      id: 'look-dash-need-crew',
+      title: 'Workshop callout',
+      status: 'scheduled',
+      scheduled_date: day,
+      start_time: '13:00',
+      end_time: '15:00',
+      address: '4 Depot St, Perth WA 6000',
+      assigned_team: [],
+      job_number: 44,
+      client_name: 'Depot Mechanical',
+    },
+    {
+      ...base,
+      id: 'look-dash-no-date',
+      title: 'Waiting on a date',
+      status: 'scheduled',
+      scheduled_date: null,
+      start_time: null,
+      end_time: null,
+      address: '9 Yard Rd, Perth WA 6000',
+      assigned_team: [],
+      job_number: 45,
+      client_name: 'Yard Services',
+    },
+    {
+      ...base,
+      id: 'look-dash-on-hold',
+      title: 'Hold for parts',
+      status: 'on_hold' as Job['status'],
+      scheduled_date: day,
+      start_time: '16:00',
+      end_time: '17:00',
+      address: '2 Hold St, Perth WA 6000',
+      assigned_team: [' '],
+      job_number: 46,
+      client_name: 'Hold Mechanical',
+    },
+    {
+      ...base,
+      id: 'look-dash-awaiting',
+      title: 'Parts on order',
+      status: 'awaiting_parts' as Job['status'],
+      scheduled_date: day,
+      start_time: '15:00',
+      end_time: '16:00',
+      address: '47 Parts Rd, Perth WA 6000',
+      assigned_team: [DASHBOARD_LOOK_DAVE],
+      job_number: 47,
+      client_name: 'Parts Electrical',
+    },
+    {
+      ...base,
+      id: 'look-dash-malformed-string',
+      title: 'Malformed string crew',
+      status: 'scheduled',
+      scheduled_date: day,
+      start_time: '09:30',
+      end_time: '10:00',
+      address: '1 Bad St, Perth WA 6000',
+      assigned_team: 'dave' as unknown as string[],
+      job_number: 48,
+      client_name: 'Malformed Co',
+    },
+    {
+      ...base,
+      id: 'look-dash-malformed-object',
+      title: 'Malformed object crew',
+      status: 'scheduled',
+      scheduled_date: day,
+      start_time: '10:00',
+      end_time: '10:30',
+      address: '2 Bad St, Perth WA 6000',
+      assigned_team: { a: 1 } as unknown as string[],
+      job_number: 49,
+      client_name: 'Malformed Co',
+    },
+  ];
+}
+
+function dashboardLookCash(): TodayCashTotals {
+  const todayKey = DASHBOARD_LOOK_DAY;
+  const { from, to } = todayCashWindow(todayKey);
+  const amounts = [
+    { moneyIn: 800, moneyOut: 100 },
+    { moneyIn: 200, moneyOut: 400 },
+    { moneyIn: 900, moneyOut: 200 },
+    { moneyIn: 700, moneyOut: 300 },
+    { moneyIn: 100, moneyOut: 50 },
+    { moneyIn: 0, moneyOut: 0 },
+    { moneyIn: 514.3, moneyOut: 812.75 },
+  ];
+  const days = amounts.map((row, i) => {
+    const date = new Date(2026, 9, 13 + i);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    return { date: key, ...row };
+  });
+  return {
+    moneyIn: 4214.3,
+    moneyOut: 1862.75,
+    net: 2351.55,
+    from,
+    to,
+    rangeLabel: todayCashRangeLabel(from, to),
+    days,
+  };
+}
+
+function dashboardLookOutstanding(): TodayOutstandingTotals & { display: Array<TodayOutstandingRow & { client_name?: string | null }> } {
+  return {
+    outstanding: 3579.65,
+    overdue: 462,
+    count: 3,
+    display: [
+      { id: 'look-inv-1', invoice_number: 1112, status: 'sent', total: 1929.65, amount_paid: 0, due_date: '2026-10-30', created_at: '2026-10-02', client_id: 'c1', client_name: 'Sarah Whitfield' },
+      { id: 'look-inv-2', invoice_number: 1110, status: 'sent', total: 1188, amount_paid: 0, due_date: '2026-10-23', created_at: '2026-10-01', client_id: 'c2', client_name: 'Gympie Rd Dental' },
+      { id: 'look-inv-3', invoice_number: 108, status: 'overdue', total: 462, amount_paid: 0, due_date: '2026-10-09', created_at: '2026-09-01', client_id: 'c3', client_name: 'Stafford Bowls Club' },
+    ],
+  };
+}
+
+function dashboardLookReady(): ReadyToInvoiceJob[] {
+  return [
+    { id: 'look-ready-36', job_number: 36, title: 'Blocked sewer', scheduled_date: DASHBOARD_LOOK_DAY, client_id: null, kind: 'standalone' },
+    { id: 'look-ready-37', job_number: 37, title: 'Leaking mixer', scheduled_date: DASHBOARD_LOOK_DAY, client_id: null, kind: 'standalone' },
+  ];
+}
+
+function dashboardLookNudges(): Nudge[] {
+  return [1, 2, 3, 4].map((n) => ({
+    key: `look-need-${n}`,
+    kind: 'invoice_unpaid' as const,
+    label: `Look need ${n}`,
+    detail: `Look detail ${n}`,
+    href: `/quotes/${n}`,
+  }));
+}
+
+function dashboardLookComingUp(): Array<JobWithClient> {
+  const stamp = '2026-10-19T03:40:00.000Z';
+  const base = {
+    company_id: 'look-dashboard',
+    client_id: null as string | null,
+    description: null as string | null,
+    priority: 'medium' as const,
+    inspection_id: null as string | null,
+    created_by: DASHBOARD_LOOK_DAVE,
+    created_at: stamp,
+    updated_at: stamp,
+    color: null as string | null,
+    budget: null as number | null,
+    parent_job_id: null as string | null,
+    cost_code: null as string | null,
+    status: 'scheduled' as const,
+  };
+  return [
+    {
+      ...base,
+      id: 'look-coming-cistern',
+      title: 'Toilet cistern replacement',
+      scheduled_date: '2026-10-20',
+      start_time: '07:30',
+      end_time: '09:00',
+      address: '12 Gwen St, Kedron QLD 4031',
+      assigned_team: [DASHBOARD_LOOK_TOM],
+      job_number: 40,
+      client_name: 'Gwen Albright',
+    },
+    {
+      ...base,
+      id: 'look-coming-drain',
+      title: 'Blocked kitchen drain',
+      scheduled_date: '2026-10-20',
+      start_time: '12:00',
+      end_time: '13:30',
+      address: '8 Luke St, Wavell Heights QLD 4012',
+      assigned_team: [DASHBOARD_LOOK_JOSH],
+      job_number: 41,
+      client_name: 'Luke Ferris',
+    },
+    {
+      ...base,
+      id: 'look-coming-gas',
+      title: 'Gas cooktop install',
+      scheduled_date: '2026-10-21',
+      start_time: '08:00',
+      end_time: '10:00',
+      address: '4 Priya St, Stafford QLD 4053',
+      assigned_team: [DASHBOARD_LOOK_DEAN],
+      job_number: 50,
+      client_name: 'Priya Shah',
+    },
   ];
 }
 
@@ -459,7 +671,7 @@ function withClientName<T extends ClientRef>(row: T, names: Map<string, string>)
 }
 
 /** Today's and tomorrow's jobs, sent quotes, and unpaid invoices, each carrying its client name. */
-async function loadDashboardNudgeData(todayKey: string, tomorrowKey: string): Promise<DashboardNudgeData> {
+export async function loadDashboardNudgeData(todayKey: string, tomorrowKey: string): Promise<DashboardNudgeData> {
   const [jobsRes, quotesRes, invoicesRes] = await Promise.all([
     supabase
       .from('jobs')
@@ -473,7 +685,7 @@ async function loadDashboardNudgeData(todayKey: string, tomorrowKey: string): Pr
     supabase
       .from('invoices')
       .select('id, invoice_number, status, due_date, updated_at, total, chased_at, client_id')
-      .in('status', ['sent', 'overdue']),
+      .in('status', [...TODAY_NUDGE_INVOICE_STATUSES]),
   ]);
   if (jobsRes.error) throw jobsRes.error;
   if (quotesRes.error) throw quotesRes.error;
@@ -515,6 +727,9 @@ export function DashboardPage() {
     || lookDashboardSeed
     || lookDashboardRepro;
   const [editMode, setEditMode] = useState(false);
+  const [showJobForm, setShowJobForm] = useState(false);
+  const [viewportW, setViewportW] = useState(() => (typeof window === 'undefined' ? 1280 : window.innerWidth));
+  const [clock, setClock] = useState(() => new Date());
   const [showPicker, setShowPicker] = useState(false);
   const [addingWidget, setAddingWidget] = useState(false);
   const addingWidgetRef = useRef(false);
@@ -522,10 +737,24 @@ export function DashboardPage() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const widgetsBoxRef = useRef<HTMLDivElement>(null);
   const [canvasW, setCanvasW] = useState(DASHBOARD_WIDGET_CANVAS_W);
-  const now = new Date();
+  const now = lookDashboard ? dashboardLookNow() : clock;
   const todayKey = dashboardTodayKey(now);
   const tomorrowKey = dashboardTodayKey(addDays(now, 1));
   const { showToast } = useToast();
+  const todayBand = todayBandFromWidth(viewportW);
+
+  useEffect(() => {
+    const onResize = () => setViewportW(window.innerWidth);
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
+    if (lookDashboard) return;
+    const id = window.setInterval(() => setClock(new Date()), 60_000);
+    return () => window.clearInterval(id);
+  }, [lookDashboard]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -694,12 +923,61 @@ export function DashboardPage() {
 
   const companyId = profile?.company_id ?? '';
   const liveCompany = !!companyId && !lookDashboard;
+  const liveMoney = liveCompany && canSeeTodayMoney(profile?.role);
+
+  const { data: readyJobs, isLoading: readyLoading, error: readyError, refetch: refetchReady } = useQuery({
+    queryKey: ['today-ready', companyId, todayKey, lookDashboard],
+    queryFn: () => lookDashboard ? dashboardLookReady() : fetchReadyToInvoice(supabase, companyId, todayKey),
+    enabled: liveCompany || lookDashboard,
+  });
+  const { data: outstanding, isLoading: outstandingLoading, error: outstandingError, refetch: refetchOutstanding } = useQuery({
+    queryKey: ['today-outstanding', companyId, lookDashboard],
+    queryFn: () => lookDashboard ? dashboardLookOutstanding() : fetchOutstanding(supabase, companyId, now),
+    enabled: liveMoney || lookDashboard,
+  });
+  const outstandingClientIds = [...new Set((outstanding?.display ?? []).map(row => row.client_id).filter(Boolean))] as string[];
+  const { data: outstandingClients } = useQuery({
+    queryKey: ['today-outstanding-clients', companyId, outstandingClientIds.join(',')],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, name')
+        .eq('company_id', companyId)
+        .in('id', outstandingClientIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: liveMoney && outstandingClientIds.length > 0,
+  });
+  const outstandingNamed = outstanding
+    ? {
+      ...outstanding,
+      display: outstanding.display.map(row => ({
+        ...row,
+        client_name:
+          (row as TodayOutstandingRow & { client_name?: string | null }).client_name
+          ?? outstandingClients?.find(client => client.id === row.client_id)?.name
+          ?? null,
+      })),
+    }
+    : outstanding;
+  const { data: cash, isLoading: cashLoading, error: cashError, refetch: refetchCash } = useQuery({
+    queryKey: ['today-cash', companyId, todayKey, lookDashboard],
+    queryFn: () => lookDashboard ? dashboardLookCash() : fetchTodayCash(supabase, companyId, todayKey),
+    enabled: liveMoney || lookDashboard,
+  });
+  const { data: comingUp, isLoading: comingLoading, error: comingError, refetch: refetchComing } = useQuery({
+    queryKey: ['today-coming-up', companyId, todayKey, lookDashboard],
+    queryFn: () => lookDashboard ? dashboardLookComingUp() : fetchComingUp(supabase, companyId, todayKey),
+    enabled: liveCompany || lookDashboard,
+  });
+
   const { data: reminders } = useQuery({
     queryKey: ['reminders', companyId],
     queryFn: () => listReminders(companyId),
     enabled: liveCompany,
   });
-  const lookNow = lookDashboard ? dashboardLookNow() : now;
+  const lookNow = now;
   const stripRows = lookDashboard
     ? dashboardLookReminders(profile?.id ?? DASHBOARD_LOOK_OWNER)
     : todayReminders(splitReminderLists(reminders ?? []).upcoming, now);
@@ -717,9 +995,24 @@ export function DashboardPage() {
     queryFn: () => loadDashboardNudgeData(todayKey, tomorrowKey),
     enabled: liveCompany,
   });
-  const nudges = nudgeData
-    ? deriveNudges({ ...nudgeData, userId: profile?.id ?? null, now })
-    : [];
+  const readyNudge: Nudge | null = (readyJobs ?? []).length > 0
+    ? {
+      key: 'ready_to_invoice',
+      kind: 'ready_to_invoice' as Nudge['kind'],
+      label: readyJobs!.length === 1 ? `${readyToInvoiceDetail(readyJobs!)} ready to invoice` : `${readyJobs!.length} jobs ready to invoice`,
+      detail: readyToInvoiceDetail(readyJobs!),
+      href: readyJobs!.length === 1 ? `/jobs/${readyJobs![0].id}` : '/jobs?status=completed',
+    }
+    : null;
+  const nudges = lookDashboard
+    ? dashboardLookNudges()
+    : visibleTodayNudges(
+      [
+        ...(nudgeData ? deriveNudges({ ...nudgeData, userId: profile?.id ?? null, now }) : []),
+        ...(readyNudge ? [readyNudge] : []),
+      ],
+      profile?.role,
+    );
 
   const [reminderTitle, setReminderTitle] = useState('');
   const [reminderSaving, setReminderSaving] = useState(false);
@@ -874,6 +1167,10 @@ export function DashboardPage() {
     () => clampDashboardWidgetsToCanvas(widgets ?? [], canvasW),
     [widgets, canvasW],
   );
+  const shownWidgets = useMemo(
+    () => visibleTodayWidgets(displayWidgets, profile?.role),
+    [displayWidgets, profile?.role],
+  );
 
   const handleDragStart = (e: DragStartEvent) => {
     setActiveId(String(e.active.id));
@@ -939,16 +1236,17 @@ export function DashboardPage() {
   }, [persistWidget, onResizeMove]);
 
   const canvasHeight = useMemo(() => {
-    const ws = displayWidgets;
+    const ws = shownWidgets;
     const floor = editMode ? 320 : 0;
     if (!ws.length) return floor;
-    const maxBottom = Math.max(...ws.map(w => w.grid_y + w.grid_h));
+    const grow = editMode ? EDIT_CARD_GROW : 0;
+    const maxBottom = Math.max(...ws.map((w) => w.grid_y + w.grid_h + grow));
     return Math.max(floor, maxBottom + CANVAS_PAD);
-  }, [displayWidgets, editMode]);
+  }, [shownWidgets, editMode]);
 
   const viewWidgets = useMemo(
-    () => sortDashboardWidgetsForView(displayWidgets),
-    [displayWidgets],
+    () => sortDashboardWidgetsForView(shownWidgets),
+    [shownWidgets],
   );
 
   if (pageQueryBlocked(error) || pageQueryBlocked(jobsError)) {
@@ -956,55 +1254,66 @@ export function DashboardPage() {
   }
 
   const work = todayJobs ?? [];
-  const jobCountLabel = work.length === 1 ? '1 job' : `${work.length} jobs`;
-  const whisper = [
-    dashboardHeadingDate(lookDashboard ? dashboardLookNow() : undefined),
-    company?.name,
-    !jobsLoading && work.length > 0 ? jobCountLabel : null,
-  ].filter(Boolean).join(' · ');
+  const needCrewCount = countNeedsCrew(work);
+  const moreMenu = (
+    <DashboardHomeMore
+      editMode={editMode}
+      onToggleEdit={() => setEditMode(e => !e)}
+      onNewJob={() => setShowJobForm(true)}
+    />
+  );
 
   return (
     <AppShell>
-      <div className="ops-page dashboard-home is-day-open">
+      <div className="ops-page dashboard-home is-day-open is-today-board">
         <article className="dashboard-home-sheet" data-dashboard-home="1">
-          <header className="dashboard-home-sheet-bar">
-            <span className="dashboard-home-mark">{NAV_WORDS.today}</span>
-          </header>
           <div className="dashboard-home-sheet-body">
-            <h1 className="ops-page-title dashboard-home-hero">{NAV_WORDS.today}</h1>
-            <p className="hub-look-eyebrow dashboard-home-label dashboard-home-whisper">{whisper}</p>
+            <TodayBoardView
+              now={now}
+              width={viewportW}
+              band={todayBand}
+              companyName={company?.name}
+              role={profile?.role}
+              jobs={work}
+              jobsLoading={jobsLoading}
+              jobsError={jobsError}
+              onRetryJobs={() => { void queryClient.invalidateQueries({ queryKey: ['dashboard-today-jobs'] }); }}
+              team={teamMembers}
+              ready={{
+                data: readyJobs,
+                isLoading: readyLoading,
+                error: readyError,
+                onRetry: () => { void refetchReady(); },
+              }}
+              outstanding={{
+                data: outstandingNamed,
+                isLoading: outstandingLoading,
+                error: outstandingError,
+                onRetry: () => { void refetchOutstanding(); },
+              }}
+              cash={{
+                data: cash,
+                isLoading: cashLoading,
+                error: cashError,
+                onRetry: () => { void refetchCash(); },
+              }}
+              coming={{
+                data: comingUp,
+                isLoading: comingLoading,
+                error: comingError,
+                onRetry: () => { void refetchComing(); },
+              }}
+              nudges={nudges}
+              more={moreMenu}
+              onNewJob={() => setShowJobForm(true)}
+              needCrewCount={needCrewCount}
+            />
 
-            <div className="dashboard-home-tools">
-              {editMode ? (
-                <button
-                  type="button"
-                  onClick={() => setShowPicker(true)}
-                  className="btn-primary dashboard-home-primary"
-                >
-                  <Plus size={16} />
-                  Add widget
-                </button>
-              ) : work.length === 0 && !jobsLoading ? (
-                <Link to="/schedule" className="btn-primary dashboard-home-primary">
-                  Open schedule
-                </Link>
-              ) : (
-                <Link to="/schedule" className="btn-primary dashboard-home-primary">
-                  Week board
-                </Link>
-              )}
-              <div className="dashboard-home-tools-overflow">
-                <DashboardHomeMore
-                  editMode={editMode}
-                  onToggleEdit={() => setEditMode(e => !e)}
-                />
-              </div>
-            </div>
-
-            <section className="dashboard-home-strip" data-dashboard-reminders="1">
-              <div className="dashboard-home-section-head">
-                <h2 className="ops-section-title">Reminders</h2>
-                <Link to="/reminders" className="dashboard-home-all">All ›</Link>
+            <div className="today-grid-below" data-today-grid="1">
+            <section className="today-sec today-reminders dashboard-home-strip" data-today-section="s12" data-dashboard-reminders="1">
+              <div className="today-sec-h dashboard-home-section-head">
+                <h2 className="ops-section-title" id="today-reminders-h">Reminders</h2>
+                <Link to="/reminders" className="today-quiet dashboard-home-all">All ›</Link>
               </div>
               <form className="reminders-capture dashboard-reminders-capture" onSubmit={captureReminder}>
                 <input
@@ -1043,89 +1352,22 @@ export function DashboardPage() {
                   ))}
                 </ul>
               )}
-              {nudges.length > 0 && (
-                <p className="dashboard-nudges-label">From your jobs, quotes and invoices</p>
-              )}
-              {nudges.length > 0 && (
-                <ul className="dashboard-nudges">
-                  {nudges.map(n => (
-                    <li key={n.key}>
-                      <Link to={n.href} className="dashboard-nudge" data-nudge-kind={n.kind}>
-                        <span className="dashboard-nudge-label">{n.label}</span>
-                        <span className="dashboard-nudge-detail">{n.detail}</span>
-                        <span className="dashboard-nudge-go">›</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </section>
 
-            <div className="dashboard-home-section-head">
-              <h2 className="ops-section-title">Today's schedule</h2>
-              <Link to="/schedule" className="dashboard-home-all">Schedule ›</Link>
-            </div>
-
-            {jobsLoading ? (
-              <div className="flex justify-center py-16"><LoadingSpinner /></div>
-            ) : work.length === 0 ? (
-              <EmptyState
-                icon={Briefcase}
-                title="Nothing on today"
-                message="No jobs are booked for today. The week is on the schedule."
-              />
-            ) : (
-              <div className="dashboard-home-ledger">
-                <div className="dashboard-home-thead">
-                  <span>Time</span>
-                  <span>Job</span>
-                  <span>Place</span>
-                </div>
-                {work.map(job => {
-                  const place = dashboardJobPlace(job);
-                  const crewSchedule = jobCrewScheduleStatus(job.scheduled_date, job.assigned_team);
-                  const crewScheduleClass = jobCrewScheduleNeedsCrewClass(crewSchedule.kind);
-                  const clientPlace = dashboardJobMetaLine(job);
-                  const metaParts = [
-                    formatJobRef(job),
-                    ...(clientPlace ? clientPlace.split(' · ') : [place].filter(Boolean)),
-                    dashboardCrewLabel(job.assigned_team, teamMembers),
-                  ].filter(Boolean);
-                  return (
-                    <Link
-                      key={job.id}
-                      to={dashboardJobHref(job.id)}
-                      data-dashboard-job={job.id}
-                      className="dashboard-home-row"
-                      aria-label="Open"
-                    >
-                      <span className="dashboard-home-time">
-                        {dashboardClockLabel(job.start_time, job.end_time)}
-                      </span>
-                      <span className="dashboard-home-job">
-                        <span className="dashboard-home-title">{job.title}</span>
-                        <span className="dashboard-home-ref">
-                          {metaParts.map((part, i) => (
-                            <Fragment key={`${job.id}-meta-${i}`}>
-                              {i > 0 ? ' · ' : null}
-                              <span className="dashboard-home-ref-seg">{part}</span>
-                            </Fragment>
-                          ))}
-                        </span>
-                        <span
-                          className={[
-                            'dashboard-home-crew-schedule',
-                            crewScheduleClass,
-                          ].filter(Boolean).join(' ')}
-                          data-crew-schedule={crewSchedule.kind}
-                        >
-                          {crewSchedule.label}
-                        </span>
-                      </span>
-                      <span className="dashboard-home-place">{place}</span>
-                    </Link>
-                  );
-                })}
+            <h2 className="today-sec-h today-widgets-head ops-section-title">
+              Your widgets
+              {todayBand !== 'p' ? moreMenu : null}
+            </h2>
+            {editMode && (
+              <div className="dashboard-home-tools">
+                <button
+                  type="button"
+                  onClick={() => setShowPicker(true)}
+                  className="btn-primary dashboard-home-primary"
+                >
+                  <Plus size={16} />
+                  Add widget
+                </button>
               </div>
             )}
 
@@ -1149,7 +1391,7 @@ export function DashboardPage() {
                 {editMode ? (
                   <>
                     <DashboardPhoneEditStack
-                      widgets={widgets ?? []}
+                      widgets={shownWidgets}
                       onMove={movePhoneWidget}
                       onRemove={removeWidget}
                     >
@@ -1173,17 +1415,17 @@ export function DashboardPage() {
                           className={`dashboard-home-canvas relative overflow-x-auto is-editing`}
                           style={{ height: canvasHeight, minWidth: '100%' }}
                         >
-                          {displayWidgets.map(w => (
-                            <FreeWidget
-                              key={w.id}
-                              widget={w}
-                              editMode={editMode}
-                              onRemove={() => removeWidget(w.id)}
-                              onResizeStart={(e) => startResize(e, w)}
-                              onConfigChange={(c) => updateWidgetConfig(w.id, c)}
-                              isDragging={activeId === w.id}
-                            />
-                          ))}
+                          {shownWidgets.map(w => (
+                              <FreeWidget
+                                key={w.id}
+                                widget={w}
+                                editMode={editMode}
+                                onRemove={() => removeWidget(w.id)}
+                                onResizeStart={(e) => startResize(e, w)}
+                                onConfigChange={(c) => updateWidgetConfig(w.id, c)}
+                                isDragging={activeId === w.id}
+                              />
+                            ))}
                         </div>
                       </DndContext>
                     </div>
@@ -1209,6 +1451,7 @@ export function DashboardPage() {
                 )}
               </div>
             )}
+            </div>
           </div>
         </article>
       </div>
@@ -1220,6 +1463,20 @@ export function DashboardPage() {
           onClose={() => { if (!addingWidget) setShowPicker(false); }}
           existingTypes={new Set((widgets ?? []).map(w => w.widget_type))}
           busy={addingWidget}
+        />
+      )}
+      {showJobForm && (
+        <JobFormModal
+          job={null}
+          presetDate={todayKey}
+          presetClientId={null}
+          onClose={() => setShowJobForm(false)}
+          onSaved={(jobId) => {
+            setShowJobForm(false);
+            void queryClient.invalidateQueries({ queryKey: ['dashboard-today-jobs'] });
+            void queryClient.invalidateQueries({ queryKey: ['today-coming-up'] });
+            if (jobId) window.location.assign(`/jobs/${jobId}`);
+          }}
         />
       )}
     </AppShell>
@@ -1323,9 +1580,11 @@ export function DashboardPhoneEditStack<T extends {
 function DashboardHomeMore({
   editMode,
   onToggleEdit,
+  onNewJob,
 }: {
   editMode: boolean;
   onToggleEdit: () => void;
+  onNewJob?: () => void;
 }) {
   const moreRef = useRef<HTMLDetailsElement>(null);
 
@@ -1359,6 +1618,16 @@ function DashboardHomeMore({
         <MoreHorizontal size={18} />
       </summary>
       <div className="dashboard-home-more-menu" role="menu">
+        {onNewJob ? (
+          <button
+            type="button"
+            role="menuitem"
+            className="today-more-new"
+            onClick={() => { onNewJob(); closeMore(); }}
+          >
+            New job
+          </button>
+        ) : null}
         <button
           type="button"
           role="menuitem"
@@ -1409,9 +1678,8 @@ function FreeWidget({
           editMode ? 'is-editing' : ''
         } ${isDragging || isDragActive ? 'is-dragging' : ''}`}
       >
-        {/* Edit-mode controls bar */}
         {editMode && (
-          <div className="absolute top-1.5 left-1.5 z-20 flex items-center gap-1">
+          <div className="dashboard-home-edit-chrome">
             <button
               {...attributes}
               {...listeners}
@@ -1420,11 +1688,6 @@ function FreeWidget({
             >
               <GripVertical size={14} />
             </button>
-          </div>
-        )}
-
-        {editMode && (
-          <div className="absolute top-1.5 right-1.5 z-20">
             <button
               onClick={onRemove}
               className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-md bg-white border border-gray-200 shadow-sm text-red-500 hover:bg-red-50 transition-colors"
@@ -1443,16 +1706,17 @@ function FreeWidget({
           />
         </div>
 
-        {/* Resize handle */}
         {editMode && (
-          <div
-            onPointerDown={onResizeStart}
-            className="dashboard-home-widget-resize absolute bottom-0 right-0 z-20 min-w-[44px] min-h-[44px] w-11 h-11 cursor-se-resize touch-none flex items-end justify-end"
-            title="Drag to resize"
-          >
-            <svg width="10" height="10" viewBox="0 0 10 10" className="text-gray-400">
-              <path d="M9 1L1 9M9 5L5 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-            </svg>
+          <div className="dashboard-home-edit-foot">
+            <div
+              onPointerDown={onResizeStart}
+              className="dashboard-home-widget-resize min-w-[44px] min-h-[44px] w-11 h-11 cursor-se-resize touch-none flex items-end justify-end"
+              title="Drag to resize"
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" className="text-gray-400">
+                <path d="M9 1L1 9M9 5L5 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+              </svg>
+            </div>
           </div>
         )}
       </div>

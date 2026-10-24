@@ -66,7 +66,7 @@ export function jobsListPhoneRow(job: {
 } {
   const suburb = jobsListSuburbFromSite(jobsListSite(job.address, job.client_address));
   const bits = [jobsListCustomer(job), suburb].filter(Boolean);
-  const crewSchedule = jobCrewScheduleStatus(job.scheduled_date, job.assigned_team);
+  const crewSchedule = jobCrewScheduleStatus(job.status, job.scheduled_date, job.assigned_team);
   const needsClass = jobCrewScheduleNeedsCrewClass(crewSchedule.kind);
   return {
     title: jobsListTitle(job),

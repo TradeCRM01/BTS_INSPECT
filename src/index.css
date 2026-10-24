@@ -1,4 +1,5 @@
 @import './styles/tokens.css';
+@import './styles/todayBoard.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -12910,6 +12911,10 @@
   .dashboard-home-canvas.is-editing {
     border: none;
     background: none;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding-bottom: 80px;
+    box-sizing: content-box;
   }
 
   .dashboard-home-view-grid {
@@ -13048,8 +13053,37 @@
     font-family: var(--g-font-ui);
   }
 
+  .agent-ask-input {
+    color: var(--g-ink);
+    background: var(--g-surface);
+  }
+
+  .agent-ask-input::placeholder {
+    color: var(--g-ink-muted);
+    opacity: 1;
+  }
+
   .dashboard-home-widget-ink.is-editing {
-    padding-top: 28px;
+    padding: 60px 16px 16px;
+    height: auto !important;
+    min-height: calc(168px + 60px + 16px);
+    box-sizing: border-box;
+  }
+
+  .dashboard-home-widget-ink.is-editing .h-full,
+  .dashboard-home-widget-ink.is-editing .flex-1 {
+    height: auto !important;
+    flex: 0 0 auto !important;
+    min-height: min-content !important;
+  }
+
+  .dashboard-home-widget-ink.is-editing .overflow-auto,
+  .dashboard-home-widget-ink.is-editing [data-compliance-deadlines] {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    flex: 0 0 auto !important;
+    min-height: min-content !important;
   }
 
   .dashboard-home-widget-stack .dashboard-home-widget-ink {
@@ -13188,7 +13222,40 @@
   }
 
   .dashboard-home-widget.is-editing {
+    position: relative;
+    height: auto !important;
+    min-height: calc(168px + 60px + 16px + 32px);
+    padding-bottom: 32px;
+    box-sizing: border-box;
+    overflow: hidden;
+    background: var(--dashboard-home-sheet);
+    border: 1px solid var(--dashboard-home-line);
     outline: 1px solid color-mix(in srgb, var(--g-accent) 35%, var(--dashboard-home-line));
+  }
+
+  .dashboard-home-edit-chrome {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 44px;
+    box-sizing: border-box;
+  }
+
+  .dashboard-home-edit-foot {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    height: 44px;
+    box-sizing: border-box;
   }
 
   .dashboard-home-widget.is-dragging {

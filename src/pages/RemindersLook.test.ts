@@ -62,16 +62,18 @@ describe('reminders LOOK — same paper as the signed-in home', () => {
     expect(edit).toContain('className="reminder-visibility-note"');
 
     expect(home).toContain('data-dashboard-reminders');
-    expect(home).toContain('className="dashboard-home-strip"');
-    expect(home).toContain('className="ops-section-title">Reminders');
-    expect(home).toContain('className="ops-section-title">Today\'s schedule');
-    expect(home).toContain('to="/reminders" className="dashboard-home-all"');
-    expect(home).toContain('to="/schedule" className="dashboard-home-all"');
+    expect(home).toContain('className="today-sec today-reminders dashboard-home-strip"');
+    expect(home).toContain('id="today-reminders-h">Reminders');
+    expect(home).toContain('to="/reminders" className="today-quiet dashboard-home-all"');
     expect(home).toContain('id="dashboard-reminder-capture"');
-    expect(home).toContain('className="dashboard-nudge" data-nudge-kind={n.kind}');
     expect(home).toContain('todayReminders(');
     expect(home).toContain('deriveNudges(');
-    expect(home.indexOf('data-dashboard-reminders')).toBeLessThan(home.indexOf('dashboard-home-ledger'));
+    const board = src('src/pages/TodayBoardView.tsx');
+    expect(board).toContain('className="today-need-row" data-nudge-kind={nudge.kind}');
+    expect(board).toContain('to="/schedule" className="today-quiet"');
+    expect(board).not.toContain('dashboard-nudge');
+    expect(board).not.toContain('dashboard-home-');
+    expect(home.indexOf('TodayBoardView')).toBeLessThan(home.indexOf('data-dashboard-reminders'));
   });
 
   it('renders one ReminderRow for both surfaces with tick, body link, chips, visibility, and postpone', () => {

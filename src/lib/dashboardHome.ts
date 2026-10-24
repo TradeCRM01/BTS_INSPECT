@@ -13,7 +13,11 @@ import {
 export type DashboardTodayStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
 
 export type DashboardTodayJob = ScheduleDayJob & {
-  status?: DashboardTodayStatus | null;
+  id: string;
+  job_number?: number | null;
+  cost_code?: string | null;
+  parent_job_number?: number | null;
+  status?: string | null;
   address?: string | null;
   client_address?: string | null;
   client_name?: string | null;

@@ -3,6 +3,7 @@ import { safeFormatDate } from './safeDate';
 import { formatMoney } from '../types/fsm';
 import { dashboardJobPlace } from './dashboardHome';
 import { formatJobRef } from './jobRef';
+import { assignedTeamIds, scheduledDateText } from './needCrew';
 import { padQuoteNumber } from './quoteJobFields';
 import { scheduleDateKey, scheduleDayKey } from './scheduleBoard';
 
@@ -15,10 +16,10 @@ export type NudgeJob = {
   job_number: number | null;
   title: string;
   status: string;
-  scheduled_date: string | null;
+  scheduled_date: unknown;
   start_time: string | null;
   end_time?: string | null;
-  assigned_team?: string[] | null;
+  assigned_team?: unknown;
   address?: string | null;
   client_name?: string | null;
   client_address?: string | null;
@@ -234,7 +235,7 @@ function quoteValidTo(validityDate: string | null | undefined): string {
 
 /** Job start as a local instant on its scheduled day, or null when the job has no clock. */
 export function nudgeJobStart(job: Pick<NudgeJob, 'scheduled_date' | 'start_time'>): Date | null {
-  const day = scheduleDayKey(job.scheduled_date);
+  const day = scheduleDayKey(scheduledDateText(job.scheduled_date) || null);
   const clock = /^(\d{2}):(\d{2})/.exec(job.start_time ?? '');
   if (!day || !clock) return null;
   const start = localDay(day);
@@ -252,7 +253,7 @@ export function nudgeJobDetail(job: NudgeJob): string {
 }
 
 function onCrew(job: NudgeJob, userId: string | null): boolean {
-  const crew = job.assigned_team ?? [];
+  const crew = assignedTeamIds(job.assigned_team);
   return crew.length === 0 || (!!userId && crew.includes(userId));
 }
 
@@ -264,7 +265,7 @@ function byStart(a: NudgeJob, b: NudgeJob): number {
 
 function scheduledOn(input: NudgeInput, dayKey: string): NudgeJob[] {
   return input.jobs
-    .filter(job => job.status === 'scheduled' && scheduleDayKey(job.scheduled_date) === dayKey && onCrew(job, input.userId))
+    .filter(job => job.status === 'scheduled' && scheduleDayKey(scheduledDateText(job.scheduled_date) || null) === dayKey && onCrew(job, input.userId))
     .sort(byStart);
 }
 

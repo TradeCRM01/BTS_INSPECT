@@ -188,7 +188,7 @@ export function CalendarWidget() {
             key={i}
             className={`text-[10px] flex items-center justify-center rounded ${
               day === today.getDate()
-                ? 'bg-blue-500 text-white font-bold'
+                ? 'bg-blue-700 text-white font-bold'
                 : day
                   ? 'text-gray-600 hover:bg-gray-100'
                   : ''
@@ -258,7 +258,7 @@ export function CalculatorWidget() {
   const btnClass = "rounded-lg text-sm font-medium transition-colors active:scale-95";
   const numClass = `${btnClass} bg-gray-50 hover:bg-gray-100 text-[#1A1A1A]`;
   const opClass = `${btnClass} bg-blue-50 hover:bg-blue-100 text-blue-600`;
-  const eqClass = `${btnClass} bg-blue-500 hover:bg-blue-600 text-white`;
+  const eqClass = `${btnClass} bg-blue-700 hover:bg-blue-800 text-white`;
 
   return (
     <div className="h-full flex flex-col">

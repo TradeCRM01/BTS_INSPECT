@@ -20,18 +20,23 @@ describe('dashboard laptop LOOK — quote paper, overflow on the sheet', () => {
 
     expect(page).toContain('dashboard-home');
     expect(page).toContain('dashboard-home-sheet');
-    expect(page).toContain('dashboard-home-sheet-bar');
-    expect(page).toContain('dashboard-home-mark">{NAV_WORDS.today}');
+    expect(page).not.toContain('<header className="dashboard-home-sheet-bar">');
+    expect(page).not.toContain('dashboard-home-mark">{NAV_WORDS.today}');
+    expect(src('src/pages/TodayBoardView.tsx')).toContain('ops-page-title today-title">{NAV_WORDS.today}');
     expect(page).toContain('dashboard-home-sheet-body');
-    expect(page).toContain('dashboard-home-whisper');
     expect(page).toContain('dashboard-home-tools');
-    expect(page).toContain('dashboard-home-row');
-    expect(page).toContain('Time');
-    expect(page).toContain('Place');
-    expect(page).toContain('ops-page-title dashboard-home-hero">{NAV_WORDS.today}');
-    expect(page).toContain('aria-label="Open"');
+    const board = src('src/pages/TodayBoardView.tsx');
+    expect(board).toContain('today-sub');
+    expect(board).toContain('data-need-crew-count');
+    expect(board).toContain('today-job-row');
+    expect(board).not.toContain('dashboard-home-');
+    expect(board).not.toContain('dashboard-nudge');
+    expect(board).toContain('Time');
+    expect(board).toContain('Place');
+    expect(board).toContain('ops-page-title today-title">{NAV_WORDS.today}');
+    expect(board).toContain('aria-label="Open"');
     expect(page).toContain('className="btn-primary dashboard-home-primary"');
-    expect(page).toContain('Week board');
+    expect(board).toContain('Week board');
     expect(page).toContain('placeDashboardMore');
     expect(page).toContain('inkFloor');
     expect(page).not.toContain('dashboard-home-kicker');
@@ -44,7 +49,7 @@ describe('dashboard laptop LOOK — quote paper, overflow on the sheet', () => {
     expect(page).toContain('is-flip');
     expect(page).toContain('is-shift');
     expect(page).toContain('--dashboard-home-more-shift');
-    expect(page).toContain("look') === DASHBOARD_LOOK");
+    expect(page).toContain('lookParam === DASHBOARD_LOOK');
     expect(page).toContain('Northside Electrical');
     expect(page).toContain('Harbour Lights');
     expect(page).toContain('Site labour');
@@ -63,7 +68,9 @@ describe('dashboard laptop LOOK — quote paper, overflow on the sheet', () => {
 
     expect((page.match(/dashboard-home-more/g) ?? []).length).toBeGreaterThanOrEqual(1);
     expect((page.match(/MoreHorizontal/g) ?? []).length).toBeGreaterThanOrEqual(1);
-    expect((page.match(/className="btn-primary dashboard-home-primary"/g) ?? []).length).toBe(4);
+    expect(
+      `${page}\n${board}`.match(/className="btn-primary dashboard-home-primary/g)?.length ?? 0,
+    ).toBeGreaterThanOrEqual(3);
 
     expect(css).toContain('.dashboard-home.ops-page');
     expect(css).toContain('.dashboard-home-sheet');
@@ -105,7 +112,7 @@ describe('dashboard laptop LOOK — quote paper, overflow on the sheet', () => {
   it('does not rewrite persist, widget, or convert writes', () => {
     const page = src('src/pages/DashboardPage.tsx');
     expect(page).toContain('todaysDashboardJobs');
-    expect(page).toContain('dashboardJobHref');
+    expect(src('src/pages/TodayBoardView.tsx')).toContain('dashboardJobHref');
     expect(page).toContain('persistWidget');
     expect(page).toContain('addWidget');
     expect(page).toContain('removeWidget');

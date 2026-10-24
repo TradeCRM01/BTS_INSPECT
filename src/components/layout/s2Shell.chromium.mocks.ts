@@ -1,6 +1,16 @@
 /** Browser-side stubs for the S2 Chromium shell harness. Not imported by the app. */
 
 import { BRAND_NAME } from '../../lib/brand';
+import {
+  TODAY_FIXTURE_CLIENTS,
+  TODAY_FIXTURE_COMPANY,
+  TODAY_FIXTURE_CREW,
+  TODAY_FIXTURE_DAY,
+  TODAY_FIXTURE_EXPENSES,
+  TODAY_FIXTURE_INVOICES,
+  TODAY_FIXTURE_JOBS,
+  TODAY_FIXTURE_PAYMENTS,
+} from '../../lib/todayFixture';
 
 export type S2ShellCfg = {
   companyName?: string;
@@ -17,7 +27,7 @@ export function useAuth() {
       id: '00000000-0000-0000-0000-000000000002',
       name: 'Field Audit',
       role: 'admin',
-      company_id: 'c1',
+      company_id: TODAY_FIXTURE_COMPANY,
     },
     company: {
       id: '00000000-0000-0000-0000-000000000001',
@@ -46,24 +56,45 @@ export const LIVE_DASH_REMINDER_TITLES = [
 ] as const;
 export const LIVE_DASH_META = '#0141.A$ · Owen Price — delete ok · Ashgrove · CoS Invitee Test';
 
-function todayKey(now = new Date()): string {
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+function liveDueIso(): string {
+  return '2026-10-19T08:00:00.000+10:00';
 }
 
-function liveDueIso(now = new Date()): string {
-  const due = new Date(now);
-  due.setHours(8, 0, 0, 0);
-  return due.toISOString();
+function liveReminders() {
+  const due = liveDueIso();
+  return LIVE_DASH_REMINDER_TITLES.map((title, i) => ({
+    id: `live-rem-${i}`,
+    company_id: TODAY_FIXTURE_COMPANY,
+    user_id: '00000000-0000-0000-0000-000000000002',
+    title,
+    details: '',
+    due_date: due,
+    related_type: null,
+    related_id: null,
+    completed: false,
+    completed_at: null,
+    visibility: 'private' as const,
+    tagged_user_ids: [],
+    created_at: due,
+    updated_at: due,
+  }));
 }
+
+function liveCrew() {
+  return [
+    ...TODAY_FIXTURE_CREW,
+    { id: 'live-crew-invitee', name: LIVE_DASH_CREW_NAME },
+    { id: 'live-crew-0137', name: `${BRAND_NAME} CoS Test` },
+  ];
+}
+
+type MockRow = Record<string, unknown>;
 
 function liveJobs() {
-  const day = todayKey();
+  const day = TODAY_FIXTURE_DAY;
   const stamp = liveDueIso();
   const base = {
-    company_id: 'c1',
+    company_id: TODAY_FIXTURE_COMPANY,
     description: null as string | null,
     priority: 'medium',
     inspection_id: null as string | null,
@@ -100,82 +131,142 @@ function liveJobs() {
     assigned_team: ['live-crew-0137'],
     job_number: 137,
     cost_code: null,
+  }, {
+    ...base,
+    id: 'live-job-undated',
+    client_id: 'live-client-owen',
+    title: 'Waiting on a date',
+    status: 'scheduled',
+    scheduled_date: null,
+    start_time: null,
+    end_time: null,
+    address: '9 Yard Rd, Ashgrove QLD 4060',
+    assigned_team: [],
+    job_number: 42,
+    cost_code: null,
+  }, {
+    ...base,
+    id: 'live-job-unknown',
+    client_id: 'live-client-megan',
+    title: 'Hold for parts',
+    status: 'on_hold',
+    scheduled_date: day,
+    start_time: '16:00',
+    end_time: '17:00',
+    address: '2 Hold St, Wilston QLD 4051',
+    assigned_team: [' '],
+    job_number: 46,
+    cost_code: null,
+  }, {
+    ...base,
+    id: 'live-job-awaiting',
+    client_id: 'live-client-owen',
+    title: 'Parts on order',
+    status: 'awaiting_parts',
+    scheduled_date: day,
+    start_time: '15:00',
+    end_time: '16:00',
+    address: '47 Parts Rd, Ashgrove QLD 4060',
+    assigned_team: ['live-crew-invitee'],
+    job_number: 47,
+    cost_code: null,
   }];
 }
 
 function liveClients() {
   return [{
     id: 'live-client-owen',
+    company_id: TODAY_FIXTURE_COMPANY,
     name: 'Owen Price — delete ok',
     phone: null,
     address: '12 Example St, Ashgrove QLD 4060',
   }, {
     id: 'live-client-megan',
+    company_id: TODAY_FIXTURE_COMPANY,
     name: 'Megan Lowe',
     phone: null,
     address: '4 Example St, Wilston QLD 4051',
   }];
 }
 
-function liveReminders() {
-  const due = liveDueIso();
-  return LIVE_DASH_REMINDER_TITLES.map((title, i) => ({
-    id: `live-rem-${i}`,
-    company_id: 'c1',
-    user_id: '00000000-0000-0000-0000-000000000002',
-    title,
-    details: '',
-    due_date: due,
-    related_type: null,
-    related_id: null,
-    completed: false,
-    completed_at: null,
-    visibility: 'private' as const,
-    tagged_user_ids: [],
-    created_at: due,
-    updated_at: due,
-  }));
-}
-
-function liveCrew() {
-  return [
-    { id: 'live-crew-invitee', name: LIVE_DASH_CREW_NAME },
-    { id: 'live-crew-0137', name: `${BRAND_NAME} CoS Test` },
-  ];
-}
-
-type MockRow = Record<string, unknown>;
-
 function tableRows(table: string): MockRow[] {
-  if (table === 'jobs') return liveJobs() as unknown as MockRow[];
-  if (table === 'clients') return liveClients() as unknown as MockRow[];
+  if (table === 'jobs') return [...liveJobs(), ...TODAY_FIXTURE_JOBS] as unknown as MockRow[];
+  if (table === 'clients') return [...liveClients(), ...TODAY_FIXTURE_CLIENTS] as unknown as MockRow[];
+  if (table === 'invoices') return TODAY_FIXTURE_INVOICES as unknown as MockRow[];
+  if (table === 'invoice_payments') return TODAY_FIXTURE_PAYMENTS as unknown as MockRow[];
+  if (table === 'expenses') return TODAY_FIXTURE_EXPENSES as unknown as MockRow[];
   if (table === 'agent_reminders') return liveReminders() as unknown as MockRow[];
+  if (table === 'profiles') {
+    return [{
+      id: '00000000-0000-0000-0000-000000000002',
+      dashboard_widgets_seeded: true,
+      company_id: TODAY_FIXTURE_COMPANY,
+    }];
+  }
   return [];
+}
+
+function match(row: MockRow, kind: string, col: string, val: unknown): boolean {
+  const raw = row[col];
+  if (kind === 'eq') return String(raw ?? '') === String(val);
+  if (kind === 'neq') return String(raw ?? '') !== String(val);
+  if (kind === 'in') return (val as unknown[]).map(String).includes(String(raw ?? ''));
+  const date = String(raw ?? '').slice(0, 10);
+  const bound = String(val);
+  if (kind === 'gte') return date >= bound;
+  if (kind === 'lte') return date <= bound;
+  if (kind === 'gt') return date > bound;
+  if (kind === 'lt') return date < bound;
+  return true;
 }
 
 function from(table: string) {
   const rows = tableRows(table);
-  const payload = { data: rows, error: null, count: rows.length };
+  const filters: Array<{ kind: string; col: string; val: unknown }> = [];
+  const order: Array<{ col: string; asc: boolean }> = [];
+  let limit: number | undefined;
+  const apply = () => {
+    let next = rows.filter((row) => filters.every((filter) => (
+      filter.kind === 'limit' ? true : match(row, filter.kind, filter.col, filter.val)
+    )));
+    for (const rule of order) {
+      next = [...next].sort((a, b) => {
+        const av = String(a[rule.col] ?? '');
+        const bv = String(b[rule.col] ?? '');
+        return rule.asc ? av.localeCompare(bv) : bv.localeCompare(av);
+      });
+    }
+    if (limit != null) next = next.slice(0, limit);
+    return next;
+  };
   const chain: Record<string, unknown> = {};
   chain.select = () => chain;
-  chain.eq = () => chain;
-  chain.neq = () => chain;
-  chain.gte = () => chain;
-  chain.lte = () => chain;
-  chain.in = () => chain;
+  chain.eq = (col: string, val: unknown) => { filters.push({ kind: 'eq', col, val }); return chain; };
+  chain.neq = (col: string, val: unknown) => { filters.push({ kind: 'neq', col, val }); return chain; };
+  chain.gte = (col: string, val: unknown) => { filters.push({ kind: 'gte', col, val }); return chain; };
+  chain.lte = (col: string, val: unknown) => { filters.push({ kind: 'lte', col, val }); return chain; };
+  chain.gt = (col: string, val: unknown) => { filters.push({ kind: 'gt', col, val }); return chain; };
+  chain.lt = (col: string, val: unknown) => { filters.push({ kind: 'lt', col, val }); return chain; };
+  chain.in = (col: string, val: unknown) => { filters.push({ kind: 'in', col, val }); return chain; };
   chain.or = () => chain;
   chain.ilike = () => chain;
-  chain.limit = () => chain;
-  chain.order = () => chain;
+  chain.limit = (count: number) => { limit = count; filters.push({ kind: 'limit', col: '', val: count }); return chain; };
+  chain.order = (col: string, opts?: { ascending?: boolean }) => {
+    order.push({ col, asc: opts?.ascending !== false });
+    return chain;
+  };
   chain.insert = () => chain;
   chain.update = () => chain;
   chain.delete = () => chain;
-  chain.maybeSingle = () => Promise.resolve({ data: rows[0] ?? null, error: null });
-  chain.single = () => Promise.resolve({ data: rows[0] ?? null, error: null });
+  chain.maybeSingle = () => Promise.resolve({ data: apply()[0] ?? null, error: null });
+  chain.single = () => Promise.resolve({ data: apply()[0] ?? null, error: null });
   chain.then = (
     resolve?: (v: unknown) => unknown,
     reject?: (e: unknown) => unknown,
-  ) => Promise.resolve(payload).then(resolve, reject);
+  ) => {
+    const next = apply();
+    return Promise.resolve({ data: next, error: null, count: next.length }).then(resolve, reject);
+  };
   return chain;
 }
 
@@ -198,3 +289,4 @@ export const supabase = {
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
   },
 };
+
