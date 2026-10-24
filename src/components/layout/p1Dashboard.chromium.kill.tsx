@@ -4319,7 +4319,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     expect([...pageSrc.matchAll(/blank\('full-/g)].length, '26 full- look widgets').toBe(26);
 
     mkdirSync('/tmp/hf-403-768', { recursive: true });
-    const artDir = '/cursor/stores/self/artifacts/hf-406-r2';
+    const artDir = mkdtempSync(join(tmpdir(), 'hf-406-r2-'));
     mkdirSync(artDir, { recursive: true });
     const table: Array<{ width: number; id: string; main: number; head: number }> = [];
     for (const width of [768, 1024, 1280] as const) {
@@ -4829,7 +4829,7 @@ img{display:block;width:100%;height:auto;border:1px solid #0A2540}
   }, 300000);
 
   it('HF-403-768-r4: view-vs-Customize side-by-sides at 768/1024/1280', async () => {
-    const artDir = '/cursor/stores/self/artifacts/hf-406-r4';
+    const artDir = mkdtempSync(join(tmpdir(), 'hf-406-r4-'));
     mkdirSync(artDir, { recursive: true });
     mkdirSync('/workspace/artifacts/hf-406-r4', { recursive: true });
     for (const width of [768, 1024, 1280] as const) {
