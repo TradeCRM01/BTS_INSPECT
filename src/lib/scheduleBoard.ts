@@ -26,6 +26,12 @@ export function takeBoardPage<T>(rows: readonly T[] | null | undefined): Schedul
   };
 }
 
+/** Shown count from the limit+1 page. 201 rows become `200+`. 200 stays `200`. */
+export function boardShownLabel(shown: number, more: boolean): string {
+  const n = Math.max(0, Math.floor(shown));
+  return more ? `${n}+` : `${n}`;
+}
+
 export function scheduleBoardColumnList(columns = SCHEDULE_BOARD_COLUMNS): string[] {
   return columns.split(',').map(part => part.trim()).filter(Boolean);
 }
@@ -503,11 +509,12 @@ export function scheduleBoardWhisper(parts: {
   onBoard: number;
   needCrew: number;
   needsDate: number;
+  moreNeedsDate?: boolean;
 }): string {
   return [
     `${parts.onBoard} on the board`,
     parts.needCrew > 0 ? `${parts.needCrew} need crew` : '',
-    parts.needsDate > 0 ? `${parts.needsDate} without a date` : '',
+    parts.needsDate > 0 ? `${boardShownLabel(parts.needsDate, !!parts.moreNeedsDate)} without a date` : '',
   ].filter(Boolean).join(' · ');
 }
 

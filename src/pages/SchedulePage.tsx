@@ -891,6 +891,7 @@ export function SchedulePage() {
     onBoard: onBoard.length,
     needCrew,
     needsDate: needsDate.length,
+    moreNeedsDate: moreUndated,
   });
   const boardRangeLabel = viewMode === 'day' ? dayRangeLabel : weekRangeLabel;
   const boardEyebrow = scheduleEyebrow(viewMode, currentDate);
@@ -1115,6 +1116,7 @@ export function SchedulePage() {
                           onSetScheduleDate={job => openScheduleSheet(job)}
                           onDragStart={handleRailDragStart}
                           invoicedJobIds={invoicedJobIds}
+                          more={moreUndated}
                         />
                       )}
                     />
@@ -1160,6 +1162,7 @@ export function SchedulePage() {
                         onSetScheduleDate={job => openScheduleSheet(job)}
                         onDragStart={handleRailDragStart}
                         invoicedJobIds={invoicedJobIds}
+                        more={moreUndated}
                       />
                     </div>
                   </div>
@@ -1191,6 +1194,7 @@ export function SchedulePage() {
                 onDragStart={handleRailDragStart}
                 alwaysShow
                 invoicedJobIds={invoicedJobIds}
+                more={moreUndated}
               />
             </div>
           </div>

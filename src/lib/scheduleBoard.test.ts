@@ -12,6 +12,7 @@ import {
   jobsColumnsFromMigrations,
   scheduleBoardColumnList,
   takeBoardPage,
+  boardShownLabel,
   compareScheduleJobs,
   filterJobsByCrew,
   groupJobsByScheduleDay,
@@ -89,6 +90,11 @@ describe('board page bounds', () => {
     expect(over.more).toBe(true);
     expect(SCHEDULE_BOARD_LIMIT).toBe(201);
     expect(MORE_JOBS_THIS_WEEK).toBe('More jobs this week than shown — open Jobs');
+    expect(boardShownLabel(200, false)).toBe('200');
+    expect(boardShownLabel(200, true)).toBe('200+');
+    expect(scheduleBoardWhisper({ onBoard: 0, needCrew: 0, needsDate: 200 })).toBe('0 on the board · 200 without a date');
+    expect(scheduleBoardWhisper({ onBoard: 0, needCrew: 0, needsDate: 200, moreNeedsDate: true }))
+      .toBe('0 on the board · 200+ without a date');
   });
 
   it('every SCHEDULE_BOARD_COLUMNS entry exists on jobs in the migration chain', () => {

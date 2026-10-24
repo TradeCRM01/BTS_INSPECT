@@ -1063,6 +1063,48 @@ TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof
 # expected AssertionError at src/proof/p2Schedule/kill.ts:749
 git checkout -- src/pages/SchedulePage.tsx
 
+# drop-plus-whisper → K15 — whisper drops + on the undated cap
+python3 - <<'PY'
+from pathlib import Path
+p = Path("src/lib/scheduleBoard.ts")
+t = p.read_text()
+old = "boardShownLabel(parts.needsDate, !!parts.moreNeedsDate)"
+new = "String(parts.needsDate)"
+if old not in t: raise SystemExit("drop-plus-whisper find missed")
+p.write_text(t.replace(old, new, 1))
+PY
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
+# expected AssertionError at src/proof/p2Schedule/kill.ts:786
+git checkout -- src/lib/scheduleBoard.ts
+
+# drop-plus-chip → K15 — phone chip drops + on the undated cap
+python3 - <<'PY'
+from pathlib import Path
+p = Path("src/lib/schedulePhoneUnscheduled.ts")
+t = p.read_text()
+old = "boardShownLabel(n, more)"
+new = "n"
+if old not in t: raise SystemExit("drop-plus-chip find missed")
+p.write_text(t.replace(old, new, 1))
+PY
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
+# expected AssertionError at src/proof/p2Schedule/kill.ts:796
+git checkout -- src/lib/schedulePhoneUnscheduled.ts
+
+# drop-plus-rail → K15 — rail count drops + on the undated cap
+python3 - <<'PY'
+from pathlib import Path
+p = Path("src/components/crm/BoardViews.tsx")
+t = p.read_text()
+old = "boardShownLabel(jobs.length, more)"
+new = "String(jobs.length)"
+if old not in t: raise SystemExit("drop-plus-rail find missed")
+p.write_text(t.replace(old, new, 1))
+PY
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
+# expected AssertionError at src/proof/p2Schedule/kill.ts:788
+git checkout -- src/components/crm/BoardViews.tsx
+
 # rename-new-job-choice → K25 — rename the New job choice visible text
 python3 - <<'PY'
 from pathlib import Path
