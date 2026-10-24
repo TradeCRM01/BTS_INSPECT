@@ -16971,6 +16971,7 @@
     border-bottom: 1px solid var(--g-glass-line);
     backdrop-filter: saturate(180%) blur(16px);
     -webkit-backdrop-filter: saturate(180%) blur(16px);
+    padding-top: calc(12px + env(safe-area-inset-top, 0px) + var(--safe-area-inset-top, 0px));
     @apply sticky top-0 z-40 flex-shrink-0;
   }
 
@@ -17125,7 +17126,7 @@
   @media (max-width: 767px) {
     :root,
     .shell-root {
-      --shell-bottom-nav-h: calc(64px + env(safe-area-inset-bottom));
+      --shell-bottom-nav-h: calc(64px + env(safe-area-inset-bottom, 0px) + var(--safe-area-inset-bottom, 0px));
     }
   }
 
@@ -17203,7 +17204,7 @@
 
   /* The open menu stops above the bar. Header = h-14, its safe-area top pad, and two hairlines. */
   .shell-phone-menu {
-    max-height: calc(100dvh - 58px - max(12px, env(safe-area-inset-top)) - var(--shell-bottom-nav-h, 0px));
+    max-height: calc(100dvh - 58px - (12px + env(safe-area-inset-top, 0px) + var(--safe-area-inset-top, 0px)) - var(--shell-bottom-nav-h, 0px));
     background-color: var(--g-nav-bg);
     color: var(--g-nav-ink);
     border-top: 1px solid var(--g-glass-line);
@@ -17235,7 +17236,7 @@
     border-top: 1px solid var(--g-glass-line);
     backdrop-filter: saturate(180%) blur(16px);
     -webkit-backdrop-filter: saturate(180%) blur(16px);
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--safe-area-inset-bottom, 0px));
   }
 
   .shell-bottom-tab {
@@ -17404,7 +17405,11 @@
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  padding: 16px 24px 8px;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--ops-cream);
+  padding: calc(16px + env(safe-area-inset-top, 0px) + var(--safe-area-inset-top, 0px)) 24px 8px;
   max-width: 1120px;
   margin: 0 auto;
 }
@@ -17497,11 +17502,14 @@
 .hub-marketing-display {
   font-family: var(--g-font-title);
   font-weight: 700;
-  font-size: clamp(1.35rem, 8vw, 6rem);
-  line-height: 0.96;
+  font-size: clamp(1.5rem, 6.4vw, 4.5rem);
+  line-height: 1.05;
   letter-spacing: 0.01em;
   color: var(--mkt-ink);
-  white-space: nowrap;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: break-word;
 }
 
 .hub-marketing-display-sm {
