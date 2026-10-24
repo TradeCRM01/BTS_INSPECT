@@ -3884,6 +3884,134 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     };
   }
 
+  function hf403AllBox() {
+    const vis = (el: Element) => {
+      const s = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+    };
+    const rights = [...document.querySelectorAll('body *')].filter(vis).map((el) => el.getBoundingClientRect().right);
+    return {
+      innerWidth: window.innerWidth,
+      scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+      maxRight: rights.length ? Math.max(...rights) : 0,
+    };
+  }
+
+  function hf403TextPastViewport() {
+    const clips: Array<{ text: string; textRight: number; innerWidth: number }> = [];
+    const iw = window.innerWidth;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+      const raw = node.textContent || '';
+      const parent = node.parentElement;
+      if (raw.trim() && parent) {
+        const s = getComputedStyle(parent);
+        const pr = parent.getBoundingClientRect();
+        if (s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0 && pr.width > 0 && pr.height > 0) {
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          for (const r of [...range.getClientRects()]) {
+            if (r.width < 1 || r.height < 1) continue;
+            if (r.right > iw) {
+              clips.push({ text: raw.trim().slice(0, 48), textRight: r.right, innerWidth: iw });
+            }
+          }
+        }
+      }
+      node = walker.nextNode();
+    }
+    return clips;
+  }
+
+  function hf403CanvasReach() {
+    const canvas = document.querySelector('.dashboard-home-canvas.is-editing') as HTMLElement | null;
+    const phone = window.innerWidth < 768;
+    if (phone || !canvas) {
+      return {
+        scroller: false,
+        overflowX: '',
+        clientWidth: 0,
+        scrollWidth: 0,
+        cards: [] as Array<{
+          id: string;
+          width: number;
+          fullyIn: boolean;
+          fitsClient: boolean;
+          textPastCard: number;
+          textPastCanvas: number;
+        }>,
+      };
+    }
+    const cs = getComputedStyle(canvas);
+    const hosts = [...document.querySelectorAll('[data-dashboard-widget-id]')].filter((el) => {
+      if (el.closest('[data-dashboard-phone-stack]')) return false;
+      const r = el.getBoundingClientRect();
+      const s = getComputedStyle(el as HTMLElement);
+      return s.display !== 'none' && r.width > 0 && r.height > 0;
+    });
+    const cards: Array<{
+      id: string;
+      width: number;
+      fullyIn: boolean;
+      fitsClient: boolean;
+      textPastCard: number;
+      textPastCanvas: number;
+    }> = [];
+    const saved = canvas.scrollLeft;
+    for (const host of hosts) {
+      const card = (host.querySelector('.dashboard-home-widget') as HTMLElement | null) ?? host as HTMLElement;
+      const id = host.getAttribute('data-dashboard-widget-id') || '';
+      const box0 = canvas.getBoundingClientRect();
+      const cr0 = card.getBoundingClientRect();
+      const cardLeft = cr0.left - box0.left + canvas.scrollLeft;
+      const cardRight = cardLeft + cr0.width;
+      if (cardLeft < canvas.scrollLeft) canvas.scrollLeft = cardLeft;
+      else if (cardRight > canvas.scrollLeft + canvas.clientWidth) {
+        canvas.scrollLeft = Math.max(0, cardRight - canvas.clientWidth);
+      }
+      const box = canvas.getBoundingClientRect();
+      const cr = card.getBoundingClientRect();
+      const visLeft = box.left;
+      const visRight = box.left + canvas.clientWidth;
+      const fullyIn = cr.left >= visLeft - 1 && cr.right <= visRight + 1;
+      let textPastCard = 0;
+      let textPastCanvas = 0;
+      const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode();
+      while (node) {
+        const raw = node.textContent || '';
+        if (raw.trim()) {
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          for (const r of [...range.getClientRects()]) {
+            if (r.width < 1 || r.height < 1) continue;
+            if (r.right > cr.right + 0.5) textPastCard += 1;
+            if (r.right > visRight + 0.5) textPastCanvas += 1;
+          }
+        }
+        node = walker.nextNode();
+      }
+      cards.push({
+        id,
+        width: cr.width,
+        fullyIn,
+        fitsClient: cr.width <= canvas.clientWidth + 1,
+        textPastCard,
+        textPastCanvas,
+      });
+    }
+    canvas.scrollLeft = saved;
+    return {
+      scroller: (cs.overflowX === 'auto' || cs.overflowX === 'scroll') && canvas.scrollWidth > canvas.clientWidth + 1,
+      overflowX: cs.overflowX,
+      clientWidth: canvas.clientWidth,
+      scrollWidth: canvas.scrollWidth,
+      cards,
+    };
+  }
+
   type Hf403Fixture = {
     sha256: string;
     sha: string;
@@ -3998,6 +4126,71 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       await edit.close();
       expect(editBox.scrollWidth, `docSW edit ${width}`).toBeLessThanOrEqual(width);
       expect(editBox.maxRight, `max rect.right edit ${width}`).toBeLessThanOrEqual(width);
+    }
+  }, 240000);
+
+  it('HF-403-768: view and phone stay in the viewport; md+ Customize scrolls the canvas', async () => {
+    for (const width of [375, 390, 768, 1024, 1280] as const) {
+      const view = await openLookDist(lookOrigin, width, '/?look=dashboard-full');
+      await view.setViewportSize({ width, height: width <= 430 ? 4000 : 5000 });
+      const viewAll = await view.evaluate(hf403AllBox);
+      const viewText = await view.evaluate(hf403TextPastViewport);
+      const viewClip = await view.evaluate(hf403TextClip);
+      await view.close();
+      expect(viewAll.scrollWidth, `docSW view-all ${width}`).toBeLessThanOrEqual(width);
+      expect(viewAll.maxRight, `all rect.right view ${width}`).toBeLessThanOrEqual(width);
+      expect(viewText, `text past viewport view ${width}: ${JSON.stringify(viewText.slice(0, 2))}`).toEqual([]);
+      expect(viewClip, `text past card view ${width}`).toEqual([]);
+
+      const edit = await hf403OpenEdit(width);
+      const editPage = await edit.evaluate(hf403PageBox);
+      const editClip = await edit.evaluate(hf403TextClip);
+      expect(editPage.scrollWidth, `docSW edit-reach ${width}`).toBeLessThanOrEqual(width);
+      expect(editClip, `text past card edit ${width}`).toEqual([]);
+      if (width < 768) {
+        const editAll = await edit.evaluate(hf403AllBox);
+        const editText = await edit.evaluate(hf403TextPastViewport);
+        expect(editAll.maxRight, `all rect.right edit ${width}`).toBeLessThanOrEqual(width);
+        expect(editText, `text past viewport edit ${width}: ${JSON.stringify(editText.slice(0, 2))}`).toEqual([]);
+      } else {
+        const reach = await edit.evaluate(hf403CanvasReach);
+        expect(reach.overflowX, `edit canvas overflow-x at ${width}`).toMatch(/auto|scroll/);
+        expect(reach.cards.length, `reachable cards at ${width}`).toBe(26);
+        for (const card of reach.cards) {
+          expect(card.fitsClient, `${width} ${card.id} width ${card.width} fits canvas ${reach.clientWidth}`).toBe(true);
+          expect(card.fullyIn, `${width} ${card.id} fully in canvas after scroll`).toBe(true);
+          expect(card.textPastCard, `${width} ${card.id} text past card`).toBe(0);
+          expect(card.textPastCanvas, `${width} ${card.id} text past canvas edge`).toBe(0);
+        }
+        if (reach.scrollWidth <= reach.clientWidth + 1) {
+          const editAll = await edit.evaluate(hf403AllBox);
+          expect(editAll.maxRight, `all rect.right edit ${width} (no canvas scroll)`).toBeLessThanOrEqual(width);
+        } else {
+          expect(reach.scroller, `edit canvas scrolls at ${width}`).toBe(true);
+        }
+      }
+      await edit.close();
+    }
+  }, 300000);
+
+  it('HF-403-768: text stays inside the viewport at 320/375/390 in view and Customize', async () => {
+    for (const width of [320, 375, 390] as const) {
+      const view = await openLookDist(lookOrigin, width, '/?look=dashboard-full');
+      await view.setViewportSize({ width, height: 4000 });
+      const viewText = await view.evaluate(hf403TextPastViewport);
+      const viewBox = await view.evaluate(hf403AllBox);
+      await view.close();
+      expect(viewBox.scrollWidth, `docSW view-phone ${width}`).toBeLessThanOrEqual(width);
+      expect(viewBox.maxRight, `all rect.right view-phone ${width}`).toBeLessThanOrEqual(width);
+      expect(viewText, `text past viewport view ${width}: ${JSON.stringify(viewText.slice(0, 2))}`).toEqual([]);
+
+      const edit = await hf403OpenEdit(width);
+      const editText = await edit.evaluate(hf403TextPastViewport);
+      const editBox = await edit.evaluate(hf403AllBox);
+      await edit.close();
+      expect(editBox.scrollWidth, `docSW edit-phone ${width}`).toBeLessThanOrEqual(width);
+      expect(editBox.maxRight, `all rect.right edit-phone ${width}`).toBeLessThanOrEqual(width);
+      expect(editText, `text past viewport edit ${width}: ${JSON.stringify(editText.slice(0, 2))}`).toEqual([]);
     }
   }, 240000);
 });

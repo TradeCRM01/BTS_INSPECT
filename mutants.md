@@ -654,4 +654,94 @@ TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768
 git checkout -- src/index.css
 ```
 
-Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:3958` `768 Customize full-upcoming_jobs width 180 >= main 390` AssertionError.
+Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4086` `768 Customize full-upcoming_jobs width 180 >= main 390` AssertionError.
+This CSS force-squeezes every card, including `full-upcoming_jobs` which stays 390 on aad2eef7. For the real #403 squeeze, use `M-hf403-768-clamp`.
+
+## M-hf403-768-clamp — restore aad2eef7's edit clamp
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/pages/DashboardPage.tsx')
+t = p.read_text()
+old = """  const displayWidgets = useMemo(() => {
+    const rows = widgets ?? [];
+    let width = canvasW;
+    if (editMode) {
+      const crushed = rows.some((row) => {
+        const remaining = canvasW - row.grid_x;
+        return row.grid_x + row.grid_w > canvasW
+          && row.grid_x < canvasW
+          && remaining >= DASHBOARD_WIDGET_MIN_W
+          && remaining < row.grid_w
+          && row.grid_w >= DASHBOARD_WIDGET_CELL_W * 4;
+      });
+      if (crushed) width = Math.max(canvasW, DASHBOARD_WIDGET_CANVAS_W);
+    }
+    return clampDashboardWidgetsToCanvas(rows, width);
+  }, [widgets, canvasW, editMode]);"""
+new = """  const displayWidgets = useMemo(
+    () => clampDashboardWidgetsToCanvas(widgets ?? [], canvasW),
+    [widgets, canvasW],
+  );"""
+if old not in t:
+    raise SystemExit('edit clamp floor missing')
+p.write_text(t.replace(old, new, 1))
+PY
+VITE_LOOK_PROOF=1 npm run build
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768: Customize card widths hold main"
+git checkout -- src/pages/DashboardPage.tsx
+```
+
+Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4086` `768 Customize full-weather-a width 180 >= main 260` AssertionError.
+Widgets that drop below main at 768 under the aad2eef7 clamp: `full-weather-a`, `full-pending_reports`, `full-recent_inspections`, `full-inspection_stats`, `full-revenue_overview`, `full-calendar`, `full-ai_agent`, `full-kpi_scorecard`, `full-agent_reminders`.
+
+## M-hf403-768-viewport — push phone text past the viewport
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = """  .dashboard-home-widget-stack .dashboard-home-widget-ink {"""
+new = """  [data-dashboard-phone-stack] .dashboard-home-widget {
+    min-width: 900px !important;
+    overflow: visible !important;
+  }
+  [data-dashboard-phone-stack] .dashboard-home-widget-ink {
+    white-space: nowrap !important;
+  }
+  .dashboard-home-widget-stack .dashboard-home-widget-ink {"""
+if old not in t:
+    raise SystemExit('phone stack ink rule missing')
+p.write_text(t.replace(old, new, 1))
+PY
+VITE_LOOK_PROOF=1 npm run build
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768: text stays inside the viewport at 320/375/390"
+git checkout -- src/index.css
+```
+
+Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4192` `all rect.right edit-phone 320` AssertionError.
+
+## M-hf403-768-webkit — 375 overflow on WebKit
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = """  .dashboard-home-widget-stack .dashboard-home-widget-ink {"""
+new = """  [data-dashboard-home] {
+    min-width: 900px !important;
+  }
+  .dashboard-home-widget-stack .dashboard-home-widget-ink {"""
+if old not in t:
+    raise SystemExit('phone stack ink rule missing')
+p.write_text(t.replace(old, new, 1))
+PY
+VITE_LOOK_PROOF=1 npm run build
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768-webkit"
+git checkout -- src/index.css
+```
+
+Red: `src/components/layout/p1Dashboard.webkit.kill.tsx:229` `webkit maxRight view 375` AssertionError.
