@@ -49,6 +49,7 @@ export interface Database {
       timesheets: AnyTable;
       timesheet_entries: AnyTable;
       accounting_settings: AnyTable;
+      accounting_credentials: AnyTable;
       client_portal_tokens: AnyTable;
       barcode_scan_logs: AnyTable;
       kpi_snapshots: AnyTable;
@@ -80,6 +81,10 @@ export interface Database {
       ensure_builtin_renderers: {
         Args: Record<string, never>;
         Returns: undefined;
+      };
+      get_accounting_connection: {
+        Args: { p_company_id: string };
+        Returns: { connected: boolean; tenant_name: string | null; last_synced_at: string | null }[];
       };
       is_platform_operator: { Args: Record<string, never>; Returns: boolean };
       ingest_twilio_inbound_sms: { Args: Record<string, unknown>; Returns: Json };

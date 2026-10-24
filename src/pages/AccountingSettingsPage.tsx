@@ -13,8 +13,11 @@ import { MoreHorizontal } from 'lucide-react';
 import {
   ACCOUNTING_SETTINGS_PATH,
   ACCOUNTING_SETTINGS_PUBLIC_COLUMNS,
+  GET_ACCOUNTING_CONNECTION_RPC,
   XERO_FUNCTION_NAME,
+  accountingSettingsWrite,
   canUseAccountingSettings,
+  parseAccountingConnection,
   parseXeroCallbackSearch,
   preferenceInsertDefaults,
   preferenceSavePayload,
@@ -53,6 +56,18 @@ export function AccountingSettingsPage() {
     enabled: !!profile && isAdmin,
   });
 
+  const { data: connection, isLoading: connectionLoading, error: connectionError } = useQuery({
+    queryKey: ['accounting-connection', profile?.company_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(GET_ACCOUNTING_CONNECTION_RPC, {
+        p_company_id: profile!.company_id,
+      });
+      if (error) throw error;
+      return parseAccountingConnection(data);
+    },
+    enabled: !!profile && isAdmin,
+  });
+
   useEffect(() => {
     if (settings) {
       setProvider(settings.provider ?? 'none');
@@ -63,20 +78,18 @@ export function AccountingSettingsPage() {
     }
   }, [settings]);
 
-  const connected = settings?.provider === 'xero'
-    && settings?.connection_status === 'connected'
-    && Boolean(settings?.tenant_id);
+  const connected = connection?.connected === true;
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload = preferenceSavePayload({
+      const payload = accountingSettingsWrite(preferenceSavePayload({
         companyId: profile!.company_id,
         provider,
         autoSync,
         syncInvoices,
         syncPayments,
         syncSuppliers,
-      });
+      }));
       if (settings) {
         const { error } = await supabase.from('accounting_settings').update(payload).eq('id', settings.id);
         if (error) throw error;
@@ -87,6 +100,7 @@ export function AccountingSettingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounting-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['accounting-connection'] });
       setSavedMsg(true);
       setTimeout(() => setSavedMsg(false), 3000);
     },
@@ -145,6 +159,7 @@ export function AccountingSettingsPage() {
       }
       setActionMsg({ kind: 'ok', text: String(result.body.message ?? 'Synced invoices to Xero.') });
       queryClient.invalidateQueries({ queryKey: ['accounting-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['accounting-connection'] });
     } finally {
       setBusyAction(null);
     }
@@ -161,6 +176,7 @@ export function AccountingSettingsPage() {
       }
       setActionMsg({ kind: 'ok', text: 'Xero disconnected. Tokens and tenant were cleared.' });
       queryClient.invalidateQueries({ queryKey: ['accounting-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['accounting-connection'] });
     } finally {
       setBusyAction(null);
     }
@@ -187,6 +203,7 @@ export function AccountingSettingsPage() {
       else {
         setActionMsg({ kind: 'ok', text: 'Xero connected.' });
         queryClient.invalidateQueries({ queryKey: ['accounting-settings'] });
+        queryClient.invalidateQueries({ queryKey: ['accounting-connection'] });
       }
     }).finally(() => {
       setBusyAction(null);
@@ -195,11 +212,13 @@ export function AccountingSettingsPage() {
   }, [isAdmin, queryClient, navigate]);
 
   if (profile && !isAdmin) return <Navigate to="/" replace />;
-  if (isLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
-  if (pageQueryBlocked(error)) return <AppShell><PageError message="Could not load accounting settings" /></AppShell>;
+  if (isLoading || connectionLoading) return <AppShell><div className="flex justify-center py-20"><LoadingSpinner /></div></AppShell>;
+  if (pageQueryBlocked(error) || pageQueryBlocked(connectionError)) {
+    return <AppShell><PageError message="Could not load accounting settings" /></AppShell>;
+  }
 
-  const lastSynced = settings?.last_synced_at
-    ? safeFormatDate(settings.last_synced_at, 'dd MMM yyyy, HH:mm')
+  const lastSynced = connection?.last_synced_at
+    ? safeFormatDate(connection.last_synced_at, 'dd MMM yyyy, HH:mm')
     : null;
 
   const missText = actionMsg?.kind === 'miss'
@@ -223,7 +242,7 @@ export function AccountingSettingsPage() {
                 <>
                   <p className="acct-status">Xero connected</p>
                   <p className="acct-meta">
-                    Tenant {settings?.tenant_id}
+                    Tenant {connection?.tenant_name ?? settings?.tenant_id}
                     {lastSynced ? ` · Last synced ${lastSynced}` : ''}
                   </p>
                 </>

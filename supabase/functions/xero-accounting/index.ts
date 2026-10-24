@@ -14,11 +14,11 @@ import {
   pickXeroTenant,
   recordPaidInvoiceSync,
   resolveXeroRedirectUri,
-  settingsHaveXeroCipher,
   shouldAttachXeroPayment,
   shouldAttachXeroPaymentOnMarkPaid,
   shouldStampLastSyncedAt,
   signXeroOAuthState,
+  stripAccountingSettingsTokenKeys,
   verifyXeroOAuthState,
   wantsXeroPaymentAttach,
   XERO_SYNCABLE_INVOICE_STATUSES,
@@ -70,13 +70,7 @@ function xeroEnv() {
     XERO_CLIENT_ID: Deno.env.get("XERO_CLIENT_ID") ?? "",
     XERO_CLIENT_SECRET: Deno.env.get("XERO_CLIENT_SECRET") ?? "",
     XERO_REDIRECT_URI: Deno.env.get("XERO_REDIRECT_URI") ?? "",
-    XERO_TOKEN_KEY: Deno.env.get("XERO_TOKEN_KEY") ?? "",
   };
-}
-
-function tokenSecret(): string {
-  const env = xeroEnv();
-  return env.XERO_TOKEN_KEY.trim() || env.XERO_CLIENT_SECRET;
 }
 
 async function callerContext(req: Request): Promise<AdminCtx | null> {
@@ -112,10 +106,12 @@ async function upsertSettings(
   companyId: string,
   patch: Record<string, unknown>,
 ) {
+  const next = { ...patch };
+  if ("settings" in next) next.settings = stripAccountingSettingsTokenKeys(next.settings);
   const { error } = await admin.from("accounting_settings").upsert(
     {
       company_id: companyId,
-      ...patch,
+      ...next,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "company_id" },
@@ -123,50 +119,57 @@ async function upsertSettings(
   if (error) throw error;
 }
 
-async function encryptTokens(tokens: { accessToken: string; refreshToken: string }): Promise<{ iv: string; cipher: string }> {
-  const key = await aesKey(tokenSecret());
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const cipher = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    key,
-    new TextEncoder().encode(JSON.stringify(tokens)),
+type StoredCredential = {
+  access_token: string;
+  refresh_token: string;
+  expires_at: string | null;
+};
+
+async function loadCredentials(
+  admin: ReturnType<typeof createClient>,
+  companyId: string,
+): Promise<StoredCredential | null> {
+  const { data, error } = await admin
+    .from("accounting_credentials")
+    .select("access_token, refresh_token, expires_at")
+    .eq("company_id", companyId)
+    .eq("provider", "xero")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data?.access_token || !data?.refresh_token) return null;
+  return data as StoredCredential;
+}
+
+async function upsertCredentials(
+  admin: ReturnType<typeof createClient>,
+  companyId: string,
+  tokens: { accessToken: string; refreshToken: string; expiresIn: number },
+) {
+  const { error } = await admin.from("accounting_credentials").upsert(
+    {
+      company_id: companyId,
+      provider: "xero",
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
+      expires_at: new Date(Date.now() + tokens.expiresIn * 1000).toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "company_id,provider" },
   );
-  return { iv: bytesToB64(iv), cipher: bytesToB64(new Uint8Array(cipher)) };
+  if (error) throw error;
 }
 
-async function decryptTokens(blob: { iv?: string; cipher?: string } | null): Promise<{ accessToken: string; refreshToken: string } | null> {
-  if (!blob?.iv || !blob.cipher) return null;
-  try {
-    const key = await aesKey(tokenSecret());
-    const raw = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: b64ToBytes(blob.iv) },
-      key,
-      b64ToBytes(blob.cipher),
-    );
-    const parsed = JSON.parse(new TextDecoder().decode(raw)) as { accessToken?: string; refreshToken?: string };
-    if (!parsed.accessToken || !parsed.refreshToken) return null;
-    return { accessToken: parsed.accessToken, refreshToken: parsed.refreshToken };
-  } catch {
-    return null;
-  }
+async function deleteCredentials(admin: ReturnType<typeof createClient>, companyId: string) {
+  const { error } = await admin
+    .from("accounting_credentials")
+    .delete()
+    .eq("company_id", companyId)
+    .eq("provider", "xero");
+  if (error) throw error;
 }
 
-async function aesKey(secret: string): Promise<CryptoKey> {
-  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret));
-  return crypto.subtle.importKey("raw", hash, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
-}
-
-function bytesToB64(bytes: Uint8Array): string {
-  let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin);
-}
-
-function b64ToBytes(value: string): Uint8Array {
-  const bin = atob(value);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
+function hasStoredCredentials(row: StoredCredential | null): boolean {
+  return Boolean(row?.access_token && row?.refresh_token);
 }
 
 async function xeroTokenRequest(body: URLSearchParams): Promise<Response> {
@@ -227,12 +230,10 @@ async function persistRefreshedTokens(
   tokens: { accessToken: string; refreshToken: string; expiresIn: number },
   tenantName?: string,
 ) {
-  const cipher = await encryptTokens(tokens);
+  await upsertCredentials(admin, companyId, tokens);
   const patch = connectSuccessPatch({
     tenantId: String(row.tenant_id ?? ""),
     settings: row.settings,
-    tokenCipher: cipher,
-    expiresAt: new Date(Date.now() + tokens.expiresIn * 1000).toISOString(),
     tenantName,
   });
   if ("miss" in patch) return;
@@ -250,17 +251,15 @@ async function liveAccessToken(
   companyId: string,
   row: { settings?: unknown; tenant_id?: string | null },
 ): Promise<string | null> {
-  const tokenBlob = (row.settings as { xero?: { token?: { iv?: string; cipher?: string }; expires_at?: string } } | null)
-    ?.xero?.token ?? null;
-  const tokens = await decryptTokens(tokenBlob);
-  if (!tokens) return null;
-  const expiresAt = Date.parse(String((row.settings as { xero?: { expires_at?: string } } | null)?.xero?.expires_at ?? ""));
+  const stored = await loadCredentials(admin, companyId);
+  if (!stored) return null;
+  const expiresAt = Date.parse(String(stored.expires_at ?? ""));
   const stillFresh = Number.isFinite(expiresAt) && expiresAt - Date.now() > 60_000;
-  if (stillFresh) return tokens.accessToken;
+  if (stillFresh) return stored.access_token;
 
   const res = await xeroTokenRequest(new URLSearchParams({
     grant_type: "refresh_token",
-    refresh_token: tokens.refreshToken,
+    refresh_token: stored.refresh_token,
   }));
   const jsonBody = await res.json().catch(() => null);
   const parsed = parseXeroTokenResponse(jsonBody);
@@ -385,13 +384,11 @@ Deno.serve(async (req: Request) => {
         return miss("token_failed", "Xero did not return an organisation tenant.");
       }
 
-      const cipher = await encryptTokens(tokens);
+      await upsertCredentials(admin, ctx.companyId, tokens);
       const existing = await loadSettings(admin, ctx.companyId);
       const patch = connectSuccessPatch({
         tenantId: tenant.tenantId,
         settings: existing?.settings,
-        tokenCipher: cipher,
-        expiresAt: new Date(Date.now() + tokens.expiresIn * 1000).toISOString(),
         tenantName: tenant.tenantName,
       });
       if ("miss" in patch) return miss(patch.miss);
@@ -411,7 +408,10 @@ Deno.serve(async (req: Request) => {
 
     if (action === "disconnect") {
       const existing = await loadSettings(admin, ctx.companyId);
-      const tokens = await decryptTokens(existing?.settings?.xero?.token ?? null);
+      const stored = await loadCredentials(admin, ctx.companyId);
+      const tokens = stored
+        ? { accessToken: stored.access_token, refreshToken: stored.refresh_token }
+        : null;
       if (tokens) {
         try {
           const connRes = await fetch("https://api.xero.com/connections", {
@@ -429,14 +429,18 @@ Deno.serve(async (req: Request) => {
             }
           }
         } catch {
-          // Local disconnect still wins if Xero revoke fails.
         }
       }
+      await deleteCredentials(admin, ctx.companyId);
       const patch = disconnectAccountingPatch(existing?.settings);
       if (existing) {
         await admin
           .from("accounting_settings")
-          .update({ ...patch, updated_at: new Date().toISOString() })
+          .update({
+            ...patch,
+            settings: stripAccountingSettingsTokenKeys(patch.settings),
+            updated_at: new Date().toISOString(),
+          })
           .eq("company_id", ctx.companyId)
           .eq("id", existing.id);
       } else {
@@ -447,11 +451,12 @@ Deno.serve(async (req: Request) => {
 
     if (action === "sync") {
       const row = await loadSettings(admin, ctx.companyId);
+      const stored = await loadCredentials(admin, ctx.companyId);
       const decided = decideXeroSync({
         connectionStatus: row?.connection_status,
         provider: row?.provider,
         tenantId: row?.tenant_id,
-        hasTokenCipher: settingsHaveXeroCipher(row?.settings),
+        hasTokenCipher: hasStoredCredentials(stored),
         syncInvoices: row?.sync_invoices,
         invoiceCount: 1,
       });
@@ -478,7 +483,7 @@ Deno.serve(async (req: Request) => {
         connectionStatus: row?.connection_status,
         provider: row?.provider,
         tenantId: row?.tenant_id,
-        hasTokenCipher: settingsHaveXeroCipher(row?.settings),
+        hasTokenCipher: hasStoredCredentials(stored),
         syncInvoices: row?.sync_invoices,
         invoiceCount: syncable.length,
       });
@@ -577,7 +582,7 @@ Deno.serve(async (req: Request) => {
             connectionStatus: row.connection_status,
             provider: row.provider,
             tenantId: row.tenant_id,
-            hasTokenCipher: settingsHaveXeroCipher(row.settings),
+            hasTokenCipher: hasStoredCredentials(stored),
             syncPayments: row.sync_payments,
             status: invoice.status,
             xeroInvoiceId: invoice.xeroInvoiceId,
@@ -613,7 +618,7 @@ Deno.serve(async (req: Request) => {
       await admin
         .from("accounting_settings")
         .update({
-          settings,
+          settings: stripAccountingSettingsTokenKeys(settings),
           last_synced_at: lastSyncedAt,
           updated_at: new Date().toISOString(),
         })
