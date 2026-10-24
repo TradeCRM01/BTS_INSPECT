@@ -349,7 +349,7 @@ TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768
 git checkout -- src/pages/DashboardPage.tsx
 ```
 
-Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4281` `768 full-recent_inspections clientWidth 178 >= min-content 191`.
+Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4317` `768 full-recent_inspections clientWidth 178 >= min-content 191`.
 
 ## M-hf403-768-scroller — restore the 1100 scroll canvas
 
@@ -380,7 +380,7 @@ TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768
 git checkout -- src/pages/DashboardPage.tsx
 ```
 
-Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4276` `768 full-weather-a text past viewport`.
+Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4313` `768 full-weather-a text past viewport`.
 
 ## M-hf403-768-mincontent — narrow a Customize card below min-content
 
@@ -414,7 +414,7 @@ TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768
 git checkout -- src/index.css
 ```
 
-Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4275` `768 full-upcoming_jobs text past card` (80px card is below min-content).
+Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4312` `768 full-upcoming_jobs text past card` (80px card is below min-content).
 
 ## M-hf403-768-a — push dashboard text past the viewport at 320
 
@@ -445,7 +445,7 @@ TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768
 git checkout -- src/index.css
 ```
 
-Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4301` `gate a text walk view 320` AssertionError (`View all` textRight 900 > innerWidth 320). Same mutant reds WebKit `p1Dashboard.webkit.kill.tsx:275` `webkit gate a text walk view 320`.
+Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4422` `gate a text walk view 320` AssertionError (`View all` textRight 900 > innerWidth 320). Same mutant reds WebKit `p1Dashboard.webkit.kill.tsx:360` `webkit gate a text walk view 320`.
 
 ## M-hf403-768-webkit — 375 overflow on WebKit
 

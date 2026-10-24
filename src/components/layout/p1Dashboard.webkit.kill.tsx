@@ -27,7 +27,7 @@ async function launchWebkit() {
       const mod = await import(spec) as {
         webkit: {
           launch: (opts: { headless: boolean }) => Promise<{
-            newPage: (opts?: { viewport?: { width: number; height: number } }) => Promise<KillPage>;
+            newPage: (opts?: { viewport?: { width: number; height: number }; isMobile?: boolean }) => Promise<KillPage>;
             close: () => Promise<void>;
             version: () => string;
           }>;
@@ -100,7 +100,7 @@ afterAll(async () => {
 });
 
 async function openDash(width: number): Promise<KillPage> {
-  const page = await browser.newPage({ viewport: { width, height: 4000 } });
+  const page = await browser.newPage({ viewport: { width, height: 4000 }, isMobile: false });
   await page.addInitScript(`(function(){
     var Real = Date;
     var ms = Date.parse('2026-10-19T03:40:00.000Z');
@@ -146,6 +146,7 @@ function webkitBox() {
   return {
     innerWidth: window.innerWidth,
     scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+    bodyScrollWidth: document.body.scrollWidth,
     maxRight: rights.length ? Math.max(...rights) : 0,
   };
 }
@@ -301,6 +302,7 @@ function webkitAbsoluteBar() {
   }
   return {
     innerWidth: iw,
+    bodyScrollWidth: document.body.scrollWidth,
     scrollX: window.scrollX,
     canvasScroll: (document.querySelector('.dashboard-home-canvas.is-editing') as HTMLElement | null)?.scrollLeft ?? 0,
     cards,
@@ -317,11 +319,11 @@ describe('P1 dashboard WebKit kills (375/390 overflow and text)', () => {
     expect(version.length, 'webkit launched a real version').toBeGreaterThan(0);
   });
 
-  it('HF-403-768-webkit: 375/390 docSW, maxRight, and text stay inside view and Customize', async () => {
+  it('HF-403-768-webkit: 320/375/390/768/1024/1280 docSW, maxRight, and text stay inside view and Customize', async () => {
     const src = readFileSync(join(here, 'p1Dashboard.webkit.kill.tsx'), 'utf8');
     expect(src).toContain('webkit.launch');
     expect(src, 'webkit kill has no skips').not.toMatch(/\bit\.skip\(|describe\.skip\(|\bxit\(/);
-    for (const width of [375, 390] as const) {
+    for (const width of [320, 375, 390, 768, 1024, 1280] as const) {
       const view = await openDash(width);
       await view.setViewportSize({ width, height: 4000 });
       const viewBox = await view.evaluate(webkitBox);
@@ -329,23 +331,25 @@ describe('P1 dashboard WebKit kills (375/390 overflow and text)', () => {
       const viewCard = await view.evaluate(webkitTextPastCard);
       await view.close();
       expect(viewBox.scrollWidth, `webkit docSW view ${width}`).toBeLessThanOrEqual(width);
+      expect(viewBox.bodyScrollWidth, `webkit body.scrollWidth view ${width}`).toBeLessThanOrEqual(viewBox.innerWidth);
       expect(viewBox.maxRight, `webkit maxRight view ${width}`).toBeLessThanOrEqual(width);
       expect(viewVp, `webkit text past viewport view ${width}`).toEqual([]);
       expect(viewCard, `webkit text past card view ${width}`).toEqual([]);
 
       const edit = await openDash(width);
       await enterEdit(edit);
-      await edit.setViewportSize({ width, height: 4000 });
+      await edit.setViewportSize({ width, height: width >= 768 ? 8000 : 4000 });
       const editBox = await edit.evaluate(webkitBox);
       const editVp = await edit.evaluate(webkitTextPastViewport);
       const editCard = await edit.evaluate(webkitTextPastCard);
       await edit.close();
       expect(editBox.scrollWidth, `webkit docSW edit ${width}`).toBeLessThanOrEqual(width);
+      expect(editBox.bodyScrollWidth, `webkit body.scrollWidth edit ${width}`).toBeLessThanOrEqual(editBox.innerWidth);
       expect(editBox.maxRight, `webkit maxRight edit ${width}`).toBeLessThanOrEqual(width);
       expect(editVp, `webkit text past viewport edit ${width}`).toEqual([]);
       expect(editCard, `webkit text past card edit ${width}`).toEqual([]);
     }
-  }, 240000);
+  }, 360000);
 
   it('HF-403-768-a: WebKit text walk stays inside innerWidth at 320/375/390 in view and Customize', async () => {
     for (const width of [320, 375, 390] as const) {
@@ -373,6 +377,7 @@ describe('P1 dashboard WebKit kills (375/390 overflow and text)', () => {
       await edit.close();
       expect(abs.scrollX, `webkit ${width} window scrollX`).toBe(0);
       expect(abs.canvasScroll, `webkit ${width} canvas scrollLeft`).toBe(0);
+      expect(abs.bodyScrollWidth, `webkit ${width} body.scrollWidth`).toBeLessThanOrEqual(abs.innerWidth);
       expect(abs.cards.length, `webkit ${width} Customize paints 26 cards`).toBe(26);
       for (const card of abs.cards) {
         expect(card.textPastCard, `webkit ${width} ${card.id} text past card`).toBe(0);
