@@ -12949,6 +12949,50 @@
     padding: 52px 16px 16px;
   }
 
+  .dashboard-home-canvas.is-twoup.is-twoup-narrow .dashboard-home-widget.is-editing {
+    min-height: 235px;
+    overflow: visible;
+  }
+
+  .dashboard-home-canvas.is-twoup.is-twoup-narrow .dashboard-home-widget-ink.is-editing {
+    min-height: 235px;
+  }
+
+  .dashboard-home-canvas.is-twoup.is-twoup-narrow .dashboard-home-widget-ink .flex.items-baseline {
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .dashboard-home-canvas.is-twoup.is-twoup-narrow .dashboard-home-widget-ink .flex.items-baseline > span:last-child {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  .dashboard-home-edit-order {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .dashboard-home-edit-order button {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border: 1px solid var(--dashboard-home-line);
+    border-radius: 12px;
+    background: var(--dashboard-home-sheet);
+    color: var(--dashboard-home-ink);
+    cursor: pointer;
+  }
+
+  .dashboard-home-edit-order button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
   .dashboard-home-view-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
