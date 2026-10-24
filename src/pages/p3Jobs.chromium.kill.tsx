@@ -3387,6 +3387,18 @@ describe('P3 r16 WebKit 375/390', () => {
       await page.close();
     }
   });
+
+  killIt('R16 WebKit is playwright 1.48.2 and launches', async () => {
+    const pw = require('playwright/package.json') as { version: string };
+    const core = require('playwright-core/package.json') as { version: string };
+    expect(pw.version, 'do not bump playwright').toBe('1.48.2');
+    expect(core.version, 'do not bump playwright-core').toBe('1.48.2');
+    if (!webkitBrowser) throw new Error('webkit launch failed: FAIL, never skip');
+    const v = (webkitBrowser as KillBrowser & { version?: () => string }).version?.();
+    if (!v) throw new Error('webkit launch failed: no version (FAIL, never skip)');
+    console.log(`P3 r16 WebKit version ${v}`);
+    expect(v, 'WebKit version').toBe('18.0');
+  });
 });
 
 function chipScrollerScript() {
