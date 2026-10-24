@@ -1,0 +1,14 @@
+{
+  "sha": "0898c3b93f167a090615232141bf73790bf731ef",
+  "lookNow": "2026-09-03T08:49:00.000Z",
+  "band": { "min": 2503, "max": 2552 },
+  "note": "Raw min/max of these 40 main after80 paints. No padding. Suite does not accumulate. Artifact band-main-*.json is the last 10-run pass only.",
+  "utc": {
+    "session1": [2521, 2515, 2552, 2521, 2521, 2509, 2521, 2521, 2521, 2521],
+    "session2": [2507, 2521, 2515, 2521, 2515, 2515, 2515, 2515, 2515, 2521]
+  },
+  "brisbane": {
+    "session1": [2515, 2514, 2521, 2515, 2521, 2528, 2509, 2515, 2521, 2521],
+    "session2": [2503, 2515, 2515, 2515, 2515, 2515, 2515, 2515, 2515, 2515]
+  }
+}

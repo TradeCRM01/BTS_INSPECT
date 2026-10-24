@@ -628,10 +628,23 @@ const ACTION_ICONS: Record<string, { icon: typeof Bot; color: string; bg: string
   other: { icon: Bot, color: 'text-[var(--g-accent)]', bg: 'bg-[#EFF6FF]' },
 };
 
-export function AgentActivityWidget() {
+type AgentActivityRow = {
+  id: string;
+  action_type: string;
+  tool_name: string | null;
+  summary: string;
+  status: string;
+  created_at: string;
+};
+
+export function AgentActivityWidget({ config }: Partial<WidgetProps> = {}) {
+  const lookProof = import.meta.env.DEV || import.meta.env.VITE_LOOK_PROOF === '1';
+  const lookActions = lookProof && Array.isArray(config?.lookActions)
+    ? config.lookActions as AgentActivityRow[]
+    : null;
   const { session, isPlatformOperator } = useAuth();
   const { ready: aiKeyReady, hasKey: companyAiKey } = useCompanyAiKey();
-  const { data, isLoading } = useQuery({
+  const { data: fetched, isLoading } = useQuery({
     queryKey: ['widget-agent-activity'],
     queryFn: async () => {
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-console/actions`, {
@@ -639,16 +652,14 @@ export function AgentActivityWidget() {
       });
       if (!res.ok) throw new Error('Failed to load actions');
       const json = await res.json();
-      return (json.actions ?? []) as Array<{
-        id: string; action_type: string; tool_name: string | null;
-        summary: string; status: string; created_at: string;
-      }>;
+      return (json.actions ?? []) as AgentActivityRow[];
     },
-    enabled: !!session && companyAiKey && isPlatformOperator,
-    refetchInterval: companyAiKey ? 15000 : false,
+    enabled: !lookActions && !!session && companyAiKey && isPlatformOperator,
+    refetchInterval: lookActions ? false : (companyAiKey ? 15000 : false),
   });
+  const data = lookActions ?? fetched;
 
-  if (!isPlatformOperator) {
+  if (!lookActions && !isPlatformOperator) {
     return (
       <div className="h-full flex items-center justify-center text-center px-3 text-[11px] text-[#5B6B7C]">
         Coming soon
@@ -656,7 +667,7 @@ export function AgentActivityWidget() {
     );
   }
 
-  if (aiKeyReady && !companyAiKey) {
+  if (!lookActions && aiKeyReady && !companyAiKey) {
     return (
       <div className="h-full flex items-center justify-center text-center px-3 text-[11px] text-[#5B6B7C]">
         Agent activity appears after a company AI key is set.
@@ -691,7 +702,7 @@ export function AgentActivityWidget() {
                 <Icon size={12} className={failed ? 'text-red-500' : cfg.color} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className={`text-[11px] leading-snug ${failed ? 'text-red-600' : 'text-[#1A1A1A]'}`}>
+                <p className={`text-[11px] leading-snug break-words [overflow-wrap:anywhere] ${failed ? 'text-red-600' : 'text-[#1A1A1A]'}`}>
                   {a.summary}
                 </p>
                 <p className="text-[9px] text-gray-400 mt-0.5">

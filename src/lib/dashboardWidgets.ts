@@ -27,6 +27,7 @@ export const DASHBOARD_PHONE_WIDGET_GAP = 20;
 /** Same floor as desktop resize. Shrink-in-place never goes below this. */
 export const DASHBOARD_WIDGET_MIN_W = 180;
 export const DASHBOARD_WIDGET_MIN_H = 120;
+export const DASHBOARD_WIDGET_DRAG_THRESHOLD = 5;
 
 export type DashboardWidgetInsert = {
   widget_type: string;
@@ -95,6 +96,101 @@ export function dashboardWidgetRectsConflict(
     && b.grid_x < a.grid_x + a.grid_w + gap
     && a.grid_y < b.grid_y + b.grid_h + gap
     && b.grid_y < a.grid_y + a.grid_h + gap;
+}
+
+export type DashboardEditWidgetRect<T extends DashboardWidgetRect = DashboardWidgetRect> = T & {
+  content_h: number;
+};
+
+export function layoutDashboardWidgetsForEdit<T extends DashboardWidgetRect>(
+  widgets: readonly T[],
+  _gap = DASHBOARD_WIDGET_GAP,
+  contentHeights?: Readonly<Record<string, number>>,
+): DashboardEditWidgetRect<T>[] {
+  return widgets.map((row) => {
+    const measured = contentHeights?.[row.id ?? ''];
+    const content_h = Math.max(row.grid_h, Number.isFinite(measured) ? Math.ceil(measured as number) : 0);
+    return {
+      ...row,
+      content_h,
+      grid_h: row.grid_h,
+    };
+  });
+}
+
+function dashboardWidgetColumnsOverlap(
+  a: Pick<DashboardWidgetRect, 'grid_x' | 'grid_w'>,
+  b: Pick<DashboardWidgetRect, 'grid_x' | 'grid_w'>,
+): boolean {
+  return a.grid_x < b.grid_x + b.grid_w && b.grid_x < a.grid_x + a.grid_w;
+}
+
+function dashboardWidgetRowsOverlap(
+  a: Pick<DashboardWidgetRect, 'grid_y' | 'grid_h'>,
+  b: Pick<DashboardWidgetRect, 'grid_y' | 'grid_h'>,
+): boolean {
+  return a.grid_y < b.grid_y + b.grid_h && b.grid_y < a.grid_y + a.grid_h;
+}
+
+function dashboardWidgetColumnGap(
+  a: Pick<DashboardWidgetRect, 'grid_x' | 'grid_w'>,
+  b: Pick<DashboardWidgetRect, 'grid_x' | 'grid_w'>,
+): number {
+  return Math.max(a.grid_x - (b.grid_x + b.grid_w), b.grid_x - (a.grid_x + a.grid_w));
+}
+
+export function growDashboardEditHosts<T extends DashboardWidgetRect>(
+  widgets: readonly T[],
+  gap = DASHBOARD_WIDGET_GAP,
+  contentHeights?: Readonly<Record<string, number>>,
+): DashboardEditWidgetRect<T>[] {
+  const rows: DashboardEditWidgetRect<T>[] = widgets.map((row) => {
+    const measured = contentHeights?.[row.id ?? ''];
+    const content_h = Math.max(row.grid_h, Number.isFinite(measured) ? Math.ceil(measured as number) : 0);
+    return {
+      ...row,
+      content_h,
+      grid_h: content_h,
+    };
+  });
+  if (!contentHeights || !Object.keys(contentHeights).length) return rows;
+  rows.sort((a, b) => {
+    if (a.grid_y !== b.grid_y) return a.grid_y - b.grid_y;
+    if (a.grid_x !== b.grid_x) return a.grid_x - b.grid_x;
+    return (a.id ?? a.widget_type).localeCompare(b.id ?? b.widget_type);
+  });
+  const placed: DashboardEditWidgetRect<T>[] = [];
+  for (const row of rows) {
+    let y = row.grid_y;
+    let moved = true;
+    while (moved) {
+      moved = false;
+      for (const other of placed) {
+        if (!dashboardWidgetColumnsOverlap(row, other)) continue;
+        const probe = { ...row, grid_y: y };
+        if (dashboardWidgetRectsConflict(probe, other, gap)) {
+          y = other.grid_y + other.grid_h + gap;
+          moved = true;
+        }
+      }
+    }
+    placed.push({ ...row, grid_y: y });
+  }
+  for (let i = 0; i < placed.length; i += 1) {
+    for (let j = i + 1; j < placed.length; j += 1) {
+      const a = placed[i];
+      const b = placed[j];
+      if (!dashboardWidgetRowsOverlap(a, b)) continue;
+      const xg = dashboardWidgetColumnGap(a, b);
+      if (xg < 0 || xg >= gap) continue;
+      const left = a.grid_x <= b.grid_x ? i : j;
+      const nextW = placed[left].grid_w - (gap - xg);
+      if (nextW >= DASHBOARD_WIDGET_MIN_W) {
+        placed[left] = { ...placed[left], grid_w: nextW };
+      }
+    }
+  }
+  return placed;
 }
 
 export function dashboardWidgetLayoutOverlaps(widgets: readonly DashboardWidgetRect[]): boolean {
@@ -182,6 +278,57 @@ export function clampDashboardWidgetToCanvas<T extends DashboardWidgetRect>(row:
   }
   if (x === row.grid_x && w === row.grid_w) return row;
   return { ...row, grid_x: x, grid_w: w };
+}
+
+export function dashboardWidgetDragShouldCommit(delta: { x: number; y: number }): boolean {
+  return Math.hypot(delta.x, delta.y) >= DASHBOARD_WIDGET_DRAG_THRESHOLD;
+}
+
+export function commitDashboardWidgetDrag<T extends DashboardWidgetRect>(
+  stored: readonly T[],
+  id: string,
+  delta: { x: number; y: number },
+  canvasW: number,
+  gap = DASHBOARD_WIDGET_GAP,
+  contentHeights?: Readonly<Record<string, number>>,
+): { grid_x: number; grid_y: number; grid_w: number } | null {
+  if (!dashboardWidgetDragShouldCommit(delta)) return null;
+  const packed = layoutDashboardWidgetsForEdit(stored, gap, contentHeights);
+  const drawn = packed.find((row) => row.id === id);
+  const source = stored.find((row) => row.id === id);
+  if (!drawn || !source) return null;
+  const dropped = applyDashboardWidgetDrag(
+    { grid_x: drawn.grid_x, grid_y: drawn.grid_y, grid_w: drawn.grid_w },
+    delta,
+    canvasW,
+  );
+  const nextStored: T[] = stored.map((row) => (
+    row.id === id
+      ? {
+        ...row,
+        grid_x: dropped.grid_x,
+        grid_y: Math.max(0, source.grid_y + (dropped.grid_y - drawn.grid_y)),
+        grid_w: dropped.grid_w,
+      }
+      : row
+  ));
+  const packedNext = layoutDashboardWidgetsForEdit(nextStored, gap, contentHeights);
+  const before = packed.find((row) => row.id === id);
+  const after = packedNext.find((row) => row.id === id);
+  if (
+    !before || !after
+    || (
+      before.grid_x === after.grid_x
+      && before.grid_y === after.grid_y
+      && before.grid_w === after.grid_w
+      && before.grid_h === after.grid_h
+    )
+  ) {
+    return null;
+  }
+  const committed = nextStored.find((row) => row.id === id);
+  if (!committed) return null;
+  return { grid_x: committed.grid_x, grid_y: committed.grid_y, grid_w: committed.grid_w };
 }
 
 /** Drag from the drawn rect. Result stays inside the measured canvas. */

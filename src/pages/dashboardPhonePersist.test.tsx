@@ -10,7 +10,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '../components/ui';
-import { DASHBOARD_WIDGET_GAP, dashboardWidgetLayoutOverlaps, dashboardWidgetMinNeighborGap, repairDashboardWidgetLayout, type DashboardWidgetRect } from '../lib/dashboardWidgets';
+import {
+  DASHBOARD_WIDGET_DRAG_THRESHOLD,
+  DASHBOARD_WIDGET_GAP,
+  dashboardWidgetLayoutOverlaps,
+  dashboardWidgetMinNeighborGap,
+  layoutDashboardWidgetsForEdit,
+  repairDashboardWidgetLayout,
+  type DashboardWidgetRect,
+} from '../lib/dashboardWidgets';
 import { DashboardPage } from './DashboardPage';
 
 type Call = { table: string; op: string; payload?: unknown; filters: Array<[string, unknown]>; order: string[]; returning?: string };
@@ -197,6 +205,16 @@ function canvasRect(id: string) {
   const el = document.querySelector(`.dashboard-home-canvas [data-dashboard-widget-id="${id}"]`) as HTMLElement;
   return { left: el.style.left, top: el.style.top, width: el.style.width, height: el.style.height };
 }
+function paintedEditRect(id: string, rows: DashboardWidgetRect[] = LIVE) {
+  const row = layoutDashboardWidgetsForEdit(rows).find((item) => item.id === id);
+  if (!row) throw new Error(`missing ${id}`);
+  return {
+    left: `${row.grid_x}px`,
+    top: `${row.grid_y}px`,
+    width: `${row.grid_w}px`,
+    height: `${row.grid_h}px`,
+  };
+}
 
 describe('phone Customize persists to dashboard_widgets', () => {
   it('Down PATCHes phone_order for both neighbours and leaves desktop x/y alone (M4a/c/d)', async () => {
@@ -232,7 +250,7 @@ describe('phone Customize persists to dashboard_widgets', () => {
     expect(canvasRect('w-jobs')).toEqual(before.jobs);
     expect(canvasRect('w-weather1')).toEqual(before.weather1);
     expect(canvasRect('w-invoices')).toEqual(before.invoices);
-    expect(canvasRect('w-compliance')).toEqual({ left: '20px', top: '740px', width: '390px', height: '270px' });
+    expect(canvasRect('w-compliance')).toEqual(paintedEditRect('w-compliance'));
   });
 
   it('Up on the second row PATCHes the same phone_order swap', async () => {
@@ -308,8 +326,8 @@ describe('phone Customize persists to dashboard_widgets', () => {
     const customize = [...document.querySelectorAll('[role="menuitem"]')].find(e => e.textContent === 'Customize') as HTMLElement;
     await act(async () => { customize.click(); });
     await waitFor(() => !!document.querySelector('[data-dashboard-phone-stack="1"]'), 'stack after reload');
-    expect(canvasRect('w-jobs')).toEqual({ left: '20px', top: '20px', width: '390px', height: '270px' });
-    expect(canvasRect('w-invoices')).toEqual({ left: '800px', top: '380px', width: '260px', height: '180px' });
+    expect(canvasRect('w-jobs')).toEqual(paintedEditRect('w-jobs'));
+    expect(canvasRect('w-invoices')).toEqual(paintedEditRect('w-invoices'));
   });
 
   it('phone_order write keeps the rest of config under jsonb replace (N7)', async () => {
@@ -655,9 +673,64 @@ describe('dashboard canvas clamp persist', () => {
     expect(patch, `expected invoices PATCH after drag; drawn ${drawnX},${drawnY} ${drawnW}`).toBeTruthy();
     const payload = strip(patch!.payload) as { grid_x: number; grid_y: number; grid_w: number };
     expect(payload.grid_x).toBe(drawnX - 100);
-    expect(payload.grid_y).toBe(drawnY);
+    expect(payload.grid_y, 'persist stored y, not packed edit y').toBe(380);
     expect(payload.grid_w).toBe(drawnW);
     expect(payload.grid_x + payload.grid_w).toBeLessThanOrEqual(910);
     expect(payload.grid_x).not.toBe(700);
   });
+
+  it('P1-edit-drag-threshold: a drag below the move threshold writes no layout, one above writes once', async () => {
+    await mountCustomize();
+    const handle = document.querySelector('.dashboard-home-canvas [title="Drag to move"]') as HTMLElement;
+    expect(handle).toBeTruthy();
+    const before = { ...h.rows.find((row) => row.id === 'w-jobs')! };
+    h.calls.length = 0;
+    await act(async () => {
+      pointerDrag(handle, 0, DASHBOARD_WIDGET_DRAG_THRESHOLD - 2);
+    });
+    await tick(40);
+    await act(async () => {
+      h.onDragEnd?.({ active: { id: 'w-jobs' }, delta: { x: 0, y: DASHBOARD_WIDGET_DRAG_THRESHOLD - 2 } });
+    });
+    await tick(40);
+    expect(writes('update'), 'sub-threshold drag must not PATCH layout').toEqual([]);
+    expect(h.rows.find((row) => row.id === 'w-jobs')).toMatchObject({
+      grid_x: before.grid_x,
+      grid_y: before.grid_y,
+      grid_w: before.grid_w,
+      grid_h: before.grid_h,
+    });
+    await act(async () => {
+      h.onDragEnd?.({ active: { id: 'w-jobs' }, delta: { x: 0, y: 20 } });
+    });
+    await tick(40);
+    const patches = writes('update').filter((call) => call.filters.some((f) => f[1] === 'w-jobs'));
+    expect(patches, 'above-threshold drag writes once').toHaveLength(1);
+    expect(strip(patches[0].payload)).toMatchObject({
+      grid_x: before.grid_x,
+      grid_y: (before.grid_y as number) + 20,
+    });
+  });
+
 });
+
+function pointerDrag(el: HTMLElement, dx: number, dy: number) {
+  const box = el.getBoundingClientRect();
+  const x = box.left + box.width / 2;
+  const y = box.top + box.height / 2;
+  const fire = (target: EventTarget, type: string, cx: number, cy: number, buttons: number) => {
+    target.dispatchEvent(new PointerEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      pointerId: 1,
+      pointerType: 'mouse',
+      clientX: cx,
+      clientY: cy,
+      buttons,
+      isPrimary: true,
+    }));
+  };
+  fire(el, 'pointerdown', x, y, 1);
+  fire(document, 'pointermove', x + dx, y + dy, 1);
+  fire(document, 'pointerup', x + dx, y + dy, 0);
+}

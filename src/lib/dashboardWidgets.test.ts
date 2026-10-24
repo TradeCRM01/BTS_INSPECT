@@ -6,8 +6,13 @@ import {
   DASHBOARD_WIDGET_GAP,
   DEFAULT_DASHBOARD_WIDGET_TYPES,
   DASHBOARD_WIDGET_MIN_W,
+  DASHBOARD_WIDGET_DRAG_THRESHOLD,
   applyDashboardWidgetDrag,
+  commitDashboardWidgetDrag,
+  dashboardWidgetDragShouldCommit,
   applyDashboardWidgetResize,
+  growDashboardEditHosts,
+  layoutDashboardWidgetsForEdit,
   clampDashboardWidgetToCanvas,
   clampDashboardWidgetsToCanvas,
   dashboardWidgetFitsCanvas,
@@ -565,6 +570,80 @@ describe('dashboard widget grid placement', () => {
     expect(rows.find(row => row.id === 'w-invoices')).toMatchObject({ grid_x: 800, grid_y: 380 });
   });
 
+  it('refuses a drag shorter than the move threshold and accepts one at the threshold', () => {
+    expect(dashboardWidgetDragShouldCommit({ x: 0, y: 0 })).toBe(false);
+    expect(dashboardWidgetDragShouldCommit({ x: 0, y: DASHBOARD_WIDGET_DRAG_THRESHOLD - 2 })).toBe(false);
+    expect(dashboardWidgetDragShouldCommit({ x: DASHBOARD_WIDGET_DRAG_THRESHOLD - 2, y: 0 })).toBe(false);
+    expect(dashboardWidgetDragShouldCommit({ x: 0, y: DASHBOARD_WIDGET_DRAG_THRESHOLD })).toBe(true);
+    expect(dashboardWidgetDragShouldCommit({ x: 20, y: 0 })).toBe(true);
+  });
+
+  it('writes a visible drag from the stored row and lands +80 at 820', () => {
+    const live: DashboardWidgetRect[] = [
+      { id: 'w-jobs', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270 },
+      { id: 'w-weather1', widget_type: 'weather', grid_x: 540, grid_y: 20, grid_w: 260, grid_h: 270 },
+      { id: 'w-weather2', widget_type: 'weather', grid_x: 20, grid_y: 380, grid_w: 260, grid_h: 270 },
+      { id: 'w-invoices', widget_type: 'outstanding_invoices', grid_x: 800, grid_y: 380, grid_w: 260, grid_h: 180 },
+      { id: 'w-compliance', widget_type: 'compliance_deadlines', grid_x: 20, grid_y: 740, grid_w: 390, grid_h: 270 },
+    ];
+    const packed = layoutDashboardWidgetsForEdit(live);
+    expect(packed.find((row) => row.id === 'w-compliance')!.grid_y).toBe(740);
+    expect(packed.find((row) => row.id === 'w-weather2')!.grid_y).toBe(380);
+    expect(commitDashboardWidgetDrag(live, 'w-compliance', { x: 0, y: 3 }, 1166)).toBeNull();
+    expect(commitDashboardWidgetDrag(live, 'w-compliance', { x: 0, y: -3 }, 1166)).toBeNull();
+    expect(commitDashboardWidgetDrag(live, 'w-compliance', { x: 0, y: 30 }, 1166)).toEqual({
+      grid_x: 20,
+      grid_y: 770,
+      grid_w: 390,
+    });
+    expect(commitDashboardWidgetDrag(live, 'w-weather2', { x: 0, y: 4 }, 1166)).toBeNull();
+    expect(commitDashboardWidgetDrag(live, 'w-compliance', { x: 0, y: 80 }, 1166)).toEqual({
+      grid_x: 20,
+      grid_y: 820,
+      grid_w: 390,
+    });
+  });
+
+  it('keeps packed y at main after a second-row drag when content is taller', () => {
+    const live: DashboardWidgetRect[] = [
+      { id: 'w-jobs', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270 },
+      { id: 'w-weather1', widget_type: 'weather', grid_x: 540, grid_y: 20, grid_w: 260, grid_h: 270 },
+      { id: 'w-weather2', widget_type: 'weather', grid_x: 20, grid_y: 380, grid_w: 260, grid_h: 270 },
+      { id: 'w-invoices', widget_type: 'outstanding_invoices', grid_x: 800, grid_y: 380, grid_w: 260, grid_h: 180 },
+      { id: 'w-compliance', widget_type: 'compliance_deadlines', grid_x: 20, grid_y: 740, grid_w: 390, grid_h: 270 },
+    ];
+    const tall = {
+      'w-jobs': 400,
+      'w-weather1': 400,
+      'w-weather2': 400,
+      'w-invoices': 400,
+      'w-compliance': 400,
+    };
+    const packedTall = layoutDashboardWidgetsForEdit(live, DASHBOARD_WIDGET_GAP, tall);
+    expect(packedTall.find((row) => row.id === 'w-weather2')!.grid_y).toBe(380);
+    expect(packedTall.find((row) => row.id === 'w-compliance')!.grid_y).toBe(740);
+    expect(packedTall.find((row) => row.id === 'w-compliance')!.content_h).toBe(400);
+    expect(packedTall.find((row) => row.id === 'w-compliance')!.grid_h).toBe(270);
+    const weather = commitDashboardWidgetDrag(live, 'w-weather2', { x: 0, y: 60 }, 1166, DASHBOARD_WIDGET_GAP, tall);
+    expect(weather).toEqual({ grid_x: 20, grid_y: 440, grid_w: 260 });
+    const afterWeather = live.map((row) => (row.id === 'w-weather2' && weather ? { ...row, ...weather } : row));
+    const compliance = commitDashboardWidgetDrag(
+      afterWeather,
+      'w-compliance',
+      { x: 0, y: 80 },
+      1166,
+      DASHBOARD_WIDGET_GAP,
+      tall,
+    );
+    expect(compliance).toEqual({ grid_x: 20, grid_y: 820, grid_w: 390 });
+    const afterBoth = afterWeather.map((row) => (
+      row.id === 'w-compliance' && compliance ? { ...row, ...compliance } : row
+    ));
+    const packed = layoutDashboardWidgetsForEdit(afterBoth, DASHBOARD_WIDGET_GAP, tall);
+    expect(packed.find((row) => row.id === 'w-weather2')!.grid_y).toBe(440);
+    expect(packed.find((row) => row.id === 'w-compliance')!.grid_y).toBe(820);
+  });
+
   it('drag on a clamped card starts from the drawn rect and stays on a 910 canvas', () => {
     const live: DashboardWidgetRect[] = [
       { id: 'w-jobs', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270 },
@@ -626,5 +705,87 @@ describe('dashboard widget grid placement', () => {
     expect(data).toContain('weather');
     expect(system).toContain('upcoming_jobs');
     expect(placeAddedDashboardWidget([], 'bitcoin')).toBeNull();
+  });
+
+  it('keeps edit cards at stored row height and does not push later rows', () => {
+    const rows: DashboardWidgetRect[] = [
+      { id: 'a', widget_type: 'upcoming_jobs', grid_x: 0, grid_y: 0, grid_w: 360, grid_h: 200 },
+      { id: 'b', widget_type: 'outstanding_invoices', grid_x: 376, grid_y: 0, grid_w: 280, grid_h: 200 },
+      { id: 'c', widget_type: 'weather', grid_x: 0, grid_y: 216, grid_w: 360, grid_h: 200 },
+    ];
+    const next = layoutDashboardWidgetsForEdit(rows);
+    expect(next.map((row) => row.content_h)).toEqual([200, 200, 200]);
+    const grown = layoutDashboardWidgetsForEdit(rows, DASHBOARD_WIDGET_GAP, { a: 260 });
+    expect(grown.find((row) => row.id === 'a')!.content_h).toBe(260);
+    expect(grown.find((row) => row.id === 'a')!.grid_h).toBe(200);
+    expect(next.map((row) => row.grid_h)).toEqual([200, 200, 200]);
+    const a = next.find((row) => row.id === 'a')!;
+    const b = next.find((row) => row.id === 'b')!;
+    const c = next.find((row) => row.id === 'c')!;
+    expect(a.grid_y).toBe(0);
+    expect(b.grid_y).toBe(0);
+    expect(c.grid_y).toBe(216);
+    expect(a.grid_h).toBe(200);
+    expect(dashboardWidgetLayoutOverlaps(next)).toBe(false);
+  });
+
+  it('grows a card to its measured height and pushes the next row', () => {
+    const rows: DashboardWidgetRect[] = [
+      { id: 'a', widget_type: 'upcoming_jobs', grid_x: 0, grid_y: 0, grid_w: 360, grid_h: 200 },
+      { id: 'b', widget_type: 'outstanding_invoices', grid_x: 376, grid_y: 0, grid_w: 280, grid_h: 200 },
+      { id: 'c', widget_type: 'weather', grid_x: 0, grid_y: 216, grid_w: 360, grid_h: 200 },
+    ];
+    const grown = growDashboardEditHosts(rows, DASHBOARD_WIDGET_GAP, { a: 260 });
+    expect(grown.find((row) => row.id === 'a')!.content_h).toBe(260);
+    expect(grown.find((row) => row.id === 'a')!.grid_h).toBe(260);
+    expect(grown.find((row) => row.id === 'a')!.grid_y).toBe(0);
+    expect(grown.find((row) => row.id === 'b')!.grid_y).toBe(0);
+    expect(grown.find((row) => row.id === 'c')!.grid_y).toBe(260 + DASHBOARD_WIDGET_GAP);
+    expect(dashboardWidgetLayoutOverlaps(grown)).toBe(false);
+    const slack = growDashboardEditHosts(rows, DASHBOARD_WIDGET_GAP, { a: 210 });
+    expect(slack.find((row) => row.id === 'c')!.grid_y).toBe(210 + DASHBOARD_WIDGET_GAP);
+    expect(dashboardWidgetLayoutOverlaps(slack)).toBe(false);
+  });
+
+  it('does not push a card in another column when a neighbour grows', () => {
+    const rows: DashboardWidgetRect[] = [
+      { id: 'a', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270 },
+      { id: 'b', widget_type: 'weather', grid_x: 410, grid_y: 20, grid_w: 390, grid_h: 270 },
+      { id: 'c', widget_type: 'clock', grid_x: 20, grid_y: 306, grid_w: 260, grid_h: 180 },
+      { id: 'd', widget_type: 'calendar', grid_x: 410, grid_y: 306, grid_w: 390, grid_h: 270 },
+    ];
+    const grown = growDashboardEditHosts(rows, DASHBOARD_WIDGET_GAP, { a: 390 });
+    expect(grown.find((row) => row.id === 'a')!.grid_h).toBe(390);
+    expect(grown.find((row) => row.id === 'c')!.grid_y).toBe(20 + 390 + DASHBOARD_WIDGET_GAP);
+    expect(grown.find((row) => row.id === 'b')!.grid_y).toBe(20);
+    expect(grown.find((row) => row.id === 'd')!.grid_y).toBe(306);
+    expect(dashboardWidgetLayoutOverlaps(grown)).toBe(false);
+  });
+
+  it('restores a 16px column gutter when grow makes near-column cards overlap in y', () => {
+    const rows: DashboardWidgetRect[] = [
+      { id: 'compliance', widget_type: 'compliance_deadlines', grid_x: 672, grid_y: 0, grid_w: 238, grid_h: 200 },
+      { id: 'clock', widget_type: 'clock', grid_x: 410, grid_y: 290, grid_w: 260, grid_h: 180 },
+    ];
+    const grown = growDashboardEditHosts(rows, DASHBOARD_WIDGET_GAP, { compliance: 329 });
+    const clock = grown.find((row) => row.id === 'clock')!;
+    const compliance = grown.find((row) => row.id === 'compliance')!;
+    expect(clock.grid_y).toBe(290);
+    expect(compliance.grid_y).toBe(0);
+    expect(compliance.grid_x - (clock.grid_x + clock.grid_w)).toBe(DASHBOARD_WIDGET_GAP);
+    expect(dashboardWidgetMinNeighborGap(grown)).toBeGreaterThanOrEqual(DASHBOARD_WIDGET_GAP);
+  });
+
+  it('restores a 16px column gutter when grow makes flush-column cards overlap in y', () => {
+    const rows: DashboardWidgetRect[] = [
+      { id: 'quick', widget_type: 'quick_actions', grid_x: 800, grid_y: 332, grid_w: 260, grid_h: 372 },
+      { id: 'calendar', widget_type: 'calendar', grid_x: 410, grid_y: 560, grid_w: 390, grid_h: 270 },
+    ];
+    const grown = growDashboardEditHosts(rows, DASHBOARD_WIDGET_GAP, { quick: 372 });
+    const calendar = grown.find((row) => row.id === 'calendar')!;
+    const quick = grown.find((row) => row.id === 'quick')!;
+    expect(calendar.grid_y).toBe(560);
+    expect(quick.grid_x - (calendar.grid_x + calendar.grid_w)).toBe(DASHBOARD_WIDGET_GAP);
+    expect(dashboardWidgetMinNeighborGap(grown)).toBeGreaterThanOrEqual(DASHBOARD_WIDGET_GAP);
   });
 });

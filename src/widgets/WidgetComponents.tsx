@@ -149,12 +149,14 @@ export function WeatherWidget({ config, onConfigChange }: WidgetProps) {
 }
 
 // ─── Clock Widget ────────────────────────────────────────────────
-export function ClockWidget() {
-  const [now, setNow] = useState(new Date());
+export function ClockWidget({ config }: WidgetProps) {
+  const frozen = typeof config?.lookNow === 'string' ? new Date(config.lookNow) : null;
+  const [now, setNow] = useState(() => frozen ?? new Date());
   useEffect(() => {
+    if (frozen) return;
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [frozen]);
 
   return (
     <div className="h-full flex flex-col items-center justify-center">

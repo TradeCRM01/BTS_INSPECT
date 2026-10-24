@@ -58,7 +58,7 @@ import {
   sortDashboardWidgetsForView,
   swapAdjacentDashboardWidgetPhoneOrder,
 } from '../lib/dashboardWidgetView';
-import { WIDGET_CATEGORIES, getWidgetDef } from '../widgets/registry';
+import { WIDGET_CATEGORIES, WIDGET_REGISTRY, getWidgetDef } from '../widgets/registry';
 import { WidgetRenderer } from '../widgets/WidgetComponents';
 import type { Json } from '../types/database';
 import type { Client, Job, JobWithClient } from '../types/crm';
@@ -69,9 +69,12 @@ import {
 } from '../lib/dashboardHome';
 import {
   DASHBOARD_WIDGET_CANVAS_W,
+  DASHBOARD_WIDGET_DRAG_THRESHOLD,
+  DASHBOARD_WIDGET_GAP,
   applyDashboardWidgetDrag,
   applyDashboardWidgetResize,
   clampDashboardWidgetsToCanvas,
+  dashboardWidgetDragShouldCommit,
   isRetiredDashboardWidgetType,
   measureDashboardCanvasWidth,
   pickerDashboardWidgets,
@@ -79,6 +82,7 @@ import {
   repairDashboardWidgetLayout,
   defaultDashboardWidgetInserts,
   resolveDashboardWidgets,
+  growDashboardEditHosts,
 } from '../lib/dashboardWidgets';
 import type { ScheduleCrewMember } from '../lib/scheduleBoard';
 
@@ -91,8 +95,6 @@ interface DashboardWidget {
   grid_h: number; // pixel height
   config: Json;
 }
-
-const EDIT_CARD_GROW = 60 + 16 + 32;
 
 async function persistDashboardWidgetRepair(
   before: DashboardWidget[],
@@ -183,6 +185,8 @@ const DASHBOARD_LOOK = 'dashboard';
 const DASHBOARD_LOOK_SEED = 'dashboard-seed';
 /** Playwright: /?look=dashboard-repro — live 12-widget canvas with Invoices on the right edge */
 const DASHBOARD_LOOK_REPRO = 'dashboard-repro';
+/** Playwright: /?look=dashboard-all — live 26-card set for grow/gap kills */
+const DASHBOARD_LOOK_ALL = 'dashboard-all';
 /** Playwright: /?auditAuth=1&look=dashboard-jack — seven-widget money-first view grid */
 const DASHBOARD_LOOK_JACK_LAYOUT = 'dashboard-jack';
 /** Playwright: /?auditAuth=1&look=crew-s8d-dashboard-needs — Today row Needs crew */
@@ -359,6 +363,76 @@ function dashboardReproLookWidgets(): DashboardWidget[] {
     blank('w-quick', 'quick_actions', 410, 1320, 260, 270),
     blank('w-kpi', 'kpi_scorecard', 800, 1030, 390, 270),
   ];
+}
+
+function dashboardAllLookWidgets(): DashboardWidget[] {
+  const rows: DashboardWidget[] = dashboardLookWidgets().map(row => {
+    if (row.widget_type !== 'outstanding_invoices') return { ...row };
+    return {
+      ...row,
+      config: {
+        lookInvoices: {
+          count: 3,
+          outstanding: 632.66,
+          overdue: 0,
+          recent: [
+            {
+              id: 'look-all-inv-0100',
+              invoice_number: 100,
+              status: 'sent',
+              total: 290,
+              due_date: '2026-11-02',
+            },
+            {
+              id: 'look-all-inv-0096',
+              invoice_number: 96,
+              status: 'sent',
+              total: 342.66,
+              due_date: '2026-10-26',
+            },
+            {
+              id: 'look-all-inv-0021',
+              invoice_number: 21,
+              status: 'sent',
+              total: 0,
+              due_date: '2026-11-07',
+            },
+          ],
+        },
+      },
+    };
+  });
+  const have = new Set(rows.map(row => row.widget_type));
+  const extras = [
+    ...WIDGET_REGISTRY.map(def => def.type).filter(type => !have.has(type)),
+    'weather',
+    'weather',
+  ];
+  for (const [i, type] of extras.entries()) {
+    const placed = placeAddedDashboardWidget(rows, type);
+    if (!placed) continue;
+    const config = type === 'agent_activity'
+      ? {
+          lookActions: [{
+            id: 'look-all-action-long',
+            action_type: 'query_database',
+            tool_name: 'query_database',
+            summary: 'Query failed: permission denied for table invoices_archive_2019_northside_plumbing_quarterly_reconciliation_final_v2',
+            status: 'failed',
+            created_at: '2026-09-03T08:49:00.000Z',
+          }],
+        }
+      : type === 'clock'
+        ? { lookNow: `${DASHBOARD_LOOK_DAY}T08:49:00.000Z` }
+        : {};
+    rows.push({
+      id: `all-${type}-${i}`,
+      widget_type: type,
+      ...placed,
+      config: config as Json,
+    });
+  }
+  return rows;
 }
 
 function dashboardJackLookWidgets(): DashboardWidget[] {
@@ -721,12 +795,15 @@ export function DashboardPage() {
   const lookDashboardJack = lookParam === DASHBOARD_LOOK_JACK_LAYOUT;
   const lookDashboardSeed = lookParam === DASHBOARD_LOOK_SEED;
   const lookDashboardRepro = lookParam === DASHBOARD_LOOK_REPRO;
+  const lookDashboardAll = lookParam === DASHBOARD_LOOK_ALL;
   const lookDashboard = lookParam === DASHBOARD_LOOK
     || lookCrewS8dDashboard
     || lookDashboardJack
     || lookDashboardSeed
-    || lookDashboardRepro;
+    || lookDashboardRepro
+    || lookDashboardAll;
   const [editMode, setEditMode] = useState(false);
+  const [editContentH, setEditContentH] = useState<Record<string, number>>({});
   const [showJobForm, setShowJobForm] = useState(false);
   const [viewportW, setViewportW] = useState(() => (typeof window === 'undefined' ? 1280 : window.innerWidth));
   const [clock, setClock] = useState(() => new Date());
@@ -757,7 +834,7 @@ export function DashboardPage() {
   }, [lookDashboard]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: DASHBOARD_WIDGET_DRAG_THRESHOLD } }),
   );
 
   const { data: widgets, isLoading: widgetsLoading, error } = useQuery<DashboardWidget[]>({
@@ -765,6 +842,7 @@ export function DashboardPage() {
     queryFn: async () => {
       if (lookDashboardSeed) return repairDashboardWidgetLayout(dashboardSeedLookWidgets()).widgets;
       if (lookDashboardRepro) return repairDashboardWidgetLayout(dashboardReproLookWidgets()).widgets;
+      if (lookDashboardAll) return repairDashboardWidgetLayout(dashboardAllLookWidgets()).widgets;
       if (lookDashboardJack) return repairDashboardWidgetLayout(dashboardJackLookWidgets()).widgets;
       if (lookDashboard) return repairDashboardWidgetLayout(dashboardLookWidgets()).widgets;
       const mock = getAuditDashboardWidgets();
@@ -1172,6 +1250,74 @@ export function DashboardPage() {
     [displayWidgets, profile?.role],
   );
 
+  const editCanvasWidgets = useMemo(
+    () => (editMode && !lookDashboardRepro && !lookDashboardSeed
+      ? growDashboardEditHosts(shownWidgets, DASHBOARD_WIDGET_GAP, editContentH)
+      : shownWidgets),
+    [shownWidgets, editMode, editContentH, lookDashboardRepro, lookDashboardSeed],
+  );
+
+  useLayoutEffect(() => {
+    if (!editMode || lookDashboardRepro || lookDashboardSeed) {
+      setEditContentH((prev) => (Object.keys(prev).length ? {} : prev));
+      return;
+    }
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const next: Record<string, number> = {};
+    let changed = false;
+    for (const host of canvas.querySelectorAll('[data-dashboard-widget-id]')) {
+      const id = host.getAttribute('data-dashboard-widget-id');
+      if (!id) continue;
+      const stored = shownWidgets.find((row) => row.id === id);
+      const body = host.querySelector('.dashboard-home-widget') as HTMLElement | null;
+      const ink = body?.querySelector('.dashboard-home-widget-ink') as HTMLElement | null;
+      if (!body) continue;
+      const hostEl = host as HTMLElement;
+      const storedH = stored?.grid_h ?? 0;
+      const prevHostH = hostEl.style.height;
+      const prevBodyH = body.style.height;
+      const prevInkH = ink?.style.height ?? '';
+      hostEl.style.height = 'auto';
+      body.style.height = 'auto';
+      if (ink) ink.style.height = 'auto';
+      const measured = Math.ceil(ink?.scrollHeight ?? body.scrollHeight);
+      hostEl.style.height = prevHostH;
+      body.style.height = prevBodyH;
+      if (ink) ink.style.height = prevInkH;
+      if (measured <= 1) continue;
+      const padTop = ink ? parseFloat(getComputedStyle(ink).paddingTop || '0') : 0;
+      const widgetBox = body.getBoundingClientRect();
+      const widgetCs = getComputedStyle(body);
+      const innerBottom = widgetBox.bottom
+        - parseFloat(widgetCs.paddingBottom || '0')
+        - parseFloat(widgetCs.borderBottomWidth || '0');
+      let textClipped = false;
+      const walker = document.createTreeWalker(ink ?? body, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode();
+      while (node && !textClipped) {
+        const text = (node.textContent || '').trim();
+        const parent = node.parentElement;
+        if (text && parent && !parent.closest('[title="Drag to move"], [title="Remove widget"], .dashboard-home-widget-resize, svg')) {
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          for (const rect of range.getClientRects()) {
+            if (rect.height > 0.5 && rect.bottom > innerBottom + 0.5) {
+              textClipped = true;
+              break;
+            }
+          }
+        }
+        node = walker.nextNode();
+      }
+      const threshold = textClipped ? 2 : padTop + 2;
+      const grown = measured > storedH + threshold ? measured : storedH;
+      next[id] = Math.max(editContentH[id] ?? 0, grown);
+      if (next[id] !== (editContentH[id] ?? 0)) changed = true;
+    }
+    if (changed) setEditContentH(next);
+  }, [editMode, lookDashboardRepro, lookDashboardSeed, shownWidgets, editCanvasWidgets, editContentH]);
+
   const handleDragStart = (e: DragStartEvent) => {
     setActiveId(String(e.active.id));
   };
@@ -1179,7 +1325,7 @@ export function DashboardPage() {
   const handleDragEnd = (e: DragEndEvent) => {
     setActiveId(null);
     const { active, delta } = e;
-    if (!delta.x && !delta.y) return;
+    if (!dashboardWidgetDragShouldCommit(delta)) return;
     const shown = displayWidgets.find(x => x.id === active.id);
     if (!shown) return;
     const next = applyDashboardWidgetDrag(shown, delta, canvasW);
@@ -1236,13 +1382,12 @@ export function DashboardPage() {
   }, [persistWidget, onResizeMove]);
 
   const canvasHeight = useMemo(() => {
-    const ws = shownWidgets;
+    const ws = editCanvasWidgets;
     const floor = editMode ? 320 : 0;
     if (!ws.length) return floor;
-    const grow = editMode ? EDIT_CARD_GROW : 0;
-    const maxBottom = Math.max(...ws.map((w) => w.grid_y + w.grid_h + grow));
+    const maxBottom = Math.max(...ws.map((w) => w.grid_y + w.grid_h));
     return Math.max(floor, maxBottom + CANVAS_PAD);
-  }, [shownWidgets, editMode]);
+  }, [editCanvasWidgets, editMode]);
 
   const viewWidgets = useMemo(
     () => sortDashboardWidgetsForView(shownWidgets),
@@ -1415,17 +1560,26 @@ export function DashboardPage() {
                           className={`dashboard-home-canvas relative overflow-x-auto is-editing`}
                           style={{ height: canvasHeight, minWidth: '100%' }}
                         >
-                          {shownWidgets.map(w => (
+                          {editCanvasWidgets.map(w => {
+                            const stored = shownWidgets.find(row => row.id === w.id) ?? w;
+                            const raw = (widgets ?? []).find(row => row.id === w.id);
+                            return (
                               <FreeWidget
                                 key={w.id}
                                 widget={w}
+                                storedH={stored.grid_h}
+                                storedY={raw?.grid_y ?? stored.grid_y}
+                                storedX={stored.grid_x}
+                                storedW={stored.grid_w}
+                                baseY={stored.grid_y}
                                 editMode={editMode}
                                 onRemove={() => removeWidget(w.id)}
-                                onResizeStart={(e) => startResize(e, w)}
+                                onResizeStart={(e) => startResize(e, stored)}
                                 onConfigChange={(c) => updateWidgetConfig(w.id, c)}
                                 isDragging={activeId === w.id}
                               />
-                            ))}
+                            );
+                          })}
                         </div>
                       </DndContext>
                     </div>
@@ -1641,9 +1795,14 @@ function DashboardHomeMore({
 }
 
 function FreeWidget({
-  widget, editMode, onRemove, onResizeStart, onConfigChange, isDragging,
+  widget, storedH, storedY, storedX, storedW, baseY, editMode, onRemove, onResizeStart, onConfigChange, isDragging,
 }: {
   widget: DashboardWidget;
+  storedH?: number;
+  baseY?: number;
+  storedY?: number;
+  storedX?: number;
+  storedW?: number;
   editMode: boolean;
   onRemove: () => void;
   onResizeStart: (e: React.PointerEvent) => void;
@@ -1670,6 +1829,11 @@ function FreeWidget({
     <div
       ref={setNodeRef}
       data-dashboard-widget-id={widget.id}
+      data-dashboard-stored-h={storedH ?? widget.grid_h}
+      data-dashboard-stored-y={storedY ?? widget.grid_y}
+      data-dashboard-stored-x={storedX ?? widget.grid_x}
+      data-dashboard-stored-w={storedW ?? widget.grid_w}
+      data-dashboard-base-y={baseY ?? storedY ?? widget.grid_y}
       style={{ ...posStyle, ...dragStyle }}
       className={`absolute ${isDragging || isDragActive ? 'z-50' : 'z-10'} ${isDragActive ? 'select-none' : ''}`}
     >
