@@ -11,7 +11,8 @@ import { chromium } from 'playwright';
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = join(here, '..');
 const MAIN_SHA = '0898c3b93f167a090615232141bf73790bf731ef';
-const OUT = join(repo, 'src/components/layout/fixtures/main-0898c3b9-widget-full.json');
+/** Docs-only remake. Tests do not read this file. In-run 0898c3b9 is the kill baseline. */
+const OUT = join(repo, 'docs/look/main-0898c3b9-widget-full.json');
 const WIDTHS = [375, 390, 768, 1024, 1280];
 const PATH = '/?look=dashboard-full';
 const CHROME = [
