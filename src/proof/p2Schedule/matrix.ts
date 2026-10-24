@@ -631,7 +631,7 @@ export const MUTANTS: readonly MutantSpec[] = [
               </p>
             ) : null}`, replace: '', brief: 'remove the more-jobs line' },
   { id: 'rename-new-job-choice', kill: 'K25', file: 'src/components/crm/ScheduleBookByVoice.tsx', find: "{hints?.job ? 'New job from this' : 'New job'}", replace: "{hints?.job ? 'New job from this' : 'Create job'}", brief: 'rename the New job choice visible text' },
-  inject('text-nowrap-320', 'P2-text', '  .hub-board-cal .ops-page-title { white-space: nowrap; font-size: 96px; overflow: visible; max-width: none; }\n', 'Schedule title text paints past the 320 viewport'),
+  inject('text-nowrap-320', 'P2-text', '  html, body, #root, main, .shell-root, .hub-board-cal.is-week-doc.ops-page, .ops-page-head { overflow: visible !important; }\n  html body .hub-board-cal.is-week-doc .ops-page-title { white-space: nowrap !important; font-size: 96px !important; overflow: visible !important; max-width: none !important; }\n', 'Schedule title text paints past the 320 viewport'),
   inject('webkit-wide-agenda', 'P2-webkit', '  .hub-week-agenda-row { min-width: 520px; }\n', 'phone agenda row wider than the 375 viewport'),
   { id: 'swap-tray-board', kill: 'K17', file: 'src/pages/SchedulePage.tsx', find: '<div data-schedule-section="board">', replace: '<div data-schedule-section="tray">', brief: 'label the board section as tray' },
   { id: 'hardcode-count', kill: 'K18', file: 'src/lib/scheduleBoard.ts', find: '`${parts.onBoard} on the board`', replace: '`14 on the board`', brief: 'hardcode a fallback board count' },
