@@ -36,8 +36,8 @@ This policy covers personal information we collect and hold when:
 
 It covers:
 
-- **Account holders and crew**, you and your team
-- **People you store in Grafter**, clients, contacts, suppliers, and anyone who appears in job records, photos, or paperwork
+- **Account holders and crew**: you and your team
+- **People you store in Grafter**, such as clients, contacts, suppliers, and anyone who appears in job records, photos, or paperwork
 
 If you are a contractor using Grafter, you may also have your own privacy obligations to your clients and crew. You are responsible for how you collect and use *their* information. See section 12.
 
@@ -52,7 +52,7 @@ When you create a workspace we collect:
 - your name
 - company / business name
 - email address
-- password (stored as a hash, we cannot read your password)
+- password (stored as a hash, so we cannot read it)
 
 Depending on how you use Grafter, we may also hold:
 
@@ -72,7 +72,7 @@ You (or your team) may enter:
 - quotes, invoices, purchase orders, and payment status
 - supplier contacts
 - inspection, JHA / SWMS, and Take 5 records, including crew names and signatures
-- photos from site. These may include people who are on site
+- photos from site, which may include people who are on site
 - receipt and invoice scans (vendor name, amounts, dates, and anything else visible on the document)
 - emails and SMS you send to clients or crew through Grafter (job reminders, quotes, invoices, and similar)
 
@@ -124,7 +124,7 @@ We generally cannot offer Grafter anonymously. It is an account-based business t
 
 We collect, hold, use, and disclose personal information to:
 
-- provide Grafter, quotes, jobs, scheduling, timesheets, invoices, inspections, JHAs / SWMS / Take 5, stock, and related records
+- provide Grafter: quotes, jobs, scheduling, timesheets, invoices, inspections, JHAs / SWMS / Take 5, stock, and related records
 - create and administer your workspace and team access
 - send service messages you ask for (password reset, team invites, job reminders, quotes, invoices)
 - provide optional features you turn on (SMS reminders, Xero, in-app AI / receipt scan)
@@ -144,7 +144,7 @@ We disclose personal information only as needed to run Grafter, as you instruct,
 
 **Your own organisation**
 
-People in your workspace can see records their role allows, jobs, clients, timesheets, photos, and so on.
+People in your workspace can see records their role allows, such as jobs, clients, timesheets, and photos.
 
 **Your clients and crew, when you send them something**
 
@@ -237,7 +237,7 @@ If you close your account or ask us to delete a workspace, we will delete or de-
 
 Some records you store (invoices, JHAs, timesheets) are the kind of thing a trade business keeps for years. If you need a copy before you close the workspace, export or download what you need first, or ask us for help.
 
-Deletion is not always instant. Backups expire on a cycle, but we do not keep using closed-workspace data to provide the service.
+Deletion is not always instant, because backups expire on a cycle. We do not keep using closed-workspace data to provide the service.
 
 ---
 
@@ -263,7 +263,7 @@ If you are an APP entity (or you otherwise have privacy duties), you must:
 - only put sensitive information in Grafter when it is reasonably necessary and you have consent or another lawful basis
 - tell those people how you handle their information, where the law requires a notice
 - not use Grafter to send spam or messages people have not agreed to receive
-- be careful with photos. A site photo can identify a person
+- be careful with photos, because a site photo can identify a person
 
 We process that information to provide Grafter to you. We do not use your client list for our own marketing.
 
@@ -318,7 +318,7 @@ as the Privacy Act requires, including who we are, what happened, the kinds of i
 
 If you are unhappy with how we have handled personal information:
 
-1. **Contact us first**, privacy@grafter.com.au or 0486 011 187. Tell us what happened and how to reach you. We will look into it and respond within a reasonable time.
+1. **Contact us first**: privacy@grafter.com.au or 0486 011 187. Tell us what happened and how to reach you. We will look into it and respond within a reasonable time.
 2. If you are not satisfied, you can complain to the **OAIC**:
    - [oaic.gov.au](https://www.oaic.gov.au)
    - Phone 1300 363 992
