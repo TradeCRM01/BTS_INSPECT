@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,7 +23,7 @@ import { persistLivingJobOnBoundJhas } from '../lib/persistLivingJobJha';
 import { partitionScheduleJobs } from '../lib/jobNextAction';
 import { attachJobClients, auditJobsWithPatches, hydrateJobParentNumbers, jobMatchesSearch, mergeScheduleJobPatch, searchScheduleJobs, withScheduleJobPatches } from '../lib/scheduleJobSearch';
 import {
-  countNeedCrewJobs,
+  countNeedCrewJobs, MORE_JOBS_THIS_WEEK,
   parseScheduleDateParam,
   parseScheduleView,
   scheduleBoardWhisper,
@@ -34,7 +34,7 @@ import {
   scheduleSheetSavePayload,
   SCHEDULE_BOARD_COLUMNS,
   SCHEDULE_BOARD_LIMIT,
-  SCHEDULE_WEEK_STARTS_ON,
+  SCHEDULE_WEEK_STARTS_ON, takeBoardPage,
   type ScheduleSheetInput,
   type ScheduleViewMode,
 } from '../lib/scheduleBoard';
@@ -380,14 +380,18 @@ export function SchedulePage() {
     return format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
   }, [currentDate, viewMode]);
 
-  const { data: jobs, isLoading, error: jobsError } = useQuery<JobWithClient[]>({
+  const { data: boardLoad, isLoading, error: jobsError } = useQuery<{
+    jobs: JobWithClient[];
+    moreDated: boolean;
+    moreUndated: boolean;
+  }>({
     queryKey: ['jobs', rangeStart, rangeEnd],
     queryFn: async () => {
       const mock = auditJobsWithPatches();
       if (mock) {
-        return attachJobClients(mock as Job[], getAuditClients() ?? []);
+        return { jobs: attachJobClients(mock as Job[], getAuditClients() ?? []), moreDated: false, moreUndated: false };
       }
-      if (!profile?.company_id) return [];
+      if (!profile?.company_id) return { jobs: [], moreDated: false, moreUndated: false };
       const [rangedRes, undatedRes] = await Promise.all([
         supabase
           .from('jobs')
@@ -408,8 +412,10 @@ export function SchedulePage() {
       if (rangedRes.error) throw rangedRes.error;
       if (undatedRes.error) throw undatedRes.error;
 
+      const datedPage = takeBoardPage(rangedRes.data ?? []);
+      const undatedPage = takeBoardPage(undatedRes.data ?? []);
       const byId = new Map<string, Job>();
-      for (const row of [...(rangedRes.data ?? []), ...(undatedRes.data ?? [])]) {
+      for (const row of [...datedPage.rows, ...undatedPage.rows]) {
         const dated = scheduleDayKey(row.scheduled_date);
         const status = asStatusText(row.status);
         if (!dated && row.scheduled_date == null && status !== 'scheduled' && status !== 'in_progress') continue;
@@ -430,10 +436,17 @@ export function SchedulePage() {
         }
       }
 
-      return hydrateJobParentNumbers(attachJobClients(jobs, [...clientMap.values()]));
+      return {
+        jobs: await hydrateJobParentNumbers(attachJobClients(jobs, [...clientMap.values()])),
+        moreDated: datedPage.more,
+        moreUndated: undatedPage.more,
+      };
     },
     enabled: !!profile,
   });
+  const jobs = boardLoad?.jobs;
+  const moreDated = boardLoad?.moreDated ?? false;
+  const moreUndated = boardLoad?.moreUndated ?? false;
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedQuery(jobQuery.trim()), 200);
@@ -465,8 +478,8 @@ export function SchedulePage() {
   }, [preselectClient]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const applyDropToCache = (drop: JobDropPayload) => {
-    queryClient.setQueryData<JobWithClient[]>(['jobs', rangeStart, rangeEnd], prev => {
-      const list = prev ?? [];
+    queryClient.setQueryData<typeof boardLoad>(['jobs', rangeStart, rangeEnd], prev => {
+      const list = prev?.jobs ?? [];
       const fromAudit = withScheduleJobPatches(attachJobClients(
         (getAuditJobs() as Job[] | null) ?? [],
         getAuditClients() ?? [],
@@ -475,7 +488,7 @@ export function SchedulePage() {
         ?? searchHits.find(j => j.id === drop.jobId)
         ?? (pickedJob?.id === drop.jobId ? pickedJob : undefined)
         ?? fromAudit;
-      if (!current) return list;
+      if (!current) return prev;
       const patch = rescheduleJobPatch({
         assigned_team: current.assigned_team,
         start_time: current.start_time,
@@ -483,7 +496,11 @@ export function SchedulePage() {
       }, drop);
       const next = { ...current, ...patch };
       mergeScheduleJobPatch(drop.jobId, next);
-      return [...list.filter(j => j.id !== drop.jobId), next];
+      return {
+        jobs: [...list.filter(j => j.id !== drop.jobId), next],
+        moreDated: prev?.moreDated ?? false,
+        moreUndated: prev?.moreUndated ?? false,
+      };
     });
   };
 
@@ -530,14 +547,16 @@ export function SchedulePage() {
   const resizeJob = useMutation({
     mutationFn: async ({ jobId, startTime, endTime }: { jobId: string; startTime: string; endTime: string }) => {
       if (isDevFieldAuditAuth()) {
-        queryClient.setQueryData<JobWithClient[]>(['jobs', rangeStart, rangeEnd], prev =>
-          (prev ?? []).map(j => {
+        queryClient.setQueryData<typeof boardLoad>(['jobs', rangeStart, rangeEnd], prev => ({
+          jobs: (prev?.jobs ?? []).map(j => {
             if (j.id !== jobId) return j;
             const next = { ...j, start_time: startTime, end_time: endTime };
             mergeScheduleJobPatch(jobId, next);
             return next;
           }),
-        );
+          moreDated: prev?.moreDated ?? false,
+          moreUndated: prev?.moreUndated ?? false,
+        }));
         return;
       }
       const { error } = await supabase.from('jobs').update({
@@ -559,8 +578,8 @@ export function SchedulePage() {
   const scheduleFromSheet = useMutation({
     mutationFn: async ({ jobId, fields }: { jobId: string; fields: ScheduleSheetInput }) => {
       const patch = scheduleSheetSavePayload(fields);
-      queryClient.setQueryData<JobWithClient[]>(['jobs', rangeStart, rangeEnd], prev => {
-        const list = prev ?? [];
+      queryClient.setQueryData<typeof boardLoad>(['jobs', rangeStart, rangeEnd], prev => {
+        const list = prev?.jobs ?? [];
         const fromAudit = withScheduleJobPatches(attachJobClients(
           (getAuditJobs() as Job[] | null) ?? [],
           getAuditClients() ?? [],
@@ -569,10 +588,14 @@ export function SchedulePage() {
           ?? searchHits.find(j => j.id === jobId)
           ?? (sheetJob?.id === jobId ? sheetJob : undefined)
           ?? fromAudit;
-        if (!current) return list;
+        if (!current) return prev;
         const next = { ...current, ...patch };
         mergeScheduleJobPatch(jobId, next);
-        return [...list.filter(j => j.id !== jobId), next];
+        return {
+          jobs: [...list.filter(j => j.id !== jobId), next],
+          moreDated: prev?.moreDated ?? false,
+          moreUndated: prev?.moreUndated ?? false,
+        };
       });
       if (isDevFieldAuditAuth()) return;
       const { error } = await supabase.from('jobs').update({
@@ -1006,6 +1029,11 @@ export function SchedulePage() {
             <p className="hub-schedule-eyebrow" data-schedule-eyebrow="1">{boardEyebrow}</p>
             <h1 className="ops-page-title">{NAV_WORDS.schedule}</h1>
             <p className="ops-meta mt-2" data-schedule-whisper="1">{boardWhisper}</p>
+            {(moreDated || moreUndated) ? (
+              <p className="ops-meta mt-2" data-schedule-more-jobs="1">
+                <Link to="/jobs">{MORE_JOBS_THIS_WEEK}</Link>
+              </p>
+            ) : null}
           </div>
           <button
             type="button"
