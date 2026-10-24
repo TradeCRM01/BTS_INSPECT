@@ -34,11 +34,17 @@ describe('public Grafter landing', () => {
     );
     expect(displayRule).toContain('white-space: normal');
     expect(displayRule).not.toContain('white-space: nowrap');
+    const kickerRule = css.slice(
+      css.indexOf('.hub-marketing-kicker {'),
+      css.indexOf('.hub-marketing-display {'),
+    );
+    expect(kickerRule).toContain('white-space: normal');
+    expect(kickerRule).not.toContain('white-space: nowrap');
     expect(displayRule).toMatch(/font-size:\s*clamp\(/);
     expect(displayRule).toContain('overflow: visible');
     expect(src('index.html')).toContain('viewport-fit=cover');
     expect(src('index.html')).toContain('apple-mobile-web-app-status-bar-style" content="default"');
-    expect(src('src/index.css')).toContain('padding-top: env(safe-area-inset-top, 0px)');
+    expect(src('src/index.css')).toContain('padding-top: max(12px, env(safe-area-inset-top, 0px))');
     expect(src('src/index.css')).toContain('padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 24px 8px');
     expect(src('src/index.css')).toContain('padding-bottom: env(safe-area-inset-bottom, 0px)');
     expect(src('src/index.css')).not.toContain('var(--safe-area-inset-top');

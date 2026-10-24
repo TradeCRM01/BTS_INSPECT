@@ -8886,6 +8886,9 @@
   .insp-doc-theme .insp-review-head {
     background: var(--insp-navy, #0A2540);
     box-shadow: inset 0 -2px 0 var(--insp-accent, #2E75B6);
+    padding-top: env(safe-area-inset-top, 0px);
+    height: auto;
+    min-height: calc(3.5rem + env(safe-area-inset-top, 0px));
   }
 
   .insp-doc-theme .insp-review-navy {
@@ -16971,7 +16974,7 @@
     border-bottom: 1px solid var(--g-glass-line);
     backdrop-filter: saturate(180%) blur(16px);
     -webkit-backdrop-filter: saturate(180%) blur(16px);
-    padding-top: env(safe-area-inset-top, 0px);
+    padding-top: max(12px, env(safe-area-inset-top, 0px));
     @apply sticky top-0 z-40 flex-shrink-0;
   }
 
@@ -17213,7 +17216,7 @@
 
   /* The open menu stops above the bar. Header = h-14, its safe-area top pad, and two hairlines. */
   .shell-phone-menu {
-    max-height: calc(100dvh - 58px - env(safe-area-inset-top, 0px) - var(--shell-bottom-nav-h, 0px));
+    max-height: calc(100dvh - 58px - max(12px, env(safe-area-inset-top)) - var(--shell-bottom-nav-h, 0px));
     background-color: var(--g-nav-bg);
     color: var(--g-nav-ink);
     border-top: 1px solid var(--g-glass-line);

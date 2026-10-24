@@ -10,11 +10,13 @@
  *
  * Filename omits `.test.` so the default include misses it.
  */
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
@@ -26,18 +28,9 @@ const here = dirname(fileURLToPath(import.meta.url));
 const TEXT_WIDTHS = [320, 375, 390] as const;
 const OVERFLOW_WIDTHS = [320, 375, 390, 768, 1024, 1280] as const;
 const BOTH = ['chromium', 'webkit'] as const;
-const PAGE_KINDS = ['landing', 'pricing', 'privacy', 'terms', 'login', 'signup', 'portal', 'shell'] as const;
+const PAGE_KINDS = ['landing', 'pricing', 'privacy', 'terms', 'login', 'signup', 'portal', 'shell', 'review'] as const;
 const INTERNAL_GAP = 8;
-const AAD2_CONTENT_TOP: Record<(typeof PAGE_KINDS)[number], number> = {
-  landing: 16,
-  pricing: 16,
-  privacy: 16,
-  terms: 16,
-  login: 16,
-  signup: 16,
-  portal: 16,
-  shell: 16,
-};
+const PUBLIC_STANDALONE_TOP = 63;
 const PHONE_TABS = ['today', 'schedule', 'jobs', 'more'] as const;
 const SAFE_TOP = 47;
 const SAFE_BOTTOM = 34;
@@ -81,6 +74,7 @@ const READY: Record<PageKind, string> = {
   signup: '.hub-auth-nav',
   portal: '#client-portal .portal-doc',
   shell: '.shell-header',
+  review: '.insp-review-head',
 };
 
 const TOP_NAV: Record<PageKind, { header: string; content: string }> = {
@@ -92,6 +86,7 @@ const TOP_NAV: Record<PageKind, { header: string; content: string }> = {
   signup: { header: '.hub-auth', content: '.hub-auth-nav a, .hub-auth-nav [data-grafter-lockup]' },
   portal: { header: '#client-portal .portal-doc', content: '#client-portal .portal-doc > *' },
   shell: { header: '.shell-header', content: '.shell-header a, .shell-header [data-grafter-lockup]' },
+  review: { header: '.insp-review-head', content: '.insp-review-head button, .insp-review-head p' },
 };
 
 async function launchEngine(engine: Engine): Promise<KillBrowser> {
@@ -173,18 +168,86 @@ function srcOverlay(src: string): string {
   if (portalPad) parts.push(`#client-portal .portal-doc{padding:${portalPad};}`);
   const headerPad = decl(header, 'padding-top');
   if (headerPad) parts.push(`.shell-header{padding-top:${headerPad};}`);
+  const review = sliceRule(src, '.insp-doc-theme .insp-review-head {', '.insp-doc-theme .insp-review-navy');
+  const reviewPad = decl(review, 'padding-top');
+  const reviewMin = decl(review, 'min-height');
+  const reviewH = decl(review, 'height');
+  if (reviewPad || reviewMin || reviewH) {
+    parts.push(`.insp-doc-theme .insp-review-head,.insp-review-head{${reviewPad ? `padding-top:${reviewPad};` : ''}${reviewMin ? `min-height:${reviewMin};` : ''}${reviewH ? `height:${reviewH};` : ''}}`);
+  }
   const bottomPad = decl(bottom, 'padding-bottom');
   if (bottomPad) parts.push(`.shell-bottom-nav{padding-bottom:${bottomPad};}`);
   if (phoneH) parts.push(`@media (max-width: 767px){:root,.shell-root{--shell-bottom-nav-h:${phoneH[1].trim()}}}`);
-  const toastFrom = src.indexOf('  .ops-toast-host {');
+  const toastFrom = src.indexOf('\n  .ops-toast-host {');
   const toastTo = src.indexOf('.ops-toast-host > *', toastFrom);
   const toast = toastFrom >= 0 && toastTo > toastFrom ? src.slice(toastFrom, toastTo) : '';
-  if (toast) {
-    const toastWidth = decl(toast, 'width');
-    const toastMin = decl(toast, 'min-width');
-    parts.push(`.ops-toast-host{position:fixed;left:${decl(toast, 'left') || 'auto'};right:${decl(toast, 'right') || 'auto'};${toastWidth ? `width:${toastWidth};` : ''}max-width:${decl(toast, 'max-width') || 'none'};${toastMin ? `min-width:${toastMin};` : 'min-width:auto;'}box-sizing:${decl(toast, 'box-sizing') || 'content-box'};}`);
+  if (toast) parts.push(toastDecls(toast));
+  const toastMediaNeedle = '@media (max-width: 767px) {\n    .ops-toast-host {';
+  const toastMediaFrom = src.indexOf(toastMediaNeedle);
+  if (toastMediaFrom >= 0) {
+    const ruleStart = src.indexOf('.ops-toast-host {', toastMediaFrom);
+    const ruleEnd = src.indexOf('}', ruleStart);
+    if (ruleStart >= 0 && ruleEnd > ruleStart) {
+      parts.push(`@media (max-width: 767px){${toastDecls(src.slice(ruleStart, ruleEnd + 1))}}`);
+    }
   }
   return parts.join('\n');
+}
+
+function toastDecls(rule: string): string {
+  const width = decl(rule, 'width');
+  const minW = decl(rule, 'min-width');
+  return `.ops-toast-host{position:fixed;left:${decl(rule, 'left') || 'auto'};right:${decl(rule, 'right') || 'auto'};${width ? `width:${width};` : ''}max-width:${decl(rule, 'max-width') || 'none'};${minW ? `min-width:${minW};` : 'min-width:auto;'}box-sizing:${decl(rule, 'box-sizing') || 'content-box'};}`;
+}
+
+function readGitFile(revPath: string, fallbackRel?: string): string {
+  const staged = process.env.HF_LAND1_AAD2_DIR;
+  if (staged && fallbackRel) {
+    const file = join(staged, fallbackRel);
+    if (existsSync(file)) return readFileSync(file, 'utf8');
+  }
+  const cwd = process.cwd();
+  return execSync(`git -c safe.directory=${cwd} show ${revPath}`, {
+    encoding: 'utf8',
+    maxBuffer: 12 * 1024 * 1024,
+    env: { ...process.env, GIT_CONFIG_GLOBAL: '/tmp/hf-land-1.gitconfig', HOME: '/tmp' },
+  });
+}
+
+function startFixtureServer(root: string): Promise<{ origin: string; close: () => Promise<void> }> {
+  return new Promise((resolve, reject) => {
+    const server = createServer((req, res) => {
+      const url = new URL(req.url || '/', 'http://127.0.0.1');
+      const rel = decodeURIComponent(url.pathname).replace(/^\/+/, '');
+      const geistHit = rel.endsWith('Geist-Variable.woff2') ? geistSrc : '';
+      const file = geistHit || join(root, rel);
+      if ((!geistHit && !file.startsWith(root)) || !existsSync(file) || !statSync(file).isFile()) {
+        res.statusCode = 404;
+        res.end();
+        return;
+      }
+      const type = file.endsWith('.woff2')
+        ? 'font/woff2'
+        : file.endsWith('.html')
+          ? 'text/html; charset=utf-8'
+          : 'application/octet-stream';
+      res.setHeader('Content-Type', type);
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.end(readFileSync(file));
+    });
+    server.listen(0, '127.0.0.1', () => {
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') {
+        reject(new Error('HF-LAND-1 fixture server failed to bind'));
+        return;
+      }
+      resolve({
+        origin: `http://127.0.0.1:${addr.port}`,
+        close: () => new Promise((done) => server.close(() => done())),
+      });
+    });
+    server.on('error', reject);
+  });
 }
 
 function rewriteSafeAreaEnv(css: string, top: number, bottom: number): string {
@@ -242,6 +305,7 @@ function fixtureHtml(js: string, css: string): string {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<style>@font-face{font-family:'Geist';src:url('/fonts/Geist-Variable.woff2') format('woff2');font-weight:100 900;font-style:normal;font-display:block}html,body{font-family:'Geist',sans-serif}</style>
 <style>${css}</style>
 </head>
 <body>
@@ -381,6 +445,13 @@ let legalJs = '';
 let authJs = '';
 let portalJs = '';
 let shellJs = '';
+let reviewJs = '';
+let aad2Css = '';
+let aad2ShellPad = '';
+let fixtureRoot = '';
+let fixtureOrigin = '';
+let fixtureServer: { origin: string; close: () => Promise<void> } | null = null;
+const geistSrc = join(process.cwd(), 'public/fonts/Geist-Variable.woff2');
 const browsers: Partial<Record<Engine, KillBrowser>> = {};
 const temps: string[] = [];
 
@@ -389,6 +460,7 @@ function jsFor(kind: PageKind): string {
   if (kind === 'privacy' || kind === 'terms') return legalJs;
   if (kind === 'login' || kind === 'signup') return authJs;
   if (kind === 'portal') return portalJs;
+  if (kind === 'review') return reviewJs;
   return shellJs;
 }
 
@@ -400,11 +472,22 @@ function hashFor(kind: PageKind): string {
 }
 
 beforeAll(async () => {
+  if (!existsSync(geistSrc)) throw new Error('public/fonts/Geist-Variable.woff2 missing (FAIL, not a skip)');
+  aad2Css = readGitFile('aad2eef7:src/index.css', 'index.css');
+  const app = readGitFile('aad2eef7:src/components/layout/AppShell.tsx', 'AppShell.tsx');
+  const inline = app.match(/paddingTop:\s*'([^']+)'/);
+  aad2ShellPad = inline ? inline[1] : '';
+  fixtureRoot = mkdtempSync(join(tmpdir(), 'hf-land-1-srv-'));
+  temps.push(fixtureRoot);
+  copyFileSync(geistSrc, join(fixtureRoot, 'Geist-Variable.woff2'));
+  fixtureServer = await startFixtureServer(fixtureRoot);
+  fixtureOrigin = fixtureServer.origin;
   distCss = readDistCss();
   landingJs = await bundleEntry(join(here, 'hfLand1.landing.entry.tsx'));
   legalJs = await bundleEntry(join(here, 'hfLand1.legal.entry.tsx'));
   authJs = await bundleEntry(join(here, 'hfLand1.auth.entry.tsx'));
   portalJs = await bundleEntry(join(here, 'hfLand1.portal.entry.tsx'));
+  reviewJs = await bundleEntry(join(here, 'hfLand1.review.entry.tsx'));
   shellJs = await bundleEntry(
     join(here, 'hfLand1.shell.entry.tsx'),
     join(here, '../components/layout/s2Shell.chromium.mocks.ts'),
@@ -416,8 +499,18 @@ beforeAll(async () => {
 
 afterAll(async () => {
   for (const engine of BOTH) await browsers[engine]?.close();
+  await fixtureServer?.close();
   for (const dir of temps) rmSync(dir, { recursive: true, force: true });
 });
+
+async function assertGeistLoaded(page: KillPage): Promise<void> {
+  const ok = await page.evaluate(async () => {
+    await document.fonts.ready;
+    await document.fonts.load('16px Geist');
+    return document.fonts.check('16px Geist');
+  });
+  expect(ok, 'Geist must load via file path (FAIL, not a skip)').toBe(true);
+}
 
 async function openPage(args: {
   engine: Engine;
@@ -425,15 +518,23 @@ async function openPage(args: {
   width: number;
   standalone?: boolean;
   tab?: PhoneTab;
+  source?: 'live' | 'aad2';
 }): Promise<KillPage> {
-  const src = readFileSync(join(process.cwd(), 'src/index.css'), 'utf8');
-  const live = `${distCss}\n${srcOverlay(src)}`;
+  const src = args.source === 'aad2'
+    ? aad2Css
+    : readFileSync(join(process.cwd(), 'src/index.css'), 'utf8');
+  let live = `${distCss}\n${srcOverlay(src)}`;
+  if (args.source === 'aad2') {
+    if (aad2ShellPad) live += `\n.shell-header{padding-top:${aad2ShellPad};}`;
+    const reviewPad = decl(sliceRule(src, '.insp-doc-theme .insp-review-head {', '.insp-doc-theme .insp-review-navy'), 'padding-top');
+    if (!reviewPad) live += `\n.insp-review-head,.insp-doc-theme .insp-review-head{padding-top:0;}`;
+  }
   const css = args.standalone ? rewriteSafeAreaEnv(live, SAFE_TOP, SAFE_BOTTOM) : live;
-  const html = fixtureHtml(jsFor(args.kind), css);
-  const dir = mkdtempSync(join(tmpdir(), 'hf-land-1-'));
-  temps.push(dir);
-  const file = join(dir, 't.html');
-  writeFileSync(file, html);
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const dir = join(fixtureRoot, id);
+  mkdirSync(dir, { recursive: true });
+  copyFileSync(geistSrc, join(dir, 'Geist-Variable.woff2'));
+  writeFileSync(join(dir, 't.html'), fixtureHtml(jsFor(args.kind), css));
   const page = await browsers[args.engine]!.newPage({ viewport: { width: args.width, height: 844 } });
   if (args.standalone) {
     await page.addInitScript(() => {
@@ -455,8 +556,9 @@ async function openPage(args: {
       }) as typeof window.matchMedia;
     });
   }
-  await page.goto(pathToFileURL(file).href + hashFor(args.kind));
+  await page.goto(`${fixtureOrigin}/${id}/t.html${hashFor(args.kind)}`);
   await page.waitForSelector(READY[args.kind], { timeout: 15000 });
+  await assertGeistLoaded(page);
   if (args.kind === 'pricing') {
     await page.evaluate(() => document.querySelector('#pricing')?.scrollIntoView());
     await page.waitForSelector('.hub-marketing-nav', { timeout: 5000 });
@@ -532,34 +634,66 @@ function measuredKills(engine: Engine) {
 
   it(`HF-LAND-1 ${engine} env=0: nav content top matches aad2eef7`, async () => {
     for (const kind of PAGE_KINDS) {
+      const aad2Page = await openPage({ engine, kind, width: 390, source: 'aad2' });
+      const aad2First = await aad2Page.evaluate(navFirstTop, TOP_NAV[kind].header);
+      const aad2Paint = await aad2Page.evaluate(topPaint, TOP_NAV[kind]);
+      await aad2Page.close();
       const page = await openPage({ engine, kind, width: 390 });
       const first = await page.evaluate(navFirstTop, TOP_NAV[kind].header);
-      console.log(`HF-LAND-1 geom inset0 ${engine} ${kind} first=${first}`);
-      const slack = kind === 'portal' ? 2 : 0.5;
+      const paint = await page.evaluate(topPaint, TOP_NAV[kind]);
+      console.log(`HF-LAND-1 geom inset0 ${engine} ${kind} first=${first} aad2=${aad2First} pad=${paint.headerPadTop} aad2Pad=${aad2Paint.headerPadTop}`);
       expect(
-        Math.abs(first - AAD2_CONTENT_TOP[kind]),
-        `${engine} ${kind} inset-0 first nav top ${first} vs aad2 ${AAD2_CONTENT_TOP[kind]}`,
-      ).toBeLessThanOrEqual(slack);
+        Math.abs(first - aad2First),
+        `${engine} ${kind} inset-0 first nav top ${first} vs aad2 ${aad2First}`,
+      ).toBeLessThanOrEqual(0.5);
+      expect(
+        Math.abs(paint.headerPadTop - aad2Paint.headerPadTop),
+        `${engine} ${kind} inset-0 pad ${paint.headerPadTop} vs aad2 ${aad2Paint.headerPadTop}`,
+      ).toBeLessThanOrEqual(0.5);
+      if (kind === 'shell') {
+        for (const tab of PHONE_TABS) {
+          await page.click(`[data-phone-tab="${tab}"]`);
+          const tabFirst = await page.evaluate(navFirstTop, TOP_NAV.shell.header);
+          const tabPaint = await page.evaluate(topPaint, TOP_NAV.shell);
+          expect(Math.abs(tabFirst - aad2First), `${engine} ${tab} inset-0 first`).toBeLessThanOrEqual(0.5);
+          expect(Math.abs(tabPaint.headerPadTop - aad2Paint.headerPadTop), `${engine} ${tab} inset-0 pad`).toBeLessThanOrEqual(0.5);
+        }
+      }
       await page.close();
     }
   }, 180000);
 
   it(`HF-LAND-1 ${engine} standalone: first nav text sits at ≥ 55 and not doubled`, async () => {
     const floor = SAFE_TOP + INTERNAL_GAP;
-    const doubled = SAFE_TOP + SAFE_TOP;
     for (const kind of PAGE_KINDS) {
+      const aad2Page = await openPage({ engine, kind, width: 390, source: 'aad2' });
+      const aad2First = await aad2Page.evaluate(navFirstTop, TOP_NAV[kind].header);
+      const aad2Paint = await aad2Page.evaluate(topPaint, TOP_NAV[kind]);
+      await aad2Page.close();
+      const internal = aad2First - aad2Paint.headerPadTop;
+      const bar = kind === 'shell' || kind === 'review' ? SAFE_TOP : PUBLIC_STANDALONE_TOP;
+      const exact = bar + internal;
+      const minFirst = kind === 'review' ? SAFE_TOP : floor;
       for (const width of TEXT_WIDTHS) {
         const page = await openPage({ engine, kind, width, standalone: true });
         const first = await page.evaluate(navFirstTop, TOP_NAV[kind].header);
-        console.log(`HF-LAND-1 geom standalone ${engine} ${kind} ${width} first=${first}`);
-        expect(first, `${engine} ${kind} ${width} first nav top`).toBeGreaterThanOrEqual(floor);
-        expect(first, `${engine} ${kind} ${width} first nav top not doubled`).toBeLessThan(doubled);
+        const paint = await page.evaluate(topPaint, TOP_NAV[kind]);
+        console.log(`HF-LAND-1 geom standalone ${engine} ${kind} ${width} first=${first} exact=${exact} pad=${paint.headerPadTop} bar=${bar}`);
+        expect(first, `${engine} ${kind} ${width} first nav top`).toBeGreaterThanOrEqual(minFirst);
+        expect(
+          Math.abs(paint.headerPadTop - bar),
+          `${engine} ${kind} ${width} pad ${paint.headerPadTop} vs bar ${bar}`,
+        ).toBeLessThanOrEqual(0.5);
+        expect(
+          Math.abs(first - exact),
+          `${engine} ${kind} ${width} first nav top ${first} vs exact ${exact}`,
+        ).toBeLessThanOrEqual(0.5);
         if (kind === 'shell') {
           for (const tab of PHONE_TABS) {
             await page.click(`[data-phone-tab="${tab}"]`);
             const tabFirst = await page.evaluate(navFirstTop, TOP_NAV.shell.header);
             expect(tabFirst, `${engine} ${tab} ${width} first nav top`).toBeGreaterThanOrEqual(floor);
-            expect(tabFirst, `${engine} ${tab} ${width} first nav top not doubled`).toBeLessThan(doubled);
+            expect(Math.abs(tabFirst - exact), `${engine} ${tab} ${width} first vs exact ${exact}`).toBeLessThanOrEqual(0.5);
           }
         }
         await page.close();
@@ -631,24 +765,33 @@ describe('HF-LAND-1 source locks (after measured kills)', () => {
 
   it('uses max(existing, inset + internal) and no second env term', () => {
     const css = readFileSync(join(process.cwd(), 'src/index.css'), 'utf8');
-    expect(css).toContain('padding-top: env(safe-area-inset-top, 0px)');
+    expect(css).toContain('padding-top: max(12px, env(safe-area-inset-top, 0px))');
+    expect(css).toContain('max-height: calc(100dvh - 58px - max(12px, env(safe-area-inset-top)) - var(--shell-bottom-nav-h, 0px))');
     expect(css).toContain('padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 24px 8px');
     expect(css).toContain('padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 20px 0');
     expect(css).toContain('padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 20px 40px');
     expect(css).toContain('padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 16px 32px');
+    expect(css).toContain('padding-top: env(safe-area-inset-top, 0px)');
+    expect(css).toContain('min-height: calc(3.5rem + env(safe-area-inset-top, 0px))');
     expect(css).toContain('padding-bottom: env(safe-area-inset-bottom, 0px)');
     expect(css).toContain('max-width: calc(100vw - 2rem)');
     expect(css).not.toContain('var(--safe-area-inset-top');
     expect(css).not.toContain('var(--safe-area-inset-bottom');
     expect(css).not.toMatch(/env\(safe-area-inset-top\)[^\n;]*env\(safe-area-inset-top\)/);
+    const nav = css.slice(css.indexOf('.hub-marketing-nav {'), css.indexOf('.hub-marketing-nav-actions'));
+    expect(nav).toContain('position: sticky');
+    expect(nav).toContain('background: var(--ops-cream)');
     const h1 = css.slice(css.indexOf('.hub-marketing-display {'), css.indexOf('.hub-marketing-display-sm'));
     const sm = css.slice(css.indexOf('.hub-marketing-display-sm {'), css.indexOf('.hub-marketing-subhead'));
     const sub = css.slice(css.indexOf('.hub-marketing-subhead {'), css.indexOf('.hub-marketing-lede'));
+    const kicker = css.slice(css.indexOf('.hub-marketing-kicker {'), css.indexOf('.hub-marketing-display {'));
     expect(h1).toContain('white-space: normal');
     expect(h1).not.toContain('white-space: nowrap');
     expect(sm).toContain('white-space: normal');
     expect(sm).not.toContain('white-space: nowrap');
     expect(sub).toContain('white-space: normal');
     expect(sub).not.toContain('white-space: nowrap');
+    expect(kicker).toContain('white-space: normal');
+    expect(kicker).not.toContain('white-space: nowrap');
   });
 });
