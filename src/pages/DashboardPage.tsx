@@ -183,6 +183,8 @@ const DASHBOARD_LOOK = 'dashboard';
 const DASHBOARD_LOOK_SEED = 'dashboard-seed';
 /** Playwright: /?look=dashboard-repro — live 12-widget canvas with Invoices on the right edge */
 const DASHBOARD_LOOK_REPRO = 'dashboard-repro';
+/** Playwright: /?look=dashboard-full — live 26-widget board (Recent Inspections 520 at x540) */
+const DASHBOARD_LOOK_FULL = 'dashboard-full';
 /** Playwright: /?auditAuth=1&look=dashboard-jack — seven-widget money-first view grid */
 const DASHBOARD_LOOK_JACK_LAYOUT = 'dashboard-jack';
 /** Playwright: /?auditAuth=1&look=crew-s8d-dashboard-needs — Today row Needs crew */
@@ -358,6 +360,40 @@ function dashboardReproLookWidgets(): DashboardWidget[] {
     blank('w-calculator', 'calculator', 20, 1320, 260, 320),
     blank('w-quick', 'quick_actions', 410, 1320, 260, 270),
     blank('w-kpi', 'kpi_scorecard', 800, 1030, 390, 270),
+  ];
+}
+
+function dashboardFullLookWidgets(): DashboardWidget[] {
+  const blank = (id: string, widget_type: string, grid_x: number, grid_y: number, grid_w: number, grid_h: number): DashboardWidget => ({
+    id, widget_type, grid_x, grid_y, grid_w, grid_h, config: {} as Json,
+  });
+  return [
+    blank('full-upcoming_jobs', 'upcoming_jobs', 20, 20, 390, 270),
+    blank('full-weather-a', 'weather', 540, 20, 260, 270),
+    blank('full-weather-b', 'weather', 20, 380, 260, 270),
+    blank('full-weather-c', 'weather', 410, 380, 260, 270),
+    blank('full-outstanding_invoices', 'outstanding_invoices', 800, 380, 260, 180),
+    blank('full-compliance_deadlines', 'compliance_deadlines', 20, 740, 390, 270),
+    blank('full-pending_reports', 'pending_reports', 540, 740, 390, 180),
+    blank('full-recent_inspections', 'recent_inspections', 540, 1010, 520, 270),
+    blank('full-templates', 'templates', 20, 1100, 390, 270),
+    blank('full-inspection_stats', 'inspection_stats', 540, 1370, 260, 180),
+    blank('full-client_stats', 'client_stats', 20, 1460, 260, 180),
+    blank('full-open_pos', 'open_pos', 410, 1640, 260, 180),
+    blank('full-clock', 'clock', 800, 1640, 260, 180),
+    blank('full-low_stock', 'low_stock', 20, 1910, 390, 270),
+    blank('full-revenue_overview', 'revenue_overview', 540, 1910, 390, 180),
+    blank('full-calendar', 'calendar', 540, 2180, 390, 270),
+    blank('full-calculator', 'calculator', 20, 2270, 260, 270),
+    blank('full-quick_actions', 'quick_actions', 410, 2540, 260, 180),
+    blank('full-cash_flow', 'cash_flow', 800, 2540, 260, 180),
+    blank('full-activity_feed', 'activity_feed', 20, 2810, 390, 270),
+    blank('full-ai_agent', 'ai_agent', 540, 2810, 390, 360),
+    blank('full-industry_news', 'industry_news', 20, 3170, 390, 270),
+    blank('full-kpi_scorecard', 'kpi_scorecard', 540, 3260, 390, 180),
+    blank('full-team_activity', 'team_activity', 20, 3530, 390, 270),
+    blank('full-agent_reminders', 'agent_reminders', 540, 3530, 390, 270),
+    blank('full-agent_activity', 'agent_activity', 20, 3890, 390, 360),
   ];
 }
 
@@ -721,11 +757,13 @@ export function DashboardPage() {
   const lookDashboardJack = lookParam === DASHBOARD_LOOK_JACK_LAYOUT;
   const lookDashboardSeed = lookParam === DASHBOARD_LOOK_SEED;
   const lookDashboardRepro = lookParam === DASHBOARD_LOOK_REPRO;
+  const lookDashboardFull = lookParam === DASHBOARD_LOOK_FULL;
   const lookDashboard = lookParam === DASHBOARD_LOOK
     || lookCrewS8dDashboard
     || lookDashboardJack
     || lookDashboardSeed
-    || lookDashboardRepro;
+    || lookDashboardRepro
+    || lookDashboardFull;
   const [editMode, setEditMode] = useState(false);
   const [showJobForm, setShowJobForm] = useState(false);
   const [viewportW, setViewportW] = useState(() => (typeof window === 'undefined' ? 1280 : window.innerWidth));
@@ -765,6 +803,7 @@ export function DashboardPage() {
     queryFn: async () => {
       if (lookDashboardSeed) return repairDashboardWidgetLayout(dashboardSeedLookWidgets()).widgets;
       if (lookDashboardRepro) return repairDashboardWidgetLayout(dashboardReproLookWidgets()).widgets;
+      if (lookDashboardFull) return dashboardFullLookWidgets();
       if (lookDashboardJack) return repairDashboardWidgetLayout(dashboardJackLookWidgets()).widgets;
       if (lookDashboard) return repairDashboardWidgetLayout(dashboardLookWidgets()).widgets;
       const mock = getAuditDashboardWidgets();

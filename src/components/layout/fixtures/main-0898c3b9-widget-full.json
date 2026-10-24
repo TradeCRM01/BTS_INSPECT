@@ -1,0 +1,1494 @@
+{
+  "edit": {
+    "375": [
+      {
+        "id": "full-outstanding_invoices",
+        "x": 16,
+        "y": 2139.625,
+        "width": 343,
+        "height": 179
+      },
+      {
+        "id": "full-revenue_overview",
+        "x": 16,
+        "y": 2338.625,
+        "width": 343,
+        "height": 153
+      },
+      {
+        "id": "full-cash_flow",
+        "x": 16,
+        "y": 2511.625,
+        "width": 343,
+        "height": 194
+      },
+      {
+        "id": "full-upcoming_jobs",
+        "x": 16,
+        "y": 2725.625,
+        "width": 343,
+        "height": 133
+      },
+      {
+        "id": "full-compliance_deadlines",
+        "x": 16,
+        "y": 2878.625,
+        "width": 343,
+        "height": 189
+      },
+      {
+        "id": "full-pending_reports",
+        "x": 16,
+        "y": 3087.625,
+        "width": 343,
+        "height": 129
+      },
+      {
+        "id": "full-recent_inspections",
+        "x": 16,
+        "y": 3236.625,
+        "width": 343,
+        "height": 133
+      },
+      {
+        "id": "full-inspection_stats",
+        "x": 16,
+        "y": 3389.625,
+        "width": 343,
+        "height": 189
+      },
+      {
+        "id": "full-open_pos",
+        "x": 16,
+        "y": 3598.625,
+        "width": 343,
+        "height": 179
+      },
+      {
+        "id": "full-low_stock",
+        "x": 16,
+        "y": 3797.625,
+        "width": 343,
+        "height": 133
+      },
+      {
+        "id": "full-kpi_scorecard",
+        "x": 16,
+        "y": 3950.625,
+        "width": 343,
+        "height": 271.5
+      },
+      {
+        "id": "full-team_activity",
+        "x": 16,
+        "y": 4242.125,
+        "width": 343,
+        "height": 105
+      },
+      {
+        "id": "full-weather-a",
+        "x": 16,
+        "y": 4367.125,
+        "width": 343,
+        "height": 133
+      },
+      {
+        "id": "full-weather-b",
+        "x": 16,
+        "y": 4520.125,
+        "width": 343,
+        "height": 133
+      },
+      {
+        "id": "full-weather-c",
+        "x": 16,
+        "y": 4673.125,
+        "width": 343,
+        "height": 133
+      },
+      {
+        "id": "full-templates",
+        "x": 16,
+        "y": 4826.125,
+        "width": 343,
+        "height": 157
+      },
+      {
+        "id": "full-client_stats",
+        "x": 16,
+        "y": 5003.125,
+        "width": 343,
+        "height": 217
+      },
+      {
+        "id": "full-clock",
+        "x": 16,
+        "y": 5240.125,
+        "width": 343,
+        "height": 142
+      },
+      {
+        "id": "full-calendar",
+        "x": 16,
+        "y": 5402.125,
+        "width": 343,
+        "height": 187.5
+      },
+      {
+        "id": "full-calculator",
+        "x": 16,
+        "y": 5609.625,
+        "width": 343,
+        "height": 375
+      },
+      {
+        "id": "full-quick_actions",
+        "x": 16,
+        "y": 6004.625,
+        "width": 343,
+        "height": 333
+      },
+      {
+        "id": "full-activity_feed",
+        "x": 16,
+        "y": 6357.625,
+        "width": 343,
+        "height": 105
+      },
+      {
+        "id": "full-ai_agent",
+        "x": 16,
+        "y": 6482.625,
+        "width": 343,
+        "height": 84.125
+      },
+      {
+        "id": "full-industry_news",
+        "x": 16,
+        "y": 6586.75,
+        "width": 343,
+        "height": 105
+      },
+      {
+        "id": "full-agent_reminders",
+        "x": 16,
+        "y": 6711.75,
+        "width": 343,
+        "height": 195
+      },
+      {
+        "id": "full-agent_activity",
+        "x": 16,
+        "y": 6926.75,
+        "width": 343,
+        "height": 76.5
+      }
+    ],
+    "390": [
+      {
+        "id": "full-outstanding_invoices",
+        "x": 16,
+        "y": 2139.625,
+        "width": 358,
+        "height": 179
+      },
+      {
+        "id": "full-revenue_overview",
+        "x": 16,
+        "y": 2338.625,
+        "width": 358,
+        "height": 153
+      },
+      {
+        "id": "full-cash_flow",
+        "x": 16,
+        "y": 2511.625,
+        "width": 358,
+        "height": 194
+      },
+      {
+        "id": "full-upcoming_jobs",
+        "x": 16,
+        "y": 2725.625,
+        "width": 358,
+        "height": 133
+      },
+      {
+        "id": "full-compliance_deadlines",
+        "x": 16,
+        "y": 2878.625,
+        "width": 358,
+        "height": 189
+      },
+      {
+        "id": "full-pending_reports",
+        "x": 16,
+        "y": 3087.625,
+        "width": 358,
+        "height": 129
+      },
+      {
+        "id": "full-recent_inspections",
+        "x": 16,
+        "y": 3236.625,
+        "width": 358,
+        "height": 133
+      },
+      {
+        "id": "full-inspection_stats",
+        "x": 16,
+        "y": 3389.625,
+        "width": 358,
+        "height": 189
+      },
+      {
+        "id": "full-open_pos",
+        "x": 16,
+        "y": 3598.625,
+        "width": 358,
+        "height": 179
+      },
+      {
+        "id": "full-low_stock",
+        "x": 16,
+        "y": 3797.625,
+        "width": 358,
+        "height": 133
+      },
+      {
+        "id": "full-kpi_scorecard",
+        "x": 16,
+        "y": 3950.625,
+        "width": 358,
+        "height": 271.5
+      },
+      {
+        "id": "full-team_activity",
+        "x": 16,
+        "y": 4242.125,
+        "width": 358,
+        "height": 105
+      },
+      {
+        "id": "full-weather-a",
+        "x": 16,
+        "y": 4367.125,
+        "width": 358,
+        "height": 133
+      },
+      {
+        "id": "full-weather-b",
+        "x": 16,
+        "y": 4520.125,
+        "width": 358,
+        "height": 133
+      },
+      {
+        "id": "full-weather-c",
+        "x": 16,
+        "y": 4673.125,
+        "width": 358,
+        "height": 133
+      },
+      {
+        "id": "full-templates",
+        "x": 16,
+        "y": 4826.125,
+        "width": 358,
+        "height": 157
+      },
+      {
+        "id": "full-client_stats",
+        "x": 16,
+        "y": 5003.125,
+        "width": 358,
+        "height": 217
+      },
+      {
+        "id": "full-clock",
+        "x": 16,
+        "y": 5240.125,
+        "width": 358,
+        "height": 142
+      },
+      {
+        "id": "full-calendar",
+        "x": 16,
+        "y": 5402.125,
+        "width": 358,
+        "height": 187.5
+      },
+      {
+        "id": "full-calculator",
+        "x": 16,
+        "y": 5609.625,
+        "width": 358,
+        "height": 375
+      },
+      {
+        "id": "full-quick_actions",
+        "x": 16,
+        "y": 6004.625,
+        "width": 358,
+        "height": 333
+      },
+      {
+        "id": "full-activity_feed",
+        "x": 16,
+        "y": 6357.625,
+        "width": 358,
+        "height": 105
+      },
+      {
+        "id": "full-ai_agent",
+        "x": 16,
+        "y": 6482.625,
+        "width": 358,
+        "height": 84.125
+      },
+      {
+        "id": "full-industry_news",
+        "x": 16,
+        "y": 6586.75,
+        "width": 358,
+        "height": 105
+      },
+      {
+        "id": "full-agent_reminders",
+        "x": 16,
+        "y": 6711.75,
+        "width": 358,
+        "height": 195
+      },
+      {
+        "id": "full-agent_activity",
+        "x": 16,
+        "y": 6926.75,
+        "width": 358,
+        "height": 76.5
+      }
+    ],
+    "768": [
+      {
+        "id": "full-upcoming_jobs",
+        "x": 44,
+        "y": 3205,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-weather-a",
+        "x": 564,
+        "y": 3205,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-weather-b",
+        "x": 44,
+        "y": 3565,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-weather-c",
+        "x": 434,
+        "y": 3565,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-outstanding_invoices",
+        "x": 824,
+        "y": 3565,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-compliance_deadlines",
+        "x": 44,
+        "y": 3925,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-pending_reports",
+        "x": 564,
+        "y": 3925,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-recent_inspections",
+        "x": 564,
+        "y": 4195,
+        "width": 520,
+        "height": 278
+      },
+      {
+        "id": "full-templates",
+        "x": 44,
+        "y": 4285,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-inspection_stats",
+        "x": 564,
+        "y": 4555,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-client_stats",
+        "x": 44,
+        "y": 4645,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-open_pos",
+        "x": 434,
+        "y": 4825,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-clock",
+        "x": 824,
+        "y": 4825,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-low_stock",
+        "x": 44,
+        "y": 5095,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-revenue_overview",
+        "x": 564,
+        "y": 5095,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-calendar",
+        "x": 564,
+        "y": 5365,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-calculator",
+        "x": 44,
+        "y": 5455,
+        "width": 260,
+        "height": 416
+      },
+      {
+        "id": "full-quick_actions",
+        "x": 434,
+        "y": 5725,
+        "width": 260,
+        "height": 378
+      },
+      {
+        "id": "full-cash_flow",
+        "x": 824,
+        "y": 5725,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-activity_feed",
+        "x": 44,
+        "y": 5995,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-ai_agent",
+        "x": 564,
+        "y": 5995,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-industry_news",
+        "x": 44,
+        "y": 6355,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-kpi_scorecard",
+        "x": 564,
+        "y": 6445,
+        "width": 390,
+        "height": 316.5
+      },
+      {
+        "id": "full-team_activity",
+        "x": 44,
+        "y": 6715,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-agent_reminders",
+        "x": 564,
+        "y": 6715,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-agent_activity",
+        "x": 44,
+        "y": 7075,
+        "width": 390,
+        "height": 278
+      }
+    ],
+    "1024": [
+      {
+        "id": "full-upcoming_jobs",
+        "x": 52,
+        "y": 1928.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-weather-a",
+        "x": 572,
+        "y": 1928.5,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-weather-b",
+        "x": 52,
+        "y": 2288.5,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-weather-c",
+        "x": 442,
+        "y": 2288.5,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-outstanding_invoices",
+        "x": 832,
+        "y": 2288.5,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-compliance_deadlines",
+        "x": 52,
+        "y": 2648.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-pending_reports",
+        "x": 572,
+        "y": 2648.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-recent_inspections",
+        "x": 572,
+        "y": 2918.5,
+        "width": 520,
+        "height": 278
+      },
+      {
+        "id": "full-templates",
+        "x": 52,
+        "y": 3008.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-inspection_stats",
+        "x": 572,
+        "y": 3278.5,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-client_stats",
+        "x": 52,
+        "y": 3368.5,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-open_pos",
+        "x": 442,
+        "y": 3548.5,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-clock",
+        "x": 832,
+        "y": 3548.5,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-low_stock",
+        "x": 52,
+        "y": 3818.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-revenue_overview",
+        "x": 572,
+        "y": 3818.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-calendar",
+        "x": 572,
+        "y": 4088.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-calculator",
+        "x": 52,
+        "y": 4178.5,
+        "width": 260,
+        "height": 416
+      },
+      {
+        "id": "full-quick_actions",
+        "x": 442,
+        "y": 4448.5,
+        "width": 260,
+        "height": 378
+      },
+      {
+        "id": "full-cash_flow",
+        "x": 832,
+        "y": 4448.5,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-activity_feed",
+        "x": 52,
+        "y": 4718.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-ai_agent",
+        "x": 572,
+        "y": 4718.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-industry_news",
+        "x": 52,
+        "y": 5078.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-kpi_scorecard",
+        "x": 572,
+        "y": 5168.5,
+        "width": 390,
+        "height": 316.5
+      },
+      {
+        "id": "full-team_activity",
+        "x": 52,
+        "y": 5438.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-agent_reminders",
+        "x": 572,
+        "y": 5438.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-agent_activity",
+        "x": 52,
+        "y": 5798.5,
+        "width": 390,
+        "height": 278
+      }
+    ],
+    "1280": [
+      {
+        "id": "full-upcoming_jobs",
+        "x": 52,
+        "y": 1918.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-weather-a",
+        "x": 572,
+        "y": 1918.5,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-weather-b",
+        "x": 52,
+        "y": 2278.5,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-weather-c",
+        "x": 442,
+        "y": 2278.5,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-outstanding_invoices",
+        "x": 832,
+        "y": 2278.5,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-compliance_deadlines",
+        "x": 52,
+        "y": 2638.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-pending_reports",
+        "x": 572,
+        "y": 2638.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-recent_inspections",
+        "x": 572,
+        "y": 2908.5,
+        "width": 520,
+        "height": 278
+      },
+      {
+        "id": "full-templates",
+        "x": 52,
+        "y": 2998.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-inspection_stats",
+        "x": 572,
+        "y": 3268.5,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-client_stats",
+        "x": 52,
+        "y": 3358.5,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-open_pos",
+        "x": 442,
+        "y": 3538.5,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-clock",
+        "x": 832,
+        "y": 3538.5,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-low_stock",
+        "x": 52,
+        "y": 3808.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-revenue_overview",
+        "x": 572,
+        "y": 3808.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-calendar",
+        "x": 572,
+        "y": 4078.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-calculator",
+        "x": 52,
+        "y": 4168.5,
+        "width": 260,
+        "height": 416
+      },
+      {
+        "id": "full-quick_actions",
+        "x": 442,
+        "y": 4438.5,
+        "width": 260,
+        "height": 378
+      },
+      {
+        "id": "full-cash_flow",
+        "x": 832,
+        "y": 4438.5,
+        "width": 260,
+        "height": 278
+      },
+      {
+        "id": "full-activity_feed",
+        "x": 52,
+        "y": 4708.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-ai_agent",
+        "x": 572,
+        "y": 4708.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-industry_news",
+        "x": 52,
+        "y": 5068.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-kpi_scorecard",
+        "x": 572,
+        "y": 5158.5,
+        "width": 390,
+        "height": 316.5
+      },
+      {
+        "id": "full-team_activity",
+        "x": 52,
+        "y": 5428.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-agent_reminders",
+        "x": 572,
+        "y": 5428.5,
+        "width": 390,
+        "height": 278
+      },
+      {
+        "id": "full-agent_activity",
+        "x": 52,
+        "y": 5788.5,
+        "width": 390,
+        "height": 278
+      }
+    ]
+  },
+  "path": "/?look=dashboard-full",
+  "sha": "0898c3b93f167a090615232141bf73790bf731ef",
+  "view": {
+    "375": [],
+    "390": [],
+    "768": [
+      {
+        "id": "full-outstanding_invoices",
+        "x": 24,
+        "y": 3117,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-revenue_overview",
+        "x": 392,
+        "y": 3117,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-cash_flow",
+        "x": 24,
+        "y": 3333,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-upcoming_jobs",
+        "x": 392,
+        "y": 3333,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-compliance_deadlines",
+        "x": 24,
+        "y": 3549,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-pending_reports",
+        "x": 392,
+        "y": 3549,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-recent_inspections",
+        "x": 24,
+        "y": 3765,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-inspection_stats",
+        "x": 392,
+        "y": 3765,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-open_pos",
+        "x": 24,
+        "y": 3981,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-low_stock",
+        "x": 392,
+        "y": 3981,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-kpi_scorecard",
+        "x": 24,
+        "y": 4197,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-team_activity",
+        "x": 392,
+        "y": 4197,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-weather-a",
+        "x": 24,
+        "y": 4413,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-weather-b",
+        "x": 392,
+        "y": 4413,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-weather-c",
+        "x": 24,
+        "y": 4629,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-templates",
+        "x": 392,
+        "y": 4629,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-client_stats",
+        "x": 24,
+        "y": 4845,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-clock",
+        "x": 392,
+        "y": 4845,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-calendar",
+        "x": 24,
+        "y": 5061,
+        "width": 352,
+        "height": 338
+      },
+      {
+        "id": "full-calculator",
+        "x": 392,
+        "y": 5061,
+        "width": 352,
+        "height": 338
+      },
+      {
+        "id": "full-quick_actions",
+        "x": 24,
+        "y": 5415,
+        "width": 352,
+        "height": 300
+      },
+      {
+        "id": "full-activity_feed",
+        "x": 392,
+        "y": 5415,
+        "width": 352,
+        "height": 300
+      },
+      {
+        "id": "full-ai_agent",
+        "x": 24,
+        "y": 5731,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-industry_news",
+        "x": 392,
+        "y": 5731,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-agent_reminders",
+        "x": 24,
+        "y": 5947,
+        "width": 352,
+        "height": 200
+      },
+      {
+        "id": "full-agent_activity",
+        "x": 392,
+        "y": 5947,
+        "width": 352,
+        "height": 200
+      }
+    ],
+    "1024": [
+      {
+        "id": "full-outstanding_invoices",
+        "x": 32,
+        "y": 1840.5,
+        "width": 309.328125,
+        "height": 200
+      },
+      {
+        "id": "full-revenue_overview",
+        "x": 357.328125,
+        "y": 1840.5,
+        "width": 309.328125,
+        "height": 200
+      },
+      {
+        "id": "full-cash_flow",
+        "x": 682.65625,
+        "y": 1840.5,
+        "width": 309.34375,
+        "height": 200
+      },
+      {
+        "id": "full-upcoming_jobs",
+        "x": 32,
+        "y": 2056.5,
+        "width": 309.328125,
+        "height": 200
+      },
+      {
+        "id": "full-compliance_deadlines",
+        "x": 357.328125,
+        "y": 2056.5,
+        "width": 309.328125,
+        "height": 200
+      },
+      {
+        "id": "full-pending_reports",
+        "x": 682.65625,
+        "y": 2056.5,
+        "width": 309.34375,
+        "height": 200
+      },
+      {
+        "id": "full-recent_inspections",
+        "x": 32,
+        "y": 2272.5,
+        "width": 309.328125,
+        "height": 200
+      },
+      {
+        "id": "full-inspection_stats",
+        "x": 357.328125,
+        "y": 2272.5,
+        "width": 309.328125,
+        "height": 200
+      },
+      {
+        "id": "full-open_pos",
+        "x": 682.65625,
+        "y": 2272.5,
+        "width": 309.34375,
+        "height": 200
+      },
+      {
+        "id": "full-low_stock",
+        "x": 32,
+        "y": 2488.5,
+        "width": 309.328125,
+        "height": 200
+      },
+      {
+        "id": "full-kpi_scorecard",
+        "x": 357.328125,
+        "y": 2488.5,
+        "width": 309.328125,
+        "height": 200
+      },
+      {
+        "id": "full-team_activity",
+        "x": 682.65625,
+        "y": 2488.5,
+        "width": 309.34375,
+        "height": 200
+      },
+      {
+        "id": "full-weather-a",
+        "x": 32,
+        "y": 2704.5,
+        "width": 309.328125,
+        "height": 200
+      },
+      {
+        "id": "full-weather-b",
+        "x": 357.328125,
+        "y": 2704.5,
+        "width": 309.328125,
+        "height": 200
+      },
+      {
+        "id": "full-weather-c",
+        "x": 682.65625,
+        "y": 2704.5,
+        "width": 309.34375,
+        "height": 200
+      },
+      {
+        "id": "full-templates",
+        "x": 32,
+        "y": 2920.5,
+        "width": 309.328125,
+        "height": 200
+      },
+      {
+        "id": "full-client_stats",
+        "x": 357.328125,
+        "y": 2920.5,
+        "width": 309.328125,
+        "height": 200
+      },
+      {
+        "id": "full-clock",
+        "x": 682.65625,
+        "y": 2920.5,
+        "width": 309.34375,
+        "height": 200
+      },
+      {
+        "id": "full-calendar",
+        "x": 32,
+        "y": 3136.5,
+        "width": 309.328125,
+        "height": 338
+      },
+      {
+        "id": "full-calculator",
+        "x": 357.328125,
+        "y": 3136.5,
+        "width": 309.328125,
+        "height": 338
+      },
+      {
+        "id": "full-quick_actions",
+        "x": 682.65625,
+        "y": 3136.5,
+        "width": 309.34375,
+        "height": 338
+      },
+      {
+        "id": "full-activity_feed",
+        "x": 32,
+        "y": 3490.5,
+        "width": 309.328125,
+        "height": 200
+      },
+      {
+        "id": "full-ai_agent",
+        "x": 357.328125,
+        "y": 3490.5,
+        "width": 309.328125,
+        "height": 200
+      },
+      {
+        "id": "full-industry_news",
+        "x": 682.65625,
+        "y": 3490.5,
+        "width": 309.34375,
+        "height": 200
+      },
+      {
+        "id": "full-agent_reminders",
+        "x": 32,
+        "y": 3706.5,
+        "width": 309.328125,
+        "height": 200
+      },
+      {
+        "id": "full-agent_activity",
+        "x": 357.328125,
+        "y": 3706.5,
+        "width": 309.328125,
+        "height": 200
+      }
+    ],
+    "1280": [
+      {
+        "id": "full-outstanding_invoices",
+        "x": 32,
+        "y": 1830.5,
+        "width": 292,
+        "height": 200
+      },
+      {
+        "id": "full-revenue_overview",
+        "x": 340,
+        "y": 1830.5,
+        "width": 292,
+        "height": 200
+      },
+      {
+        "id": "full-cash_flow",
+        "x": 648,
+        "y": 1830.5,
+        "width": 292,
+        "height": 200
+      },
+      {
+        "id": "full-upcoming_jobs",
+        "x": 956,
+        "y": 1830.5,
+        "width": 292,
+        "height": 200
+      },
+      {
+        "id": "full-compliance_deadlines",
+        "x": 32,
+        "y": 2046.5,
+        "width": 292,
+        "height": 200
+      },
+      {
+        "id": "full-pending_reports",
+        "x": 340,
+        "y": 2046.5,
+        "width": 292,
+        "height": 200
+      },
+      {
+        "id": "full-recent_inspections",
+        "x": 648,
+        "y": 2046.5,
+        "width": 292,
+        "height": 200
+      },
+      {
+        "id": "full-inspection_stats",
+        "x": 956,
+        "y": 2046.5,
+        "width": 292,
+        "height": 200
+      },
+      {
+        "id": "full-open_pos",
+        "x": 32,
+        "y": 2262.5,
+        "width": 292,
+        "height": 200
+      },
+      {
+        "id": "full-low_stock",
+        "x": 340,
+        "y": 2262.5,
+        "width": 292,
+        "height": 200
+      },
+      {
+        "id": "full-kpi_scorecard",
+        "x": 648,
+        "y": 2262.5,
+        "width": 292,
+        "height": 200
+      },
+      {
+        "id": "full-team_activity",
+        "x": 956,
+        "y": 2262.5,
+        "width": 292,
+        "height": 200
+      },
+      {
+        "id": "full-weather-a",
+        "x": 32,
+        "y": 2478.5,
+        "width": 292,
+        "height": 200
+      },
+      {
+        "id": "full-weather-b",
+        "x": 340,
+        "y": 2478.5,
+        "width": 292,
+        "height": 200
+      },
+      {
+        "id": "full-weather-c",
+        "x": 648,
+        "y": 2478.5,
+        "width": 292,
+        "height": 200
+      },
+      {
+        "id": "full-templates",
+        "x": 956,
+        "y": 2478.5,
+        "width": 292,
+        "height": 200
+      },
+      {
+        "id": "full-client_stats",
+        "x": 32,
+        "y": 2694.5,
+        "width": 292,
+        "height": 338
+      },
+      {
+        "id": "full-clock",
+        "x": 340,
+        "y": 2694.5,
+        "width": 292,
+        "height": 338
+      },
+      {
+        "id": "full-calendar",
+        "x": 648,
+        "y": 2694.5,
+        "width": 292,
+        "height": 338
+      },
+      {
+        "id": "full-calculator",
+        "x": 956,
+        "y": 2694.5,
+        "width": 292,
+        "height": 338
+      },
+      {
+        "id": "full-quick_actions",
+        "x": 32,
+        "y": 3048.5,
+        "width": 292,
+        "height": 300
+      },
+      {
+        "id": "full-activity_feed",
+        "x": 340,
+        "y": 3048.5,
+        "width": 292,
+        "height": 300
+      },
+      {
+        "id": "full-ai_agent",
+        "x": 648,
+        "y": 3048.5,
+        "width": 292,
+        "height": 300
+      },
+      {
+        "id": "full-industry_news",
+        "x": 956,
+        "y": 3048.5,
+        "width": 292,
+        "height": 300
+      },
+      {
+        "id": "full-agent_reminders",
+        "x": 32,
+        "y": 3364.5,
+        "width": 292,
+        "height": 200
+      },
+      {
+        "id": "full-agent_activity",
+        "x": 340,
+        "y": 3364.5,
+        "width": 292,
+        "height": 200
+      }
+    ]
+  },
+  "viewport": {
+    "widths": [
+      375,
+      390,
+      768,
+      1024,
+      1280
+    ],
+    "height": 5000
+  },
+  "produced": "DEV VITE_LOOK_PROOF vite from git worktree 0898c3b93f167a090615232141bf73790bf731ef. Injected look=dashboard-full from head, then measured. Frozen Date 2026-10-19T03:40:00.000Z. Phone widths read [data-dashboard-phone-stack]; md+ excludes the phone stack. sha256 is SHA-256 of JSON.stringify({edit,path,sha,view,viewport}) with sorted object keys and no whitespace. produced is excluded from the digest. Capture: node scripts/capture-hf-403-768-main-fixture.mjs",
+  "sha256": "dda2c517cfdcbf2b6c4fe1e430ed41c5a0525474b6abe3cf5a6a50f937d45e03"
+}
