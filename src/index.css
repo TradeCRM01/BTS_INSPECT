@@ -13814,9 +13814,16 @@
         box-sizing: border-box;
       }
 
+      /* Shrink the LABEL so '$1,800.00' stays one line. No overflow-wrap:anywhere. */
+      .hub-jobs-document .job-sheet-bill-l {
+        font-size: 11px;
+        line-height: 14px;
+      }
+
       .hub-jobs-document .job-sheet-bill-v {
-        max-width: 100%;
-        overflow-wrap: anywhere;
+        white-space: nowrap;
+        overflow-wrap: normal;
+        word-break: normal;
       }
     }
 
