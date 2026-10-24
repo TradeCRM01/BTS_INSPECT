@@ -71,7 +71,7 @@ type KillPage = {
 type KillBrowser = {
   newContext: (opts: {
     viewport?: { width: number; height: number };
-    timezoneId?: string;
+    timezoneId?: string; isMobile?: boolean;
   }) => Promise<{
     newPage: () => Promise<KillPage>;
     close: () => Promise<void>;
@@ -309,7 +309,7 @@ async function openPage(args: {
   const phone = args.width <= 430;
   const context = await browser.newContext({
     viewport: { width: args.width, height: args.height ?? (phone ? 844 : 900) },
-    timezoneId: args.timezoneId ?? KILL_TZ,
+    timezoneId: args.timezoneId ?? KILL_TZ, isMobile: false,
   });
   contexts.push(context);
   const page = await context.newPage();
@@ -398,7 +398,7 @@ function textNodeWalkScript() {
       }
     }
   }
-  return { innerWidth: window.innerWidth, overflow, scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) };
+  return { innerWidth: window.innerWidth, overflow, scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth), bodyScrollWidth: document.body.scrollWidth };
 }
 
 function inkDotCount(shot: { width: number; height: number; pixels: number[][] }) {
@@ -482,6 +482,7 @@ function overflowScript() {
   return {
     innerWidth: window.innerWidth,
     scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+    bodyScrollWidth: document.body.scrollWidth,
     maxRight: rights.length ? Math.max(...rights) : 0,
   };
 }
@@ -777,7 +778,7 @@ async function openMockup(width = 390): Promise<KillPage> {
   const port = await listen(server);
   const context = await browser.newContext({
     viewport: { width, height: 844 },
-    timezoneId: KILL_TZ,
+    timezoneId: KILL_TZ, isMobile: false,
   });
   contexts.push(context);
   const page = await context.newPage();
@@ -1477,12 +1478,14 @@ describe('P3 overview people form bar', () => {
       const listBox = await list.evaluate(overflowScript);
       recordOverflow(w, 'VIEW', 'list', listBox);
       expect(listBox.scrollWidth, `${w} list VIEW scrollWidth`).toBeLessThanOrEqual(listBox.innerWidth);
+      expect(listBox.bodyScrollWidth, `${w} list VIEW bodySW`).toBeLessThanOrEqual(listBox.innerWidth);
       expect(listBox.maxRight, `${w} list VIEW maxRight`).toBeLessThanOrEqual(listBox.innerWidth);
 
       await openForm(list);
       const formBox = await list.evaluate(overflowScript);
       recordOverflow(w, 'EDIT', 'form', formBox);
       expect(formBox.scrollWidth, `${w} form EDIT scrollWidth`).toBeLessThanOrEqual(formBox.innerWidth);
+      expect(formBox.bodyScrollWidth, `${w} form EDIT bodySW`).toBeLessThanOrEqual(formBox.innerWidth);
       expect(formBox.maxRight, `${w} form EDIT maxRight`).toBeLessThanOrEqual(formBox.innerWidth);
       await list.close();
 
@@ -1491,6 +1494,7 @@ describe('P3 overview people form bar', () => {
       const sheetBox = await sheet.evaluate(overflowScript);
       recordOverflow(w, 'VIEW', 'sheet', sheetBox);
       expect(sheetBox.scrollWidth, `${w} sheet VIEW scrollWidth`).toBeLessThanOrEqual(sheetBox.innerWidth);
+      expect(sheetBox.bodyScrollWidth, `${w} sheet VIEW bodySW`).toBeLessThanOrEqual(sheetBox.innerWidth);
       expect(sheetBox.maxRight, `${w} sheet VIEW maxRight`).toBeLessThanOrEqual(sheetBox.innerWidth);
       if (w === 768) {
         await sheet.evaluate(() => {
@@ -1533,6 +1537,7 @@ describe('P3 overview people form bar', () => {
       const sheetEdit = await sheet.evaluate(overflowScript);
       recordOverflow(w, 'EDIT', 'sheet', sheetEdit);
       expect(sheetEdit.scrollWidth, `${w} sheet EDIT scrollWidth`).toBeLessThanOrEqual(sheetEdit.innerWidth);
+      expect(sheetEdit.bodyScrollWidth, `${w} sheet EDIT bodySW`).toBeLessThanOrEqual(sheetEdit.innerWidth);
       expect(sheetEdit.maxRight, `${w} sheet EDIT maxRight`).toBeLessThanOrEqual(sheetEdit.innerWidth);
       await sheet.close();
     }
@@ -2975,6 +2980,7 @@ describe('P3 r15 phone type below 768', () => {
         ? getComputedStyle(document.querySelector('.job-sheet-tabs') as HTMLElement).gridTemplateColumns.split(' ').filter(Boolean).length
         : 0,
       scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+      bodyScrollWidth: document.body.scrollWidth,
       maxRight: rights.length ? Math.max(...rights) : 0,
       titleInk: inkBox(hero).width,
       kvLabelInk: inkBox(label).width,
@@ -3079,6 +3085,7 @@ describe('P3 r15 phone type below 768', () => {
       expect(read.tabOnShadow.replace(/\s+/g, ''), `${width} active tab --line ring`).toMatch(/rgb\(228,228,231\)/);
       expect(read.tabCols, `${width} tab columns`).toBe(4);
       expect(read.scrollWidth, `${width} docSW`).toBeLessThanOrEqual(read.innerWidth);
+      expect(read.bodyScrollWidth, `${width} bodySW`).toBeLessThanOrEqual(read.innerWidth);
       expect(read.maxRight, `${width} maxRight`).toBeLessThanOrEqual(read.innerWidth);
       expect(read.billCellH, `${width} bill3 cell height`).toBe(122);
       expect(read.billValueX[0], `${width} Budget value x`).toBe(13);
@@ -3246,6 +3253,7 @@ describe('P3 r15 phone type below 768', () => {
       expect(Number(read.tabOffWeight), `${width} inactive tab weight`).toBe(600);
       expect(read.tabCols, `${width} tab columns`).toBe(4);
       expect(read.scrollWidth, `${width} docSW`).toBeLessThanOrEqual(read.innerWidth);
+      expect(read.bodyScrollWidth, `${width} bodySW`).toBeLessThanOrEqual(read.innerWidth);
       expect(read.maxRight, `${width} maxRight`).toBeLessThanOrEqual(read.innerWidth);
       expect(read.billCellH, `${width} bill3 cell height stays r14`).toBe(69.5);
       expect(read.billValueX[0], `${width} Budget value x stays r14`).toBe(0);
@@ -3262,6 +3270,7 @@ function textWalkAndOverflow(page: KillPage, width: number, tag: string) {
   return page.evaluate(textNodeWalkScript).then((walk) => {
     expect(walk.innerWidth, `${tag} ${width} innerWidth`).toBe(width);
     expect(walk.scrollWidth, `${tag} ${width} docSW`).toBeLessThanOrEqual(walk.innerWidth);
+    expect(walk.bodyScrollWidth, `${tag} ${width} bodySW`).toBeLessThanOrEqual(walk.innerWidth);
     expect(walk.overflow, `${tag} ${width} text-node rights ${JSON.stringify(walk.overflow)}`).toEqual([]);
     return walk;
   });
@@ -3272,11 +3281,10 @@ describe('P3 r16 11:41 gates', () => {
     for (const width of [320, 375, 390] as const) {
       const page = await openPage({ width, path: '/jobs/p3-0036', height: 844 });
       await waitSheet(page);
-      if (width !== 320) {
-        const box = await page.evaluate(overflowScript);
-        expect(box.scrollWidth, `${width} docSW`).toBeLessThanOrEqual(box.innerWidth);
-        expect(box.maxRight, `${width} maxRight`).toBeLessThanOrEqual(box.innerWidth);
-      }
+      const box = await page.evaluate(overflowScript);
+      expect(box.scrollWidth, `${width} docSW`).toBeLessThanOrEqual(box.innerWidth);
+      expect(box.bodyScrollWidth, `${width} bodySW`).toBeLessThanOrEqual(box.innerWidth);
+      expect(box.maxRight, `${width} maxRight`).toBeLessThanOrEqual(box.innerWidth);
       await textWalkAndOverflow(page, width, 'chromium');
       await page.close();
     }
@@ -3339,7 +3347,7 @@ describe('P3 r16 WebKit 375/390', () => {
     writeFileSync(join(harnessDir, name), html);
     const context = await webkitBrowser.newContext({
       viewport: { width, height: 844 },
-      timezoneId: KILL_TZ,
+      timezoneId: KILL_TZ, isMobile: false,
     });
     contexts.push(context);
     const page = await context.newPage();
@@ -3349,15 +3357,53 @@ describe('P3 r16 WebKit 375/390', () => {
     return page;
   }
 
-  killIt('R16 WebKit overflow and text-node walk at 375 and 390', async () => {
-    for (const width of [375, 390] as const) {
+  killIt('R16 WebKit overflow and text-node walk at 320 375 390', async () => {
+    for (const width of [320, 375, 390] as const) {
       const page = await openWebkit(width, '/jobs/p3-0036');
       const box = await page.evaluate(overflowScript);
       expect(box.scrollWidth, `webkit ${width} docSW`).toBeLessThanOrEqual(box.innerWidth);
+      expect(box.bodyScrollWidth, `webkit ${width} bodySW`).toBeLessThanOrEqual(box.innerWidth);
       expect(box.maxRight, `webkit ${width} maxRight`).toBeLessThanOrEqual(box.innerWidth);
       await textWalkAndOverflow(page, width, 'webkit');
       await page.close();
     }
+  });
+
+  killIt('R16 WebKit standalone safe-area 47/34 reports main until HF-LAND-1', async () => {
+    const page = await openWebkit(390, '/jobs/p3-0036');
+    const read = await page.evaluate(() => {
+      const root = document.documentElement;
+      root.style.setProperty('--safe-area-inset-top', '47px');
+      root.style.setProperty('--safe-area-inset-bottom', '34px');
+      document.body.insertAdjacentHTML('beforeend', `
+        <header class="shell-header" data-r16-safe="header" style="position:relative">
+          <div data-r16-safe="header-content">Jobs</div>
+        </header>
+        <nav class="shell-bottom-nav" data-r16-safe="nav"><span>Jobs</span></nav>
+      `);
+      const header = document.querySelector('[data-r16-safe="header"]') as HTMLElement;
+      const content = document.querySelector('[data-r16-safe="header-content"]') as HTMLElement;
+      const nav = document.querySelector('[data-r16-safe="nav"]') as HTMLElement;
+      const csH = getComputedStyle(header);
+      const csN = getComputedStyle(nav);
+      return {
+        headerPadTop: parseFloat(csH.paddingTop),
+        contentTop: content.getBoundingClientRect().top - header.getBoundingClientRect().top,
+        navPadBottom: parseFloat(csN.paddingBottom),
+        envTop: getComputedStyle(root).getPropertyValue('--safe-area-inset-top').trim(),
+        envBottom: getComputedStyle(root).getPropertyValue('--safe-area-inset-bottom').trim(),
+      };
+    });
+    await page.close();
+    if (process.env.P3_R16M) console.log('P3_R16M webkit safe-area', read);
+    expect(read.envTop).toBe('47px');
+    expect(read.envBottom).toBe('34px');
+    expect(read.headerPadTop, 'webkit header pad-top without #405 var() fallback').toBeLessThan(47);
+    expect(read.navPadBottom, 'webkit nav pad-bottom without #405 var() fallback').toBeLessThan(34);
+    expect(read.contentTop, 'webkit header content top without #405').toBeLessThan(47);
+    expect(read.headerPadTop, 'webkit header pad-top pinned').toBe(0);
+    expect(read.navPadBottom, 'webkit nav pad-bottom pinned').toBe(0);
+    expect(read.contentTop, 'webkit header content top pinned').toBe(0);
   });
 
   killIt('R16 WebKit Jobs filter chips wrap at 320 375 390', async () => {
@@ -3369,7 +3415,7 @@ describe('P3 r16 WebKit 375/390', () => {
       writeFileSync(join(harnessDir, name), html);
       const context = await webkitBrowser.newContext({
         viewport: { width, height: 844 },
-        timezoneId: KILL_TZ,
+        timezoneId: KILL_TZ, isMobile: false,
       });
       contexts.push(context);
       const page = await context.newPage();
@@ -3380,6 +3426,7 @@ describe('P3 r16 WebKit 375/390', () => {
       const read = await page.evaluate(chipScrollerScript);
       if (process.env.P3_R16M) console.log('P3_R16M webkit chip wrap', width, read);
       expect(read.innerWidth, `webkit ${width} jobs innerWidth`).toBe(width);
+      expect(read.bodyScrollWidth, `webkit ${width} bodySW`).toBeLessThanOrEqual(read.innerWidth);
       expect(read.hits, `webkit ${width} overflow-x scrollers ${JSON.stringify(read.hits)}`).toEqual([]);
       expect(read.wrap, `webkit ${width} filters flex-wrap`).toBe('wrap');
       expect(read.ox === 'auto' || read.ox === 'scroll', `webkit ${width} filters overflow-x`).toBe(false);
@@ -3425,6 +3472,7 @@ function chipScrollerScript() {
     chipCount: chips.length,
     rows: tops.length,
     innerWidth: window.innerWidth,
+    bodyScrollWidth: document.body.scrollWidth,
   };
 }
 
@@ -3437,6 +3485,7 @@ describe('P3 r16 chip wrap', () => {
       const read = await page.evaluate(chipScrollerScript);
       if (process.env.P3_R16M) console.log('P3_R16M chromium chip wrap', width, read);
       expect(read.innerWidth, `chromium ${width} jobs innerWidth`).toBe(width);
+      expect(read.bodyScrollWidth, `chromium ${width} bodySW`).toBeLessThanOrEqual(read.innerWidth);
       expect(read.hits, `chromium ${width} overflow-x scrollers ${JSON.stringify(read.hits)}`).toEqual([]);
       expect(read.wrap, `chromium ${width} filters flex-wrap`).toBe('wrap');
       expect(read.ox === 'auto' || read.ox === 'scroll', `chromium ${width} filters overflow-x`).toBe(false);
