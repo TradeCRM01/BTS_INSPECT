@@ -64,6 +64,11 @@ type KillPage = {
     clip?: { x: number; y: number; width: number; height: number };
   }) => Promise<Buffer>;
   addInitScript: (script: string | (() => void)) => Promise<void>;
+  mouse: {
+    move: (x: number, y: number, opts?: { steps?: number }) => Promise<void>;
+    down: () => Promise<void>;
+    up: () => Promise<void>;
+  };
   context: () => { newCDPSession: (page: KillPage) => Promise<KillCDP> };
   close: () => Promise<void>;
 };
@@ -1549,11 +1554,26 @@ function overflowScript() {
       clipHits.push('ref-seg>cell');
     }
   }
+  const overflowHits = els
+    .map((el) => {
+      const r = el.getBoundingClientRect();
+      return {
+        right: r.right,
+        tag: el.tagName,
+        cls: (typeof (el as HTMLElement).className === 'string' ? (el as HTMLElement).className : '').slice(0, 80),
+        id: (el as HTMLElement).id || '',
+        text: ((el as HTMLElement).innerText || '').trim().slice(0, 48),
+      };
+    })
+    .filter((hit) => hit.right > window.innerWidth + 0.5)
+    .sort((a, b) => b.right - a.right)
+    .slice(0, 8);
   return {
     innerWidth: window.innerWidth,
     scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
     bodyScrollWidth: document.body.scrollWidth,
     maxRight: rights.length ? Math.max(...rights) : 0,
+    overflowHits,
     clipOverflows: clipHits.length,
     clipSample: clipHits.slice(0, 3),
   };
@@ -1910,6 +1930,25 @@ async function enterEdit(page: KillPage) {
       await new Promise((resolve) => window.setTimeout(resolve, 50));
     }
     throw new Error('edit mode Add widget missing');
+  });
+}
+
+async function leaveEdit(page: KillPage) {
+  await page.evaluate(async () => {
+    const more = document.querySelector('.dashboard-home-more') as HTMLDetailsElement | null;
+    if (!more) throw new Error('more menu missing');
+    more.open = true;
+    const btn = [...more.querySelectorAll('button')].find((el) => /Done editing/.test(el.textContent || ''));
+    if (!btn) throw new Error('Done editing missing');
+    (btn as HTMLButtonElement).click();
+    for (let i = 0; i < 50; i += 1) {
+      const customize = [...document.querySelectorAll('button, a, [role="menuitem"]')]
+        .some((el) => (el.textContent || '').trim() === 'Customize');
+      const add = [...document.querySelectorAll('button, a')].some((el) => /Add widget/.test(el.textContent || ''));
+      if (customize && !add) return;
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+    }
+    throw new Error('view mode after Done missing');
   });
 }
 
@@ -2325,8 +2364,15 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     }
   }, 180000);
 
-  it('P1-overflow: scrollWidth plus max rect.right is 0 overflow at 375/390/768/1024/1280, including header', async () => {
-    for (const width of WIDTHS) {
+  /**
+   * 320 probe settings (CoS 13:22): Playwright Chromium, isMobile:false,
+   * deviceScaleFactor default 1, viewport 320×844 (openPage height 844 when width≤430),
+   * route /?look=dashboard, view then Customize, element overflowScript maxRight /
+   * overflowHits (today-seg). CoS 320×900 no-emulation was clean; this 320×844
+   * probe was the 355.09 today-seg hit before the 374px wrap.
+   */
+  it('P1-overflow: scrollWidth plus max rect.right is 0 overflow at 320/375/390/768/1024/1280, including header', async () => {
+    for (const width of [320, ...WIDTHS] as const) {
       const page = await openPage({ width, js: dashJsNoProof, path: '/?look=dashboard' });
       await page.waitForSelector('.shell-header', { timeout: 20000 });
       for (const mode of ['view', 'edit'] as const) {
@@ -2334,7 +2380,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
         const box = await page.evaluate(overflowScript);
         expect(box.scrollWidth, `scrollWidth at ${width} ${mode}`).toBeLessThanOrEqual(width);
         expect(box.bodyScrollWidth, `body.scrollWidth at ${width} ${mode}`).toBeLessThanOrEqual(box.innerWidth);
-        expect(box.maxRight, `max rect.right at ${width} ${mode}`).toBeLessThanOrEqual(width + 0.5);
+        expect(box.maxRight, `max rect.right at ${width} ${mode}: ${JSON.stringify(box.overflowHits?.slice(0, 4) ?? [])}`).toBeLessThanOrEqual(width + 0.5);
         expect(box.clipOverflows, `clip-ancestor overflow at ${width} ${mode}: ${box.clipSample.join(', ')}`).toBe(0);
       }
       await page.close();
@@ -4181,9 +4227,22 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       clientWidth: number;
       right: number;
       minContent: number;
+      chromeMinContent: number;
+      widestChild: string;
       textPastCard: number;
       textPastViewport: number;
     }> = [];
+    const probeMinContent = (el: HTMLElement) => {
+      const prev = { w: el.style.width, min: el.style.minWidth, max: el.style.maxWidth };
+      el.style.width = 'min-content';
+      el.style.minWidth = 'min-content';
+      el.style.maxWidth = 'none';
+      const w = el.getBoundingClientRect().width;
+      el.style.width = prev.w;
+      el.style.minWidth = prev.min;
+      el.style.maxWidth = prev.max;
+      return w;
+    };
     for (const host of document.querySelectorAll('[data-dashboard-widget-id]')) {
       if (!vis(host)) continue;
       const onPhone = !!host.closest('[data-dashboard-phone-stack]');
@@ -4207,26 +4266,36 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
         }
         node = walker.nextNode();
       }
-      let minContent = 0;
-      for (const child of [...card.querySelectorAll('*')]) {
+      const chromeSel = '.dashboard-home-phone-edit-bar, .dashboard-home-edit-chrome, .dashboard-home-edit-foot';
+      const ink = (card.querySelector('.dashboard-home-widget-ink') as HTMLElement | null) ?? card;
+      let chromeMinContent = 0;
+      for (const child of [...card.querySelectorAll(chromeSel)].flatMap((el) => [el, ...el.querySelectorAll('*')])) {
         const el = child as HTMLElement;
         const s = getComputedStyle(el);
         if (s.display === 'none' || s.visibility === 'hidden') continue;
-        const prev = { w: el.style.width, min: el.style.minWidth, max: el.style.maxWidth };
-        el.style.width = 'min-content';
-        el.style.minWidth = 'min-content';
-        el.style.maxWidth = 'none';
-        const w = el.getBoundingClientRect().width;
-        el.style.width = prev.w;
-        el.style.minWidth = prev.min;
-        el.style.maxWidth = prev.max;
-        if (w > minContent) minContent = w;
+        chromeMinContent = Math.max(chromeMinContent, probeMinContent(el));
+      }
+      let minContent = probeMinContent(ink);
+      let widestChild = `ink:${minContent.toFixed(1)}`;
+      for (const child of [...ink.querySelectorAll('*')]) {
+        const el = child as HTMLElement;
+        if (el.closest(chromeSel)) continue;
+        const s = getComputedStyle(el);
+        if (s.display === 'none' || s.visibility === 'hidden') continue;
+        const w = probeMinContent(el);
+        if (w > minContent) {
+          minContent = w;
+          const cls = (typeof el.className === 'string' ? el.className : el.tagName).toString().trim().slice(0, 48);
+          widestChild = `${el.tagName.toLowerCase()}.${cls || 'anon'}:${w.toFixed(1)}`;
+        }
       }
       cards.push({
         id: host.getAttribute('data-dashboard-widget-id') || '',
         clientWidth: card.clientWidth,
         right: cr.right,
         minContent,
+        chromeMinContent,
+        widestChild,
         textPastCard,
         textPastViewport,
       });
@@ -4311,6 +4380,8 @@ img{display:block;width:100%;height:auto;border:1px solid #0A2540}
       id: string;
       clientWidth: number;
       minContent: number;
+      chromeMinContent: number;
+      widestChild: string;
       right: number;
       textPastCard: number;
       textPastViewport: number;
@@ -4385,7 +4456,8 @@ img{display:block;width:100%;height:auto;border:1px solid #0A2540}
         expect(editText, `text past viewport edit ${width}: ${JSON.stringify(editText.slice(0, 2))}`).toEqual([]);
       } else {
         const reach = await edit.evaluate(hf403CanvasReach);
-        expect(reach.overflowX, `edit canvas overflow-x at ${width}`).toMatch(/auto|scroll/);
+        expect(reach.overflowX, `edit canvas overflow-x at ${width}`).toMatch(/auto|scroll|hidden/);
+        expect(reach.scrollWidth, `edit canvas scrollWidth at ${width}`).toBeLessThanOrEqual(reach.clientWidth);
         expect(reach.cards.length, `reachable cards at ${width}`).toBe(26);
         for (const card of reach.cards) {
           expect(card.fitsClient, `${width} ${card.id} width ${card.width} fits canvas ${reach.clientWidth}`).toBe(true);
@@ -4393,13 +4465,9 @@ img{display:block;width:100%;height:auto;border:1px solid #0A2540}
           expect(card.textPastCard, `${width} ${card.id} text past card`).toBe(0);
           expect(card.textPastCanvas, `${width} ${card.id} text past canvas edge`).toBe(0);
         }
-        if (reach.scrollWidth <= reach.clientWidth + 1) {
-          const editAll = await edit.evaluate(hf403AllBox);
-          expect(editAll.bodyScrollWidth, `body.scrollWidth edit ${width} (no canvas scroll)`).toBeLessThanOrEqual(editAll.innerWidth);
-          expect(editAll.maxRight, `all rect.right edit ${width} (no canvas scroll)`).toBeLessThanOrEqual(width);
-        } else {
-          expect(reach.scroller, `edit canvas scrolls at ${width}`).toBe(true);
-        }
+        const editAll = await edit.evaluate(hf403AllBox);
+        expect(editAll.bodyScrollWidth, `body.scrollWidth edit ${width}`).toBeLessThanOrEqual(editAll.innerWidth);
+        expect(editAll.maxRight, `all rect.right edit ${width}`).toBeLessThanOrEqual(width);
       }
       await edit.close();
     }
@@ -4412,6 +4480,8 @@ img{display:block;width:100%;height:auto;border:1px solid #0A2540}
       clientWidth: number;
       right: number;
       minContent: number;
+      chromeMinContent: number;
+      widestChild: string;
       textPastCard: number;
       textPastViewport: number;
       bodyScrollWidth: number;
@@ -4445,6 +4515,8 @@ img{display:block;width:100%;height:auto;border:1px solid #0A2540}
             clientWidth: card.clientWidth,
             right: card.right,
             minContent: card.minContent,
+            chromeMinContent: card.chromeMinContent,
+            widestChild: card.widestChild,
             textPastCard: card.textPastCard,
             textPastViewport: card.textPastViewport,
             bodyScrollWidth: abs.bodyScrollWidth,
@@ -4456,6 +4528,342 @@ img{display:block;width:100%;height:auto;border:1px solid #0A2540}
     mkdirSync('/tmp/hf-406-r2', { recursive: true });
     writeFileSync('/tmp/hf-406-r2/customize-375-390.json', `${JSON.stringify(phoneRows, null, 2)}\n`);
   }, 240000);
+
+  it('HF-403-768: min-content is per-card; a long unbreakable string reads larger', async () => {
+    const page = await hf403OpenEdit(375);
+    const before = await page.evaluate(hf403AbsoluteBar);
+    expect(before.cards.length, '375 Customize paints cards for min-content proof').toBeGreaterThan(1);
+    const sample = before.cards.slice(0, 5).map((card) => ({
+      id: card.id,
+      minContent: card.minContent,
+      chromeMinContent: card.chromeMinContent,
+      widestChild: card.widestChild,
+      clientWidth: card.clientWidth,
+    }));
+    const target = before.cards.find((card) => card.id === 'full-upcoming_jobs') ?? before.cards[0];
+    const sibling = before.cards.find((card) => card.id !== target.id);
+    expect(target.chromeMinContent, 'edit chrome min-content is reported separately').toBeGreaterThan(0);
+    await page.evaluate((id) => {
+      const host = document.querySelector(`[data-dashboard-widget-id="${id}"]`);
+      const ink = host?.querySelector('.dashboard-home-widget-ink') as HTMLElement | null;
+      if (!ink) throw new Error(`min-content proof missing ink ${id}`);
+      const probe = document.createElement('span');
+      probe.setAttribute('data-hf403-mincontent-proof', '1');
+      probe.style.whiteSpace = 'nowrap';
+      probe.textContent = `UNBREAKABLE${'W'.repeat(36)}`;
+      ink.appendChild(probe);
+    }, target.id);
+    const after = await page.evaluate(hf403AbsoluteBar);
+    await page.close();
+    const grown = after.cards.find((card) => card.id === target.id);
+    const other = after.cards.find((card) => card.id === sibling?.id);
+    expect(grown, `remeasured ${target.id}`).toBeTruthy();
+    expect(
+      grown!.minContent,
+      `${target.id} min-content after unbreakable string ${grown!.minContent} > before ${target.minContent}`,
+    ).toBeGreaterThan(target.minContent);
+    if (other && sibling) {
+      expect(
+        grown!.minContent,
+        `${target.id} min-content ${grown!.minContent} > sibling ${other.id} ${other.minContent}`,
+      ).toBeGreaterThan(other.minContent);
+    }
+    mkdirSync('/tmp/hf-406-r2', { recursive: true });
+    writeFileSync('/tmp/hf-406-r2/min-content-proof.json', `${JSON.stringify({
+      sample,
+      before: {
+        id: target.id,
+        minContent: target.minContent,
+        chromeMinContent: target.chromeMinContent,
+        widestChild: target.widestChild,
+      },
+      after: {
+        id: grown!.id,
+        minContent: grown!.minContent,
+        chromeMinContent: grown!.chromeMinContent,
+        widestChild: grown!.widestChild,
+      },
+    }, null, 2)}\n`);
+  }, 120000);
+
+  function hf403PackGeometry() {
+    const canvas = document.querySelector('.dashboard-home-canvas.is-editing') as HTMLElement | null;
+    const vis = (el: Element) => {
+      const s = getComputedStyle(el as HTMLElement);
+      const r = el.getBoundingClientRect();
+      return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+    };
+    const box = canvas?.getBoundingClientRect();
+    const cards = [...document.querySelectorAll('[data-dashboard-widget-id]')].filter((el) => (
+      vis(el) && !el.closest('[data-dashboard-phone-stack]')
+    )).map((host) => {
+      const r = host.getBoundingClientRect();
+      return {
+        id: host.getAttribute('data-dashboard-widget-id') || '',
+        left: r.left,
+        right: r.right,
+        top: r.top,
+        bottom: r.bottom,
+        width: r.width,
+        savedX: Number((host as HTMLElement).dataset.savedX ?? NaN),
+        savedY: Number((host as HTMLElement).dataset.savedY ?? NaN),
+        savedW: Number((host as HTMLElement).dataset.savedW ?? NaN),
+        savedH: Number((host as HTMLElement).dataset.savedH ?? NaN),
+      };
+    }).sort((a, b) => (a.top - b.top) || (a.left - b.left));
+    const mid = box ? box.left + box.width / 2 : 0;
+    return {
+      canvasLeft: box?.left ?? 0,
+      canvasRight: box?.right ?? 0,
+      canvasWidth: box?.width ?? 0,
+      cards,
+      leftGap: cards.length && box ? Math.min(...cards.map((c) => c.left)) - box.left : 0,
+      rightGap: cards.length && box ? box.right - Math.max(...cards.map((c) => c.right)) : 0,
+      columns: cards.map((c) => ({ id: c.id, side: c.left + c.width / 2 < mid ? 'L' : 'R' })),
+    };
+  }
+
+  function hf403ViewGeometry() {
+    const grid = document.querySelector('[data-dashboard-view-grid]') as HTMLElement | null;
+    const vis = (el: Element) => {
+      const s = getComputedStyle(el as HTMLElement);
+      const r = el.getBoundingClientRect();
+      return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+    };
+    const box = grid?.getBoundingClientRect();
+    const cards = [...document.querySelectorAll('[data-dashboard-view-grid] [data-dashboard-widget-id]')].filter(vis).map((host) => {
+      const r = host.getBoundingClientRect();
+      return {
+        id: host.getAttribute('data-dashboard-widget-id') || '',
+        left: r.left,
+        right: r.right,
+        top: r.top,
+        width: r.width,
+      };
+    }).sort((a, b) => (a.top - b.top) || (a.left - b.left));
+    const mid = box ? box.left + box.width / 2 : 0;
+    return {
+      cards,
+      columns: cards.map((c) => ({ id: c.id, side: c.left + c.width / 2 < mid ? 'L' : 'R' })),
+    };
+  }
+
+  it('HF-403-768-r4: 768 Customize two-up fills both columns and stays inside the canvas', async () => {
+    const page = await hf403OpenEdit(768);
+    const pack = await page.evaluate(hf403PackGeometry);
+    await page.close();
+    expect(pack.cards.length, '768 Customize paints 26 cards').toBe(26);
+    for (const card of pack.cards) {
+      expect(card.right, `${card.id} right ${card.right}`).toBeLessThanOrEqual(pack.canvasRight + 0.5);
+    }
+    const tall = Math.max(...pack.cards.map((c) => c.bottom - c.top));
+    const leftAlone = pack.leftGap > 24 ? pack.cards.filter((c) => c.left - pack.canvasLeft > 24) : [];
+    const rightAlone = pack.rightGap > 24 ? pack.cards.filter((c) => pack.canvasRight - c.right > 24) : [];
+    if (leftAlone.length) {
+      const span = Math.max(...leftAlone.map((c) => c.bottom)) - Math.min(...leftAlone.map((c) => c.top));
+      expect(span, `768 left empty strip ${pack.leftGap}px over ${span}px`).toBeLessThanOrEqual(tall + 1);
+    }
+    if (rightAlone.length) {
+      const span = Math.max(...rightAlone.map((c) => c.bottom)) - Math.min(...rightAlone.map((c) => c.top));
+      expect(span, `768 right empty strip ${pack.rightGap}px over ${span}px`).toBeLessThanOrEqual(tall + 1);
+    }
+    expect(pack.columns.some((c) => c.side === 'L'), '768 has a left column').toBe(true);
+    expect(pack.columns.some((c) => c.side === 'R'), '768 has a right column').toBe(true);
+  }, 180000);
+
+  it('HF-403-768-r4: Customize page height is at most 1.15× view height at 768', async () => {
+    const view = await openLookDist(lookOrigin, 768, '/?look=dashboard-full');
+    const viewH = await hf403CardPageHeight(view);
+    await view.close();
+    const edit = await hf403OpenEdit(768);
+    const editH = await hf403CardPageHeight(edit);
+    await edit.close();
+    expect(editH, `768 Customize height ${editH} <= 1.15 × view ${viewH}`).toBeLessThanOrEqual(viewH * 1.15);
+  }, 180000);
+
+  it('HF-403-768-r4: Customize column assignment equals view at 768', async () => {
+    const view = await openLookDist(lookOrigin, 768, '/?look=dashboard-full');
+    await view.setViewportSize({ width: 768, height: 8000 });
+    const viewGeo = await view.evaluate(hf403ViewGeometry);
+    await view.close();
+    const edit = await hf403OpenEdit(768);
+    const editGeo = await edit.evaluate(hf403PackGeometry);
+    await edit.close();
+    expect(editGeo.columns.map((c) => c.id), '768 Customize order equals view').toEqual(viewGeo.columns.map((c) => c.id));
+    expect(editGeo.columns.map((c) => c.side), '768 Customize L/R equals view').toEqual(viewGeo.columns.map((c) => c.side));
+  }, 180000);
+
+  it('HF-403-768-r4: opening and leaving Customize writes no saved geometry', async () => {
+    const view = await openLookDist(lookOrigin, 768, '/?look=dashboard-full');
+    const before = await view.evaluate(hf403ViewGeometry);
+    await enterEdit(view);
+    await leaveEdit(view);
+    const after = await view.evaluate(hf403ViewGeometry);
+    await view.close();
+    expect(after.columns, 'view columns after Done').toEqual(before.columns);
+    const pageSrc = readFileSync(join(process.cwd(), 'src/pages/DashboardPage.tsx'), 'utf8');
+    expect(pageSrc, 'look persist stays a no-op').toContain('if (lookDashboard || !!getAuditDashboardWidgets()) return null;');
+  }, 180000);
+
+  it('HF-403-768-r4: a 768 drag and resize persist saved geometry, not the pack', async () => {
+    const page = await hf403OpenEdit(768);
+    const before = await page.evaluate(hf403PackGeometry);
+    const weather = before.cards.find((c) => c.id === 'full-weather-a');
+    const weatherC = before.cards.find((c) => c.id === 'full-weather-c');
+    expect(weather, 'full-weather-a present').toBeTruthy();
+    expect(weatherC, 'full-weather-c present').toBeTruthy();
+    const handle = await page.evaluate(() => {
+      const host = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="full-weather-a"]');
+      const btn = host?.querySelector('button[title="Drag to move"]') as HTMLElement | null;
+      if (!btn) throw new Error('drag handle missing');
+      btn.scrollIntoView({ block: 'center' });
+      const r = btn.getBoundingClientRect();
+      if (r.width < 1) throw new Error('drag handle missing');
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    await page.mouse.move(handle.x, handle.y);
+    await page.mouse.down();
+    await page.mouse.move(handle.x, handle.y + 80, { steps: 12 });
+    await page.mouse.up();
+    const afterDrag = await page.evaluate(hf403PackGeometry);
+    const dragged = afterDrag.cards.find((c) => c.id === 'full-weather-a');
+    expect(dragged?.savedX, 'vertical drag keeps saved x').toBe(weather!.savedX);
+    expect(dragged?.savedW, 'vertical drag keeps saved w').toBe(weather!.savedW);
+    expect(dragged?.savedX, 'vertical drag does not persist pack x').toBeGreaterThan(400);
+    for (const card of afterDrag.cards) {
+      if (card.id === 'full-weather-a') continue;
+      const beforeCard = before.cards.find((c) => c.id === card.id);
+      expect(card.savedX, `${card.id} saved x after sibling drag`).toBe(beforeCard?.savedX);
+      expect(card.savedW, `${card.id} saved w after sibling drag`).toBe(beforeCard?.savedW);
+    }
+
+    const grip = await page.evaluate(() => {
+      const host = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="full-weather-c"]');
+      const btn = host?.querySelector('.dashboard-home-widget-resize') as HTMLElement | null;
+      const r = btn?.getBoundingClientRect();
+      if (!r || r.width < 1) throw new Error('resize handle missing');
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    await page.mouse.move(grip.x, grip.y);
+    await page.mouse.down();
+    await page.mouse.move(grip.x - 10, grip.y + 20, { steps: 8 });
+    await page.mouse.up();
+    const afterResize = await page.evaluate(hf403PackGeometry);
+    const resized = afterResize.cards.find((c) => c.id === 'full-weather-c');
+    expect(resized?.savedX, 'resize keeps saved x').toBe(weatherC!.savedX);
+    expect(resized?.savedW, 'resize changes saved w from saved geometry').toBe(weatherC!.savedW - 10);
+    expect(resized?.savedH, 'resize changes saved h from saved geometry').toBe(weatherC!.savedH + 20);
+    await page.close();
+  }, 180000);
+
+  it('HF-403-768-r4: 1024 neighbor gaps are ≤ 40 and 1280 matches in-run aad2eef7', async () => {
+    const edit1024 = await hf403OpenEdit(1024);
+    const pack1024 = await edit1024.evaluate(hf403PackGeometry);
+    const abs1024 = await edit1024.evaluate(hf403AbsoluteBar);
+    await edit1024.close();
+    for (const card of abs1024.cards) {
+      expect(card.textPastCard, `1024 ${card.id} text past card`).toBe(0);
+      expect(card.textPastViewport, `1024 ${card.id} text past viewport`).toBe(0);
+    }
+    for (let i = 0; i < pack1024.cards.length; i += 1) {
+      for (let j = i + 1; j < pack1024.cards.length; j += 1) {
+        const a = pack1024.cards[i];
+        const b = pack1024.cards[j];
+        const xGap = Math.max(a.left - b.right, b.left - a.right);
+        const yGap = Math.max(a.top - b.bottom, b.top - a.bottom);
+        const vertical = xGap < 0 && yGap >= 0;
+        const horizontal = yGap < 0 && xGap >= 0;
+        if (!vertical && !horizontal) continue;
+        const between = pack1024.cards.some((c) => {
+          if (c.id === a.id || c.id === b.id) return false;
+          if (vertical) {
+            const overlapX = Math.min(a.right, b.right, c.right) - Math.max(a.left, b.left, c.left);
+            const midTop = Math.min(a.bottom, b.bottom);
+            const midBot = Math.max(a.top, b.top);
+            return overlapX > 0 && c.top < midBot && c.bottom > midTop;
+          }
+          const overlapY = Math.min(a.bottom, b.bottom, c.bottom) - Math.max(a.top, b.top, c.top);
+          const midLeft = Math.min(a.right, b.right);
+          const midRight = Math.max(a.left, b.left);
+          return overlapY > 0 && c.left < midRight && c.right > midLeft;
+        });
+        if (between) continue;
+        const gap = vertical ? yGap : xGap;
+        expect(gap, `1024 gap ${a.id}/${b.id} ${gap}`).toBeLessThanOrEqual(40);
+      }
+    }
+
+    const aad2 = '/tmp/aad2eef7-tsc';
+    const aad2Dist = join(aad2, 'dist');
+    if (!existsSync(join(aad2Dist, 'assets'))) {
+      execSync('npx vite build --outDir dist --emptyOutDir', {
+        cwd: aad2,
+        env: { ...process.env, VITE_LOOK_PROOF: '1' },
+        stdio: 'pipe',
+      });
+    }
+    const aad2Server = await serveLookDist(aad2Dist);
+    const aad2Page = await openLookDist(aad2Server.origin, 1280, '/?look=dashboard');
+    await enterEdit(aad2Page);
+    const aad2Pack = await aad2Page.evaluate(hf403PackGeometry);
+    await aad2Page.close();
+    await aad2Server.close();
+
+    const head1280 = await hf403OpenEdit(1280);
+    const abs1280 = await head1280.evaluate(hf403AbsoluteBar);
+    await head1280.close();
+    for (const card of abs1280.cards) {
+      expect(card.textPastCard, `1280 ${card.id} text past card`).toBe(0);
+      expect(card.textPastViewport, `1280 ${card.id} text past viewport`).toBe(0);
+    }
+
+    const headDash = await openLookDist(lookOrigin, 1280, '/?look=dashboard');
+    await enterEdit(headDash);
+    const headPack = await headDash.evaluate(hf403PackGeometry);
+    await headDash.close();
+    expect(headPack.cards.map((c) => ({
+      id: c.id, left: Math.round(c.left), top: Math.round(c.top), width: Math.round(c.width),
+    })), '1280 Customize equals in-run aad2eef7').toEqual(aad2Pack.cards.map((c) => ({
+      id: c.id, left: Math.round(c.left), top: Math.round(c.top), width: Math.round(c.width),
+    })));
+  }, 300000);
+
+  it('HF-403-768-r4: view-vs-Customize side-by-sides at 768/1024/1280', async () => {
+    const artDir = '/cursor/stores/self/artifacts/hf-406-r4';
+    mkdirSync(artDir, { recursive: true });
+    mkdirSync('/workspace/artifacts/hf-406-r4', { recursive: true });
+    for (const width of [768, 1024, 1280] as const) {
+      const view = await openLookDist(lookOrigin, width, '/?look=dashboard-full');
+      await view.setViewportSize({ width, height: await hf403CardPageHeight(view) });
+      const viewPng = await view.screenshot({ type: 'png', fullPage: true, animations: 'disabled' });
+      writeFileSync(join(artDir, `view-${width}-full.png`), viewPng);
+      await view.close();
+      const edit = await hf403OpenEdit(width);
+      await edit.setViewportSize({ width, height: await hf403CardPageHeight(edit) });
+      const editPng = await edit.screenshot({ type: 'png', fullPage: true, animations: 'disabled' });
+      writeFileSync(join(artDir, `customize-${width}-full.png`), editPng);
+      await edit.close();
+      const htmlPath = join(artDir, `sxs-view-customize-${width}.html`);
+      writeFileSync(htmlPath, `<!doctype html><html><head><style>
+html,body{margin:0;background:#F5F0E6;color:#0A2540;font:14px/1.3 ui-sans-serif,system-ui,sans-serif}
+.wrap{display:flex;gap:16px;padding:16px;align-items:flex-start}
+.col{flex:1;min-width:0}
+h1{margin:0 0 8px;font-size:16px}
+img{display:block;width:100%;height:auto;border:1px solid #0A2540}
+</style></head><body><div class="wrap">
+<div class="col"><h1>view ${width}</h1><img alt="view" src="./view-${width}-full.png"></div>
+<div class="col"><h1>Customize ${width}</h1><img alt="customize" src="./customize-${width}-full.png"></div>
+</div></body></html>`);
+      const sxs = await browser.newPage({ viewport: { width: width * 2 + 64, height: 900 }, isMobile: false });
+      await sxs.goto(pathToFileURL(htmlPath).href);
+      const shot = await sxs.screenshot({ type: 'png', fullPage: true, animations: 'disabled' });
+      writeFileSync(join(artDir, `sxs-view-customize-${width}.png`), shot);
+      for (const name of [`view-${width}-full.png`, `customize-${width}-full.png`, `sxs-view-customize-${width}.html`, `sxs-view-customize-${width}.png`]) {
+        writeFileSync(join('/workspace/artifacts/hf-406-r4', name), readFileSync(join(artDir, name)));
+      }
+      await sxs.close();
+    }
+  }, 360000);
 
   it('HF-403-768-a: text walk stays inside innerWidth at 320/375/390 in view and Customize', async () => {
     for (const width of [320, 375, 390] as const) {

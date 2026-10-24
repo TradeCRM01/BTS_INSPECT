@@ -660,4 +660,56 @@ describe('dashboard canvas clamp persist', () => {
     expect(payload.grid_x + payload.grid_w).toBeLessThanOrEqual(910);
     expect(payload.grid_x).not.toBe(700);
   });
+
+  it('opening and leaving Customize writes nothing', async () => {
+    await mountCustomize();
+    h.calls.length = 0;
+    await doneEditing();
+    expect(writes('update')).toEqual([]);
+    expect(writes('insert')).toEqual([]);
+    expect(writes('delete')).toEqual([]);
+  });
+
+  it('a vertical-only drag on a reflowed card leaves saved x and w unchanged', async () => {
+    forceWidth(720);
+    await mountCustomize();
+    const el = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="w-weather1"]') as HTMLElement;
+    expect(parseFloat(el.style.left)).not.toBe(540);
+    expect(el.getAttribute('data-saved-x')).toBe('540');
+    h.calls.length = 0;
+    await act(async () => {
+      h.onDragEnd?.({ active: { id: 'w-weather1' }, delta: { x: 0, y: 40 } });
+    });
+    await tick(40);
+    const patch = writes('update').find(c => c.filters.some(f => f[1] === 'w-weather1'));
+    expect(patch).toBeTruthy();
+    const payload = strip(patch!.payload) as { grid_x: number; grid_y: number; grid_w: number };
+    expect(payload.grid_x).toBe(540);
+    expect(payload.grid_y).toBe(60);
+    expect(payload.grid_w).toBe(260);
+    expect(el.getAttribute('data-saved-x')).toBe('540');
+    expect(el.getAttribute('data-saved-w')).toBe('260');
+  });
+
+  it('a resize on a reflowed card changes only saved w/h from the saved geometry', async () => {
+    forceWidth(720);
+    await mountCustomize();
+    const el = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="w-weather2"]') as HTMLElement;
+    const grip = el.querySelector('.dashboard-home-widget-resize') as HTMLElement;
+    expect(el.getAttribute('data-saved-x')).toBe('20');
+    expect(el.getAttribute('data-saved-w')).toBe('260');
+    h.calls.length = 0;
+    await act(async () => {
+      grip.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 400, clientY: 400 }));
+      window.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: 390, clientY: 420 }));
+      window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: 390, clientY: 420 }));
+    });
+    await tick(40);
+    const patch = writes('update').find(c => c.filters.some(f => f[1] === 'w-weather2'));
+    expect(patch).toBeTruthy();
+    const payload = strip(patch!.payload) as { grid_x: number; grid_w: number; grid_h: number };
+    expect(payload.grid_x).toBe(20);
+    expect(payload.grid_w).toBe(250);
+    expect(payload.grid_h).toBe(290);
+  });
 });

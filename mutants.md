@@ -631,7 +631,7 @@ p = Path('src/pages/DashboardPage.tsx')
 t = p.read_text()
 old = """  const displayWidgets = useMemo(() => {
     const rows = widgets ?? [];
-    if (editMode && dashboardWidgetsNeedDisplayReflow(rows, canvasW)) {
+    if (editMode && dashboardWidgetsShouldDisplayReflow(rows, canvasW)) {
       return reflowDashboardWidgetsToCanvas(rows, canvasW);
     }
     return clampDashboardWidgetsToCanvas(rows, canvasW);
@@ -660,7 +660,7 @@ p = Path('src/pages/DashboardPage.tsx')
 t = p.read_text()
 old = """  const displayWidgets = useMemo(() => {
     const rows = widgets ?? [];
-    if (editMode && dashboardWidgetsNeedDisplayReflow(rows, canvasW)) {
+    if (editMode && dashboardWidgetsShouldDisplayReflow(rows, canvasW)) {
       return reflowDashboardWidgetsToCanvas(rows, canvasW);
     }
     return clampDashboardWidgetsToCanvas(rows, canvasW);
@@ -747,6 +747,39 @@ git checkout -- src/index.css
 
 Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4422` `gate a text walk view 320` AssertionError (`View all` textRight 900 > innerWidth 320). Same mutant reds WebKit `p1Dashboard.webkit.kill.tsx:360` `webkit gate a text walk view 320`.
 
+## M-hf403-768-overflow320 — restore nowrap today-seg at 320
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/styles/todayBoard.css')
+t = p.read_text()
+old = """@media (max-width: 374px) {
+  p.today-job-meta {
+    white-space: normal;
+  }
+
+  p.today-job-meta .today-seg {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+  }
+}
+"""
+if old not in t:
+    raise SystemExit('320 today-seg wrap missing')
+p.write_text(t.replace(old, '', 1))
+PY
+VITE_LOOK_PROOF=1 npm run build
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "P1-overflow:"
+git checkout -- src/styles/todayBoard.css
+```
+
+Red: `src/components/layout/p1Dashboard.chromium.kill.tsx` `max rect.right at 320 view` AssertionError (`Kayla Shore, Josh Perm` today-seg right 355 > 320.5).
+
 ## M-hf403-768-webkit — 375 overflow on WebKit
 
 ```bash
@@ -770,3 +803,162 @@ git checkout -- src/index.css
 
 Red: `src/components/layout/p1Dashboard.webkit.kill.tsx` `webkit maxRight view 375` AssertionError (run cites the line).
 Run WebKit on `mcr.microsoft.com/playwright:v1.48.2-jammy`. A launcher that does not start is a FAIL. 0 skips.
+
+## M-hf403-768-twoup — collapse 768 Customize to one left column
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/lib/dashboardWidgets.ts')
+t = p.read_text()
+old = """  if (widgets.length < 2) return false;
+  if (width < 800) return true;"""
+new = """  if (widgets.length < 2) return false;
+  if (width < 800) return false;"""
+if old not in t:
+    raise SystemExit('768 two-up gate missing')
+p.write_text(t.replace(old, new, 1))
+PY
+VITE_LOOK_PROOF=1 npm run build
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768-r4: 768 Customize two-up"
+git checkout -- src/lib/dashboardWidgets.ts
+```
+
+Red (measured): `p1Dashboard.chromium.kill.tsx` `768 right empty strip` — clamp leaves a ≥310px empty right column over more than one card height (720 canvas, cards ≤410). Same mutant reds WebKit `webkit 768 right empty strip`.
+
+## M-hf403-768-height — 1-col pack blows past 1.15× view height
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/lib/dashboardWidgets.ts')
+t = p.read_text()
+old = """export function dashboardWidgetDisplayColumns(canvasW: number): 0 | 1 | 2 {
+  if (canvasW < 1100) return 2;
+  return 0;
+}"""
+new = """export function dashboardWidgetDisplayColumns(canvasW: number): 0 | 1 | 2 {
+  if (canvasW < 800) return 1;
+  if (canvasW < 1100) return 2;
+  return 0;
+}"""
+if old not in t:
+    raise SystemExit('display columns missing')
+p.write_text(t.replace(old, new, 1))
+PY
+VITE_LOOK_PROOF=1 npm run build
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768-r4: Customize page height"
+git checkout -- src/lib/dashboardWidgets.ts
+```
+
+Red (measured): `p1Dashboard.chromium.kill.tsx` `768 Customize height 10088 <= 1.15 × view` — 1-col pack is ~10088 vs view ~7024. Same mutant reds WebKit height assert.
+
+## M-hf403-768-order — pack stored order instead of view order
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/lib/dashboardWidgets.ts')
+t = p.read_text()
+old = """  const ordered = sortDashboardWidgetsForView(widgets);"""
+new = """  const ordered = [...widgets];"""
+if old not in t:
+    raise SystemExit('view-order pack missing')
+p.write_text(t.replace(old, new, 1))
+PY
+VITE_LOOK_PROOF=1 npm run build
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768-r4: Customize column assignment"
+git checkout -- src/lib/dashboardWidgets.ts
+```
+
+Red (measured): `p1Dashboard.chromium.kill.tsx` `768 Customize order equals view` — stored order starts `full-upcoming_jobs` / `full-weather-a`; view order starts money (`full-outstanding_invoices`). Same mutant reds WebKit order assert.
+
+## M-hf403-768-display-persist — persist the reflowed drawn rect
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/pages/DashboardPage.tsx')
+t = p.read_text()
+old = """    const next = dashboardWidgetDisplayIsReflow(shown, stored, canvasW)
+      ? applyDashboardWidgetSavedDrag(stored, delta)
+      : applyDashboardWidgetDrag(shown, delta, canvasW);"""
+new = """    const next = applyDashboardWidgetDrag(shown, delta, canvasW);"""
+if old not in t:
+    raise SystemExit('saved-drag guard missing')
+p.write_text(t.replace(old, new, 1))
+PY
+npx vitest run --maxWorkers=2 src/pages/dashboardPhonePersist.test.tsx -t "vertical-only drag"
+git checkout -- src/pages/DashboardPage.tsx
+```
+
+Red (measured): `src/pages/dashboardPhonePersist.test.tsx` `expect(payload.grid_x).toBe(540)` — clamp-on-drawn writes x=20 (or 460 on a 720 clamp). Chromium kill `vertical drag keeps saved x` first red is the same measured savedX. P1-A stays untouched and stays green (910 is clamp, not reflow).
+
+## M-hf403-768-scroller-branch — accept a 1100 scroller again
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/components/layout/p1Dashboard.chromium.kill.tsx')
+t = p.read_text()
+old = """        expect(reach.scrollWidth, `edit canvas scrollWidth at ${width}`).toBeLessThanOrEqual(reach.clientWidth);"""
+new = """        if (reach.scroller) {
+          expect(reach.cards.length, `reachable cards at ${width}`).toBe(26);
+          continue;
+        }
+        expect(reach.scrollWidth, `edit canvas scrollWidth at ${width}`).toBeLessThanOrEqual(reach.clientWidth);"""
+if old not in t:
+    raise SystemExit('canvas scrollWidth assert missing')
+p.write_text(t.replace(old, new, 1))
+PY
+```
+
+This mutant loosens the kill (forbidden). The live assert is `edit canvas scrollWidth at ${width}` ≤ clientWidth. A product mutant that restores `Math.max(canvasW, DASHBOARD_WIDGET_CANVAS_W)` (M-hf403-768-scroller above) is the measured first red.
+
+## M-hf403-768-1024-gap — restore clamp crush gaps at 1024
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/lib/dashboardWidgets.ts')
+t = p.read_text()
+old = """  if (width < 800) return true;
+  return dashboardWidgetsNeedDisplayReflow(widgets, width);"""
+new = """  if (width < 800) return true;
+  return false;"""
+if old not in t:
+    raise SystemExit('1024 reflow gate missing')
+p.write_text(t.replace(old, new, 1))
+PY
+VITE_LOOK_PROOF=1 npm run build
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768-r4: 1024 neighbor gaps"
+git checkout -- src/lib/dashboardWidgets.ts
+```
+
+Red (measured): `p1Dashboard.chromium.kill.tsx` `1024 gap` — clamp-in-place leaves a neighbor gap > 40 (empty strip beside crushed 4-cell cards). Same mutant reds WebKit 1024 gap.
+
+## M-hf403-768-1280-aad2 — rewrite 1280 stored x
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/lib/dashboardWidgets.ts')
+t = p.read_text()
+old = """export function dashboardWidgetDisplayColumns(canvasW: number): 0 | 1 | 2 {
+  if (canvasW < 1100) return 2;
+  return 0;
+}"""
+new = """export function dashboardWidgetDisplayColumns(canvasW: number): 0 | 1 | 2 {
+  if (canvasW < 1400) return 2;
+  return 0;
+}"""
+if old not in t:
+    raise SystemExit('1280 clamp columns missing')
+p.write_text(t.replace(old, new, 1))
+PY
+VITE_LOOK_PROOF=1 npm run build
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768-r4: 1024 neighbor gaps are"
+git checkout -- src/lib/dashboardWidgets.ts
+```
+
+Red (measured): `p1Dashboard.chromium.kill.tsx` `1280 Customize equals in-run aad2eef7` — two-up at 1280 moves `full-outstanding_invoices` off stored x=800. Same mutant reds WebKit 1280 aad2.

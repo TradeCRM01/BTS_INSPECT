@@ -3,6 +3,7 @@
  * WebKit dashboard kills. Launch failure throws in beforeAll — 0 skips.
  * Run on Playwright 1.48.2 jammy (docker mcr.microsoft.com/playwright:v1.48.2-jammy).
  */
+import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, extname, join } from 'node:path';
@@ -17,6 +18,11 @@ type KillPage = {
   waitForSelector: (sel: string, opts?: { timeout?: number }) => Promise<unknown>;
   setViewportSize: (size: { width: number; height: number }) => Promise<void>;
   addInitScript: (script: string) => Promise<void>;
+  mouse: {
+    move: (x: number, y: number, opts?: { steps?: number }) => Promise<void>;
+    down: () => Promise<void>;
+    up: () => Promise<void>;
+  };
   close: () => Promise<void>;
 };
 
@@ -82,16 +88,21 @@ function serveDist(root: string): Promise<{ origin: string; close: () => Promise
   });
 }
 
-let browser: Awaited<ReturnType<typeof launchWebkit>>;
+let browser: Awaited<ReturnType<typeof launchWebkit>> | null = null;
 let origin = '';
 let server: { origin: string; close: () => Promise<void> } | null = null;
+let launchErr: unknown = null;
 
 beforeAll(async () => {
-  const dist = join(process.cwd(), 'dist');
-  if (!existsSync(join(dist, 'assets'))) throw new Error('dist/assets missing; run npm run build');
-  server = await serveDist(dist);
-  origin = server.origin;
-  browser = await launchWebkit();
+  try {
+    const dist = join(process.cwd(), 'dist');
+    if (!existsSync(join(dist, 'assets'))) throw new Error('dist/assets missing; run npm run build');
+    server = await serveDist(dist);
+    origin = server.origin;
+    browser = await launchWebkit();
+  } catch (err) {
+    launchErr = err;
+  }
 }, 60000);
 
 afterAll(async () => {
@@ -99,8 +110,14 @@ afterAll(async () => {
   await browser?.close();
 });
 
-async function openDash(width: number): Promise<KillPage> {
-  const page = await browser.newPage({ viewport: { width, height: 4000 }, isMobile: false });
+function requireWebkit() {
+  if (launchErr) throw launchErr;
+  if (!browser) throw new Error('webkit did not launch');
+  return browser;
+}
+
+async function openDashAt(root: string, width: number, path = '/?look=dashboard-full'): Promise<KillPage> {
+  const page = await requireWebkit().newPage({ viewport: { width, height: 4000 }, isMobile: false });
   await page.addInitScript(`(function(){
     var Real = Date;
     var ms = Date.parse('2026-10-19T03:40:00.000Z');
@@ -114,10 +131,14 @@ async function openDash(width: number): Promise<KillPage> {
     FrozenDate.prototype = Real.prototype;
     window.Date = FrozenDate;
   })()`);
-  await page.goto(`${origin}/?look=dashboard-full`);
+  await page.goto(`${root}${path}`);
   await page.waitForSelector('[data-dashboard-home="1"]', { timeout: 25000 });
   await page.evaluate(async () => { await document.fonts.ready; });
   return page;
+}
+
+async function openDash(width: number): Promise<KillPage> {
+  return openDashAt(origin, width);
 }
 
 async function enterEdit(page: KillPage) {
@@ -250,9 +271,22 @@ function webkitAbsoluteBar() {
     clientWidth: number;
     right: number;
     minContent: number;
+    chromeMinContent: number;
+    widestChild: string;
     textPastCard: number;
     textPastViewport: number;
   }> = [];
+  const probeMinContent = (el: HTMLElement) => {
+    const prev = { w: el.style.width, min: el.style.minWidth, max: el.style.maxWidth };
+    el.style.width = 'min-content';
+    el.style.minWidth = 'min-content';
+    el.style.maxWidth = 'none';
+    const w = el.getBoundingClientRect().width;
+    el.style.width = prev.w;
+    el.style.minWidth = prev.min;
+    el.style.maxWidth = prev.max;
+    return w;
+  };
   for (const host of document.querySelectorAll('[data-dashboard-widget-id]')) {
     if (!vis(host)) continue;
     const onPhone = !!host.closest('[data-dashboard-phone-stack]');
@@ -276,26 +310,36 @@ function webkitAbsoluteBar() {
       }
       node = walker.nextNode();
     }
-    let minContent = 0;
-    for (const child of [...card.querySelectorAll('*')]) {
+    const chromeSel = '.dashboard-home-phone-edit-bar, .dashboard-home-edit-chrome, .dashboard-home-edit-foot';
+    const ink = (card.querySelector('.dashboard-home-widget-ink') as HTMLElement | null) ?? card;
+    let chromeMinContent = 0;
+    for (const child of [...card.querySelectorAll(chromeSel)].flatMap((el) => [el, ...el.querySelectorAll('*')])) {
       const el = child as HTMLElement;
       const s = getComputedStyle(el);
       if (s.display === 'none' || s.visibility === 'hidden') continue;
-      const prev = { w: el.style.width, min: el.style.minWidth, max: el.style.maxWidth };
-      el.style.width = 'min-content';
-      el.style.minWidth = 'min-content';
-      el.style.maxWidth = 'none';
-      const w = el.getBoundingClientRect().width;
-      el.style.width = prev.w;
-      el.style.minWidth = prev.min;
-      el.style.maxWidth = prev.max;
-      if (w > minContent) minContent = w;
+      chromeMinContent = Math.max(chromeMinContent, probeMinContent(el));
+    }
+    let minContent = probeMinContent(ink);
+    let widestChild = `ink:${minContent.toFixed(1)}`;
+    for (const child of [...ink.querySelectorAll('*')]) {
+      const el = child as HTMLElement;
+      if (el.closest(chromeSel)) continue;
+      const s = getComputedStyle(el);
+      if (s.display === 'none' || s.visibility === 'hidden') continue;
+      const w = probeMinContent(el);
+      if (w > minContent) {
+        minContent = w;
+        const cls = (typeof el.className === 'string' ? el.className : el.tagName).toString().trim().slice(0, 48);
+        widestChild = `${el.tagName.toLowerCase()}.${cls || 'anon'}:${w.toFixed(1)}`;
+      }
     }
     cards.push({
       id: host.getAttribute('data-dashboard-widget-id') || '',
       clientWidth: card.clientWidth,
       right: cr.right,
       minContent,
+      chromeMinContent,
+      widestChild,
       textPastCard,
       textPastViewport,
     });
@@ -311,10 +355,12 @@ function webkitAbsoluteBar() {
 
 describe('P1 dashboard WebKit kills (375/390 overflow and text)', () => {
   it('HF-403-768-webkit: launcher version and 0 skips', async () => {
+    if (launchErr) throw launchErr;
+    const launched = requireWebkit();
     const src = readFileSync(join(here, 'p1Dashboard.webkit.kill.tsx'), 'utf8');
     expect(src).toContain('webkit.launch');
     expect(src, 'webkit kill has no skips').not.toMatch(/\bit\.skip\(|describe\.skip\(|\bxit\(/);
-    const version = browser.version();
+    const version = launched.version();
     console.log(`WEBKIT_VERSION ${version}`);
     expect(version.length, 'webkit launched a real version').toBeGreaterThan(0);
   });
@@ -390,4 +436,213 @@ describe('P1 dashboard WebKit kills (375/390 overflow and text)', () => {
       }
     }
   }, 300000);
+
+  function webkitPackGeometry() {
+    const canvas = document.querySelector('.dashboard-home-canvas.is-editing') as HTMLElement | null;
+    const vis = (el: Element) => {
+      const s = getComputedStyle(el as HTMLElement);
+      const r = el.getBoundingClientRect();
+      return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+    };
+    const box = canvas?.getBoundingClientRect();
+    const cards = [...document.querySelectorAll('[data-dashboard-widget-id]')].filter((el) => (
+      vis(el) && !el.closest('[data-dashboard-phone-stack]')
+    )).map((host) => {
+      const r = host.getBoundingClientRect();
+      return {
+        id: host.getAttribute('data-dashboard-widget-id') || '',
+        left: r.left,
+        right: r.right,
+        top: r.top,
+        bottom: r.bottom,
+        width: r.width,
+        savedX: Number((host as HTMLElement).dataset.savedX ?? NaN),
+        savedY: Number((host as HTMLElement).dataset.savedY ?? NaN),
+        savedW: Number((host as HTMLElement).dataset.savedW ?? NaN),
+        savedH: Number((host as HTMLElement).dataset.savedH ?? NaN),
+      };
+    }).sort((a, b) => (a.top - b.top) || (a.left - b.left));
+    const mid = box ? box.left + box.width / 2 : 0;
+    return {
+      canvasLeft: box?.left ?? 0,
+      canvasRight: box?.right ?? 0,
+      leftGap: cards.length && box ? Math.min(...cards.map((c) => c.left)) - box.left : 0,
+      rightGap: cards.length && box ? box.right - Math.max(...cards.map((c) => c.right)) : 0,
+      cards,
+      columns: cards.map((c) => ({ id: c.id, side: c.left + c.width / 2 < mid ? 'L' : 'R' })),
+    };
+  }
+
+  function webkitViewGeometry() {
+    const grid = document.querySelector('[data-dashboard-view-grid]') as HTMLElement | null;
+    const vis = (el: Element) => {
+      const s = getComputedStyle(el as HTMLElement);
+      const r = el.getBoundingClientRect();
+      return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+    };
+    const box = grid?.getBoundingClientRect();
+    const cards = [...document.querySelectorAll('[data-dashboard-view-grid] [data-dashboard-widget-id]')].filter(vis).map((host) => {
+      const r = host.getBoundingClientRect();
+      return { id: host.getAttribute('data-dashboard-widget-id') || '', left: r.left, top: r.top, width: r.width };
+    }).sort((a, b) => (a.top - b.top) || (a.left - b.left));
+    const mid = box ? box.left + box.width / 2 : 0;
+    return { columns: cards.map((c) => ({ id: c.id, side: c.left + c.width / 2 < mid ? 'L' : 'R' })) };
+  }
+
+  it('HF-403-768-r4: WebKit 768 two-up, view columns, saved drag, and height', async () => {
+    const view = await openDash(768);
+    await view.setViewportSize({ width: 768, height: 8000 });
+    const viewGeo = await view.evaluate(webkitViewGeometry);
+    const viewBottom = await view.evaluate(() => Math.max(0, ...[...document.querySelectorAll('[data-dashboard-widget-id]')].map((el) => el.getBoundingClientRect().bottom)));
+    await view.close();
+
+    const edit = await openDash(768);
+    await enterEdit(edit);
+    await edit.setViewportSize({ width: 768, height: 8000 });
+    const pack = await edit.evaluate(webkitPackGeometry);
+    expect(pack.cards.length, 'webkit 768 paints 26 cards').toBe(26);
+    for (const card of pack.cards) {
+      expect(card.right, `webkit ${card.id} right`).toBeLessThanOrEqual(pack.canvasRight + 0.5);
+    }
+    expect(pack.columns.some((c) => c.side === 'L')).toBe(true);
+    expect(pack.columns.some((c) => c.side === 'R')).toBe(true);
+    const tall = Math.max(...pack.cards.map((c) => c.bottom - c.top));
+    const leftAlone = pack.leftGap > 24 ? pack.cards.filter((c) => c.left - pack.canvasLeft > 24) : [];
+    const rightAlone = pack.rightGap > 24 ? pack.cards.filter((c) => pack.canvasRight - c.right > 24) : [];
+    if (leftAlone.length) {
+      const span = Math.max(...leftAlone.map((c) => c.bottom)) - Math.min(...leftAlone.map((c) => c.top));
+      expect(span, `webkit 768 left empty strip ${pack.leftGap}px over ${span}px`).toBeLessThanOrEqual(tall + 1);
+    }
+    if (rightAlone.length) {
+      const span = Math.max(...rightAlone.map((c) => c.bottom)) - Math.min(...rightAlone.map((c) => c.top));
+      expect(span, `webkit 768 right empty strip ${pack.rightGap}px over ${span}px`).toBeLessThanOrEqual(tall + 1);
+    }
+    expect(pack.columns.map((c) => c.id), 'webkit 768 order equals view').toEqual(viewGeo.columns.map((c) => c.id));
+    expect(pack.columns.map((c) => c.side), 'webkit 768 L/R equals view').toEqual(viewGeo.columns.map((c) => c.side));
+    const editBottom = Math.max(...pack.cards.map((c) => c.bottom));
+    expect(editBottom, `webkit Customize height ${editBottom} <= 1.15 × view ${viewBottom}`).toBeLessThanOrEqual(viewBottom * 1.15);
+
+    const weather = pack.cards.find((c) => c.id === 'full-weather-a');
+    const weatherC = pack.cards.find((c) => c.id === 'full-weather-c');
+    expect(weather).toBeTruthy();
+    expect(weatherC).toBeTruthy();
+    const handle = await edit.evaluate(() => {
+      const host = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="full-weather-a"]');
+      const btn = host?.querySelector('button[title="Drag to move"]') as HTMLElement | null;
+      if (!btn) throw new Error('drag handle missing');
+      btn.scrollIntoView({ block: 'center' });
+      const r = btn.getBoundingClientRect();
+      if (r.width < 1) throw new Error('drag handle missing');
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    await edit.mouse.move(handle.x, handle.y);
+    await edit.mouse.down();
+    await edit.mouse.move(handle.x, handle.y + 80, { steps: 12 });
+    await edit.mouse.up();
+    const after = await edit.evaluate(webkitPackGeometry);
+    const dragged = after.cards.find((c) => c.id === 'full-weather-a');
+    expect(dragged?.savedX, 'webkit vertical drag keeps saved x').toBe(weather!.savedX);
+    expect(dragged?.savedW, 'webkit vertical drag keeps saved w').toBe(weather!.savedW);
+    expect(dragged?.savedX, 'webkit vertical drag does not persist pack x').toBeGreaterThan(400);
+    for (const card of after.cards) {
+      if (card.id === 'full-weather-a') continue;
+      const beforeCard = pack.cards.find((c) => c.id === card.id);
+      expect(card.savedX, `webkit ${card.id} saved x after sibling drag`).toBe(beforeCard?.savedX);
+      expect(card.savedW, `webkit ${card.id} saved w after sibling drag`).toBe(beforeCard?.savedW);
+    }
+
+    const grip = await edit.evaluate(() => {
+      const host = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="full-weather-c"]');
+      const btn = host?.querySelector('.dashboard-home-widget-resize') as HTMLElement | null;
+      const r = btn?.getBoundingClientRect();
+      if (!r || r.width < 1) throw new Error('resize handle missing');
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    await edit.mouse.move(grip.x, grip.y);
+    await edit.mouse.down();
+    await edit.mouse.move(grip.x - 10, grip.y + 20, { steps: 8 });
+    await edit.mouse.up();
+    const afterResize = await edit.evaluate(webkitPackGeometry);
+    const resized = afterResize.cards.find((c) => c.id === 'full-weather-c');
+    expect(resized?.savedX, 'webkit resize keeps saved x').toBe(weatherC!.savedX);
+    expect(resized?.savedW, 'webkit resize changes saved w from saved geometry').toBe(weatherC!.savedW - 10);
+    expect(resized?.savedH, 'webkit resize changes saved h from saved geometry').toBe(weatherC!.savedH + 20);
+    await edit.close();
+
+    const edit1024 = await openDash(1024);
+    await enterEdit(edit1024);
+    await edit1024.setViewportSize({ width: 1024, height: 8000 });
+    const pack1024 = await edit1024.evaluate(webkitPackGeometry);
+    const abs1024 = await edit1024.evaluate(webkitAbsoluteBar);
+    await edit1024.close();
+    for (const card of abs1024.cards) {
+      expect(card.textPastCard, `webkit 1024 ${card.id} text past card`).toBe(0);
+      expect(card.textPastViewport, `webkit 1024 ${card.id} text past viewport`).toBe(0);
+    }
+    for (let i = 0; i < pack1024.cards.length; i += 1) {
+      for (let j = i + 1; j < pack1024.cards.length; j += 1) {
+        const a = pack1024.cards[i];
+        const b = pack1024.cards[j];
+        const xGap = Math.max(a.left - b.right, b.left - a.right);
+        const yGap = Math.max(a.top - b.bottom, b.top - a.bottom);
+        const vertical = xGap < 0 && yGap >= 0;
+        const horizontal = yGap < 0 && xGap >= 0;
+        if (!vertical && !horizontal) continue;
+        const between = pack1024.cards.some((c) => {
+          if (c.id === a.id || c.id === b.id) return false;
+          if (vertical) {
+            const overlapX = Math.min(a.right, b.right, c.right) - Math.max(a.left, b.left, c.left);
+            const midTop = Math.min(a.bottom, b.bottom);
+            const midBot = Math.max(a.top, b.top);
+            return overlapX > 0 && c.top < midBot && c.bottom > midTop;
+          }
+          const overlapY = Math.min(a.bottom, b.bottom, c.bottom) - Math.max(a.top, b.top, c.top);
+          const midLeft = Math.min(a.right, b.right);
+          const midRight = Math.max(a.left, b.left);
+          return overlapY > 0 && c.left < midRight && c.right > midLeft;
+        });
+        if (between) continue;
+        const gap = vertical ? yGap : xGap;
+        expect(gap, `webkit 1024 gap ${a.id}/${b.id} ${gap}`).toBeLessThanOrEqual(40);
+      }
+    }
+
+    const aad2Dist = existsSync(join('/workspace/.look-aad2eef7-dist', 'assets'))
+      ? '/workspace/.look-aad2eef7-dist'
+      : join('/tmp/aad2eef7-tsc', 'dist');
+    if (!existsSync(join(aad2Dist, 'assets'))) {
+      const aad2 = '/tmp/aad2eef7-tsc';
+      execSync('npx vite build --outDir dist --emptyOutDir', {
+        cwd: aad2,
+        env: { ...process.env, VITE_LOOK_PROOF: '1' },
+        stdio: 'pipe',
+      });
+    }
+    const aad2Server = await serveDist(aad2Dist);
+    const aad2Page = await openDashAt(aad2Server.origin, 1280, '/?look=dashboard');
+    await enterEdit(aad2Page);
+    const aad2Pack = await aad2Page.evaluate(webkitPackGeometry);
+    await aad2Page.close();
+    await aad2Server.close();
+
+    const headFull = await openDash(1280);
+    await enterEdit(headFull);
+    await headFull.setViewportSize({ width: 1280, height: 8000 });
+    const abs1280 = await headFull.evaluate(webkitAbsoluteBar);
+    await headFull.close();
+    for (const card of abs1280.cards) {
+      expect(card.textPastCard, `webkit 1280 ${card.id} text past card`).toBe(0);
+      expect(card.textPastViewport, `webkit 1280 ${card.id} text past viewport`).toBe(0);
+    }
+
+    const headDash = await openDashAt(origin, 1280, '/?look=dashboard');
+    await enterEdit(headDash);
+    const headPack = await headDash.evaluate(webkitPackGeometry);
+    await headDash.close();
+    expect(headPack.cards.map((c) => ({
+      id: c.id, left: Math.round(c.left), top: Math.round(c.top), width: Math.round(c.width),
+    })), 'webkit 1280 Customize equals in-run aad2eef7').toEqual(aad2Pack.cards.map((c) => ({
+      id: c.id, left: Math.round(c.left), top: Math.round(c.top), width: Math.round(c.width),
+    })));
+  }, 360000);
 });
