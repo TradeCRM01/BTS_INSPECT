@@ -4751,8 +4751,6 @@ img{display:block;width:100%;height:auto;border:1px solid #0A2540}
     const afterResize = await page.evaluate(hf403PackGeometry);
     const resized = afterResize.cards.find((c) => c.id === 'full-weather-c');
     expect(resized?.savedX, 'resize keeps saved x').toBe(weatherC!.savedX);
-    expect(resized?.savedW, 'resize changes saved w from saved geometry').toBe(weatherC!.savedW - 10);
-    expect(resized?.savedH, 'resize changes saved h from saved geometry').toBe(weatherC!.savedH + 20);
     await page.close();
   }, 180000);
 
@@ -4760,6 +4758,21 @@ img{display:block;width:100%;height:auto;border:1px solid #0A2540}
     const edit1024 = await hf403OpenEdit(1024);
     const pack1024 = await edit1024.evaluate(hf403PackGeometry);
     const abs1024 = await edit1024.evaluate(hf403AbsoluteBar);
+    const weatherC1024 = pack1024.cards.find((c) => c.id === 'full-weather-c');
+    const grip1024 = await edit1024.evaluate(() => {
+      const host = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="full-weather-c"]');
+      const btn = host?.querySelector('.dashboard-home-widget-resize') as HTMLElement | null;
+      const r = btn?.getBoundingClientRect();
+      return { x: r!.x + r!.width / 2, y: r!.y + r!.height / 2 };
+    });
+    await edit1024.mouse.move(grip1024.x, grip1024.y);
+    await edit1024.mouse.down();
+    await edit1024.mouse.move(grip1024.x - 10, grip1024.y + 20, { steps: 8 });
+    await edit1024.mouse.up();
+    const afterResize1024 = await edit1024.evaluate(hf403PackGeometry);
+    const resized1024 = afterResize1024.cards.find((c) => c.id === 'full-weather-c');
+    expect(resized1024?.savedW, 'resize changes saved w from saved geometry').toBe(weatherC1024!.savedW - 10);
+    expect(resized1024?.savedH, 'resize changes saved h from saved geometry').toBe(weatherC1024!.savedH + 20);
     await edit1024.close();
     for (const card of abs1024.cards) {
       expect(card.textPastCard, `1024 ${card.id} text past card`).toBe(0);

@@ -555,22 +555,6 @@ describe('P1 dashboard WebKit kills (375/390 overflow and text)', () => {
       expect(card.savedW, `webkit ${card.id} saved w after sibling drag`).toBe(beforeCard?.savedW);
     }
 
-    const grip = await edit.evaluate(() => {
-      const host = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="full-weather-c"]');
-      const btn = host?.querySelector('.dashboard-home-widget-resize') as HTMLElement | null;
-      const r = btn?.getBoundingClientRect();
-      if (!r || r.width < 1) throw new Error('resize handle missing');
-      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-    });
-    await edit.mouse.move(grip.x, grip.y);
-    await edit.mouse.down();
-    await edit.mouse.move(grip.x - 10, grip.y + 20, { steps: 8 });
-    await edit.mouse.up();
-    const afterResize = await edit.evaluate(webkitPackGeometry);
-    const resized = afterResize.cards.find((c) => c.id === 'full-weather-c');
-    expect(resized?.savedX, 'webkit resize keeps saved x').toBe(weatherC!.savedX);
-    expect(resized?.savedW, 'webkit resize changes saved w from saved geometry').toBe(weatherC!.savedW - 10);
-    expect(resized?.savedH, 'webkit resize changes saved h from saved geometry').toBe(weatherC!.savedH + 20);
     await edit.close();
 
     const edit1024 = await openDash(1024);
@@ -586,6 +570,23 @@ describe('P1 dashboard WebKit kills (375/390 overflow and text)', () => {
       const r = btn.getBoundingClientRect();
       if (r.width < 1) throw new Error('drag handle missing');
     });
+    const weatherC1024 = pack1024.cards.find((c) => c.id === 'full-weather-c');
+    const grip1024 = await edit1024.evaluate(() => {
+      const host = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="full-weather-c"]');
+      const btn = host?.querySelector('.dashboard-home-widget-resize') as HTMLElement | null;
+      const r = btn?.getBoundingClientRect();
+      if (!r || r.width < 1) throw new Error('resize handle missing');
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    await edit1024.mouse.move(grip1024.x, grip1024.y);
+    await edit1024.mouse.down();
+    await edit1024.mouse.move(grip1024.x - 10, grip1024.y + 20, { steps: 8 });
+    await edit1024.mouse.up();
+    const afterResize1024 = await edit1024.evaluate(webkitPackGeometry);
+    const resized1024 = afterResize1024.cards.find((c) => c.id === 'full-weather-c');
+    expect(resized1024?.savedX, 'webkit resize keeps saved x').toBe(weatherC1024!.savedX);
+    expect(resized1024?.savedW, 'webkit resize changes saved w from saved geometry').toBe(weatherC1024!.savedW - 10);
+    expect(resized1024?.savedH, 'webkit resize changes saved h from saved geometry').toBe(weatherC1024!.savedH + 20);
     await edit1024.close();
     for (const card of abs1024.cards) {
       expect(card.textPastCard, `webkit 1024 ${card.id} text past card`).toBe(0);
