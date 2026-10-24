@@ -324,6 +324,7 @@ export async function openState(id: StateId, build: Build = 'branch', height = v
   const context = await (await browser(opts.engine ?? 'chromium')).newContext({
     viewport: { width: spec.w, height },
     deviceScaleFactor: 1,
+    isMobile: false,
     hasTouch: isTouch(spec.w),
     timezoneId: TIMEZONE,
     locale: 'en-AU',
@@ -661,6 +662,7 @@ async function measureMockup1280Once(): Promise<LookPins> {
   const context = await (await browser()).newContext({
     viewport: { width: 1280, height: 900 },
     deviceScaleFactor: 1,
+    isMobile: false,
     colorScheme: 'light',
     reducedMotion: 'reduce',
   });
