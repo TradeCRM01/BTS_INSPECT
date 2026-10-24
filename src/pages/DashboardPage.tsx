@@ -1220,12 +1220,16 @@ export function DashboardPage() {
     [displayWidgets, profile?.role],
   );
 
+  const allowGeometry = viewportW >= 1024;
+
   const handleDragStart = (e: DragStartEvent) => {
+    if (!allowGeometry) return;
     setActiveId(String(e.active.id));
   };
 
   const handleDragEnd = (e: DragEndEvent) => {
     setActiveId(null);
+    if (!allowGeometry) return;
     const { active, delta } = e;
     if (!delta.x && !delta.y) return;
     const stored = (widgets ?? []).find(x => x.id === active.id);
@@ -1254,6 +1258,7 @@ export function DashboardPage() {
   const startResize = (e: React.PointerEvent, widget: DashboardWidget) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!allowGeometry) return;
     const stored = (widgets ?? []).find(x => x.id === widget.id) ?? widget;
     const reflowed = dashboardWidgetDisplayIsReflow(widget, stored, canvasW);
     resizeState.current = {
@@ -1470,13 +1475,17 @@ export function DashboardPage() {
                           className={`dashboard-home-canvas relative overflow-x-auto is-editing${packDisplay ? ' is-twoup' : ''}${packDisplay && canvasW < 800 ? ' is-twoup-narrow' : ''}`}
                           style={packDisplay ? { minWidth: '100%' } : { height: canvasHeight, minWidth: '100%' }}
                         >
-                          {shownWidgets.map(w => (
+                          {shownWidgets.map((w, index) => (
                               <FreeWidget
                                 key={w.id}
                                 widget={w}
                                 saved={(widgets ?? []).find(x => x.id === w.id) ?? w}
                                 editMode={editMode}
+                                allowGeometry={allowGeometry}
                                 onRemove={() => removeWidget(w.id)}
+                                onMove={(direction) => { void movePhoneWidget(w.id, direction); }}
+                                moveUpDisabled={index === 0}
+                                moveDownDisabled={index === shownWidgets.length - 1}
                                 onResizeStart={(e) => startResize(e, w)}
                                 onConfigChange={(c) => updateWidgetConfig(w.id, c)}
                                 isDragging={activeId === w.id}
@@ -1697,20 +1706,25 @@ function DashboardHomeMore({
 }
 
 function FreeWidget({
-  widget, saved, editMode, onRemove, onResizeStart, onConfigChange, isDragging,
+  widget, saved, editMode, allowGeometry, onRemove, onMove, moveUpDisabled, moveDownDisabled, onResizeStart, onConfigChange, isDragging,
 }: {
   widget: DashboardWidget;
   saved: DashboardWidget;
   editMode: boolean;
+  allowGeometry: boolean;
   onRemove: () => void;
+  onMove: (direction: -1 | 1) => void;
+  moveUpDisabled: boolean;
+  moveDownDisabled: boolean;
   onResizeStart: (e: React.PointerEvent) => void;
   onConfigChange: (config: Record<string, unknown>) => void;
   isDragging: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging: isDragActive } = useDraggable({
     id: widget.id,
-    disabled: !editMode,
+    disabled: !editMode || !allowGeometry,
   });
+  const widgetName = getWidgetDef(widget.widget_type)?.label ?? 'widget';
 
   const dragStyle: React.CSSProperties = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
@@ -1735,20 +1749,41 @@ function FreeWidget({
       className={`absolute ${isDragging || isDragActive ? 'z-50' : 'z-10'} ${isDragActive ? 'select-none' : ''}`}
     >
       <div
-        className={`dashboard-home-widget h-full w-full overflow-hidden ${
+        className={`dashboard-home-widget h-full w-full ${allowGeometry ? 'overflow-hidden' : ''} ${
           editMode ? 'is-editing' : ''
         } ${isDragging || isDragActive ? 'is-dragging' : ''}`}
       >
         {editMode && (
           <div className="dashboard-home-edit-chrome">
-            <button
-              {...attributes}
-              {...listeners}
-              className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-md bg-white border border-gray-200 shadow-sm text-gray-400 cursor-grab active:cursor-grabbing hover:text-gray-600 hover:bg-gray-50 transition-colors touch-none"
-              title="Drag to move"
-            >
-              <GripVertical size={14} />
-            </button>
+            {allowGeometry ? (
+              <button
+                {...attributes}
+                {...listeners}
+                className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-md bg-white border border-gray-200 shadow-sm text-gray-400 cursor-grab active:cursor-grabbing hover:text-gray-600 hover:bg-gray-50 transition-colors touch-none"
+                title="Drag to move"
+              >
+                <GripVertical size={14} />
+              </button>
+            ) : (
+              <div className="dashboard-home-edit-order">
+                <button
+                  type="button"
+                  aria-label={`Move ${widgetName} up`}
+                  disabled={moveUpDisabled}
+                  onClick={() => onMove(-1)}
+                >
+                  <ChevronUp size={18} />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Move ${widgetName} down`}
+                  disabled={moveDownDisabled}
+                  onClick={() => onMove(1)}
+                >
+                  <ChevronDown size={18} />
+                </button>
+              </div>
+            )}
             <button
               onClick={onRemove}
               className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-md bg-white border border-gray-200 shadow-sm text-red-500 hover:bg-red-50 transition-colors"
@@ -1767,7 +1802,7 @@ function FreeWidget({
           />
         </div>
 
-        {editMode && (
+        {editMode && allowGeometry && (
           <div className="dashboard-home-edit-foot">
             <div
               onPointerDown={onResizeStart}
