@@ -751,6 +751,7 @@ function chrome(): ChromeProbe {
   const seg = document.querySelector('.hub-week-seg');
   const navs = [...document.querySelectorAll('.hub-week-nav-box')].filter(visible);
   const range = [...document.querySelectorAll('.hub-week-range-full, .hub-week-range-short')].find(visible) ?? null;
+  const rangeShortEl = document.querySelector('.hub-week-track .hub-week-range-short');
   const search = [...document.querySelectorAll('.hub-week-search')].find(visible) ?? null;
   const dayGroup = [...document.querySelectorAll('.hub-week-agenda-head')].find(visible) ?? null;
   const card = [...document.querySelectorAll('.hub-week-agenda-row')].find(visible) ?? null;
@@ -896,6 +897,8 @@ function chrome(): ChromeProbe {
     moreJobs: (document.querySelector('[data-schedule-more-jobs]')?.textContent ?? '').replace(/\s+/g, ' ').trim(),
     moreJobsHref: document.querySelector('[data-schedule-more-jobs] a')?.getAttribute('href') ?? '',
     textPast: textPastViewport(),
+    rangeShort: rangeShortEl ? (rangeShortEl.textContent ?? '').replace(/\s+/g, ' ').trim() : '',
+    rangeShortPast: textRectsRaw(rangeShortEl).filter(hit => hit.right > window.innerWidth),
   };
 }
 
@@ -909,6 +912,25 @@ function clipTextRight(el: Element | null, right: number): number {
     node = node.parentElement;
   }
   return right;
+}
+
+function textRectsRaw(root: Element | null): { text: string; right: number }[] {
+  if (!root) return [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const hits: { text: string; right: number }[] = [];
+  const range = document.createRange();
+  let node = walker.nextNode();
+  while (node) {
+    const raw = node.textContent ?? '';
+    if (raw.trim()) {
+      range.selectNodeContents(node);
+      for (const rect of range.getClientRects()) {
+        hits.push({ text: raw.replace(/\s+/g, ' ').trim().slice(0, 80), right: rect.right });
+      }
+    }
+    node = walker.nextNode();
+  }
+  return hits;
 }
 
 function textPastViewport(): { text: string; right: number }[] {

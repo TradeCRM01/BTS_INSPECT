@@ -66,4 +66,5 @@ npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts || rc=$?
 # Default vitest can rewrite files under src/; P2 reads built dist and rejects a newer src tree.
 npm run build
 npx vitest run -c vitest.p2-schedule.config.ts || rc=$?
+./scripts/p2-webkit-docker.sh || rc=$?
 exit "$rc"

@@ -336,6 +336,10 @@ describe('schedule board cream paper look', () => {
     expect(css).toContain('.hub-week-head-dow');
     expect(css).toContain('repeat(5, minmax(0, 1fr))');
     expect(page).toContain('hub-week-range-short');
+    expect(page).toContain("format(weekStart, 'd MMM')} \\u2013 ${format(weekEnd, 'd MMM')}");
+    expect(css).toContain('.hub-week-track .hub-week-range-short');
+    expect(css).toContain('.hub-week-track .hub-week-range-full');
+    expect(css).toContain('white-space: normal');
     expect(css).toContain('.hub-week-seg');
     expect(css).toContain('.hub-week-quiet');
     expect(css).toContain('inset 0 1px 0 #fff');
