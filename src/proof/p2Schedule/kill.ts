@@ -201,6 +201,16 @@ describe('P2 Schedule on the built dist', () => {
       expect.soft(m.chrome.rangeShort, `${m.id} week range short`).toBe('19 Oct \u2013 25 Oct');
       expect.soft(m.chrome.rangeShortPast, `${m.id} range-short text node rect past innerWidth`).toEqual([]);
     }
+    const capChip = await openState('week-320', 'branch', undefined, { undatedCap: 201 });
+    try {
+      await capChip.page.evaluate(() => window.__p2.settleForWalk());
+      const m = await capChip.page.evaluate(() => window.__p2.measureDom());
+      expect.soft(m.chrome.unscheduledChip, '320 Chromium chip is 200+').toBe('Unscheduled · 200+');
+      expect.soft((m.chrome.textPast ?? []).filter(hit => hit.right > m.iw), '320 Chromium text rect with Unscheduled · 200+').toEqual([]);
+      expect.soft(m.chrome.unscheduledChipPast, '320 Chromium chip text node rect past innerWidth').toEqual([]);
+    } finally {
+      await capChip.close();
+    }
   });
 
   it(killTitle('P2-webkit'), async () => {
@@ -228,7 +238,21 @@ describe('P2 Schedule on the built dist', () => {
         await opened.close();
       }
     }
-    expect(launched, 'WebKit states run, never skipped').toBe(wanted.length);
+    const capChip = await openState('week-320', 'branch', undefined, { engine: 'webkit', undatedCap: 201 });
+    launched += 1;
+    try {
+      version = capChip.page.context().browser()?.version() ?? version;
+      await capChip.page.evaluate(() => window.__p2.settleForWalk());
+      const m = await capChip.page.evaluate(() => window.__p2.measureDom());
+      expect.soft(m.docSW, 'webkit week-320 200+ documentElement.scrollWidth').toBeLessThanOrEqual(m.iw);
+      expect.soft(m.bodySW, 'webkit week-320 200+ body.scrollWidth').toBeLessThanOrEqual(m.iw);
+      expect.soft(m.chrome.unscheduledChip, '320 WebKit chip is 200+').toBe('Unscheduled · 200+');
+      expect.soft((m.chrome.textPast ?? []).filter(hit => hit.right > m.iw), '320 WebKit text rect with Unscheduled · 200+').toEqual([]);
+      expect.soft(m.chrome.unscheduledChipPast, '320 WebKit chip text node rect past innerWidth').toEqual([]);
+    } finally {
+      await capChip.close();
+    }
+    expect(launched, 'WebKit states run, never skipped').toBe(wanted.length + 1);
     expect(launched, 'WebKit ran at least one state').toBeGreaterThan(0);
     console.log(`P2-webkit version=${version || 'launch-failed'} tests=${launched} skipped=0`);
   });
@@ -735,6 +759,7 @@ describe('P2 Schedule on the built dist', () => {
             moreJobsHref: m.chrome.moreJobsHref,
             whisper: m.layout.whisper,
             trayCards: m.layout.trayCards.length,
+            traySub: m.layout.traySub,
             unscheduledChip: m.chrome.unscheduledChip,
             undatedCardCount: m.chrome.undatedCardCount,
           };
@@ -750,20 +775,25 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(over.moreJobsHref, 'more-jobs line links to Jobs').toBe('/jobs');
     const undatedAtCap = await moreBoard('week-1280', { undatedCap: 200 });
     expect.soft(undatedAtCap.moreJobs, '200 undated rows hide the more-jobs line').toBe('');
-    expect.soft(undatedAtCap.whisper, '200 undated whisper count').toMatch(/200 without a date/);
+    expect.soft(undatedAtCap.whisper, '200 undated whisper count').toContain('200 without a date');
+    expect.soft(undatedAtCap.whisper, '200 undated whisper has no +').not.toContain('+');
+    expect.soft(undatedAtCap.traySub, '200 undated rail count').toBe('200');
+    expect.soft(undatedAtCap.traySub, '200 undated rail has no +').not.toContain('+');
     expect.soft(undatedAtCap.trayCards, '200 undated rail cards').toBe(200);
     const undatedOver = await moreBoard('week-1280', { undatedCap: 201 });
     expect.soft(undatedOver.moreJobs, '201 undated rows show the more-jobs line').toBe(MORE_JOBS_THIS_WEEK);
     expect.soft(undatedOver.moreJobsHref, 'undated more-jobs line links to Jobs').toBe('/jobs');
-    expect.soft(undatedOver.whisper, '201 undated whisper stays at cap').toMatch(/200 without a date/);
+    expect.soft(undatedOver.whisper, '201 undated whisper is 200+').toContain('200+ without a date');
     expect.soft(undatedOver.whisper, '201 undated whisper never counts the dropped row').not.toMatch(/201 without a date/);
+    expect.soft(undatedOver.traySub, '201 undated rail count is 200+').toBe('200+');
     expect.soft(undatedOver.trayCards, '201 undated rail cards stay at cap').toBe(200);
     const phoneUndatedAtCap = await moreBoard('week-390', { undatedCap: 200 });
     expect.soft(phoneUndatedAtCap.moreJobs, '390 / 200 undated hides the more-jobs line').toBe('');
     expect.soft(phoneUndatedAtCap.unscheduledChip, '390 / 200 undated chip').toBe('Unscheduled · 200');
+    expect.soft(phoneUndatedAtCap.unscheduledChip, '390 / 200 undated chip has no +').not.toContain('+');
     const phoneUndatedOver = await moreBoard('week-390', { undatedCap: 201 });
     expect.soft(phoneUndatedOver.moreJobs, '390 / 201 undated shows the more-jobs line').toBe(MORE_JOBS_THIS_WEEK);
-    expect.soft(phoneUndatedOver.unscheduledChip, '390 / 201 undated chip stays at cap').toBe('Unscheduled · 200');
+    expect.soft(phoneUndatedOver.unscheduledChip, '390 / 201 undated chip is 200+').toBe('Unscheduled · 200+');
   });
 
   it(killTitle('K16'), async () => {

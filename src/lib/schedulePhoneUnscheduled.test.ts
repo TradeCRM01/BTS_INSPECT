@@ -24,6 +24,8 @@ describe('schedule phone unscheduled chip', () => {
   it('labels the chip with count', () => {
     expect(phoneUnscheduledChipLabel(17)).toBe('Unscheduled · 17');
     expect(phoneUnscheduledChipLabel(0)).toBe('Unscheduled · 0');
+    expect(phoneUnscheduledChipLabel(200)).toBe('Unscheduled · 200');
+    expect(phoneUnscheduledChipLabel(200, true)).toBe('Unscheduled · 200+');
   });
 
   it('starts collapsed on phone', () => {

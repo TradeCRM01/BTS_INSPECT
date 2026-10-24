@@ -898,6 +898,7 @@ function chrome(): ChromeProbe {
     moreJobs: (document.querySelector('[data-schedule-more-jobs]')?.textContent ?? '').replace(/\s+/g, ' ').trim(),
     moreJobsHref: document.querySelector('[data-schedule-more-jobs] a')?.getAttribute('href') ?? '',
     unscheduledChip: (document.querySelector('[data-schedule-unscheduled-chip]')?.textContent ?? '').replace(/\s+/g, ' ').trim(),
+    unscheduledChipPast: textRectsRaw(document.querySelector('[data-schedule-unscheduled-chip]')).filter(hit => hit.right > window.innerWidth),
     undatedCardCount: document.querySelectorAll('[data-schedule-rail-job], [data-schedule-unscheduled-list] [data-schedule-job]').length,
     textPast: textPastViewport(),
     rangeShort: rangeShortEl ? (rangeShortEl.textContent ?? '').replace(/\s+/g, ' ').trim() : '',

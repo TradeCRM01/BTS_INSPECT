@@ -1,7 +1,9 @@
+import { boardShownLabel } from './scheduleBoard';
+
 /** Phone schedule: collapsed unscheduled chip label (all trades). */
-export function phoneUnscheduledChipLabel(count: number): string {
+export function phoneUnscheduledChipLabel(count: number, more = false): string {
   const n = Math.max(0, Math.floor(count));
-  return `Unscheduled · ${n}`;
+  return `Unscheduled · ${boardShownLabel(n, more)}`;
 }
 
 /** Phone unscheduled list starts collapsed behind the count chip. */

@@ -400,6 +400,7 @@ export type ChromeProbe = {
   moreJobs: string;
   moreJobsHref: string;
   unscheduledChip: string;
+  unscheduledChipPast: { text: string; right: number }[];
   undatedCardCount: number;
   textPast: { text: string; right: number }[];
   rangeShort: string;
@@ -636,6 +637,9 @@ export const MUTANTS: readonly MutantSpec[] = [
                 <Link to="/jobs">{MORE_JOBS_THIS_WEEK}</Link>
               </p>
             ) : null}`, replace: '', brief: 'remove the more-jobs line' },
+  { id: 'drop-plus-whisper', kill: 'K15', file: 'src/lib/scheduleBoard.ts', find: 'boardShownLabel(parts.needsDate, !!parts.moreNeedsDate)', replace: 'String(parts.needsDate)', brief: 'whisper drops + on the undated cap' },
+  { id: 'drop-plus-chip', kill: 'K15', file: 'src/lib/schedulePhoneUnscheduled.ts', find: 'boardShownLabel(n, more)', replace: 'n', brief: 'phone chip drops + on the undated cap' },
+  { id: 'drop-plus-rail', kill: 'K15', file: BOARD_VIEWS, find: 'boardShownLabel(jobs.length, more)', replace: 'String(jobs.length)', brief: 'rail count drops + on the undated cap' },
   { id: 'rename-new-job-choice', kill: 'K25', file: 'src/components/crm/ScheduleBookByVoice.tsx', find: "{hints?.job ? 'New job from this' : 'New job'}", replace: "{hints?.job ? 'New job from this' : 'Create job'}", brief: 'rename the New job choice visible text' },
   inject('text-nowrap-320', 'P2-text', '  html, body, #root, main, .shell-root, .hub-board-cal.is-week-doc.ops-page, .ops-page-head { overflow: visible !important; }\n  html body .hub-board-cal.is-week-doc .ops-page-title { white-space: nowrap !important; font-size: 96px !important; overflow: visible !important; max-width: none !important; }\n', 'Schedule title text paints past the 320 viewport'),
   inject('range-short-nowrap', 'P2-text', '  .hub-week-track .hub-week-range-short { display: inline !important; white-space: nowrap !important; font-size: 48px !important; overflow: visible !important; max-width: none !important; }\n', 'phone week range short text node paints past the 320 viewport'),

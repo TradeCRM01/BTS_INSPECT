@@ -8918,7 +8918,8 @@
       font-size: 14px;
       font-weight: 600;
       line-height: 1.2;
-      white-space: nowrap;
+      white-space: normal;
+      overflow-wrap: anywhere;
       max-width: calc(100% - 24px);
       overflow: visible;
       text-overflow: clip;

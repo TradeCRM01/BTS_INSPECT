@@ -31,6 +31,7 @@ import { JobCalendarOverflow } from '../jobs/JobCalendarOverflow';
 import { calendarSite } from '../../lib/jobCalendar';
 import { formatJobRef } from '../../lib/jobRef';
 import {
+  boardShownLabel,
   jobsOnScheduleDay,
   scheduleAgendaClock,
   scheduleChipClock,
@@ -177,6 +178,7 @@ type UnscheduledRailProps = {
   onOpenJob?: (job: JobWithClient) => void;
   onSetScheduleDate?: (job: JobWithClient) => void;
   invoicedJobIds?: Set<string>;
+  more?: boolean;
 };
 
 function UnscheduledJobCards({
@@ -247,7 +249,7 @@ function UnscheduledJobCards({
 
 export const NeedsDateRail = memo(function NeedsDateRail({
   jobs, teamMembers, onJobClick, onDragStart, alwaysShow = false, className = '',
-  selectedId = null, onOpenJob, onSetScheduleDate, invoicedJobIds,
+  selectedId = null, onOpenJob, onSetScheduleDate, invoicedJobIds, more = false,
 }: UnscheduledRailProps & {
   alwaysShow?: boolean;
   className?: string;
@@ -258,7 +260,7 @@ export const NeedsDateRail = memo(function NeedsDateRail({
     <div className={`ops-tray ${className}`.trim()} data-schedule-rail="1">
       <div className="ops-tray-head">
         <p className="ops-card-kicker">Unscheduled</p>
-        <span className="ops-meta">{jobs.length === 0 ? 'No unscheduled jobs' : String(jobs.length)}</span>
+        <span className="ops-meta">{jobs.length === 0 ? 'No unscheduled jobs' : boardShownLabel(jobs.length, more)}</span>
       </div>
       <div className="hub-schedule-tray-cards">
         {jobs.length === 0 ? (
@@ -282,7 +284,7 @@ export const NeedsDateRail = memo(function NeedsDateRail({
 
 export const PhoneUnscheduledTray = memo(function PhoneUnscheduledTray({
   jobs, teamMembers, onJobClick, onDragStart, selectedId = null, onOpenJob, onSetScheduleDate,
-  invoicedJobIds,
+  invoicedJobIds, more = false,
 }: UnscheduledRailProps) {
   const [expanded, setExpanded] = useState(PHONE_UNSCHEDULED_EXPANDED_DEFAULT);
   if (jobs.length === 0) return null;
@@ -304,7 +306,7 @@ export const PhoneUnscheduledTray = memo(function PhoneUnscheduledTray({
           setExpanded(open => !open);
         }}
       >
-        {phoneUnscheduledChipLabel(jobs.length)}
+        {phoneUnscheduledChipLabel(jobs.length, more)}
       </button>
       {expanded ? (
         <div
