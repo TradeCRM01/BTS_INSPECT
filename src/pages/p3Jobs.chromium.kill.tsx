@@ -3359,4 +3359,77 @@ describe('P3 r16 WebKit 375/390', () => {
       await page.close();
     }
   });
+
+  killIt('R16 WebKit Jobs filter chips wrap at 320 375 390', async () => {
+    const wk = webkitBrowser as KillBrowser & { version?: () => string };
+    console.log(`P3 r16 WebKit version ${wk.version?.() ?? 'unknown'}`);
+    for (const width of [320, 375, 390] as const) {
+      const html = fixtureHtml({ js: jobsJs, css: distCss, path: '/jobs' });
+      const name = `w-${++harnessSeq}.html`;
+      writeFileSync(join(harnessDir, name), html);
+      const context = await webkitBrowser.newContext({
+        viewport: { width, height: 844 },
+        timezoneId: KILL_TZ,
+      });
+      contexts.push(context);
+      const page = await context.newPage();
+      await page.goto(`http://127.0.0.1:${harnessPort}/${name}`);
+      await page.waitForSelector('#root', { timeout: 20000 });
+      await waitList(page);
+      await waitSettledLayout(page, 'div.hub-jobs-list-filters');
+      const read = await page.evaluate(chipScrollerScript);
+      if (process.env.P3_R16M) console.log('P3_R16M webkit chip wrap', width, read);
+      expect(read.innerWidth, `webkit ${width} jobs innerWidth`).toBe(width);
+      expect(read.hits, `webkit ${width} overflow-x scrollers ${JSON.stringify(read.hits)}`).toEqual([]);
+      expect(read.wrap, `webkit ${width} filters flex-wrap`).toBe('wrap');
+      expect(read.ox === 'auto' || read.ox === 'scroll', `webkit ${width} filters overflow-x`).toBe(false);
+      expect(read.rows, `webkit ${width} filter chip rows`).toBe(2);
+      await page.close();
+    }
+  });
+});
+
+function chipScrollerScript() {
+  const hits: { cls: string; ox: string; sw: number; cw: number }[] = [];
+  for (const el of document.querySelectorAll('body *')) {
+    if (el.classList.contains('hub-day-track')) continue;
+    const cs = getComputedStyle(el);
+    if (cs.overflowX !== 'auto' && cs.overflowX !== 'scroll') continue;
+    if (el.scrollWidth > el.clientWidth) {
+      const cls = typeof (el as HTMLElement).className === 'string'
+        ? (el as HTMLElement).className
+        : el.classList.value;
+      hits.push({ cls, ox: cs.overflowX, sw: el.scrollWidth, cw: el.clientWidth });
+    }
+  }
+  const filters = document.querySelector('div.hub-jobs-list-filters') as HTMLElement | null;
+  const chips = [...document.querySelectorAll('div.hub-jobs-list-filters .hub-jobs-list-filter')] as HTMLElement[];
+  const tops = [...new Set(chips.map((chip) => Math.round(chip.offsetTop)))];
+  const fcs = filters ? getComputedStyle(filters) : null;
+  return {
+    hits,
+    wrap: fcs?.flexWrap ?? '',
+    ox: fcs?.overflowX ?? '',
+    chipCount: chips.length,
+    rows: tops.length,
+    innerWidth: window.innerWidth,
+  };
+}
+
+describe('P3 r16 chip wrap', () => {
+  killIt('R16 Jobs filter chips wrap at 320 375 390', async () => {
+    for (const width of [320, 375, 390] as const) {
+      const page = await openPage({ width, path: '/jobs', height: 844 });
+      await waitList(page);
+      await waitSettledLayout(page, 'div.hub-jobs-list-filters');
+      const read = await page.evaluate(chipScrollerScript);
+      if (process.env.P3_R16M) console.log('P3_R16M chromium chip wrap', width, read);
+      expect(read.innerWidth, `chromium ${width} jobs innerWidth`).toBe(width);
+      expect(read.hits, `chromium ${width} overflow-x scrollers ${JSON.stringify(read.hits)}`).toEqual([]);
+      expect(read.wrap, `chromium ${width} filters flex-wrap`).toBe('wrap');
+      expect(read.ox === 'auto' || read.ox === 'scroll', `chromium ${width} filters overflow-x`).toBe(false);
+      expect(read.rows, `chromium ${width} filter chip rows`).toBe(2);
+      await page.close();
+    }
+  });
 });
