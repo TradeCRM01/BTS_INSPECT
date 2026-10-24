@@ -47,7 +47,7 @@ const esbuild = require('esbuild') as {
 };
 
 const here = dirname(fileURLToPath(import.meta.url));
-const WIDTHS = [375, 390, 768, 1024, 1280] as const;
+const WIDTHS = [320, 375, 390, 768, 1024, 1280] as const;
 const LOOK_SEED = ['Northside Electrical', 'Harbour Lights', 'Site labour', 'Warehouse lights'] as const;
 
 type KillPage = {
@@ -410,6 +410,18 @@ function inkDotCount(shot: { width: number; height: number; pixels: number[][] }
   return n;
 }
 
+const TAB_RING_RGB: [number, number, number] = [228, 228, 231];
+
+function tabRingPaint(shot: { width: number; height: number; pixels: number[][] }) {
+  const edgeH = Math.min(6, shot.height);
+  return nearestPainted(shot, TAB_RING_RGB, {
+    x0: 0,
+    x1: shot.width,
+    y0: 0,
+    y1: edgeH,
+  });
+}
+
 async function openForm(page: KillPage) {
   await page.evaluate(() => {
     const btn = document.querySelector('[data-jobs-new="1"]') as HTMLButtonElement | null;
@@ -478,12 +490,29 @@ function overflowScript() {
     return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
   };
   const els = [...document.querySelectorAll('body *')].filter(vis);
-  const rights = els.map((el) => el.getBoundingClientRect().right);
+  let maxRight = 0;
+  let offender = '';
+  for (const el of els) {
+    const right = el.getBoundingClientRect().right;
+    if (right > maxRight) {
+      maxRight = right;
+      const cls = typeof (el as HTMLElement).className === 'string'
+        ? (el as HTMLElement).className
+        : el.classList.value;
+      const attr = (el as HTMLElement).getAttribute('data-job-sheet')
+        || (el as HTMLElement).getAttribute('data-job-bill-cell')
+        || (el as HTMLElement).id
+        || '';
+      const text = (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+      offender = `${el.tagName.toLowerCase()}.${cls}[${attr}] "${text}"`.replace(/\s+/g, '.').slice(0, 160);
+    }
+  }
   return {
     innerWidth: window.innerWidth,
     scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
     bodyScrollWidth: document.body.scrollWidth,
-    maxRight: rights.length ? Math.max(...rights) : 0,
+    maxRight,
+    offender,
   };
 }
 
@@ -1541,7 +1570,7 @@ describe('P3 overview people form bar', () => {
       expect(sheetEdit.maxRight, `${w} sheet EDIT maxRight`).toBeLessThanOrEqual(sheetEdit.innerWidth);
       await sheet.close();
     }
-  }, 240000);
+  }, 300000);
 
 
   killIt('K17 Overview order Notes then Photos then bill; 1024 CTA is to the right', async () => {
@@ -2066,6 +2095,7 @@ describe('P3 r9 mockup vs head at 390', () => {
         tabLabels: [...(rail?.children ?? [])].map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim()),
         tabWidths: [...(rail?.children ?? [])].map((el) => (el as HTMLElement).getBoundingClientRect().width),
         tabScrollWidths: [...(rail?.children ?? [])].map((el) => (el as HTMLElement).scrollWidth),
+        tabClientWidths: [...(rail?.children ?? [])].map((el) => (el as HTMLElement).clientWidth),
         tabPadX: [...(rail?.children ?? [])].map((el) => {
           const cs = getComputedStyle(el as HTMLElement);
           return parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
@@ -2241,6 +2271,8 @@ describe('P3 r9 mockup vs head at 390', () => {
     const headCtaRgb = await sampleCtaPaintedRgb(headPage, selectors.head.cta);
     await revealEl(headPage, '.job-sheet-photo');
     const headPhotoShot = await samplePaintedPixels(headPage, '.job-sheet-photo', 2);
+    await revealEl(headPage, '.job-sheet-tab.is-on');
+    const headTabRingShot = await samplePaintedPixels(headPage, '.job-sheet-tab.is-on', 2);
     await headPage.close();
     if (process.env.P3_PROPS === '1') {
       console.log(`P3_PROPS ${JSON.stringify({ mockup, head, mockCtaRgb, headCtaRgb })}`);
@@ -2322,8 +2354,11 @@ describe('P3 r9 mockup vs head at 390', () => {
       const ink = head.tabInks[i];
       expect(w, `tab ${i} holds ink+pad ${ink}+${pad}`).toBeGreaterThanOrEqual(ink + pad - 1);
       expect(w - pad, `tab ${i} content box >= ink`).toBeGreaterThanOrEqual(ink - 1);
+      expect(head.tabScrollWidths[i], `tab ${i} label scrollWidth`).toBeLessThanOrEqual(head.tabClientWidths[i]);
     });
     expect(head.tabOnShadow.replace(/\s+/g, ''), 'active tab --line ring').toMatch(/rgb\(228,228,231\)/);
+    const headTabRing = tabRingPaint(headTabRingShot);
+    expect(headTabRing.dist, `active tab ring paint ${headTabRing.rgb} d${headTabRing.dist}`).toBeLessThanOrEqual(12);
     expect(near(head.searchX, mockup.searchX), `searchX head ${head.searchX} mock ${mockup.searchX}`).toBe(true);
     expect(near(head.avatarX, mockup.avatarX), `avatarX head ${head.avatarX} mock ${mockup.avatarX}`).toBe(true);
     expect(head.eyebrowColor.replace(/\s+/g, '')).toMatch(/rgb\(74,\s*74,\s*82\)/);
@@ -2964,6 +2999,7 @@ describe('P3 r15 phone type below 768', () => {
       ctaY: cta ? (cta as HTMLElement).getBoundingClientRect().top : -1,
       tabWidths: tabs.map((tab) => tab.getBoundingClientRect().width),
       tabScrollWidths: tabs.map((tab) => tab.scrollWidth),
+      tabClientWidths: tabs.map((tab) => tab.clientWidth),
       tabPadX: tabs.map((tab) => {
         const cs = getComputedStyle(tab);
         return parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
@@ -3040,6 +3076,9 @@ describe('P3 r15 phone type below 768', () => {
       await waitSheet(page);
       await waitSettledLayout(page, '.job-sheet-tabs');
       const read = await page.evaluate(readType);
+      await revealEl(page, '.job-sheet-tab.is-on');
+      const tabRingShot = await samplePaintedPixels(page, '.job-sheet-tab.is-on', 2);
+      const paintedRing = tabRingPaint(tabRingShot);
       await page.close();
       expect(read.innerWidth, `${width} innerWidth`).toBe(width);
       expect(read.titleSize, `${width} title size`).toBe(24);
@@ -3081,8 +3120,10 @@ describe('P3 r15 phone type below 768', () => {
         const ink = read.tabInks[i];
         expect(w, `${width} tab ${i} holds ink+pad`).toBeGreaterThanOrEqual(ink + pad - 1);
         expect(w - pad, `${width} tab ${i} content box >= ink`).toBeGreaterThanOrEqual(ink - 1);
+        expect(read.tabScrollWidths[i], `${width} tab ${i} label scrollWidth`).toBeLessThanOrEqual(read.tabClientWidths[i]);
       });
       expect(read.tabOnShadow.replace(/\s+/g, ''), `${width} active tab --line ring`).toMatch(/rgb\(228,228,231\)/);
+      expect(paintedRing.dist, `${width} active tab ring paint ${paintedRing.rgb} d${paintedRing.dist}`).toBeLessThanOrEqual(12);
       expect(read.tabCols, `${width} tab columns`).toBe(4);
       expect(read.scrollWidth, `${width} docSW`).toBeLessThanOrEqual(read.innerWidth);
       expect(read.bodyScrollWidth, `${width} bodySW`).toBeLessThanOrEqual(read.innerWidth);
@@ -3284,7 +3325,7 @@ describe('P3 r16 11:41 gates', () => {
       const box = await page.evaluate(overflowScript);
       expect(box.scrollWidth, `${width} docSW`).toBeLessThanOrEqual(box.innerWidth);
       expect(box.bodyScrollWidth, `${width} bodySW`).toBeLessThanOrEqual(box.innerWidth);
-      expect(box.maxRight, `${width} maxRight`).toBeLessThanOrEqual(box.innerWidth);
+      expect(box.maxRight, `${width} maxRight ${box.offender}`).toBeLessThanOrEqual(box.innerWidth);
       await textWalkAndOverflow(page, width, 'chromium');
       await page.close();
     }
@@ -3320,7 +3361,9 @@ describe('P3 r16 11:41 gates', () => {
     if (process.env.P3_R16M) console.log('P3_R16M safe-area', read);
     expect(read.envTop).toBe('47px');
     expect(read.envBottom).toBe('34px');
-    // HF-LAND-1 #405 is OPEN, not on this base. Product CSS uses env() only (Playwright = 0).
+    // Injected-header safe-area is coverage only. Product CSS uses env() only
+    // (Playwright env=0). Once #405 squashes, re-pin to 47/34 on the real shell
+    // without injected CSS/HTML. Do not fake it here.
     expect(read.headerPadTop, 'main header pad-top without #405 var() fallback').toBeLessThan(47);
     expect(read.navPadBottom, 'main nav pad-bottom without #405 var() fallback').toBeLessThan(34);
     expect(read.contentTop, 'main header content top without #405').toBeLessThan(47);
@@ -3332,12 +3375,16 @@ describe('P3 r16 11:41 gates', () => {
 
 describe('P3 r16 WebKit 375/390', () => {
   let webkitBrowser: KillBrowser;
+  let webkitItsRun = 0;
 
   beforeAll(async () => {
     webkitBrowser = await launchWebkit();
   }, 120000);
 
   afterAll(async () => {
+    const v = (webkitBrowser as KillBrowser & { version?: () => string })?.version?.() ?? 'unknown';
+    console.log(`P3 r17 WebKit version ${v}; tests run ${webkitItsRun}`);
+    if (webkitItsRun === 0) throw new Error('WebKit tests run 0: FAIL, never skip');
     await webkitBrowser?.close();
   });
 
@@ -3367,6 +3414,7 @@ describe('P3 r16 WebKit 375/390', () => {
       await textWalkAndOverflow(page, width, 'webkit');
       await page.close();
     }
+    webkitItsRun += 1;
   });
 
   killIt('R16 WebKit standalone safe-area 47/34 reports main until HF-LAND-1', async () => {
@@ -3396,6 +3444,8 @@ describe('P3 r16 WebKit 375/390', () => {
     });
     await page.close();
     if (process.env.P3_R16M) console.log('P3_R16M webkit safe-area', read);
+    // Injected-header safe-area is coverage only. Re-pin to 47/34 on the real
+    // shell without injected CSS/HTML once #405 squashes. Do not fake it here.
     expect(read.envTop).toBe('47px');
     expect(read.envBottom).toBe('34px');
     expect(read.headerPadTop, 'webkit header pad-top without #405 var() fallback').toBeLessThan(47);
@@ -3404,6 +3454,7 @@ describe('P3 r16 WebKit 375/390', () => {
     expect(read.headerPadTop, 'webkit header pad-top pinned').toBe(0);
     expect(read.navPadBottom, 'webkit nav pad-bottom pinned').toBe(0);
     expect(read.contentTop, 'webkit header content top pinned').toBe(0);
+    webkitItsRun += 1;
   });
 
   killIt('R16 WebKit Jobs filter chips wrap at 320 375 390', async () => {
@@ -3433,6 +3484,7 @@ describe('P3 r16 WebKit 375/390', () => {
       expect(read.rows, `webkit ${width} filter chip rows`).toBe(2);
       await page.close();
     }
+    webkitItsRun += 1;
   });
 
   killIt('R16 WebKit is playwright 1.48.2 and launches', async () => {
@@ -3443,8 +3495,46 @@ describe('P3 r16 WebKit 375/390', () => {
     if (!webkitBrowser) throw new Error('webkit launch failed: FAIL, never skip');
     const v = (webkitBrowser as KillBrowser & { version?: () => string }).version?.();
     if (!v) throw new Error('webkit launch failed: no version (FAIL, never skip)');
-    console.log(`P3 r16 WebKit version ${v}`);
+    console.log(`P3 r17 WebKit version ${v}`);
     expect(v, 'WebKit version').toBe('18.0');
+    webkitItsRun += 1;
+  });
+
+  killIt('R17 WebKit edit form text-walk at 320 375 390', async () => {
+    const wk = webkitBrowser as KillBrowser & { version?: () => string };
+    const v = wk.version?.();
+    console.log(`P3 r17 WebKit version ${v ?? 'unknown'}`);
+    if (!v) throw new Error('webkit launch failed: no version (FAIL, never skip)');
+    let ran = 0;
+    for (const width of [320, 375, 390] as const) {
+      const page = await openWebkit(width, '/jobs/p3-0036');
+      await page.click('[data-job-sheet="actions"] > summary');
+      await page.click('[data-job-action="details"]');
+      await page.waitForSelector('[data-job-form="1"]', { timeout: 15000 });
+      await waitSettledLayout(page, '[data-job-form="1"]');
+      const box = await page.evaluate(overflowScript);
+      expect(box.scrollWidth, `webkit-edit ${width} docSW`).toBeLessThanOrEqual(box.innerWidth);
+      expect(box.bodyScrollWidth, `webkit-edit ${width} bodySW`).toBeLessThanOrEqual(box.innerWidth);
+      expect(box.maxRight, `webkit-edit ${width} maxRight`).toBeLessThanOrEqual(box.innerWidth);
+      await textWalkAndOverflow(page, width, 'webkit-edit');
+      ran += 1;
+      await page.close();
+    }
+    if (ran === 0) throw new Error('webkit edit form: 0 run is a FAIL');
+    console.log(`P3 r17 WebKit edit-form widths run ${ran}`);
+    webkitItsRun += 1;
+  });
+
+  killIt('R17 WebKit job sheet has no overflow-x scrollers at 320 375 390', async () => {
+    for (const width of [320, 375, 390] as const) {
+      const page = await openWebkit(width, '/jobs/p3-0036');
+      await waitSettledLayout(page, '.job-sheet-tabs');
+      const read = await page.evaluate(chipScrollerScript);
+      expect(read.hits, `webkit sheet ${width} overflow-x scrollers ${JSON.stringify(read.hits)}`).toEqual([]);
+      expect(read.bodyScrollWidth, `webkit sheet ${width} bodySW`).toBeLessThanOrEqual(read.innerWidth);
+      await page.close();
+    }
+    webkitItsRun += 1;
   });
 });
 
@@ -3491,6 +3581,51 @@ describe('P3 r16 chip wrap', () => {
       expect(read.ox === 'auto' || read.ox === 'scroll', `chromium ${width} filters overflow-x`).toBe(false);
       expect(read.rows, `chromium ${width} filter chip rows`).toBe(2);
       await page.close();
+    }
+  });
+
+  killIt('R17 job sheet has no overflow-x scrollers at 320 375 390', async () => {
+    for (const width of [320, 375, 390] as const) {
+      const page = await openPage({ width, path: '/jobs/p3-0036', height: 844 });
+      await waitSheet(page);
+      await waitSettledLayout(page, '.job-sheet-tabs');
+      const read = await page.evaluate(chipScrollerScript);
+      if (process.env.P3_R16M) console.log('P3_R17M chromium sheet scrollers', width, read);
+      expect(read.innerWidth, `chromium sheet ${width} innerWidth`).toBe(width);
+      expect(read.bodyScrollWidth, `chromium sheet ${width} bodySW`).toBeLessThanOrEqual(read.innerWidth);
+      expect(read.hits, `chromium sheet ${width} overflow-x scrollers ${JSON.stringify(read.hits)}`).toEqual([]);
+      await page.close();
+    }
+  });
+
+  killIt('R17 320 tabs stay 14px and labels are not clipped', async () => {
+    const page = await openPage({ width: 320, path: '/jobs/p3-0036', height: 844 });
+    await waitSheet(page);
+    await waitSettledLayout(page, '.job-sheet-tabs');
+    const read = await page.evaluate(() => {
+      const tabs = [...document.querySelectorAll('.job-sheet-tab')] as HTMLElement[];
+      return {
+        sizes: tabs.map((tab) => parseFloat(getComputedStyle(tab).fontSize)),
+        pads: tabs.map((tab) => {
+          const cs = getComputedStyle(tab);
+          return parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+        }),
+        minWidths: tabs.map((tab) => getComputedStyle(tab).minWidth),
+        scrollWidths: tabs.map((tab) => tab.scrollWidth),
+        clientWidths: tabs.map((tab) => tab.clientWidth),
+        labels: tabs.map((tab) => (tab.textContent || '').replace(/\s+/g, ' ').trim()),
+      };
+    });
+    await page.close();
+    expect(read.sizes.length, '320 tab count').toBe(4);
+    for (const [i, size] of read.sizes.entries()) {
+      expect(
+        read.scrollWidths[i],
+        `320 tab ${i} label scrollWidth ${read.scrollWidths[i]} > client ${read.clientWidths[i]}`,
+      ).toBeLessThanOrEqual(read.clientWidths[i]);
+      expect(size, `320 tab ${i} ${read.labels[i]} size`).toBe(14);
+      expect(read.pads[i], `320 tab ${i} pad`).toBe(4);
+      expect(read.minWidths[i] === '0px', `320 tab ${i} min-width not 0`).toBe(false);
     }
   });
 });

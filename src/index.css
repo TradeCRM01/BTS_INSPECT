@@ -14627,7 +14627,7 @@
     overflow: hidden;
   }
 
-  @media (max-width: 389px) {
+  @media (max-width: 389px) and (min-width: 321px) {
     .hub-jobs.is-record-open.ops-page .hub-jobs-document .job-sheet-tabs {
       width: calc(100% + 32px);
       margin-left: -16px;
@@ -14894,17 +14894,34 @@
       font-weight: 500;
     }
 
-    /* r16: 320 text-node walk. 375/390 pins stay. */
+    /* r17: Jack 14px at 320. Full-bleed to the 320 edge, 2px pad, min-content. No 11px. */
     @media (max-width: 320px) {
+      .hub-jobs.is-record-open.ops-page .hub-jobs-document .job-sheet-tabs {
+        width: calc(100% + 32px);
+        max-width: 320px;
+        margin-left: -16px;
+        margin-right: -16px;
+        padding: 2px;
+        gap: 1px;
+      }
+
       .hub-jobs-document .job-sheet-tabs .job-sheet-tab,
       .hub-jobs-document .job-sheet-tab {
+        font-size: 14px;
+        min-width: min-content;
+        padding: 0 2px;
+      }
+
+      .hub-jobs-document .job-sheet-bill3,
+      .hub-jobs-document .job-sheet-bill3 div {
         min-width: 0;
-        padding: 0 4px;
-        font-size: 11px;
+        max-width: 100%;
+        box-sizing: border-box;
       }
 
       .hub-jobs-document .job-sheet-bill-v {
-        font-size: 15px;
+        max-width: 100%;
+        overflow-wrap: anywhere;
       }
     }
 

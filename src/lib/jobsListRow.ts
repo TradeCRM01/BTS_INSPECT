@@ -121,7 +121,7 @@ export function jobsListPhoneRow(job: {
     meta: line2,
     line2,
     line3,
-    status: pill.label,
+    status: crewSchedule.kind === 'no_date' ? crewSchedule.label : pill.label,
     statusClass: needsClass ? `hub-jobs-pill is-${pill.tone} ${needsClass}` : `hub-jobs-pill is-${pill.tone}`,
     date,
     pill,
