@@ -37,7 +37,8 @@ export const STATUS_FALLBACK = 'Status';
 export function sentenceStatus(status: unknown): string {
   const raw = asStatusText(status);
   if (!raw) return STATUS_FALLBACK;
-  return raw.charAt(0).toUpperCase() + raw.slice(1);
+  const spaced = raw.replace(/_/g, ' ');
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
 export function isUnknownScheduleStatus(status: unknown): boolean {

@@ -6135,10 +6135,11 @@
     font-family: var(--g-font-ui);
     font-size: 13px;
     font-weight: 500;
+    line-height: 16px;
     color: var(--g-ink-subtle);
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    margin: 0 0 4px;
+    margin: 0 0 3px;
   }
 
   .hub-schedule-crew-filter {
@@ -6865,11 +6866,27 @@
 
     .hub-board-cal.is-week-doc .hub-week-search {
       flex: 1 1 755.265625px;
-      min-width: 0;
+      min-width: 755.265625px;
       max-width: 755.265625px;
       width: 755.265625px;
       height: 48px;
       min-height: 48px;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-seg {
+      width: 138px;
+      flex: 0 0 138px;
+      box-sizing: border-box;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-range-row {
+      width: 207.5px;
+      flex: 0 0 207.5px;
+      box-sizing: border-box;
+    }
+
+    .hub-board-cal.is-week-doc .hub-week-range {
+      padding: 0 8px;
     }
   }
 
@@ -7175,7 +7192,7 @@
   .hub-week-seg-btn.is-on {
     background: var(--g-surface);
     color: var(--g-ink);
-    box-shadow: none;
+    box-shadow: var(--g-sh-1), 0 0 0 1px var(--g-line);
     border-radius: 8px;
   }
 
@@ -7561,7 +7578,7 @@
     width: 100%;
     max-width: 100%;
     min-width: 0;
-    overflow: hidden;
+    overflow: visible;
     text-align: left;
   }
 
@@ -8642,10 +8659,11 @@
 
     .hub-week-document .hub-day-board .hub-week-chip-line1 {
       flex-wrap: wrap;
-      overflow: hidden;
+      overflow: visible;
     }
 
     .hub-week-document .hub-day-board .hub-week-chip-clock {
+      display: inline-block;
       min-width: 0;
       max-width: 100%;
       overflow: hidden;
