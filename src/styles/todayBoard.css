@@ -585,6 +585,21 @@ p.today-job-meta {
   max-height: none;
 }
 
+@media (max-width: 374px) {
+  p.today-job-meta {
+    white-space: normal;
+  }
+
+  p.today-job-meta .today-seg {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+  }
+}
+
 .today-job-place {
   display: table-cell;
   vertical-align: middle;

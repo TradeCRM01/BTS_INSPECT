@@ -71,8 +71,11 @@ import {
   DASHBOARD_WIDGET_CANVAS_W,
   applyDashboardWidgetDrag,
   applyDashboardWidgetResize,
+  applyDashboardWidgetSavedDrag,
+  applyDashboardWidgetSavedResize,
   clampDashboardWidgetsToCanvas,
-  dashboardWidgetsNeedDisplayReflow,
+  dashboardWidgetDisplayIsReflow,
+  dashboardWidgetsShouldDisplayReflow,
   reflowDashboardWidgetsToCanvas,
   isRetiredDashboardWidgetType,
   measureDashboardCanvasWidth,
@@ -1204,9 +1207,10 @@ export function DashboardPage() {
     }
   }, [queryClient, widgets]);
 
+  const packDisplay = editMode && dashboardWidgetsShouldDisplayReflow(widgets ?? [], canvasW);
   const displayWidgets = useMemo(() => {
     const rows = widgets ?? [];
-    if (editMode && dashboardWidgetsNeedDisplayReflow(rows, canvasW)) {
+    if (editMode && dashboardWidgetsShouldDisplayReflow(rows, canvasW)) {
       return reflowDashboardWidgetsToCanvas(rows, canvasW);
     }
     return clampDashboardWidgetsToCanvas(rows, canvasW);
@@ -1225,8 +1229,11 @@ export function DashboardPage() {
     const { active, delta } = e;
     if (!delta.x && !delta.y) return;
     const stored = (widgets ?? []).find(x => x.id === active.id);
-    if (!stored) return;
-    const next = applyDashboardWidgetDrag(stored, delta, canvasW);
+    const shown = displayWidgets.find(x => x.id === active.id);
+    if (!stored || !shown) return;
+    const next = dashboardWidgetDisplayIsReflow(shown, stored, canvasW)
+      ? applyDashboardWidgetSavedDrag(stored, delta)
+      : applyDashboardWidgetDrag(shown, delta, canvasW);
     queryClient.setQueryData<DashboardWidget[]>(['dashboard-widgets'],
       (widgets ?? []).map(x => x.id === stored.id ? { ...x, ...next } : x));
     persistWidget(stored.id, next);
@@ -1240,20 +1247,24 @@ export function DashboardPage() {
     startH: number;
     grid_x: number;
     canvasW: number;
+    reflowed: boolean;
     last?: { grid_x: number; grid_w: number; grid_h: number };
   } | null>(null);
 
   const startResize = (e: React.PointerEvent, widget: DashboardWidget) => {
     e.preventDefault();
     e.stopPropagation();
+    const stored = (widgets ?? []).find(x => x.id === widget.id) ?? widget;
+    const reflowed = dashboardWidgetDisplayIsReflow(widget, stored, canvasW);
     resizeState.current = {
-      id: widget.id,
+      id: stored.id,
       startX: e.clientX,
       startY: e.clientY,
-      startW: widget.grid_w,
-      startH: widget.grid_h,
-      grid_x: widget.grid_x,
+      startW: reflowed ? stored.grid_w : widget.grid_w,
+      startH: reflowed ? stored.grid_h : widget.grid_h,
+      grid_x: reflowed ? stored.grid_x : widget.grid_x,
       canvasW,
+      reflowed,
     };
     window.addEventListener('pointermove', onResizeMove);
     window.addEventListener('pointerup', onResizeEnd, { once: true });
@@ -1262,11 +1273,11 @@ export function DashboardPage() {
   const onResizeMove = useCallback((e: PointerEvent) => {
     const rs = resizeState.current;
     if (!rs) return;
-    const sized = applyDashboardWidgetResize(
-      { grid_x: rs.grid_x, grid_w: rs.startW, grid_h: rs.startH },
-      { x: e.clientX - rs.startX, y: e.clientY - rs.startY },
-      rs.canvasW,
-    );
+    const delta = { x: e.clientX - rs.startX, y: e.clientY - rs.startY };
+    const base = { grid_x: rs.grid_x, grid_w: rs.startW, grid_h: rs.startH };
+    const sized = rs.reflowed
+      ? applyDashboardWidgetSavedResize(base, delta)
+      : applyDashboardWidgetResize(base, delta, rs.canvasW);
     rs.last = sized;
     queryClient.setQueryData<DashboardWidget[]>(['dashboard-widgets'],
       (widgets ?? []).map(x => x.id === rs.id ? { ...x, ...sized } : x));
@@ -1456,13 +1467,14 @@ export function DashboardPage() {
                       >
                         <div
                           ref={canvasRef}
-                          className={`dashboard-home-canvas relative overflow-x-auto is-editing`}
-                          style={{ height: canvasHeight, minWidth: '100%' }}
+                          className={`dashboard-home-canvas relative overflow-x-auto is-editing${packDisplay ? ' is-twoup' : ''}${packDisplay && canvasW < 800 ? ' is-twoup-narrow' : ''}`}
+                          style={packDisplay ? { minWidth: '100%' } : { height: canvasHeight, minWidth: '100%' }}
                         >
                           {shownWidgets.map(w => (
                               <FreeWidget
                                 key={w.id}
                                 widget={w}
+                                saved={(widgets ?? []).find(x => x.id === w.id) ?? w}
                                 editMode={editMode}
                                 onRemove={() => removeWidget(w.id)}
                                 onResizeStart={(e) => startResize(e, w)}
@@ -1685,9 +1697,10 @@ function DashboardHomeMore({
 }
 
 function FreeWidget({
-  widget, editMode, onRemove, onResizeStart, onConfigChange, isDragging,
+  widget, saved, editMode, onRemove, onResizeStart, onConfigChange, isDragging,
 }: {
   widget: DashboardWidget;
+  saved: DashboardWidget;
   editMode: boolean;
   onRemove: () => void;
   onResizeStart: (e: React.PointerEvent) => void;
@@ -1714,6 +1727,10 @@ function FreeWidget({
     <div
       ref={setNodeRef}
       data-dashboard-widget-id={widget.id}
+      data-saved-x={saved.grid_x}
+      data-saved-y={saved.grid_y}
+      data-saved-w={saved.grid_w}
+      data-saved-h={saved.grid_h}
       style={{ ...posStyle, ...dragStyle }}
       className={`absolute ${isDragging || isDragActive ? 'z-50' : 'z-10'} ${isDragActive ? 'select-none' : ''}`}
     >
