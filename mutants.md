@@ -321,3 +321,69 @@ git checkout -- src/index.css
 
 Mutates `src/index.css:13080` to a 48px list clip (and drops `.flex-1` `min-height: min-content`, which otherwise beats `max-height`).  
 Red: `p1Dashboard.chromium.kill.tsx:3012` partial rows AssertionError, or `:3049` Plant ticket clip.
+
+## M-hf-land-1-nowrap — put nowrap back on the hero h1
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = """.hub-marketing-display {
+  font-family: var(--g-font-title);
+  font-weight: 700;
+  font-size: clamp(1.5rem, 6.4vw, 4.5rem);
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  color: var(--mkt-ink);
+  white-space: normal;"""
+new = old.replace('white-space: normal;', 'white-space: nowrap;')
+if old not in t:
+    raise SystemExit('hero wrap missing')
+p.write_text(t.replace(old, new, 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/hfLand1.chromium.kill.tsx -t "HF-LAND-1 text-past-viewport"
+git checkout -- src/index.css
+```
+
+Mutates `src/index.css` `.hub-marketing-display` to `white-space: nowrap`.  
+Red: `src/pages/hfLand1.chromium.kill.tsx:301` `toContain('white-space: normal')` AssertionError.
+
+## M-hf-land-1-top — drop the top env() padding
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+nav = 'padding: calc(16px + env(safe-area-inset-top, 0px) + var(--safe-area-inset-top, 0px)) 24px 8px;'
+head = 'padding-top: calc(12px + env(safe-area-inset-top, 0px) + var(--safe-area-inset-top, 0px));'
+if nav not in t or head not in t:
+    raise SystemExit('top env padding missing')
+p.write_text(t.replace(nav, 'padding: 16px 24px 8px;', 1).replace(head, 'padding-top: 12px;', 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/hfLand1.chromium.kill.tsx -t "HF-LAND-1 standalone safe-area"
+git checkout -- src/index.css
+```
+
+Mutates landing `.hub-marketing-nav` and `.shell-header` top padding.  
+Red: `src/pages/hfLand1.chromium.kill.tsx:344` `toContain` top env padding AssertionError.
+
+## M-hf-land-1-bottom — drop the bottom env() padding
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = 'padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--safe-area-inset-bottom, 0px));'
+if old not in t:
+    raise SystemExit('bottom env padding missing')
+p.write_text(t.replace(old, 'padding-bottom: 0;', 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/hfLand1.chromium.kill.tsx -t "HF-LAND-1 standalone safe-area"
+git checkout -- src/index.css
+```
+
+Mutates `.shell-bottom-nav` bottom padding.  
+Red: `src/pages/hfLand1.chromium.kill.tsx:350` `toContain` bottom env padding AssertionError.
