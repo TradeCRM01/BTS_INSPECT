@@ -3113,8 +3113,13 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       const box = await page.evaluate(readEditPadPinRows);
       expect(box.widgets.length, `edit widgets at ${width}`).toBeGreaterThan(0);
       for (const row of box.widgets) {
-        expect(Math.abs(row.dragTop - 8), `${width} ${row.id} Drag top`).toBeLessThanOrEqual(1);
-        expect(Math.abs(row.dragLeft - 8), `${width} ${row.id} Drag left`).toBeLessThanOrEqual(1);
+        if (width < 1024) {
+          expect(row.dragTop, `${width} ${row.id} Drag absent`).toBe(-1);
+          expect(row.dragLeft, `${width} ${row.id} Drag absent`).toBe(-1);
+        } else {
+          expect(Math.abs(row.dragTop - 8), `${width} ${row.id} Drag top`).toBeLessThanOrEqual(1);
+          expect(Math.abs(row.dragLeft - 8), `${width} ${row.id} Drag left`).toBeLessThanOrEqual(1);
+        }
         expect(Math.abs(row.removeTop - 8), `${width} ${row.id} Remove top`).toBeLessThanOrEqual(1);
         expect(Math.abs(row.removeRight - 8), `${width} ${row.id} Remove right`).toBeLessThanOrEqual(1);
       }
@@ -4623,6 +4628,21 @@ img{display:block;width:100%;height:auto;border:1px solid #0A2540}
     };
   }
 
+  function hf403EditChromeCounts() {
+    const vis = (el: Element) => {
+      const s = getComputedStyle(el as HTMLElement);
+      const r = el.getBoundingClientRect();
+      return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+    };
+    return [...document.querySelectorAll('[data-dashboard-widget-id]')].filter((el) => (
+      vis(el) && !el.closest('[data-dashboard-phone-stack]')
+    )).map((host) => ({
+      id: host.getAttribute('data-dashboard-widget-id') || '',
+      drag: host.querySelectorAll('button[title="Drag to move"]').length,
+      resize: host.querySelectorAll('.dashboard-home-widget-resize').length,
+    }));
+  }
+
   function hf403ViewGeometry() {
     const grid = document.querySelector('[data-dashboard-view-grid]') as HTMLElement | null;
     const vis = (el: Element) => {
@@ -4651,10 +4671,16 @@ img{display:block;width:100%;height:auto;border:1px solid #0A2540}
   it('HF-403-768-r4: 768 Customize two-up fills both columns and stays inside the canvas', async () => {
     const page = await hf403OpenEdit(768);
     const pack = await page.evaluate(hf403PackGeometry);
+    const chrome = await page.evaluate(hf403EditChromeCounts);
     await page.close();
     expect(pack.cards.length, '768 Customize paints 26 cards').toBe(26);
+    expect(chrome.length, '768 Customize chrome cards').toBe(26);
     for (const card of pack.cards) {
       expect(card.right, `${card.id} right ${card.right}`).toBeLessThanOrEqual(pack.canvasRight + 0.5);
+    }
+    for (const card of chrome) {
+      expect(card.drag, `${card.id} drag handle count at 768`).toBe(0);
+      expect(card.resize, `${card.id} resize handle count at 768`).toBe(0);
     }
     const tall = Math.max(...pack.cards.map((c) => c.bottom - c.top));
     const leftAlone = pack.leftGap > 24 ? pack.cards.filter((c) => c.left - pack.canvasLeft > 24) : [];
@@ -4708,11 +4734,64 @@ img{display:block;width:100%;height:auto;border:1px solid #0A2540}
   it('HF-403-768-r4: a 768 drag and resize persist saved geometry, not the pack', async () => {
     const page = await hf403OpenEdit(768);
     const before = await page.evaluate(hf403PackGeometry);
+    const chrome = await page.evaluate(hf403EditChromeCounts);
     const weather = before.cards.find((c) => c.id === 'full-weather-a');
     const weatherC = before.cards.find((c) => c.id === 'full-weather-c');
     expect(weather, 'full-weather-a present').toBeTruthy();
     expect(weatherC, 'full-weather-c present').toBeTruthy();
+    for (const card of chrome) {
+      expect(card.drag, `${card.id} drag handle count at 768`).toBe(0);
+      expect(card.resize, `${card.id} resize handle count at 768`).toBe(0);
+    }
     const handle = await page.evaluate(() => {
+      const host = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="full-weather-a"]');
+      const btn = host?.querySelector('button[title="Drag to move"]') as HTMLElement | null;
+      if (!btn) return null;
+      btn.scrollIntoView({ block: 'center' });
+      const r = btn.getBoundingClientRect();
+      if (r.width < 1) return null;
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    expect(handle, 'drag handle at 768').toBeFalsy();
+    const grip = await page.evaluate(() => {
+      const host = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="full-weather-c"]');
+      const btn = host?.querySelector('.dashboard-home-widget-resize') as HTMLElement | null;
+      const r = btn?.getBoundingClientRect();
+      if (!r || r.width < 1) return null;
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    expect(grip, 'resize grip at 768').toBeFalsy();
+    const body = await page.evaluate(() => {
+      const host = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="full-weather-a"]') as HTMLElement | null;
+      if (!host) throw new Error('full-weather-a missing');
+      host.scrollIntoView({ block: 'center' });
+      const r = host.getBoundingClientRect();
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    await page.mouse.move(body.x, body.y);
+    await page.mouse.down();
+    await page.mouse.move(body.x, body.y + 80, { steps: 12 });
+    await page.mouse.up();
+    const afterDrag = await page.evaluate(hf403PackGeometry);
+    for (const card of afterDrag.cards) {
+      const beforeCard = before.cards.find((c) => c.id === card.id);
+      expect(card.savedX, `${card.id} saved x after 768 card drag`).toBe(beforeCard?.savedX);
+      expect(card.savedY, `${card.id} saved y after 768 card drag`).toBe(beforeCard?.savedY);
+      expect(card.savedW, `${card.id} saved w after 768 card drag`).toBe(beforeCard?.savedW);
+      expect(card.savedH, `${card.id} saved h after 768 card drag`).toBe(beforeCard?.savedH);
+    }
+    await page.close();
+  }, 180000);
+
+  it('HF-403-768-r4: 1024 neighbor gaps are ≤ 40 and 1280 matches in-run aad2eef7', async () => {
+    const edit1024 = await hf403OpenEdit(1024);
+    const pack1024 = await edit1024.evaluate(hf403PackGeometry);
+    const abs1024 = await edit1024.evaluate(hf403AbsoluteBar);
+    const weather = pack1024.cards.find((c) => c.id === 'full-weather-a');
+    const weatherC1024 = pack1024.cards.find((c) => c.id === 'full-weather-c');
+    expect(weather, 'full-weather-a present').toBeTruthy();
+    expect(weatherC1024, 'full-weather-c present').toBeTruthy();
+    const handle = await edit1024.evaluate(() => {
       const host = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="full-weather-a"]');
       const btn = host?.querySelector('button[title="Drag to move"]') as HTMLElement | null;
       if (!btn) throw new Error('drag handle missing');
@@ -4721,56 +4800,41 @@ img{display:block;width:100%;height:auto;border:1px solid #0A2540}
       if (r.width < 1) throw new Error('drag handle missing');
       return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
     });
-    await page.mouse.move(handle.x, handle.y);
-    await page.mouse.down();
-    await page.mouse.move(handle.x, handle.y + 80, { steps: 12 });
-    await page.mouse.up();
-    const afterDrag = await page.evaluate(hf403PackGeometry);
+    await edit1024.mouse.move(handle.x, handle.y);
+    await edit1024.mouse.down();
+    await edit1024.mouse.move(handle.x, handle.y + 80, { steps: 12 });
+    await edit1024.mouse.up();
+    const afterDrag = await edit1024.evaluate(hf403PackGeometry);
     const dragged = afterDrag.cards.find((c) => c.id === 'full-weather-a');
     expect(dragged?.savedX, 'vertical drag keeps saved x').toBe(weather!.savedX);
     expect(dragged?.savedW, 'vertical drag keeps saved w').toBe(weather!.savedW);
     expect(dragged?.savedX, 'vertical drag does not persist pack x').toBeGreaterThan(400);
     for (const card of afterDrag.cards) {
       if (card.id === 'full-weather-a') continue;
-      const beforeCard = before.cards.find((c) => c.id === card.id);
+      const beforeCard = pack1024.cards.find((c) => c.id === card.id);
       expect(card.savedX, `${card.id} saved x after sibling drag`).toBe(beforeCard?.savedX);
       expect(card.savedW, `${card.id} saved w after sibling drag`).toBe(beforeCard?.savedW);
     }
-
-    const grip = await page.evaluate(() => {
-      const host = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="full-weather-c"]');
-      const btn = host?.querySelector('.dashboard-home-widget-resize') as HTMLElement | null;
-      const r = btn?.getBoundingClientRect();
-      if (!r || r.width < 1) throw new Error('resize handle missing');
-      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-    });
-    await page.mouse.move(grip.x, grip.y);
-    await page.mouse.down();
-    await page.mouse.move(grip.x - 10, grip.y + 20, { steps: 8 });
-    await page.mouse.up();
-    const afterResize = await page.evaluate(hf403PackGeometry);
-    const resized = afterResize.cards.find((c) => c.id === 'full-weather-c');
-    expect(resized?.savedX, 'resize keeps saved x').toBe(weatherC!.savedX);
-    await page.close();
-  }, 180000);
-
-  it('HF-403-768-r4: 1024 neighbor gaps are ≤ 40 and 1280 matches in-run aad2eef7', async () => {
-    const edit1024 = await hf403OpenEdit(1024);
-    const pack1024 = await edit1024.evaluate(hf403PackGeometry);
-    const abs1024 = await edit1024.evaluate(hf403AbsoluteBar);
-    const weatherC1024 = pack1024.cards.find((c) => c.id === 'full-weather-c');
     const grip1024 = await edit1024.evaluate(() => {
       const host = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="full-weather-c"]');
       const btn = host?.querySelector('.dashboard-home-widget-resize') as HTMLElement | null;
       const r = btn?.getBoundingClientRect();
-      return { x: r!.x + r!.width / 2, y: r!.y + r!.height / 2 };
+      if (!r || r.width < 1) return null;
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
     });
+    expect(grip1024, 'resize grip at 1024').toBeTruthy();
+    if (!grip1024) throw new Error('resize grip at 1024');
     await edit1024.mouse.move(grip1024.x, grip1024.y);
     await edit1024.mouse.down();
     await edit1024.mouse.move(grip1024.x - 10, grip1024.y + 20, { steps: 8 });
     await edit1024.mouse.up();
+    await expect.poll(async () => {
+      const after = await edit1024.evaluate(hf403PackGeometry);
+      return after.cards.find((c) => c.id === 'full-weather-c')?.savedW;
+    }).toBe(250);
     const afterResize1024 = await edit1024.evaluate(hf403PackGeometry);
     const resized1024 = afterResize1024.cards.find((c) => c.id === 'full-weather-c');
+    expect(resized1024?.savedX, 'resize keeps saved x').toBe(weatherC1024!.savedX);
     expect(resized1024?.savedW, 'resize changes saved w from saved geometry').toBe(weatherC1024!.savedW - 10);
     expect(resized1024?.savedH, 'resize changes saved h from saved geometry').toBe(weatherC1024!.savedH + 20);
     await edit1024.close();
