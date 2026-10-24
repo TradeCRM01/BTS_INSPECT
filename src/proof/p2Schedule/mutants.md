@@ -1,71 +1,76 @@
-# r10 real-file src mutants (outside the suite)
+# r11 real-file src mutants (outside the suite)
 
 No test writes a tracked file. No in-test rebuild. Harvest is: patch the listed `find` → `replace` in the listed src file, `npm run build` when the kill reads dist, run the listed vitest command, confirm the AssertionError, then `git checkout -- <file>`.
 
 Named harness `?mutant=` queries do not count.
 
-## it() file:line (r10)
+## it() file:line (r11)
 
 | kill | it() |
 |---|---|
-| P2-palette | `src/proof/p2Schedule/kill.ts:39` |
-| P2-contrast | `src/proof/p2Schedule/kill.ts:49` |
-| P2-taps | `src/proof/p2Schedule/kill.ts:59` |
-| P2-lines | `src/proof/p2Schedule/kill.ts:70` |
-| P2-m2 | `src/proof/p2Schedule/kill.ts:84` |
-| P2-dark | `src/proof/p2Schedule/kill.ts:120` |
-| P2-overflow | `src/proof/p2Schedule/kill.ts:126` |
-| P2-day-track | `src/proof/p2Schedule/kill.ts:190` |
-| P2-nav-phone | `src/proof/p2Schedule/kill.ts:206` |
-| P2-nav-desktop | `src/proof/p2Schedule/kill.ts:219` |
-| P2-mocks | `src/proof/p2Schedule/kill.ts:225` |
-| P2-tracker | `src/proof/p2Schedule/kill.ts:238` |
-| P2-chip | `src/proof/p2Schedule/kill.ts:258` |
-| P2-focus | `src/proof/p2Schedule/kill.ts:280` |
-| P2-now | `src/proof/p2Schedule/kill.ts:298` |
-| P2-day-board | `src/proof/p2Schedule/kill.ts:320` |
-| P2-scroller | `src/proof/p2Schedule/kill.ts:340` |
-| P2-sheet | `src/proof/p2Schedule/kill.ts:357` |
-| P2-tray | `src/proof/p2Schedule/kill.ts:385` |
-| P2-status | `src/proof/p2Schedule/kill.ts:396` |
-| K1 | `src/proof/p2Schedule/kill.ts:411` |
-| K2 | `src/proof/p2Schedule/kill.ts:434` |
-| K3 | `src/proof/p2Schedule/kill.ts:454` |
-| K4 | `src/proof/p2Schedule/kill.ts:463` |
-| K5 | `src/proof/p2Schedule/kill.ts:477` |
-| K6 | `src/proof/p2Schedule/kill.ts:489` |
-| K7 | `src/proof/p2Schedule/kill.ts:503` |
-| K8 | `src/proof/p2Schedule/kill.ts:515` |
-| K9 | `src/proof/p2Schedule/kill.ts:525` |
-| K10 | `src/proof/p2Schedule/kill.ts:560` |
-| K11 | `src/proof/p2Schedule/kill.ts:585` |
-| K12 | `src/proof/p2Schedule/kill.ts:607` |
-| K13 | `src/proof/p2Schedule/kill.ts:621` |
-| K14 | `src/proof/p2Schedule/kill.ts:630` |
-| K15 | `src/proof/p2Schedule/kill.ts:642` |
-| K16 | `src/proof/p2Schedule/kill.ts:668` |
-| K17 | `src/proof/p2Schedule/kill.ts:676` |
-| K18 | `src/proof/p2Schedule/kill.ts:684` |
-| K19 | `src/proof/p2Schedule/kill.ts:694` |
-| K20 | `src/proof/p2Schedule/kill.ts:701` |
-| K21 | `src/proof/p2Schedule/kill.ts:712` |
-| K22 | `src/proof/p2Schedule/kill.ts:729` |
-| K23 | `src/proof/p2Schedule/kill.ts:739` |
-| K24 | `src/proof/p2Schedule/kill.ts:748` |
-| K25 | `src/proof/p2Schedule/kill.ts:841` |
-| K26 | `src/proof/p2Schedule/kill.ts:944` |
-| K15 jobs bounds | `src/proof/p2Schedule/kill.ts:656` / dated jobs read |
-| K25 search / today-beside-arrows | `src/proof/p2Schedule/kill.ts:853` |
-| K25 today painted stroke | `src/proof/p2Schedule/kill.ts:856` |
-| K25 Week/Day active fill/ink + Geist | `src/proof/p2Schedule/kill.ts:880` |
-| K25 header-gutter | `src/proof/p2Schedule/kill.ts:917` |
-| K25 phone-search | `src/proof/p2Schedule/kill.ts:920` |
-| K25 New job accessible name | `src/proof/p2Schedule/kill.ts:938` |
-| K26 | `src/proof/p2Schedule/kill.ts:944` |
+| P2-palette | `src/proof/p2Schedule/kill.ts:45` |
+| P2-contrast | `src/proof/p2Schedule/kill.ts:55` |
+| P2-taps | `src/proof/p2Schedule/kill.ts:65` |
+| P2-lines | `src/proof/p2Schedule/kill.ts:76` |
+| P2-m2 | `src/proof/p2Schedule/kill.ts:90` |
+| P2-dark | `src/proof/p2Schedule/kill.ts:126` |
+| P2-overflow | `src/proof/p2Schedule/kill.ts:134` |
+| P2-text | `src/proof/p2Schedule/kill.ts:198` |
+| P2-webkit | `src/proof/p2Schedule/kill.ts:204` |
+| P2-day-track | `src/proof/p2Schedule/kill.ts:220` |
+| P2-nav-phone | `src/proof/p2Schedule/kill.ts:236` |
+| P2-nav-desktop | `src/proof/p2Schedule/kill.ts:249` |
+| P2-mocks | `src/proof/p2Schedule/kill.ts:255` |
+| P2-tracker | `src/proof/p2Schedule/kill.ts:268` |
+| P2-chip | `src/proof/p2Schedule/kill.ts:288` |
+| P2-focus | `src/proof/p2Schedule/kill.ts:310` |
+| P2-now | `src/proof/p2Schedule/kill.ts:328` |
+| P2-day-board | `src/proof/p2Schedule/kill.ts:350` |
+| P2-scroller | `src/proof/p2Schedule/kill.ts:370` |
+| P2-sheet | `src/proof/p2Schedule/kill.ts:387` |
+| P2-tray | `src/proof/p2Schedule/kill.ts:415` |
+| P2-status | `src/proof/p2Schedule/kill.ts:426` |
+| K1 | `src/proof/p2Schedule/kill.ts:441` |
+| K2 | `src/proof/p2Schedule/kill.ts:464` |
+| K3 | `src/proof/p2Schedule/kill.ts:484` |
+| K4 | `src/proof/p2Schedule/kill.ts:493` |
+| K5 | `src/proof/p2Schedule/kill.ts:507` |
+| K6 | `src/proof/p2Schedule/kill.ts:519` |
+| K7 | `src/proof/p2Schedule/kill.ts:533` |
+| K8 | `src/proof/p2Schedule/kill.ts:545` |
+| K9 | `src/proof/p2Schedule/kill.ts:555` |
+| K10 | `src/proof/p2Schedule/kill.ts:590` |
+| K11 | `src/proof/p2Schedule/kill.ts:615` |
+| K12 | `src/proof/p2Schedule/kill.ts:637` |
+| K13 | `src/proof/p2Schedule/kill.ts:651` |
+| K14 | `src/proof/p2Schedule/kill.ts:660` |
+| K15 | `src/proof/p2Schedule/kill.ts:672` |
+| K16 | `src/proof/p2Schedule/kill.ts:732` |
+| K17 | `src/proof/p2Schedule/kill.ts:740` |
+| K18 | `src/proof/p2Schedule/kill.ts:748` |
+| K19 | `src/proof/p2Schedule/kill.ts:758` |
+| K20 | `src/proof/p2Schedule/kill.ts:765` |
+| K21 | `src/proof/p2Schedule/kill.ts:776` |
+| K22 | `src/proof/p2Schedule/kill.ts:793` |
+| K23 | `src/proof/p2Schedule/kill.ts:803` |
+| K24 | `src/proof/p2Schedule/kill.ts:812` |
+| K25 | `src/proof/p2Schedule/kill.ts:905` |
+| K26 | `src/proof/p2Schedule/kill.ts:1010` |
+| K15 jobs bounds | `src/proof/p2Schedule/kill.ts:672 / dated jobs read` |
+| K15 more-jobs 200/201 | `src/proof/p2Schedule/kill.ts:672 / boardCap` |
+| K25 search / today-beside-arrows | `src/proof/p2Schedule/kill.ts:919` |
+| K25 today painted stroke | `src/proof/p2Schedule/kill.ts:922` |
+| K25 Week/Day active fill/ink + Geist | `src/proof/p2Schedule/kill.ts:945` |
+| K25 header-gutter | `src/proof/p2Schedule/kill.ts:983` |
+| K25 phone-search | `src/proof/p2Schedule/kill.ts:986` |
+| K25 New job accessible name | `src/proof/p2Schedule/kill.ts:1004` |
+| K25 seg / range pins | `src/proof/p2Schedule/kill.ts:917` |
+| K26 | `src/proof/p2Schedule/kill.ts:1010` |
 | unit status | `src/lib/scheduleStatus.kill.test.ts` |
+| unit board bounds | `src/lib/scheduleBoard.test.ts / jobsColumnsFromMigrations` |
 | fixture pin | `src/pages/schedule1280Light.fixture.test.ts:16` |
 
-## Commands (90 matrix mutants)
+## Commands (102 matrix mutants)
 
 ```bash
 # cream-page → P2-palette — restore :6569 cream
@@ -80,7 +85,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-palette:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:39
+# expected AssertionError at src/proof/p2Schedule/kill.ts:45
 git checkout -- src/index.css
 
 # navy-save → P2-palette — restore :7810 navy Save
@@ -95,7 +100,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-palette:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:39
+# expected AssertionError at src/proof/p2Schedule/kill.ts:45
 git checkout -- src/index.css
 
 # whisper-5b6b7c → P2-contrast — restore #5B6B7C on the eyebrow
@@ -110,7 +115,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-contrast:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:49
+# expected AssertionError at src/proof/p2Schedule/kill.ts:55
 git checkout -- src/index.css
 
 # chip-ink-threshold → P2-contrast — low-contrast chip refs on white cards
@@ -125,7 +130,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-contrast:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:49
+# expected AssertionError at src/proof/p2Schedule/kill.ts:55
 git checkout -- src/index.css
 
 # quiet-24 → P2-taps — min-height 24px at :6965
@@ -140,7 +145,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-taps:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:59
+# expected AssertionError at src/proof/p2Schedule/kill.ts:65
 git checkout -- src/index.css
 
 # seg-32 → P2-taps — min-height 32px at :6933
@@ -155,7 +160,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-taps:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:59
+# expected AssertionError at src/proof/p2Schedule/kill.ts:65
 git checkout -- src/index.css
 
 # meta-normal → P2-lines — agenda meta drops the dots
@@ -170,7 +175,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-lines:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:70
+# expected AssertionError at src/proof/p2Schedule/kill.ts:76
 git checkout -- src/components/crm/BoardViews.tsx
 
 # flex-2col → P2-m2 — restore the flex 2-column row
@@ -185,7 +190,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-m2:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:84
+# expected AssertionError at src/proof/p2Schedule/kill.ts:90
 git checkout -- src/index.css
 
 # unguarded-dark → P2-dark — an unguarded prefers-color-scheme rule
@@ -200,7 +205,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-dark:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:120
+# expected AssertionError at src/proof/p2Schedule/kill.ts:126
 git checkout -- src/index.css
 
 # agenda-min-width → P2-overflow — min-width on .hub-week-agenda-row (later min-width:0)
@@ -215,7 +220,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-overflow:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:126
+# expected AssertionError at src/proof/p2Schedule/kill.ts:134
 git checkout -- src/index.css
 
 # fake-scroller → P2-overflow — non-allowlisted element past innerWidth inside a fake overflow-x:auto wrapper
@@ -230,7 +235,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-overflow:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:126
+# expected AssertionError at src/proof/p2Schedule/kill.ts:134
 git checkout -- src/index.css
 
 # track-no-scroll → P2-day-track — the day track stops scrolling sideways
@@ -245,7 +250,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-day-track:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:190
+# expected AssertionError at src/proof/p2Schedule/kill.ts:220
 git checkout -- src/index.css
 
 # track-trap → P2-day-track — the day track traps vertical scroll
@@ -260,7 +265,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-day-track:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:190
+# expected AssertionError at src/proof/p2Schedule/kill.ts:220
 git checkout -- src/index.css
 
 # phone-tab-to → P2-nav-phone — reorder in a copy of the tab config
@@ -275,7 +280,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-nav-phone:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:206
+# expected AssertionError at src/proof/p2Schedule/kill.ts:236
 git checkout -- src/components/layout/appShellPhoneNav.ts
 
 # field-order → P2-nav-desktop — Inspections ahead of Schedule in a copy of the Field config
@@ -290,7 +295,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-nav-desktop:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:219
+# expected AssertionError at src/proof/p2Schedule/kill.ts:249
 git checkout -- src/components/layout/AppShell.tsx
 
 # fetch-leak → P2-mocks — a live request from the Schedule bundle
@@ -305,7 +310,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-mocks:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:225
+# expected AssertionError at src/proof/p2Schedule/kill.ts:255
 git checkout -- src/components/crm/BoardViews.tsx
 
 # empty-days-hidden → P2-tracker — empty agenda days, week cells and lane hours stop drawing
@@ -320,7 +325,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-tracker:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:238
+# expected AssertionError at src/proof/p2Schedule/kill.ts:268
 git checkout -- src/index.css
 
 # chip-ref-clock → P2-chip — the week chip ref carries the clock
@@ -335,7 +340,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-chip:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:258
+# expected AssertionError at src/proof/p2Schedule/kill.ts:288
 git checkout -- src/components/crm/BoardViews.tsx
 
 # ring-offset-0 → P2-focus — focus ring offset 0
@@ -350,7 +355,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-focus:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:280
+# expected AssertionError at src/proof/p2Schedule/kill.ts:310
 git checkout -- src/index.css
 
 # ring-none → P2-focus — no focus ring
@@ -365,7 +370,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-focus:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:280
+# expected AssertionError at src/proof/p2Schedule/kill.ts:310
 git checkout -- src/index.css
 
 # seg-on-unfilled → P2-focus — the on seg loses its inverse fill
@@ -380,7 +385,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-focus:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:280
+# expected AssertionError at src/proof/p2Schedule/kill.ts:310
 git checkout -- src/index.css
 
 # now-1px → P2-now — a 1px now-line
@@ -395,7 +400,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-now:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:298
+# expected AssertionError at src/proof/p2Schedule/kill.ts:328
 git checkout -- src/index.css
 
 # now-pulse → P2-now — the now dot pulses
@@ -410,7 +415,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-now:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:298
+# expected AssertionError at src/proof/p2Schedule/kill.ts:328
 git checkout -- src/index.css
 
 # today-unmarked → P2-now — the Today column drops the Now label
@@ -425,7 +430,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-now:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:298
+# expected AssertionError at src/proof/p2Schedule/kill.ts:328
 git checkout -- src/components/crm/BoardViews.tsx
 
 # hour-lines-cream → P2-day-board — cream hour rules
@@ -440,7 +445,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-day-board:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:320
+# expected AssertionError at src/proof/p2Schedule/kill.ts:350
 git checkout -- src/index.css
 
 # zebra-flat → P2-day-board — every lane flat surface
@@ -455,7 +460,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-day-board:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:320
+# expected AssertionError at src/proof/p2Schedule/kill.ts:350
 git checkout -- src/index.css
 
 # unassigned-navy → P2-day-board — a navy unassigned rail
@@ -470,7 +475,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-day-board:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:320
+# expected AssertionError at src/proof/p2Schedule/kill.ts:350
 git checkout -- src/components/crm/BoardViews.tsx
 
 # resize-hover-none → P2-day-board — no resize hover paint
@@ -485,7 +490,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-day-board:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:320
+# expected AssertionError at src/proof/p2Schedule/kill.ts:350
 git checkout -- src/index.css
 
 # fade-pointer → P2-scroller — the fade swallows clicks
@@ -500,7 +505,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-scroller:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:340
+# expected AssertionError at src/proof/p2Schedule/kill.ts:370
 git checkout -- src/index.css
 
 # fade-at-end → P2-scroller — the fade stays at the track end
@@ -515,7 +520,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-scroller:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:340
+# expected AssertionError at src/proof/p2Schedule/kill.ts:370
 git checkout -- src/index.css
 
 # scrim-bg → P2-sheet — an opaque bg scrim
@@ -530,7 +535,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-sheet:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:357
+# expected AssertionError at src/proof/p2Schedule/kill.ts:387
 git checkout -- src/index.css
 
 # footer-no-safe-area → P2-sheet — the footer ignores the safe area
@@ -545,7 +550,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-sheet:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:357
+# expected AssertionError at src/proof/p2Schedule/kill.ts:387
 git checkout -- src/index.css
 
 # tray-noop → P2-tray — the tray chip toggle does nothing
@@ -560,7 +565,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-tray:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:385
+# expected AssertionError at src/proof/p2Schedule/kill.ts:415
 git checkout -- src/components/crm/BoardViews.tsx
 
 # agenda-time-ink → P2-m2 — the agenda time line in full ink
@@ -575,7 +580,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-m2:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:84
+# expected AssertionError at src/proof/p2Schedule/kill.ts:90
 git checkout -- src/index.css
 
 # pill-amber → P2-status — amber scheduled pills
@@ -590,7 +595,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-status:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:396
+# expected AssertionError at src/proof/p2Schedule/kill.ts:426
 git checkout -- src/index.css
 
 # hide-header → K1 — hide the live header (restore F1)
@@ -605,7 +610,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K1:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:411
+# expected AssertionError at src/proof/p2Schedule/kill.ts:441
 git checkout -- src/index.css
 
 # need-crew-all → K1 — count crewed jobs as need-crew
@@ -620,7 +625,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K1:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:411
+# expected AssertionError at src/proof/p2Schedule/kill.ts:441
 git checkout -- src/lib/scheduleNeedCrew.ts
 
 # need-crew-undated → K19 — restore || in_progress without a date gate
@@ -635,7 +640,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K19:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:694
+# expected AssertionError at src/proof/p2Schedule/kill.ts:758
 git checkout -- src/lib/scheduleNeedCrew.ts
 
 # next-backwards → K2 — next week walks backwards
@@ -650,7 +655,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K2:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:434
+# expected AssertionError at src/proof/p2Schedule/kill.ts:464
 git checkout -- src/pages/SchedulePage.tsx
 
 # skip-empty-cells → K3 — skip cells with no jobs
@@ -665,7 +670,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K3:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:454
+# expected AssertionError at src/proof/p2Schedule/kill.ts:484
 git checkout -- src/lib/scheduleBoard.ts
 
 # count-days → K4 — lane counts say bookings
@@ -680,7 +685,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K4:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:463
+# expected AssertionError at src/proof/p2Schedule/kill.ts:493
 git checkout -- src/lib/scheduleBoard.ts
 
 # ref-ellipsis → K5 — ellipsis on the ref span
@@ -695,7 +700,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K5:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:477
+# expected AssertionError at src/proof/p2Schedule/kill.ts:507
 git checkout -- src/index.css
 
 # first-crew-only → K5 — jobOnCrewRow checks only team[0]
@@ -710,7 +715,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K5:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:477
+# expected AssertionError at src/proof/p2Schedule/kill.ts:507
 git checkout -- src/lib/scheduleBoard.ts
 
 # invoice-no-void → K6 — drop status <> void
@@ -725,7 +730,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K6:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:489
+# expected AssertionError at src/proof/p2Schedule/kill.ts:519
 git checkout -- src/pages/SchedulePage.tsx
 
 # invoice-no-company → K6 — drop the company_id filter
@@ -740,7 +745,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K6:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:489
+# expected AssertionError at src/proof/p2Schedule/kill.ts:519
 git checkout -- src/pages/SchedulePage.tsx
 
 # track-14h → K7 — divide the day by 14h
@@ -755,7 +760,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K7:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:503
+# expected AssertionError at src/proof/p2Schedule/kill.ts:533
 git checkout -- src/lib/scheduleBoard.ts
 
 # now-12h → K8 — format Now as 12-hour hh:mm
@@ -770,7 +775,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K8:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:515
+# expected AssertionError at src/proof/p2Schedule/kill.ts:545
 git checkout -- src/lib/scheduleBoard.ts
 
 # drop-keeps-date → K9 — drop handler writes nothing
@@ -785,7 +790,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K9:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:525
+# expected AssertionError at src/proof/p2Schedule/kill.ts:555
 git checkout -- src/components/crm/BoardViews.tsx
 
 # hide-empty-hours → K10 — hide hours with no jobs
@@ -800,7 +805,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K10:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:560
+# expected AssertionError at src/proof/p2Schedule/kill.ts:590
 git checkout -- src/components/crm/BoardViews.tsx
 
 # track-overflow-hidden → K10 — the day track stops scrolling sideways
@@ -815,7 +820,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K10:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:560
+# expected AssertionError at src/proof/p2Schedule/kill.ts:590
 git checkout -- src/index.css
 
 # fade-auto-k10 → K10 — resize handles never mount
@@ -830,7 +835,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K10:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:560
+# expected AssertionError at src/proof/p2Schedule/kill.ts:590
 git checkout -- src/components/crm/BoardViews.tsx
 
 # tray-slice → K11 — needsDate.slice(0,2)
@@ -845,7 +850,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K11:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:585
+# expected AssertionError at src/proof/p2Schedule/kill.ts:615
 git checkout -- src/components/crm/BoardViews.tsx
 
 # hide-empty-agenda → K12 — filter out zero-job days
@@ -860,7 +865,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K12:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:607
+# expected AssertionError at src/proof/p2Schedule/kill.ts:637
 git checkout -- src/components/crm/BoardViews.tsx
 
 # quickbook-desk-only → K13 — hide the header Quick book control
@@ -875,7 +880,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K13:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:621
+# expected AssertionError at src/proof/p2Schedule/kill.ts:651
 git checkout -- src/index.css
 
 # drop-today → K14 — delete Today from the tools row
@@ -890,7 +895,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K14:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:630
+# expected AssertionError at src/proof/p2Schedule/kill.ts:660
 git checkout -- src/pages/SchedulePage.tsx
 
 # invoice-paid-at → K15 — add invoices.paid_at to Q-S1
@@ -905,7 +910,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:642
+# expected AssertionError at src/proof/p2Schedule/kill.ts:672
 git checkout -- src/pages/SchedulePage.tsx
 
 # jobs-drop-limit → K15 — drop the dated jobs .limit() bound
@@ -920,8 +925,188 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:642
+# expected AssertionError at src/proof/p2Schedule/kill.ts:672
 git checkout -- src/pages/SchedulePage.tsx
+
+# jobs-drop-company → K15 — drop the dated jobs company_id eq
+python3 - <<'PY'
+from pathlib import Path
+p = Path("src/pages/SchedulePage.tsx")
+t = p.read_text()
+old = ".eq('company_id', profile.company_id)\n          .gte('scheduled_date', rangeStart)"
+new = ".gte('scheduled_date', rangeStart)"
+if old not in t: raise SystemExit("jobs-drop-company find missed")
+p.write_text(t.replace(old, new, 1))
+PY
+npm run build
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
+# expected AssertionError at src/proof/p2Schedule/kill.ts:672
+git checkout -- src/pages/SchedulePage.tsx
+
+# jobs-drop-gte → K15 — drop the dated jobs week-start gte
+python3 - <<'PY'
+from pathlib import Path
+p = Path("src/pages/SchedulePage.tsx")
+t = p.read_text()
+old = ".gte('scheduled_date', rangeStart)\n          .lte('scheduled_date', rangeEnd)"
+new = ".lte('scheduled_date', rangeEnd)"
+if old not in t: raise SystemExit("jobs-drop-gte find missed")
+p.write_text(t.replace(old, new, 1))
+PY
+npm run build
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
+# expected AssertionError at src/proof/p2Schedule/kill.ts:672
+git checkout -- src/pages/SchedulePage.tsx
+
+# jobs-drop-lte → K15 — drop the dated jobs week-end lte
+python3 - <<'PY'
+from pathlib import Path
+p = Path("src/pages/SchedulePage.tsx")
+t = p.read_text()
+old = ".gte('scheduled_date', rangeStart)\n          .lte('scheduled_date', rangeEnd)"
+new = ".gte('scheduled_date', rangeStart)"
+if old not in t: raise SystemExit("jobs-drop-lte find missed")
+p.write_text(t.replace(old, new, 1))
+PY
+npm run build
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
+# expected AssertionError at src/proof/p2Schedule/kill.ts:672
+git checkout -- src/pages/SchedulePage.tsx
+
+# jobs-select-star → K15 — dated jobs select *
+python3 - <<'PY'
+from pathlib import Path
+p = Path("src/pages/SchedulePage.tsx")
+t = p.read_text()
+old = ".select(SCHEDULE_BOARD_COLUMNS)\n          .eq('company_id', profile.company_id)\n          .gte('scheduled_date', rangeStart)"
+new = ".select('*')\n          .eq('company_id', profile.company_id)\n          .gte('scheduled_date', rangeStart)"
+if old not in t: raise SystemExit("jobs-select-star find missed")
+p.write_text(t.replace(old, new, 1))
+PY
+npm run build
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
+# expected AssertionError at src/proof/p2Schedule/kill.ts:672
+git checkout -- src/pages/SchedulePage.tsx
+
+# jobs-bogus-column → K15 — add a bogus jobs column to SCHEDULE_BOARD_COLUMNS
+python3 - <<'PY'
+from pathlib import Path
+p = Path("src/lib/scheduleBoard.ts")
+t = p.read_text()
+old = "'id, company_id, client_id, title, description, status, scheduled_date, start_time, end_time, address, assigned_team, job_number, parent_job_id, color, cost_code'"
+new = "'id, company_id, client_id, title, description, status, scheduled_date, start_time, end_time, address, assigned_team, job_number, parent_job_id, color, cost_code, not_a_column'"
+if old not in t: raise SystemExit("jobs-bogus-column find missed")
+p.write_text(t.replace(old, new, 1))
+PY
+npm run build
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
+# expected AssertionError at src/proof/p2Schedule/kill.ts:672
+git checkout -- src/lib/scheduleBoard.ts
+
+# undated-drop-company → K15 — drop the undated jobs company_id eq
+python3 - <<'PY'
+from pathlib import Path
+p = Path("src/pages/SchedulePage.tsx")
+t = p.read_text()
+old = ".eq('company_id', profile.company_id)\n          .is('scheduled_date', null)"
+new = ".is('scheduled_date', null)"
+if old not in t: raise SystemExit("undated-drop-company find missed")
+p.write_text(t.replace(old, new, 1))
+PY
+npm run build
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
+# expected AssertionError at src/proof/p2Schedule/kill.ts:672
+git checkout -- src/pages/SchedulePage.tsx
+
+# undated-select-star → K15 — undated jobs select *
+python3 - <<'PY'
+from pathlib import Path
+p = Path("src/pages/SchedulePage.tsx")
+t = p.read_text()
+old = ".select(SCHEDULE_BOARD_COLUMNS)\n          .eq('company_id', profile.company_id)\n          .is('scheduled_date', null)"
+new = ".select('*')\n          .eq('company_id', profile.company_id)\n          .is('scheduled_date', null)"
+if old not in t: raise SystemExit("undated-select-star find missed")
+p.write_text(t.replace(old, new, 1))
+PY
+npm run build
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
+# expected AssertionError at src/proof/p2Schedule/kill.ts:672
+git checkout -- src/pages/SchedulePage.tsx
+
+# undated-drop-limit → K15 — drop the undated jobs .limit() bound
+python3 - <<'PY'
+from pathlib import Path
+p = Path("src/pages/SchedulePage.tsx")
+t = p.read_text()
+old = ".is('scheduled_date', null)\n          .in('status', ['scheduled', 'in_progress'])\n          .limit(SCHEDULE_BOARD_LIMIT)"
+new = ".is('scheduled_date', null)\n          .in('status', ['scheduled', 'in_progress'])"
+if old not in t: raise SystemExit("undated-drop-limit find missed")
+p.write_text(t.replace(old, new, 1))
+PY
+npm run build
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
+# expected AssertionError at src/proof/p2Schedule/kill.ts:672
+git checkout -- src/pages/SchedulePage.tsx
+
+# hide-more-jobs-line → K15 — remove the more-jobs line
+python3 - <<'PY'
+from pathlib import Path
+p = Path("src/pages/SchedulePage.tsx")
+t = p.read_text()
+old = "            {(moreDated || moreUndated) ? (\n              <p className=\"ops-meta mt-2\" data-schedule-more-jobs=\"1\">\n                <Link to=\"/jobs\">{MORE_JOBS_THIS_WEEK}</Link>\n              </p>\n            ) : null}"
+new = ""
+if old not in t: raise SystemExit("hide-more-jobs-line find missed")
+p.write_text(t.replace(old, new, 1))
+PY
+npm run build
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K15:'
+# expected AssertionError at src/proof/p2Schedule/kill.ts:672
+git checkout -- src/pages/SchedulePage.tsx
+
+# rename-new-job-choice → K25 — rename the New job choice visible text
+python3 - <<'PY'
+from pathlib import Path
+p = Path("src/components/crm/ScheduleBookByVoice.tsx")
+t = p.read_text()
+old = "{hints?.job ? 'New job from this' : 'New job'}"
+new = "{hints?.job ? 'New job from this' : 'Create job'}"
+if old not in t: raise SystemExit("rename-new-job-choice find missed")
+p.write_text(t.replace(old, new, 1))
+PY
+npm run build
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
+# expected AssertionError at src/proof/p2Schedule/kill.ts:905
+git checkout -- src/components/crm/ScheduleBookByVoice.tsx
+
+# text-nowrap-320 → P2-text — Schedule title text paints past the 320 viewport
+python3 - <<'PY'
+from pathlib import Path
+p = Path("src/index.css")
+t = p.read_text()
+old = "  .hub-week-agenda-meta-part {"
+new = "  .hub-board-cal .ops-page-title { white-space: nowrap; font-size: 96px; overflow: visible; max-width: none; }\n  .hub-week-agenda-meta-part {"
+if old not in t: raise SystemExit("text-nowrap-320 find missed")
+p.write_text(t.replace(old, new, 1))
+PY
+npm run build
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-text:'
+# expected AssertionError at src/proof/p2Schedule/kill.ts:198
+git checkout -- src/index.css
+
+# webkit-wide-agenda → P2-webkit — phone agenda row wider than the 375 viewport
+python3 - <<'PY'
+from pathlib import Path
+p = Path("src/index.css")
+t = p.read_text()
+old = "  .hub-week-agenda-meta-part {"
+new = "  .hub-week-agenda-row { min-width: 520px; }\n  .hub-week-agenda-meta-part {"
+if old not in t: raise SystemExit("webkit-wide-agenda find missed")
+p.write_text(t.replace(old, new, 1))
+PY
+npm run build
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-webkit:'
+# expected AssertionError at src/proof/p2Schedule/kill.ts:204
+git checkout -- src/index.css
 
 # swap-tray-board → K17 — label the board section as tray
 python3 - <<'PY'
@@ -935,7 +1120,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K17:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:676
+# expected AssertionError at src/proof/p2Schedule/kill.ts:740
 git checkout -- src/pages/SchedulePage.tsx
 
 # hardcode-count → K18 — hardcode a fallback board count
@@ -950,7 +1135,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K18:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:684
+# expected AssertionError at src/proof/p2Schedule/kill.ts:748
 git checkout -- src/lib/scheduleBoard.ts
 
 # unknown-excluded → K22 — unknown status no longer counts as need-crew
@@ -965,7 +1150,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K22:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:729
+# expected AssertionError at src/proof/p2Schedule/kill.ts:793
 git checkout -- src/lib/scheduleNeedCrew.ts
 
 # crew-untrimmed → K4 — whitespace crew ids count as crew
@@ -980,7 +1165,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K4:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:463
+# expected AssertionError at src/proof/p2Schedule/kill.ts:493
 git checkout -- src/lib/scheduleNeedCrew.ts
 
 # cancelled-counted → K4 — cancelled dated crewless counts as need-crew
@@ -995,7 +1180,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K4:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:463
+# expected AssertionError at src/proof/p2Schedule/kill.ts:493
 git checkout -- src/lib/scheduleNeedCrew.ts
 
 # nodate-pill-gone → K11 — rename the No date pill
@@ -1010,7 +1195,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K11:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:585
+# expected AssertionError at src/proof/p2Schedule/kill.ts:615
 git checkout -- src/lib/scheduleInvoiceStatus.ts
 
 # unknown-as-scheduled → K26 — unknown and non-string status paint as Scheduled
@@ -1025,7 +1210,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K26:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:944
+# expected AssertionError at src/proof/p2Schedule/kill.ts:1010
 git checkout -- src/lib/scheduleInvoiceStatus.ts
 
 # date-stringify → K26 — non-string scheduled_date becomes a dated string
@@ -1040,7 +1225,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K26:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:944
+# expected AssertionError at src/proof/p2Schedule/kill.ts:1010
 git checkout -- src/lib/scheduleNeedCrew.ts
 
 # clock-book-unknown → K26 — unknown status still shows a Booked clock
@@ -1055,7 +1240,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K26:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:944
+# expected AssertionError at src/proof/p2Schedule/kill.ts:1010
 git checkout -- src/lib/scheduleBoard.ts
 
 # status-fallback-scheduled → K26 — empty status sentence-cases to Scheduled
@@ -1070,7 +1255,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K26:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:944
+# expected AssertionError at src/proof/p2Schedule/kill.ts:1010
 git checkout -- src/lib/scheduleInvoiceStatus.ts
 
 # set-date-on-card → K11 — put Set a date back on the undated card
@@ -1085,7 +1270,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K11:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:585
+# expected AssertionError at src/proof/p2Schedule/kill.ts:615
 git checkout -- src/components/crm/BoardViews.tsx
 
 # clock-narrow-col → K20 — narrow the clock with ellipsis
@@ -1100,7 +1285,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K20:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:701
+# expected AssertionError at src/proof/p2Schedule/kill.ts:765
 git checkout -- src/index.css
 
 # page-height-lock → K21 — lock the week page to 100dvh and clip
@@ -1115,7 +1300,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K21:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:712
+# expected AssertionError at src/proof/p2Schedule/kill.ts:776
 git checkout -- src/index.css
 
 # agenda-min-zero → K21 — 390 agenda collapses to 0
@@ -1130,7 +1315,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K21:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:712
+# expected AssertionError at src/proof/p2Schedule/kill.ts:776
 git checkout -- src/components/crm/BoardViews.tsx
 
 # quoted-as-scheduled → K23 — unknown status paints as Scheduled
@@ -1145,7 +1330,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K23:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:739
+# expected AssertionError at src/proof/p2Schedule/kill.ts:803
 git checkout -- src/lib/scheduleInvoiceStatus.ts
 
 # drop-needcrew-guard → K24 — drop the shared crewIds asTeamIds guard so .filter throws
@@ -1160,7 +1345,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K24:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:748
+# expected AssertionError at src/proof/p2Schedule/kill.ts:812
 git checkout -- src/lib/scheduleNeedCrew.ts
 
 # head-short-hidden → K25 — hide the one-line laptop day heads
@@ -1175,7 +1360,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:841
+# expected AssertionError at src/proof/p2Schedule/kill.ts:905
 git checkout -- src/index.css
 
 # tray-kicker-tiny → K25 — shrink the tray heading back to an 11px kicker
@@ -1190,7 +1375,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:841
+# expected AssertionError at src/proof/p2Schedule/kill.ts:905
 git checkout -- src/index.css
 
 # untimed-span-track → K25 — untimed day card spans the whole track
@@ -1205,7 +1390,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:841
+# expected AssertionError at src/proof/p2Schedule/kill.ts:905
 git checkout -- src/components/crm/BoardViews.tsx
 
 # today-off-range → K25 — Today leaves the 390 range row
@@ -1220,7 +1405,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:841
+# expected AssertionError at src/proof/p2Schedule/kill.ts:905
 git checkout -- src/index.css
 
 # title-one-line → K25 — titles collapse to one line
@@ -1235,7 +1420,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:841
+# expected AssertionError at src/proof/p2Schedule/kill.ts:905
 git checkout -- src/index.css
 
 # crew-name-wrap → K25 — crew names wrap onto two lines
@@ -1250,7 +1435,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:841
+# expected AssertionError at src/proof/p2Schedule/kill.ts:905
 git checkout -- src/index.css
 
 # seg-no-stroke → K25 — pill seg loses its painted stroke and radius
@@ -1265,7 +1450,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:841
+# expected AssertionError at src/proof/p2Schedule/kill.ts:905
 git checkout -- src/index.css
 
 # nav-no-stroke → K25 — nav boxes lose their painted stroke
@@ -1280,7 +1465,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:841
+# expected AssertionError at src/proof/p2Schedule/kill.ts:905
 git checkout -- src/index.css
 
 # today-no-stroke → K25 — Today loses its painted border/ring at :7340
@@ -1295,7 +1480,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:841
+# expected AssertionError at src/proof/p2Schedule/kill.ts:905
 git checkout -- src/index.css
 
 # search-fixed-width → K25 — fix the laptop search at 200px
@@ -1310,7 +1495,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:841
+# expected AssertionError at src/proof/p2Schedule/kill.ts:905
 git checkout -- src/index.css
 
 # today-beside-arrows → K25 — Today sits beside the arrows
@@ -1325,7 +1510,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:841
+# expected AssertionError at src/proof/p2Schedule/kill.ts:905
 git checkout -- src/pages/SchedulePage.tsx
 
 # quickbook-keeps-gap → K25 — closed Quick book keeps a row under the toolbar
@@ -1340,7 +1525,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:841
+# expected AssertionError at src/proof/p2Schedule/kill.ts:905
 git checkout -- src/index.css
 
 # newjob-opens-form → K25 — header New job opens the form instead of Quick book
@@ -1355,7 +1540,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:841
+# expected AssertionError at src/proof/p2Schedule/kill.ts:905
 git checkout -- src/pages/SchedulePage.tsx
 
 # page-pad-16 → K25 — laptop page pad drops from 32/0 to 16
@@ -1370,7 +1555,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'K25:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:841
+# expected AssertionError at src/proof/p2Schedule/kill.ts:905
 git checkout -- src/index.css
 
 # day-clock-clip → P2-overflow — clip day-board clock labels inside the card
@@ -1385,7 +1570,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-overflow:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:126
+# expected AssertionError at src/proof/p2Schedule/kill.ts:134
 git checkout -- src/index.css
 
 # own-clock-clip-dayboard → P2-overflow — day-board clock max-width 2ch
@@ -1400,7 +1585,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-overflow:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:126
+# expected AssertionError at src/proof/p2Schedule/kill.ts:134
 git checkout -- src/index.css
 
 # clock-nowrap-spill → P2-overflow — nowrap clock with no ellipsis or overflow handling
@@ -1415,7 +1600,7 @@ p.write_text(t.replace(old, new, 1))
 PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-overflow:'
-# expected AssertionError at src/proof/p2Schedule/kill.ts:126
+# expected AssertionError at src/proof/p2Schedule/kill.ts:134
 git checkout -- src/index.css
 
 ```

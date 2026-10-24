@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { pickJobColor } from './jobColors';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import {
+  MORE_JOBS_THIS_WEEK,
+  SCHEDULE_BOARD_CAP,
+  SCHEDULE_BOARD_COLUMNS,
+  SCHEDULE_BOARD_LIMIT,
   SCHEDULE_WEEK_STARTS_ON,
   WEEK_UNASSIGNED_CREW_ID,
+  jobsColumnsFromMigrations,
+  scheduleBoardColumnList,
+  takeBoardPage,
   compareScheduleJobs,
   filterJobsByCrew,
   groupJobsByScheduleDay,
@@ -69,6 +78,52 @@ function job(over: {
     ...over,
   };
 }
+
+describe('board page bounds', () => {
+  it('keeps the first 200 rows and flags the 201st', () => {
+    const atCap = takeBoardPage(Array.from({ length: SCHEDULE_BOARD_CAP }, (_, i) => i));
+    expect(atCap.rows).toHaveLength(200);
+    expect(atCap.more).toBe(false);
+    const over = takeBoardPage(Array.from({ length: SCHEDULE_BOARD_LIMIT }, (_, i) => i));
+    expect(over.rows).toHaveLength(200);
+    expect(over.more).toBe(true);
+    expect(SCHEDULE_BOARD_LIMIT).toBe(201);
+    expect(MORE_JOBS_THIS_WEEK).toBe('More jobs this week than shown — open Jobs');
+  });
+
+  it('every SCHEDULE_BOARD_COLUMNS entry exists on jobs in the migration chain', () => {
+    const dir = resolve(process.cwd(), 'supabase/migrations');
+    expect(existsSync(dir)).toBe(true);
+    const sql = readdirSync(dir)
+      .filter(name => name.endsWith('.sql'))
+      .sort()
+      .map(name => readFileSync(join(dir, name), 'utf8'))
+      .join('\n');
+    const live = jobsColumnsFromMigrations(sql);
+    expect(live).toContain('id');
+    expect(live).toContain('company_id');
+    expect(live).toContain('cost_code');
+    expect(live).toContain('parent_job_id');
+    expect(live).not.toContain('not_a_column');
+    for (const col of scheduleBoardColumnList()) {
+      expect(live, `jobs.${col} missing from supabase/migrations`).toContain(col);
+    }
+    expect(SCHEDULE_BOARD_COLUMNS.includes('*')).toBe(false);
+  });
+
+  it('jobsColumnsFromMigrations reads CREATE TABLE jobs and ALTER TABLE ADD COLUMN', () => {
+    const cols = jobsColumnsFromMigrations(`
+      CREATE TABLE IF NOT EXISTS jobs (
+        id uuid PRIMARY KEY,
+        title text NOT NULL,
+        status text NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'in_progress'))
+      );
+      ALTER TABLE jobs ADD COLUMN color text;
+      ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS cost_code text;
+    `);
+    expect(cols).toEqual(expect.arrayContaining(['id', 'title', 'status', 'color', 'cost_code']));
+  });
+});
 
 describe('scheduleJobHref', () => {
   it('opens the existing job page, not a new schedule destination', () => {

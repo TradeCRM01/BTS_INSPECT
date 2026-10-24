@@ -63,7 +63,7 @@ export type P2Probe = {
 };
 
 declare global {
-  interface Window { __P2_BOOT__: { path: string; empty?: boolean; jobsError?: boolean; needCrewPair?: boolean; malformedCrew?: boolean; statusRules?: boolean }; __p2: P2Probe }
+  interface Window { __P2_BOOT__: { path: string; empty?: boolean; jobsError?: boolean; needCrewPair?: boolean; malformedCrew?: boolean; statusRules?: boolean; boardCap?: number; undatedCap?: number }; __p2: P2Probe }
 }
 
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -891,7 +891,46 @@ function chrome(): ChromeProbe {
     eyebrowTop: eyebrow?.getBoundingClientRect().top ?? -1,
     eyebrowLh: typeOf(eyebrow).lh,
     newJobY: newJobR?.y ?? -1,
+    segW: seg?.getBoundingClientRect().width ?? 0,
+    rangeW: document.querySelector('.hub-week-range-row')?.getBoundingClientRect().width ?? 0,
+    moreJobs: (document.querySelector('[data-schedule-more-jobs]')?.textContent ?? '').replace(/\s+/g, ' ').trim(),
+    moreJobsHref: document.querySelector('[data-schedule-more-jobs] a')?.getAttribute('href') ?? '',
+    textPast: textPastViewport(),
   };
+}
+
+function clipTextRight(el: Element | null, right: number): number {
+  let node = el;
+  while (node && node !== document.documentElement) {
+    const ox = getComputedStyle(node).overflowX;
+    if (ox === 'hidden' || ox === 'auto' || ox === 'scroll' || ox === 'clip') {
+      right = Math.min(right, node.getBoundingClientRect().right);
+    }
+    node = node.parentElement;
+  }
+  return right;
+}
+
+function textPastViewport(): { text: string; right: number }[] {
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const hits: { text: string; right: number }[] = [];
+  const range = document.createRange();
+  let node = walker.nextNode();
+  while (node) {
+    const raw = node.textContent ?? '';
+    const parent = node.parentElement;
+    if (raw.trim() && parent && visible(parent)) {
+      range.selectNodeContents(node);
+      for (const rect of range.getClientRects()) {
+        const right = clipTextRight(parent, rect.right);
+        if (right > window.innerWidth) {
+          hits.push({ text: raw.replace(/\s+/g, ' ').trim().slice(0, 80), right });
+        }
+      }
+    }
+    node = walker.nextNode();
+  }
+  return hits;
 }
 
 function pageScroller(): Element | null {

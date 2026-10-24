@@ -111,7 +111,9 @@ class Query implements PromiseLike<Result> {
           ? MALFORMED_CREW_JOBS
           : boot()?.statusRules && this.table === 'jobs'
             ? STATUS_RULE_JOBS
-            : TABLES[this.table];
+            : this.table === 'jobs'
+              ? (capSource(this.filters) ?? TABLES[this.table])
+              : TABLES[this.table];
     if (!source) {
       ledger.unmocked.push(`from(${this.table})`);
       return { data: this.one ? null : [], error: null, count: 0 };
@@ -131,6 +133,35 @@ class Query implements PromiseLike<Result> {
     const data = this.one ? rows[0] ?? null : rows;
     return { data: structuredClone(data), error: null, count: rows.length };
   }
+}
+
+function synthesizeJobs(count: number, kind: 'dated' | 'undated'): Row[] {
+  const seed = TABLES.jobs[0] ?? { company_id: PROFILE.company_id };
+  return Array.from({ length: count }, (_, i) => ({
+    ...seed,
+    id: `${kind}-${String(i).padStart(4, '0')}`,
+    job_number: 9000 + i,
+    title: `${kind} ${i}`,
+    client_id: null,
+    scheduled_date: kind === 'dated' ? '2026-10-20' : null,
+    start_time: kind === 'dated' ? '08:00:00' : null,
+    end_time: kind === 'dated' ? '09:00:00' : null,
+    status: 'scheduled',
+    assigned_team: [],
+    company_id: PROFILE.company_id,
+  }));
+}
+
+function capSource(filters: Filter[]): Row[] | null {
+  const bootState = boot();
+  if (!bootState) return null;
+  if (bootState.boardCap != null && filters.some(f => f.label.startsWith('scheduled_date>='))) {
+    return synthesizeJobs(bootState.boardCap, 'dated');
+  }
+  if (bootState.undatedCap != null && filters.some(f => f.label === 'scheduled_date is null')) {
+    return synthesizeJobs(bootState.undatedCap, 'undated');
+  }
+  return null;
 }
 
 function strict<T extends object>(name: string, target: T): T {

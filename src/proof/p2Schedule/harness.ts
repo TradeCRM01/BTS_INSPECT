@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build as esbuild } from 'esbuild';
-import { chromium, type Browser, type Page } from 'playwright';
+import { chromium, webkit, type Browser, type Page } from 'playwright';
 import {
   BASE_SHA, BEFORE_DIR, CONTRAST, FOCUS, FROZEN_NOW, HOVERS, KILLS, SHEET, STATES, TAP_MIN, TIMEZONE, TRACK_PROBE, QUICK_BOOK_PHRASE,
   isTouch, viewportHeight,
@@ -155,14 +155,20 @@ export async function bundleReport(build: Build = 'branch'): Promise<{ supabaseI
 }
 
 const temps: string[] = [];
-let browserPromise: Promise<Browser> | null = null;
-const browser = () => {
-  browserPromise ??= chromium.launch({
-    headless: true,
-    executablePath: ['/usr/local/bin/google-chrome', '/usr/bin/google-chrome'].find(p => existsSync(p)),
-    args: ['--no-sandbox', '--disable-dev-shm-usage', '--force-color-profile=srgb', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1'],
-  });
-  return browserPromise;
+export type Engine = 'chromium' | 'webkit';
+export type OpenOpts = { engine?: Engine; boardCap?: number; undatedCap?: number };
+const browsers: Partial<Record<Engine, Promise<Browser>>> = {};
+const browser = (engine: Engine = 'chromium') => {
+  if (!browsers[engine]) {
+    browsers[engine] = engine === 'webkit'
+      ? webkit.launch({ headless: true })
+      : chromium.launch({
+        headless: true,
+        executablePath: ['/usr/local/bin/google-chrome', '/usr/bin/google-chrome'].find(p => existsSync(p)),
+        args: ['--no-sandbox', '--disable-dev-shm-usage', '--force-color-profile=srgb', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1'],
+      });
+  }
+  return browsers[engine]!;
 };
 
 const ready = (page: Page) => page.evaluate(() => window.__p2.ready());
@@ -312,10 +318,10 @@ type Measured = Measure & { png: Png };
 
 type Opened = { page: Page; spec: StateSpec; notes: Notes; blocked: string[]; websockets: string[]; pageErrors: string[]; close: () => Promise<void> };
 
-export async function openState(id: StateId, build: Build = 'branch', height = viewportHeight(STATES[id].w)): Promise<Opened> {
+export async function openState(id: StateId, build: Build = 'branch', height = viewportHeight(STATES[id].w), opts: OpenOpts = {}): Promise<Opened> {
   const spec: StateSpec = STATES[id];
   const { url } = await artifacts(build);
-  const context = await (await browser()).newContext({
+  const context = await (await browser(opts.engine ?? 'chromium')).newContext({
     viewport: { width: spec.w, height },
     deviceScaleFactor: 1,
     hasTouch: isTouch(spec.w),
@@ -339,7 +345,7 @@ export async function openState(id: StateId, build: Build = 'branch', height = v
     const page = await context.newPage();
     page.on('websocket', ws => websockets.push(ws.url()));
     page.on('pageerror', err => pageErrors.push(err.message));
-    await page.addInitScript((boot: { path: string; empty?: boolean; jobsError?: boolean; needCrewPair?: boolean; malformedCrew?: boolean; statusRules?: boolean }) => {
+    await page.addInitScript((boot: { path: string; empty?: boolean; jobsError?: boolean; needCrewPair?: boolean; malformedCrew?: boolean; statusRules?: boolean; boardCap?: number; undatedCap?: number }) => {
       window.__P2_BOOT__ = boot;
       class FakeSpeechRecognition {
         lang = '';
@@ -361,6 +367,8 @@ export async function openState(id: StateId, build: Build = 'branch', height = v
       needCrewPair: spec.recipe === 'needcrew',
       malformedCrew: spec.recipe === 'malformed',
       statusRules: spec.recipe === 'statusrules',
+      boardCap: opts.boardCap,
+      undatedCap: opts.undatedCap,
     });
     await page.goto(url);
     await page.waitForFunction(() => !!window.__p2);
@@ -517,8 +525,8 @@ async function safeArea(page: Page): Promise<{ plain: number; inset: number }> {
   return { plain, inset };
 }
 
-async function measureOne(id: StateId, build: Build): Promise<Measured> {
-  const { page, spec, notes, blocked, websockets, pageErrors, close } = await openState(id, build);
+async function measureOne(id: StateId, build: Build, opts: OpenOpts = {}): Promise<Measured> {
+  const { page, spec, notes, blocked, websockets, pageErrors, close } = await openState(id, build, viewportHeight(STATES[id].w), opts);
   const what = `${build} ${id}`;
   const has = (kill: KillId) => build === 'branch' && KILLS[kill].states.includes(id);
   try {
@@ -602,17 +610,17 @@ async function slot<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-export function measure(id: StateId, build: Build = 'branch'): Promise<Measure> {
-  const key = `${build}:${id}`;
+export function measure(id: StateId, build: Build = 'branch', opts: OpenOpts = {}): Promise<Measure> {
+  const key = `${build}:${id}:${opts.engine ?? 'chromium'}:${opts.boardCap ?? ''}:${opts.undatedCap ?? ''}`;
   let p = memo.get(key);
   if (!p) {
-    p = slot(() => measureOne(id, build));
+    p = slot(() => measureOne(id, build, opts));
     memo.set(key, p);
   }
   return p;
 }
 
-export const measureAll = (ids: readonly StateId[], build: Build = 'branch') => Promise.all(ids.map(id => measure(id, build)));
+export const measureAll = (ids: readonly StateId[], build: Build = 'branch', opts: OpenOpts = {}) => Promise.all(ids.map(id => measure(id, build, opts)));
 
 let mockupPins: Promise<LookPins> | null = null;
 
@@ -852,8 +860,11 @@ async function measureMockup1280Once(): Promise<LookPins> {
 }
 
 export async function closeHarness(): Promise<void> {
-  if (browserPromise) await (await browserPromise).close();
-  browserPromise = null;
+  await Promise.all((Object.keys(browsers) as Engine[]).map(async engine => {
+    const opened = browsers[engine];
+    delete browsers[engine];
+    if (opened) await (await opened).close();
+  }));
   for (const dir of temps.splice(0)) rmSync(dir, { recursive: true, force: true });
 }
 

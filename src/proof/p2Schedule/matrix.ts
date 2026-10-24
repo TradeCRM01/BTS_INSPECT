@@ -40,6 +40,7 @@ const board = (view: View, w: Width, extra: Frames = {}): StateSpec => ({
 });
 
 export const STATES = {
+  'week-320': { path: '/schedule', w: 320, recipe: 'none', frames: {} },
   'week-375': board('week', 375),
   'week-390': board('week', 390, { dark: 'forced-dark-week-390.png', empty: 'schedule-week-390-empty-day.png' }),
   'week-768': board('week', 768),
@@ -100,7 +101,7 @@ const PHONE_DAY: readonly StateId[] = ['day-375', 'day-390', 'day-768'];
 
 export type KillId =
   | 'P2-palette' | 'P2-contrast' | 'P2-taps' | 'P2-lines' | 'P2-m2' | 'P2-dark'
-  | 'P2-overflow' | 'P2-day-track' | 'P2-nav-phone' | 'P2-nav-desktop' | 'P2-mocks'
+  | 'P2-overflow' | 'P2-text' | 'P2-webkit' | 'P2-day-track' | 'P2-nav-phone' | 'P2-nav-desktop' | 'P2-mocks'
   | 'P2-tracker' | 'P2-chip' | 'P2-focus' | 'P2-now' | 'P2-day-board' | 'P2-scroller' | 'P2-sheet' | 'P2-tray' | 'P2-status'
   | 'K1' | 'K2' | 'K3' | 'K4' | 'K5' | 'K6' | 'K7' | 'K8' | 'K9' | 'K10'
   | 'K11' | 'K12' | 'K13' | 'K14' | 'K15' | 'K16' | 'K17' | 'K18' | 'K19'
@@ -116,6 +117,8 @@ export const KILLS: Readonly<Record<KillId, { readonly title: string; readonly s
   'P2-overflow': { title: 'no overflow outside the sole allowlisted scroller', states: [
     ...SCHEDULE, 'tray-375', 'tray-768', 'rail-1024', 'edit-375', 'edit-768', 'edit-1024', 'edit-1280', 'shell-800', 'shell-900', 'shell-1000',
   ] },
+  'P2-text': { title: 'no text rect past innerWidth at 320, 375, and 390', states: ['week-320', 'week-375', 'week-390'] },
+  'P2-webkit': { title: '375 and 390 overflow and text checks hold in WebKit', states: ['week-375', 'week-390'] },
   'P2-day-track': { title: 'a real wheel scrolls the day track sideways and never traps vertical scroll', states: PHONE_DAY },
   'P2-nav-phone': { title: 'phone tabs reach Schedule in one tap', states: ['tabs-375', 'tabs-390'] },
   'P2-nav-desktop': { title: 'Schedule is first in Field at 768 and up', states: ['nav-768', 'nav-1280'] },
@@ -157,10 +160,12 @@ export const KILLS: Readonly<Record<KillId, { readonly title: string; readonly s
   K26: { title: 'unknown and non-string status never Scheduled or Booked on the board', states: ['status-1280'] },
 };
 
-/** Every P2/K* kill opens a Playwright Chromium page against the built dist. None run in jsdom. */
-export const KILL_RUNTIME: Readonly<Record<KillId, 'chromium'>> = Object.fromEntries(
-  (Object.keys(KILLS) as KillId[]).map(id => [id, 'chromium']),
-) as Readonly<Record<KillId, 'chromium'>>;
+/** Every P2/K* kill opens a Playwright page against the built dist. None run in jsdom. */
+export type KillEngine = 'chromium' | 'webkit';
+export const KILL_RUNTIME: Readonly<Record<KillId, KillEngine>> = {
+  ...(Object.fromEntries((Object.keys(KILLS) as KillId[]).map(id => [id, 'chromium'])) as Record<KillId, KillEngine>),
+  'P2-webkit': 'webkit',
+};
 export const killTitle = (id: KillId): string => `${id}: ${KILLS[id].title}`;
 
 export const PALETTE = {
@@ -388,6 +393,11 @@ export type ChromeProbe = {
   eyebrowTop: number;
   eyebrowLh: number;
   newJobY: number;
+  segW: number;
+  rangeW: number;
+  moreJobs: string;
+  moreJobsHref: string;
+  textPast: { text: string; right: number }[];
 };
 
 export type LookPins = {
@@ -607,6 +617,22 @@ export const MUTANTS: readonly MutantSpec[] = [
   { id: 'drop-today', kill: 'K14', file: 'src/pages/SchedulePage.tsx', find: '<button type="button" className="hub-week-quiet hub-week-today" onClick={() => applySchedule(viewMode, new Date())}>\n        Today\n      </button>', replace: '', brief: 'delete Today from the tools row' },
   { id: 'invoice-paid-at', kill: 'K15', file: 'src/pages/SchedulePage.tsx', find: ".select('id, job_id, status')", replace: ".select('id, job_id, status, paid_at')", brief: 'add invoices.paid_at to Q-S1' },
   { id: 'jobs-drop-limit', kill: 'K15', file: 'src/pages/SchedulePage.tsx', find: ".gte('scheduled_date', rangeStart)\n          .lte('scheduled_date', rangeEnd)\n          .order('start_time', { ascending: true, nullsFirst: false })\n          .limit(SCHEDULE_BOARD_LIMIT)", replace: ".gte('scheduled_date', rangeStart)\n          .lte('scheduled_date', rangeEnd)\n          .order('start_time', { ascending: true, nullsFirst: false })", brief: 'drop the dated jobs .limit() bound' },
+  { id: 'jobs-drop-company', kill: 'K15', file: 'src/pages/SchedulePage.tsx', find: ".eq('company_id', profile.company_id)\n          .gte('scheduled_date', rangeStart)", replace: ".gte('scheduled_date', rangeStart)", brief: 'drop the dated jobs company_id eq' },
+  { id: 'jobs-drop-gte', kill: 'K15', file: 'src/pages/SchedulePage.tsx', find: ".gte('scheduled_date', rangeStart)\n          .lte('scheduled_date', rangeEnd)", replace: ".lte('scheduled_date', rangeEnd)", brief: 'drop the dated jobs week-start gte' },
+  { id: 'jobs-drop-lte', kill: 'K15', file: 'src/pages/SchedulePage.tsx', find: ".gte('scheduled_date', rangeStart)\n          .lte('scheduled_date', rangeEnd)", replace: ".gte('scheduled_date', rangeStart)", brief: 'drop the dated jobs week-end lte' },
+  { id: 'jobs-select-star', kill: 'K15', file: 'src/pages/SchedulePage.tsx', find: ".select(SCHEDULE_BOARD_COLUMNS)\n          .eq('company_id', profile.company_id)\n          .gte('scheduled_date', rangeStart)", replace: ".select('*')\n          .eq('company_id', profile.company_id)\n          .gte('scheduled_date', rangeStart)", brief: 'dated jobs select *' },
+  { id: 'jobs-bogus-column', kill: 'K15', file: 'src/lib/scheduleBoard.ts', find: "'id, company_id, client_id, title, description, status, scheduled_date, start_time, end_time, address, assigned_team, job_number, parent_job_id, color, cost_code'", replace: "'id, company_id, client_id, title, description, status, scheduled_date, start_time, end_time, address, assigned_team, job_number, parent_job_id, color, cost_code, not_a_column'", brief: 'add a bogus jobs column to SCHEDULE_BOARD_COLUMNS' },
+  { id: 'undated-drop-company', kill: 'K15', file: 'src/pages/SchedulePage.tsx', find: ".eq('company_id', profile.company_id)\n          .is('scheduled_date', null)", replace: ".is('scheduled_date', null)", brief: 'drop the undated jobs company_id eq' },
+  { id: 'undated-select-star', kill: 'K15', file: 'src/pages/SchedulePage.tsx', find: ".select(SCHEDULE_BOARD_COLUMNS)\n          .eq('company_id', profile.company_id)\n          .is('scheduled_date', null)", replace: ".select('*')\n          .eq('company_id', profile.company_id)\n          .is('scheduled_date', null)", brief: 'undated jobs select *' },
+  { id: 'undated-drop-limit', kill: 'K15', file: 'src/pages/SchedulePage.tsx', find: ".is('scheduled_date', null)\n          .in('status', ['scheduled', 'in_progress'])\n          .limit(SCHEDULE_BOARD_LIMIT)", replace: ".is('scheduled_date', null)\n          .in('status', ['scheduled', 'in_progress'])", brief: 'drop the undated jobs .limit() bound' },
+  { id: 'hide-more-jobs-line', kill: 'K15', file: 'src/pages/SchedulePage.tsx', find: `            {(moreDated || moreUndated) ? (
+              <p className="ops-meta mt-2" data-schedule-more-jobs="1">
+                <Link to="/jobs">{MORE_JOBS_THIS_WEEK}</Link>
+              </p>
+            ) : null}`, replace: '', brief: 'remove the more-jobs line' },
+  { id: 'rename-new-job-choice', kill: 'K25', file: 'src/components/crm/ScheduleBookByVoice.tsx', find: "{hints?.job ? 'New job from this' : 'New job'}", replace: "{hints?.job ? 'New job from this' : 'Create job'}", brief: 'rename the New job choice visible text' },
+  inject('text-nowrap-320', 'P2-text', '  .hub-board-cal .ops-page-title { white-space: nowrap; font-size: 96px; overflow: visible; max-width: none; }\n', 'Schedule title text paints past the 320 viewport'),
+  inject('webkit-wide-agenda', 'P2-webkit', '  .hub-week-agenda-row { min-width: 520px; }\n', 'phone agenda row wider than the 375 viewport'),
   { id: 'swap-tray-board', kill: 'K17', file: 'src/pages/SchedulePage.tsx', find: '<div data-schedule-section="board">', replace: '<div data-schedule-section="tray">', brief: 'label the board section as tray' },
   { id: 'hardcode-count', kill: 'K18', file: 'src/lib/scheduleBoard.ts', find: '`${parts.onBoard} on the board`', replace: '`14 on the board`', brief: 'hardcode a fallback board count' },
   { id: 'unknown-excluded', kill: 'K22', file: 'src/lib/scheduleNeedCrew.ts', find: 'if (isFinishedCrewStatus(job.status)) return false;\n  return crewIds(job.assigned_team).length === 0;', replace: "if (isFinishedCrewStatus(job.status)) return false;\n  if ((job.status ?? '') !== 'scheduled' && job.status !== 'in_progress') return false;\n  return crewIds(job.assigned_team).length === 0;", brief: 'unknown status no longer counts as need-crew' },
