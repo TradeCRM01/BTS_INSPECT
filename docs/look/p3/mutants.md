@@ -35,7 +35,7 @@ ADD (not a re-pin): `R15 long title` `:1592` `'Hot water system replacement and 
 | fixture-title-wrap | r15 hero `max-width: 80px` at 24px | `R6-1` :1649 `fixture title lines` | AssertionError `375 fixture title lines: expected 4 to be 1` at :1649 |
 | long-title-nowrap | r15 hero `white-space: nowrap` | `R15 long title` :1667 | AssertionError `375 long title lines: expected 1 to be 2` at :1667 |
 | cta-gap | r15 hero `margin-bottom: 40px` | R9 :2274 formula / :2277 `head fixture ctaY at 390` / `R15 Jack` :3057 | AssertionError `head ctaY is titleBottom plus mock title-to-CTA gap: expected 239 to be 199` at :2274 |
-| phone-kv-label | r15 label `400` → `500` (the 500 revert; ink-kv-label stays 700) | `R15 Jack` :3042 / :3092 kv label ink ±0.3 / `R15 weight pins` :3143 painted dots 28 | AssertionError `375 kv label ink` Δ0.81 > ±0.3 or painted dots ≠ 28 |
+| phone-kv-label | r15 label `400` → `500` (the 500 revert; ink-kv-label stays 700) | `R15 Jack` :3048 / :3099 kv label ink ±0.3 / `R15 weight pins` :3150 painted dots 28 | AssertionError `375 kv label ink` Δ0.81 > ±0.3 or painted dots ≠ 28 |
 | phone-section | r15 Scope/Notes `600` → `700` | `R15 Jack phone type` :3052 | AssertionError `375 Scope of works weight: expected 700 to be 600` at :3052 |
 | phone-cta | r15 CTA `600` → `700` | `R15 Jack phone type` :3054 | AssertionError `375 CTA weight: expected 700 to be 600` at :3054 |
 | phone-tab-on | r15 active tab `500` → `700` | R9 `tabFontWeight` :2294 / `R15 Jack phone type` :3055 | AssertionError `expected 700 to be 500` at :2294; `375 active tab weight: expected 700 to be 500` at :3055 |
@@ -50,7 +50,7 @@ ADD (not a re-pin): `R15 long title` `:1592` `'Hot water system replacement and 
 | actions-text-link | revert `.job-sheet-more > summary.btn-secondary` to grey text-link (no fill, no border) and the ≤768 `width:100%` to `width:auto` | `R12 Actions paints kit secondary border and fills the gutters` :2826 | AssertionError `390 Actions summary fills gutters` |
 | note-weight | `.job-sheet-note p` `font-weight: 700` | `R9` :2346 `notePWeight` **and** note p ink; `R15 weight pins` | AssertionError note p ink even if the computed expect is blanked |
 | ink-title | r15 hero `font-weight: 600` → `400` | `R15 weight pins have painted ink widths` :3144 title dots / :3147 title ink | AssertionError `375 title painted dots` or title ink (no computed-style expect in this it) |
-| ink-kv-label | r15 label `400` → `700` | `R15 weight pins have painted ink widths` :3143 painted dots / :3148 ink ±0.3 | AssertionError `375 kv label painted dots: expected … to be 28` |
+| ink-kv-label | r15 label `400` → `700` | `R15 weight pins have painted ink widths` :3150 painted dots / :3155 ink ±0.3 | AssertionError `375 kv label painted dots: expected … to be 28` |
 | ink-kv | last kv-value `400` → `700` | `R15 weight pins have painted ink widths` | AssertionError `375 kv value ink` |
 | ink-scope | r15 Scope/Notes `600` → `400` | `R15 weight pins have painted ink widths` | AssertionError `375 scope ink` |
 | ink-cta | r15 CTA `600` → `400` | `R15 weight pins have painted ink widths` | AssertionError `375 cta ink` |
@@ -64,15 +64,15 @@ ADD (not a re-pin): `R15 long title` `:1592` `'Hot water system replacement and 
 | desktop-bill3 | leak r15 bill3 inner pad to 1024+ | `R15 1024 and 1280 type unchanged` :3231 | AssertionError `1024 bill3 cell height stays r14: expected 122 to be 69.5` |
 | photo-fill | `.job-sheet-photo` background `#eeeae3` | `R9 job-390-light named elements` :2406 painted fill ±3 | AssertionError `head photo fill … d15` vs `#EBEBEE` |
 | photo-icon | drop `.job-sheet-photo-ic { margin-bottom: auto }` | `R9 job-390-light named elements` :2374 icon Y ±1 | AssertionError `photo icon Y head … mock …` |
-| desk-title-400 | desktop hero `font-weight: 600` → `400` | `R15 1024 and 1280` :3202 title ink | AssertionError `1024 title ink 323.66: expected 15.48 to be <= 1` |
-| desk-title-24 | same as desktop-title (24px leak) | `R15 1024 and 1280` :3202 title ink | AssertionError `1024 title ink 333.97: expected 5.17 to be <= 1` |
+| desk-title-400 | desktop hero `font-weight: 600` → `400` | `R15 1024 and 1280` :3209 title ink | AssertionError `1024 title ink 323.66: expected 15.48 to be <= 1` |
+| desk-title-24 | same as desktop-title (24px leak) | `R15 1024 and 1280` :3209 title ink | AssertionError `1024 title ink 333.97: expected 5.17 to be <= 1` |
 | desk-tabs-400 | desktop tab `font-weight: 600` → `400` | `R15 1024 and 1280` :3207 tab on ink | AssertionError `1024 tab on ink 59.56: expected 3.48 to be <= 1` |
 | desk-kvlabel-400 | desktop label `500` → `400` | `R15 1024 and 1280` :3203 label ink ±0.3 | AssertionError `1024 kv label ink 23.3125: expected 0.81 to be <= 0.3` |
 | desk-scope-500 | desktop Scope/Notes `600` → `500` | `R15 1024 and 1280` :3204 scope ink | AssertionError `1024 scope ink 141.05: expected 3.17 to be <= 1` |
-| r16-text-walk | hero `white-space:nowrap; letter-spacing:80px` | `R16 text-node walk at 320 375 390` :3265 | AssertionError `chromium 320 text-node rights` not `[]` |
-| r16-webkit | tab `letter-spacing:80px` | `R16 WebKit overflow` :3357 maxRight **and** :3265 text rights | AssertionError `webkit 375 maxRight` |
-| r16-safe-area | `.shell-bottom-nav { padding-bottom: 99px }` | `R16 standalone safe-area` :3317 / :3320 | AssertionError `main nav pad-bottom … expected 99 to be less than 34` |
-| r16-chip-wrap | last `.hub-jobs-list-doc .hub-jobs-list-filters` `flex-wrap:nowrap; overflow-x:auto` and chips `flex: 0 0 auto` | `R16 Jobs filter chips wrap` :3440 `hits` **and** WebKit :3383 | AssertionError `chromium 320 overflow-x scrollers` not `[]` |
+| r16-text-walk | hero `white-space:nowrap; letter-spacing:80px` | `R16 text-node walk at 320 375 390` :3274 | AssertionError `chromium 320 text-node rights` not `[]` |
+| r16-webkit | tab `letter-spacing:80px` | `R16 WebKit overflow` :3366 maxRight **and** :3274 text rights / :3365 bodySW | AssertionError `webkit 375 maxRight` or bodySW |
+| r16-safe-area | `.shell-bottom-nav { padding-bottom: 99px }` | `R16 standalone safe-area` :3325 / :3328 | AssertionError `main nav pad-bottom … expected 99 to be less than 34` |
+| r16-chip-wrap | last `.hub-jobs-list-doc .hub-jobs-list-filters` `flex-wrap:nowrap; overflow-x:auto` and chips `flex: 0 0 auto` | `R16 Jobs filter chips wrap` :3489 `hits` **and** WebKit :3430 | AssertionError `chromium 320 overflow-x scrollers` not `[]` |
 
 m26 is a click-path kill: Playwright `page.click` on `summary`, then `[data-job-action="details"]`. No `open=true`, no JS `.click()`. Hidden Actions fails on kept `visibility` / non-zero viewport rect **and** on `document.elementFromPoint` at the summary centre.
 
@@ -920,7 +920,7 @@ print('mutated r16-text-walk')
 PY
 npm run build
 npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R16 text-node walk"
-# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3265
+# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3274
 #   chromium 320 text-node rights not []
 git checkout -- src/index.css
 ```
@@ -941,7 +941,7 @@ print('mutated r16-webkit')
 PY
 npm run build
 npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R16 WebKit overflow"
-# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3265
+# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3274
 #   webkit 375 text-node rights not []
 git checkout -- src/index.css
 ```
@@ -962,7 +962,7 @@ print('mutated r16-safe-area')
 PY
 npm run build
 npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R16 standalone safe-area"
-# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3320
+# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3328
 #   main nav pad-bottom pinned: expected 99 to be 0
 git checkout -- src/index.css
 ```
@@ -1019,9 +1019,9 @@ print('mutated r16-chip-wrap')
 PY
 npm run build
 npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R16 Jobs filter chips wrap"
-# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3440
+# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3489
 #   chromium 320 overflow-x scrollers not []
-# WebKit same mutant: AssertionError at :3383 webkit 320 overflow-x scrollers not []
+# WebKit same mutant: AssertionError at :3430 webkit 320 overflow-x scrollers not []
 git checkout -- src/index.css
 ```
 
@@ -1036,6 +1036,7 @@ sudo docker run --rm --ipc=host \
   -e PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
   mcr.microsoft.com/playwright:v1.48.2-jammy \
   bash -lc 'npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "WebKit"'
-# expected: WebKit 18.0; 3 WebKit tests; 0 skipped
+# expected: WebKit 18.0; 4 WebKit its (3 coverage + launch pin); 0 skipped
+# coverage: text-walk 320/375/390, safe-area 47/34, chip wrap. Launch pin does not count.
 ```
 
