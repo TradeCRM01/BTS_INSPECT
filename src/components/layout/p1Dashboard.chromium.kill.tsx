@@ -8,8 +8,7 @@
  * Painted values only. Reading a CSS variable never counts as a pass.
  */
 import { execSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
@@ -127,6 +126,86 @@ function ensureMainDistCss(): string {
   return readCssDir(join(wt, 'dist/assets'));
 }
 
+function injectDashboardFullLook(pageSrc: string, authSrc: string, headPageSrc: string): { page: string; auth: string } {
+  const auth = authSrc.includes("look') === 'dashboard-full'")
+    ? authSrc
+    : authSrc.replace(
+      "|| params.get('look') === 'dashboard-repro'",
+      "|| params.get('look') === 'dashboard-repro'\n      || params.get('look') === 'dashboard-full'",
+    );
+  let page = pageSrc;
+  if (!page.includes('DASHBOARD_LOOK_FULL')) {
+    page = page.replace(
+      "const DASHBOARD_LOOK_REPRO = 'dashboard-repro';",
+      "const DASHBOARD_LOOK_REPRO = 'dashboard-repro';\nconst DASHBOARD_LOOK_FULL = 'dashboard-full';",
+    );
+  }
+  if (!page.includes('lookDashboardFull')) {
+    page = page.replace(
+      'const lookDashboardRepro = lookParam === DASHBOARD_LOOK_REPRO;',
+      'const lookDashboardRepro = lookParam === DASHBOARD_LOOK_REPRO;\n  const lookDashboardFull = lookParam === DASHBOARD_LOOK_FULL;',
+    );
+    page = page.replace(
+      '|| lookDashboardRepro;',
+      '|| lookDashboardRepro\n    || lookDashboardFull;',
+    );
+    page = page.replace(
+      'if (lookDashboardRepro) return repairDashboardWidgetLayout(dashboardReproLookWidgets()).widgets;',
+      'if (lookDashboardRepro) return repairDashboardWidgetLayout(dashboardReproLookWidgets()).widgets;\n      if (lookDashboardFull) return dashboardFullLookWidgets();',
+    );
+  }
+  if (!page.includes('function dashboardFullLookWidgets')) {
+    const start = headPageSrc.indexOf('function dashboardFullLookWidgets()');
+    const end = headPageSrc.indexOf('function dashboardJackLookWidgets()', start);
+    if (start < 0 || end < 0) throw new Error('dashboardFullLookWidgets missing on head');
+    page = page.replace('function dashboardJackLookWidgets()', `${headPageSrc.slice(start, end)}function dashboardJackLookWidgets()`);
+  }
+  if (!page.includes('function dashboardFullLookWidgets') || !auth.includes('dashboard-full')) {
+    throw new Error('dashboard-full seed inject failed');
+  }
+  return { page, auth };
+}
+
+function buildMain0898FullLook(): { wt: string; dist: string } {
+  const wt = mkdtempSync(join(tmpdir(), 'hf403-main-0898-'));
+  rmSync(wt, { recursive: true, force: true });
+  execSync(`git worktree add --detach ${wt} ${MAIN_LOOK_SHA}`, { cwd: process.cwd(), stdio: 'pipe' });
+  execSync(`ln -sfn ${join(process.cwd(), 'node_modules')} ${join(wt, 'node_modules')}`);
+  const injected = injectDashboardFullLook(
+    readFileSync(join(wt, 'src/pages/DashboardPage.tsx'), 'utf8'),
+    readFileSync(join(wt, 'src/lib/devFieldAuditAuth.ts'), 'utf8'),
+    readFileSync(join(process.cwd(), 'src/pages/DashboardPage.tsx'), 'utf8'),
+  );
+  writeFileSync(join(wt, 'src/pages/DashboardPage.tsx'), injected.page);
+  writeFileSync(join(wt, 'src/lib/devFieldAuditAuth.ts'), injected.auth);
+  const dist = join(wt, 'dist-hf403');
+  execSync(`npx vite build --outDir ${dist} --emptyOutDir`, {
+    cwd: wt,
+    env: {
+      ...process.env,
+      VITE_LOOK_PROOF: '1',
+      VITE_SUPABASE_URL: 'https://example.supabase.co',
+      VITE_SUPABASE_ANON_KEY: 'test-anon-key',
+    },
+    stdio: 'pipe',
+  });
+  return { wt, dist };
+}
+
+function removeOwnMainWorktree(wt: string) {
+  if (!wt) return;
+  try {
+    execSync(`git worktree remove --force ${wt}`, { cwd: process.cwd(), stdio: 'pipe' });
+  } catch {
+    rmSync(wt, { recursive: true, force: true });
+    try {
+      execSync('git worktree prune', { cwd: process.cwd(), stdio: 'pipe' });
+    } catch {
+      /* only our mkdtemp worktree */
+    }
+  }
+}
+
 async function bundleDashboard(opts?: { lookProof?: boolean }): Promise<string> {
   const mocks = join(here, 's2Shell.chromium.mocks.ts');
   const result = await esbuild.build({
@@ -221,6 +300,9 @@ let dashJsNoProof = '';
 let runDir = '';
 let lookOrigin = '';
 let lookServer: { origin: string; close: () => Promise<void> } | null = null;
+let mainFullWt = '';
+let mainFullServer: { origin: string; close: () => Promise<void> } | null = null;
+const mainEditCache: Record<string, Array<{ id: string; width: number }>> = {};
 const temps: string[] = [];
 
 beforeAll(async () => {
@@ -238,6 +320,8 @@ beforeAll(async () => {
 }, 240000);
 
 afterAll(async () => {
+  await mainFullServer?.close();
+  if (mainFullWt) removeOwnMainWorktree(mainFullWt);
   await lookServer?.close();
   await browser?.close();
   for (const dir of temps) {
@@ -3898,6 +3982,28 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     };
   }
 
+  function hf403GateATextWalk() {
+    const clips: Array<{ text: string; textRight: number; innerWidth: number }> = [];
+    const iw = window.innerWidth;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+      const raw = node.textContent || '';
+      if (raw.trim()) {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        for (const r of [...range.getClientRects()]) {
+          if (r.width < 1 || r.height < 1) continue;
+          if (r.right > iw) {
+            clips.push({ text: raw.trim().slice(0, 48), textRight: r.right, innerWidth: iw });
+          }
+        }
+      }
+      node = walker.nextNode();
+    }
+    return clips;
+  }
+
   function hf403TextPastViewport() {
     const clips: Array<{ text: string; textRight: number; innerWidth: number }> = [];
     const iw = window.innerWidth;
@@ -4012,40 +4118,6 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     };
   }
 
-  type Hf403Fixture = {
-    sha256: string;
-    sha: string;
-    path: string;
-    edit: Record<string, Array<{ id: string; width: number }>>;
-    view: Record<string, Array<{ id: string; width: number }>>;
-    viewport: { widths: number[]; height: number };
-    produced?: string;
-  };
-
-  function hf403Fixture(): Hf403Fixture {
-    return JSON.parse(readFileSync(join(here, 'fixtures/main-0898c3b9-widget-full.json'), 'utf8')) as Hf403Fixture;
-  }
-
-  function hf403FixtureHash(fixture: Hf403Fixture): string {
-    const core = {
-      edit: fixture.edit,
-      path: fixture.path,
-      sha: fixture.sha,
-      view: fixture.view,
-      viewport: fixture.viewport,
-    };
-    const sortKeys = (value: unknown): unknown => {
-      if (Array.isArray(value)) return value.map(sortKeys);
-      if (value && typeof value === 'object') {
-        return Object.fromEntries(
-          Object.keys(value as object).sort().map((key) => [key, sortKeys((value as Record<string, unknown>)[key])]),
-        );
-      }
-      return value;
-    };
-    return createHash('sha256').update(JSON.stringify(sortKeys(core))).digest('hex');
-  }
-
   async function hf403OpenEdit(width: number): Promise<KillPage> {
     const page = await openLookDist(lookOrigin, width, '/?look=dashboard-full');
     await enterEdit(page);
@@ -4053,64 +4125,90 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     return page;
   }
 
+  async function hf403MainEditCards(width: number): Promise<Array<{ id: string; width: number }>> {
+    if (!mainFullServer) {
+      const built = buildMain0898FullLook();
+      mainFullWt = built.wt;
+      mainFullServer = await serveLookDist(built.dist);
+    }
+    const key = String(width);
+    if (!mainEditCache[key]) {
+      const page = await openLookDist(mainFullServer.origin, width, '/?look=dashboard-full');
+      await enterEdit(page);
+      await page.setViewportSize({ width, height: width <= 430 ? 4000 : 5000 });
+      mainEditCache[key] = await page.evaluate(hf403VisibleCards);
+      await page.close();
+    }
+    return mainEditCache[key];
+  }
+
+  function hf403AssertHeadHoldsMain(
+    width: number,
+    main: Array<{ id: string; width: number }>,
+    rows: Array<{ id: string; width: number }>,
+    clips: unknown[],
+  ) {
+    expect(main.length, `in-run main 0898c3b9 paints 26 edit cards at ${width}`).toBe(26);
+    expect(rows.length, `${width} Customize paints 26 cards`).toBe(26);
+    expect(rows.map((row) => row.id).sort(), `${width} ids vs in-run main`).toEqual(
+      [...main].map((row) => row.id).sort(),
+    );
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    for (const card of main) {
+      const head = byId.get(card.id);
+      expect(head, `${width} Customize missing ${card.id}`).toBeTruthy();
+      expect(
+        head!.width + 1e-6,
+        `${width} Customize ${card.id} width ${head!.width} >= main ${card.width}`,
+      ).toBeGreaterThanOrEqual(card.width);
+    }
+    expect(clips, `${width} Customize text past card edge: ${JSON.stringify((clips as unknown[]).slice(0, 3))}`).toEqual([]);
+  }
+
   it('HF-403-768: Customize card widths hold main 0898c3b9 and text stays inside the card', async () => {
-    const fixture = hf403Fixture();
-    expect(fixture.sha, 'fixture sha is main 0898c3b9').toBe(MAIN_LOOK_SHA);
-    expect(hf403FixtureHash(fixture), 'main 0898c3b9 full-widget fixture hash').toBe(
-      'dda2c517cfdcbf2b6c4fe1e430ed41c5a0525474b6abe3cf5a6a50f937d45e03',
-    );
-    expect(fixture.sha256, 'committed sha256 matches recomputed digest').toBe(
-      'dda2c517cfdcbf2b6c4fe1e430ed41c5a0525474b6abe3cf5a6a50f937d45e03',
-    );
+    const killSrc = readFileSync(join(here, 'p1Dashboard.chromium.kill.tsx'), 'utf8');
+    expect(killSrc.includes(`function hf${'403'}Fixture`), '26-widget kill uses in-run main, not a fixture helper').toBe(false);
     const pageSrc = readFileSync(join(process.cwd(), 'src/pages/DashboardPage.tsx'), 'utf8');
     expect(pageSrc, '26-widget look seed').toContain("blank('full-recent_inspections'");
     expect(pageSrc, '26-widget look seed').toContain('540, 1010, 520, 270');
     expect(pageSrc, '26-widget look seed').toContain("blank('full-agent_reminders'");
     expect([...pageSrc.matchAll(/blank\('full-/g)].length, '26 full- look widgets').toBe(26);
 
+    const main = await hf403MainEditCards(768);
     const page = await hf403OpenEdit(768);
     const rows = await page.evaluate(hf403VisibleCards);
     const clips = await page.evaluate(hf403TextClip);
     await page.close();
-    const main = fixture.edit['768'] || [];
-    expect(main.length, 'main fixture has 26 edit cards at 768').toBe(26);
-    expect(rows.length, '768 Customize paints 26 cards').toBe(26);
-    expect(rows.map((row) => row.id).sort(), '768 ids vs main').toEqual([...main].map((row) => row.id).sort());
-    const byId = new Map(rows.map((row) => [row.id, row]));
-    for (const card of main) {
-      const head = byId.get(card.id);
-      expect(head, `768 Customize missing ${card.id}`).toBeTruthy();
-      expect(
-        head!.width + 1e-6,
-        `768 Customize ${card.id} width ${head!.width} >= main ${card.width}`,
-      ).toBeGreaterThanOrEqual(card.width);
-    }
-    expect(clips, `768 Customize text past card edge: ${JSON.stringify(clips.slice(0, 3))}`).toEqual([]);
-  }, 180000);
+    hf403AssertHeadHoldsMain(768, main, rows, clips);
+    mkdirSync('/tmp/hf-403-768', { recursive: true });
+    writeFileSync('/tmp/hf-403-768/in-run-main-vs-head-768.json', `${JSON.stringify({
+      sha: MAIN_LOOK_SHA,
+      worktree: mainFullWt,
+      width: 768,
+      rows: main.map((card) => {
+        const head = rows.find((row) => row.id === card.id);
+        return { id: card.id, main: card.width, head: head?.width ?? null };
+      }),
+    }, null, 2)}\n`);
+  }, 300000);
 
   it('HF-403-768: Customize widths and text-in-card hold at 375/390/1024/1280', async () => {
-    const fixture = hf403Fixture();
+    const table: Array<{ width: number; id: string; main: number; head: number }> = [];
     for (const width of [375, 390, 1024, 1280] as const) {
+      const main = await hf403MainEditCards(width);
       const page = await hf403OpenEdit(width);
       const rows = await page.evaluate(hf403VisibleCards);
       const clips = await page.evaluate(hf403TextClip);
       await page.close();
-      const main = fixture.edit[String(width)] || [];
-      expect(main.length, `main fixture has 26 edit cards at ${width}`).toBe(26);
-      expect(rows.length, `${width} Customize paints 26 cards`).toBe(26);
-      expect(rows.map((row) => row.id).sort(), `${width} ids vs main`).toEqual([...main].map((row) => row.id).sort());
-      const byId = new Map(rows.map((row) => [row.id, row]));
+      hf403AssertHeadHoldsMain(width, main, rows, clips);
       for (const card of main) {
-        const head = byId.get(card.id);
-        expect(head, `${width} Customize missing ${card.id}`).toBeTruthy();
-        expect(
-          head!.width + 1e-6,
-          `${width} Customize ${card.id} width ${head!.width} >= main ${card.width}`,
-        ).toBeGreaterThanOrEqual(card.width);
+        const head = rows.find((row) => row.id === card.id);
+        table.push({ width, id: card.id, main: card.width, head: head?.width ?? -1 });
       }
-      expect(clips, `${width} Customize text past card edge: ${JSON.stringify(clips.slice(0, 3))}`).toEqual([]);
     }
-  }, 240000);
+    mkdirSync('/tmp/hf-403-768', { recursive: true });
+    writeFileSync('/tmp/hf-403-768/in-run-main-vs-head.json', `${JSON.stringify(table, null, 2)}\n`);
+  }, 360000);
 
   it('HF-403-768: docSW and max rect.right stay inside the viewport in view and edit', async () => {
     for (const width of [375, 390, 768, 1024, 1280] as const) {
@@ -4191,6 +4289,21 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       expect(editBox.scrollWidth, `docSW edit-phone ${width}`).toBeLessThanOrEqual(width);
       expect(editBox.maxRight, `all rect.right edit-phone ${width}`).toBeLessThanOrEqual(width);
       expect(editText, `text past viewport edit ${width}: ${JSON.stringify(editText.slice(0, 2))}`).toEqual([]);
+    }
+  }, 240000);
+
+  it('HF-403-768-a: text walk stays inside innerWidth at 320/375/390 in view and Customize', async () => {
+    for (const width of [320, 375, 390] as const) {
+      const view = await openLookDist(lookOrigin, width, '/?look=dashboard-full');
+      await view.setViewportSize({ width, height: 4000 });
+      const viewWalk = await view.evaluate(hf403GateATextWalk);
+      await view.close();
+      expect(viewWalk, `gate a text walk view ${width}: ${JSON.stringify(viewWalk.slice(0, 2))}`).toEqual([]);
+
+      const edit = await hf403OpenEdit(width);
+      const editWalk = await edit.evaluate(hf403GateATextWalk);
+      await edit.close();
+      expect(editWalk, `gate a text walk edit ${width}: ${JSON.stringify(editWalk.slice(0, 2))}`).toEqual([]);
     }
   }, 240000);
 });

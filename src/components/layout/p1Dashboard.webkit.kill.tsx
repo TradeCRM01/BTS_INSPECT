@@ -1,4 +1,9 @@
-/** @vitest-environment node */
+/** @vitest-environment node
+ *
+ * Phone-width dashboard kills (320/375/390). Stays green on aad2eef7 and on
+ * M-hf403-768-clamp because those squeeze md+ Customize, not the phone stack.
+ * Launch failure throws in beforeAll — this file has 0 skips.
+ */
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, extname, join } from 'node:path';
@@ -145,6 +150,26 @@ function webkitBox() {
   };
 }
 
+function webkitGateATextWalk() {
+  const clips: Array<{ text: string; textRight: number; innerWidth: number }> = [];
+  const iw = window.innerWidth;
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  let node = walker.nextNode();
+  while (node) {
+    const raw = node.textContent || '';
+    if (raw.trim()) {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      for (const r of [...range.getClientRects()]) {
+        if (r.width < 1 || r.height < 1) continue;
+        if (r.right > iw) clips.push({ text: raw.trim().slice(0, 48), textRight: r.right, innerWidth: iw });
+      }
+    }
+    node = walker.nextNode();
+  }
+  return clips;
+}
+
 function webkitTextPastViewport() {
   const clips: Array<{ text: string; textRight: number; innerWidth: number }> = [];
   const iw = window.innerWidth;
@@ -212,7 +237,9 @@ function webkitTextPastCard() {
 
 describe('P1 dashboard WebKit kills (375/390 overflow and text)', () => {
   it('HF-403-768-webkit: 375/390 docSW, maxRight, and text stay inside view and Customize', async () => {
-    expect(readFileSync(join(here, 'p1Dashboard.webkit.kill.tsx'), 'utf8')).toContain('webkit.launch');
+    const src = readFileSync(join(here, 'p1Dashboard.webkit.kill.tsx'), 'utf8');
+    expect(src).toContain('webkit.launch');
+    expect(src, 'webkit kill has no skips').not.toMatch(/\bit\.skip\(|describe\.skip\(|\bxit\(/);
     for (const width of [375, 390] as const) {
       const view = await openDash(width);
       await view.setViewportSize({ width, height: 4000 });
@@ -236,6 +263,23 @@ describe('P1 dashboard WebKit kills (375/390 overflow and text)', () => {
       expect(editBox.maxRight, `webkit maxRight edit ${width}`).toBeLessThanOrEqual(width);
       expect(editVp, `webkit text past viewport edit ${width}`).toEqual([]);
       expect(editCard, `webkit text past card edit ${width}`).toEqual([]);
+    }
+  }, 240000);
+
+  it('HF-403-768-a: WebKit text walk stays inside innerWidth at 320/375/390 in view and Customize', async () => {
+    for (const width of [320, 375, 390] as const) {
+      const view = await openDash(width);
+      await view.setViewportSize({ width, height: 4000 });
+      const viewWalk = await view.evaluate(webkitGateATextWalk);
+      await view.close();
+      expect(viewWalk, `webkit gate a text walk view ${width}: ${JSON.stringify(viewWalk.slice(0, 2))}`).toEqual([]);
+
+      const edit = await openDash(width);
+      await enterEdit(edit);
+      await edit.setViewportSize({ width, height: 4000 });
+      const editWalk = await edit.evaluate(webkitGateATextWalk);
+      await edit.close();
+      expect(editWalk, `webkit gate a text walk edit ${width}: ${JSON.stringify(editWalk.slice(0, 2))}`).toEqual([]);
     }
   }, 240000);
 });

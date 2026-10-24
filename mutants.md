@@ -622,7 +622,7 @@ git checkout -- src/index.css
 Removes `env()` from `.shell-header` only. The stand-in is a served-CSS rewrite of env(), so this goes red.  
 First red is measured: `first nav text sits` `toBeGreaterThanOrEqual(55)` AssertionError.
 
-## M-hf403-768 — restore the 180px Customize squeeze
+## M-hf403-768-squeeze-all — force every Customize card to 180px
 
 ```bash
 python3 - <<'PY'
@@ -654,8 +654,8 @@ TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768
 git checkout -- src/index.css
 ```
 
-Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4086` `768 Customize full-upcoming_jobs width 180 >= main 390` AssertionError.
-This CSS force-squeezes every card, including `full-upcoming_jobs` which stays 390 on aad2eef7. For the real #403 squeeze, use `M-hf403-768-clamp`.
+Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4163` `768 Customize full-upcoming_jobs width 180 >= main 390` AssertionError.
+This CSS force-squeezes every card, including `full-upcoming_jobs` which stays 390 on aad2eef7. It is not the #403 proof. The proof mutant is `M-hf403-768-clamp`.
 
 ## M-hf403-768-clamp — restore aad2eef7's edit clamp
 
@@ -694,10 +694,10 @@ TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768
 git checkout -- src/pages/DashboardPage.tsx
 ```
 
-Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4086` `768 Customize full-weather-a width 180 >= main 260` AssertionError.
+Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4163` `768 Customize full-weather-a width 180 >= main 260` AssertionError.
 Widgets that drop below main at 768 under the aad2eef7 clamp: `full-weather-a`, `full-pending_reports`, `full-recent_inspections`, `full-inspection_stats`, `full-revenue_overview`, `full-calendar`, `full-ai_agent`, `full-kpi_scorecard`, `full-agent_reminders`.
 
-## M-hf403-768-viewport — push phone text past the viewport
+## M-hf403-768-a — push dashboard text past the viewport at 320
 
 ```bash
 python3 - <<'PY'
@@ -705,11 +705,15 @@ from pathlib import Path
 p = Path('src/index.css')
 t = p.read_text()
 old = """  .dashboard-home-widget-stack .dashboard-home-widget-ink {"""
-new = """  [data-dashboard-phone-stack] .dashboard-home-widget {
+new = """  [data-dashboard-home] {
+    overflow: visible !important;
+  }
+  [data-dashboard-home] .dashboard-home-widget,
+  [data-dashboard-phone-stack] .dashboard-home-widget {
     min-width: 900px !important;
     overflow: visible !important;
   }
-  [data-dashboard-phone-stack] .dashboard-home-widget-ink {
+  [data-dashboard-home] .dashboard-home-widget-ink {
     white-space: nowrap !important;
   }
   .dashboard-home-widget-stack .dashboard-home-widget-ink {"""
@@ -718,11 +722,11 @@ if old not in t:
 p.write_text(t.replace(old, new, 1))
 PY
 VITE_LOOK_PROOF=1 npm run build
-TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768: text stays inside the viewport at 320/375/390"
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768-a:"
 git checkout -- src/index.css
 ```
 
-Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4192` `all rect.right edit-phone 320` AssertionError.
+Red: `src/components/layout/p1Dashboard.chromium.kill.tsx:4301` `gate a text walk view 320` AssertionError (`View all` textRight 900 > innerWidth 320). Same mutant reds WebKit `p1Dashboard.webkit.kill.tsx:275` `webkit gate a text walk view 320`.
 
 ## M-hf403-768-webkit — 375 overflow on WebKit
 
@@ -745,4 +749,5 @@ TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts -t "HF-403-768
 git checkout -- src/index.css
 ```
 
-Red: `src/components/layout/p1Dashboard.webkit.kill.tsx:229` `webkit maxRight view 375` AssertionError.
+Red: `src/components/layout/p1Dashboard.webkit.kill.tsx` `webkit maxRight view 375` AssertionError (run cites the line).
+This file guards phone widths only. It stays green on aad2eef7 and on `M-hf403-768-clamp`.
