@@ -70,7 +70,7 @@ Named harness `?mutant=` queries do not count.
 | unit board bounds | `src/lib/scheduleBoard.test.ts / jobsColumnsFromMigrations` |
 | fixture pin | `src/pages/schedule1280Light.fixture.test.ts:16` |
 
-## Commands (102 matrix mutants)
+## Commands (103 matrix mutants)
 
 ```bash
 # cream-page → P2-palette — restore :6569 cream
@@ -1091,6 +1091,21 @@ PY
 npm run build
 TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-text:'
 # expected AssertionError at src/proof/p2Schedule/kill.ts:198
+git checkout -- src/index.css
+
+# range-short-nowrap → P2-text — phone week range short text node paints past the 320 viewport
+python3 - <<'PY'
+from pathlib import Path
+p = Path("src/index.css")
+t = p.read_text()
+old = "  .hub-week-agenda-meta-part {"
+new = "  .hub-week-track .hub-week-range-short { display: inline !important; white-space: nowrap !important; font-size: 48px !important; overflow: visible !important; max-width: none !important; }\n  .hub-week-agenda-meta-part {"
+if old not in t: raise SystemExit("range-short-nowrap find missed")
+p.write_text(t.replace(old, new, 1))
+PY
+npm run build
+TZ=Australia/Brisbane npx vitest --config vitest.p2-schedule.config.ts src/proof/p2Schedule/kill.ts -t 'P2-text:'
+# expected AssertionError at src/proof/p2Schedule/kill.ts:202
 git checkout -- src/index.css
 
 # webkit-wide-agenda → P2-webkit — phone agenda row wider than the 375 viewport
