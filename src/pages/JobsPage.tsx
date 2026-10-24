@@ -21,10 +21,9 @@ import {
   jobsListTitle,
   jobsListUndatedNextLabel,
 } from '../lib/jobsListRow';
-import { countNeedsCrew } from '../lib/needCrew';
 import { loadJobCardExtras, type JobDocChip } from '../lib/jobCardExtras';
 import { chunkIds } from '../lib/jobIdBatch';
-import { countJobsNeedCrew, withNeedCrewWhisper } from '../lib/needCrew';
+import { countJobsNeedCrew, countNeedsCrew, withNeedCrewWhisper } from '../lib/needCrew';
 import {
   JOBS_LIST_FILTERS,
   countJobsListFilter,
