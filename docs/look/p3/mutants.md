@@ -70,6 +70,7 @@ ADD (not a re-pin): `R15 long title` `:1592` `'Hot water system replacement and 
 | r16-text-walk | hero `white-space:nowrap; letter-spacing:80px` | `R16 text-node walk at 320 375 390` :3265 | AssertionError `chromium 320 text-node rights` not `[]` |
 | r16-webkit | tab `letter-spacing:80px` | `R16 WebKit overflow` :3357 maxRight **and** :3265 text rights | AssertionError `webkit 375 maxRight` |
 | r16-safe-area | `.shell-bottom-nav { padding-bottom: 99px }` | `R16 standalone safe-area` :3317 / :3320 | AssertionError `main nav pad-bottom … expected 99 to be less than 34` |
+| r16-chip-wrap | last `.hub-jobs-list-doc .hub-jobs-list-filters` `flex-wrap:nowrap; overflow-x:auto` and chips `flex: 0 0 auto` | `R16 Jobs filter chips wrap` :3428 `hits` **and** WebKit :3383 | AssertionError `chromium 320 overflow-x scrollers` not `[]` |
 
 m26 is a click-path kill: Playwright `page.click` on `summary`, then `[data-job-action="details"]`. No `open=true`, no JS `.click()`. Hidden Actions fails on kept `visibility` / non-zero viewport rect **and** on `document.elementFromPoint` at the summary centre.
 
@@ -961,6 +962,64 @@ npm run build
 npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R16 standalone safe-area"
 # expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3320
 #   main nav pad-bottom pinned: expected 99 to be 0
+git checkout -- src/index.css
+```
+
+### r16-chip-wrap
+
+```sh
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = '''  .hub-jobs-list-doc .hub-jobs-list-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 2px;
+    width: 100%;
+    max-width: 100%;
+    margin-top: 16px;
+    padding: 3px;
+    border: none;
+    border-radius: 12px;
+    background: #eeeae3;
+    overflow: hidden;
+    overflow-x: hidden;
+    scroll-snap-type: none;
+  }
+
+  .hub-jobs-list-doc .hub-jobs-list-filter {
+    flex: 1 1 calc(25% - 2px);'''
+new = '''  .hub-jobs-list-doc .hub-jobs-list-filters {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 2px;
+    width: 100%;
+    max-width: 100%;
+    margin-top: 16px;
+    padding: 3px;
+    border: none;
+    border-radius: 12px;
+    background: #eeeae3;
+    overflow: hidden;
+    overflow-x: auto;
+    scroll-snap-type: none;
+  }
+
+  .hub-jobs-list-doc .hub-jobs-list-filter {
+    flex: 0 0 auto;'''
+if old not in t:
+    raise SystemExit('r16-chip-wrap anchor missing')
+p.write_text(t.replace(old, new, 1))
+print('mutated r16-chip-wrap')
+PY
+npm run build
+npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R16 Jobs filter chips wrap"
+# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3428
+#   chromium 320 overflow-x scrollers not []
+# WebKit same mutant: AssertionError at :3383 webkit 320 overflow-x scrollers not []
 git checkout -- src/index.css
 ```
 
