@@ -43,6 +43,7 @@ export function snapshotTree(o: { treeish: string; dir: string; edit?: (root: st
   execFileSync('bash', ['-c', [
     `git archive --format=tar ${o.treeish} -- . ':!docs' ':!grafter-proofs' | tar -x -C "${tmp}"`,
     `if git cat-file -e ${o.treeish}:docs/schema/p2-columns.json; then git archive --format=tar ${o.treeish} -- docs/schema | tar -x -C "${tmp}"; fi`,
+    `if git cat-file -e ${o.treeish}:docs/look/p2/fixtures/schedule-1280-light.html; then git archive --format=tar ${o.treeish} -- docs/look/p2/fixtures | tar -x -C "${tmp}"; fi`,
   ].join(' && ')], { cwd: REPO_ROOT, stdio: 'pipe' });
   symlinkSync(join(REPO_ROOT, 'node_modules'), join(tmp, 'node_modules'));
   o.edit?.(tmp);
@@ -103,7 +104,6 @@ async function makeArtifacts(build: Build): Promise<Artifacts> {
     logLevel: 'silent',
     define: {
       'process.env.NODE_ENV': '"production"',
-      'process.env.TZ': JSON.stringify(process.env.TZ ?? ''),
       'import.meta.env': JSON.stringify({
         MODE: 'production', DEV: false, PROD: true, SSR: false, BASE_URL: '/',
         VITE_SUPABASE_URL: 'https://example.supabase.co', VITE_SUPABASE_ANON_KEY: 'test-anon-key',
@@ -713,6 +713,8 @@ async function measureMockup1280Once(): Promise<LookPins> {
         geistCheck: document.fonts.check('16px Geist'),
         eyebrowTransform: eyebrow ? getComputedStyle(eyebrow).textTransform : '',
         eyebrowLetterSpacing: eyebrow ? getComputedStyle(eyebrow).letterSpacing : '',
+        eyebrowLh: typeOf(eyebrow).lh,
+        newJobY: newR?.y ?? -1,
         eyebrow: {
           x: eyebrow?.getBoundingClientRect().x ?? 0,
           y: eyebrow?.getBoundingClientRect().y ?? 0,
@@ -772,10 +774,41 @@ async function measureMockup1280Once(): Promise<LookPins> {
       };
       return {
         eyebrowPaint: inkOf(boxes.eyebrow),
-        segTrackPaint: pxAt((boxes.seg.x + 4) * dpr, (boxes.seg.y + 3) * dpr),
+        segTrackPaint: pxAt((boxes.seg.x + boxes.seg.w - 3) * dpr, (boxes.seg.y + boxes.seg.h / 2) * dpr),
         segActivePaint: pxAt((boxes.segOn.x + 4) * dpr, (boxes.segOn.y + 3) * dpr),
         segActiveInk: inkOf(boxes.segOn),
         todayFill: pxAt((boxes.todayBox.x + boxes.todayBox.w / 2) * dpr, (boxes.todayBox.y + boxes.todayBox.h / 2) * dpr),
+        todayPainted: (() => {
+          const b = boxes.todayBox;
+          if (!b || b.w < 8 || b.h < 8) return 0;
+          const x0 = Math.max(1, Math.round(b.x * dpr));
+          const y0 = Math.max(1, Math.round(b.y * dpr));
+          const x1 = Math.min(img.width - 2, Math.round((b.x + b.w) * dpr) - 1);
+          const y1 = Math.min(img.height - 2, Math.round((b.y + b.h) * dpr) - 1);
+          if (x1 - x0 < 6 || y1 - y0 < 6) return 0;
+          let painted = 0;
+          const xSteps = Math.max(6, Math.floor((x1 - x0) / 3));
+          const ySteps = Math.max(6, Math.floor((y1 - y0) / 3));
+          const gapPx = (ax: number, ay: number, bx: number, by: number) => {
+            const a = ((ay * img.width + ax) * 4);
+            const bix = ((by * img.width + bx) * 4);
+            const dr = img.data[a] - img.data[bix];
+            const dg = img.data[a + 1] - img.data[bix + 1];
+            const db = img.data[a + 2] - img.data[bix + 2];
+            return Math.hypot(dr, dg, db);
+          };
+          for (let i = 1; i < xSteps; i += 1) {
+            const x = x0 + Math.round(((x1 - x0) * i) / xSteps);
+            const edge = [gapPx(x, y0, x, Math.min(y1 - 2, y0 + 8)), gapPx(x, y0 + 1, x, Math.min(y1 - 2, y0 + 8)), gapPx(x, y0 + 2, x, Math.min(y1 - 2, y0 + 8))];
+            if (edge.some(g => g >= 18)) painted += 1;
+          }
+          for (let i = 1; i < ySteps; i += 1) {
+            const y = y0 + Math.round(((y1 - y0) * i) / ySteps);
+            const edge = [gapPx(x0, y, Math.min(x1 - 2, x0 + 8), y), gapPx(x0 + 1, y, Math.min(x1 - 2, x0 + 8), y), gapPx(x0 + 2, y, Math.min(x1 - 2, x0 + 8), y)];
+            if (edge.some(g => g >= 18)) painted += 1;
+          }
+          return painted;
+        })(),
       };
     }, { b64: png.toString('base64'), boxes: { eyebrow: pins.eyebrow, seg: pins.seg, segOn: pins.segOn, todayBox: pins.todayBox } });
     return {
@@ -808,6 +841,9 @@ async function measureMockup1280Once(): Promise<LookPins> {
       eyebrowTransform: pins.eyebrowTransform,
       eyebrowLetterSpacing: pins.eyebrowLetterSpacing,
       segActiveInk: paints.segActiveInk,
+      todayPainted: paints.todayPainted,
+      eyebrowLh: pins.eyebrowLh,
+      newJobY: pins.newJobY,
     };
   } finally {
     await context.close();

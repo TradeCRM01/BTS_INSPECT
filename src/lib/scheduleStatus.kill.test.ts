@@ -42,6 +42,12 @@ describe('schedule status and date never throw', () => {
     expect(scheduleChipClock(null, null, '2026-10-19', { status: 'quoted', scheduled_date: '2026-10-19' })).not.toMatch(/Booked/);
   });
 
+  it('on_hold is On hold', () => {
+    expect(sentenceStatus('on_hold')).toBe('On hold');
+    expect(schedulePill({ ...dated, status: 'on_hold' }).label).toBe('On hold');
+    expect(schedulePill({ ...dated, status: 'on_hold' }).label).not.toBe('Scheduled');
+  });
+
   it('number status uses a neutral fallback and never throws', () => {
     expect(() => schedulePill({ ...dated, status: 5 })).not.toThrow();
     expect(schedulePill({ ...dated, status: 5 }).label).toBe(STATUS_FALLBACK);

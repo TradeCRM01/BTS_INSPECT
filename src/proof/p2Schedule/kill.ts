@@ -4,7 +4,8 @@ import {
   SHEET, TAP_MIN, TODAY, TRACK_PROBE, UNTIMED, WEEK, channelGap, isAmber, isNavy, killTitle, rgbOf,
   type KillId, type Measure, type Offender, type Stroke,
 } from './matrix.ts';
-import { JOBS, JOB_IDS, MALFORMED_CREW_IDS, SAM, SCHEDULE_FIXTURE } from './fixture.ts';
+import { JOBS, JOB_IDS, MALFORMED_CREW_IDS, PROFILE, SAM, SCHEDULE_FIXTURE } from './fixture.ts';
+import { SCHEDULE_BOARD_COLUMNS, SCHEDULE_BOARD_LIMIT } from '../../lib/scheduleBoard';
 import { STATUS_FALLBACK } from '../../lib/scheduleInvoiceStatus';
 import { bundleReport, closeHarness, measure, measureAll, measureMockup1280, openState, token, writeCapture } from './harness.ts';
 import { readFileSync } from 'node:fs';
@@ -164,6 +165,14 @@ describe('P2 Schedule on the built dist', () => {
       for (const lab of m.trackLabels) {
         expect.soft(lab.fitsCard, `${m.id} track label "${lab.text}" past card ${lab.card}`).toBe(true);
         expect.soft(lab.fitsClip, `${m.id} track label "${lab.text}" clipped by ${lab.clipEl || 'viewport'}`).toBe(true);
+      }
+      const dayClocks = m.clocks.filter(clock => clock.board === 'day' && clock.cls.includes('hub-week-chip-clock'));
+      if (m.id.startsWith('day-')) {
+        expect.soft(dayClocks.length, `${m.id} day-board clocks measured`).toBeGreaterThan(0);
+        for (const c of dayClocks) {
+          expect.soft(c.ownFits, `${m.id} day-board clock "${c.text}" scrollWidth <= clientWidth`).toBe(true);
+          expect.soft(c.fitsRect, `${m.id} day-board clock "${c.text}" rect inside ${c.clipEl || 'viewport'}`).toBe(true);
+        }
       }
       for (const c of m.clocks.filter(clock => clock.cls.includes('hub-week-chip-clock'))) {
         expect.soft(c.ownFits, `${m.id} clock "${c.text}" scrollWidth fits its own box`).toBe(true);
@@ -644,6 +653,16 @@ describe('P2 Schedule on the built dist', () => {
         }
       }
     }
+    const datedJobs = m.reads.filter(r => r.table === 'jobs' && r.filters.some(f => f.startsWith('scheduled_date>=')));
+    expect.soft(datedJobs.length, 'week-1280 records a dated jobs board read').toBeGreaterThan(0);
+    for (const read of datedJobs) {
+      expect.soft(read.columns, 'jobs board columns').toBe(SCHEDULE_BOARD_COLUMNS);
+      expect.soft(read.columns, 'jobs board never selects *').not.toBe('*');
+      expect.soft(read.filters, 'jobs board company_id').toContain(`company_id=${String(PROFILE.company_id)}`);
+      expect.soft(read.filters, 'jobs board week start').toContain('scheduled_date>=2026-10-19');
+      expect.soft(read.filters, 'jobs board week end').toContain('scheduled_date<=2026-10-25');
+      expect.soft(read.limit, 'jobs board limit').toBe(SCHEDULE_BOARD_LIMIT);
+    }
   });
 
   it(killTitle('K16'), async () => {
@@ -777,6 +796,14 @@ describe('P2 Schedule on the built dist', () => {
         if (ok) break;
         await page.waitForTimeout(80);
       }
+      const rendered = await page.evaluate(() => {
+        const whisper = (document.querySelector('[data-schedule-whisper]')?.textContent ?? '').trim();
+        const h1 = (document.querySelector('h1')?.textContent ?? '').trim();
+        const cards = [...document.querySelectorAll('[data-schedule-job]')].length;
+        return { whisper, h1, cards };
+      }).catch(() => ({ whisper: '', h1: '', cards: 0 }));
+      expect(rendered.h1, 'K24 still renders Schedule (AssertionError, not only pageerror)').toBe('Schedule');
+      expect(rendered.cards, 'K24 malformed crew jobs still render as cards').toBeGreaterThan(0);
       expect(pageErrors, `malformed assigned_team pageerror: ${pageErrors.join(' | ') || 'none'}`).toEqual([]);
       expect(consoleErrors, `malformed assigned_team console error: ${consoleErrors.join(' | ') || 'none'}`).toEqual([]);
       const cards = await page.evaluate(ids => {
@@ -826,7 +853,7 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(c.searchWidth, `search width ${c.searchWidth} vs fixture ${mock.searchW}`).toBe(mock.searchW);
     expect.soft(Math.abs(c.todayRight - c.toolbarRight), `Today.right ${c.todayRight} vs toolbar.right ${c.toolbarRight}`).toBeLessThanOrEqual(1);
     expect.soft(c.crewToolbarShown, 'Crew is not a toolbar label').toBe(0);
-    expect.soft(c.todayPainted, 'Today paints a sampled-pixel stroke (not computed style)').toBeGreaterThanOrEqual(4);
+    expect.soft(c.todayPainted, `Today painted stroke ${c.todayPainted} vs fixture ${mock.todayPainted}`).toBe(mock.todayPainted);
     expect.soft(c.todayCornerCut, 'Today keeps a radius').toBe(true);
     expect.soft(Math.abs(c.toolbarBottom - c.boardTop), `toolbar.bottom ${c.toolbarBottom} vs board.top ${c.boardTop}`).toBeLessThanOrEqual(1);
     expect.soft(c.dayHeadShortShown, 'day headers one left-aligned line').toBe(7);
@@ -847,6 +874,8 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(c.eyebrowLetterSpacing, 'eyebrow letter-spacing vs fixture').toBe(mock.eyebrowLetterSpacing);
     expect.soft(c.newJobW, 'New job width vs fixture').toBe(mock.newJobW);
     expect.soft(c.newJobH, 'New job height vs fixture').toBe(mock.newJobH);
+    expect.soft(c.eyebrowLh, 'eyebrow line-height vs fixture').toBe(mock.eyebrowLh);
+    expect.soft(c.newJobY, 'New job y vs fixture').toBe(mock.newJobY);
     expect.soft(c.segTrackPaint, 'Week/Day track painted vs fixture').toBe(mock.segTrackPaint);
     expect.soft(c.segActivePaint, 'Week/Day active fill painted vs fixture').toBe(mock.segActivePaint);
     expect.soft(c.segActiveInk, 'Week/Day active ink painted vs fixture').toBe(mock.segActiveInk);
@@ -906,6 +935,7 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(await existingChoice.evaluate(el => el.tagName), 'schedule existing is a labelled choice').toBe('BUTTON');
     expect.soft((await existingChoice.textContent())?.trim(), 'schedule existing label').toBe('Schedule existing');
     expect.soft(await newChoice.evaluate(el => el.tagName), 'New job is a labelled choice').toBe('BUTTON');
+    expect.soft(await newChoice.evaluate(el => (el.getAttribute('aria-label') || el.textContent || '').replace(/\s+/g, ' ').trim()), 'New job choice accessible name').toBe('New job');
     expect.soft(await existingChoice.isVisible(), 'schedule existing option visible').toBe(true);
     expect.soft(await newChoice.isVisible(), 'New job option visible').toBe(true);
     await opened.close();

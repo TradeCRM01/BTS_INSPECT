@@ -285,7 +285,18 @@ export type TrayState = { label: string; expanded: boolean; listShown: boolean; 
 export type TrayProbe = { before: TrayState; after: TrayState };
 export type Offender = { el: string; right: number; scroller: { classes: string[]; right: number } | null };
 export type ClipProbe = { el: string; right: number; clip: string; clipRight: number };
-export type ClockProbe = { text: string; cls: string; textRight: number; clipRight: number; clipEl: string; fits: boolean; ownFits: boolean };
+export type ClockProbe = {
+  text: string;
+  cls: string;
+  textRight: number;
+  clipRight: number;
+  clipEl: string;
+  fits: boolean;
+  ownFits: boolean;
+  board: 'week' | 'day' | 'agenda';
+  lines: number;
+  fitsRect: boolean;
+};
 export type OverflowSkip = { el: string; right: number; reason: 'sole-allowlisted-scroller' | 'ellipsis-self' | 'clip-inside-allowlisted-scroller' };
 export type TrackLabel = { el: string; text: string; card: string; fitsCard: boolean; fitsClip: boolean; clipEl: string };
 export type DayTrackInfo = { overflowX: string; sw: number; cw: number; left: number; right: number; top: number; bottom: number };
@@ -375,6 +386,8 @@ export type ChromeProbe = {
   cardLeft: number;
   barBottom: number;
   eyebrowTop: number;
+  eyebrowLh: number;
+  newJobY: number;
 };
 
 export type LookPins = {
@@ -407,6 +420,9 @@ export type LookPins = {
   eyebrowTransform: string;
   eyebrowLetterSpacing: string;
   segActiveInk: string;
+  todayPainted: number;
+  eyebrowLh: number;
+  newJobY: number;
 };
 
 export type ReachBox = { top: number; bottom: number; height: number; visible: number };
@@ -454,7 +470,7 @@ export type DomMeasure = {
   layout: LayoutProbe;
 };
 export type LedgerWrite = { table: string; op: string; filters: string[] };
-export type LedgerRead = { table: string; columns: string; filters: string[] };
+export type LedgerRead = { table: string; columns: string; filters: string[]; limit: number | null };
 export type LayoutLane = { id: string; name: string; count: string };
 export type LayoutCard = {
   id: string;
@@ -543,7 +559,7 @@ export const MUTANTS: readonly MutantSpec[] = [
   { id: 'meta-normal', kill: 'P2-lines', file: BOARD_VIEWS, find: "{[suburb, scheduleCrewLabel(job.assigned_team, teamMembers)].filter(Boolean).join(' · ')}", replace: "{[suburb, scheduleCrewLabel(job.assigned_team, teamMembers)].filter(Boolean).join(' ')}", brief: 'agenda meta drops the dots' },
   { id: 'flex-2col', kill: 'P2-m2', file: 'src/index.css', rule: '.hub-week-agenda-row {', find: 'display: grid;', replace: 'display: flex;', brief: 'restore the flex 2-column row' },
   { id: 'unguarded-dark', kill: 'P2-dark', file: 'src/index.css', find: CSS_ANCHOR, replace: `${DARK_RULE}${CSS_ANCHOR}`, brief: 'an unguarded prefers-color-scheme rule' },
-  { id: 'agenda-min-width', kill: 'P2-overflow', file: 'src/index.css', rule: '.hub-week-agenda-row {', find: 'width: 100%;', replace: 'width: 100%;\n    min-width: 420px;', brief: 'min-width on .hub-week-agenda-row' },
+  { id: 'agenda-min-width', kill: 'P2-overflow', file: 'src/index.css', rule: '.hub-week-agenda-row {', find: 'width: 100%;\n    max-width: 100%;\n    min-width: 0;', replace: 'width: 100%;\n    max-width: 100%;\n    min-width: 420px;', brief: 'min-width on .hub-week-agenda-row (later min-width:0)' },
   { id: 'fake-scroller', kill: 'P2-overflow', file: 'src/index.css', find: CSS_ANCHOR, replace: `${FAKE_SCROLLER}${CSS_ANCHOR}`, brief: 'non-allowlisted element past innerWidth inside a fake overflow-x:auto wrapper' },
   { id: 'track-no-scroll', kill: 'P2-day-track', file: 'src/index.css', rule: '.hub-day-track {', find: 'overflow-x: auto;', replace: 'overflow-x: hidden;', brief: 'the day track stops scrolling sideways' },
   { id: 'track-trap', kill: 'P2-day-track', file: 'src/index.css', rule: '.hub-day-track {', find: 'overflow-y: hidden;', replace: 'overflow-y: auto;\n    max-height: 160px;\n    overscroll-behavior: contain;', brief: 'the day track traps vertical scroll' },
@@ -590,6 +606,7 @@ export const MUTANTS: readonly MutantSpec[] = [
   inject('quickbook-desk-only', 'K13', '  [data-schedule-quickbook-toggle] { display: none !important; }\n', 'hide the header Quick book control'),
   { id: 'drop-today', kill: 'K14', file: 'src/pages/SchedulePage.tsx', find: '<button type="button" className="hub-week-quiet hub-week-today" onClick={() => applySchedule(viewMode, new Date())}>\n        Today\n      </button>', replace: '', brief: 'delete Today from the tools row' },
   { id: 'invoice-paid-at', kill: 'K15', file: 'src/pages/SchedulePage.tsx', find: ".select('id, job_id, status')", replace: ".select('id, job_id, status, paid_at')", brief: 'add invoices.paid_at to Q-S1' },
+  { id: 'jobs-drop-limit', kill: 'K15', file: 'src/pages/SchedulePage.tsx', find: ".gte('scheduled_date', rangeStart)\n          .lte('scheduled_date', rangeEnd)\n          .order('start_time', { ascending: true, nullsFirst: false })\n          .limit(SCHEDULE_BOARD_LIMIT)", replace: ".gte('scheduled_date', rangeStart)\n          .lte('scheduled_date', rangeEnd)\n          .order('start_time', { ascending: true, nullsFirst: false })", brief: 'drop the dated jobs .limit() bound' },
   { id: 'swap-tray-board', kill: 'K17', file: 'src/pages/SchedulePage.tsx', find: '<div data-schedule-section="board">', replace: '<div data-schedule-section="tray">', brief: 'label the board section as tray' },
   { id: 'hardcode-count', kill: 'K18', file: 'src/lib/scheduleBoard.ts', find: '`${parts.onBoard} on the board`', replace: '`14 on the board`', brief: 'hardcode a fallback board count' },
   { id: 'unknown-excluded', kill: 'K22', file: 'src/lib/scheduleNeedCrew.ts', find: 'if (isFinishedCrewStatus(job.status)) return false;\n  return crewIds(job.assigned_team).length === 0;', replace: "if (isFinishedCrewStatus(job.status)) return false;\n  if ((job.status ?? '') !== 'scheduled' && job.status !== 'in_progress') return false;\n  return crewIds(job.assigned_team).length === 0;", brief: 'unknown status no longer counts as need-crew' },
@@ -615,7 +632,7 @@ export const MUTANTS: readonly MutantSpec[] = [
   { id: 'seg-no-stroke', kill: 'K25', file: 'src/index.css', find: '  .hub-week-seg {\n    display: inline-flex;\n    align-items: stretch;\n    flex: 0 0 auto;\n    gap: 2px;\n    border: 1px solid var(--g-line-strong);\n    border-radius: 14px;', replace: '  .hub-week-seg {\n    display: inline-flex;\n    align-items: stretch;\n    flex: 0 0 auto;\n    gap: 2px;\n    border: none;\n    border-radius: 0;', brief: 'pill seg loses its painted stroke and radius' },
   { id: 'nav-no-stroke', kill: 'K25', file: 'src/index.css', find: '  .hub-week-nav-box {\n    border: 1px solid var(--g-line-strong);\n    border-radius: 10px;', replace: '  .hub-week-nav-box {\n    border: none;\n    border-radius: 0;', brief: 'nav boxes lose their painted stroke' },
   { id: 'today-no-stroke', kill: 'K25', file: 'src/index.css', find: '  .hub-week-today {\n    flex: 0 0 auto;\n    width: auto;\n    min-width: 44px;\n    height: 44px;\n    min-height: 44px;\n    border: 1px solid var(--g-line-strong);\n    border-radius: 10px;', replace: '  .hub-week-today {\n    flex: 0 0 auto;\n    width: auto;\n    min-width: 44px;\n    height: 44px;\n    min-height: 44px;\n    border: none;\n    border-radius: 10px;', brief: 'Today loses its painted border/ring at :7340' },
-  { id: 'search-fixed-width', kill: 'K25', file: 'src/index.css', find: '    .hub-board-cal.is-week-doc .hub-week-search {\n      flex: 1 1 755.265625px;\n      min-width: 0;\n      max-width: 755.265625px;\n      width: 755.265625px;\n      height: 48px;\n      min-height: 48px;\n    }', replace: '    .hub-board-cal.is-week-doc .hub-week-search {\n      flex: 0 0 200px;\n      min-width: 0;\n      max-width: 200px;\n      width: 200px;\n      height: 48px;\n      min-height: 48px;\n    }', brief: 'fix the laptop search at 200px' },
+  { id: 'search-fixed-width', kill: 'K25', file: 'src/index.css', find: '    .hub-board-cal.is-week-doc .hub-week-search {\n      flex: 1 1 755.265625px;\n      min-width: 755.265625px;\n      max-width: 755.265625px;\n      width: 755.265625px;\n      height: 48px;\n      min-height: 48px;\n    }', replace: '    .hub-board-cal.is-week-doc .hub-week-search {\n      flex: 0 0 200px;\n      min-width: 0;\n      max-width: 200px;\n      width: 200px;\n      height: 48px;\n      min-height: 48px;\n    }', brief: 'fix the laptop search at 200px' },
   { id: 'today-beside-arrows', kill: 'K25', file: 'src/pages/SchedulePage.tsx', find: `      </div>
       <div className="hub-week-search" data-schedule-search="1">
         {weekSearch}
@@ -632,7 +649,8 @@ export const MUTANTS: readonly MutantSpec[] = [
   { id: 'quickbook-keeps-gap', kill: 'K25', file: 'src/index.css', find: '  .hub-schedule-quickbook:not([data-open="1"]) {\n    display: none;\n  }', replace: '  .hub-schedule-quickbook:not([data-open="1"]) {\n    display: block;\n    min-height: 72px;\n  }', brief: 'closed Quick book keeps a row under the toolbar' },
   { id: 'newjob-opens-form', kill: 'K25', file: 'src/pages/SchedulePage.tsx', find: 'onClick={() => setQuickBookOpen(open => !open)}', replace: 'onClick={openNewJob}', brief: 'header New job opens the form instead of Quick book' },
   css('page-pad-16', 'K25', '.hub-board-cal.is-week-doc.ops-page {', 'padding: 32px 0 20px;', 'padding: 12px 16px 16px;', 'laptop page pad drops from 32/0 to 16'),
-  css('day-clock-clip', 'P2-overflow', '.hub-week-chip-clock {', 'max-width: 100%;', 'max-width: 2ch;\n    overflow: hidden;\n    text-overflow: clip;', 'clip day-track clock labels inside the card'),
+  css('day-clock-clip', 'P2-overflow', '.hub-week-document .hub-day-board .hub-week-chip-clock {', 'max-width: 100%;\n      overflow: hidden;\n      white-space: normal;\n      overflow-wrap: anywhere;', 'max-width: 2ch;\n      overflow: hidden;\n      white-space: nowrap;\n      overflow-wrap: normal;', 'clip day-board clock labels inside the card'),
+  { id: 'own-clock-clip-dayboard', kill: 'P2-overflow', file: 'src/index.css', rule: '.hub-week-document .hub-day-board .hub-week-chip-clock {', find: 'min-width: 0;\n      max-width: 100%;\n      overflow: hidden;\n      white-space: normal;', replace: 'min-width: 0;\n      max-width: 2ch;\n      overflow: hidden;\n      white-space: nowrap;', brief: 'day-board clock max-width 2ch' },
   css('clock-nowrap-spill', 'P2-overflow', '.hub-week-chip-clock {', 'white-space: normal;\n    overflow: hidden;\n    overflow-wrap: anywhere;', 'white-space: nowrap;\n    overflow: visible;\n    overflow-wrap: normal;', 'nowrap clock with no ellipsis or overflow handling'),
 ];
 

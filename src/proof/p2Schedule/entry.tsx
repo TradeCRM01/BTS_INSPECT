@@ -523,17 +523,30 @@ function clocks(): ClockProbe[] {
   for (const el of document.querySelectorAll('.hub-week-chip-clock, .hub-week-agenda-time')) {
     if (!visible(el)) continue;
     const textR = textBox(el) ?? el.getBoundingClientRect();
-    const clip = clipBox(el, true);
+    const selfClip = clipBox(el, true);
+    const ancestorClip = clipBox(el, false);
     const ownFits = (el as HTMLElement).scrollWidth <= (el as HTMLElement).clientWidth + 0.5;
-    const ancestorFits = textR.left >= clip.left - 0.5 && textR.right <= clip.right + 0.5;
+    const ancestorFits = textR.left >= selfClip.left - 0.5 && textR.right <= selfClip.right + 0.5;
+    const fitsRect = textR.left >= ancestorClip.left - 0.5
+      && textR.right <= ancestorClip.right + 0.5
+      && textR.top >= ancestorClip.top - 0.5
+      && textR.bottom <= ancestorClip.bottom + 0.5;
+    const board = el.closest('.hub-day-board, [data-day-board]')
+      ? 'day'
+      : el.classList.contains('hub-week-agenda-time') || el.closest('.hub-week-agenda')
+        ? 'agenda'
+        : 'week';
     out.push({
       text: (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 48),
       cls: describe(el),
       textRight: Math.round(textR.right * 10) / 10,
-      clipRight: Number.isFinite(clip.right) ? Math.round(clip.right * 10) / 10 : textR.right,
-      clipEl: clip.clipEl,
+      clipRight: Number.isFinite(ancestorClip.right) ? Math.round(ancestorClip.right * 10) / 10 : textR.right,
+      clipEl: ancestorClip.clipEl,
       ownFits,
       fits: ancestorFits && ownFits,
+      board,
+      lines: lineCount(el),
+      fitsRect: fitsRect && ownFits,
     });
   }
   return out;
@@ -876,6 +889,8 @@ function chrome(): ChromeProbe {
     cardLeft: card?.getBoundingClientRect().left ?? -1,
     barBottom: bar?.getBoundingClientRect().bottom ?? -1,
     eyebrowTop: eyebrow?.getBoundingClientRect().top ?? -1,
+    eyebrowLh: typeOf(eyebrow).lh,
+    newJobY: newJobR?.y ?? -1,
   };
 }
 
@@ -1297,6 +1312,10 @@ window.__p2 = {
       return rgbAt(b.x + b.w / 2, b.y + b.h / 2);
     };
     const trackOf = (b: { x: number; y: number; w: number; h: number } | null) => {
+      if (!b || b.w < 12 || b.h < 12) return '';
+      return rgbAt(b.x + b.w - 3, b.y + b.h / 2);
+    };
+    const pillFillOf = (b: { x: number; y: number; w: number; h: number } | null) => {
       if (!b || b.w < 8 || b.h < 8) return '';
       return rgbAt(b.x + 4, b.y + 3);
     };
@@ -1317,7 +1336,7 @@ window.__p2 = {
       navCornerCut: navs.filter(s => s.cornerCut).length >= 2,
       eyebrowPaint: inkOf(eyebrowBox),
       segTrackPaint: trackOf(scale(chrome.segBox)),
-      segActivePaint: trackOf(segOnBox),
+      segActivePaint: pillFillOf(segOnBox),
       segActiveInk: inkOf(segOnBox),
       todayFill: fillOf(scale(chrome.todayBox)),
       geistCheck: document.fonts.check('16px Geist'),
