@@ -8884,8 +8884,19 @@
 
   /* Inspection review / sign-off chrome only. Complete stays pass green. */
   .insp-doc-theme .insp-review-head {
-    background: var(--insp-navy, #0A2540);
+    background-color: var(--insp-navy, #0A2540);
+    background-image: linear-gradient(
+      to bottom,
+      var(--g-surface) 0,
+      var(--g-surface)
+        env(safe-area-inset-top, 0px),
+      var(--insp-navy, #0A2540)
+        env(safe-area-inset-top, 0px)
+    );
     box-shadow: inset 0 -2px 0 var(--insp-accent, #2E75B6);
+    padding-top: env(safe-area-inset-top, 0px);
+    height: auto;
+    min-height: calc(3.5rem + env(safe-area-inset-top, 0px));
   }
 
   .insp-doc-theme .insp-review-navy {
@@ -16971,6 +16982,7 @@
     border-bottom: 1px solid var(--g-glass-line);
     backdrop-filter: saturate(180%) blur(16px);
     -webkit-backdrop-filter: saturate(180%) blur(16px);
+    padding-top: max(12px, env(safe-area-inset-top, 0px));
     @apply sticky top-0 z-40 flex-shrink-0;
   }
 
@@ -17125,14 +17137,19 @@
   @media (max-width: 767px) {
     :root,
     .shell-root {
-      --shell-bottom-nav-h: calc(64px + env(safe-area-inset-bottom));
+      --shell-bottom-nav-h: calc(64px + env(safe-area-inset-bottom, 0px));
     }
   }
 
   .ops-toast-host {
     position: fixed;
+    left: 1rem;
     right: 1rem;
     bottom: 1rem;
+    width: auto;
+    max-width: calc(100vw - 2rem);
+    min-width: 0;
+    box-sizing: border-box;
     z-index: 100;
     display: flex;
     flex-direction: column;
@@ -17149,6 +17166,10 @@
     .ops-toast-host {
       left: 1rem;
       right: 1rem;
+      width: auto;
+      max-width: calc(100vw - 2rem);
+      min-width: 0;
+      box-sizing: border-box;
       bottom: calc(var(--shell-bottom-nav-h, 0px) + 12px);
       align-items: stretch;
     }
@@ -17235,7 +17256,7 @@
     border-top: 1px solid var(--g-glass-line);
     backdrop-filter: saturate(180%) blur(16px);
     -webkit-backdrop-filter: saturate(180%) blur(16px);
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   .shell-bottom-tab {
@@ -17404,7 +17425,11 @@
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  padding: 16px 24px 8px;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--ops-cream);
+  padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 24px 8px;
   max-width: 1120px;
   margin: 0 auto;
 }
@@ -17492,21 +17517,26 @@
   text-transform: uppercase;
   color: var(--mkt-muted);
   margin-bottom: 8px;
+  white-space: normal;
 }
 
 .hub-marketing-display {
   font-family: var(--g-font-title);
   font-weight: 700;
-  font-size: clamp(1.35rem, 8vw, 6rem);
-  line-height: 0.96;
+  font-size: clamp(1.85rem, 9vw, 4.5rem);
+  line-height: 1.05;
   letter-spacing: 0.01em;
   color: var(--mkt-ink);
-  white-space: nowrap;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: break-word;
 }
 
 .hub-marketing-display-sm {
   font-size: clamp(1.75rem, 3vw, 2.25rem);
   line-height: 1.1;
+  white-space: normal;
 }
 
 .hub-marketing-subhead {
@@ -17517,6 +17547,7 @@
   letter-spacing: 0.01em;
   margin-bottom: 8px;
   color: var(--mkt-ink);
+  white-space: normal;
 }
 
 .hub-marketing-lede,
@@ -17890,7 +17921,7 @@
   gap: 12px;
   max-width: 1120px;
   margin: 0 auto;
-  padding: 16px 20px 0;
+  padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 20px 0;
 }
 
 .hub-legal-nav-actions {
@@ -18065,7 +18096,7 @@
   min-height: 100vh;
   background: var(--auth-look-page);
   color: var(--auth-look-ink);
-  padding: 16px 20px 40px;
+  padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 20px 40px;
   font-family: var(--g-font-ui);
 }
 
@@ -18231,7 +18262,7 @@
 #client-portal .portal-doc {
   max-width: 720px;
   margin: 0 auto;
-  padding: 16px 16px 32px;
+  padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 16px 32px;
   display: flex;
   flex-direction: column;
   gap: 16px;

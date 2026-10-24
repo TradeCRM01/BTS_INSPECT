@@ -13,6 +13,7 @@ export default defineConfig({
     include: [
       'src/components/layout/s2Shell.chromium.kill.tsx',
       'src/components/layout/p1Dashboard.chromium.kill.tsx',
+      'src/pages/hfLand1.chromium.kill.tsx',
     ],
     env: {
       VITE_SUPABASE_URL: 'https://example.supabase.co',

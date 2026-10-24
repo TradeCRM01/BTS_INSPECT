@@ -321,3 +321,303 @@ git checkout -- src/index.css
 
 Mutates `src/index.css:13080` to a 48px list clip (and drops `.flex-1` `min-height: min-content`, which otherwise beats `max-height`).  
 Red: `p1Dashboard.chromium.kill.tsx:3012` partial rows AssertionError, or `:3049` Plant ticket clip.
+
+## M-hf-land-1-nowrap — put nowrap back on the hero h1
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = """.hub-marketing-display {
+  font-family: var(--g-font-title);
+  font-weight: 700;
+  font-size: clamp(1.85rem, 9vw, 4.5rem);
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  color: var(--mkt-ink);
+  white-space: normal;"""
+new = old.replace('white-space: normal;', 'white-space: nowrap;')
+if old not in t:
+    raise SystemExit('hero wrap missing')
+p.write_text(t.replace(old, new, 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/hfLand1.chromium.kill.tsx -t "hero h1 text wraps"
+git checkout -- src/index.css
+```
+
+Mutates `src/index.css` `.hub-marketing-display` to `white-space: nowrap`.  
+First red is measured: `hero h1 text wraps` `toBeGreaterThan(1)` AssertionError.
+
+## M-hf-land-1-top-a — drop landing top env()
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+nav = 'padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 24px 8px;'
+if nav not in t:
+    raise SystemExit('landing top env missing')
+p.write_text(t.replace(nav, 'padding: 16px 24px 8px;', 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/hfLand1.chromium.kill.tsx -t "first nav text sits"
+git checkout -- src/index.css
+```
+
+Mutates `.hub-marketing-nav` top padding.  
+First red is measured: `first nav text sits` `toBeGreaterThanOrEqual(55)` AssertionError.
+
+## M-hf-land-1-top-b — drop shell top env()
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+head = 'padding-top: max(12px, env(safe-area-inset-top, 0px));'
+if head not in t:
+    raise SystemExit('shell top env missing')
+p.write_text(t.replace(head, 'padding-top: 12px;', 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/hfLand1.chromium.kill.tsx -t "first nav text sits"
+git checkout -- src/index.css
+```
+
+Mutates `.shell-header` top padding.  
+First red is measured: `first nav text sits` shell first vs exact 63 AssertionError.
+
+## M-hf-land-1-top-legal — drop legal top env()
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = 'padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 20px 0;'
+if old not in t:
+    raise SystemExit('legal top env missing')
+p.write_text(t.replace(old, 'padding: 16px 20px 0;', 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/hfLand1.chromium.kill.tsx -t "first nav text sits"
+git checkout -- src/index.css
+```
+
+Mutates `.hub-legal-nav` top padding.  
+First red is measured: `first nav text sits` `toBeGreaterThanOrEqual(55)` AssertionError.
+
+## M-hf-land-1-top-auth — drop auth top env()
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = 'padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 20px 40px;'
+if old not in t:
+    raise SystemExit('auth top env missing')
+p.write_text(t.replace(old, 'padding: 16px 20px 40px;', 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/hfLand1.chromium.kill.tsx -t "first nav text sits"
+git checkout -- src/index.css
+```
+
+Mutates `.hub-auth` top padding.  
+First red is measured: `first nav text sits` `toBeGreaterThanOrEqual(55)` AssertionError.
+
+## M-hf-land-1-top-portal — drop portal top env()
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = 'padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 16px 32px;'
+if old not in t:
+    raise SystemExit('portal top env missing')
+p.write_text(t.replace(old, 'padding: 16px 16px 32px;', 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/hfLand1.chromium.kill.tsx -t "first nav text sits"
+git checkout -- src/index.css
+```
+
+Mutates `#client-portal .portal-doc` top padding.  
+First red is measured: `first nav text sits` `toBeGreaterThanOrEqual(55)` AssertionError.
+
+## M-hf-land-1-flush — r2 flush max(existing, env) without +internal
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = 'padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 24px 8px;'
+new = 'padding: max(16px, env(safe-area-inset-top)) 24px 8px;'
+if old not in t:
+    raise SystemExit('LOOK landing pad missing')
+p.write_text(t.replace(old, new, 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/hfLand1.chromium.kill.tsx -t "first nav text sits"
+git checkout -- src/index.css
+```
+
+Mutates `.hub-marketing-nav` to the r2 flush formula. Content top becomes 47.  
+First red is measured: `first nav text sits` `toBeGreaterThanOrEqual(55)` AssertionError.
+
+## M-hf-land-1-inset0 — shrink existing pad so inset-0 leaves aad2eef7
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = 'padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 24px 8px;'
+new = 'padding: max(8px, calc(env(safe-area-inset-top) + 8px)) 24px 8px;'
+if old not in t:
+    raise SystemExit('LOOK landing pad missing')
+p.write_text(t.replace(old, new, 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/hfLand1.chromium.kill.tsx -t "nav content top matches aad2eef7"
+git checkout -- src/index.css
+```
+
+Mutates `.hub-marketing-nav` existing pad from 16 to 8.  
+First red is measured: `nav content top matches aad2eef7` landing first nav top `16` AssertionError (`8`).
+
+## M-hf-land-1-doubled — stack a second inset term on the landing nav
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = 'padding: max(16px, calc(env(safe-area-inset-top) + 16px)) 24px 8px;'
+new = 'padding: max(16px, calc(env(safe-area-inset-top) + env(safe-area-inset-top) + 16px)) 24px 8px;'
+if old not in t:
+    raise SystemExit('LOOK landing pad missing')
+p.write_text(t.replace(old, new, 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/hfLand1.chromium.kill.tsx -t "first nav text sits"
+git checkout -- src/index.css
+```
+
+Mutates `.hub-marketing-nav` to env+env. Content top becomes 110.  
+First red is measured: `first nav text sits` landing pad 110 vs bar 63 AssertionError.
+
+## M-hf-land-1-doubled-shell — calc(12px + env) on the shell header
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = 'padding-top: max(12px, env(safe-area-inset-top, 0px));'
+new = 'padding-top: calc(12px + env(safe-area-inset-top, 0px));'
+if old not in t:
+    raise SystemExit('shell LOOK pad missing')
+p.write_text(t.replace(old, new, 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/hfLand1.chromium.kill.tsx -t "first nav text sits"
+git checkout -- src/index.css
+```
+
+Mutates `.shell-header` to `calc(12px + env)`. Pad becomes 59.  
+First red is measured: `first nav text sits` shell pad 59 vs bar 47 AssertionError.
+
+## M-hf-land-1-toast — mobile rule right:-40px and max-width:none
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = """    .ops-toast-host {
+      left: 1rem;
+      right: 1rem;
+      width: auto;
+      max-width: calc(100vw - 2rem);
+      min-width: 0;
+      box-sizing: border-box;"""
+new = """    .ops-toast-host {
+      left: 1rem;
+      right: -40px;
+      width: auto;
+      max-width: none;
+      min-width: 0;
+      box-sizing: border-box;"""
+if old not in t:
+    raise SystemExit('toast mobile pin missing')
+p.write_text(t.replace(old, new, 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/hfLand1.chromium.kill.tsx -t "ops-toast-host stays inside"
+git checkout -- src/index.css
+```
+
+Mutates the `@media (max-width: 767px)` toast rule. Overlay keeps the media wrapper, so the mutant paints.  
+First red is measured: `ops-toast-host stays inside` landing 320 toast right 360 > 320.5. Overlay present.
+
+## M-hf-land-1-review — drop inspection review inset
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = """  .insp-doc-theme .insp-review-head {
+    background: var(--insp-navy, #0A2540);
+    box-shadow: inset 0 -2px 0 var(--insp-accent, #2E75B6);
+    padding-top: env(safe-area-inset-top, 0px);"""
+new = """  .insp-doc-theme .insp-review-head {
+    background: var(--insp-navy, #0A2540);
+    box-shadow: inset 0 -2px 0 var(--insp-accent, #2E75B6);
+    padding-top: 0;"""
+if old not in t:
+    raise SystemExit('review inset missing')
+p.write_text(t.replace(old, new, 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/hfLand1.chromium.kill.tsx -t "first nav text sits"
+git checkout -- src/index.css
+```
+
+Mutates `.insp-review-head` inset off.  
+First red is measured: `first nav text sits` review first 29.5 ≥ 47 AssertionError.
+
+## M-hf-land-1-bottom — drop the bottom env() padding
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = 'padding-bottom: env(safe-area-inset-bottom, 0px);'
+h = '--shell-bottom-nav-h: calc(64px + env(safe-area-inset-bottom, 0px));'
+if old not in t or h not in t:
+    raise SystemExit('bottom env padding missing')
+p.write_text(t.replace(old, 'padding-bottom: 0;', 1).replace(h, '--shell-bottom-nav-h: 64px;', 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/hfLand1.chromium.kill.tsx -t "bottom tab content sits above"
+git checkout -- src/index.css
+```
+
+Mutates `.shell-bottom-nav` height and padding.  
+First red is measured: `bottom tab content sits above` `contentBottom` `toBeLessThanOrEqual` AssertionError.
+
+## M-hf-land-1-env-shell — remove env() from the shell header (M4)
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path('src/index.css')
+t = p.read_text()
+old = '.shell-header {\n    color: var(--g-nav-ink);\n    background-color: var(--g-nav-bg);\n    border-bottom: 1px solid var(--g-glass-line);\n    backdrop-filter: saturate(180%) blur(16px);\n    -webkit-backdrop-filter: saturate(180%) blur(16px);\n    padding-top: max(12px, env(safe-area-inset-top, 0px));'
+new = old.replace('padding-top: max(12px, env(safe-area-inset-top, 0px));', 'padding-top: 12px;')
+if old not in t:
+    raise SystemExit('shell env() missing')
+p.write_text(t.replace(old, new, 1))
+PY
+TZ=UTC npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/hfLand1.chromium.kill.tsx -t "first nav text sits"
+git checkout -- src/index.css
+```
+
+Removes `env()` from `.shell-header` only. The stand-in is a served-CSS rewrite of env(), so this goes red.  
+First red is measured: `first nav text sits` `toBeGreaterThanOrEqual(55)` AssertionError.

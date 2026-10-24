@@ -288,12 +288,7 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <div className="shell-root flex flex-col overflow-hidden" style={{ height: '100dvh' }}>
-      <header
-        className="shell-header"
-        style={{
-          paddingTop: 'max(12px, env(safe-area-inset-top))',
-        }}
-      >
+      <header className="shell-header">
         <div className="max-w-[1400px] mx-auto px-4 h-14 flex items-center justify-between gap-3">
           <Link to="/" className="flex items-center shrink-0" onClick={handleLogoTap} aria-label={BRAND_NAME}>
             <BrandLockup size="header" />
