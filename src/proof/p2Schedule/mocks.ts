@@ -45,8 +45,18 @@ class Query implements PromiseLike<Result> {
   delete() { return this.writeOp('delete'); }
   eq(col: string, v: unknown) { return this.where(`${col}=${String(v)}`, r => r[col] === v); }
   neq(col: string, v: unknown) { return this.where(`${col}!=${String(v)}`, r => r[col] !== v); }
-  gte(col: string, v: string) { return this.where(`${col}>=${v}`, r => r[col] != null && String(r[col]) >= v); }
-  lte(col: string, v: string) { return this.where(`${col}<=${v}`, r => r[col] != null && String(r[col]) <= v); }
+  gte(col: string, v: string) {
+    return this.where(`${col}>=${v}`, r => {
+      if (r[col] == null) return false;
+      return typeof r[col] !== 'string' || r[col] >= v;
+    });
+  }
+  lte(col: string, v: string) {
+    return this.where(`${col}<=${v}`, r => {
+      if (r[col] == null) return false;
+      return typeof r[col] !== 'string' || r[col] <= v;
+    });
+  }
   is(col: string, v: null) { return this.where(`${col} is ${String(v)}`, r => r[col] === v); }
   in(col: string, vs: readonly unknown[]) { return this.where(`${col} in ${vs.length}`, r => vs.includes(r[col])); }
   ilike(col: string, p: string) { return this.where(`${col}~${p}`, r => likeToRegExp(p).test(String(r[col] ?? ''))); }
@@ -106,7 +116,7 @@ class Query implements PromiseLike<Result> {
       ledger.unmocked.push(`from(${this.table})`);
       return { data: this.one ? null : [], error: null, count: 0 };
     }
-    ledger.reads.push({ table: this.table, columns: this.columns, filters: this.filters.map(f => f.label) });
+    ledger.reads.push({ table: this.table, columns: this.columns, filters: this.filters.map(f => f.label), limit: this.max });
     let rows = source.filter(r => this.filters.every(f => f.test(r)));
     for (const s of [...this.sorts].reverse()) {
       rows = [...rows].sort((a, b) => {
@@ -140,7 +150,7 @@ export const supabase = strict('supabase', {
   from: (table: string) => strict(`from(${table})`, new Query(table)),
   rpc: async (name: string) => {
     if (name === 'get_company_members') {
-      ledger.reads.push({ table: 'get_company_members', columns: 'id, email, name, role, schedule_color', filters: [] });
+      ledger.reads.push({ table: 'get_company_members', columns: 'id, email, name, role, schedule_color', filters: [], limit: null });
       return { data: structuredClone(boot()?.empty ? [] : MEMBERS), error: null };
     }
     if (name === 'is_platform_operator') return { data: false, error: null };

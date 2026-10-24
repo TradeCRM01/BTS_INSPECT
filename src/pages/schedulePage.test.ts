@@ -21,6 +21,27 @@ describe('schedule page week/day board', () => {
     expect(page).toContain('asStatusText');
   });
 
+  it('bounds the board jobs select to the visible week, company, columns, and a limit', () => {
+    const page = src('src/pages/SchedulePage.tsx');
+    const board = src('src/lib/scheduleBoard.ts');
+    const start = page.indexOf("queryKey: ['jobs'");
+    const end = page.indexOf('const clientIds');
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const query = page.slice(start, end);
+    expect(query).toContain('SCHEDULE_BOARD_COLUMNS');
+    expect(query).toContain('SCHEDULE_BOARD_LIMIT');
+    expect(query).toContain(".eq('company_id', profile.company_id)");
+    expect(query).toContain(".gte('scheduled_date', rangeStart)");
+    expect(query).toContain(".lte('scheduled_date', rangeEnd)");
+    expect(query).toContain('.limit(SCHEDULE_BOARD_LIMIT)');
+    expect(query).not.toContain(".select('*')");
+    expect(query).not.toMatch(/\.from\('jobs'\)\s*\n\s*\.select\('\*'\)\s*,/);
+    expect(board).toContain("export const SCHEDULE_BOARD_COLUMNS");
+    expect(board).toContain('export const SCHEDULE_BOARD_LIMIT = 200');
+    expect(board).toContain("'id, company_id, client_id, title, description, status, scheduled_date, start_time, end_time, address, assigned_team, job_number, parent_job_id, color, cost_code'");
+  });
+
   it('opens the existing job page from the board, tray, and search', () => {
     const page = src('src/pages/SchedulePage.tsx');
     const board = src('src/components/crm/BoardViews.tsx');
