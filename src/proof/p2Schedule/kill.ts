@@ -212,9 +212,9 @@ describe('P2 Schedule on the built dist', () => {
       try {
         version = opened.page.context().browser()?.version() ?? version;
         const m = await opened.page.evaluate(() => window.__p2.measureDom());
+        expect.soft(m.bodySW, `webkit ${id} body.scrollWidth`).toBeLessThanOrEqual(m.iw);
         if (id !== 'week-320') {
           expect.soft(m.docSW, `webkit ${id} documentElement.scrollWidth`).toBeLessThanOrEqual(m.iw);
-          expect.soft(m.bodySW, `webkit ${id} body.scrollWidth`).toBeLessThanOrEqual(m.iw);
           const outside = m.offenders.filter(o => !exempt(o, m.iw));
           expect.soft(outside, `webkit ${id} elements past innerWidth outside ${SOLE_SCROLLER}`).toEqual([]);
           expect.soft((m.chrome.textPast ?? []).filter(hit => hit.right > m.iw), `webkit ${id} text rect past innerWidth`).toEqual([]);
@@ -744,6 +744,7 @@ describe('P2 Schedule on the built dist', () => {
   it(killTitle('K16'), async () => {
     for (const m of await states('K16')) {
       expect.soft(m.docSW, `${m.id} no overflow`).toBeLessThanOrEqual(m.iw);
+      expect.soft(m.bodySW, `${m.id} body.scrollWidth`).toBeLessThanOrEqual(m.iw);
       expect.soft(m.darkChangedPx, `${m.id} dark 0px`).toBe(0);
       for (const p of m.palette) expect.soft(p.navyPx + p.creamPx, `${m.id} ${p.shot} navy+cream`).toBe(0);
     }
@@ -983,6 +984,7 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(phone.chrome.headerTop, '390 header not clipped at the top').toBeGreaterThanOrEqual(0);
     expect.soft(Math.abs(phone.chrome.todayTop - phone.chrome.rangeTop), 'Today on the range row').toBeLessThanOrEqual(24);
     expect.soft(phone.docSW, '390 documentElement.scrollWidth').toBeLessThanOrEqual(phone.iw);
+    expect.soft(phone.bodySW, '390 body.scrollWidth').toBeLessThanOrEqual(phone.iw);
     const phoneOutside = phone.offenders.filter(o => !exempt(o, phone.iw));
     expect.soft(phoneOutside, '390 elements past innerWidth outside the sole scroller').toEqual([]);
     expect.soft(phoneOutside.reduce((max, o) => Math.max(max, o.right), 0), '390 max unexempted rect.right').toBeLessThanOrEqual(phone.iw + TOLERANCE_PX);

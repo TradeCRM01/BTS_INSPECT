@@ -63,9 +63,9 @@ Named harness `?mutant=` queries do not count.
 | K25 Week/Day active fill/ink + Geist | `src/proof/p2Schedule/kill.ts:945` |
 | K25 header-gutter | `src/proof/p2Schedule/kill.ts:983` |
 | K25 phone-search | `src/proof/p2Schedule/kill.ts:986` |
-| K25 New job accessible name | `src/proof/p2Schedule/kill.ts:1004` |
-| K25 seg / range pins | `src/proof/p2Schedule/kill.ts:917` |
-| K26 | `src/proof/p2Schedule/kill.ts:1010` |
+| K25 New job accessible name | `src/proof/p2Schedule/kill.ts:1018` |
+| K25 seg / range pins | `src/proof/p2Schedule/kill.ts:930` |
+| K26 | `src/proof/p2Schedule/kill.ts:1024` |
 | unit status | `src/lib/scheduleStatus.kill.test.ts` |
 | unit board bounds | `src/lib/scheduleBoard.test.ts / jobsColumnsFromMigrations` |
 | fixture pin | `src/pages/schedule1280Light.fixture.test.ts:16` |
