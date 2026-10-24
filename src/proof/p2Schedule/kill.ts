@@ -5,11 +5,17 @@ import {
   type KillId, type Measure, type Offender, type Stroke,
 } from './matrix.ts';
 import { JOBS, JOB_IDS, MALFORMED_CREW_IDS, PROFILE, SAM, SCHEDULE_FIXTURE } from './fixture.ts';
-import { SCHEDULE_BOARD_COLUMNS, SCHEDULE_BOARD_LIMIT } from '../../lib/scheduleBoard';
+import {
+  MORE_JOBS_THIS_WEEK,
+  SCHEDULE_BOARD_COLUMNS,
+  SCHEDULE_BOARD_LIMIT,
+  jobsColumnsFromMigrations,
+  scheduleBoardColumnList,
+} from '../../lib/scheduleBoard';
 import { STATUS_FALLBACK } from '../../lib/scheduleInvoiceStatus';
 import { bundleReport, closeHarness, measure, measureAll, measureMockup1280, openState, token, writeCapture } from './harness.ts';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 
 // The only scroller whose children may extend past innerWidth (Coach ruling on finding 7).
 // The brief kill title is "a real wheel scrolls the day track sideways": .hub-day-track is the
@@ -123,6 +129,8 @@ describe('P2 Schedule on the built dist', () => {
     }
   });
 
+  const textPastInner = (m: Measure) => (m.chrome.textPast ?? []).filter(hit => hit.right > m.iw);
+
   it(killTitle('P2-overflow'), async () => {
     for (const m of await states('P2-overflow')) {
       expect.soft(m.docSW, `${m.id} documentElement.scrollWidth`).toBeLessThanOrEqual(m.iw);
@@ -183,6 +191,28 @@ describe('P2 Schedule on the built dist', () => {
         if (m.id.startsWith('week-') || m.id.startsWith('day-')) {
           expect.soft(longest.length, `${m.id} longest status-plus-date string measured`).toBeGreaterThan(0);
         }
+      }
+    }
+  });
+
+  it(killTitle('P2-text'), async () => {
+    for (const m of await states('P2-text')) {
+      expect.soft(textPastInner(m), `${m.id} text rect past innerWidth`).toEqual([]);
+    }
+  });
+
+  it(killTitle('P2-webkit'), async () => {
+    for (const id of KILLS['P2-webkit'].states) {
+      const opened = await openState(id, 'branch', undefined, { engine: 'webkit' });
+      try {
+        const m = await opened.page.evaluate(() => window.__p2.measureDom());
+        expect.soft(m.docSW, `webkit ${id} documentElement.scrollWidth`).toBeLessThanOrEqual(m.iw);
+        expect.soft(m.bodySW, `webkit ${id} body.scrollWidth`).toBeLessThanOrEqual(m.iw);
+        const outside = m.offenders.filter(o => !exempt(o, m.iw));
+        expect.soft(outside, `webkit ${id} elements past innerWidth outside ${SOLE_SCROLLER}`).toEqual([]);
+        expect.soft((m.chrome.textPast ?? []).filter(hit => hit.right > m.iw), `webkit ${id} text rect past innerWidth`).toEqual([]);
+      } finally {
+        await opened.close();
       }
     }
   });
@@ -663,6 +693,40 @@ describe('P2 Schedule on the built dist', () => {
       expect.soft(read.filters, 'jobs board week end').toContain('scheduled_date<=2026-10-25');
       expect.soft(read.limit, 'jobs board limit').toBe(SCHEDULE_BOARD_LIMIT);
     }
+    const undatedJobs = m.reads.filter(r => r.table === 'jobs' && r.filters.some(f => f === 'scheduled_date is null'));
+    expect.soft(undatedJobs.length, 'week-1280 records an undated jobs board read').toBeGreaterThan(0);
+    for (const read of undatedJobs) {
+      expect.soft(read.columns, 'undated jobs board columns').toBe(SCHEDULE_BOARD_COLUMNS);
+      expect.soft(read.columns, 'undated jobs never selects *').not.toBe('*');
+      expect.soft(read.filters, 'undated jobs company_id').toContain(`company_id=${String(PROFILE.company_id)}`);
+      expect.soft(read.limit, 'undated jobs limit').toBe(SCHEDULE_BOARD_LIMIT);
+    }
+    const migDir = resolve(process.cwd(), 'supabase/migrations');
+    const live = jobsColumnsFromMigrations(
+      readdirSync(migDir).filter(name => name.endsWith('.sql')).sort()
+        .map(name => readFileSync(join(migDir, name), 'utf8')).join('\n'),
+    );
+    for (const col of scheduleBoardColumnList()) {
+      expect.soft(live.includes(col), `jobs.${col} exists in supabase/migrations`).toBe(true);
+    }
+    const moreChrome = async (opts: { boardCap?: number; undatedCap?: number }) => {
+      const opened = await openState('week-1280', 'branch', undefined, opts);
+      try {
+        return await opened.page.evaluate(() => window.__p2.measureDom().chrome);
+      } finally {
+        await opened.close();
+      }
+    };
+    const atCap = await moreChrome({ boardCap: 200 });
+    expect.soft(atCap.moreJobs, '200 dated rows hide the more-jobs line').toBe('');
+    const over = await moreChrome({ boardCap: 201 });
+    expect.soft(over.moreJobs, '201 dated rows show the more-jobs line').toBe(MORE_JOBS_THIS_WEEK);
+    expect.soft(over.moreJobsHref, 'more-jobs line links to Jobs').toBe('/jobs');
+    const undatedAtCap = await moreChrome({ undatedCap: 200 });
+    expect.soft(undatedAtCap.moreJobs, '200 undated rows hide the more-jobs line').toBe('');
+    const undatedOver = await moreChrome({ undatedCap: 201 });
+    expect.soft(undatedOver.moreJobs, '201 undated rows show the more-jobs line').toBe(MORE_JOBS_THIS_WEEK);
+    expect.soft(undatedOver.moreJobsHref, 'undated more-jobs line links to Jobs').toBe('/jobs');
   });
 
   it(killTitle('K16'), async () => {
@@ -850,6 +914,8 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(c.navPainted, 'boxed ‹ › paint a border').toBeGreaterThanOrEqual(4);
     expect.soft(c.navCornerCut, 'nav boxes keep a radius').toBe(true);
     expect.soft(c.range, 'week range').toBe('19 to 25 Oct');
+    expect.soft(c.segW, 'seg track width').toBe(138);
+    expect.soft(c.rangeW, 'range row width').toBe(209);
     expect.soft(c.searchWidth, `search width ${c.searchWidth} vs fixture ${mock.searchW}`).toBe(mock.searchW);
     expect.soft(Math.abs(c.todayRight - c.toolbarRight), `Today.right ${c.todayRight} vs toolbar.right ${c.toolbarRight}`).toBeLessThanOrEqual(1);
     expect.soft(c.crewToolbarShown, 'Crew is not a toolbar label').toBe(0);

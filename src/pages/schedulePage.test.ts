@@ -6,6 +6,33 @@ function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
+function boardJobsQuery(): string {
+  const page = src('src/pages/SchedulePage.tsx');
+  const start = page.indexOf("queryKey: ['jobs'");
+  const end = page.indexOf('const clientIds');
+  expect(start).toBeGreaterThan(-1);
+  expect(end).toBeGreaterThan(start);
+  return page.slice(start, end);
+}
+
+function datedJobsFetch(query: string): string {
+  const start = query.indexOf(".gte('scheduled_date', rangeStart)");
+  const from = query.lastIndexOf('.from(\'jobs\')', start);
+  const end = query.indexOf('.limit(SCHEDULE_BOARD_LIMIT)', start);
+  expect(from).toBeGreaterThan(-1);
+  expect(end).toBeGreaterThan(from);
+  return query.slice(from, end + '.limit(SCHEDULE_BOARD_LIMIT)'.length);
+}
+
+function undatedJobsFetch(query: string): string {
+  const start = query.indexOf(".is('scheduled_date', null)");
+  const from = query.lastIndexOf('.from(\'jobs\')', start);
+  const end = query.indexOf('.limit(SCHEDULE_BOARD_LIMIT)', start);
+  expect(from).toBeGreaterThan(-1);
+  expect(end).toBeGreaterThan(from);
+  return query.slice(from, end + '.limit(SCHEDULE_BOARD_LIMIT)'.length);
+}
+
 describe('schedule page week/day board', () => {
   it('defaults to the week, keeps day as a toggle, and stays on /schedule', () => {
     const page = src('src/pages/SchedulePage.tsx');
@@ -21,25 +48,61 @@ describe('schedule page week/day board', () => {
     expect(page).toContain('asStatusText');
   });
 
-  it('bounds the board jobs select to the visible week, company, columns, and a limit', () => {
-    const page = src('src/pages/SchedulePage.tsx');
+  it('eq-filters the dated board jobs select to the signed-in company', () => {
+    const query = boardJobsQuery();
+    expect(datedJobsFetch(query)).toContain(".eq('company_id', profile.company_id)");
+  });
+
+  it('gte-filters scheduled_date to the visible week start', () => {
+    const query = boardJobsQuery();
+    expect(datedJobsFetch(query)).toContain(".gte('scheduled_date', rangeStart)");
+    expect(src('src/pages/SchedulePage.tsx')).toContain("format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'yyyy-MM-dd')");
+  });
+
+  it('lte-filters scheduled_date to the visible week end', () => {
+    const query = boardJobsQuery();
+    expect(datedJobsFetch(query)).toContain(".lte('scheduled_date', rangeEnd)");
+    expect(src('src/pages/SchedulePage.tsx')).toContain("format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'yyyy-MM-dd')");
+  });
+
+  it('selects the exact dated board column list, never *', () => {
+    const query = boardJobsQuery();
     const board = src('src/lib/scheduleBoard.ts');
-    const start = page.indexOf("queryKey: ['jobs'");
-    const end = page.indexOf('const clientIds');
-    expect(start).toBeGreaterThan(-1);
-    expect(end).toBeGreaterThan(start);
-    const query = page.slice(start, end);
-    expect(query).toContain('SCHEDULE_BOARD_COLUMNS');
-    expect(query).toContain('SCHEDULE_BOARD_LIMIT');
-    expect(query).toContain(".eq('company_id', profile.company_id)");
-    expect(query).toContain(".gte('scheduled_date', rangeStart)");
-    expect(query).toContain(".lte('scheduled_date', rangeEnd)");
-    expect(query).toContain('.limit(SCHEDULE_BOARD_LIMIT)');
-    expect(query).not.toContain(".select('*')");
-    expect(query).not.toMatch(/\.from\('jobs'\)\s*\n\s*\.select\('\*'\)\s*,/);
+    expect(datedJobsFetch(query)).toContain('.select(SCHEDULE_BOARD_COLUMNS)');
+    expect(datedJobsFetch(query)).not.toContain(".select('*')");
     expect(board).toContain("export const SCHEDULE_BOARD_COLUMNS");
-    expect(board).toContain('export const SCHEDULE_BOARD_LIMIT = 200');
     expect(board).toContain("'id, company_id, client_id, title, description, status, scheduled_date, start_time, end_time, address, assigned_team, job_number, parent_job_id, color, cost_code'");
+  });
+
+  it('limits the dated board fetch to cap+1', () => {
+    const query = boardJobsQuery();
+    const board = src('src/lib/scheduleBoard.ts');
+    expect(datedJobsFetch(query)).toContain('.limit(SCHEDULE_BOARD_LIMIT)');
+    expect(board).toContain('export const SCHEDULE_BOARD_CAP = 200');
+    expect(board).toContain('export const SCHEDULE_BOARD_LIMIT = SCHEDULE_BOARD_CAP + 1');
+  });
+
+  it('eq-filters the undated scheduled/in_progress fetch to company_id', () => {
+    expect(undatedJobsFetch(boardJobsQuery())).toContain(".eq('company_id', profile.company_id)");
+  });
+
+  it('selects the exact column list on the undated fetch, never *', () => {
+    const undated = undatedJobsFetch(boardJobsQuery());
+    expect(undated).toContain('.select(SCHEDULE_BOARD_COLUMNS)');
+    expect(undated).not.toContain(".select('*')");
+  });
+
+  it('limits the undated fetch to cap+1', () => {
+    expect(undatedJobsFetch(boardJobsQuery())).toContain('.limit(SCHEDULE_BOARD_LIMIT)');
+  });
+
+  it('shows the more-jobs line to Jobs when a board fetch returns past the cap', () => {
+    const page = src('src/pages/SchedulePage.tsx');
+    expect(page).toContain('data-schedule-more-jobs="1"');
+    expect(page).toContain('MORE_JOBS_THIS_WEEK');
+    expect(page).toContain('to="/jobs"');
+    expect(page).toContain('takeBoardPage');
+    expect(src('src/lib/scheduleBoard.ts')).toContain("More jobs this week than shown — open Jobs");
   });
 
   it('opens the existing job page from the board, tray, and search', () => {
