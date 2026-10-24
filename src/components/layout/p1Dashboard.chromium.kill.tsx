@@ -83,7 +83,7 @@ async function launchBrowser() {
       const mod = await import(spec) as {
         chromium: {
           launch: (opts: { headless: boolean; executablePath?: string; args?: string[] }) => Promise<{
-            newPage: (opts?: { viewport?: { width: number; height: number } }) => Promise<KillPage>;
+            newPage: (opts?: { viewport?: { width: number; height: number }; isMobile?: boolean }) => Promise<KillPage>;
             close: () => Promise<void>;
           }>;
         };
@@ -351,6 +351,7 @@ async function openPage(args: {
   const phone = args.width <= 430;
   const page = await browser.newPage({
     viewport: { width: args.width, height: phone ? 844 : 900 },
+    isMobile: false,
   });
   await page.goto(pathToFileURL(file).href);
   await page.waitForSelector('.shell-header', { timeout: 20000 });
@@ -414,6 +415,7 @@ async function openLookDist(origin: string, width: number, path = '/?look=dashbo
   const phone = width <= 430;
   const page = await browser.newPage({
     viewport: { width, height: phone ? 2000 : 1600 },
+    isMobile: false,
   });
   await page.addInitScript(`(function(){
     var Real = Date;
@@ -1550,6 +1552,7 @@ function overflowScript() {
   return {
     innerWidth: window.innerWidth,
     scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+    bodyScrollWidth: document.body.scrollWidth,
     maxRight: rights.length ? Math.max(...rights) : 0,
     clipOverflows: clipHits.length,
     clipSample: clipHits.slice(0, 3),
@@ -1752,6 +1755,7 @@ type EditPadPinRow = {
 function readEditPadPinRows(): {
   innerWidth: number;
   scrollWidth: number;
+  bodyScrollWidth: number;
   maxRight: number;
   widgets: EditPadPinRow[];
 } {
@@ -1864,6 +1868,7 @@ function readEditPadPinRows(): {
   return {
     innerWidth: window.innerWidth,
     scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+    bodyScrollWidth: document.body.scrollWidth,
     maxRight: rights.length ? Math.max(...rights) : 0,
     widgets,
   };
@@ -2328,6 +2333,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
         if (mode === 'edit') await enterEdit(page);
         const box = await page.evaluate(overflowScript);
         expect(box.scrollWidth, `scrollWidth at ${width} ${mode}`).toBeLessThanOrEqual(width);
+        expect(box.bodyScrollWidth, `body.scrollWidth at ${width} ${mode}`).toBeLessThanOrEqual(box.innerWidth);
         expect(box.maxRight, `max rect.right at ${width} ${mode}`).toBeLessThanOrEqual(width + 0.5);
         expect(box.clipOverflows, `clip-ancestor overflow at ${width} ${mode}: ${box.clipSample.join(', ')}`).toBe(0);
       }
@@ -3039,6 +3045,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       const box = await page.evaluate(readEditPadPinRows);
       expect(box.widgets.length, `edit widgets at ${width}`).toBeGreaterThan(0);
       expect(box.scrollWidth, `docSW at ${width} edit`).toBeLessThanOrEqual(box.innerWidth);
+      expect(box.bodyScrollWidth, `body.scrollWidth at ${width} edit`).toBeLessThanOrEqual(box.innerWidth);
       expect(box.maxRight, `max rect.right at ${width} edit`).toBeLessThanOrEqual(box.innerWidth + 0.5);
       for (const row of box.widgets) {
         expect(row.titleInset, `${width} ${row.id} title/icon inset`).toBeGreaterThanOrEqual(16);
@@ -3079,6 +3086,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       const viewBox = viewPad.widgets.map((row) => ({ id: row.id, bodyH: row.bodyH }));
       expect(viewBox.length, `view widgets at ${width}`).toBeGreaterThan(0);
       expect(viewPad.scrollWidth, `docSW at ${width} view`).toBeLessThanOrEqual(viewPad.innerWidth);
+      expect(viewPad.bodyScrollWidth, `body.scrollWidth at ${width} view`).toBeLessThanOrEqual(viewPad.innerWidth);
       expect(viewPad.maxRight, `max rect.right at ${width} view`).toBeLessThanOrEqual(viewPad.innerWidth + 0.5);
       await view.close();
 
@@ -3088,6 +3096,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       const editBox = await edit.evaluate(readEditPadPinRows);
       expect(editBox.widgets.length, `edit widgets at ${width}`).toBeGreaterThan(0);
       expect(editBox.scrollWidth, `docSW at ${width} edit-rows`).toBeLessThanOrEqual(editBox.innerWidth);
+      expect(editBox.bodyScrollWidth, `body.scrollWidth at ${width} edit-rows`).toBeLessThanOrEqual(editBox.innerWidth);
       expect(editBox.maxRight, `max rect.right at ${width} edit-rows`).toBeLessThanOrEqual(editBox.innerWidth + 0.5);
       const viewH = new Map(viewBox.map((row) => [row.id, row.bodyH]));
       for (const row of editBox.widgets) {
@@ -3964,6 +3973,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     return {
       innerWidth: window.innerWidth,
       scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+      bodyScrollWidth: document.body.scrollWidth,
       maxRight: rights.length ? Math.max(...rights) : 0,
     };
   }
@@ -3978,6 +3988,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     return {
       innerWidth: window.innerWidth,
       scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+      bodyScrollWidth: document.body.scrollWidth,
       maxRight: rights.length ? Math.max(...rights) : 0,
     };
   }
@@ -4125,6 +4136,20 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     return page;
   }
 
+  async function hf403CardPageHeight(page: KillPage): Promise<number> {
+    const bottom = await page.evaluate(() => {
+      let max = 0;
+      for (const host of document.querySelectorAll('[data-dashboard-widget-id]')) {
+        const s = getComputedStyle(host as HTMLElement);
+        const r = host.getBoundingClientRect();
+        if (s.display === 'none' || r.width < 1 || r.height < 1) continue;
+        max = Math.max(max, r.bottom + window.scrollY);
+      }
+      return Math.ceil(max + 24);
+    });
+    return Math.max(bottom, 900);
+  }
+
   async function hf403MainEditCards(width: number): Promise<Array<{ id: string; width: number }>> {
     if (!mainFullServer) {
       const built = buildMain0898FullLook();
@@ -4208,6 +4233,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     }
     return {
       innerWidth: iw,
+      bodyScrollWidth: document.body.scrollWidth,
       scrollX: window.scrollX,
       canvasScroll: (document.querySelector('.dashboard-home-canvas.is-editing') as HTMLElement | null)?.scrollLeft ?? 0,
       cards,
@@ -4224,20 +4250,27 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     expect([...pageSrc.matchAll(/blank\('full-/g)].length, '26 full- look widgets').toBe(26);
 
     mkdirSync('/tmp/hf-403-768', { recursive: true });
+    const artDir = '/cursor/stores/self/artifacts/hf-406-r2';
+    mkdirSync(artDir, { recursive: true });
     const table: Array<{ width: number; id: string; main: number; head: number }> = [];
     for (const width of [768, 1024, 1280] as const) {
       const main = await hf403MainEditCards(width);
       if (!mainFullServer) throw new Error('in-run 0898c3b9 server missing');
       const mainPage = await openLookDist(mainFullServer.origin, width, '/?look=dashboard-full');
       await enterEdit(mainPage);
-      await mainPage.setViewportSize({ width, height: 5000 });
+      await mainPage.setViewportSize({ width, height: await hf403CardPageHeight(mainPage) });
       const frame = await mainPage.screenshot({ type: 'png', fullPage: false, clip: { x: 0, y: 0, width, height: 900 } });
       writeFileSync(`/tmp/hf-403-768/main-0898c3b9-${width}.png`, frame);
+      const mainFull = await mainPage.screenshot({ type: 'png', fullPage: true, animations: 'disabled' });
+      writeFileSync(join(artDir, `main-0898c3b9-${width}-customize-full.png`), mainFull);
       await mainPage.close();
 
       const page = await hf403OpenEdit(width);
       const rows = await page.evaluate(hf403VisibleCards);
       const clips = await page.evaluate(hf403TextClip);
+      await page.setViewportSize({ width, height: await hf403CardPageHeight(page) });
+      const headFull = await page.screenshot({ type: 'png', fullPage: true, animations: 'disabled' });
+      writeFileSync(join(artDir, `head-${width}-customize-full.png`), headFull);
       await page.close();
       expect(main.length, `in-run main reference paints 26 edit cards at ${width}`).toBe(26);
       expect(rows.length, `${width} Customize paints 26 cards`).toBe(26);
@@ -4246,6 +4279,24 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
         const head = rows.find((row) => row.id === card.id);
         table.push({ width, id: card.id, main: card.width, head: head?.width ?? -1 });
       }
+    }
+    for (const width of [768, 1024, 1280] as const) {
+      const htmlPath = join(artDir, `sxs-${width}.html`);
+      writeFileSync(htmlPath, `<!doctype html><html><head><style>
+html,body{margin:0;background:#F5F0E6;color:#0A2540;font:14px/1.3 ui-sans-serif,system-ui,sans-serif}
+.wrap{display:flex;gap:16px;padding:16px;align-items:flex-start}
+.col{flex:1;min-width:0}
+h1{margin:0 0 8px;font-size:16px}
+img{display:block;width:100%;height:auto;border:1px solid #0A2540}
+</style></head><body><div class="wrap">
+<div class="col"><h1>0898c3b9 ${width} Customize (reference)</h1><img alt="main" src="./main-0898c3b9-${width}-customize-full.png"></div>
+<div class="col"><h1>head ${width} Customize</h1><img alt="head" src="./head-${width}-customize-full.png"></div>
+</div></body></html>`);
+      const sxs = await browser.newPage({ viewport: { width: width * 2 + 64, height: 900 }, isMobile: false });
+      await sxs.goto(pathToFileURL(htmlPath).href);
+      const shot = await sxs.screenshot({ type: 'png', fullPage: true, animations: 'disabled' });
+      writeFileSync(join(artDir, `sxs-${width}-customize.png`), shot);
+      await sxs.close();
     }
     writeFileSync('/tmp/hf-403-768/in-run-main-vs-head-reference.json', `${JSON.stringify({
       note: '0898c3b9 frames are reference only. The r2 bar is absolute, not match-main.',
@@ -4270,6 +4321,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       await page.close();
       expect(abs.scrollX, `${width} window scrollX before scroll`).toBe(0);
       expect(abs.canvasScroll, `${width} canvas scrollLeft before scroll`).toBe(0);
+      expect(abs.bodyScrollWidth, `${width} body.scrollWidth`).toBeLessThanOrEqual(abs.innerWidth);
       expect(abs.cards.length, `${width} Customize paints 26 cards`).toBe(26);
       for (const card of abs.cards) {
         expect(card.textPastCard, `${width} ${card.id} text past card`).toBe(0);
@@ -4287,24 +4339,26 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
   }, 300000);
 
   it('HF-403-768: docSW and max rect.right stay inside the viewport in view and edit', async () => {
-    for (const width of [375, 390, 768, 1024, 1280] as const) {
+    for (const width of [320, 375, 390, 768, 1024, 1280] as const) {
       const view = await openLookDist(lookOrigin, width, '/?look=dashboard-full');
       await view.setViewportSize({ width, height: width <= 430 ? 4000 : 5000 });
       const viewBox = await view.evaluate(hf403PageBox);
       await view.close();
       expect(viewBox.scrollWidth, `docSW view ${width}`).toBeLessThanOrEqual(width);
+      expect(viewBox.bodyScrollWidth, `body.scrollWidth view ${width}`).toBeLessThanOrEqual(viewBox.innerWidth);
       expect(viewBox.maxRight, `max rect.right view ${width}`).toBeLessThanOrEqual(width);
 
       const edit = await hf403OpenEdit(width);
       const editBox = await edit.evaluate(hf403PageBox);
       await edit.close();
       expect(editBox.scrollWidth, `docSW edit ${width}`).toBeLessThanOrEqual(width);
+      expect(editBox.bodyScrollWidth, `body.scrollWidth edit ${width}`).toBeLessThanOrEqual(editBox.innerWidth);
       expect(editBox.maxRight, `max rect.right edit ${width}`).toBeLessThanOrEqual(width);
     }
   }, 240000);
 
   it('HF-403-768: view and phone stay in the viewport; md+ Customize scrolls the canvas', async () => {
-    for (const width of [375, 390, 768, 1024, 1280] as const) {
+    for (const width of [320, 375, 390, 768, 1024, 1280] as const) {
       const view = await openLookDist(lookOrigin, width, '/?look=dashboard-full');
       await view.setViewportSize({ width, height: width <= 430 ? 4000 : 5000 });
       const viewAll = await view.evaluate(hf403AllBox);
@@ -4312,6 +4366,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       const viewClip = await view.evaluate(hf403TextClip);
       await view.close();
       expect(viewAll.scrollWidth, `docSW view-all ${width}`).toBeLessThanOrEqual(width);
+      expect(viewAll.bodyScrollWidth, `body.scrollWidth view-all ${width}`).toBeLessThanOrEqual(viewAll.innerWidth);
       expect(viewAll.maxRight, `all rect.right view ${width}`).toBeLessThanOrEqual(width);
       expect(viewText, `text past viewport view ${width}: ${JSON.stringify(viewText.slice(0, 2))}`).toEqual([]);
       expect(viewClip, `text past card view ${width}`).toEqual([]);
@@ -4320,10 +4375,12 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       const editPage = await edit.evaluate(hf403PageBox);
       const editClip = await edit.evaluate(hf403TextClip);
       expect(editPage.scrollWidth, `docSW edit-reach ${width}`).toBeLessThanOrEqual(width);
+      expect(editPage.bodyScrollWidth, `body.scrollWidth edit-reach ${width}`).toBeLessThanOrEqual(editPage.innerWidth);
       expect(editClip, `text past card edit ${width}`).toEqual([]);
       if (width < 768) {
         const editAll = await edit.evaluate(hf403AllBox);
         const editText = await edit.evaluate(hf403TextPastViewport);
+        expect(editAll.bodyScrollWidth, `body.scrollWidth edit ${width}`).toBeLessThanOrEqual(editAll.innerWidth);
         expect(editAll.maxRight, `all rect.right edit ${width}`).toBeLessThanOrEqual(width);
         expect(editText, `text past viewport edit ${width}: ${JSON.stringify(editText.slice(0, 2))}`).toEqual([]);
       } else {
@@ -4338,6 +4395,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
         }
         if (reach.scrollWidth <= reach.clientWidth + 1) {
           const editAll = await edit.evaluate(hf403AllBox);
+          expect(editAll.bodyScrollWidth, `body.scrollWidth edit ${width} (no canvas scroll)`).toBeLessThanOrEqual(editAll.innerWidth);
           expect(editAll.maxRight, `all rect.right edit ${width} (no canvas scroll)`).toBeLessThanOrEqual(width);
         } else {
           expect(reach.scroller, `edit canvas scrolls at ${width}`).toBe(true);
@@ -4348,6 +4406,17 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
   }, 300000);
 
   it('HF-403-768: text stays inside the viewport at 320/375/390 in view and Customize', async () => {
+    const phoneRows: Array<{
+      width: number;
+      id: string;
+      clientWidth: number;
+      right: number;
+      minContent: number;
+      textPastCard: number;
+      textPastViewport: number;
+      bodyScrollWidth: number;
+      innerWidth: number;
+    }> = [];
     for (const width of [320, 375, 390] as const) {
       const view = await openLookDist(lookOrigin, width, '/?look=dashboard-full');
       await view.setViewportSize({ width, height: 4000 });
@@ -4355,17 +4424,37 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       const viewBox = await view.evaluate(hf403AllBox);
       await view.close();
       expect(viewBox.scrollWidth, `docSW view-phone ${width}`).toBeLessThanOrEqual(width);
+      expect(viewBox.bodyScrollWidth, `body.scrollWidth view-phone ${width}`).toBeLessThanOrEqual(viewBox.innerWidth);
       expect(viewBox.maxRight, `all rect.right view-phone ${width}`).toBeLessThanOrEqual(width);
       expect(viewText, `text past viewport view ${width}: ${JSON.stringify(viewText.slice(0, 2))}`).toEqual([]);
 
       const edit = await hf403OpenEdit(width);
       const editText = await edit.evaluate(hf403TextPastViewport);
       const editBox = await edit.evaluate(hf403AllBox);
+      const abs = await edit.evaluate(hf403AbsoluteBar);
       await edit.close();
       expect(editBox.scrollWidth, `docSW edit-phone ${width}`).toBeLessThanOrEqual(width);
+      expect(editBox.bodyScrollWidth, `body.scrollWidth edit-phone ${width}`).toBeLessThanOrEqual(editBox.innerWidth);
       expect(editBox.maxRight, `all rect.right edit-phone ${width}`).toBeLessThanOrEqual(width);
       expect(editText, `text past viewport edit ${width}: ${JSON.stringify(editText.slice(0, 2))}`).toEqual([]);
+      if (width === 375 || width === 390) {
+        for (const card of abs.cards) {
+          phoneRows.push({
+            width,
+            id: card.id,
+            clientWidth: card.clientWidth,
+            right: card.right,
+            minContent: card.minContent,
+            textPastCard: card.textPastCard,
+            textPastViewport: card.textPastViewport,
+            bodyScrollWidth: abs.bodyScrollWidth,
+            innerWidth: abs.innerWidth,
+          });
+        }
+      }
     }
+    mkdirSync('/tmp/hf-406-r2', { recursive: true });
+    writeFileSync('/tmp/hf-406-r2/customize-375-390.json', `${JSON.stringify(phoneRows, null, 2)}\n`);
   }, 240000);
 
   it('HF-403-768-a: text walk stays inside innerWidth at 320/375/390 in view and Customize', async () => {
