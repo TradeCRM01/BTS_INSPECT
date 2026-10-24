@@ -31,6 +31,7 @@ import {
   xeroPushOnSendBody,
   isAccountingRedirectUri,
   paidInvoicesForXeroSync,
+  parseAccountingConnection,
   parseXeroCallbackSearch,
   parseXeroTokenResponse,
   pickXeroTenant,
@@ -478,18 +479,15 @@ describe('token + tenant persistence', () => {
     expect(connectSuccessPatch({
       tenantId: '',
       settings: {},
-      tokenCipher: { iv: 'iv', cipher: 'cipher' },
-    })).toEqual({ miss: 'token_failed' });
-    expect(connectSuccessPatch({
-      tenantId: 'tenant-1',
-      settings: {},
-      tokenCipher: { iv: '', cipher: '' },
     })).toEqual({ miss: 'token_failed' });
 
     const patch = connectSuccessPatch({
       tenantId: 'tenant-1',
-      settings: { other: true },
-      tokenCipher: { iv: 'iv', cipher: 'cipher' },
+      settings: {
+        other: true,
+        access_token: 'leak',
+        xero: { token: { iv: 'iv', cipher: 'cipher' } },
+      },
       tenantName: 'Jack\'s Bar',
     });
     expect(patch).toMatchObject({
@@ -498,9 +496,10 @@ describe('token + tenant persistence', () => {
       connection_status: 'connected',
     });
     if ('settings' in patch) {
-      expect(settingsHaveXeroCipher(patch.settings)).toBe(true);
+      expect(settingsHaveXeroCipher(patch.settings)).toBe(false);
       expect(patch.settings.other).toBe(true);
-      expect(JSON.stringify(patch.settings)).not.toMatch(/access_token|refresh_token/);
+      expect(patch.settings.xero).toMatchObject({ tenant_name: 'Jack\'s Bar' });
+      expect(JSON.stringify(patch.settings)).not.toMatch(/access_token|refresh_token|cipher/);
     }
   });
 
@@ -568,6 +567,37 @@ describe('shouldStampLastSyncedAt', () => {
   });
 });
 
+describe('parseAccountingConnection', () => {
+  it('reads connected, tenant_name, and last_synced_at and never keeps a token field', () => {
+    expect(parseAccountingConnection({
+      connected: true,
+      tenant_name: "Jack's Bar",
+      last_synced_at: '2026-10-19T00:00:00Z',
+    })).toEqual({
+      connected: true,
+      tenant_name: "Jack's Bar",
+      last_synced_at: '2026-10-19T00:00:00Z',
+    });
+    expect(parseAccountingConnection([{
+      connected: false,
+      tenant_name: '  ',
+      last_synced_at: null,
+    }])).toEqual({
+      connected: false,
+      tenant_name: null,
+      last_synced_at: null,
+    });
+    expect(parseAccountingConnection(null)).toBeNull();
+    const parsed = parseAccountingConnection({
+      connected: true,
+      tenant_name: 'Org',
+      last_synced_at: '2026-10-19T00:00:00Z',
+      access_token: 'leak',
+    });
+    expect(parsed).not.toHaveProperty('access_token');
+  });
+});
+
 describe('browser safety', () => {
   it('strips settings from the public row and rejects token-shaped responses', () => {
     expect(publicAccountingRow({
@@ -614,6 +644,8 @@ describe('existing xero edge + accounting page stay the one path', () => {
 
   it('keeps Connect / Sync now on AccountingSettingsPage — no second route', () => {
     expect(page).toContain("action: 'sync'");
+    expect(page).toContain('GET_ACCOUNTING_CONNECTION_RPC');
+    expect(page).toContain('parseAccountingConnection');
     expect(page).toContain('Sync now');
     expect(page).toContain('Push sent and paid invoices to Xero');
     expect(page).toContain('Attach a payment in Xero when Mark paid succeeds');
