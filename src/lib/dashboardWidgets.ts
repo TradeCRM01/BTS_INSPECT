@@ -1,4 +1,5 @@
 import { getWidgetDef, WIDGET_REGISTRY, isRetiredWidgetType, RETIRED_WIDGET_TYPES } from '../widgets/registry';
+import { sortDashboardWidgetsForView } from './dashboardWidgetView';
 
 export const RETIRED_DASHBOARD_WIDGET_TYPES = RETIRED_WIDGET_TYPES;
 
@@ -199,6 +200,18 @@ export function applyDashboardWidgetDrag(
   };
 }
 
+/** Drag the saved desktop rect. Does not clamp to a reflowed canvas. */
+export function applyDashboardWidgetSavedDrag(
+  stored: Pick<DashboardWidgetRect, 'grid_x' | 'grid_y' | 'grid_w'>,
+  delta: { x: number; y: number },
+): { grid_x: number; grid_y: number; grid_w: number } {
+  return {
+    grid_x: Math.max(0, stored.grid_x + delta.x),
+    grid_y: Math.max(0, stored.grid_y + delta.y),
+    grid_w: stored.grid_w,
+  };
+}
+
 /** Resize from the drawn rect. Width cannot run past the canvas edge. */
 export function applyDashboardWidgetResize(
   shown: Pick<DashboardWidgetRect, 'grid_x' | 'grid_w' | 'grid_h'>,
@@ -212,6 +225,30 @@ export function applyDashboardWidgetResize(
     grid_w: Math.max(minW, Math.min(fitW, shown.grid_w + delta.x)),
     grid_h: Math.max(DASHBOARD_WIDGET_MIN_H, Math.min(700, shown.grid_h + delta.y)),
   };
+}
+
+/** Resize the saved desktop rect. Does not write a reflowed x or canvas w. */
+export function applyDashboardWidgetSavedResize(
+  stored: Pick<DashboardWidgetRect, 'grid_x' | 'grid_w' | 'grid_h'>,
+  delta: { x: number; y: number },
+): { grid_x: number; grid_w: number; grid_h: number } {
+  return {
+    grid_x: stored.grid_x,
+    grid_w: Math.max(DASHBOARD_WIDGET_MIN_W, stored.grid_w + delta.x),
+    grid_h: Math.max(DASHBOARD_WIDGET_MIN_H, Math.min(700, stored.grid_h + delta.y)),
+  };
+}
+
+/** True when the painted rect is a pack, not a clamp of the saved row. */
+export function dashboardWidgetDisplayIsReflow<T extends DashboardWidgetRect>(
+  shown: T,
+  stored: T,
+  canvasW: number,
+): boolean {
+  const clamped = clampDashboardWidgetToCanvas(stored, canvasW);
+  return shown.grid_x !== clamped.grid_x
+    || shown.grid_y !== clamped.grid_y
+    || shown.grid_w !== clamped.grid_w;
 }
 
 /**
@@ -228,6 +265,84 @@ export function clampDashboardWidgetsToCanvas<T extends DashboardWidgetRect>(
   const overflow = fitted.some(row => !dashboardWidgetFitsCanvas(row, width));
   if (!overflow && !dashboardWidgetLayoutConflicts(fitted)) return fitted;
   return repairDashboardWidgetLayout(fitted, width).widgets;
+}
+
+/** 2 = two-up (768 view-mirror and 1024), 0 = stored + clamp (1280). */
+export function dashboardWidgetDisplayColumns(canvasW: number): 0 | 1 | 2 {
+  if (canvasW < 1100) return 2;
+  return 0;
+}
+
+/** Reflow at 768 always (2+ cards). At 1024 only when shrink-in-place would crush a 4-cell card. */
+export function dashboardWidgetsShouldDisplayReflow<T extends DashboardWidgetRect>(
+  widgets: readonly T[],
+  canvasW: number,
+): boolean {
+  const width = Math.max(1, Math.floor(canvasW));
+  if (dashboardWidgetDisplayColumns(width) === 0) return false;
+  if (widgets.length < 2) return false;
+  if (width < 800) return true;
+  return dashboardWidgetsNeedDisplayReflow(widgets, width);
+}
+
+/** True when shrink-in-place would crush a 4-cell card that still fits the canvas. */
+export function dashboardWidgetsNeedDisplayReflow<T extends DashboardWidgetRect>(
+  widgets: readonly T[],
+  canvasW: number,
+): boolean {
+  const width = Math.max(1, Math.floor(canvasW));
+  return widgets.some((row) => {
+    const remaining = width - row.grid_x;
+    return row.grid_x + row.grid_w > width
+      && row.grid_x < width
+      && remaining >= DASHBOARD_WIDGET_MIN_W
+      && remaining < row.grid_w
+      && row.grid_w >= DASHBOARD_WIDGET_CELL_W * 4
+      && row.grid_w <= width;
+  });
+}
+
+/**
+ * Display-only pack. Does not mutate stored rows.
+ * 768 two-up mirrors view: two columns of ≤352 with a 16 gap, same order.
+ * The pair spans the canvas (colW fill). View CSS has no span, so cards stay one cell.
+ */
+export function reflowDashboardWidgetsToCanvas<T extends DashboardWidgetRect>(
+  widgets: readonly T[],
+  canvasW: number,
+): T[] {
+  const width = Math.max(1, Math.floor(canvasW));
+  const cols = dashboardWidgetDisplayColumns(width);
+  if (cols === 0) return clampDashboardWidgetsToCanvas(widgets, width);
+
+  const origin = DASHBOARD_WIDGET_ORIGIN;
+  const gap = DASHBOARD_WIDGET_GAP;
+  const maxW = Math.max(1, width - origin);
+  const rawCol = Math.max(DASHBOARD_WIDGET_MIN_W, Math.floor((width - origin - gap) / 2));
+  const colW = cols === 1 ? maxW : Math.min(width < 800 ? 352 : rawCol, rawCol);
+  const ordered = sortDashboardWidgetsForView(widgets);
+
+  const next: T[] = [];
+  let y = origin;
+  let col = 0;
+  let rowH = 0;
+  for (const row of ordered) {
+    if (cols === 1) {
+      next.push({ ...row, grid_x: origin, grid_y: y, grid_w: maxW });
+      y += row.grid_h + gap;
+      continue;
+    }
+    const grid_x = col === 0 ? origin : origin + colW + gap;
+    next.push({ ...row, grid_x, grid_y: y, grid_w: colW });
+    rowH = Math.max(rowH, row.grid_h);
+    col += 1;
+    if (col >= 2) {
+      y += rowH + gap;
+      col = 0;
+      rowH = 0;
+    }
+  }
+  return next;
 }
 
 export function measureDashboardCanvasWidth(

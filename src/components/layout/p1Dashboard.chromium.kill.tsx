@@ -8,7 +8,7 @@
  * Painted values only. Reading a CSS variable never counts as a pass.
  */
 import { execSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
@@ -64,6 +64,11 @@ type KillPage = {
     clip?: { x: number; y: number; width: number; height: number };
   }) => Promise<Buffer>;
   addInitScript: (script: string | (() => void)) => Promise<void>;
+  mouse: {
+    move: (x: number, y: number, opts?: { steps?: number }) => Promise<void>;
+    down: () => Promise<void>;
+    up: () => Promise<void>;
+  };
   context: () => { newCDPSession: (page: KillPage) => Promise<KillCDP> };
   close: () => Promise<void>;
 };
@@ -83,7 +88,7 @@ async function launchBrowser() {
       const mod = await import(spec) as {
         chromium: {
           launch: (opts: { headless: boolean; executablePath?: string; args?: string[] }) => Promise<{
-            newPage: (opts?: { viewport?: { width: number; height: number } }) => Promise<KillPage>;
+            newPage: (opts?: { viewport?: { width: number; height: number }; isMobile?: boolean }) => Promise<KillPage>;
             close: () => Promise<void>;
           }>;
         };
@@ -124,6 +129,86 @@ function ensureMainDistCss(): string {
   }
   execSync('npm run build', { cwd: wt, stdio: 'pipe' });
   return readCssDir(join(wt, 'dist/assets'));
+}
+
+function injectDashboardFullLook(pageSrc: string, authSrc: string, headPageSrc: string): { page: string; auth: string } {
+  const auth = authSrc.includes("look') === 'dashboard-full'")
+    ? authSrc
+    : authSrc.replace(
+      "|| params.get('look') === 'dashboard-repro'",
+      "|| params.get('look') === 'dashboard-repro'\n      || params.get('look') === 'dashboard-full'",
+    );
+  let page = pageSrc;
+  if (!page.includes('DASHBOARD_LOOK_FULL')) {
+    page = page.replace(
+      "const DASHBOARD_LOOK_REPRO = 'dashboard-repro';",
+      "const DASHBOARD_LOOK_REPRO = 'dashboard-repro';\nconst DASHBOARD_LOOK_FULL = 'dashboard-full';",
+    );
+  }
+  if (!page.includes('lookDashboardFull')) {
+    page = page.replace(
+      'const lookDashboardRepro = lookParam === DASHBOARD_LOOK_REPRO;',
+      'const lookDashboardRepro = lookParam === DASHBOARD_LOOK_REPRO;\n  const lookDashboardFull = lookParam === DASHBOARD_LOOK_FULL;',
+    );
+    page = page.replace(
+      '|| lookDashboardRepro;',
+      '|| lookDashboardRepro\n    || lookDashboardFull;',
+    );
+    page = page.replace(
+      'if (lookDashboardRepro) return repairDashboardWidgetLayout(dashboardReproLookWidgets()).widgets;',
+      'if (lookDashboardRepro) return repairDashboardWidgetLayout(dashboardReproLookWidgets()).widgets;\n      if (lookDashboardFull) return dashboardFullLookWidgets();',
+    );
+  }
+  if (!page.includes('function dashboardFullLookWidgets')) {
+    const start = headPageSrc.indexOf('function dashboardFullLookWidgets()');
+    const end = headPageSrc.indexOf('function dashboardJackLookWidgets()', start);
+    if (start < 0 || end < 0) throw new Error('dashboardFullLookWidgets missing on head');
+    page = page.replace('function dashboardJackLookWidgets()', `${headPageSrc.slice(start, end)}function dashboardJackLookWidgets()`);
+  }
+  if (!page.includes('function dashboardFullLookWidgets') || !auth.includes('dashboard-full')) {
+    throw new Error('dashboard-full seed inject failed');
+  }
+  return { page, auth };
+}
+
+function buildMain0898FullLook(): { wt: string; dist: string } {
+  const wt = mkdtempSync(join(tmpdir(), 'hf403-main-0898-'));
+  rmSync(wt, { recursive: true, force: true });
+  execSync(`git worktree add --detach ${wt} ${MAIN_LOOK_SHA}`, { cwd: process.cwd(), stdio: 'pipe' });
+  execSync(`ln -sfn ${join(process.cwd(), 'node_modules')} ${join(wt, 'node_modules')}`);
+  const injected = injectDashboardFullLook(
+    readFileSync(join(wt, 'src/pages/DashboardPage.tsx'), 'utf8'),
+    readFileSync(join(wt, 'src/lib/devFieldAuditAuth.ts'), 'utf8'),
+    readFileSync(join(process.cwd(), 'src/pages/DashboardPage.tsx'), 'utf8'),
+  );
+  writeFileSync(join(wt, 'src/pages/DashboardPage.tsx'), injected.page);
+  writeFileSync(join(wt, 'src/lib/devFieldAuditAuth.ts'), injected.auth);
+  const dist = join(wt, 'dist-hf403');
+  execSync(`npx vite build --outDir ${dist} --emptyOutDir`, {
+    cwd: wt,
+    env: {
+      ...process.env,
+      VITE_LOOK_PROOF: '1',
+      VITE_SUPABASE_URL: 'https://example.supabase.co',
+      VITE_SUPABASE_ANON_KEY: 'test-anon-key',
+    },
+    stdio: 'pipe',
+  });
+  return { wt, dist };
+}
+
+function removeOwnMainWorktree(wt: string) {
+  if (!wt) return;
+  try {
+    execSync(`git worktree remove --force ${wt}`, { cwd: process.cwd(), stdio: 'pipe' });
+  } catch {
+    rmSync(wt, { recursive: true, force: true });
+    try {
+      execSync('git worktree prune', { cwd: process.cwd(), stdio: 'pipe' });
+    } catch {
+      /* only our mkdtemp worktree */
+    }
+  }
 }
 
 async function bundleDashboard(opts?: { lookProof?: boolean }): Promise<string> {
@@ -220,6 +305,9 @@ let dashJsNoProof = '';
 let runDir = '';
 let lookOrigin = '';
 let lookServer: { origin: string; close: () => Promise<void> } | null = null;
+let mainFullWt = '';
+let mainFullServer: { origin: string; close: () => Promise<void> } | null = null;
+const mainEditCache: Record<string, Array<{ id: string; width: number }>> = {};
 const temps: string[] = [];
 
 beforeAll(async () => {
@@ -237,6 +325,8 @@ beforeAll(async () => {
 }, 240000);
 
 afterAll(async () => {
+  await mainFullServer?.close();
+  if (mainFullWt) removeOwnMainWorktree(mainFullWt);
   await lookServer?.close();
   await browser?.close();
   for (const dir of temps) {
@@ -266,6 +356,7 @@ async function openPage(args: {
   const phone = args.width <= 430;
   const page = await browser.newPage({
     viewport: { width: args.width, height: phone ? 844 : 900 },
+    isMobile: false,
   });
   await page.goto(pathToFileURL(file).href);
   await page.waitForSelector('.shell-header', { timeout: 20000 });
@@ -329,6 +420,7 @@ async function openLookDist(origin: string, width: number, path = '/?look=dashbo
   const phone = width <= 430;
   const page = await browser.newPage({
     viewport: { width, height: phone ? 2000 : 1600 },
+    isMobile: false,
   });
   await page.addInitScript(`(function(){
     var Real = Date;
@@ -1462,10 +1554,26 @@ function overflowScript() {
       clipHits.push('ref-seg>cell');
     }
   }
+  const overflowHits = els
+    .map((el) => {
+      const r = el.getBoundingClientRect();
+      return {
+        right: r.right,
+        tag: el.tagName,
+        cls: (typeof (el as HTMLElement).className === 'string' ? (el as HTMLElement).className : '').slice(0, 80),
+        id: (el as HTMLElement).id || '',
+        text: ((el as HTMLElement).innerText || '').trim().slice(0, 48),
+      };
+    })
+    .filter((hit) => hit.right > window.innerWidth + 0.5)
+    .sort((a, b) => b.right - a.right)
+    .slice(0, 8);
   return {
     innerWidth: window.innerWidth,
     scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+    bodyScrollWidth: document.body.scrollWidth,
     maxRight: rights.length ? Math.max(...rights) : 0,
+    overflowHits,
     clipOverflows: clipHits.length,
     clipSample: clipHits.slice(0, 3),
   };
@@ -1667,6 +1775,7 @@ type EditPadPinRow = {
 function readEditPadPinRows(): {
   innerWidth: number;
   scrollWidth: number;
+  bodyScrollWidth: number;
   maxRight: number;
   widgets: EditPadPinRow[];
 } {
@@ -1779,6 +1888,7 @@ function readEditPadPinRows(): {
   return {
     innerWidth: window.innerWidth,
     scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+    bodyScrollWidth: document.body.scrollWidth,
     maxRight: rights.length ? Math.max(...rights) : 0,
     widgets,
   };
@@ -1820,6 +1930,25 @@ async function enterEdit(page: KillPage) {
       await new Promise((resolve) => window.setTimeout(resolve, 50));
     }
     throw new Error('edit mode Add widget missing');
+  });
+}
+
+async function leaveEdit(page: KillPage) {
+  await page.evaluate(async () => {
+    const more = document.querySelector('.dashboard-home-more') as HTMLDetailsElement | null;
+    if (!more) throw new Error('more menu missing');
+    more.open = true;
+    const btn = [...more.querySelectorAll('button')].find((el) => /Done editing/.test(el.textContent || ''));
+    if (!btn) throw new Error('Done editing missing');
+    (btn as HTMLButtonElement).click();
+    for (let i = 0; i < 50; i += 1) {
+      const customize = [...document.querySelectorAll('button, a, [role="menuitem"]')]
+        .some((el) => (el.textContent || '').trim() === 'Customize');
+      const add = [...document.querySelectorAll('button, a')].some((el) => /Add widget/.test(el.textContent || ''));
+      if (customize && !add) return;
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+    }
+    throw new Error('view mode after Done missing');
   });
 }
 
@@ -2235,15 +2364,23 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     }
   }, 180000);
 
-  it('P1-overflow: scrollWidth plus max rect.right is 0 overflow at 375/390/768/1024/1280, including header', async () => {
-    for (const width of WIDTHS) {
+  /**
+   * 320 probe settings (CoS 13:22): Playwright Chromium, isMobile:false,
+   * deviceScaleFactor default 1, viewport 320×844 (openPage height 844 when width≤430),
+   * route /?look=dashboard, view then Customize, element overflowScript maxRight /
+   * overflowHits (today-seg). CoS 320×900 no-emulation was clean; this 320×844
+   * probe was the 355.09 today-seg hit before the 374px wrap.
+   */
+  it('P1-overflow: scrollWidth plus max rect.right is 0 overflow at 320/375/390/768/1024/1280, including header', async () => {
+    for (const width of [320, ...WIDTHS] as const) {
       const page = await openPage({ width, js: dashJsNoProof, path: '/?look=dashboard' });
       await page.waitForSelector('.shell-header', { timeout: 20000 });
       for (const mode of ['view', 'edit'] as const) {
         if (mode === 'edit') await enterEdit(page);
         const box = await page.evaluate(overflowScript);
         expect(box.scrollWidth, `scrollWidth at ${width} ${mode}`).toBeLessThanOrEqual(width);
-        expect(box.maxRight, `max rect.right at ${width} ${mode}`).toBeLessThanOrEqual(width + 0.5);
+        expect(box.bodyScrollWidth, `body.scrollWidth at ${width} ${mode}`).toBeLessThanOrEqual(box.innerWidth);
+        expect(box.maxRight, `max rect.right at ${width} ${mode}: ${JSON.stringify(box.overflowHits?.slice(0, 4) ?? [])}`).toBeLessThanOrEqual(width + 0.5);
         expect(box.clipOverflows, `clip-ancestor overflow at ${width} ${mode}: ${box.clipSample.join(', ')}`).toBe(0);
       }
       await page.close();
@@ -2954,6 +3091,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       const box = await page.evaluate(readEditPadPinRows);
       expect(box.widgets.length, `edit widgets at ${width}`).toBeGreaterThan(0);
       expect(box.scrollWidth, `docSW at ${width} edit`).toBeLessThanOrEqual(box.innerWidth);
+      expect(box.bodyScrollWidth, `body.scrollWidth at ${width} edit`).toBeLessThanOrEqual(box.innerWidth);
       expect(box.maxRight, `max rect.right at ${width} edit`).toBeLessThanOrEqual(box.innerWidth + 0.5);
       for (const row of box.widgets) {
         expect(row.titleInset, `${width} ${row.id} title/icon inset`).toBeGreaterThanOrEqual(16);
@@ -2975,8 +3113,13 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       const box = await page.evaluate(readEditPadPinRows);
       expect(box.widgets.length, `edit widgets at ${width}`).toBeGreaterThan(0);
       for (const row of box.widgets) {
-        expect(Math.abs(row.dragTop - 8), `${width} ${row.id} Drag top`).toBeLessThanOrEqual(1);
-        expect(Math.abs(row.dragLeft - 8), `${width} ${row.id} Drag left`).toBeLessThanOrEqual(1);
+        if (width < 1024) {
+          expect(row.dragTop, `${width} ${row.id} Drag absent`).toBe(-1);
+          expect(row.dragLeft, `${width} ${row.id} Drag absent`).toBe(-1);
+        } else {
+          expect(Math.abs(row.dragTop - 8), `${width} ${row.id} Drag top`).toBeLessThanOrEqual(1);
+          expect(Math.abs(row.dragLeft - 8), `${width} ${row.id} Drag left`).toBeLessThanOrEqual(1);
+        }
         expect(Math.abs(row.removeTop - 8), `${width} ${row.id} Remove top`).toBeLessThanOrEqual(1);
         expect(Math.abs(row.removeRight - 8), `${width} ${row.id} Remove right`).toBeLessThanOrEqual(1);
       }
@@ -2994,6 +3137,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       const viewBox = viewPad.widgets.map((row) => ({ id: row.id, bodyH: row.bodyH }));
       expect(viewBox.length, `view widgets at ${width}`).toBeGreaterThan(0);
       expect(viewPad.scrollWidth, `docSW at ${width} view`).toBeLessThanOrEqual(viewPad.innerWidth);
+      expect(viewPad.bodyScrollWidth, `body.scrollWidth at ${width} view`).toBeLessThanOrEqual(viewPad.innerWidth);
       expect(viewPad.maxRight, `max rect.right at ${width} view`).toBeLessThanOrEqual(viewPad.innerWidth + 0.5);
       await view.close();
 
@@ -3003,6 +3147,7 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
       const editBox = await edit.evaluate(readEditPadPinRows);
       expect(editBox.widgets.length, `edit widgets at ${width}`).toBeGreaterThan(0);
       expect(editBox.scrollWidth, `docSW at ${width} edit-rows`).toBeLessThanOrEqual(editBox.innerWidth);
+      expect(editBox.bodyScrollWidth, `body.scrollWidth at ${width} edit-rows`).toBeLessThanOrEqual(editBox.innerWidth);
       expect(editBox.maxRight, `max rect.right at ${width} edit-rows`).toBeLessThanOrEqual(editBox.innerWidth + 0.5);
       const viewH = new Map(viewBox.map((row) => [row.id, row.bodyH]));
       for (const row of editBox.widgets) {
@@ -3799,4 +3944,1016 @@ describe('P1 dashboard chromium kills (built dist CSS, painted values only)', ()
     expect(text).toMatch(/3,579\.65/);
     expect(text).not.toMatch(/8,579\.65/);
   }, 120000);
+
+  function hf403VisibleCards() {
+    const phone = window.innerWidth < 768;
+    const vis = (el: Element) => {
+      const s = getComputedStyle(el as HTMLElement);
+      const r = el.getBoundingClientRect();
+      return s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0
+        && r.width > 0 && r.height > 0;
+    };
+    return [...document.querySelectorAll('[data-dashboard-widget-id]')].filter((el) => {
+      if (!vis(el)) return false;
+      const onPhone = !!el.closest('[data-dashboard-phone-stack]');
+      return phone ? onPhone : !onPhone;
+    }).map((host) => {
+      const card = (host.querySelector('.dashboard-home-widget') as HTMLElement | null) ?? host as HTMLElement;
+      const r = card.getBoundingClientRect();
+      return {
+        id: host.getAttribute('data-dashboard-widget-id') || '',
+        x: r.x,
+        width: r.width,
+        right: r.right,
+      };
+    });
+  }
+
+  function hf403TextClip() {
+    const phone = window.innerWidth < 768;
+    const vis = (el: Element) => {
+      const s = getComputedStyle(el as HTMLElement);
+      const r = el.getBoundingClientRect();
+      return s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0
+        && r.width > 0 && r.height > 0;
+    };
+    const clips: Array<{ id: string; text: string; textRight: number; cardRight: number }> = [];
+    for (const host of document.querySelectorAll('[data-dashboard-widget-id]')) {
+      if (!vis(host)) continue;
+      const onPhone = !!host.closest('[data-dashboard-phone-stack]');
+      if (phone ? !onPhone : onPhone) continue;
+      const card = (host.querySelector('.dashboard-home-widget') as HTMLElement | null) ?? host as HTMLElement;
+      const cardRight = card.getBoundingClientRect().right;
+      const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode();
+      while (node) {
+        const raw = node.textContent || '';
+        if (raw.trim()) {
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          for (const r of [...range.getClientRects()]) {
+            if (r.width < 1 || r.height < 1) continue;
+            if (r.right > cardRight) {
+              clips.push({
+                id: host.getAttribute('data-dashboard-widget-id') || '',
+                text: raw.trim().slice(0, 48),
+                textRight: r.right,
+                cardRight,
+              });
+            }
+          }
+        }
+        node = walker.nextNode();
+      }
+    }
+    return clips;
+  }
+
+  function hf403PageBox() {
+    const vis = (el: Element) => {
+      const s = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+    };
+    const canvas = document.querySelector('.dashboard-home-canvas.is-editing, .dashboard-home-canvas') as HTMLElement | null;
+    const rights = [...document.querySelectorAll('body *')].filter((el) => {
+      if (!vis(el)) return false;
+      if (canvas && canvas.contains(el) && el !== canvas) return false;
+      return true;
+    }).map((el) => el.getBoundingClientRect().right);
+    return {
+      innerWidth: window.innerWidth,
+      scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+      bodyScrollWidth: document.body.scrollWidth,
+      maxRight: rights.length ? Math.max(...rights) : 0,
+    };
+  }
+
+  function hf403AllBox() {
+    const vis = (el: Element) => {
+      const s = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+    };
+    const rights = [...document.querySelectorAll('body *')].filter(vis).map((el) => el.getBoundingClientRect().right);
+    return {
+      innerWidth: window.innerWidth,
+      scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+      bodyScrollWidth: document.body.scrollWidth,
+      maxRight: rights.length ? Math.max(...rights) : 0,
+    };
+  }
+
+  function hf403GateATextWalk() {
+    const clips: Array<{ text: string; textRight: number; innerWidth: number }> = [];
+    const iw = window.innerWidth;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+      const raw = node.textContent || '';
+      if (raw.trim()) {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        for (const r of [...range.getClientRects()]) {
+          if (r.width < 1 || r.height < 1) continue;
+          if (r.right > iw) {
+            clips.push({ text: raw.trim().slice(0, 48), textRight: r.right, innerWidth: iw });
+          }
+        }
+      }
+      node = walker.nextNode();
+    }
+    return clips;
+  }
+
+  function hf403TextPastViewport() {
+    const clips: Array<{ text: string; textRight: number; innerWidth: number }> = [];
+    const iw = window.innerWidth;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+      const raw = node.textContent || '';
+      const parent = node.parentElement;
+      if (raw.trim() && parent) {
+        const s = getComputedStyle(parent);
+        const pr = parent.getBoundingClientRect();
+        if (s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0 && pr.width > 0 && pr.height > 0) {
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          for (const r of [...range.getClientRects()]) {
+            if (r.width < 1 || r.height < 1) continue;
+            if (r.right > iw) {
+              clips.push({ text: raw.trim().slice(0, 48), textRight: r.right, innerWidth: iw });
+            }
+          }
+        }
+      }
+      node = walker.nextNode();
+    }
+    return clips;
+  }
+
+  function hf403CanvasReach() {
+    const canvas = document.querySelector('.dashboard-home-canvas.is-editing') as HTMLElement | null;
+    const phone = window.innerWidth < 768;
+    if (phone || !canvas) {
+      return {
+        scroller: false,
+        overflowX: '',
+        clientWidth: 0,
+        scrollWidth: 0,
+        cards: [] as Array<{
+          id: string;
+          width: number;
+          fullyIn: boolean;
+          fitsClient: boolean;
+          textPastCard: number;
+          textPastCanvas: number;
+        }>,
+      };
+    }
+    const cs = getComputedStyle(canvas);
+    const hosts = [...document.querySelectorAll('[data-dashboard-widget-id]')].filter((el) => {
+      if (el.closest('[data-dashboard-phone-stack]')) return false;
+      const r = el.getBoundingClientRect();
+      const s = getComputedStyle(el as HTMLElement);
+      return s.display !== 'none' && r.width > 0 && r.height > 0;
+    });
+    const cards: Array<{
+      id: string;
+      width: number;
+      fullyIn: boolean;
+      fitsClient: boolean;
+      textPastCard: number;
+      textPastCanvas: number;
+    }> = [];
+    const saved = canvas.scrollLeft;
+    for (const host of hosts) {
+      const card = (host.querySelector('.dashboard-home-widget') as HTMLElement | null) ?? host as HTMLElement;
+      const id = host.getAttribute('data-dashboard-widget-id') || '';
+      const box0 = canvas.getBoundingClientRect();
+      const cr0 = card.getBoundingClientRect();
+      const cardLeft = cr0.left - box0.left + canvas.scrollLeft;
+      const cardRight = cardLeft + cr0.width;
+      if (cardLeft < canvas.scrollLeft) canvas.scrollLeft = cardLeft;
+      else if (cardRight > canvas.scrollLeft + canvas.clientWidth) {
+        canvas.scrollLeft = Math.max(0, cardRight - canvas.clientWidth);
+      }
+      const box = canvas.getBoundingClientRect();
+      const cr = card.getBoundingClientRect();
+      const visLeft = box.left;
+      const visRight = box.left + canvas.clientWidth;
+      const fullyIn = cr.left >= visLeft - 1 && cr.right <= visRight + 1;
+      let textPastCard = 0;
+      let textPastCanvas = 0;
+      const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode();
+      while (node) {
+        const raw = node.textContent || '';
+        if (raw.trim()) {
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          for (const r of [...range.getClientRects()]) {
+            if (r.width < 1 || r.height < 1) continue;
+            if (r.right > cr.right + 0.5) textPastCard += 1;
+            if (r.right > visRight + 0.5) textPastCanvas += 1;
+          }
+        }
+        node = walker.nextNode();
+      }
+      cards.push({
+        id,
+        width: cr.width,
+        fullyIn,
+        fitsClient: cr.width <= canvas.clientWidth + 1,
+        textPastCard,
+        textPastCanvas,
+      });
+    }
+    canvas.scrollLeft = saved;
+    return {
+      scroller: (cs.overflowX === 'auto' || cs.overflowX === 'scroll') && canvas.scrollWidth > canvas.clientWidth + 1,
+      overflowX: cs.overflowX,
+      clientWidth: canvas.clientWidth,
+      scrollWidth: canvas.scrollWidth,
+      cards,
+    };
+  }
+
+  async function hf403OpenEdit(width: number): Promise<KillPage> {
+    const page = await openLookDist(lookOrigin, width, '/?look=dashboard-full');
+    await enterEdit(page);
+    await page.setViewportSize({ width, height: width <= 430 ? 4000 : 5000 });
+    return page;
+  }
+
+  async function hf403CardPageHeight(page: KillPage): Promise<number> {
+    const bottom = await page.evaluate(() => {
+      let max = 0;
+      for (const host of document.querySelectorAll('[data-dashboard-widget-id]')) {
+        const s = getComputedStyle(host as HTMLElement);
+        const r = host.getBoundingClientRect();
+        if (s.display === 'none' || r.width < 1 || r.height < 1) continue;
+        max = Math.max(max, r.bottom + window.scrollY);
+      }
+      return Math.ceil(max + 24);
+    });
+    return Math.max(bottom, 900);
+  }
+
+  async function hf403MainEditCards(width: number): Promise<Array<{ id: string; width: number }>> {
+    if (!mainFullServer) {
+      const built = buildMain0898FullLook();
+      mainFullWt = built.wt;
+      mainFullServer = await serveLookDist(built.dist);
+    }
+    const key = String(width);
+    if (!mainEditCache[key]) {
+      const page = await openLookDist(mainFullServer.origin, width, '/?look=dashboard-full');
+      await enterEdit(page);
+      await page.setViewportSize({ width, height: width <= 430 ? 4000 : 5000 });
+      mainEditCache[key] = await page.evaluate(hf403VisibleCards);
+      await page.close();
+    }
+    return mainEditCache[key];
+  }
+
+  function hf403AbsoluteBar() {
+    const iw = window.innerWidth;
+    const phone = iw < 768;
+    const vis = (el: Element) => {
+      const s = getComputedStyle(el as HTMLElement);
+      const r = el.getBoundingClientRect();
+      return s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0
+        && r.width > 0 && r.height > 0;
+    };
+    const cards: Array<{
+      id: string;
+      clientWidth: number;
+      right: number;
+      minContent: number;
+      chromeMinContent: number;
+      widestChild: string;
+      textPastCard: number;
+      textPastViewport: number;
+    }> = [];
+    const probeMinContent = (el: HTMLElement) => {
+      const prev = { w: el.style.width, min: el.style.minWidth, max: el.style.maxWidth };
+      el.style.width = 'min-content';
+      el.style.minWidth = 'min-content';
+      el.style.maxWidth = 'none';
+      const w = el.getBoundingClientRect().width;
+      el.style.width = prev.w;
+      el.style.minWidth = prev.min;
+      el.style.maxWidth = prev.max;
+      return w;
+    };
+    for (const host of document.querySelectorAll('[data-dashboard-widget-id]')) {
+      if (!vis(host)) continue;
+      const onPhone = !!host.closest('[data-dashboard-phone-stack]');
+      if (phone ? !onPhone : onPhone) continue;
+      const card = (host.querySelector('.dashboard-home-widget') as HTMLElement | null) ?? host as HTMLElement;
+      const cr = card.getBoundingClientRect();
+      let textPastCard = 0;
+      let textPastViewport = 0;
+      const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode();
+      while (node) {
+        const raw = node.textContent || '';
+        if (raw.trim()) {
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          for (const r of [...range.getClientRects()]) {
+            if (r.width < 1 || r.height < 1) continue;
+            if (r.right > cr.right + 0.5) textPastCard += 1;
+            if (r.right > iw) textPastViewport += 1;
+          }
+        }
+        node = walker.nextNode();
+      }
+      const chromeSel = '.dashboard-home-phone-edit-bar, .dashboard-home-edit-chrome, .dashboard-home-edit-foot';
+      const ink = (card.querySelector('.dashboard-home-widget-ink') as HTMLElement | null) ?? card;
+      let chromeMinContent = 0;
+      for (const child of [...card.querySelectorAll(chromeSel)].flatMap((el) => [el, ...el.querySelectorAll('*')])) {
+        const el = child as HTMLElement;
+        const s = getComputedStyle(el);
+        if (s.display === 'none' || s.visibility === 'hidden') continue;
+        chromeMinContent = Math.max(chromeMinContent, probeMinContent(el));
+      }
+      let minContent = probeMinContent(ink);
+      let widestChild = `ink:${minContent.toFixed(1)}`;
+      for (const child of [...ink.querySelectorAll('*')]) {
+        const el = child as HTMLElement;
+        if (el.closest(chromeSel)) continue;
+        const s = getComputedStyle(el);
+        if (s.display === 'none' || s.visibility === 'hidden') continue;
+        const w = probeMinContent(el);
+        if (w > minContent) {
+          minContent = w;
+          const cls = (typeof el.className === 'string' ? el.className : el.tagName).toString().trim().slice(0, 48);
+          widestChild = `${el.tagName.toLowerCase()}.${cls || 'anon'}:${w.toFixed(1)}`;
+        }
+      }
+      cards.push({
+        id: host.getAttribute('data-dashboard-widget-id') || '',
+        clientWidth: card.clientWidth,
+        right: cr.right,
+        minContent,
+        chromeMinContent,
+        widestChild,
+        textPastCard,
+        textPastViewport,
+      });
+    }
+    return {
+      innerWidth: iw,
+      bodyScrollWidth: document.body.scrollWidth,
+      scrollX: window.scrollX,
+      canvasScroll: (document.querySelector('.dashboard-home-canvas.is-editing') as HTMLElement | null)?.scrollLeft ?? 0,
+      cards,
+    };
+  }
+
+  it('HF-403-768: Customize paints 26 cards and captures in-run 0898c3b9 frames as reference', async () => {
+    const killSrc = readFileSync(join(here, 'p1Dashboard.chromium.kill.tsx'), 'utf8');
+    expect(killSrc.includes(`function hf${'403'}Fixture`), '26-widget kill uses in-run main, not a fixture helper').toBe(false);
+    const pageSrc = readFileSync(join(process.cwd(), 'src/pages/DashboardPage.tsx'), 'utf8');
+    expect(pageSrc, '26-widget look seed').toContain("blank('full-recent_inspections'");
+    expect(pageSrc, '26-widget look seed').toContain('540, 1010, 520, 270');
+    expect(pageSrc, '26-widget look seed').toContain("blank('full-agent_reminders'");
+    expect([...pageSrc.matchAll(/blank\('full-/g)].length, '26 full- look widgets').toBe(26);
+
+    mkdirSync('/tmp/hf-403-768', { recursive: true });
+    const artDir = mkdtempSync(join(tmpdir(), 'hf-406-r2-'));
+    mkdirSync(artDir, { recursive: true });
+    const table: Array<{ width: number; id: string; main: number; head: number }> = [];
+    for (const width of [768, 1024, 1280] as const) {
+      const main = await hf403MainEditCards(width);
+      if (!mainFullServer) throw new Error('in-run 0898c3b9 server missing');
+      const mainPage = await openLookDist(mainFullServer.origin, width, '/?look=dashboard-full');
+      await enterEdit(mainPage);
+      await mainPage.setViewportSize({ width, height: await hf403CardPageHeight(mainPage) });
+      const frame = await mainPage.screenshot({ type: 'png', fullPage: false, clip: { x: 0, y: 0, width, height: 900 } });
+      writeFileSync(`/tmp/hf-403-768/main-0898c3b9-${width}.png`, frame);
+      const mainFull = await mainPage.screenshot({ type: 'png', fullPage: true, animations: 'disabled' });
+      writeFileSync(join(artDir, `main-0898c3b9-${width}-customize-full.png`), mainFull);
+      await mainPage.close();
+
+      const page = await hf403OpenEdit(width);
+      const rows = await page.evaluate(hf403VisibleCards);
+      const clips = await page.evaluate(hf403TextClip);
+      await page.setViewportSize({ width, height: await hf403CardPageHeight(page) });
+      const headFull = await page.screenshot({ type: 'png', fullPage: true, animations: 'disabled' });
+      writeFileSync(join(artDir, `head-${width}-customize-full.png`), headFull);
+      await page.close();
+      expect(main.length, `in-run main reference paints 26 edit cards at ${width}`).toBe(26);
+      expect(rows.length, `${width} Customize paints 26 cards`).toBe(26);
+      expect(clips, `${width} Customize text past card edge: ${JSON.stringify(clips.slice(0, 3))}`).toEqual([]);
+      for (const card of main) {
+        const head = rows.find((row) => row.id === card.id);
+        table.push({ width, id: card.id, main: card.width, head: head?.width ?? -1 });
+      }
+    }
+    for (const width of [768, 1024, 1280] as const) {
+      const htmlPath = join(artDir, `sxs-${width}.html`);
+      writeFileSync(htmlPath, `<!doctype html><html><head><style>
+html,body{margin:0;background:#F5F0E6;color:#0A2540;font:14px/1.3 ui-sans-serif,system-ui,sans-serif}
+.wrap{display:flex;gap:16px;padding:16px;align-items:flex-start}
+.col{flex:1;min-width:0}
+h1{margin:0 0 8px;font-size:16px}
+img{display:block;width:100%;height:auto;border:1px solid #0A2540}
+</style></head><body><div class="wrap">
+<div class="col"><h1>0898c3b9 ${width} Customize (reference)</h1><img alt="main" src="./main-0898c3b9-${width}-customize-full.png"></div>
+<div class="col"><h1>head ${width} Customize</h1><img alt="head" src="./head-${width}-customize-full.png"></div>
+</div></body></html>`);
+      const sxs = await browser.newPage({ viewport: { width: width * 2 + 64, height: 900 }, isMobile: false });
+      await sxs.goto(pathToFileURL(htmlPath).href);
+      const shot = await sxs.screenshot({ type: 'png', fullPage: true, animations: 'disabled' });
+      writeFileSync(join(artDir, `sxs-${width}-customize.png`), shot);
+      await sxs.close();
+    }
+    writeFileSync('/tmp/hf-403-768/in-run-main-vs-head-reference.json', `${JSON.stringify({
+      note: '0898c3b9 frames are reference only. The r2 bar is absolute, not match-main.',
+      sha: MAIN_LOOK_SHA,
+      table,
+    }, null, 2)}\n`);
+  }, 360000);
+
+  it('HF-403-768-r2: Customize 768/1024/1280 stays inside card and viewport before scroll', async () => {
+    const table: Array<{
+      width: number;
+      id: string;
+      clientWidth: number;
+      minContent: number;
+      chromeMinContent: number;
+      widestChild: string;
+      right: number;
+      textPastCard: number;
+      textPastViewport: number;
+    }> = [];
+    for (const width of [768, 1024, 1280] as const) {
+      const page = await hf403OpenEdit(width);
+      const abs = await page.evaluate(hf403AbsoluteBar);
+      await page.close();
+      expect(abs.scrollX, `${width} window scrollX before scroll`).toBe(0);
+      expect(abs.canvasScroll, `${width} canvas scrollLeft before scroll`).toBe(0);
+      expect(abs.bodyScrollWidth, `${width} body.scrollWidth`).toBeLessThanOrEqual(abs.innerWidth);
+      expect(abs.cards.length, `${width} Customize paints 26 cards`).toBe(26);
+      for (const card of abs.cards) {
+        expect(card.textPastCard, `${width} ${card.id} text past card`).toBe(0);
+        expect(card.textPastViewport, `${width} ${card.id} text past viewport`).toBe(0);
+        expect(card.right, `${width} ${card.id} card right ${card.right}`).toBeLessThanOrEqual(abs.innerWidth);
+        expect(
+          card.clientWidth + 1e-6,
+          `${width} ${card.id} clientWidth ${card.clientWidth} >= min-content ${card.minContent}`,
+        ).toBeGreaterThanOrEqual(card.minContent);
+        table.push({ width, ...card });
+      }
+    }
+    mkdirSync('/tmp/hf-403-768', { recursive: true });
+    writeFileSync('/tmp/hf-403-768/r2-absolute-768-1024-1280.json', `${JSON.stringify(table, null, 2)}\n`);
+  }, 300000);
+
+  it('HF-403-768: docSW and max rect.right stay inside the viewport in view and edit', async () => {
+    for (const width of [320, 375, 390, 768, 1024, 1280] as const) {
+      const view = await openLookDist(lookOrigin, width, '/?look=dashboard-full');
+      await view.setViewportSize({ width, height: width <= 430 ? 4000 : 5000 });
+      const viewBox = await view.evaluate(hf403PageBox);
+      await view.close();
+      expect(viewBox.scrollWidth, `docSW view ${width}`).toBeLessThanOrEqual(width);
+      expect(viewBox.bodyScrollWidth, `body.scrollWidth view ${width}`).toBeLessThanOrEqual(viewBox.innerWidth);
+      expect(viewBox.maxRight, `max rect.right view ${width}`).toBeLessThanOrEqual(width);
+
+      const edit = await hf403OpenEdit(width);
+      const editBox = await edit.evaluate(hf403PageBox);
+      await edit.close();
+      expect(editBox.scrollWidth, `docSW edit ${width}`).toBeLessThanOrEqual(width);
+      expect(editBox.bodyScrollWidth, `body.scrollWidth edit ${width}`).toBeLessThanOrEqual(editBox.innerWidth);
+      expect(editBox.maxRight, `max rect.right edit ${width}`).toBeLessThanOrEqual(width);
+    }
+  }, 240000);
+
+  it('HF-403-768: view and phone stay in the viewport; md+ Customize scrolls the canvas', async () => {
+    for (const width of [320, 375, 390, 768, 1024, 1280] as const) {
+      const view = await openLookDist(lookOrigin, width, '/?look=dashboard-full');
+      await view.setViewportSize({ width, height: width <= 430 ? 4000 : 5000 });
+      const viewAll = await view.evaluate(hf403AllBox);
+      const viewText = await view.evaluate(hf403TextPastViewport);
+      const viewClip = await view.evaluate(hf403TextClip);
+      await view.close();
+      expect(viewAll.scrollWidth, `docSW view-all ${width}`).toBeLessThanOrEqual(width);
+      expect(viewAll.bodyScrollWidth, `body.scrollWidth view-all ${width}`).toBeLessThanOrEqual(viewAll.innerWidth);
+      expect(viewAll.maxRight, `all rect.right view ${width}`).toBeLessThanOrEqual(width);
+      expect(viewText, `text past viewport view ${width}: ${JSON.stringify(viewText.slice(0, 2))}`).toEqual([]);
+      expect(viewClip, `text past card view ${width}`).toEqual([]);
+
+      const edit = await hf403OpenEdit(width);
+      const editPage = await edit.evaluate(hf403PageBox);
+      const editClip = await edit.evaluate(hf403TextClip);
+      expect(editPage.scrollWidth, `docSW edit-reach ${width}`).toBeLessThanOrEqual(width);
+      expect(editPage.bodyScrollWidth, `body.scrollWidth edit-reach ${width}`).toBeLessThanOrEqual(editPage.innerWidth);
+      expect(editClip, `text past card edit ${width}`).toEqual([]);
+      if (width < 768) {
+        const editAll = await edit.evaluate(hf403AllBox);
+        const editText = await edit.evaluate(hf403TextPastViewport);
+        expect(editAll.bodyScrollWidth, `body.scrollWidth edit ${width}`).toBeLessThanOrEqual(editAll.innerWidth);
+        expect(editAll.maxRight, `all rect.right edit ${width}`).toBeLessThanOrEqual(width);
+        expect(editText, `text past viewport edit ${width}: ${JSON.stringify(editText.slice(0, 2))}`).toEqual([]);
+      } else {
+        const reach = await edit.evaluate(hf403CanvasReach);
+        expect(reach.overflowX, `edit canvas overflow-x at ${width}`).toMatch(/auto|scroll|hidden/);
+        expect(reach.scrollWidth, `edit canvas scrollWidth at ${width}`).toBeLessThanOrEqual(reach.clientWidth);
+        expect(reach.cards.length, `reachable cards at ${width}`).toBe(26);
+        for (const card of reach.cards) {
+          expect(card.fitsClient, `${width} ${card.id} width ${card.width} fits canvas ${reach.clientWidth}`).toBe(true);
+          expect(card.fullyIn, `${width} ${card.id} fully in canvas after scroll`).toBe(true);
+          expect(card.textPastCard, `${width} ${card.id} text past card`).toBe(0);
+          expect(card.textPastCanvas, `${width} ${card.id} text past canvas edge`).toBe(0);
+        }
+        const editAll = await edit.evaluate(hf403AllBox);
+        expect(editAll.bodyScrollWidth, `body.scrollWidth edit ${width}`).toBeLessThanOrEqual(editAll.innerWidth);
+        expect(editAll.maxRight, `all rect.right edit ${width}`).toBeLessThanOrEqual(width);
+      }
+      await edit.close();
+    }
+  }, 300000);
+
+  it('HF-403-768: text stays inside the viewport at 320/375/390 in view and Customize', async () => {
+    const phoneRows: Array<{
+      width: number;
+      id: string;
+      clientWidth: number;
+      right: number;
+      minContent: number;
+      chromeMinContent: number;
+      widestChild: string;
+      textPastCard: number;
+      textPastViewport: number;
+      bodyScrollWidth: number;
+      innerWidth: number;
+    }> = [];
+    for (const width of [320, 375, 390] as const) {
+      const view = await openLookDist(lookOrigin, width, '/?look=dashboard-full');
+      await view.setViewportSize({ width, height: 4000 });
+      const viewText = await view.evaluate(hf403TextPastViewport);
+      const viewBox = await view.evaluate(hf403AllBox);
+      await view.close();
+      expect(viewBox.scrollWidth, `docSW view-phone ${width}`).toBeLessThanOrEqual(width);
+      expect(viewBox.bodyScrollWidth, `body.scrollWidth view-phone ${width}`).toBeLessThanOrEqual(viewBox.innerWidth);
+      expect(viewBox.maxRight, `all rect.right view-phone ${width}`).toBeLessThanOrEqual(width);
+      expect(viewText, `text past viewport view ${width}: ${JSON.stringify(viewText.slice(0, 2))}`).toEqual([]);
+
+      const edit = await hf403OpenEdit(width);
+      const editText = await edit.evaluate(hf403TextPastViewport);
+      const editBox = await edit.evaluate(hf403AllBox);
+      const abs = await edit.evaluate(hf403AbsoluteBar);
+      await edit.close();
+      expect(editBox.scrollWidth, `docSW edit-phone ${width}`).toBeLessThanOrEqual(width);
+      expect(editBox.bodyScrollWidth, `body.scrollWidth edit-phone ${width}`).toBeLessThanOrEqual(editBox.innerWidth);
+      expect(editBox.maxRight, `all rect.right edit-phone ${width}`).toBeLessThanOrEqual(width);
+      expect(editText, `text past viewport edit ${width}: ${JSON.stringify(editText.slice(0, 2))}`).toEqual([]);
+      if (width === 375 || width === 390) {
+        for (const card of abs.cards) {
+          phoneRows.push({
+            width,
+            id: card.id,
+            clientWidth: card.clientWidth,
+            right: card.right,
+            minContent: card.minContent,
+            chromeMinContent: card.chromeMinContent,
+            widestChild: card.widestChild,
+            textPastCard: card.textPastCard,
+            textPastViewport: card.textPastViewport,
+            bodyScrollWidth: abs.bodyScrollWidth,
+            innerWidth: abs.innerWidth,
+          });
+        }
+      }
+    }
+    mkdirSync('/tmp/hf-406-r2', { recursive: true });
+    writeFileSync('/tmp/hf-406-r2/customize-375-390.json', `${JSON.stringify(phoneRows, null, 2)}\n`);
+  }, 240000);
+
+  it('HF-403-768: min-content is per-card; a long unbreakable string reads larger', async () => {
+    const page = await hf403OpenEdit(375);
+    const before = await page.evaluate(hf403AbsoluteBar);
+    expect(before.cards.length, '375 Customize paints cards for min-content proof').toBeGreaterThan(1);
+    const sample = before.cards.slice(0, 5).map((card) => ({
+      id: card.id,
+      minContent: card.minContent,
+      chromeMinContent: card.chromeMinContent,
+      widestChild: card.widestChild,
+      clientWidth: card.clientWidth,
+    }));
+    const target = before.cards.find((card) => card.id === 'full-upcoming_jobs') ?? before.cards[0];
+    const sibling = before.cards.find((card) => card.id !== target.id);
+    expect(target.chromeMinContent, 'edit chrome min-content is reported separately').toBeGreaterThan(0);
+    await page.evaluate((id) => {
+      const host = document.querySelector(`[data-dashboard-widget-id="${id}"]`);
+      const ink = host?.querySelector('.dashboard-home-widget-ink') as HTMLElement | null;
+      if (!ink) throw new Error(`min-content proof missing ink ${id}`);
+      const probe = document.createElement('span');
+      probe.setAttribute('data-hf403-mincontent-proof', '1');
+      probe.style.whiteSpace = 'nowrap';
+      probe.textContent = `UNBREAKABLE${'W'.repeat(36)}`;
+      ink.appendChild(probe);
+    }, target.id);
+    const after = await page.evaluate(hf403AbsoluteBar);
+    await page.close();
+    const grown = after.cards.find((card) => card.id === target.id);
+    const other = after.cards.find((card) => card.id === sibling?.id);
+    expect(grown, `remeasured ${target.id}`).toBeTruthy();
+    expect(
+      grown!.minContent,
+      `${target.id} min-content after unbreakable string ${grown!.minContent} > before ${target.minContent}`,
+    ).toBeGreaterThan(target.minContent);
+    if (other && sibling) {
+      expect(
+        grown!.minContent,
+        `${target.id} min-content ${grown!.minContent} > sibling ${other.id} ${other.minContent}`,
+      ).toBeGreaterThan(other.minContent);
+    }
+    mkdirSync('/tmp/hf-406-r2', { recursive: true });
+    writeFileSync('/tmp/hf-406-r2/min-content-proof.json', `${JSON.stringify({
+      sample,
+      before: {
+        id: target.id,
+        minContent: target.minContent,
+        chromeMinContent: target.chromeMinContent,
+        widestChild: target.widestChild,
+      },
+      after: {
+        id: grown!.id,
+        minContent: grown!.minContent,
+        chromeMinContent: grown!.chromeMinContent,
+        widestChild: grown!.widestChild,
+      },
+    }, null, 2)}\n`);
+  }, 120000);
+
+  function hf403PackGeometry() {
+    const canvas = document.querySelector('.dashboard-home-canvas.is-editing') as HTMLElement | null;
+    const vis = (el: Element) => {
+      const s = getComputedStyle(el as HTMLElement);
+      const r = el.getBoundingClientRect();
+      return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+    };
+    const box = canvas?.getBoundingClientRect();
+    const cards = [...document.querySelectorAll('[data-dashboard-widget-id]')].filter((el) => (
+      vis(el) && !el.closest('[data-dashboard-phone-stack]')
+    )).map((host) => {
+      const r = host.getBoundingClientRect();
+      return {
+        id: host.getAttribute('data-dashboard-widget-id') || '',
+        left: r.left,
+        right: r.right,
+        top: r.top,
+        bottom: r.bottom,
+        width: r.width,
+        savedX: Number((host as HTMLElement).dataset.savedX ?? NaN),
+        savedY: Number((host as HTMLElement).dataset.savedY ?? NaN),
+        savedW: Number((host as HTMLElement).dataset.savedW ?? NaN),
+        savedH: Number((host as HTMLElement).dataset.savedH ?? NaN),
+      };
+    }).sort((a, b) => (a.top - b.top) || (a.left - b.left));
+    const mid = box ? box.left + box.width / 2 : 0;
+    return {
+      canvasLeft: box?.left ?? 0,
+      canvasRight: box?.right ?? 0,
+      canvasWidth: box?.width ?? 0,
+      cards,
+      leftGap: cards.length && box ? Math.min(...cards.map((c) => c.left)) - box.left : 0,
+      rightGap: cards.length && box ? box.right - Math.max(...cards.map((c) => c.right)) : 0,
+      columns: cards.map((c) => ({ id: c.id, side: c.left + c.width / 2 < mid ? 'L' : 'R' })),
+    };
+  }
+
+  function hf403EditChromeCounts() {
+    const vis = (el: Element) => {
+      const s = getComputedStyle(el as HTMLElement);
+      const r = el.getBoundingClientRect();
+      return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+    };
+    return [...document.querySelectorAll('[data-dashboard-widget-id]')].filter((el) => (
+      vis(el) && !el.closest('[data-dashboard-phone-stack]')
+    )).map((host) => ({
+      id: host.getAttribute('data-dashboard-widget-id') || '',
+      drag: host.querySelectorAll('button[title="Drag to move"]').length,
+      resize: host.querySelectorAll('.dashboard-home-widget-resize').length,
+    }));
+  }
+
+  function hf403ViewGeometry() {
+    const grid = document.querySelector('[data-dashboard-view-grid]') as HTMLElement | null;
+    const vis = (el: Element) => {
+      const s = getComputedStyle(el as HTMLElement);
+      const r = el.getBoundingClientRect();
+      return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+    };
+    const box = grid?.getBoundingClientRect();
+    const cards = [...document.querySelectorAll('[data-dashboard-view-grid] [data-dashboard-widget-id]')].filter(vis).map((host) => {
+      const r = host.getBoundingClientRect();
+      return {
+        id: host.getAttribute('data-dashboard-widget-id') || '',
+        left: r.left,
+        right: r.right,
+        top: r.top,
+        width: r.width,
+      };
+    }).sort((a, b) => (a.top - b.top) || (a.left - b.left));
+    const mid = box ? box.left + box.width / 2 : 0;
+    return {
+      cards,
+      columns: cards.map((c) => ({ id: c.id, side: c.left + c.width / 2 < mid ? 'L' : 'R' })),
+    };
+  }
+
+  it('HF-403-768-r4: 768 Customize two-up fills both columns and stays inside the canvas', async () => {
+    const page = await hf403OpenEdit(768);
+    const pack = await page.evaluate(hf403PackGeometry);
+    const chrome = await page.evaluate(hf403EditChromeCounts);
+    await page.close();
+    expect(pack.cards.length, '768 Customize paints 26 cards').toBe(26);
+    expect(chrome.length, '768 Customize chrome cards').toBe(26);
+    for (const card of pack.cards) {
+      expect(card.right, `${card.id} right ${card.right}`).toBeLessThanOrEqual(pack.canvasRight + 0.5);
+    }
+    for (const card of chrome) {
+      expect(card.drag, `${card.id} drag handle count at 768`).toBe(0);
+      expect(card.resize, `${card.id} resize handle count at 768`).toBe(0);
+    }
+    const tall = Math.max(...pack.cards.map((c) => c.bottom - c.top));
+    const leftAlone = pack.leftGap > 24 ? pack.cards.filter((c) => c.left - pack.canvasLeft > 24) : [];
+    const rightAlone = pack.rightGap > 24 ? pack.cards.filter((c) => pack.canvasRight - c.right > 24) : [];
+    if (leftAlone.length) {
+      const span = Math.max(...leftAlone.map((c) => c.bottom)) - Math.min(...leftAlone.map((c) => c.top));
+      expect(span, `768 left empty strip ${pack.leftGap}px over ${span}px`).toBeLessThanOrEqual(tall + 1);
+    }
+    if (rightAlone.length) {
+      const span = Math.max(...rightAlone.map((c) => c.bottom)) - Math.min(...rightAlone.map((c) => c.top));
+      expect(span, `768 right empty strip ${pack.rightGap}px over ${span}px`).toBeLessThanOrEqual(tall + 1);
+    }
+    expect(pack.columns.some((c) => c.side === 'L'), '768 has a left column').toBe(true);
+    expect(pack.columns.some((c) => c.side === 'R'), '768 has a right column').toBe(true);
+  }, 180000);
+
+  it('HF-403-768-r4: Customize page height is at most 1.15× view height at 768', async () => {
+    const view = await openLookDist(lookOrigin, 768, '/?look=dashboard-full');
+    const viewH = await hf403CardPageHeight(view);
+    await view.close();
+    const edit = await hf403OpenEdit(768);
+    const editH = await hf403CardPageHeight(edit);
+    await edit.close();
+    expect(editH, `768 Customize height ${editH} <= 1.15 × view ${viewH}`).toBeLessThanOrEqual(viewH * 1.15);
+  }, 180000);
+
+  it('HF-403-768-r4: Customize column assignment equals view at 768', async () => {
+    const view = await openLookDist(lookOrigin, 768, '/?look=dashboard-full');
+    await view.setViewportSize({ width: 768, height: 8000 });
+    const viewGeo = await view.evaluate(hf403ViewGeometry);
+    await view.close();
+    const edit = await hf403OpenEdit(768);
+    const editGeo = await edit.evaluate(hf403PackGeometry);
+    await edit.close();
+    expect(editGeo.columns.map((c) => c.id), '768 Customize order equals view').toEqual(viewGeo.columns.map((c) => c.id));
+    expect(editGeo.columns.map((c) => c.side), '768 Customize L/R equals view').toEqual(viewGeo.columns.map((c) => c.side));
+  }, 180000);
+
+  it('HF-403-768-r4: opening and leaving Customize writes no saved geometry', async () => {
+    const view = await openLookDist(lookOrigin, 768, '/?look=dashboard-full');
+    const before = await view.evaluate(hf403ViewGeometry);
+    await enterEdit(view);
+    await leaveEdit(view);
+    const after = await view.evaluate(hf403ViewGeometry);
+    await view.close();
+    expect(after.columns, 'view columns after Done').toEqual(before.columns);
+    const pageSrc = readFileSync(join(process.cwd(), 'src/pages/DashboardPage.tsx'), 'utf8');
+    expect(pageSrc, 'look persist stays a no-op').toContain('if (lookDashboard || !!getAuditDashboardWidgets()) return null;');
+  }, 180000);
+
+  it('HF-403-768-r4: a 768 drag and resize persist saved geometry, not the pack', async () => {
+    const page = await hf403OpenEdit(768);
+    const before = await page.evaluate(hf403PackGeometry);
+    const chrome = await page.evaluate(hf403EditChromeCounts);
+    const weather = before.cards.find((c) => c.id === 'full-weather-a');
+    const weatherC = before.cards.find((c) => c.id === 'full-weather-c');
+    expect(weather, 'full-weather-a present').toBeTruthy();
+    expect(weatherC, 'full-weather-c present').toBeTruthy();
+    for (const card of chrome) {
+      expect(card.drag, `${card.id} drag handle count at 768`).toBe(0);
+      expect(card.resize, `${card.id} resize handle count at 768`).toBe(0);
+    }
+    const handle = await page.evaluate(() => {
+      const host = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="full-weather-a"]');
+      const btn = host?.querySelector('button[title="Drag to move"]') as HTMLElement | null;
+      if (!btn) return null;
+      btn.scrollIntoView({ block: 'center' });
+      const r = btn.getBoundingClientRect();
+      if (r.width < 1) return null;
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    expect(handle, 'drag handle at 768').toBeFalsy();
+    const grip = await page.evaluate(() => {
+      const host = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="full-weather-c"]');
+      const btn = host?.querySelector('.dashboard-home-widget-resize') as HTMLElement | null;
+      const r = btn?.getBoundingClientRect();
+      if (!r || r.width < 1) return null;
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    expect(grip, 'resize grip at 768').toBeFalsy();
+    const body = await page.evaluate(() => {
+      const host = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="full-weather-a"]') as HTMLElement | null;
+      if (!host) throw new Error('full-weather-a missing');
+      host.scrollIntoView({ block: 'center' });
+      const r = host.getBoundingClientRect();
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    await page.mouse.move(body.x, body.y);
+    await page.mouse.down();
+    await page.mouse.move(body.x, body.y + 80, { steps: 12 });
+    await page.mouse.up();
+    const afterDrag = await page.evaluate(hf403PackGeometry);
+    for (const card of afterDrag.cards) {
+      const beforeCard = before.cards.find((c) => c.id === card.id);
+      expect(card.savedX, `${card.id} saved x after 768 card drag`).toBe(beforeCard?.savedX);
+      expect(card.savedY, `${card.id} saved y after 768 card drag`).toBe(beforeCard?.savedY);
+      expect(card.savedW, `${card.id} saved w after 768 card drag`).toBe(beforeCard?.savedW);
+      expect(card.savedH, `${card.id} saved h after 768 card drag`).toBe(beforeCard?.savedH);
+    }
+    await page.close();
+  }, 180000);
+
+  it('HF-403-768-r4: 1024 neighbor gaps are ≤ 40 and 1280 matches in-run aad2eef7', async () => {
+    const edit1024 = await hf403OpenEdit(1024);
+    const pack1024 = await edit1024.evaluate(hf403PackGeometry);
+    const abs1024 = await edit1024.evaluate(hf403AbsoluteBar);
+    const weather = pack1024.cards.find((c) => c.id === 'full-weather-a');
+    const weatherC1024 = pack1024.cards.find((c) => c.id === 'full-weather-c');
+    expect(weather, 'full-weather-a present').toBeTruthy();
+    expect(weatherC1024, 'full-weather-c present').toBeTruthy();
+    const handle = await edit1024.evaluate(() => {
+      const host = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="full-weather-a"]');
+      const btn = host?.querySelector('button[title="Drag to move"]') as HTMLElement | null;
+      if (!btn) throw new Error('drag handle missing');
+      btn.scrollIntoView({ block: 'center' });
+      const r = btn.getBoundingClientRect();
+      if (r.width < 1) throw new Error('drag handle missing');
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    await edit1024.mouse.move(handle.x, handle.y);
+    await edit1024.mouse.down();
+    await edit1024.mouse.move(handle.x, handle.y + 80, { steps: 12 });
+    await edit1024.mouse.up();
+    const afterDrag = await edit1024.evaluate(hf403PackGeometry);
+    const dragged = afterDrag.cards.find((c) => c.id === 'full-weather-a');
+    expect(dragged?.savedX, 'vertical drag keeps saved x').toBe(weather!.savedX);
+    expect(dragged?.savedW, 'vertical drag keeps saved w').toBe(weather!.savedW);
+    expect(dragged?.savedX, 'vertical drag does not persist pack x').toBeGreaterThan(400);
+    for (const card of afterDrag.cards) {
+      if (card.id === 'full-weather-a') continue;
+      const beforeCard = pack1024.cards.find((c) => c.id === card.id);
+      expect(card.savedX, `${card.id} saved x after sibling drag`).toBe(beforeCard?.savedX);
+      expect(card.savedW, `${card.id} saved w after sibling drag`).toBe(beforeCard?.savedW);
+    }
+    const grip1024 = await edit1024.evaluate(() => {
+      const host = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="full-weather-c"]');
+      const btn = host?.querySelector('.dashboard-home-widget-resize') as HTMLElement | null;
+      const r = btn?.getBoundingClientRect();
+      if (!r || r.width < 1) return null;
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    expect(grip1024, 'resize grip at 1024').toBeTruthy();
+    if (!grip1024) throw new Error('resize grip at 1024');
+    await edit1024.mouse.move(grip1024.x, grip1024.y);
+    await edit1024.mouse.down();
+    await edit1024.mouse.move(grip1024.x - 10, grip1024.y + 20, { steps: 8 });
+    await edit1024.mouse.up();
+    await expect.poll(async () => {
+      const after = await edit1024.evaluate(hf403PackGeometry);
+      return after.cards.find((c) => c.id === 'full-weather-c')?.savedW;
+    }).toBe(250);
+    const afterResize1024 = await edit1024.evaluate(hf403PackGeometry);
+    const resized1024 = afterResize1024.cards.find((c) => c.id === 'full-weather-c');
+    expect(resized1024?.savedX, 'resize keeps saved x').toBe(weatherC1024!.savedX);
+    expect(resized1024?.savedW, 'resize changes saved w from saved geometry').toBe(weatherC1024!.savedW - 10);
+    expect(resized1024?.savedH, 'resize changes saved h from saved geometry').toBe(weatherC1024!.savedH + 20);
+    await edit1024.close();
+    for (const card of abs1024.cards) {
+      expect(card.textPastCard, `1024 ${card.id} text past card`).toBe(0);
+      expect(card.textPastViewport, `1024 ${card.id} text past viewport`).toBe(0);
+    }
+    for (let i = 0; i < pack1024.cards.length; i += 1) {
+      for (let j = i + 1; j < pack1024.cards.length; j += 1) {
+        const a = pack1024.cards[i];
+        const b = pack1024.cards[j];
+        const xGap = Math.max(a.left - b.right, b.left - a.right);
+        const yGap = Math.max(a.top - b.bottom, b.top - a.bottom);
+        const vertical = xGap < 0 && yGap >= 0;
+        const horizontal = yGap < 0 && xGap >= 0;
+        if (!vertical && !horizontal) continue;
+        const between = pack1024.cards.some((c) => {
+          if (c.id === a.id || c.id === b.id) return false;
+          if (vertical) {
+            const overlapX = Math.min(a.right, b.right, c.right) - Math.max(a.left, b.left, c.left);
+            const midTop = Math.min(a.bottom, b.bottom);
+            const midBot = Math.max(a.top, b.top);
+            return overlapX > 0 && c.top < midBot && c.bottom > midTop;
+          }
+          const overlapY = Math.min(a.bottom, b.bottom, c.bottom) - Math.max(a.top, b.top, c.top);
+          const midLeft = Math.min(a.right, b.right);
+          const midRight = Math.max(a.left, b.left);
+          return overlapY > 0 && c.left < midRight && c.right > midLeft;
+        });
+        if (between) continue;
+        const gap = vertical ? yGap : xGap;
+        expect(gap, `1024 gap ${a.id}/${b.id} ${gap}`).toBeLessThanOrEqual(40);
+      }
+    }
+
+    const aad2 = '/tmp/aad2eef7-tsc';
+    const aad2Dist = join(aad2, 'dist');
+    if (!existsSync(join(aad2Dist, 'assets'))) {
+      execSync('npx vite build --outDir dist --emptyOutDir', {
+        cwd: aad2,
+        env: { ...process.env, VITE_LOOK_PROOF: '1' },
+        stdio: 'pipe',
+      });
+    }
+    const aad2Server = await serveLookDist(aad2Dist);
+    const aad2Page = await openLookDist(aad2Server.origin, 1280, '/?look=dashboard');
+    await enterEdit(aad2Page);
+    const aad2Pack = await aad2Page.evaluate(hf403PackGeometry);
+    await aad2Page.close();
+    await aad2Server.close();
+
+    const head1280 = await hf403OpenEdit(1280);
+    const abs1280 = await head1280.evaluate(hf403AbsoluteBar);
+    await head1280.close();
+    for (const card of abs1280.cards) {
+      expect(card.textPastCard, `1280 ${card.id} text past card`).toBe(0);
+      expect(card.textPastViewport, `1280 ${card.id} text past viewport`).toBe(0);
+    }
+
+    const headDash = await openLookDist(lookOrigin, 1280, '/?look=dashboard');
+    await enterEdit(headDash);
+    const headPack = await headDash.evaluate(hf403PackGeometry);
+    await headDash.close();
+    expect(headPack.cards.map((c) => ({
+      id: c.id, left: Math.round(c.left), top: Math.round(c.top), width: Math.round(c.width),
+    })), '1280 Customize equals in-run aad2eef7').toEqual(aad2Pack.cards.map((c) => ({
+      id: c.id, left: Math.round(c.left), top: Math.round(c.top), width: Math.round(c.width),
+    })));
+  }, 300000);
+
+  it('HF-403-768-r4: view-vs-Customize side-by-sides at 768/1024/1280', async () => {
+    const artDir = mkdtempSync(join(tmpdir(), 'hf-406-r4-'));
+    mkdirSync(artDir, { recursive: true });
+    mkdirSync('/workspace/artifacts/hf-406-r4', { recursive: true });
+    for (const width of [768, 1024, 1280] as const) {
+      const view = await openLookDist(lookOrigin, width, '/?look=dashboard-full');
+      await view.setViewportSize({ width, height: await hf403CardPageHeight(view) });
+      const viewPng = await view.screenshot({ type: 'png', fullPage: true, animations: 'disabled' });
+      writeFileSync(join(artDir, `view-${width}-full.png`), viewPng);
+      await view.close();
+      const edit = await hf403OpenEdit(width);
+      await edit.setViewportSize({ width, height: await hf403CardPageHeight(edit) });
+      const editPng = await edit.screenshot({ type: 'png', fullPage: true, animations: 'disabled' });
+      writeFileSync(join(artDir, `customize-${width}-full.png`), editPng);
+      await edit.close();
+      const htmlPath = join(artDir, `sxs-view-customize-${width}.html`);
+      writeFileSync(htmlPath, `<!doctype html><html><head><style>
+html,body{margin:0;background:#F5F0E6;color:#0A2540;font:14px/1.3 ui-sans-serif,system-ui,sans-serif}
+.wrap{display:flex;gap:16px;padding:16px;align-items:flex-start}
+.col{flex:1;min-width:0}
+h1{margin:0 0 8px;font-size:16px}
+img{display:block;width:100%;height:auto;border:1px solid #0A2540}
+</style></head><body><div class="wrap">
+<div class="col"><h1>view ${width}</h1><img alt="view" src="./view-${width}-full.png"></div>
+<div class="col"><h1>Customize ${width}</h1><img alt="customize" src="./customize-${width}-full.png"></div>
+</div></body></html>`);
+      const sxs = await browser.newPage({ viewport: { width: width * 2 + 64, height: 900 }, isMobile: false });
+      await sxs.goto(pathToFileURL(htmlPath).href);
+      const shot = await sxs.screenshot({ type: 'png', fullPage: true, animations: 'disabled' });
+      writeFileSync(join(artDir, `sxs-view-customize-${width}.png`), shot);
+      for (const name of [`view-${width}-full.png`, `customize-${width}-full.png`, `sxs-view-customize-${width}.html`, `sxs-view-customize-${width}.png`]) {
+        writeFileSync(join('/workspace/artifacts/hf-406-r4', name), readFileSync(join(artDir, name)));
+      }
+      await sxs.close();
+    }
+  }, 360000);
+
+  it('HF-403-768-a: text walk stays inside innerWidth at 320/375/390 in view and Customize', async () => {
+    for (const width of [320, 375, 390] as const) {
+      const view = await openLookDist(lookOrigin, width, '/?look=dashboard-full');
+      await view.setViewportSize({ width, height: 4000 });
+      const viewWalk = await view.evaluate(hf403GateATextWalk);
+      await view.close();
+      expect(viewWalk, `gate a text walk view ${width}: ${JSON.stringify(viewWalk.slice(0, 2))}`).toEqual([]);
+
+      const edit = await hf403OpenEdit(width);
+      const editWalk = await edit.evaluate(hf403GateATextWalk);
+      await edit.close();
+      expect(editWalk, `gate a text walk edit ${width}: ${JSON.stringify(editWalk.slice(0, 2))}`).toEqual([]);
+    }
+  }, 240000);
 });

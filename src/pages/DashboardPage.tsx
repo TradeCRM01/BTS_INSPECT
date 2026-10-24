@@ -71,7 +71,12 @@ import {
   DASHBOARD_WIDGET_CANVAS_W,
   applyDashboardWidgetDrag,
   applyDashboardWidgetResize,
+  applyDashboardWidgetSavedDrag,
+  applyDashboardWidgetSavedResize,
   clampDashboardWidgetsToCanvas,
+  dashboardWidgetDisplayIsReflow,
+  dashboardWidgetsShouldDisplayReflow,
+  reflowDashboardWidgetsToCanvas,
   isRetiredDashboardWidgetType,
   measureDashboardCanvasWidth,
   pickerDashboardWidgets,
@@ -183,6 +188,8 @@ const DASHBOARD_LOOK = 'dashboard';
 const DASHBOARD_LOOK_SEED = 'dashboard-seed';
 /** Playwright: /?look=dashboard-repro — live 12-widget canvas with Invoices on the right edge */
 const DASHBOARD_LOOK_REPRO = 'dashboard-repro';
+/** Playwright: /?look=dashboard-full — live 26-widget board (Recent Inspections 520 at x540) */
+const DASHBOARD_LOOK_FULL = 'dashboard-full';
 /** Playwright: /?auditAuth=1&look=dashboard-jack — seven-widget money-first view grid */
 const DASHBOARD_LOOK_JACK_LAYOUT = 'dashboard-jack';
 /** Playwright: /?auditAuth=1&look=crew-s8d-dashboard-needs — Today row Needs crew */
@@ -358,6 +365,40 @@ function dashboardReproLookWidgets(): DashboardWidget[] {
     blank('w-calculator', 'calculator', 20, 1320, 260, 320),
     blank('w-quick', 'quick_actions', 410, 1320, 260, 270),
     blank('w-kpi', 'kpi_scorecard', 800, 1030, 390, 270),
+  ];
+}
+
+function dashboardFullLookWidgets(): DashboardWidget[] {
+  const blank = (id: string, widget_type: string, grid_x: number, grid_y: number, grid_w: number, grid_h: number): DashboardWidget => ({
+    id, widget_type, grid_x, grid_y, grid_w, grid_h, config: {} as Json,
+  });
+  return [
+    blank('full-upcoming_jobs', 'upcoming_jobs', 20, 20, 390, 270),
+    blank('full-weather-a', 'weather', 540, 20, 260, 270),
+    blank('full-weather-b', 'weather', 20, 380, 260, 270),
+    blank('full-weather-c', 'weather', 410, 380, 260, 270),
+    blank('full-outstanding_invoices', 'outstanding_invoices', 800, 380, 260, 180),
+    blank('full-compliance_deadlines', 'compliance_deadlines', 20, 740, 390, 270),
+    blank('full-pending_reports', 'pending_reports', 540, 740, 390, 180),
+    blank('full-recent_inspections', 'recent_inspections', 540, 1010, 520, 270),
+    blank('full-templates', 'templates', 20, 1100, 390, 270),
+    blank('full-inspection_stats', 'inspection_stats', 540, 1370, 260, 180),
+    blank('full-client_stats', 'client_stats', 20, 1460, 260, 180),
+    blank('full-open_pos', 'open_pos', 410, 1640, 260, 180),
+    blank('full-clock', 'clock', 800, 1640, 260, 180),
+    blank('full-low_stock', 'low_stock', 20, 1910, 390, 270),
+    blank('full-revenue_overview', 'revenue_overview', 540, 1910, 390, 180),
+    blank('full-calendar', 'calendar', 540, 2180, 390, 270),
+    blank('full-calculator', 'calculator', 20, 2270, 260, 270),
+    blank('full-quick_actions', 'quick_actions', 410, 2540, 260, 180),
+    blank('full-cash_flow', 'cash_flow', 800, 2540, 260, 180),
+    blank('full-activity_feed', 'activity_feed', 20, 2810, 390, 270),
+    blank('full-ai_agent', 'ai_agent', 540, 2810, 390, 360),
+    blank('full-industry_news', 'industry_news', 20, 3170, 390, 270),
+    blank('full-kpi_scorecard', 'kpi_scorecard', 540, 3260, 390, 180),
+    blank('full-team_activity', 'team_activity', 20, 3530, 390, 270),
+    blank('full-agent_reminders', 'agent_reminders', 540, 3530, 390, 270),
+    blank('full-agent_activity', 'agent_activity', 20, 3890, 390, 360),
   ];
 }
 
@@ -721,11 +762,13 @@ export function DashboardPage() {
   const lookDashboardJack = lookParam === DASHBOARD_LOOK_JACK_LAYOUT;
   const lookDashboardSeed = lookParam === DASHBOARD_LOOK_SEED;
   const lookDashboardRepro = lookParam === DASHBOARD_LOOK_REPRO;
+  const lookDashboardFull = lookParam === DASHBOARD_LOOK_FULL;
   const lookDashboard = lookParam === DASHBOARD_LOOK
     || lookCrewS8dDashboard
     || lookDashboardJack
     || lookDashboardSeed
-    || lookDashboardRepro;
+    || lookDashboardRepro
+    || lookDashboardFull;
   const [editMode, setEditMode] = useState(false);
   const [showJobForm, setShowJobForm] = useState(false);
   const [viewportW, setViewportW] = useState(() => (typeof window === 'undefined' ? 1280 : window.innerWidth));
@@ -765,6 +808,7 @@ export function DashboardPage() {
     queryFn: async () => {
       if (lookDashboardSeed) return repairDashboardWidgetLayout(dashboardSeedLookWidgets()).widgets;
       if (lookDashboardRepro) return repairDashboardWidgetLayout(dashboardReproLookWidgets()).widgets;
+      if (lookDashboardFull) return dashboardFullLookWidgets();
       if (lookDashboardJack) return repairDashboardWidgetLayout(dashboardJackLookWidgets()).widgets;
       if (lookDashboard) return repairDashboardWidgetLayout(dashboardLookWidgets()).widgets;
       const mock = getAuditDashboardWidgets();
@@ -1163,29 +1207,40 @@ export function DashboardPage() {
     }
   }, [queryClient, widgets]);
 
-  const displayWidgets = useMemo(
-    () => clampDashboardWidgetsToCanvas(widgets ?? [], canvasW),
-    [widgets, canvasW],
-  );
+  const packDisplay = editMode && dashboardWidgetsShouldDisplayReflow(widgets ?? [], canvasW);
+  const displayWidgets = useMemo(() => {
+    const rows = widgets ?? [];
+    if (editMode && dashboardWidgetsShouldDisplayReflow(rows, canvasW)) {
+      return reflowDashboardWidgetsToCanvas(rows, canvasW);
+    }
+    return clampDashboardWidgetsToCanvas(rows, canvasW);
+  }, [widgets, canvasW, editMode]);
   const shownWidgets = useMemo(
     () => visibleTodayWidgets(displayWidgets, profile?.role),
     [displayWidgets, profile?.role],
   );
 
+  const allowGeometry = viewportW >= 1024;
+
   const handleDragStart = (e: DragStartEvent) => {
+    if (!allowGeometry) return;
     setActiveId(String(e.active.id));
   };
 
   const handleDragEnd = (e: DragEndEvent) => {
     setActiveId(null);
+    if (!allowGeometry) return;
     const { active, delta } = e;
     if (!delta.x && !delta.y) return;
+    const stored = (widgets ?? []).find(x => x.id === active.id);
     const shown = displayWidgets.find(x => x.id === active.id);
-    if (!shown) return;
-    const next = applyDashboardWidgetDrag(shown, delta, canvasW);
+    if (!stored || !shown) return;
+    const next = dashboardWidgetDisplayIsReflow(shown, stored, canvasW)
+      ? applyDashboardWidgetSavedDrag(stored, delta)
+      : applyDashboardWidgetDrag(shown, delta, canvasW);
     queryClient.setQueryData<DashboardWidget[]>(['dashboard-widgets'],
-      (widgets ?? []).map(x => x.id === shown.id ? { ...x, ...next } : x));
-    persistWidget(shown.id, next);
+      (widgets ?? []).map(x => x.id === stored.id ? { ...x, ...next } : x));
+    persistWidget(stored.id, next);
   };
 
   const resizeState = useRef<{
@@ -1196,20 +1251,25 @@ export function DashboardPage() {
     startH: number;
     grid_x: number;
     canvasW: number;
+    reflowed: boolean;
     last?: { grid_x: number; grid_w: number; grid_h: number };
   } | null>(null);
 
   const startResize = (e: React.PointerEvent, widget: DashboardWidget) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!allowGeometry) return;
+    const stored = (widgets ?? []).find(x => x.id === widget.id) ?? widget;
+    const reflowed = dashboardWidgetDisplayIsReflow(widget, stored, canvasW);
     resizeState.current = {
-      id: widget.id,
+      id: stored.id,
       startX: e.clientX,
       startY: e.clientY,
-      startW: widget.grid_w,
-      startH: widget.grid_h,
-      grid_x: widget.grid_x,
+      startW: reflowed ? stored.grid_w : widget.grid_w,
+      startH: reflowed ? stored.grid_h : widget.grid_h,
+      grid_x: reflowed ? stored.grid_x : widget.grid_x,
       canvasW,
+      reflowed,
     };
     window.addEventListener('pointermove', onResizeMove);
     window.addEventListener('pointerup', onResizeEnd, { once: true });
@@ -1218,11 +1278,11 @@ export function DashboardPage() {
   const onResizeMove = useCallback((e: PointerEvent) => {
     const rs = resizeState.current;
     if (!rs) return;
-    const sized = applyDashboardWidgetResize(
-      { grid_x: rs.grid_x, grid_w: rs.startW, grid_h: rs.startH },
-      { x: e.clientX - rs.startX, y: e.clientY - rs.startY },
-      rs.canvasW,
-    );
+    const delta = { x: e.clientX - rs.startX, y: e.clientY - rs.startY };
+    const base = { grid_x: rs.grid_x, grid_w: rs.startW, grid_h: rs.startH };
+    const sized = rs.reflowed
+      ? applyDashboardWidgetSavedResize(base, delta)
+      : applyDashboardWidgetResize(base, delta, rs.canvasW);
     rs.last = sized;
     queryClient.setQueryData<DashboardWidget[]>(['dashboard-widgets'],
       (widgets ?? []).map(x => x.id === rs.id ? { ...x, ...sized } : x));
@@ -1412,15 +1472,20 @@ export function DashboardPage() {
                       >
                         <div
                           ref={canvasRef}
-                          className={`dashboard-home-canvas relative overflow-x-auto is-editing`}
-                          style={{ height: canvasHeight, minWidth: '100%' }}
+                          className={`dashboard-home-canvas relative overflow-x-auto is-editing${packDisplay ? ' is-twoup' : ''}${packDisplay && canvasW < 800 ? ' is-twoup-narrow' : ''}`}
+                          style={packDisplay ? { minWidth: '100%' } : { height: canvasHeight, minWidth: '100%' }}
                         >
-                          {shownWidgets.map(w => (
+                          {shownWidgets.map((w, index) => (
                               <FreeWidget
                                 key={w.id}
                                 widget={w}
+                                saved={(widgets ?? []).find(x => x.id === w.id) ?? w}
                                 editMode={editMode}
+                                allowGeometry={allowGeometry}
                                 onRemove={() => removeWidget(w.id)}
+                                onMove={(direction) => { void movePhoneWidget(w.id, direction); }}
+                                moveUpDisabled={index === 0}
+                                moveDownDisabled={index === shownWidgets.length - 1}
                                 onResizeStart={(e) => startResize(e, w)}
                                 onConfigChange={(c) => updateWidgetConfig(w.id, c)}
                                 isDragging={activeId === w.id}
@@ -1641,19 +1706,25 @@ function DashboardHomeMore({
 }
 
 function FreeWidget({
-  widget, editMode, onRemove, onResizeStart, onConfigChange, isDragging,
+  widget, saved, editMode, allowGeometry, onRemove, onMove, moveUpDisabled, moveDownDisabled, onResizeStart, onConfigChange, isDragging,
 }: {
   widget: DashboardWidget;
+  saved: DashboardWidget;
   editMode: boolean;
+  allowGeometry: boolean;
   onRemove: () => void;
+  onMove: (direction: -1 | 1) => void;
+  moveUpDisabled: boolean;
+  moveDownDisabled: boolean;
   onResizeStart: (e: React.PointerEvent) => void;
   onConfigChange: (config: Record<string, unknown>) => void;
   isDragging: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging: isDragActive } = useDraggable({
     id: widget.id,
-    disabled: !editMode,
+    disabled: !editMode || !allowGeometry,
   });
+  const widgetName = getWidgetDef(widget.widget_type)?.label ?? 'widget';
 
   const dragStyle: React.CSSProperties = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
@@ -1670,24 +1741,49 @@ function FreeWidget({
     <div
       ref={setNodeRef}
       data-dashboard-widget-id={widget.id}
+      data-saved-x={saved.grid_x}
+      data-saved-y={saved.grid_y}
+      data-saved-w={saved.grid_w}
+      data-saved-h={saved.grid_h}
       style={{ ...posStyle, ...dragStyle }}
       className={`absolute ${isDragging || isDragActive ? 'z-50' : 'z-10'} ${isDragActive ? 'select-none' : ''}`}
     >
       <div
-        className={`dashboard-home-widget h-full w-full overflow-hidden ${
+        className={`dashboard-home-widget h-full w-full ${allowGeometry ? 'overflow-hidden' : ''} ${
           editMode ? 'is-editing' : ''
         } ${isDragging || isDragActive ? 'is-dragging' : ''}`}
       >
         {editMode && (
           <div className="dashboard-home-edit-chrome">
-            <button
-              {...attributes}
-              {...listeners}
-              className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-md bg-white border border-gray-200 shadow-sm text-gray-400 cursor-grab active:cursor-grabbing hover:text-gray-600 hover:bg-gray-50 transition-colors touch-none"
-              title="Drag to move"
-            >
-              <GripVertical size={14} />
-            </button>
+            {allowGeometry ? (
+              <button
+                {...attributes}
+                {...listeners}
+                className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-md bg-white border border-gray-200 shadow-sm text-gray-400 cursor-grab active:cursor-grabbing hover:text-gray-600 hover:bg-gray-50 transition-colors touch-none"
+                title="Drag to move"
+              >
+                <GripVertical size={14} />
+              </button>
+            ) : (
+              <div className="dashboard-home-edit-order">
+                <button
+                  type="button"
+                  aria-label={`Move ${widgetName} up`}
+                  disabled={moveUpDisabled}
+                  onClick={() => onMove(-1)}
+                >
+                  <ChevronUp size={18} />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Move ${widgetName} down`}
+                  disabled={moveDownDisabled}
+                  onClick={() => onMove(1)}
+                >
+                  <ChevronDown size={18} />
+                </button>
+              </div>
+            )}
             <button
               onClick={onRemove}
               className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-md bg-white border border-gray-200 shadow-sm text-red-500 hover:bg-red-50 transition-colors"
@@ -1706,7 +1802,7 @@ function FreeWidget({
           />
         </div>
 
-        {editMode && (
+        {editMode && allowGeometry && (
           <div className="dashboard-home-edit-foot">
             <div
               onPointerDown={onResizeStart}

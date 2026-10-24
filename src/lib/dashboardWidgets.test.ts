@@ -8,8 +8,14 @@ import {
   DASHBOARD_WIDGET_MIN_W,
   applyDashboardWidgetDrag,
   applyDashboardWidgetResize,
+  applyDashboardWidgetSavedDrag,
+  applyDashboardWidgetSavedResize,
+  dashboardWidgetDisplayIsReflow,
+  dashboardWidgetsShouldDisplayReflow,
   clampDashboardWidgetToCanvas,
   clampDashboardWidgetsToCanvas,
+  dashboardWidgetDisplayColumns,
+  dashboardWidgetsNeedDisplayReflow,
   dashboardWidgetFitsCanvas,
   dashboardWidgetLayoutOverlaps,
   dashboardWidgetMinNeighborGap,
@@ -19,6 +25,7 @@ import {
   defaultDashboardWidgetInserts,
   pickerDashboardWidgets,
   placeAddedDashboardWidget,
+  reflowDashboardWidgetsToCanvas,
   repairDashboardWidgetLayout,
   resolveDashboardWidgets,
   type DashboardWidgetInsert,
@@ -626,5 +633,52 @@ describe('dashboard widget grid placement', () => {
     expect(data).toContain('weather');
     expect(system).toContain('upcoming_jobs');
     expect(placeAddedDashboardWidget([], 'bitcoin')).toBeNull();
+  });
+
+  it('reflows two-up at 744 in view order without rewriting stored rows', () => {
+    const rows: DashboardWidgetRect[] = [
+      { id: 'jobs', widget_type: 'upcoming_jobs', grid_x: 20, grid_y: 20, grid_w: 390, grid_h: 270 },
+      { id: 'weather', widget_type: 'weather', grid_x: 540, grid_y: 20, grid_w: 260, grid_h: 270 },
+      { id: 'inspect', widget_type: 'recent_inspections', grid_x: 540, grid_y: 1010, grid_w: 520, grid_h: 270 },
+      { id: 'remind', widget_type: 'agent_reminders', grid_x: 540, grid_y: 3530, grid_w: 390, grid_h: 270 },
+    ];
+    const stored = rows.map(row => ({ ...row }));
+    expect(dashboardWidgetDisplayColumns(744)).toBe(2);
+    expect(dashboardWidgetDisplayColumns(960)).toBe(2);
+    expect(dashboardWidgetDisplayColumns(1100)).toBe(0);
+    expect(dashboardWidgetsShouldDisplayReflow(rows, 744)).toBe(true);
+    expect(dashboardWidgetsShouldDisplayReflow(rows.slice(0, 1), 686)).toBe(false);
+    expect(dashboardWidgetsNeedDisplayReflow(rows, 1100)).toBe(false);
+
+    const one = reflowDashboardWidgetsToCanvas(rows, 744);
+    expect(one.map(row => row.id)).toEqual(['jobs', 'inspect', 'weather', 'remind']);
+    expect(one[0]).toMatchObject({ id: 'jobs', grid_x: 20, grid_y: 20, grid_w: 352 });
+    expect(one[1]).toMatchObject({ id: 'inspect', grid_x: 388, grid_y: 20, grid_w: 352 });
+    expect(one[2]).toMatchObject({ id: 'weather', grid_x: 20, grid_y: 20 + 270 + DASHBOARD_WIDGET_GAP, grid_w: 352 });
+    expect(one.every(row => row.grid_w <= 352)).toBe(true);
+    expect(one.every(row => row.grid_x + row.grid_w <= 744)).toBe(true);
+    expect(dashboardWidgetLayoutOverlaps(one)).toBe(false);
+    expect(rows).toEqual(stored);
+
+    const two = reflowDashboardWidgetsToCanvas(rows, 960);
+    expect(two.every(row => row.grid_x + row.grid_w <= 960)).toBe(true);
+    expect(dashboardWidgetLayoutOverlaps(two)).toBe(false);
+    const left = two.filter(row => row.grid_x === 20);
+    const right = two.filter(row => row.grid_x > 20);
+    expect(left.length).toBeGreaterThan(0);
+    expect(right.length).toBeGreaterThan(0);
+    expect(rows).toEqual(stored);
+  });
+
+  it('a vertical saved drag keeps x and w; a saved resize keeps x', () => {
+    const stored = { id: 'weather', widget_type: 'weather', grid_x: 540, grid_y: 20, grid_w: 260, grid_h: 270 };
+    const shown = { ...stored, grid_x: 20, grid_y: 20, grid_w: 342 };
+    expect(dashboardWidgetDisplayIsReflow(shown, stored, 720)).toBe(true);
+    const dragged = applyDashboardWidgetSavedDrag(stored, { x: 0, y: 40 });
+    expect(dragged).toEqual({ grid_x: 540, grid_y: 60, grid_w: 260 });
+    const clampedDrag = applyDashboardWidgetDrag(shown, { x: 0, y: 40 }, 720);
+    expect(clampedDrag.grid_x).not.toBe(540);
+    const sized = applyDashboardWidgetSavedResize(stored, { x: -10, y: 20 });
+    expect(sized).toEqual({ grid_x: 540, grid_w: 250, grid_h: 290 });
   });
 });
