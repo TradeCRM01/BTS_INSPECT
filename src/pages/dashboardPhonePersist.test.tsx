@@ -618,6 +618,8 @@ describe('dashboard canvas clamp persist', () => {
   });
 
   it('drag cannot pass the canvas right edge (P2-6)', async () => {
+    // drag/resize geometry is ≥1024 only (Coach 14:31)
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
     forceWidth(910);
     await mountCustomize();
     const el = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="w-jobs"]') as HTMLElement;
@@ -637,6 +639,8 @@ describe('dashboard canvas clamp persist', () => {
   });
 
   it('drag on clamped Invoices at 910 starts from the drawn left (P1-A)', async () => {
+    // drag/resize geometry is ≥1024 only (Coach 14:31)
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
     forceWidth(910);
     await mountCustomize();
     const el = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="w-invoices"]') as HTMLElement;
@@ -671,6 +675,8 @@ describe('dashboard canvas clamp persist', () => {
   });
 
   it('a vertical-only drag on a reflowed card leaves saved x and w unchanged', async () => {
+    // drag/resize geometry is ≥1024 only (Coach 14:31)
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
     forceWidth(720);
     await mountCustomize();
     const el = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="w-weather1"]') as HTMLElement;
@@ -692,6 +698,8 @@ describe('dashboard canvas clamp persist', () => {
   });
 
   it('a resize on a reflowed card changes only saved w/h from the saved geometry', async () => {
+    // drag/resize geometry is ≥1024 only (Coach 14:31)
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
     forceWidth(720);
     await mountCustomize();
     const el = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="w-weather2"]') as HTMLElement;
@@ -711,5 +719,17 @@ describe('dashboard canvas clamp persist', () => {
     expect(payload.grid_x).toBe(20);
     expect(payload.grid_w).toBe(250);
     expect(payload.grid_h).toBe(290);
+  });
+
+  it('a 390 viewport 910 canvas drag writes nothing', async () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+    forceWidth(910);
+    await mountCustomize();
+    h.calls.length = 0;
+    await act(async () => {
+      h.onDragEnd?.({ active: { id: 'w-jobs' }, delta: { x: 4000, y: 0 } });
+    });
+    await tick(40);
+    expect(writes('update')).toEqual([]);
   });
 });
