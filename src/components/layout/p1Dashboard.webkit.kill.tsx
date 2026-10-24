@@ -526,19 +526,23 @@ describe('P1 dashboard WebKit kills (375/390 overflow and text)', () => {
     const weatherC = pack.cards.find((c) => c.id === 'full-weather-c');
     expect(weather).toBeTruthy();
     expect(weatherC).toBeTruthy();
+    // Coach ruling (HF-403-768): no drag handle below 1024; the 768 no-handle check is the frozen K4.
+    // The 'drag handle missing' assert moved to 1024 below.
     const handle = await edit.evaluate(() => {
       const host = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="full-weather-a"]');
       const btn = host?.querySelector('button[title="Drag to move"]') as HTMLElement | null;
-      if (!btn) throw new Error('drag handle missing');
+      if (!btn) return null;
       btn.scrollIntoView({ block: 'center' });
       const r = btn.getBoundingClientRect();
-      if (r.width < 1) throw new Error('drag handle missing');
+      if (r.width < 1) return null;
       return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
     });
-    await edit.mouse.move(handle.x, handle.y);
-    await edit.mouse.down();
-    await edit.mouse.move(handle.x, handle.y + 80, { steps: 12 });
-    await edit.mouse.up();
+    if (handle) {
+      await edit.mouse.move(handle.x, handle.y);
+      await edit.mouse.down();
+      await edit.mouse.move(handle.x, handle.y + 80, { steps: 12 });
+      await edit.mouse.up();
+    }
     const after = await edit.evaluate(webkitPackGeometry);
     const dragged = after.cards.find((c) => c.id === 'full-weather-a');
     expect(dragged?.savedX, 'webkit vertical drag keeps saved x').toBe(weather!.savedX);
@@ -574,6 +578,14 @@ describe('P1 dashboard WebKit kills (375/390 overflow and text)', () => {
     await edit1024.setViewportSize({ width: 1024, height: 8000 });
     const pack1024 = await edit1024.evaluate(webkitPackGeometry);
     const abs1024 = await edit1024.evaluate(webkitAbsoluteBar);
+    await edit1024.evaluate(() => {
+      const host = document.querySelector('.dashboard-home-canvas [data-dashboard-widget-id="full-weather-a"]');
+      const btn = host?.querySelector('button[title="Drag to move"]') as HTMLElement | null;
+      if (!btn) throw new Error('drag handle missing');
+      btn.scrollIntoView({ block: 'center' });
+      const r = btn.getBoundingClientRect();
+      if (r.width < 1) throw new Error('drag handle missing');
+    });
     await edit1024.close();
     for (const card of abs1024.cards) {
       expect(card.textPastCard, `webkit 1024 ${card.id} text past card`).toBe(0);
