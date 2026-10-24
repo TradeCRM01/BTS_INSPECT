@@ -13762,6 +13762,11 @@
       font-weight: 400;
     }
 
+    .hub-jobs-document .job-sheet-kv-value .job-client-phone-num,
+    .hub-jobs-document .hub-jobs-contact-row .job-client-phone-num {
+      font-weight: 400;
+    }
+
     .hub-jobs-document .job-sheet-scope-h,
     .hub-jobs-document .job-sheet-section-head h2 {
       font-weight: 600;
@@ -13782,6 +13787,20 @@
     .hub-jobs-document .job-sheet-tab.is-on,
     .hub-jobs-document .job-sheet-tabs .job-sheet-tab.is-on {
       font-weight: 500;
+    }
+
+    /* r16: 320 text-node walk. 375/390 pins stay. */
+    @media (max-width: 320px) {
+      .hub-jobs-document .job-sheet-tabs .job-sheet-tab,
+      .hub-jobs-document .job-sheet-tab {
+        min-width: 0;
+        padding: 0 4px;
+        font-size: 11px;
+      }
+
+      .hub-jobs-document .job-sheet-bill-v {
+        font-size: 15px;
+      }
     }
 
     /* r15: mock .bill3 div also pads inner label/value; label inherits lh 24. */
