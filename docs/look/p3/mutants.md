@@ -6,6 +6,8 @@ Portable mockup pin lives at `docs/look/p3/fixtures/{job-390-light.html,directio
 
 R16 folds CoS r15 FAIL on `c2cccd7b`. Jack 08:42 AEST still beats the mockup below 768; re-pins stay exact `toBe`. Desktop 1024/1280 stays r14 type, now with ink/paint backstops. Commands below run **outside** the suite.
 
+Coach 12:38: do not bump `playwright` / `playwright-core` off **1.48.2**. Run WebKit on `mcr.microsoft.com/playwright:v1.48.2-jammy` or ubuntu-22.04. A WebKit that does not launch is a FAIL, never a skip.
+
 ## Jack 08:42 AEST re-pins (below 768 only)
 
 r14 parent `1dd0d37b` → r15 → r16. Each is exact `toBe`, same selector, same real-file mutant still red. 1024/1280 stay r14 type.
@@ -70,7 +72,7 @@ ADD (not a re-pin): `R15 long title` `:1592` `'Hot water system replacement and 
 | r16-text-walk | hero `white-space:nowrap; letter-spacing:80px` | `R16 text-node walk at 320 375 390` :3265 | AssertionError `chromium 320 text-node rights` not `[]` |
 | r16-webkit | tab `letter-spacing:80px` | `R16 WebKit overflow` :3357 maxRight **and** :3265 text rights | AssertionError `webkit 375 maxRight` |
 | r16-safe-area | `.shell-bottom-nav { padding-bottom: 99px }` | `R16 standalone safe-area` :3317 / :3320 | AssertionError `main nav pad-bottom … expected 99 to be less than 34` |
-| r16-chip-wrap | last `.hub-jobs-list-doc .hub-jobs-list-filters` `flex-wrap:nowrap; overflow-x:auto` and chips `flex: 0 0 auto` | `R16 Jobs filter chips wrap` :3428 `hits` **and** WebKit :3383 | AssertionError `chromium 320 overflow-x scrollers` not `[]` |
+| r16-chip-wrap | last `.hub-jobs-list-doc .hub-jobs-list-filters` `flex-wrap:nowrap; overflow-x:auto` and chips `flex: 0 0 auto` | `R16 Jobs filter chips wrap` :3440 `hits` **and** WebKit :3383 | AssertionError `chromium 320 overflow-x scrollers` not `[]` |
 
 m26 is a click-path kill: Playwright `page.click` on `summary`, then `[data-job-action="details"]`. No `open=true`, no JS `.click()`. Hidden Actions fails on kept `visibility` / non-zero viewport rect **and** on `document.elementFromPoint` at the summary centre.
 
@@ -1017,9 +1019,23 @@ print('mutated r16-chip-wrap')
 PY
 npm run build
 npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "R16 Jobs filter chips wrap"
-# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3428
+# expected AssertionError at src/pages/p3Jobs.chromium.kill.tsx:3440
 #   chromium 320 overflow-x scrollers not []
 # WebKit same mutant: AssertionError at :3383 webkit 320 overflow-x scrollers not []
 git checkout -- src/index.css
+```
+
+### r16 WebKit on jammy (Coach 12:38)
+
+Do not bump playwright. WebKit 18.0 is the 1.48.2 browser. Launch failure is a FAIL, never a skip.
+
+```sh
+sudo docker run --rm --ipc=host \
+  -v "$PWD":/workspace -w /workspace \
+  -e TZ=UTC \
+  -e PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+  mcr.microsoft.com/playwright:v1.48.2-jammy \
+  bash -lc 'npx vitest run --maxWorkers=2 -c vitest.s2-shell.config.ts src/pages/p3Jobs.chromium.kill.tsx -t "WebKit"'
+# expected: WebKit 18.0; 3 WebKit tests; 0 skipped
 ```
 
