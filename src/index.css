@@ -6705,7 +6705,7 @@
       display: flex;
       flex-wrap: nowrap;
       align-items: center;
-      gap: 10px;
+      gap: 9.5px;
       margin-top: 0;
       margin-bottom: 0;
       padding: 0 32px 18px;
@@ -6886,8 +6886,8 @@
     }
 
     .hub-board-cal.is-week-doc .hub-week-range-row {
-      width: 207.5px;
-      flex: 0 0 207.5px;
+      width: 209px;
+      flex: 0 0 209px;
       box-sizing: border-box;
     }
 

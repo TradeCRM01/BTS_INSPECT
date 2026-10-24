@@ -12,7 +12,40 @@ export const SCHEDULE_WEEK_STARTS_ON = 1 as const;
 export const SCHEDULE_BOARD_COLUMNS =
   'id, company_id, client_id, title, description, status, scheduled_date, start_time, end_time, address, assigned_team, job_number, parent_job_id, color, cost_code';
 
-export const SCHEDULE_BOARD_LIMIT = 200;
+export const SCHEDULE_BOARD_CAP = 200;
+export const SCHEDULE_BOARD_LIMIT = SCHEDULE_BOARD_CAP + 1;
+export const MORE_JOBS_THIS_WEEK = 'More jobs this week than shown — open Jobs';
+
+export type ScheduleBoardPage<T> = { rows: T[]; more: boolean };
+
+export function takeBoardPage<T>(rows: readonly T[] | null | undefined): ScheduleBoardPage<T> {
+  const list = rows ? [...rows] : [];
+  return {
+    rows: list.slice(0, SCHEDULE_BOARD_CAP),
+    more: list.length > SCHEDULE_BOARD_CAP,
+  };
+}
+
+export function scheduleBoardColumnList(columns = SCHEDULE_BOARD_COLUMNS): string[] {
+  return columns.split(',').map(part => part.trim()).filter(Boolean);
+}
+
+/** Real jobs columns from the migration chain. Not a stub and not docs/schema. */
+export function jobsColumnsFromMigrations(sql: string): string[] {
+  const cols = new Set<string>();
+  const create = sql.match(/CREATE TABLE(?: IF NOT EXISTS)? (?:public\.)?jobs\s*\(([\s\S]*?)\);/i);
+  if (create) {
+    for (const line of create[1].split('\n')) {
+      const trimmed = line.trim().replace(/,$/, '');
+      if (!trimmed || trimmed.startsWith('--') || /^(CONSTRAINT|PRIMARY|UNIQUE|CHECK|FOREIGN)\b/i.test(trimmed)) continue;
+      const name = trimmed.split(/\s+/)[0]?.replace(/"/g, '');
+      if (name && /^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) cols.add(name);
+    }
+  }
+  const alter = /ALTER TABLE(?: IF EXISTS)? (?:ONLY )?(?:public\.)?jobs ADD COLUMN(?: IF NOT EXISTS)? "?([A-Za-z_][A-Za-z0-9_]*)"?/gi;
+  for (const match of sql.matchAll(alter)) cols.add(match[1]);
+  return [...cols].sort();
+}
 
 export type ScheduleViewMode = 'day' | 'week';
 
