@@ -374,7 +374,8 @@ old = """  const displayWidgets = useMemo(() => {
           && row.grid_x < canvasW
           && remaining >= DASHBOARD_WIDGET_MIN_W
           && remaining < row.grid_w
-          && row.grid_w >= DASHBOARD_WIDGET_CELL_W * 4;
+          && row.grid_w >= DASHBOARD_WIDGET_CELL_W * 4
+          && row.grid_w <= canvasW;
       });
       if (crushed) width = Math.max(canvasW, DASHBOARD_WIDGET_CANVAS_W);
     }
