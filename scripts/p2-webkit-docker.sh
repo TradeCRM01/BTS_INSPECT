@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Coach 12:38: WebKit on playwright 1.48.2 jammy. Do not bump Playwright.
-# A WebKit that does not launch is a FAIL, never a skip.
 set -euo pipefail
 
 IMAGE="mcr.microsoft.com/playwright:v1.48.2-jammy"
