@@ -232,10 +232,13 @@ export function NewInspectionPage() {
           <ChevronLeft size={16} /> {parentInspectionId ? 'Back to job' : crmJobId ? 'Jobs' : 'Inspections'}
         </button>
 
-        <h1 className="text-xl font-semibold text-[#1A1A1A] mb-1">
+        <h1
+          className="mb-1"
+          style={{ fontFamily: 'var(--g-font-sans)', fontWeight: 600, fontSize: 40, lineHeight: '44px', letterSpacing: '-0.035em', color: 'var(--g-ink)' }}
+        >
           {parentInspectionId ? 'Add Inspection to Job' : crmJobId ? 'Start Inspection from CRM Job' : 'Start New Inspection'}
         </h1>
-        <p className="text-sm text-[#4A5568] mb-6">
+        <p className="text-[15px] mb-6" style={{ color: 'var(--g-ink-muted)' }}>
           {parentInspectionId
             ? 'Choose a template to add to this job. Job details are pre-filled.'
             : crmJobId
@@ -244,30 +247,30 @@ export function NewInspectionPage() {
         </p>
 
         {parentInspectionId && parentInspection && (
-          <div className="flex items-center gap-3 bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg px-4 py-3 mb-4">
-            <Link2 size={15} className="text-[#2E75B6] shrink-0" />
+          <div className="flex items-center gap-3 mb-4">
+            <Link2 size={15} className="shrink-0" style={{ color: 'var(--g-ink-muted)' }} />
             <div className="min-w-0">
-              <p className="text-sm font-medium text-[#1e40af]">Linking to: {parentSiteName ?? 'Existing job'}</p>
+              <p className="text-sm font-medium" style={{ color: 'var(--g-ink)' }}>Linking to: {parentSiteName ?? 'Existing job'}</p>
               {parentTemplateName && (
-                <p className="text-xs text-[#3b82f6]">Existing: {parentTemplateName}</p>
+                <p className="text-xs" style={{ color: 'var(--g-ink-muted)' }}>Existing: {parentTemplateName}</p>
               )}
             </div>
           </div>
         )}
 
         {crmJob && (
-          <div className="flex items-center gap-3 bg-[#F0FDF4] border border-[#BBF7D0] rounded-lg px-4 py-3 mb-4">
-            <Briefcase size={15} className="text-[#15803d] shrink-0" />
+          <div className="flex items-center gap-3 mb-4">
+            <Briefcase size={15} className="shrink-0" style={{ color: 'var(--g-ink-muted)' }} />
             <div className="min-w-0">
-              <p className="text-sm font-medium text-[#166534]">CRM job: {crmJob.job.title}</p>
-              <p className="text-xs text-[#16a34a]">
+              <p className="text-sm font-medium" style={{ color: 'var(--g-ink)' }}>Job: {crmJob.job.title}</p>
+              <p className="text-xs" style={{ color: 'var(--g-ink-muted)' }}>
                 {[crmJob.client?.name, crmJob.job.address].filter(Boolean).join(' · ') || 'Details pre-filled'}
               </p>
             </div>
           </div>
         )}
 
-        <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm">
+        <div style={{ background: 'var(--g-surface)', border: '1px solid var(--g-line)', borderRadius: 'var(--g-radius-md)' }}>
           <div className="px-4 py-4 border-b border-[#E5E7EB]">
             <label className="block text-sm font-medium text-[#1A1A1A] mb-2">Inspection Template</label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -312,7 +315,7 @@ export function NewInspectionPage() {
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-[#1A1A1A]">Job Details</h3>
                 {(parentInspectionId || crmJobId) && (
-                  <span className="text-xs text-[#2E75B6] bg-[#EFF6FF] px-2 py-0.5 rounded-full">
+                  <span className="text-xs" style={{ color: 'var(--g-ink-muted)' }}>
                     Pre-filled
                   </span>
                 )}
@@ -425,7 +428,8 @@ export function NewInspectionPage() {
                 !meta.jobDescription ||
                 (schemaMeta?.customFields ?? []).some(f => f.required && !meta[`custom_${f.id}`])
               }
-              className="flex items-center gap-2 bg-[#0A2540] text-white px-5 py-2.5 rounded-md text-sm font-medium hover:bg-[#0d2f4e] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 text-[15px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: 'var(--g-inverse)', color: 'var(--g-inverse-ink)', minHeight: 48, height: 48, padding: '0 16px', borderRadius: 'var(--g-radius-md)' }}
             >
               <Play size={15} />
               {createMutation.isPending
