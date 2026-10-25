@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:hf406-frozen": "vitest run --maxWorkers=2 -c vitest.hf406-frozen.config.ts",
     "test:sms-db": "node scripts/test-missed-call-sms.mjs",
     "measure:tu05": "node scripts/measure-tu05-topbar.mjs"
   },

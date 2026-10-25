@@ -7,7 +7,7 @@ import { chromium } from 'playwright';
 
 const BASE = process.env.LOOK_BASE_URL || 'http://127.0.0.1:5173';
 const OUT = process.env.LOOK_OUT_DIR || '/opt/cursor/artifacts';
-const STORE = process.env.LOOK_STORE_DIR || '/cursor/stores/self/artifacts';
+const STORE = process.env.LOOK_STORE_DIR || '/tmp/look-artifacts';
 const mainOnly = process.argv.includes('--main-1280');
 const PATH = '/schedule?auditAuth=1&look=fix3a-schedule';
 
