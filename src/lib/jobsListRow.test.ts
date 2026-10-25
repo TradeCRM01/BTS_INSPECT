@@ -78,7 +78,7 @@ describe('jobs list rows use the helpers on desktop and phone', () => {
     expect(css).toContain('align-items: center');
     expect(css).toMatch(/\.hub-jobs-phone-row \.hub-jobs-phone-next \{[\s\S]*min-height: 44px;/);
     expect(css).toMatch(/\.hub-jobs-phone-row \.hub-jobs-phone-next \{[\s\S]*min-width: 44px;/);
-    expect(css).toContain('.hub-jobs-desktop-list {\n      display: none;');
+    expect(css).toMatch(/\.hub-jobs-desktop-list \{\s*display: none;/);
     const phone = page.slice(page.indexOf('function JobPhoneRow'), page.indexOf('function JobRow'));
     const desktop = page.slice(page.indexOf('function JobRow'));
     expect(phone).toContain('jobsListPhoneNextLabel(next)');
