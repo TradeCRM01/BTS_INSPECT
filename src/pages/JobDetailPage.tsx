@@ -1318,14 +1318,14 @@ const JOB_GALLERY_LOOK_CSS = `
           font-size: 16px;
           letter-spacing: 0.02em;
           text-transform: none;
-          color: #0A2540;
+          color: var(--job-look-ink);
         }
         .hub-jobs.is-record-open #job-gallery .ops-section-title .ops-meta {
           display: inline;
           font-family: var(--g-font-ui);
           font-size: 12px;
           font-weight: 500;
-          color: #5B6B7C;
+          color: var(--job-look-muted);
         }
         .hub-jobs.is-record-open #job-gallery .ops-section-title svg {
           display: none;
@@ -1339,7 +1339,7 @@ const JOB_GALLERY_LOOK_CSS = `
         .hub-jobs.is-record-open #job-gallery .job-gallery-add {
           display: inline-block;
           margin: 0;
-          color: #5B6B7C;
+          color: var(--job-look-muted);
           font-family: var(--g-font-ui);
           font-size: 14px;
           font-weight: 500;
@@ -1348,10 +1348,10 @@ const JOB_GALLERY_LOOK_CSS = `
           cursor: pointer;
         }
         .hub-jobs.is-record-open #job-gallery .job-gallery-add:hover {
-          color: #0A2540;
+          color: var(--job-look-ink);
         }
         .hub-jobs.is-record-open #job-gallery .job-gallery-photo-input:focus-visible + .job-gallery-add {
-          color: #2E75B6;
+          color: var(--job-look-ink);
           text-decoration: underline;
         }
         .hub-jobs.is-record-open #job-gallery .job-gallery-filters {
@@ -1359,7 +1359,7 @@ const JOB_GALLERY_LOOK_CSS = `
           flex-wrap: wrap;
           gap: 0 20px;
           margin: 0 0 10px;
-          border-bottom: 1px solid #E2D9CC;
+          border-bottom: 1px solid var(--job-look-line);
         }
         .hub-jobs.is-record-open #job-gallery .job-gallery-filter {
           background: none;
@@ -1368,7 +1368,7 @@ const JOB_GALLERY_LOOK_CSS = `
           border-radius: 0;
           padding: 4px 0 6px;
           margin: 0 0 -1px;
-          color: #5B6B7C;
+          color: var(--job-look-muted);
           font-family: var(--g-font-ui);
           font-size: 13px;
           font-weight: 500;
@@ -1376,24 +1376,24 @@ const JOB_GALLERY_LOOK_CSS = `
           cursor: pointer;
         }
         .hub-jobs.is-record-open #job-gallery .job-gallery-filter:hover {
-          color: #0A2540;
+          color: var(--job-look-ink);
         }
         .hub-jobs.is-record-open #job-gallery .job-gallery-filter[aria-pressed="true"] {
-          color: #0A2540;
-          border-bottom-color: #0A2540;
+          color: var(--job-look-ink);
+          border-bottom-color: var(--job-look-ink);
           text-decoration: none;
         }
         .hub-jobs.is-record-open #job-gallery .job-gallery-filter .job-gallery-filter-count {
           margin-left: 4px;
           font-weight: 400;
-          color: #5B6B7C;
+          color: var(--job-look-muted);
         }
         .hub-jobs.is-record-open #job-gallery .job-gallery-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
           gap: 12px 10px;
           padding: 0 0 14px;
-          border-bottom: 1px solid #E2D9CC;
+          border-bottom: 1px solid var(--job-look-line);
         }
         .hub-jobs.is-record-open #job-gallery .job-gallery-item {
           display: block;
@@ -1414,12 +1414,12 @@ const JOB_GALLERY_LOOK_CSS = `
           object-fit: cover;
           width: 100%;
           border-radius: 3px;
-          border: 1px solid #E2D9CC;
-          background: #F5F0E6;
-          box-shadow: 0 1px 2px rgba(10, 37, 64, 0.06);
+          border: 1px solid var(--job-look-line);
+          background: var(--job-look-page);
+          box-shadow: none;
         }
         .hub-jobs.is-record-open #job-gallery .job-gallery-item:focus-visible img {
-          outline: 2px solid #2E75B6;
+          outline: 2px solid var(--job-look-ink);
           outline-offset: 1px;
         }
         .hub-jobs.is-record-open #job-gallery .job-gallery-meta {
@@ -1430,7 +1430,7 @@ const JOB_GALLERY_LOOK_CSS = `
           font-size: 11px;
           letter-spacing: 0.06em;
           text-transform: uppercase;
-          color: #5B6B7C;
+          color: var(--job-look-muted);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -1442,11 +1442,11 @@ const JOB_GALLERY_LOOK_CSS = `
           margin-top: 1px;
           font-family: var(--g-font-ui);
           font-size: 12px;
-          color: #5B6B7C;
+          color: var(--job-look-muted);
           white-space: nowrap;
         }
         .hub-jobs.is-record-open #job-gallery .job-gallery-when svg {
-          color: #2E75B6;
+          color: var(--job-look-muted);
           flex: none;
         }
         .job-photo-lightbox {
@@ -1458,17 +1458,17 @@ const JOB_GALLERY_LOOK_CSS = `
           overflow: visible;
         }
         .job-photo-lightbox::backdrop {
-          background: rgba(10, 37, 64, 0.72);
+          background: rgba(10, 10, 11, 0.18);
         }
         .job-photo-lightbox-sheet {
           display: grid;
           gap: 10px;
           padding: 12px;
-          background: #FFFDF8;
-          border: 1px solid #E2D9CC;
-          border-radius: 4px;
-          box-shadow: 0 12px 32px rgba(10, 37, 64, 0.28);
-          color: #0A2540;
+          background: var(--g-surface);
+          border: 1px solid var(--g-line);
+          border-radius: var(--g-radius-md);
+          box-shadow: 0 10px 28px rgba(10, 10, 11, 0.12);
+          color: var(--g-ink);
         }
         .job-photo-lightbox-sheet img {
           display: block;
@@ -1477,7 +1477,7 @@ const JOB_GALLERY_LOOK_CSS = `
           object-fit: contain;
           margin: 0 auto;
           border-radius: 3px;
-          background: #F5F0E6;
+          background: var(--g-bg);
         }
         .job-photo-lightbox-meta {
           display: grid;
@@ -1492,7 +1492,7 @@ const JOB_GALLERY_LOOK_CSS = `
           font-size: 12px;
           letter-spacing: 0.06em;
           text-transform: uppercase;
-          color: #5B6B7C;
+          color: var(--job-look-muted);
         }
         .job-photo-lightbox-where {
           display: flex;
@@ -1501,26 +1501,26 @@ const JOB_GALLERY_LOOK_CSS = `
           gap: 4px 6px;
         }
         .job-photo-lightbox-where svg {
-          color: #2E75B6;
+          color: var(--job-look-muted);
           flex: none;
         }
         .job-photo-lightbox-where a {
-          color: #2E75B6;
+          color: var(--g-ink);
           text-decoration: underline;
         }
         .job-photo-lightbox-close {
           justify-self: end;
-          height: 36px;
-          padding: 0 14px;
-          border: 1px solid #0A2540;
-          border-radius: 3px;
-          background: #FFFDF8;
-          color: #0A2540;
-          font-family: var(--g-font-title);
-          font-weight: 700;
-          font-size: 13px;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
+          height: 48px;
+          padding: 0 16px;
+          border: none;
+          border-radius: var(--g-radius-md);
+          background: var(--g-inverse);
+          color: var(--g-inverse-ink);
+          font-family: var(--g-font-ui);
+          font-weight: 600;
+          font-size: 15px;
+          letter-spacing: 0;
+          text-transform: none;
           cursor: pointer;
         }
         .hub-jobs.is-record-open #job-gallery .ops-tray-empty {
@@ -1528,8 +1528,8 @@ const JOB_GALLERY_LOOK_CSS = `
           padding: 8px 0 12px;
           font-family: var(--g-font-ui);
           font-size: 14px;
-          color: #5B6B7C;
-          border-bottom: 1px solid #E2D9CC;
+          color: var(--job-look-muted);
+          border-bottom: 1px solid var(--job-look-line);
         }
         @media (max-width: 639px) {
           .hub-jobs.is-record-open #job-gallery .job-gallery-filters {
