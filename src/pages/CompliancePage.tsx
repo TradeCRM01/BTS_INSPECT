@@ -141,9 +141,14 @@ function hotfixDateBadItems(): ComplianceItemWithClient[] {
   }];
 }
 
-function complianceListWhisper(args: { filter: ComplianceListFilter; count: number }): string {
+function complianceListWhisper(args: { filter: ComplianceListFilter; count: number; overdue?: number }): string {
   const filterLabel = COMPLIANCE_LIST_FILTERS.find(tab => tab.key === args.filter)?.label ?? 'All';
   const countLabel = args.count === 1 ? '1 item' : `${args.count} items`;
+  const overdue = args.overdue ?? 0;
+  if (overdue > 0 && args.filter !== 'overdue') {
+    const overdueLabel = overdue === 1 ? '1 overdue' : `${overdue} overdue`;
+    return `${filterLabel} · ${countLabel} · ${overdueLabel}`;
+  }
   return `${filterLabel} · ${countLabel}`;
 }
 
@@ -317,7 +322,12 @@ export function CompliancePage() {
   const noneMatch = !lookComplianceList && !lookHotfixDate && !loading && decorated.length > 0 && floorItems.length === 0;
   const openedItem = lookComplianceList ? null : complianceListOpened(decorated, openId);
   const recordOpen = !!openedItem;
-  const whisper = complianceListWhisper({ filter: statusFilter, count: floorItems.length });
+  const overdueCount = floorItems.filter(item => item.liveStatus === 'overdue').length;
+  const whisper = complianceListWhisper({
+    filter: statusFilter,
+    count: floorItems.length,
+    overdue: overdueCount,
+  });
 
   function openItem(item: ComplianceItemWithClient) {
     const href = complianceListOpenHref(item.id);
@@ -371,20 +381,24 @@ export function CompliancePage() {
               <span className="hub-compliance-list-mark">List</span>
             </header>
             <div className="hub-compliance-list-body">
-              <h1 className="ops-page-title">Compliance</h1>
-              <p className="hub-compliance-list-whisper">{whisper}</p>
-              <div className="hub-compliance-list-tools">
-                <button type="button" onClick={() => openEditor(null)} className="btn-primary">
-                  <Plus size={16} /> New item
-                </button>
-                <div className="hub-compliance-list-tools-overflow">
-                  <ComplianceListFind
-                    filter={statusFilter}
-                    onFilter={setStatusFilter}
-                    search={search}
-                    onSearch={setSearch}
-                  />
+              <div className="hub-compliance-list-identity">
+                <div>
+                  <h1 className="ops-page-title">Compliance</h1>
+                  <p className="hub-compliance-list-whisper">{whisper}</p>
                 </div>
+                <div className="hub-compliance-list-tools">
+                  <button type="button" onClick={() => openEditor(null)} className="btn-primary">
+                    <Plus size={20} /> New item
+                  </button>
+                </div>
+              </div>
+              <div className="hub-compliance-list-track">
+                <ComplianceListFind
+                  filter={statusFilter}
+                  onFilter={setStatusFilter}
+                  search={search}
+                  onSearch={setSearch}
+                />
               </div>
 
               {loading && (
@@ -534,34 +548,34 @@ function ComplianceListFind({
   }, []);
 
   return (
-    <details ref={moreRef} className="hub-compliance-list-more hub-compliance-list-find">
-      <summary aria-label="Find">
-        <MoreHorizontal size={18} />
-      </summary>
-      <div className="hub-compliance-list-more-menu" role="menu">
-        <div className="hub-compliance-chrome">
-          <div className="hub-compliance-filters" role="group" aria-label="Filter compliance items">
-            {COMPLIANCE_LIST_FILTERS.map(tab => (
-              <button
-                key={tab.key}
-                type="button"
-                role="menuitem"
-                onClick={() => onFilter(tab.key)}
-                className={`hub-chrome-filter ${filter === tab.key ? 'hub-chrome-filter-on' : ''}`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-          <SearchBar
-            value={search}
-            onChange={onSearch}
-            placeholder="Search name, client, or standard…"
-            className="hub-compliance-search"
-          />
+    <div className="hub-compliance-list-find">
+      <div className="hub-compliance-chrome">
+        <SearchBar
+          value={search}
+          onChange={onSearch}
+          placeholder="Search name, client, or standard…"
+          className="hub-compliance-search"
+        />
+        <div className="hub-compliance-filters" role="group" aria-label="Filter compliance items">
+          {COMPLIANCE_LIST_FILTERS.map(tab => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => onFilter(tab.key)}
+              className={`hub-chrome-filter ${filter === tab.key ? 'hub-chrome-filter-on' : ''}`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </div>
-    </details>
+      <details ref={moreRef} className="hub-compliance-list-more">
+        <summary aria-label="Find">
+          <MoreHorizontal size={18} />
+        </summary>
+        <div className="hub-compliance-list-more-menu" role="menu" />
+      </details>
+    </div>
   );
 }
 

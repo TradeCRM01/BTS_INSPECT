@@ -465,13 +465,18 @@ function teamListLookRows(): Member[] {
   ];
 }
 
-function teamListWhisper(args: { filter: TeamListFilter; count: number }): string {
+function teamListWhisper(args: { filter: TeamListFilter; count: number; pending?: number }): string {
   const filterLabel = args.filter === 'joined'
     ? 'Joined'
     : args.filter === 'pending'
       ? 'Pending'
       : 'All';
   const countLabel = args.count === 1 ? '1 member' : `${args.count} members`;
+  const pending = args.pending ?? 0;
+  if (pending > 0 && args.filter !== 'pending') {
+    const pendingLabel = pending === 1 ? '1 pending' : `${pending} pending`;
+    return `${filterLabel} · ${countLabel} · ${pendingLabel}`;
+  }
   return `${filterLabel} · ${countLabel}`;
 }
 
@@ -800,7 +805,8 @@ export function TeamSettingsPage() {
     visible: visibleMembers.length,
     query: search,
   });
-  const whisper = teamListWhisper({ filter: listFilter, count: visibleMembers.length });
+  const pendingCount = listRows.filter(member => teamSettingsIsPending(member)).length;
+  const whisper = teamListWhisper({ filter: listFilter, count: visibleMembers.length, pending: pendingCount });
   const loading = !lookTeamSeed && isLoading;
 
   const updateAccessMutation = useMutation({
@@ -1220,27 +1226,31 @@ export function TeamSettingsPage() {
             <span className="hub-team-list-mark">List</span>
           </header>
           <div className="hub-team-list-body">
-            <h1 className="ops-page-title">Team</h1>
-            <p className="hub-team-list-whisper">{whisper}</p>
-            <div className="hub-team-list-tools">
-              {isAdmin && (
-                <button
-                  type="button"
-                  onClick={() => setShowInvite(true)}
-                  className="btn-primary"
-                >
-                  <UserPlus size={16} />
-                  Invite member
-                </button>
-              )}
-              <div className="hub-team-list-tools-overflow">
-                <TeamListFind
-                  filter={listFilter}
-                  onFilter={setListFilter}
-                  search={search}
-                  onSearch={setSearch}
-                />
+            <div className="hub-team-list-identity">
+              <div>
+                <h1 className="ops-page-title">Team</h1>
+                <p className="hub-team-list-whisper">{whisper}</p>
               </div>
+              <div className="hub-team-list-tools">
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setShowInvite(true)}
+                    className="btn-primary"
+                  >
+                    <UserPlus size={20} />
+                    Invite member
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="hub-team-list-track">
+              <TeamListFind
+                filter={listFilter}
+                onFilter={setListFilter}
+                search={search}
+                onSearch={setSearch}
+              />
             </div>
 
             {invitedName && (
@@ -1669,29 +1679,29 @@ function TeamListFind({
   }, []);
 
   return (
-    <details ref={moreRef} className="hub-team-list-more hub-team-list-find">
-      <summary aria-label="Find">
-        <MoreHorizontal size={18} />
-      </summary>
-      <div className="hub-team-list-more-menu" role="menu">
-        <div className="hub-team-chrome">
-          <div className="hub-team-filters">
-            {TEAM_LIST_FILTERS.map(tab => (
-              <button
-                key={tab.key}
-                type="button"
-                role="menuitem"
-                onClick={() => onFilter(tab.key)}
-                className={`hub-chrome-filter ${filter === tab.key ? 'hub-chrome-filter-on' : ''}`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-          <SearchBar value={search} onChange={onSearch} placeholder="Search by name, email, or licence" />
+    <div className="hub-team-list-find">
+      <div className="hub-team-chrome">
+        <SearchBar value={search} onChange={onSearch} placeholder="Search by name, email, or licence" />
+        <div className="hub-team-filters">
+          {TEAM_LIST_FILTERS.map(tab => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => onFilter(tab.key)}
+              className={`hub-chrome-filter ${filter === tab.key ? 'hub-chrome-filter-on' : ''}`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </div>
-    </details>
+      <details ref={moreRef} className="hub-team-list-more">
+        <summary aria-label="Find">
+          <MoreHorizontal size={18} />
+        </summary>
+        <div className="hub-team-list-more-menu" role="menu" />
+      </details>
+    </div>
   );
 }
 
