@@ -363,12 +363,13 @@ function WeekBoardDocument({
       <div className="hub-week-sheet-body">
         <div className="hub-week-identity-row">
           <div className="hub-week-identity-col">
+            <p className="hub-week-id-label">{rangeLabel}</p>
             <h1 className="hub-week-hero">Schedule</h1>
             <p className="hub-week-status-whisper">{whisper}</p>
           </div>
           <div className="hub-week-page-tools">
             <button type="button" onClick={onNewJob} className="btn-primary">
-              <Plus size={16} /> New job
+              <Plus size={20} /> New job
             </button>
             <div className="hub-week-tools-overflow">
               {crews}

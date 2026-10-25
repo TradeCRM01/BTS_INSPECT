@@ -68,12 +68,12 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(css).toContain('.hub-week-status-whisper');
     expect(css).toContain('.hub-week-identity');
     expect(css).toContain('.hub-week-sheet-bar');
-    expect(css).toContain('background: #F5F0E6');
+    expect(css).toContain('background: var(--g-bg)');
     expect(css).toContain('background: #FFFDF8');
     expect(css).toContain('color: #0A2540');
     expect(css).toContain('color: #5B6B7C');
     expect(css).toContain('#E2D9CC');
-    expect(css).toContain('background: #2E75B6');
+    expect(css).toContain('background: var(--g-inverse)');
     expect(css).toContain('overflow: visible');
     expect(css).toContain('.hub-week-more.is-flip');
     expect(css).toContain('.hub-week-more.is-shift');
@@ -92,7 +92,9 @@ describe('week-board laptop LOOK — quote paper, one overflow, plotted tracker'
     expect(css).not.toContain('color: #0A2540 !important');
     expect(css).toContain('.form-input::placeholder');
     expect(css).not.toMatch(/letter-spacing:\s*0\.12em/);
-    expect(css).not.toMatch(/text-transform:\s*uppercase/);
+    expect(css).toMatch(/\.hub-week-id-label \{[^}]*text-transform: uppercase/);
+    expect(css).not.toMatch(/\.hub-week-hero \{[^}]*uppercase/);
+    expect(css).not.toMatch(/\.hub-week-status-whisper \{[^}]*uppercase/);
     expect(css).not.toMatch(/#C45C38|#C05838|#C45C26/);
     expect(css).not.toMatch(/#16A34A|#15803D|#1B7F3A/);
     expect(css).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow/);

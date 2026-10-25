@@ -1,0 +1,176 @@
+[
+  {
+    "name": "schedule-week-1280",
+    "width": 1280,
+    "measure": {
+      "title": {
+        "text": "Schedule",
+        "fontSize": "56px",
+        "fontWeight": "600",
+        "letterSpacing": "-1.96px",
+        "lineHeight": "56px",
+        "color": "rgb(10, 10, 11)",
+        "background": "rgba(0, 0, 0, 0)",
+        "height": 56,
+        "radius": "0px"
+      },
+      "button": {
+        "text": "New job",
+        "fontSize": "16px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "lineHeight": "20px",
+        "color": "rgb(255, 255, 255)",
+        "background": "rgb(10, 10, 11)",
+        "height": 48,
+        "radius": "10px"
+      },
+      "pageBg": "rgb(245, 245, 247)"
+    }
+  },
+  {
+    "name": "schedule-week-390",
+    "width": 390,
+    "measure": {
+      "title": {
+        "text": "Schedule",
+        "fontSize": "40px",
+        "fontWeight": "600",
+        "letterSpacing": "-1.4px",
+        "lineHeight": "44px",
+        "color": "rgb(10, 10, 11)",
+        "background": "rgba(0, 0, 0, 0)",
+        "height": 44,
+        "radius": "0px"
+      },
+      "button": {
+        "text": "New job",
+        "fontSize": "16px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "lineHeight": "20px",
+        "color": "rgb(255, 255, 255)",
+        "background": "rgb(10, 10, 11)",
+        "height": 48,
+        "radius": "10px"
+      },
+      "pageBg": "rgb(245, 245, 247)"
+    }
+  },
+  {
+    "name": "schedule-day-1280",
+    "width": 1280,
+    "measure": {
+      "title": {
+        "text": "Schedule",
+        "fontSize": "56px",
+        "fontWeight": "600",
+        "letterSpacing": "-1.96px",
+        "lineHeight": "56px",
+        "color": "rgb(10, 10, 11)",
+        "background": "rgba(0, 0, 0, 0)",
+        "height": 56,
+        "radius": "0px"
+      },
+      "button": {
+        "text": "New job",
+        "fontSize": "16px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "lineHeight": "20px",
+        "color": "rgb(255, 255, 255)",
+        "background": "rgb(10, 10, 11)",
+        "height": 48,
+        "radius": "10px"
+      },
+      "pageBg": "rgb(245, 245, 247)"
+    }
+  },
+  {
+    "name": "schedule-day-390",
+    "width": 390,
+    "measure": {
+      "title": {
+        "text": "Schedule",
+        "fontSize": "40px",
+        "fontWeight": "600",
+        "letterSpacing": "-1.4px",
+        "lineHeight": "44px",
+        "color": "rgb(10, 10, 11)",
+        "background": "rgba(0, 0, 0, 0)",
+        "height": 44,
+        "radius": "0px"
+      },
+      "button": {
+        "text": "New job",
+        "fontSize": "16px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "lineHeight": "20px",
+        "color": "rgb(255, 255, 255)",
+        "background": "rgb(10, 10, 11)",
+        "height": 48,
+        "radius": "10px"
+      },
+      "pageBg": "rgb(245, 245, 247)"
+    }
+  },
+  {
+    "name": "today-1280",
+    "width": 1280,
+    "measure": {
+      "title": {
+        "text": "Today",
+        "fontSize": "56px",
+        "fontWeight": "600",
+        "letterSpacing": "-1.96px",
+        "lineHeight": "56px",
+        "color": "rgb(10, 10, 11)",
+        "background": "rgba(0, 0, 0, 0)",
+        "height": 56,
+        "radius": "0px"
+      },
+      "button": {
+        "text": "New job",
+        "fontSize": "16px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "lineHeight": "20px",
+        "color": "rgb(255, 255, 255)",
+        "background": "rgb(10, 10, 11)",
+        "height": 48,
+        "radius": "10px"
+      },
+      "pageBg": "rgb(245, 245, 247)"
+    }
+  },
+  {
+    "name": "today-390",
+    "width": 390,
+    "measure": {
+      "title": {
+        "text": "Today",
+        "fontSize": "40px",
+        "fontWeight": "600",
+        "letterSpacing": "-1.4px",
+        "lineHeight": "44px",
+        "color": "rgb(10, 10, 11)",
+        "background": "rgba(0, 0, 0, 0)",
+        "height": 44,
+        "radius": "0px"
+      },
+      "button": {
+        "text": "New job",
+        "fontSize": "16px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "lineHeight": "20px",
+        "color": "rgb(255, 255, 255)",
+        "background": "rgb(10, 10, 11)",
+        "height": 0,
+        "radius": "10px"
+      },
+      "pageBg": "rgb(245, 245, 247)"
+    }
+  }
+]
