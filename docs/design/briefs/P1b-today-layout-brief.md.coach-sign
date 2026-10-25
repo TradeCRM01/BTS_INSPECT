@@ -1,0 +1,17 @@
+# COACH SIGN P1b brief, 19:58 AEST 23 Oct 2026, pinned to brief sha256 3e890d189027 (main 30cb09d9)
+Rulings: D1-D3, D5, D7, D8 confirmed. D4: any non-void invoice incl draft = invoiced; 30d ok; child visits roll up to parent, which counts once when all visits are complete. D6: expenses recorded+paid incl GST, drafts out, no POs, no wages; label 'Out'. Q-A..Q-E approved (read-only, RLS + explicit company_id); Q-E sums server-side, and the display list caps at the rows shown.
+Q2: NOW on phone+768, not 1024+. Q3: yes as mockup; New job in the phone overflow menu. Q4: keep main nudge strings and rollup. Q5: FIX F1 in P1b; CashFlowWidget uses Q-B/Q-C + kill. Q6: leave saved widgets and default seeding unchanged. Q7: FIX F2 in P1b (part_paid in nudge query) + kill. Q8: device-local ok for P1b; F5 ticketed. Q9: new money sections (KPI strip, Outstanding, Cash flow) render for owner/admin only, a UI gate; crew sees NOW, jobs, Needs you without $ items; kill both roles. Jack may override.
+Build: Lead may start the data layer + kills now; visual layer binds to the BTS UI spec after CoS cross-checks it; conflicts come to Coach.
+
+## Coach rulings 21:45 AEST
+- D6 Out excludes super and wages (kill each). Roles admin+member only. Unknown status -> Needs crew accepted. fetchComingUp client lookup company_id filter + kill.
+
+## Coach rulings 00:23 AEST 24 Oct
+- needCrew never throws and treats a malformed assigned_team as no crew, with a kill.
+- Unknown status is never Scheduled or Booked. Dated and crewless shows Needs crew; otherwise a neutral pill with the raw status, sentence-cased.
+
+## Coach rulings 00:40 AEST 24 Oct
+- Keep Reminders/Your widgets BELOW the board. The board matches the mockup exactly. Kill: board bottom < grid top at 5 widths; #404 parity carries over to the grid.
+- Needs you: no cap (D8/K9).
+- Old dashboard-home classes are REMOVED from the board, not overridden.
+- Colour kills must run in Chromium.
