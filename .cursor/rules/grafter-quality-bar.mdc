@@ -1,0 +1,35 @@
+---
+description: Grafter redesign quality bar, release flow and test-data rules; full detail in HANDOVER.md
+alwaysApply: true
+---
+
+# Grafter quality bar
+
+Read `HANDOVER.md` at the repo root before redesign work. It has open PRs, merge order, page order and mockup locations.
+
+## Scope
+- Merge one PR at a time, in the HANDOVER.md order: #406, #402, #399, #407, then 404b.
+- Every page is a layout rebuild that matches its mockup, never a recolour. Dark mode (S3) is last; status-bar style and `theme-color` must switch with the theme.
+
+## Gates (every PR, including visual-only)
+- `tsc` errors <= 180.
+- vitest fail list equals main's, in both `TZ=UTC` and `TZ=Australia/Brisbane`, 0 skipped.
+- Playwright Chromium green.
+- Phone checks in Playwright WebKit too (use the `mcr.microsoft.com/playwright:v1.48.2-jammy` image or a Mac). 0 WebKit tests = FAIL.
+- At 320/375/390: no text past the viewport, measured with text node client rects vs `innerWidth`, on `body` and the document, not just `scrollWidth`.
+- iOS standalone safe area with a 47px top inset. Use `max(<px>, env(safe-area-inset-top))` or `calc(<px> + env(...))`, never doubled.
+- Only `.hub-day-track` may scroll sideways.
+- Kills are behavioural and go red on real-file mutants. Computed-only or source-grep checks do not count.
+- Never loosen a test between rounds (instant fail). After two loosenings, the test file is written first in its own commit and frozen. Never edit a frozen kill file.
+- Compare against a main build made in the same run, never hardcoded or committed baselines. Wobbly values use a band from 10+ main runs.
+- Load the real Geist font before measuring.
+
+## Release flow
+Precheck, sign-off pinned to the head sha, pinned squash merge, prod Supabase migration (`ezszahvwwmbuekpedumf`) before the Cloudflare deploy, live check on company 40183ed1 only, close with before/after screenshots.
+
+## Hard rules
+- Never test on companies 8d88e1d6 or b62e2079. Probe rows go in 5a106e2d.
+- Copy is all-trades and has no em dashes. Public copy has no dollar prices.
+- Stripe billing, SMTP, Twilio and Relovi are parked. PRs #244, #245, #259 are on HOLD.
+- Never commit or print secrets. `ANTHROPIC_API_KEY` stays unset. Never put a made-up ABN in prod.
+- Do not merge PRs yourself unless Jack asks. Cursor on-demand stays off.
