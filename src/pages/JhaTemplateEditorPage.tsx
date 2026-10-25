@@ -66,14 +66,14 @@ const RISK_COLORS = [
 ];
 
 const FIELD_INPUT =
-  'w-full min-w-0 min-h-[44px] h-auto text-sm border border-[#E5E7EB] rounded-md px-2.5 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent';
+  'w-full min-w-0 min-h-[44px] h-auto text-sm border border-[#E5E7EB] rounded-md px-2.5 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[var(--g-ink)] focus:border-transparent';
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${checked ? 'bg-[#2E75B6]' : 'bg-[#D1D5DB]'}`}
+      className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${checked ? 'hub-tmpl-toggle-on' : 'hub-tmpl-toggle-off'}`}
       aria-pressed={checked}
     >
       <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${checked ? 'translate-x-4' : ''}`} />
@@ -472,7 +472,7 @@ export function JhaTemplateEditorPage() {
               value={templateName}
               onChange={e => { setTemplateName(e.target.value); markUnsaved(); }}
               placeholder="e.g. Electrical isolation JHA"
-              className="w-full min-w-0 min-h-[44px] h-auto text-base sm:text-lg font-semibold text-[#1A1A1A] border border-[#E5E7EB] rounded-md px-3 py-2 outline-none placeholder:text-[#9CA3AF] placeholder:font-normal bg-white focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              className="w-full min-w-0 min-h-[44px] h-auto text-base sm:text-lg font-semibold text-[#1A1A1A] border border-[#E5E7EB] rounded-md px-3 py-2 outline-none placeholder:text-[#9CA3AF] placeholder:font-normal bg-white focus:ring-2 focus:ring-[var(--g-ink)] focus:border-transparent"
             />
           </div>
           <div>
@@ -482,7 +482,7 @@ export function JhaTemplateEditorPage() {
               value={description}
               onChange={e => { setDescription(e.target.value); markUnsaved(); }}
               placeholder="When this template should be used"
-              className="w-full min-w-0 min-h-[44px] h-auto text-sm text-[#4A5568] border border-[#E5E7EB] rounded-md px-3 py-2 outline-none placeholder:text-[#9CA3AF] bg-white focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              className="w-full min-w-0 min-h-[44px] h-auto text-sm text-[#4A5568] border border-[#E5E7EB] rounded-md px-3 py-2 outline-none placeholder:text-[#9CA3AF] bg-white focus:ring-2 focus:ring-[var(--g-ink)] focus:border-transparent"
             />
           </div>
         </div>
@@ -528,7 +528,7 @@ export function JhaTemplateEditorPage() {
                   const n = Math.min(25, Math.max(1, parseInt(e.target.value, 10) || 9));
                   updateMeta({ maxAcceptableResidualScore: n });
                 }}
-                className="w-full min-w-0 sm:w-28 text-sm border border-[#E5E7EB] rounded-md px-2.5 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                className="w-full min-w-0 sm:w-28 text-sm border border-[#E5E7EB] rounded-md px-2.5 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[var(--g-ink)] focus:border-transparent"
               />
             </div>
 
@@ -570,7 +570,7 @@ export function JhaTemplateEditorPage() {
                             type="checkbox"
                             checked={field.required}
                             onChange={e => updateCustomField(field.id, { required: e.target.checked })}
-                            className="w-3.5 h-3.5 accent-[#2E75B6]"
+                            className="w-3.5 h-3.5 accent-[var(--g-ink)]"
                           />
                           Required
                         </label>
@@ -585,7 +585,7 @@ export function JhaTemplateEditorPage() {
               <button
                 type="button"
                 onClick={addCustomField}
-                className="mt-1 flex items-center gap-1.5 text-xs text-[#2E75B6] hover:text-[#1e5394] font-medium"
+                className="hub-tmpl-link mt-1 flex items-center gap-1.5 text-xs font-medium"
               >
                 <Plus size={13} /> Add custom field
               </button>
@@ -611,7 +611,7 @@ export function JhaTemplateEditorPage() {
             title="Step library"
             icon={Library}
             count={schema.stepLibrary?.length ?? 0}
-            action={<button type="button" onClick={addLibraryStep} className="flex items-center gap-1 text-xs text-[#2E75B6] hover:text-[#1e5394] font-medium"><Plus size={13} /> Add step</button>}
+            action={<button type="button" onClick={addLibraryStep} className="hub-tmpl-link flex items-center gap-1 text-xs font-medium"><Plus size={13} /> Add step</button>}
           >
             <p className="text-xs text-[#4A5568] mb-3 leading-relaxed">
               Pre-approved steps seeded into new JHAs. Load a mining pack, then edit descriptions as needed.
@@ -622,7 +622,7 @@ export function JhaTemplateEditorPage() {
                   key={pack.id}
                   type="button"
                   onClick={() => applyStepPack(pack.id)}
-                  className="text-xs px-3 py-1.5 rounded-md border border-[#E5E7EB] bg-white hover:border-[#2E75B6] hover:text-[#2E75B6] max-w-full"
+                  className="text-xs px-3 py-1.5 rounded-md border border-[#E5E7EB] bg-white hover:border-[color:var(--g-ink)] max-w-full"
                   title={pack.description}
                 >
                   <span className="block truncate">Load: {pack.name}</span>
@@ -670,7 +670,7 @@ export function JhaTemplateEditorPage() {
             title="Risk Levels"
             icon={AlertCircle}
             count={schema.riskLevels.length}
-            action={<button type="button" onClick={addRiskLevel} className="flex items-center gap-1 text-xs text-[#2E75B6] hover:text-[#1e5394] font-medium"><Plus size={13} /> Add</button>}
+            action={<button type="button" onClick={addRiskLevel} className="hub-tmpl-link flex items-center gap-1 text-xs font-medium"><Plus size={13} /> Add</button>}
           >
             <p className="text-xs text-[#4A5568] mb-4 leading-relaxed">Define the risk rating levels users can select when assessing each job step.</p>
             <div className="space-y-2">
@@ -729,7 +729,7 @@ export function JhaTemplateEditorPage() {
             title="PPE Options"
             icon={HardHat}
             count={schema.ppeOptions.length}
-            action={<button type="button" onClick={addPpeOption} className="flex items-center gap-1 text-xs text-[#2E75B6] hover:text-[#1e5394] font-medium"><Plus size={13} /> Add</button>}
+            action={<button type="button" onClick={addPpeOption} className="hub-tmpl-link flex items-center gap-1 text-xs font-medium"><Plus size={13} /> Add</button>}
           >
             <p className="text-xs text-[#4A5568] mb-4 leading-relaxed">PPE chips users can select. Add AS/NZS references for the PDF pack.</p>
             <div className="space-y-2">
@@ -772,7 +772,7 @@ export function JhaTemplateEditorPage() {
             title="Sign-Off Roles"
             icon={ShieldCheck}
             count={schema.signOffRoles.length}
-            action={<button type="button" onClick={addSignOffRole} className="flex items-center gap-1 text-xs text-[#2E75B6] hover:text-[#1e5394] font-medium"><Plus size={13} /> Add</button>}
+            action={<button type="button" onClick={addSignOffRole} className="hub-tmpl-link flex items-center gap-1 text-xs font-medium"><Plus size={13} /> Add</button>}
           >
             <p className="text-xs text-[#4A5568] mb-4 leading-relaxed">Define who must sign off on the JHA before it can be published.</p>
             <div className="space-y-2">

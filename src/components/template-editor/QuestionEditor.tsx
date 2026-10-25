@@ -126,14 +126,14 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
         />
         <div className="flex items-center gap-1 shrink-0">
           {question.required && <span className="text-[10px] text-red-500 font-medium">REQ</span>}
-          {hasShowIf && <span className="text-[10px] text-[#2E75B6] font-medium">COND</span>}
+          {hasShowIf && <span className="text-[10px] font-medium" style={{ color: 'var(--g-ink-muted)' }}>COND</span>}
           {question.allowNa && <span className="text-[10px] text-[#6B7280] font-medium">N/A</span>}
           {question.allowPhotos && question.type !== 'photo' && <Camera size={10} className="text-[#4A5568]" />}
           {question.allowComments && <MessageSquare size={10} className="text-[#4A5568]" />}
           <span className="text-[10px] text-[#4A5568]">{TYPE_LABELS[question.type]}</span>
           <button
             onClick={e => { e.stopPropagation(); setShowTypePicker(true); }}
-            className="opacity-0 group-hover:opacity-100 text-[#4A5568] hover:text-[#2E75B6] p-0.5 rounded"
+            className="opacity-0 group-hover:opacity-100 text-[#4A5568] hover:text-[color:var(--g-ink)] p-0.5 rounded"
             title="Change question type"
           >
             <Pencil size={12} />
@@ -165,14 +165,14 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
             <input
               value={question.helpText ?? ''}
               onChange={e => onChange({ helpText: e.target.value })}
-              className="w-full min-h-[44px] px-2.5 py-2 border border-[#E5E7EB] rounded text-xs text-[#1A1A1A] focus:outline-none focus:ring-1 focus:ring-[#2E75B6] bg-white"
+              className="w-full min-h-[44px] px-2.5 py-2 border border-[#E5E7EB] rounded text-xs text-[#1A1A1A] focus:outline-none focus:ring-1 focus:ring-[var(--g-ink)] bg-white"
               placeholder="Additional context shown below the label..."
             />
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer">
             <div
-              className={`w-8 h-4 rounded-full relative transition-colors cursor-pointer ${question.required ? 'bg-[#2E75B6]' : 'bg-[#E5E7EB]'}`}
+              className={`w-8 h-4 rounded-full relative transition-colors cursor-pointer ${question.required ? 'hub-tmpl-toggle-on' : 'hub-tmpl-toggle-off'}`}
               onClick={() => onChange({ required: !question.required })}
             >
               <div className={`w-3 h-3 bg-white rounded-full absolute top-0.5 transition-transform shadow-sm ${question.required ? 'translate-x-4' : 'translate-x-0.5'}`} />
@@ -183,7 +183,7 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
           {question.type !== 'photo' && (
             <label className="flex items-center gap-2 cursor-pointer">
               <div
-                className={`w-8 h-4 rounded-full relative transition-colors cursor-pointer ${question.allowPhotos ? 'bg-[#2E75B6]' : 'bg-[#E5E7EB]'}`}
+                className={`w-8 h-4 rounded-full relative transition-colors cursor-pointer ${question.allowPhotos ? 'hub-tmpl-toggle-on' : 'hub-tmpl-toggle-off'}`}
                 onClick={() => onChange({ allowPhotos: !question.allowPhotos })}
               >
                 <div className={`w-3 h-3 bg-white rounded-full absolute top-0.5 transition-transform shadow-sm ${question.allowPhotos ? 'translate-x-4' : 'translate-x-0.5'}`} />
@@ -194,7 +194,7 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
 
           <label className="flex items-center gap-2 cursor-pointer">
             <div
-              className={`w-8 h-4 rounded-full relative transition-colors cursor-pointer ${question.allowComments ? 'bg-[#2E75B6]' : 'bg-[#E5E7EB]'}`}
+              className={`w-8 h-4 rounded-full relative transition-colors cursor-pointer ${question.allowComments ? 'hub-tmpl-toggle-on' : 'hub-tmpl-toggle-off'}`}
               onClick={() => onChange({ allowComments: !question.allowComments })}
             >
               <div className={`w-3 h-3 bg-white rounded-full absolute top-0.5 transition-transform shadow-sm ${question.allowComments ? 'translate-x-4' : 'translate-x-0.5'}`} />
@@ -205,7 +205,7 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
           {NA_CAPABLE.has(question.type) && (
             <label className="flex items-center gap-2 cursor-pointer">
               <div
-                className={`w-8 h-4 rounded-full relative transition-colors cursor-pointer ${question.allowNa ? 'bg-[#2E75B6]' : 'bg-[#E5E7EB]'}`}
+                className={`w-8 h-4 rounded-full relative transition-colors cursor-pointer ${question.allowNa ? 'hub-tmpl-toggle-on' : 'hub-tmpl-toggle-off'}`}
                 onClick={() => onChange({ allowNa: !question.allowNa })}
               >
                 <div className={`w-3 h-3 bg-white rounded-full absolute top-0.5 transition-transform shadow-sm ${question.allowNa ? 'translate-x-4' : 'translate-x-0.5'}`} />
@@ -223,14 +223,14 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
                     <input
                       value={opt}
                       onChange={e => updateOption(i, e.target.value)}
-                      className="flex-1 min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-xs text-[#1A1A1A] focus:outline-none focus:ring-1 focus:ring-[#2E75B6] bg-white"
+                      className="flex-1 min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-xs text-[#1A1A1A] focus:outline-none focus:ring-1 focus:ring-[var(--g-ink)] bg-white"
                     />
                     <button onClick={() => removeOption(i)} className="text-[#4A5568] hover:text-[#B42318]">
                       <X size={12} />
                     </button>
                   </div>
                 ))}
-                <button onClick={addOption} className="flex items-center gap-1 text-xs text-[#2E75B6] hover:text-[#0A2540]">
+                <button onClick={addOption} className="hub-tmpl-link flex items-center gap-1 text-xs">
                   <Plus size={12} /> Add option
                 </button>
               </div>
@@ -245,7 +245,7 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
                   <input
                     value={question.numberConfig?.unit ?? ''}
                     onChange={e => onChange({ numberConfig: { ...question.numberConfig, unit: e.target.value } })}
-                    className="w-full min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                    className="w-full min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[var(--g-ink)]"
                     placeholder={question.type === 'slider' ? '%' : 'e.g. Ω'}
                   />
                 </div>
@@ -255,7 +255,7 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
                     type="number"
                     value={question.numberConfig?.min ?? ''}
                     onChange={e => onChange({ numberConfig: { ...question.numberConfig, min: e.target.value !== '' ? Number(e.target.value) : undefined } })}
-                    className="w-full min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                    className="w-full min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[var(--g-ink)]"
                   />
                 </div>
                 <div>
@@ -264,7 +264,7 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
                     type="number"
                     value={question.numberConfig?.max ?? ''}
                     onChange={e => onChange({ numberConfig: { ...question.numberConfig, max: e.target.value !== '' ? Number(e.target.value) : undefined } })}
-                    className="w-full min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                    className="w-full min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[var(--g-ink)]"
                   />
                 </div>
                 <div>
@@ -275,7 +275,7 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
                     max={6}
                     value={question.numberConfig?.decimals ?? ''}
                     onChange={e => onChange({ numberConfig: { ...question.numberConfig, decimals: e.target.value !== '' ? Number(e.target.value) : undefined } })}
-                    className="w-full min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                    className="w-full min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[var(--g-ink)]"
                     placeholder="auto"
                   />
                 </div>
@@ -311,8 +311,8 @@ export function QuestionEditor({ question, index, allQuestions, onChange, onDele
                       onClick={() => onChange({ yesNoLabels: opt })}
                       className={`flex-1 py-1.5 rounded text-xs font-medium border transition-colors ${
                         (question.yesNoLabels ?? 'yes_no') === opt
-                          ? 'border-[#0A2540] bg-[#0A2540] text-white'
-                          : 'border-[#E5E7EB] text-[#4A5568] hover:border-[#0A2540]/40 bg-white'
+                          ? 'border-transparent text-[color:var(--g-inverse-ink)] hub-tmpl-toggle-on'
+                          : 'border-[#E5E7EB] text-[#4A5568] bg-white'
                       }`}
                     >
                       {opt === 'yes_no' ? 'Yes / No' : 'Pass / Fail'}

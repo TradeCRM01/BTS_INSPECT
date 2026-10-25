@@ -17122,6 +17122,25 @@
     border-radius: var(--g-radius-md);
   }
 
+  .hub-tmpl-toggle-on {
+    background: var(--g-inverse);
+  }
+
+  .hub-tmpl-toggle-off {
+    background: var(--g-line);
+  }
+
+  .hub-tmpl-link {
+    color: var(--g-ink);
+  }
+
+  .hub-tmpl-add {
+    color: var(--g-ink);
+    border: 1px dashed var(--g-line);
+    border-radius: var(--g-radius-md);
+    background: transparent;
+  }
+
   /* End JHA list document */
 
   /* Field Work JHA list + open fill only. Same signed sheet lock as inspections. */
