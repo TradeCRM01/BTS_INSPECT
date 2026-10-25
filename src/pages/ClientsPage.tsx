@@ -278,16 +278,22 @@ export function ClientsPage() {
             <span className="hub-clients-list-mark">List</span>
           </header>
           <div className="hub-clients-list-body">
-            <h1 className="ops-page-title">Clients</h1>
-            <p className="hub-clients-list-whisper">{whisper}</p>
-            <div className="hub-clients-list-tools">
-              <button
-                type="button"
-                onClick={() => { setEditingClient(null); setShowForm(true); }}
-                className="btn-primary"
-              >
-                <Plus size={16} /> New client
-              </button>
+            <div className="hub-clients-list-identity">
+              <div>
+                <h1 className="ops-page-title">Clients</h1>
+                <p className="hub-clients-list-whisper">{whisper}</p>
+              </div>
+              <div className="hub-clients-list-tools">
+                <button
+                  type="button"
+                  onClick={() => { setEditingClient(null); setShowForm(true); }}
+                  className="btn-primary"
+                >
+                  <Plus size={20} /> New client
+                </button>
+              </div>
+            </div>
+            <div className="hub-clients-list-track">
               <div className="hub-clients-list-tools-overflow">
                 <ClientsListFind
                   showArchived={showArchived}
@@ -431,32 +437,31 @@ function ClientsListFind({
   }, []);
 
   return (
-    <details ref={moreRef} className="hub-clients-list-more hub-clients-list-find">
-      <summary aria-label="Find">
-        <MoreHorizontal size={18} />
-      </summary>
-      <div className="hub-clients-list-more-menu" role="menu">
-        <div className="hub-clients-chrome">
-          <div className="hub-clients-filters">
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => onShowArchived(false)}
-              className={`hub-chrome-filter ${!showArchived ? 'hub-chrome-filter-on' : ''}`}
-            >
-              Active
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => onShowArchived(true)}
-              className={`hub-chrome-filter ${showArchived ? 'hub-chrome-filter-on' : ''}`}
-            >
-              Archived
-            </button>
-          </div>
-          <SearchBar value={search} onChange={onSearch} placeholder="Search by name, site, job, phone, or email..." />
+    <div className="hub-clients-list-find">
+      <div className="hub-clients-chrome">
+        <div className="hub-clients-filters">
+          <button
+            type="button"
+            onClick={() => onShowArchived(false)}
+            className={`hub-chrome-filter ${!showArchived ? 'hub-chrome-filter-on' : ''}`}
+          >
+            Active
+          </button>
+          <button
+            type="button"
+            onClick={() => onShowArchived(true)}
+            className={`hub-chrome-filter ${showArchived ? 'hub-chrome-filter-on' : ''}`}
+          >
+            Archived
+          </button>
         </div>
+        <SearchBar value={search} onChange={onSearch} placeholder="Search by name, site, job, phone, or email..." />
+      </div>
+      <details ref={moreRef} className="hub-clients-list-more">
+        <summary aria-label="Find">
+          <MoreHorizontal size={18} />
+        </summary>
+        <div className="hub-clients-list-more-menu" role="menu">
       </div>
     </details>
   );
