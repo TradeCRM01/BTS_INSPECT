@@ -255,6 +255,8 @@ describe('sort and group the open-or-due floor', () => {
       .toBe('All · Could not load');
     expect(inspectionsListWhisper({ filter: 'action', archived: false, count: 0 }))
       .toBe('Open or due · 0 inspections');
+    expect(inspectionsListWhisper({ filter: 'action', archived: false, count: 4, due: 2 }))
+      .toBe('Open or due · 4 inspections · 2 due');
     expect(inspectionsListWhisper({ filter: 'draft', archived: false, count: 1 }))
       .toBe('Draft · 1 inspection');
   });

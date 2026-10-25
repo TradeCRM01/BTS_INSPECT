@@ -418,6 +418,7 @@ export function InspectionsPage() {
     filter: statusFilter,
     archived: showArchived,
     count: floorItems.length,
+    due: grouped.due.length,
     loading,
     error: !lookInspectionsList && isError,
   });

@@ -125,53 +125,48 @@ export function JhaStepCard({
   };
 
   return (
-    <div className="border border-[#E5E7EB] rounded-md overflow-hidden bg-white">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[#E5E7EB]">
-        <span className="text-xs font-semibold text-navy">Step {index + 1}</span>
+    <div className="hub-jha-step">
+      <div className="hub-jha-step-head">
+        <span className="hub-jha-step-index">{String(index + 1).padStart(2, '0')}</span>
+        <span className="hub-jha-step-mark">Step</span>
         {canDelete && (
-          <button type="button" onClick={onDelete} className="p-1 text-[#4A5568] hover:text-[#B42318] rounded transition-colors">
-            <Trash2 size={14} />
+          <button type="button" onClick={onDelete} className="hub-jha-step-remove" aria-label="Remove step">
+            <Trash2 size={16} />
           </button>
         )}
       </div>
 
-      <div className="p-4 space-y-4">
+      <div className="hub-jha-step-body">
         <div>
-          <label className="text-xs font-medium text-[#4A5568] mb-1 block">Job Step Description</label>
+          <label className="hub-jha-step-label">1. Work</label>
           <textarea
             value={step.description}
             onChange={e => onChange({ description: e.target.value })}
-            placeholder="Describe the work step..."
+            placeholder="What is the crew doing in this step?"
             rows={2}
-            className="w-full min-h-[44px] h-auto text-sm border border-[#E5E7EB] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] resize-none bg-white"
+            className="hub-jha-step-input w-full min-h-[88px] min-h-[44px] h-auto"
           />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="text-xs font-medium text-[#4A5568] mb-1 flex items-center gap-1">
-              <AlertCircle size={12} className="text-[#B42318]" />
-              Potential Hazards
-            </label>
+            <label className="hub-jha-step-label">2. Hazards</label>
             <textarea
               value={step.hazards}
               onChange={e => onChange({ hazards: e.target.value })}
-              placeholder="One hazard per line…"
+              placeholder="One hazard per line"
               rows={3}
-              className="w-full min-h-[44px] h-auto text-sm border border-[#E5E7EB] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] resize-none bg-white"
+              className="hub-jha-step-input w-full min-h-[44px] h-auto"
             />
-            <p className="text-[10px] text-[#9CA3AF] mt-1">List each hazard on its own line for the PDF table.</p>
+            <p className="hub-jha-step-hint">One line each. They print as rows on the PDF.</p>
           </div>
           <div className="space-y-3">
             <div>
-              <label className="text-xs font-medium text-[#4A5568] mb-1 flex items-center gap-1">
-                <ShieldAlert size={12} className="text-[#92400E]" />
-                Consequence
-              </label>
+              <label className="hub-jha-step-label">3. Consequence</label>
               <select
                 value={step.consequence}
                 onChange={e => setLikelihoodConsequence({ consequence: e.target.value })}
-                className="w-full min-h-[44px] h-auto text-sm border border-[#E5E7EB] rounded px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
+                className="hub-jha-step-input w-full min-h-[44px] h-auto"
               >
                 <option value="">Select consequence…</option>
                 {CONSEQUENCE_OPTIONS.map(c => (
@@ -180,14 +175,11 @@ export function JhaStepCard({
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-[#4A5568] mb-1 flex items-center gap-1">
-                <TrendingUp size={12} className="text-[#2E75B6]" />
-                Likelihood
-              </label>
+              <label className="hub-jha-step-label">Likelihood</label>
               <select
                 value={step.likelihood}
                 onChange={e => setLikelihoodConsequence({ likelihood: e.target.value })}
-                className="w-full min-h-[44px] h-auto text-sm border border-[#E5E7EB] rounded px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2E75B6] bg-white"
+                className="hub-jha-step-input w-full min-h-[44px] h-auto"
               >
                 <option value="">Select likelihood…</option>
                 {LIKELIHOOD_OPTIONS.map(l => (
@@ -198,10 +190,9 @@ export function JhaStepCard({
           </div>
         </div>
 
-        <div className="border border-red-200 rounded-lg bg-red-50/50 p-3">
+        <div className="hub-jha-step-score">
           <div className="flex items-center gap-2 mb-2">
-            <ShieldAlert size={14} className="text-[#B42318]" />
-            <span className="text-xs font-semibold text-[#B42318] uppercase tracking-wide">Before controls — inherent risk</span>
+            <span className="hub-jha-step-label">Risk before controls</span>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             {inherentProduct != null ? (
@@ -225,24 +216,19 @@ export function JhaStepCard({
           </div>
         </div>
 
-        <div className="border border-[#E5E7EB] rounded-lg bg-white p-3 space-y-3">
+        <div className="hub-jha-step-controls">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <ArrowRight size={14} className="text-[#2E75B6]" />
-              <span className="text-xs font-semibold text-[#0A2540] uppercase tracking-wide">
-                Controls (hierarchy of controls)
-              </span>
-            </div>
+            <span className="hub-jha-step-label">4. Controls</span>
             <button
               type="button"
               onClick={() => setMeasures([...measures, emptyControl()])}
-              className="text-xs text-[#2E75B6] hover:underline flex items-center gap-1"
+              className="hub-jha-add-step"
             >
-              <Plus size={12} /> Add control
+              Add control
             </button>
           </div>
-          <p className="text-[11px] text-[#6B7280]">
-            Prefer higher controls first: Eliminate → Substitute → Isolate → Engineering → Admin → PPE.
+          <p className="hub-jha-step-hint">
+            Higher first. Eliminate, substitute, isolate, engineer, then admin, then PPE.
           </p>
           {measures.length === 0 && (
             <button
@@ -319,12 +305,9 @@ export function JhaStepCard({
           ))}
         </div>
 
-        <div className={`rounded-lg p-3 border ${residualAbove ? 'border-amber-300 bg-amber-50' : 'border-green-200 bg-green-50/50'}`}>
+        <div className={`hub-jha-step-score ${residualAbove ? 'is-high' : ''}`}>
           <div className="flex items-center gap-2 mb-2">
-            <ShieldCheckIcon size={14} className={residualAbove ? 'text-amber-700' : 'text-[#166534]'} />
-            <span className={`text-xs font-semibold uppercase tracking-wide ${residualAbove ? 'text-amber-800' : 'text-[#166534]'}`}>
-              After controls — residual risk
-            </span>
+            <span className="hub-jha-step-label">5. Residual</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>

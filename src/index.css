@@ -16910,6 +16910,189 @@
     }
   }
 
+  .hub-jha-start-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+  }
+
+  .hub-jha-start-dim {
+    position: absolute;
+    inset: 0;
+    border: none;
+    background: rgba(10, 10, 11, 0.18);
+  }
+
+  .hub-jha-start-sheet {
+    position: absolute;
+    left: 50%;
+    top: 18%;
+    transform: translateX(-50%);
+    width: min(420px, calc(100% - 32px));
+    padding: 20px 20px 8px;
+    background: var(--g-surface);
+    border: 1px solid var(--g-line);
+    border-radius: var(--g-radius-md);
+    box-shadow: 0 10px 28px rgba(10, 10, 11, 0.12);
+  }
+
+  .hub-jha-start-kicker {
+    margin: 0 0 12px;
+    font-family: var(--g-font-ui);
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--g-ink-muted);
+  }
+
+  .hub-jha-start-choice {
+    display: block;
+    width: 100%;
+    min-height: 48px;
+    text-align: left;
+    padding: 0 4px;
+    border: none;
+    border-bottom: 1px solid var(--g-line);
+    background: none;
+    color: var(--g-ink);
+    font-family: var(--g-font-ui);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .hub-jha-step {
+    padding: 20px 0;
+    border-top: 1px solid var(--g-line);
+  }
+
+  .hub-jha-step-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .hub-jha-step-index {
+    font-family: var(--g-font-sans);
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    color: var(--g-ink);
+  }
+
+  .hub-jha-step-mark,
+  .hub-jha-step-label,
+  .hub-jha-step-hint {
+    font-family: var(--g-font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--g-ink-muted);
+  }
+
+  .hub-jha-step-label {
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .hub-jha-step-hint {
+    font-weight: 400;
+    margin-top: 6px;
+  }
+
+  .hub-jha-step-remove {
+    margin-left: auto;
+    border: none;
+    background: none;
+    color: var(--g-ink-muted);
+    cursor: pointer;
+  }
+
+  .hub-jha-step-input,
+  .hub-jha-step-body select.hub-jha-step-input {
+    border: none;
+    border-bottom: 1px solid var(--g-line);
+    border-radius: 0;
+    background: none;
+    color: var(--g-ink);
+    font-size: 15px;
+    padding: 8px 0;
+    box-shadow: none;
+  }
+
+  .hub-jha-step-score,
+  .hub-jha-step-controls {
+    padding: 12px 0 0;
+    border-top: 1px solid var(--g-line);
+    margin-top: 16px;
+  }
+
+  .hub-jha-add-step {
+    border: none;
+    background: none;
+    color: var(--g-ink);
+    font-size: 15px;
+    font-weight: 600;
+    min-height: 44px;
+    cursor: pointer;
+  }
+
+  .hub-jha-template-doc.ops-page {
+    background: var(--g-bg);
+  }
+
+  .hub-jha-template-identity {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .hub-jha-template-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 8px;
+    border: none;
+    background: none;
+    color: var(--g-ink-muted);
+    font-size: 15px;
+    cursor: pointer;
+  }
+
+  .hub-jha-template-doc .ops-page-title {
+    font-family: var(--g-font-sans);
+    font-weight: 600;
+    font-size: 40px !important;
+    letter-spacing: -0.035em;
+    line-height: 44px;
+    color: var(--g-ink);
+    margin: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .hub-jha-template-doc .ops-page-title {
+      font-size: 56px !important;
+      line-height: 56px;
+    }
+  }
+
+  .hub-jha-template-whisper {
+    margin: 8px 0 0;
+    font-size: 15px;
+    color: var(--g-ink-muted);
+  }
+
+  .hub-jha-template-doc .btn-primary {
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    min-height: 48px;
+    height: 48px;
+    border: none;
+    border-radius: var(--g-radius-md);
+  }
+
   /* End JHA list document */
 
   /* Field Work JHA list + open fill only. Same signed sheet lock as inspections. */
@@ -21235,57 +21418,80 @@
   }
   /* Reports list document only. Same paper kit as signed jobs / clients list. Not the open record. */
   .hub-reports-list-doc.ops-page {
-    background: #F5F0E6;
+    background: var(--g-bg);
   }
 
   .hub-reports-list-doc .hub-reports-sheet {
     position: relative;
     min-height: 620px;
     margin: 0 auto;
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
-    border-radius: 16px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
     overflow: visible;
-    box-shadow:
-      inset 0 1px 0 #fff,
-      0 10px 28px rgba(10, 37, 64, 0.08);
+    box-shadow: none;
   }
 
   .hub-reports-list-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    min-height: 44px;
-    padding: 8px 24px;
-    background: #0A2540;
-    color: #fff;
-    border-radius: 16px 16px 0 0;
+    display: none;
   }
 
   .hub-reports-list-mark {
     font-family: var(--g-font-title);
-    font-weight: 700;
+    font-weight: 600;
     font-size: 16px;
-    letter-spacing: 0.02em;
-    color: #fff;
+    letter-spacing: -0.035em;
+    color: var(--g-ink-muted);
+  }
+
+  .hub-reports-list-identity {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .hub-reports-list-track {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  .hub-reports-list-find > .hub-reports-list-more {
+    display: none;
+  }
+
+  .hub-reports-list-extras {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
   }
 
   .hub-reports-list-body {
-    padding: 32px 32px 24px;
-    background: #FFFDF8;
-    box-shadow: inset 0 1px 0 #fff;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
     overflow: visible;
   }
 
   .hub-reports.hub-reports-list-doc .ops-page-title {
-    font-family: var(--g-font-title);
-    font-weight: 700;
-    font-size: 56px !important;
-    letter-spacing: 0.02em;
-    line-height: 0.96;
-    color: #0A2540;
+    font-family: var(--g-font-sans);
+    font-weight: 600;
+    font-size: 40px !important;
+    letter-spacing: -0.035em;
+    line-height: 44px;
+    color: var(--g-ink);
     margin: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .hub-reports.hub-reports-list-doc .ops-page-title {
+      font-size: 56px !important;
+      line-height: 56px;
+    }
   }
 
   .hub-reports-list-whisper {
@@ -21293,19 +21499,19 @@
     margin: 8px 0 0;
     padding: 0;
     font-family: var(--g-font-ui);
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 15px;
+    font-weight: 400;
     letter-spacing: 0;
     text-transform: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-reports-list-tools {
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 16px;
-    margin-top: 24px;
+    gap: 12px;
+    margin-top: 0;
   }
 
   .hub-reports-list-tools-overflow {
@@ -21314,16 +21520,16 @@
   }
 
   .hub-reports-list-doc .hub-reports-list-tools .btn-primary {
-    background: #2E75B6;
-    color: #fff;
-    min-height: 44px;
-    height: 44px;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    min-height: 48px;
+    height: 48px;
     padding: 0 16px;
     border: none;
-    border-radius: 12px;
+    border-radius: var(--g-radius-md);
     box-shadow: none;
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
   }
 

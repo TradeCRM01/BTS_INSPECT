@@ -1007,38 +1007,42 @@ export function ReportsListPage() {
             <span className="hub-reports-list-mark">List</span>
           </header>
           <div className="hub-reports-list-body">
-            <h1 className="ops-page-title">Shared Drive</h1>
-            <p className="hub-reports-list-whisper">{whisper}</p>
-            <div className="hub-reports-list-tools">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="btn-primary"
-                disabled={uploading}
-              >
-                <UploadCloud size={16} /> {uploading ? 'Uploading…' : 'Upload PDF'}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="application/pdf,.pdf"
-                multiple
-                className="hidden"
-                onChange={e => { handleFiles(e.target.files); e.target.value = ''; }}
-              />
-              <div className="hub-reports-list-tools-overflow">
-                <ReportsListFind
-                  statusFilter={statusFilter}
-                  onStatusFilter={setStatusFilter}
-                  search={search}
-                  onSearch={setSearch}
-                  backupConnected={backupConnected}
-                  linkCopied={linkCopied}
-                  onBackup={() => setShowBackupPanel(s => !s)}
-                  onCopyLink={() => { void handleCopyLink(currentFolderId); }}
-                  onNewFolder={() => setShowNewFolder(true)}
+            <div className="hub-reports-list-identity">
+              <div>
+                <h1 className="ops-page-title">Shared Drive</h1>
+                <p className="hub-reports-list-whisper">{whisper}</p>
+              </div>
+              <div className="hub-reports-list-tools">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="btn-primary"
+                  disabled={uploading}
+                >
+                  <UploadCloud size={20} /> {uploading ? 'Uploading…' : 'Upload PDF'}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  multiple
+                  className="hidden"
+                  onChange={e => { handleFiles(e.target.files); e.target.value = ''; }}
                 />
               </div>
+            </div>
+            <div className="hub-reports-list-track">
+              <ReportsListFind
+                statusFilter={statusFilter}
+                onStatusFilter={setStatusFilter}
+                search={search}
+                onSearch={setSearch}
+                backupConnected={backupConnected}
+                linkCopied={linkCopied}
+                onBackup={() => setShowBackupPanel(s => !s)}
+                onCopyLink={() => { void handleCopyLink(currentFolderId); }}
+                onNewFolder={() => setShowNewFolder(true)}
+              />
             </div>
 
         {folderStack.length > 1 && (
@@ -1392,47 +1396,49 @@ function ReportsListFind({
   }, []);
 
   return (
-    <details ref={moreRef} className="hub-reports-list-more hub-reports-list-find">
-      <summary aria-label="Find">
-        <MoreHorizontal size={18} />
-      </summary>
-      <div className="hub-reports-list-more-menu" role="menu">
-        <div className="hub-reports-chrome">
-          <div className="hub-reports-filters">
-            {([
-              ['all', 'All'],
-              ['ready', 'Ready'],
-              ['sent', 'Sent'],
-            ] as const).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                role="menuitem"
-                onClick={() => onStatusFilter(key)}
-                className={`hub-chrome-filter ${statusFilter === key ? 'hub-chrome-filter-on' : ''}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <SearchBar
-            value={search}
-            onChange={onSearch}
-            placeholder="Search site, report, #0042…"
-            className="hub-reports-search"
-          />
+    <div className="hub-reports-list-find">
+      <div className="hub-reports-chrome">
+        <SearchBar
+          value={search}
+          onChange={onSearch}
+          placeholder="Search site, report, #0042…"
+          className="hub-reports-search"
+        />
+        <div className="hub-reports-filters">
+          {([
+            ['all', 'All'],
+            ['ready', 'Ready'],
+            ['sent', 'Sent'],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onStatusFilter(key)}
+              className={`hub-chrome-filter ${statusFilter === key ? 'hub-chrome-filter-on' : ''}`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
-        <button type="button" role="menuitem" onClick={() => { onBackup(); closeMore(); }}>
-          {backupConnected ? 'Backup connected' : 'Backup'}
-        </button>
-        <button type="button" role="menuitem" onClick={() => { onCopyLink(); closeMore(); }}>
-          {linkCopied ? 'Copied' : 'Copy link'}
-        </button>
-        <button type="button" role="menuitem" onClick={() => { onNewFolder(); closeMore(); }}>
-          New folder
-        </button>
+        <div className="hub-reports-list-extras">
+          <button type="button" className="hub-next" onClick={onBackup}>
+            {backupConnected ? 'Backup connected' : 'Backup'}
+          </button>
+          <button type="button" className="hub-next" onClick={onCopyLink}>
+            {linkCopied ? 'Copied' : 'Copy link'}
+          </button>
+          <button type="button" className="hub-next" onClick={onNewFolder}>
+            New folder
+          </button>
+        </div>
       </div>
-    </details>
+      <details ref={moreRef} className="hub-reports-list-more">
+        <summary aria-label="Find">
+          <MoreHorizontal size={18} />
+        </summary>
+        <div className="hub-reports-list-more-menu" role="menu" />
+      </details>
+    </div>
   );
 }
 

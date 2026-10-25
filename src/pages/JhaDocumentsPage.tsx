@@ -97,7 +97,7 @@ function jhaListLookRows(): DocRow[] {
   ];
 }
 
-function jhaListWhisper(args: { filter: JhaListFilter; count: number }): string {
+function jhaListWhisper(args: { filter: JhaListFilter; count: number; unsigned?: number }): string {
   const filterLabel = args.filter === 'open'
     ? 'Open'
     : args.filter === 'all'
@@ -108,6 +108,11 @@ function jhaListWhisper(args: { filter: JhaListFilter; count: number }): string 
           ? 'Ready'
           : 'Published';
   const countLabel = args.count === 1 ? '1 JHA' : `${args.count} JHAs`;
+  const unsigned = args.unsigned ?? 0;
+  if (unsigned > 0) {
+    const unsignedLabel = unsigned === 1 ? '1 unsigned' : `${unsigned} unsigned`;
+    return `${filterLabel} · ${countLabel} · ${unsignedLabel}`;
+  }
   return `${filterLabel} · ${countLabel}`;
 }
 
@@ -156,6 +161,7 @@ export function JhaDocumentsPage() {
   const lookJhaList = searchParams.get('look') === JHA_LIST_LOOK;
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<JhaListFilter>(lookJhaList ? 'all' : 'open');
+  const [pickingTemplate, setPickingTemplate] = useState(false);
   const [dupError, setDupError] = useState('');
 
   const duplicateMutation = useMutation({
@@ -247,7 +253,8 @@ export function JhaDocumentsPage() {
   const loading = !lookJhaList && isLoading;
   const noneAtAll = !lookJhaList && !loading && !pageQueryBlocked(isError) && listRows.length === 0;
   const noneMatch = !lookJhaList && !loading && !pageQueryBlocked(isError) && listRows.length > 0 && visible.length === 0;
-  const whisper = jhaListWhisper({ filter: status, count: visible.length });
+  const unsigned = visible.filter(item => item.row.status === 'completed').length;
+  const whisper = jhaListWhisper({ filter: status, count: visible.length, unsigned });
 
   return (
     <AppShell>
@@ -263,20 +270,14 @@ export function JhaDocumentsPage() {
                 <p className="hub-jha-list-whisper">{whisper}</p>
               </div>
               <div className="hub-jha-list-tools">
-                <select
+                <button
+                  type="button"
                   className="btn-primary hub-jha-start"
-                  defaultValue=""
                   aria-label="New JHA from template"
-                  onChange={e => {
-                    const id = e.target.value;
-                    if (id) navigate(`/jha/new?templateId=${id}`);
-                  }}
+                  onClick={() => setPickingTemplate(true)}
                 >
-                  <option value="">+ Start JHA</option>
-                  {(templates ?? []).map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
+                  + Start JHA
+                </button>
               </div>
             </div>
             <div className="hub-jha-list-track">
@@ -364,6 +365,36 @@ export function JhaDocumentsPage() {
           </div>
         </div>
       </div>
+      {pickingTemplate && (
+        <div className="hub-jha-start-layer" role="presentation">
+          <button
+            type="button"
+            className="hub-jha-start-dim"
+            aria-label="Close template picker"
+            onClick={() => setPickingTemplate(false)}
+          />
+          <div className="hub-jha-start-sheet" role="dialog" aria-label="Start JHA">
+            <p className="hub-jha-start-kicker">Start from a template</p>
+            <button
+              type="button"
+              className="hub-jha-start-choice"
+              onClick={() => navigate('/jha/new')}
+            >
+              Blank JHA
+            </button>
+            {(templates ?? []).map(t => (
+              <button
+                key={t.id}
+                type="button"
+                className="hub-jha-start-choice"
+                onClick={() => navigate(`/jha/new?templateId=${t.id}`)}
+              >
+                {t.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
