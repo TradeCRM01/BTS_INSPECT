@@ -1224,10 +1224,10 @@ export function JhaFillPage() {
         {activeTab === 'form' && (
           <div className="hub-jha-fill">
 
-            <section className="ops-card">
+            <section className="ops-card hub-jha-fill-block">
               <div className="ops-tray-head">
-                <h2 className="ops-section-title flex items-center gap-2">
-                  <HardHat size={16} /> Required PPE
+                <h2 className="ops-section-title">
+                  PPE
                 </h2>
               </div>
               <div className="px-3 pb-3 pt-2">
@@ -1280,18 +1280,18 @@ export function JhaFillPage() {
               </div>
             </section>
 
-            <section id="jha-steps" className="ops-card">
+            <section id="jha-steps" className="ops-card hub-jha-fill-block">
               <div className="ops-tray-head">
-                <h2 className="ops-section-title flex items-center gap-2">
-                  <AlertCircle size={16} /> Hazards, steps & controls
+                <h2 className="ops-section-title">
+                  Steps
                 </h2>
-                <button type="button" onClick={addStep} className="flex items-center gap-1 text-xs font-semibold text-accent min-h-[44px]">
-                  <Plus size={13} /> Add step
+                <button type="button" onClick={addStep} className="hub-jha-add-step">
+                  Add step
                 </button>
               </div>
               <div className="px-3 pb-3 pt-2">
                 <p className="ops-meta mb-3">
-                  For each step: what can go wrong, then the controls that bring residual risk down.
+                  Work, then hazards, then risk, then controls, then residual. One step at a time.
                 </p>
                 <button
                   type="button"

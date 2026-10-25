@@ -33,6 +33,8 @@ describe('JHA list laptop LOOK — quote paper, overflow on the sheet', () => {
     expect(page).toContain('aria-label="Open"');
     expect(page).toContain('className="btn-primary hub-jha-start"');
     expect(page).toContain('+ Start JHA');
+    expect(page).toContain('hub-jha-start-sheet');
+    expect(page).toContain('Blank JHA');
     expect(page).toContain('placeJhaListMore');
     expect(page).toContain('inkFloor');
     expect(page).not.toContain('hub-jha-pill');
@@ -73,6 +75,7 @@ describe('JHA list laptop LOOK — quote paper, overflow on the sheet', () => {
     expect((page.match(/hub-jha-list-more/g) ?? []).length).toBeGreaterThanOrEqual(1);
     expect((page.match(/MoreHorizontal/g) ?? []).length).toBeGreaterThanOrEqual(1);
     expect((page.match(/className="btn-primary hub-jha-start"/g) ?? []).length).toBe(1);
+    expect(page).not.toContain('<select');
 
     expect(css).toContain('.hub-jha-list-doc');
     expect(css).toContain('.hub-jha-list-bar');

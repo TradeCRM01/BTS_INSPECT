@@ -422,30 +422,31 @@ export function JhaTemplateEditorPage() {
 
   return (
     <AppShell>
-      <div className="page-shell max-w-[900px] overflow-x-hidden">
-        {/* Top bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-          <button
-            type="button"
-            onClick={() => navigate('/templates')}
-            className="flex items-center gap-1 text-sm text-[#4A5568] hover:text-[#1A1A1A] transition-colors"
-          >
-            <ChevronLeft size={16} /> Templates
-          </button>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <span className="text-xs text-[#6B7280] shrink-0">v{templateVersion}</span>
-            <span className="text-xs text-[#4A5568] shrink-0" data-save-status={saveState}>{unsaved.hint}</span>
+      <div className="ops-page hub-jha-template-doc page-shell max-w-[900px] overflow-x-hidden">
+        <div className="hub-jha-template-identity">
+          <div>
+            <button
+              type="button"
+              onClick={() => navigate('/templates')}
+              className="hub-jha-template-back"
+            >
+              <ChevronLeft size={16} /> Templates
+            </button>
+            <h1 className="ops-page-title">JHA template</h1>
+            <p className="hub-jha-template-whisper">
+              <span data-save-status={saveState}>{unsaved.hint}</span>
+              {' · '}v{templateVersion}
+              {templateName.trim() ? ` · ${templateName.trim()}` : ''}
+            </p>
+          </div>
+          <div className="hub-jha-list-tools">
             {templateId && (
-              <button type="button" onClick={handleDelete} className="p-1.5 text-[#4A5568] hover:text-[#B42318] hover:bg-red-50 rounded transition-colors" title="Delete template">
+              <button type="button" onClick={handleDelete} className="hub-jha-step-remove" title="Delete template">
                 <Trash2 size={16} />
               </button>
             )}
-            <button
-              type="button"
-              onClick={doSave}
-              className="flex items-center gap-1.5 bg-[#0A2540] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e] transition-colors"
-            >
-              <Save size={14} /> Save
+            <button type="button" onClick={doSave} className="btn-primary">
+              <Save size={16} /> Save
             </button>
           </div>
         </div>

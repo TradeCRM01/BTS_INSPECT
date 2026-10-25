@@ -269,6 +269,7 @@ export function inspectionsListWhisper(args: {
   filter: InspectionListFilter;
   archived: boolean;
   count: number;
+  due?: number;
   loading?: boolean;
   error?: boolean;
 }): string {
@@ -286,6 +287,11 @@ export function inspectionsListWhisper(args: {
   if (args.error) return `${filterLabel} · Could not load`;
   if (args.loading) return `${filterLabel} · Loading`;
   const countLabel = args.count === 1 ? '1 inspection' : `${args.count} inspections`;
+  const due = args.due ?? 0;
+  if (due > 0) {
+    const dueLabel = due === 1 ? '1 due' : `${due} due`;
+    return `${filterLabel} · ${countLabel} · ${dueLabel}`;
+  }
   return `${filterLabel} · ${countLabel}`;
 }
 
