@@ -317,8 +317,8 @@ describe('P375 probe: save guards block and write nothing', () => {
   }
   async function openAsset() {
     await act(async () => { root.render(wrap(<AssetsPage />, '/assets')); });
-    await waitForText('Add Asset');
-    await act(async () => { btn('Add Asset')!.click(); });
+    await waitForText('New asset');
+    await act(async () => { btn('New asset')!.click(); });
     await flush();
     setInputValue(document.querySelector('input[placeholder="e.g. Main Switchboard"]') as HTMLInputElement, 'Probe asset');
   }

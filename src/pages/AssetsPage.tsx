@@ -1,5 +1,4 @@
-import { useState, useMemo, memo, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,17 +7,14 @@ import { ManagedSelect } from '../components/ui/ManagedSelect';
 import { LIST_KEYS } from '../lib/useManagedList';
 import { AppShell } from '../components/layout/AppShell';
 import { OverlayPortal } from '../components/ui/OverlayPortal';
-import { LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, SummaryCard, useToast, ViewToggle, useViewMode } from '../components/ui';
-import { SkeletonCardGrid, SkeletonSummaryCards } from '../components/ui/Skeletons';
-import type { MenuEntry } from '../components/ui';
+import { LoadingSpinner, PageError, EmptyState, SearchBar, ContextMenu, ConfirmDialog, useToast } from '../components/ui';
 import { isPast } from 'date-fns';
 import { dateFieldYearError, parseToDate, safeFormatDate } from '../lib/safeDate';
 import {
-  Plus, Search, HardDrive, X, Trash2, Pencil, MoreVertical, MapPin,
-  Tag, Wrench, Calendar, ShieldCheck, AlertTriangle,
+  Plus, HardDrive, X, Trash2, Pencil,
 } from 'lucide-react';
 import type { Asset, AssetStatus, AssetWithClient } from '../types/fsm';
-import { ASSET_STATUS_LABELS, ASSET_STATUS_STYLES } from '../types/fsm';
+import { ASSET_STATUS_LABELS } from '../types/fsm';
 import type { Client } from '../types/crm';
 
 export function AssetsPage() {
@@ -30,7 +26,13 @@ export function AssetsPage() {
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AssetWithClient | null>(null);
-  const [viewMode, setViewMode] = useViewMode('assets');
+  const statusTabs: { key: 'all' | AssetStatus; label: string }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'active', label: 'Active' },
+    { key: 'inactive', label: 'Inactive' },
+    { key: 'faulty', label: 'Faulty' },
+    { key: 'decommissioned', label: 'Decommissioned' },
+  ];
 
   const { data: assets, isLoading, error } = useQuery({
     queryKey: ['assets'],
@@ -100,113 +102,87 @@ export function AssetsPage() {
 
   return (
     <AppShell>
-      <div className="max-w-[1200px] mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-          <div>
-            <h1 className="text-xl font-semibold text-[#1A1A1A]">Assets</h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">{counts.total} total assets</p>
-          </div>
-          <button onClick={() => { setEditingAsset(null); setShowForm(true); }} className="btn-primary">
-            <Plus size={16} /> Add Asset
-          </button>
-        </div>
-
-        {/* Summary cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-          {isLoading ? (
-            <SkeletonSummaryCards count={4} />
-          ) : (
-            <>
-              <SummaryCard label="Total" value={counts.total} accentColor="#0A2540" />
-              <SummaryCard label="Active" value={counts.active} accentColor="#16A34A" />
-              <SummaryCard label="Faulty" value={counts.faulty} accentColor="#DC2626" />
-              <SummaryCard label="Warranty Expired" value={counts.warrantyExpiring} accentColor="#D97706" />
-            </>
-          )}
-        </div>
-
-        {/* Search + filter */}
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <SearchBar value={search} onChange={setSearch} placeholder="Search by name, tag, serial, manufacturer..." />
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as 'all' | AssetStatus)}
-            className="min-h-[44px] h-auto py-2 px-3 text-sm border border-[#E5E7EB] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]">
-            <option value="all">All Status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="faulty">Faulty</option>
-            <option value="decommissioned">Decommissioned</option>
-          </select>
-          <ViewToggle mode={viewMode} onChange={setViewMode} />
-        </div>
-
-        {/* Grid */}
-        {isLoading ? (
-          <SkeletonCardGrid />
-        ) : filtered.length === 0 ? (
-          <EmptyState
-            icon={HardDrive}
-            title={search || statusFilter !== 'all' ? 'No assets match your filters' : 'No assets yet'}
-            message={search || statusFilter !== 'all' ? 'Try adjusting your filters.' : 'Add your first asset to get started.'}
-            action={!search && statusFilter === 'all' && (
-              <button onClick={() => { setEditingAsset(null); setShowForm(true); }} className="btn-primary">
-                <Plus size={16} /> Add your first asset
-              </button>
-            )}
-          />
-        ) : viewMode === 'grid' ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map(asset => (
-              <AssetCard key={asset.id} asset={asset}
-                onEdit={() => { setEditingAsset(asset); setShowForm(true); }}
-                onDelete={() => setDeleteTarget(asset)} />
-            ))}
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-[#F9FAFB] text-left text-xs font-medium text-[#4A5568] uppercase tracking-wide">
-                    <th className="px-4 py-3">Name</th>
-                    <th className="px-4 py-3">Asset Tag</th>
-                    <th className="px-4 py-3">Serial #</th>
-                    <th className="px-4 py-3">Client</th>
-                    <th className="px-4 py-3">Warranty</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 w-10"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F3F4F6]">
-                  {filtered.map(asset => {
-                    const warrantyDate = parseToDate(asset.warranty_expiry);
-                    const warrantyExpired = warrantyDate ? isPast(warrantyDate) : false;
-                    return (
-                      <tr key={asset.id} className="hover:bg-[#F9FAFB] transition-colors">
-                        <td className="px-4 py-3 font-medium text-[#1A1A1A]">{asset.name}</td>
-                        <td className="px-4 py-3 text-[#4A5568]">{asset.asset_tag ?? <span className="text-[#9CA3AF]">—</span>}</td>
-                        <td className="px-4 py-3 text-[#4A5568]">{asset.serial_number ?? <span className="text-[#9CA3AF]">—</span>}</td>
-                        <td className="px-4 py-3 text-[#4A5568]">{asset.client_name ?? <span className="text-[#9CA3AF]">—</span>}</td>
-                        <td className="px-4 py-3 text-[#4A5568]">{safeFormatDate(asset.warranty_expiry, 'd MMM yyyy')}{warrantyExpired && <AlertTriangle size={11} className="text-[#D97706] ml-1 inline" />}</td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${ASSET_STATUS_STYLES[asset.status]}`}>{ASSET_STATUS_LABELS[asset.status]}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex justify-end">
-                            <ContextMenu items={[
-                              { label: 'Edit', icon: Pencil, onClick: () => { setEditingAsset(asset); setShowForm(true); } },
-                              { divider: true },
-                              { label: 'Delete', icon: Trash2, onClick: () => setDeleteTarget(asset), variant: 'danger' },
-                            ]} />
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+      <div className="ops-page hub-assets hub-assets-list-doc">
+        <div className="hub-assets-sheet">
+          <div className="hub-assets-list-body">
+            <div className="hub-assets-list-identity">
+              <div>
+                <h1 className="ops-page-title">Assets</h1>
+                <p className="hub-assets-list-whisper">
+                  {counts.total} on the list
+                  {counts.faulty ? ` · ${counts.faulty} faulty` : ''}
+                  {counts.warrantyExpiring ? ` · ${counts.warrantyExpiring} warranty expired` : ''}
+                </p>
+              </div>
+              <div className="hub-assets-list-tools">
+                <button type="button" onClick={() => { setEditingAsset(null); setShowForm(true); }} className="btn-primary">
+                  <Plus size={20} /> New asset
+                </button>
+              </div>
             </div>
+            <div className="hub-assets-list-track">
+              <SearchBar value={search} onChange={setSearch} placeholder="Search assets or clients..." />
+            </div>
+            <div className="hub-assets-list-filters" role="tablist" aria-label="Asset status">
+              {statusTabs.map(tab => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={statusFilter === tab.key}
+                  onClick={() => setStatusFilter(tab.key)}
+                  className={`hub-assets-list-filter ${statusFilter === tab.key ? 'is-on' : ''}`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            {isLoading ? (
+              <div className="flex justify-center py-20"><LoadingSpinner /></div>
+            ) : filtered.length === 0 ? (
+              <EmptyState
+                icon={HardDrive}
+                title={search || statusFilter !== 'all' ? 'No matching assets' : 'No assets yet'}
+                message={search || statusFilter !== 'all' ? 'Try another status or search.' : 'Add an asset and keep the tag and warranty with the job.'}
+              />
+            ) : (
+              <>
+                <div className="hub-assets-thead">
+                  <span>Asset</span>
+                  <span>Customer</span>
+                  <span>Warranty</span>
+                  <span>Status</span>
+                  <span />
+                </div>
+                {filtered.map(asset => {
+                  const warrantyDate = parseToDate(asset.warranty_expiry);
+                  const warrantyExpired = warrantyDate ? isPast(warrantyDate) : false;
+                  return (
+                    <div key={asset.id} className="hub-assets-row">
+                      <div className="hub-assets-job">
+                        <span className="hub-assets-title">{asset.name}</span>
+                        <span className="hub-assets-ref">{asset.asset_tag || asset.serial_number || 'No tag'}</span>
+                      </div>
+                      <span className="hub-assets-name">{asset.client_name || 'No client'}</span>
+                      <span className="hub-assets-muted">
+                        {safeFormatDate(asset.warranty_expiry, 'd MMM yyyy') || 'No date'}
+                        {warrantyExpired ? ' · expired' : ''}
+                      </span>
+                      <span className="hub-assets-status">{ASSET_STATUS_LABELS[asset.status]}</span>
+                      <div className="hub-assets-row-next">
+                        <ContextMenu items={[
+                          { label: 'Edit', icon: Pencil, onClick: () => { setEditingAsset(asset); setShowForm(true); } },
+                          { divider: true },
+                          { label: 'Delete', icon: Trash2, onClick: () => setDeleteTarget(asset), variant: 'danger' },
+                        ]} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {showForm && (
@@ -225,68 +201,6 @@ export function AssetsPage() {
     </AppShell>
   );
 }
-
-const AssetCard = memo(function AssetCard({ asset, onEdit, onDelete }: {
-  asset: AssetWithClient; onEdit: () => void; onDelete: () => void;
-}) {
-  const warrantyDate = parseToDate(asset.warranty_expiry);
-  const warrantyExpired = warrantyDate ? isPast(warrantyDate) : false;
-  const menuItems: MenuEntry[] = [
-    { label: 'Edit', icon: Pencil, onClick: onEdit },
-    { divider: true },
-    { label: 'Delete', icon: Trash2, onClick: onDelete, variant: 'danger' },
-  ];
-
-  return (
-    <div className="card-hover p-4">
-      <div className="absolute top-3 right-3">
-        <ContextMenu items={menuItems} />
-      </div>
-
-      <div className="flex items-start gap-3 pr-8">
-        <div className="w-10 h-10 rounded-lg bg-[#0A2540]/5 flex items-center justify-center shrink-0">
-          <HardDrive size={20} className="text-[#0A2540]" />
-        </div>
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-[#1A1A1A] truncate">{asset.name}</h3>
-          {asset.asset_tag && <p className="text-xs text-[#6B7280] mt-0.5">Tag: {asset.asset_tag}</p>}
-        </div>
-      </div>
-
-      <div className="mt-3 space-y-1.5">
-        {asset.client_name && (
-          <div className="flex items-center gap-1.5 text-xs text-[#4A5568]">
-            <Tag size={13} className="text-[#9CA3AF]" /> {asset.client_name}
-          </div>
-        )}
-        {asset.serial_number && (
-          <div className="flex items-center gap-1.5 text-xs text-[#4A5568]">
-            <Wrench size={13} className="text-[#9CA3AF]" /> S/N: {asset.serial_number}
-          </div>
-        )}
-        {asset.location_description && (
-          <div className="flex items-center gap-1.5 text-xs text-[#4A5568]">
-            <MapPin size={13} className="text-[#9CA3AF]" /> {asset.location_description}
-          </div>
-        )}
-        {asset.warranty_expiry && (
-          <div className={`flex items-center gap-1.5 text-xs ${warrantyExpired ? 'text-[#D97706]' : 'text-[#4A5568]'}`}>
-            <ShieldCheck size={13} className={warrantyExpired ? 'text-[#D97706]' : 'text-[#9CA3AF]'} />
-            Warranty: {safeFormatDate(asset.warranty_expiry, 'dd MMM yyyy')}
-            {warrantyExpired && <AlertTriangle size={11} className="text-[#D97706]" />}
-          </div>
-        )}
-      </div>
-
-      <div className="mt-3 flex items-center justify-between">
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${ASSET_STATUS_STYLES[asset.status]}`}>
-          {ASSET_STATUS_LABELS[asset.status]}
-        </span>
-        {asset.category && <span className="text-xs text-[#9CA3AF]">{asset.category}</span>}
-      </div>
-    </div>
-  );
-});
 
 export function AssetForm({ asset, onClose, onSaved }: { asset: Asset | null; onClose: () => void; onSaved: () => void }) {
   const { profile } = useAuth();
