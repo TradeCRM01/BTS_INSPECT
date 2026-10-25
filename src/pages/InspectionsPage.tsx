@@ -35,6 +35,7 @@ import {
   decorateInspectionList,
   filterInspectionListFloor,
   formatInspectionListStamp,
+  groupInspectionListFloor,
   inspectionListEmptyMessage,
   inspectionListEmptyTitle,
   inspectionListOpenHref,
@@ -409,6 +410,7 @@ export function InspectionsPage() {
     ),
     [visible, search, statusFilter],
   );
+  const grouped = useMemo(() => groupInspectionListFloor(floorItems), [floorItems]);
   const noneAtAll = !lookInspectionsList && !isLoading && !pageQueryBlocked(isError) && visible.length === 0;
   const noneMatch = !lookInspectionsList && !isLoading && !pageQueryBlocked(isError) && visible.length > 0 && floorItems.length === 0 && !noneAtAll;
   const loading = !lookInspectionsList && isLoading;
@@ -476,30 +478,34 @@ export function InspectionsPage() {
             <span className="hub-inspections-list-mark">List</span>
           </header>
           <div className="hub-inspections-list-body">
-            <h1 className="ops-page-title">Inspections</h1>
-            <p className="hub-inspections-list-whisper">{whisper}</p>
-            <div className="hub-inspections-list-tools">
-              {!showArchived && (
-                <button
-                  type="button"
-                  onClick={() => navigate('/inspections/new')}
-                  className="btn-primary"
-                >
-                  <Plus size={16} /> Start inspection
-                </button>
-              )}
-              <div className="hub-inspections-list-tools-overflow">
-                <InspectionsListFind
-                  statusFilter={statusFilter}
-                  onStatusFilter={setStatusFilter}
-                  search={search}
-                  onSearch={setSearch}
-                  selectedCount={selectedIds.size}
-                  exporting={exporting}
-                  exportProgress={exportProgress}
-                  onExportPack={() => { void handleExportPack(); }}
-                />
+            <div className="hub-inspections-list-identity">
+              <div>
+                <h1 className="ops-page-title">Inspections</h1>
+                <p className="hub-inspections-list-whisper">{whisper}</p>
               </div>
+              <div className="hub-inspections-list-tools">
+                {!showArchived && (
+                  <button
+                    type="button"
+                    onClick={() => navigate('/inspections/new')}
+                    className="btn-primary"
+                  >
+                    <Plus size={20} /> Start inspection
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="hub-inspections-list-track">
+              <InspectionsListFind
+                statusFilter={statusFilter}
+                onStatusFilter={setStatusFilter}
+                search={search}
+                onSearch={setSearch}
+                selectedCount={selectedIds.size}
+                exporting={exporting}
+                exportProgress={exportProgress}
+                onExportPack={() => { void handleExportPack(); }}
+              />
             </div>
 
             {exportError && (
@@ -548,23 +554,51 @@ export function InspectionsPage() {
                   <span>Status</span>
                   <span />
                 </div>
-                {floorItems.map(item => (
-                  <InspectionRow
-                    key={item.row.id}
-                    item={item}
-                    selected={selectedIds.has(item.row.id)}
-                    onToggleSelect={() => toggleSelect(item.row.id)}
-                    isAdmin={isAdmin}
-                    onOpen={href => navigate(href)}
-                    onArchive={handleArchiveToggle}
-                    onDelete={handleDelete}
-                    onIssue={handleIssue}
-                    onAddInspection={() => navigate(`/inspections/new?jobId=${item.row.id}`)}
-                    onSendToDrive={() => setSendToDriveFor(item.row.id)}
-                    onSendReport={setSendingReportId}
-                    deleting={deleteMutation.isPending}
-                  />
-                ))}
+                <InspectionGroup
+                  title="Due"
+                  items={grouped.due}
+                  selectedIds={selectedIds}
+                  isAdmin={isAdmin}
+                  onToggleSelect={toggleSelect}
+                  onOpen={href => navigate(href)}
+                  onArchive={handleArchiveToggle}
+                  onDelete={handleDelete}
+                  onIssue={handleIssue}
+                  onAddInspection={id => navigate(`/inspections/new?jobId=${id}`)}
+                  onSendToDrive={setSendToDriveFor}
+                  onSendReport={setSendingReportId}
+                  deleting={deleteMutation.isPending}
+                />
+                <InspectionGroup
+                  title="Open"
+                  items={grouped.open}
+                  selectedIds={selectedIds}
+                  isAdmin={isAdmin}
+                  onToggleSelect={toggleSelect}
+                  onOpen={href => navigate(href)}
+                  onArchive={handleArchiveToggle}
+                  onDelete={handleDelete}
+                  onIssue={handleIssue}
+                  onAddInspection={id => navigate(`/inspections/new?jobId=${id}`)}
+                  onSendToDrive={setSendToDriveFor}
+                  onSendReport={setSendingReportId}
+                  deleting={deleteMutation.isPending}
+                />
+                <InspectionGroup
+                  title="Done"
+                  items={grouped.done}
+                  selectedIds={selectedIds}
+                  isAdmin={isAdmin}
+                  onToggleSelect={toggleSelect}
+                  onOpen={href => navigate(href)}
+                  onArchive={handleArchiveToggle}
+                  onDelete={handleDelete}
+                  onIssue={handleIssue}
+                  onAddInspection={id => navigate(`/inspections/new?jobId=${id}`)}
+                  onSendToDrive={setSendToDriveFor}
+                  onSendReport={setSendingReportId}
+                  deleting={deleteMutation.isPending}
+                />
               </>
             )}
           </div>
@@ -724,39 +758,50 @@ function InspectionsListFind({
   }, []);
 
   return (
-    <details ref={moreRef} className="hub-inspections-list-more hub-inspections-list-find">
-      <summary aria-label="Filter inspections">
-        <MoreHorizontal size={18} />
-      </summary>
-      <div className="hub-inspections-list-more-menu" role="menu">
-        <div className="hub-inspections-chrome">
-          <div className="hub-inspections-filters">
-            {LIST_FILTERS.map(tab => (
-              <button
-                key={tab.key}
-                type="button"
-                role="menuitem"
-                onClick={() => { onStatusFilter(tab.key); closeMore(); }}
-                className={`hub-chrome-filter ${statusFilter === tab.key ? 'hub-chrome-filter-on' : ''}`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-          <SearchBar value={search} onChange={onSearch} placeholder="Search job, site, template, #0042…" />
+    <div className="hub-inspections-list-find">
+      <div className="hub-inspections-chrome">
+        <SearchBar value={search} onChange={onSearch} placeholder="Search job, site, template, #0042…" />
+        <div className="hub-inspections-filters">
+          {LIST_FILTERS.map(tab => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => { onStatusFilter(tab.key); closeMore(); }}
+              className={`hub-chrome-filter ${statusFilter === tab.key ? 'hub-chrome-filter-on' : ''}`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-        {selectedCount > 0 && (
-          <button
-            type="button"
-            role="menuitem"
-            disabled={exporting}
-            onClick={() => { onExportPack(); closeMore(); }}
-          >
-            {exporting ? (exportProgress || 'Exporting…') : `Export pack (${selectedCount})`}
-          </button>
-        )}
       </div>
-    </details>
+      <details ref={moreRef} className="hub-inspections-list-more">
+        <summary aria-label="Filter inspections">
+          <MoreHorizontal size={18} />
+        </summary>
+        <div className="hub-inspections-list-more-menu" role="menu">
+          {selectedCount > 0 && (
+            <button
+              type="button"
+              role="menuitem"
+              disabled={exporting}
+              onClick={() => { onExportPack(); closeMore(); }}
+            >
+              {exporting ? (exportProgress || 'Exporting…') : `Export pack (${selectedCount})`}
+            </button>
+          )}
+        </div>
+      </details>
+      {selectedCount > 0 && (
+        <button
+          type="button"
+          className="hub-next"
+          disabled={exporting}
+          onClick={() => { onExportPack(); }}
+        >
+          {exporting ? (exportProgress || 'Exporting…') : `Export pack (${selectedCount})`}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -800,6 +845,63 @@ function InspectionRowMore({
         {children(closeMore)}
       </div>
     </details>
+  );
+}
+
+function InspectionGroup({
+  title,
+  items,
+  selectedIds,
+  isAdmin,
+  onToggleSelect,
+  onOpen,
+  onArchive,
+  onDelete,
+  onIssue,
+  onAddInspection,
+  onSendToDrive,
+  onSendReport,
+  deleting,
+}: {
+  title: string;
+  items: InspectionListFloorItem<Inspection>[];
+  selectedIds: Set<string>;
+  isAdmin: boolean;
+  onToggleSelect: (id: string) => void;
+  onOpen: (href: string) => void;
+  onArchive: (id: string, archived: boolean) => void;
+  onDelete: (id: string) => void;
+  onIssue: (id: string, status: string) => void;
+  onAddInspection: (id: string) => void;
+  onSendToDrive: (id: string) => void;
+  onSendReport: (id: string) => void;
+  deleting: boolean;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <section title={title} data-inspections-group={title.toLowerCase()}>
+      <h2 className="hub-inspections-group">
+        {title}
+        <span className="hub-inspections-count"> {items.length}</span>
+      </h2>
+      {items.map(item => (
+        <InspectionRow
+          key={item.row.id}
+          item={item}
+          selected={selectedIds.has(item.row.id)}
+          onToggleSelect={() => onToggleSelect(item.row.id)}
+          isAdmin={isAdmin}
+          onOpen={onOpen}
+          onArchive={onArchive}
+          onDelete={onDelete}
+          onIssue={onIssue}
+          onAddInspection={() => onAddInspection(item.row.id)}
+          onSendToDrive={() => onSendToDrive(item.row.id)}
+          onSendReport={onSendReport}
+          deleting={deleting}
+        />
+      ))}
+    </section>
   );
 }
 

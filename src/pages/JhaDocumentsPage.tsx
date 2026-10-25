@@ -257,31 +257,35 @@ export function JhaDocumentsPage() {
             <span className="hub-jha-list-mark">List</span>
           </header>
           <div className="hub-jha-list-body">
-            <h1 className="ops-page-title">JHA</h1>
-            <p className="hub-jha-list-whisper">{whisper}</p>
-            <div className="hub-jha-list-tools">
-              <select
-                className="btn-primary hub-jha-start"
-                defaultValue=""
-                aria-label="New JHA from template"
-                onChange={e => {
-                  const id = e.target.value;
-                  if (id) navigate(`/jha/new?templateId=${id}`);
-                }}
-              >
-                <option value="">+ Start JHA</option>
-                {(templates ?? []).map(t => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
-              <div className="hub-jha-list-tools-overflow">
-                <JhaListFind
-                  status={status}
-                  onStatus={setStatus}
-                  search={q}
-                  onSearch={setQ}
-                />
+            <div className="hub-jha-list-identity">
+              <div>
+                <h1 className="ops-page-title">JHA</h1>
+                <p className="hub-jha-list-whisper">{whisper}</p>
               </div>
+              <div className="hub-jha-list-tools">
+                <select
+                  className="btn-primary hub-jha-start"
+                  defaultValue=""
+                  aria-label="New JHA from template"
+                  onChange={e => {
+                    const id = e.target.value;
+                    if (id) navigate(`/jha/new?templateId=${id}`);
+                  }}
+                >
+                  <option value="">+ Start JHA</option>
+                  {(templates ?? []).map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="hub-jha-list-track">
+              <JhaListFind
+                status={status}
+                onStatus={setStatus}
+                search={q}
+                onSearch={setQ}
+              />
             </div>
 
             {dupError && (
@@ -432,29 +436,29 @@ function JhaListFind({
   }, []);
 
   return (
-    <details ref={moreRef} className="hub-jha-list-more hub-jha-list-find">
-      <summary aria-label="Find">
-        <MoreHorizontal size={18} />
-      </summary>
-      <div className="hub-jha-list-more-menu" role="menu">
-        <div className="hub-jha-chrome">
-          <div className="hub-jha-filters">
-            {LIST_FILTERS.map(tab => (
-              <button
-                key={tab.key}
-                type="button"
-                role="menuitem"
-                onClick={() => onStatus(parseJhaListFilter(tab.key))}
-                className={`hub-chrome-filter ${status === tab.key ? 'hub-chrome-filter-on' : ''}`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-          <SearchBar value={search} onChange={onSearch} placeholder="Search job, site, permit, supervisor, #0042…" />
+    <div className="hub-jha-list-find">
+      <div className="hub-jha-chrome">
+        <SearchBar value={search} onChange={onSearch} placeholder="Search job, site, permit, supervisor, #0042…" />
+        <div className="hub-jha-filters">
+          {LIST_FILTERS.map(tab => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => onStatus(parseJhaListFilter(tab.key))}
+              className={`hub-chrome-filter ${status === tab.key ? 'hub-chrome-filter-on' : ''}`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </div>
-    </details>
+      <details ref={moreRef} className="hub-jha-list-more">
+        <summary aria-label="Find">
+          <MoreHorizontal size={18} />
+        </summary>
+        <div className="hub-jha-list-more-menu" role="menu" />
+      </details>
+    </div>
   );
 }
 

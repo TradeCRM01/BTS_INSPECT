@@ -231,20 +231,24 @@ export function Take5ListPage() {
             <span className="hub-take5-list-mark">List</span>
           </header>
           <div className="hub-take5-list-body">
-            <h1 className="ops-page-title">Take 5</h1>
-            <p className="hub-take5-list-whisper">{whisper}</p>
-            <div className="hub-take5-list-tools">
-              <Link to="/jha" className="btn-primary">
-                Open JHA documents
-              </Link>
-              <div className="hub-take5-list-tools-overflow">
-                <Take5ListFind
-                  filter={filter}
-                  onFilter={setFilter}
-                  search={q}
-                  onSearch={setQ}
-                />
+            <div className="hub-take5-list-identity">
+              <div>
+                <h1 className="ops-page-title">Take 5</h1>
+                <p className="hub-take5-list-whisper">{whisper}</p>
               </div>
+              <div className="hub-take5-list-tools">
+                <Link to="/jobs" className="btn-primary">
+                  Open jobs
+                </Link>
+              </div>
+            </div>
+            <div className="hub-take5-list-track">
+              <Take5ListFind
+                filter={filter}
+                onFilter={setFilter}
+                search={q}
+                onSearch={setQ}
+              />
             </div>
 
             {loading && (
@@ -397,34 +401,34 @@ function Take5ListFind({
   }, []);
 
   return (
-    <details ref={moreRef} className="hub-take5-list-more hub-take5-list-find">
-      <summary aria-label="Find">
-        <MoreHorizontal size={18} />
-      </summary>
-      <div className="hub-take5-list-more-menu" role="menu">
-        <div className="hub-take5-chrome">
-          <div className="hub-take5-filters" role="group" aria-label="Filter Take 5s">
-            {TAKE5_LIST_FILTERS.map(option => (
-              <button
-                key={option.value}
-                type="button"
-                role="menuitem"
-                onClick={() => onFilter(option.value)}
-                className={`hub-chrome-filter ${filter === option.value ? 'hub-chrome-filter-on' : ''}`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-          <SearchBar
-            value={search}
-            onChange={onSearch}
-            placeholder="Search job, site, #0042…"
-            className="hub-take5-search"
-          />
+    <div className="hub-take5-list-find">
+      <div className="hub-take5-chrome">
+        <SearchBar
+          value={search}
+          onChange={onSearch}
+          placeholder="Search job, site, #0042…"
+          className="hub-take5-search"
+        />
+        <div className="hub-take5-filters" role="group" aria-label="Filter Take 5s">
+          {TAKE5_LIST_FILTERS.map(option => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onFilter(option.value)}
+              className={`hub-chrome-filter ${filter === option.value ? 'hub-chrome-filter-on' : ''}`}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
       </div>
-    </details>
+      <details ref={moreRef} className="hub-take5-list-more">
+        <summary aria-label="Find">
+          <MoreHorizontal size={18} />
+        </summary>
+        <div className="hub-take5-list-more-menu" role="menu" />
+      </details>
+    </div>
   );
 }
 

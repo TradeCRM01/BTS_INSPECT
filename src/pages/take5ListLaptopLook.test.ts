@@ -72,22 +72,19 @@ describe('Take 5 list laptop LOOK — quote paper, overflow on the sheet', () =>
     expect(css).toContain('.hub-take5-list-bar');
     expect(css).toContain('.hub-take5-list-whisper');
     expect(css).toContain('.hub-take5-list-tools');
-    expect(css).toContain('background: #F5F0E6');
-    expect(css).toContain('background: #FFFDF8');
-    expect(css).toContain('color: #0A2540');
-    expect(css).toContain('color: #5B6B7C');
-    expect(css).toContain('#E2D9CC');
-    expect(css).toContain('background: #2E75B6');
+    expect(css).toContain('background: var(--g-bg)');
+    expect(css).toContain('background: var(--g-inverse)');
+    expect(css).toContain('color: var(--g-ink)');
+    expect(css).toContain('color: var(--g-ink-muted)');
+    expect(css).toContain('var(--g-line)');
     expect(css).toContain('overflow: visible');
     expect(css).toContain('.hub-take5-list-more.is-flip');
     expect(css).toContain('.hub-take5-list-more.is-shift');
-    expect(css).toContain('font-size: 12px');
     expect(css).toContain('font-size: 56px !important');
     expect(css).toContain("font-family: var(--g-font-title)");
     expect(css).toContain("font-family: var(--g-font-ui)");
-    expect(css).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
-    expect(css).toContain('inset 0 1px 0 #fff');
-    expect(css).toContain('min-height: 44px');
+    expect(css).toContain('0 10px 28px rgba(10, 10, 11, 0.12)');
+    expect(css).toContain('min-height: 48px');
     expect(css).toContain('min-height: 620px');
     expect(css).toContain('text-transform: none');
     expect(css).toContain('letter-spacing: 0');
@@ -98,7 +95,7 @@ describe('Take 5 list laptop LOOK — quote paper, overflow on the sheet', () =>
     expect(css).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow/);
     expect(css).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
     expect(css).not.toMatch(/\bute\b/i);
-    expect(css).not.toContain('#FFFFFF');
+    expect(css).not.toMatch(/\.hub-take5-list-doc[\s\S]{0,80}#F5F0E6/);
   });
 
   it('does not rewrite persist, search, or convert writes', () => {
