@@ -35,7 +35,7 @@ import { applyLivingJobToJha, livingJobSite, livingTake5MetaPatches } from '../l
 import { take5FillPath, take5ListContext, take5StatusClass, take5StatusLabel, recommendTake5ListAction } from '../lib/take5NextAction';
 import {
   ChevronDown, Plus, Trash2, ShieldCheck, FileText,
-  Download, AlertCircle, HardHat, Check, X, CheckCircle, Printer,
+  Download, AlertCircle, HardHat, Check, X, CheckCircle,
   Phone, RefreshCw, ShieldAlert, Package, Copy, MoreHorizontal,
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -1668,26 +1668,25 @@ export function JhaFillPage() {
         {activeTab === 'preview' && (
           <div className="hub-jha-fill">
             {pdfUrl ? (
-              <div className="ops-card overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-rule bg-zebra">
-                  <span className="text-sm font-medium text-ink">Published document</span>
-                  <button type="button" onClick={handleDownload} className="ops-next-control">
-                    <Download size={14} /> Download PDF
+              <div className="hub-jha-pdf">
+                <div className="hub-jha-pdf-head">
+                  <span>Published document</span>
+                  <button type="button" onClick={handleDownload} className="hub-next">
+                    <Download size={16} /> Download PDF
                   </button>
                 </div>
-                <iframe src={pdfUrl} className="w-full" style={{ height: '75vh' }} title="JHA PDF" />
+                <iframe src={pdfUrl} className="hub-jha-pdf-frame" title="JHA PDF" />
               </div>
             ) : (
-              <div className="ops-card py-16 text-center">
-                <Printer size={48} className="mx-auto text-rule mb-3" />
-                <p className="text-ink font-medium">No published document yet</p>
-                <p className="ops-meta mt-1">Fill the JHA, get signatures, then publish.</p>
+              <div className="hub-jha-pdf hub-jha-pdf-empty">
+                <p>No published document yet</p>
+                <p className="ops-meta">Fill the JHA, get signatures, then publish.</p>
                 <button
                   type="button"
                   onClick={() => setActiveTab('form')}
-                  className="mt-4 hub-jha-sub"
+                  className="hub-jha-sub"
                 >
-                  <FileText size={15} /> Back to fill
+                  Back to fill
                 </button>
               </div>
             )}

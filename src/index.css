@@ -17539,23 +17539,16 @@
   .hub-jha-document {
     max-width: 1100px;
     margin: 0 auto 24px;
-    background: var(--jha-look-sheet);
-    border: 1px solid var(--jha-look-line);
-    border-radius: 16px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
     padding: 0;
-    overflow: hidden;
-    box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08);
+    overflow: visible;
+    box-shadow: none;
   }
 
   .hub-jha-sheet-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    min-height: 44px;
-    padding: 8px 24px;
-    background: var(--jha-look-ink);
-    color: #fff;
+    display: none;
   }
 
   .hub-jha-sheet-bar .hub-jha-hours {
@@ -17570,24 +17563,31 @@
   }
 
   .hub-jha-sheet-body {
-    padding: 32px 32px 24px;
-    background: var(--jha-look-sheet);
-    box-shadow: inset 0 1px 0 #fff;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   .hub-jha-hero {
-    font-family: var(--g-font-title);
-    font-weight: 700;
-    font-size: 56px !important;
-    letter-spacing: 0.02em;
-    line-height: 0.96;
+    font-family: var(--g-font-sans);
+    font-weight: 600;
+    font-size: 40px !important;
+    letter-spacing: -0.035em;
+    line-height: 44px;
     color: var(--jha-look-ink);
     margin: 0;
   }
 
+  @media (min-width: 1024px) {
+    .hub-jha-hero {
+      font-size: 56px !important;
+      line-height: 56px;
+    }
+  }
+
   .hub-jha-jobline {
     margin: 8px 0 0;
-    color: #2E75B6;
+    color: var(--jha-look-muted);
     font-size: 16px;
     font-weight: 500;
   }
@@ -17601,16 +17601,16 @@
   }
 
   .hub-jha-primary {
-    background: #2E75B6;
-    color: #fff;
-    min-height: 44px;
-    height: 44px;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    min-height: 48px;
+    height: 48px;
     padding: 0 16px;
     border: none;
-    border-radius: 12px;
+    border-radius: var(--g-radius-md);
     box-shadow: none;
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     display: inline-flex;
     align-items: center;
@@ -17621,8 +17621,8 @@
   }
 
   .hub-jha-primary:hover {
-    background: color-mix(in srgb, #2E75B6 86%, #0A2540);
-    color: #fff;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
   }
 
   .hub-jha-primary:disabled {
@@ -17766,8 +17766,32 @@
   }
 
   .hub-jha-tab.is-on {
-    color: #2E75B6;
-    box-shadow: inset 0 -2px 0 #2E75B6;
+    color: var(--jha-look-ink);
+    box-shadow: inset 0 -2px 0 var(--jha-look-ink);
+  }
+
+  .hub-jha-pdf {
+    margin-top: 16px;
+    background: var(--g-surface);
+    border: 1px solid var(--g-line);
+    border-radius: var(--g-radius-md);
+    overflow: hidden;
+  }
+
+  .hub-jha-pdf-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--g-line);
+  }
+
+  .hub-jha-pdf-frame {
+    width: 100%;
+    height: 75vh;
+    border: none;
+    background: var(--g-bg);
   }
 
   .hub-jha-fill {
@@ -21018,23 +21042,16 @@
   .hub-take5-document {
     max-width: 1100px;
     margin: 0 auto 24px;
-    background: var(--take5-look-sheet);
-    border: 1px solid var(--take5-look-line);
-    border-radius: 16px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
     padding: 0;
-    overflow: hidden;
-    box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08);
+    overflow: visible;
+    box-shadow: none;
   }
 
   .hub-take5-sheet-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    min-height: 44px;
-    padding: 8px 24px;
-    background: var(--take5-look-ink);
-    color: #fff;
+    display: none;
   }
 
   .hub-take5-sheet-bar .hub-take5-hours {
@@ -21042,31 +21059,37 @@
     font-size: 16px;
   }
 
-  .hub-take5-sheet-bar .hub-take5-pill {
-    background: #fff;
-    color: var(--take5-look-ink);
-    border-color: transparent;
+  .hub-take5-sheet-bar .hub-take5-pill,
+  .hub-take5-document .hub-take5-pill {
+    display: none;
   }
 
   .hub-take5-sheet-body {
-    padding: 32px 32px 24px;
-    background: var(--take5-look-sheet);
-    box-shadow: inset 0 1px 0 #fff;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   .hub-take5-hero {
-    font-family: var(--g-font-title);
-    font-weight: 700;
-    font-size: 56px !important;
-    letter-spacing: 0.02em;
-    line-height: 0.96;
+    font-family: var(--g-font-sans);
+    font-weight: 600;
+    font-size: 40px !important;
+    letter-spacing: -0.035em;
+    line-height: 44px;
     color: var(--take5-look-ink);
     margin: 0;
   }
 
+  @media (min-width: 1024px) {
+    .hub-take5-hero {
+      font-size: 56px !important;
+      line-height: 56px;
+    }
+  }
+
   .hub-take5-jobline {
     margin: 8px 0 0;
-    color: #2E75B6;
+    color: var(--take5-look-muted);
     font-size: 16px;
     font-weight: 500;
   }
@@ -21080,16 +21103,16 @@
   }
 
   .hub-take5-primary {
-    background: #2E75B6;
-    color: #fff;
-    min-height: 44px;
-    height: 44px;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    min-height: 48px;
+    height: 48px;
     padding: 0 16px;
     border: none;
-    border-radius: 12px;
+    border-radius: var(--g-radius-md);
     box-shadow: none;
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     display: inline-flex;
     align-items: center;
@@ -21100,8 +21123,8 @@
   }
 
   .hub-take5-primary:hover {
-    background: color-mix(in srgb, #2E75B6 86%, #0A2540);
-    color: #fff;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
   }
 
   .hub-take5-primary:disabled {
