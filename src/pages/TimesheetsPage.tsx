@@ -478,12 +478,15 @@ export function TimesheetsPage() {
           {renderWeekNav('desk')}
         </div>
 
-        <div className="ops-page-head">
+        <div className="ops-page-head hub-timesheets-identity">
           <div>
             <p className="hub-look-eyebrow hub-timesheets-label">Timesheets</p>
             <h1 className="ops-page-title">Timesheets</h1>
-            <p className="hub-timesheets-lede">{timesheetListCountLabel(visible.length)}</p>
-            <p className="hub-timesheets-lede">Week of {format(currentWeek, 'dd MMM')} — {format(addDays(currentWeek, 6), 'dd MMM yyyy')}</p>
+            <p className="hub-timesheets-lede">
+              {timesheetListCountLabel(visible.length)}
+              {' · '}
+              Week of {format(currentWeek, 'dd MMM')} — {format(addDays(currentWeek, 6), 'dd MMM yyyy')}
+            </p>
           </div>
           <div className="hub-timesheets-tools">
             {isClockedIn ? (
@@ -492,7 +495,7 @@ export function TimesheetsPage() {
               </button>
             ) : (
               <button type="button" onClick={() => clockInMutation.mutate()} className="hub-timesheets-next">
-                <Play size={16} /> Clock In
+                <Play size={20} /> Clock In
               </button>
             )}
             <button type="button" onClick={() => setShowEntryForm(true)} className="hub-timesheets-sub">
