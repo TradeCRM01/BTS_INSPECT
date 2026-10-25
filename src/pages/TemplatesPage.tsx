@@ -175,12 +175,14 @@ export function TemplatesPage() {
   return (
     <AppShell>
       <div className="max-w-[1200px] mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-start justify-between gap-4 mb-4">
           <div>
-            <h1 className="text-xl font-semibold text-[#1A1A1A]">
+            <h1
+              style={{ fontFamily: 'var(--g-font-sans)', fontWeight: 600, fontSize: 40, lineHeight: '44px', letterSpacing: '-0.035em', color: 'var(--g-ink)' }}
+            >
               {showArchived ? 'Archived Templates' : 'Templates'}
             </h1>
-            <p className="text-sm text-[#4A5568] mt-0.5">
+            <p className="text-[15px] mt-1" style={{ color: 'var(--g-ink-muted)' }}>
               {showArchived
                 ? 'Archived templates cannot be used for new documents'
                 : 'Build and manage your inspection and JHA templates'}
@@ -189,7 +191,8 @@ export function TemplatesPage() {
           {!showArchived && canEdit && (
             <button
               onClick={() => navigate(activeTab === 'inspections' ? '/templates/new' : '/jha-templates/new')}
-              className="flex items-center gap-2 bg-[#0A2540] text-white px-4 py-2.5 rounded-md text-sm font-medium hover:bg-[#0d2f4e] transition-all duration-200 active:scale-[0.98]"
+              className="flex items-center gap-2 text-[15px] font-semibold shrink-0"
+              style={{ background: 'var(--g-inverse)', color: 'var(--g-inverse-ink)', minHeight: 48, height: 48, padding: '0 16px', borderRadius: 'var(--g-radius-md)' }}
             >
               <Plus size={16} />
               {activeTab === 'inspections' ? 'New Inspection Template' : 'New JHA Template'}
@@ -198,24 +201,22 @@ export function TemplatesPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 border-b border-[#E5E7EB] mb-4">
+        <div className="flex items-center gap-1 mb-4" style={{ borderBottom: '1px solid var(--g-line)' }}>
           <button
             onClick={() => { setActiveTab('inspections'); setShowArchived(false); }}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'inspections'
-                ? 'border-[#2E75B6] text-[#2E75B6]'
-                : 'border-transparent text-[#6B7280] hover:text-[#374151]'
-            }`}
+            className="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors"
+            style={activeTab === 'inspections'
+              ? { borderColor: 'var(--g-ink)', color: 'var(--g-ink)' }
+              : { borderColor: 'transparent', color: 'var(--g-ink-muted)' }}
           >
             <span className="flex items-center gap-2"><LayoutTemplate size={16} /> Inspection Templates</span>
           </button>
           <button
             onClick={() => { setActiveTab('jha'); setShowArchived(false); }}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'jha'
-                ? 'border-[#2E75B6] text-[#2E75B6]'
-                : 'border-transparent text-[#6B7280] hover:text-[#374151]'
-            }`}
+            className="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors"
+            style={activeTab === 'jha'
+              ? { borderColor: 'var(--g-ink)', color: 'var(--g-ink)' }
+              : { borderColor: 'transparent', color: 'var(--g-ink-muted)' }}
           >
             <span className="flex items-center gap-2"><ShieldCheck size={16} /> JHA Templates</span>
           </button>
@@ -268,7 +269,8 @@ export function TemplatesPage() {
                         <button
                           onClick={() => unarchiveInspectionMutation.mutate(tmpl.id)}
                           disabled={unarchiveInspectionMutation.isPending}
-                          className="flex items-center gap-1.5 text-xs border border-[#0A2540] text-[#0A2540] px-3 py-1.5 rounded hover:bg-[#0A2540]/5 transition-colors font-medium disabled:opacity-50"
+                          className="flex items-center gap-1.5 text-xs px-3 py-1.5 font-medium disabled:opacity-50"
+                          style={{ border: '1px solid var(--g-line)', borderRadius: 'var(--g-radius-md)', color: 'var(--g-ink)' }}
                         >
                           <ArchiveRestore size={12} /> Restore
                         </button>
@@ -277,7 +279,8 @@ export function TemplatesPage() {
                       <>
                         <button
                           onClick={() => navigate(`/inspections/new?templateId=${tmpl.id}`)}
-                          className="text-xs border border-[#0A2540] text-[#0A2540] px-3 py-1.5 rounded hover:bg-[#0A2540]/5 transition-colors font-medium"
+                          className="text-xs px-3 py-1.5 font-medium"
+                          style={{ border: '1px solid var(--g-line)', borderRadius: 'var(--g-radius-md)', color: 'var(--g-ink)' }}
                         >
                           Inspect
                         </button>
@@ -341,7 +344,8 @@ export function TemplatesPage() {
                           <button
                             onClick={() => unarchiveJhaMutation.mutate(tmpl.id)}
                             disabled={unarchiveJhaMutation.isPending}
-                            className="flex items-center gap-1.5 text-xs border border-[#0A2540] text-[#0A2540] px-3 py-1.5 rounded hover:bg-[#0A2540]/5 transition-colors font-medium disabled:opacity-50"
+                            className="flex items-center gap-1.5 text-xs px-3 py-1.5 font-medium disabled:opacity-50"
+                          style={{ border: '1px solid var(--g-line)', borderRadius: 'var(--g-radius-md)', color: 'var(--g-ink)' }}
                           >
                             <ArchiveRestore size={12} /> Restore
                           </button>
@@ -350,7 +354,8 @@ export function TemplatesPage() {
                         <>
                           <button
                             onClick={() => navigate(`/jha/new?templateId=${tmpl.id}`)}
-                            className="text-xs border border-[#0A2540] text-[#0A2540] px-3 py-1.5 rounded hover:bg-[#0A2540]/5 transition-colors font-medium"
+                            className="text-xs px-3 py-1.5 font-medium"
+                          style={{ border: '1px solid var(--g-line)', borderRadius: 'var(--g-radius-md)', color: 'var(--g-ink)' }}
                           >
                             Create JHA
                           </button>
@@ -412,7 +417,8 @@ function EmptyState({ icon: Icon, message, subMessage, showButton, buttonLabel, 
       {showButton && (
         <button
           onClick={onClick}
-          className="mt-4 inline-flex items-center gap-2 bg-[#0A2540] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#0d2f4e]"
+          className="mt-4 inline-flex items-center gap-2 text-[15px] font-semibold"
+          style={{ background: 'var(--g-inverse)', color: 'var(--g-inverse-ink)', minHeight: 48, height: 48, padding: '0 16px', borderRadius: 'var(--g-radius-md)' }}
         >
           <Plus size={14} /> {buttonLabel}
         </button>
