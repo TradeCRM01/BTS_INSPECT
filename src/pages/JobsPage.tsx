@@ -707,14 +707,29 @@ export function JobsPage() {
             )}
           </header>
           <div className="hub-jobs-list-body">
-            {showEnquiries ? (
-              <h1 className="ops-page-title">Enquiries</h1>
-            ) : (
-              <h1 className="ops-page-title">Jobs</h1>
-            )}
-            <p className="hub-jobs-list-whisper" data-need-crew-count={needCrewCount}>
-              {showEnquiries ? whisper : `${whisper} · ${todayWhisperNeedCrew(needCrewCount)}`}
-            </p>
+            <div className="hub-jobs-list-identity">
+              <div>
+                {showEnquiries ? (
+                  <h1 className="ops-page-title">Enquiries</h1>
+                ) : (
+                  <h1 className="ops-page-title">Jobs</h1>
+                )}
+                <p className="hub-jobs-list-whisper" data-need-crew-count={needCrewCount}>
+                  {showEnquiries ? whisper : `${whisper} · ${todayWhisperNeedCrew(needCrewCount)}`}
+                </p>
+              </div>
+              <div className="hub-jobs-list-tools">
+                {showEnquiries ? null : (
+                  <button
+                    type="button"
+                    onClick={() => { setPresetClientId(null); setShowForm(true); }}
+                    className="btn-primary"
+                  >
+                    <Plus size={20} /> New job
+                  </button>
+                )}
+              </div>
+            </div>
             {lookJobsList || lookP307 || lookCrewS8dSeed || !enquirySurface ? null : (
             <div className="hub-jobs-list-views" role="tablist" aria-label="Jobs or enquiries">
               <button
@@ -744,16 +759,7 @@ export function JobsPage() {
               </button>
             </div>
             )}
-            <div className="hub-jobs-list-tools">
-              {showEnquiries ? null : (
-                <button
-                  type="button"
-                  onClick={() => { setPresetClientId(null); setShowForm(true); }}
-                  className="btn-primary"
-                >
-                  <Plus size={16} /> New job
-                </button>
-              )}
+            <div className="hub-jobs-list-track">
               <div className="hub-jobs-list-tools-overflow">
                 <JobsListFind search={search} onSearch={setSearch} />
               </div>
@@ -1003,16 +1009,17 @@ function JobsListFind({
   }, []);
 
   return (
-    <details ref={moreRef} className="hub-jobs-list-more hub-jobs-list-find">
-      <summary aria-label="Search">
-        <MoreHorizontal size={18} />
-      </summary>
-      <div className="hub-jobs-list-more-menu" role="menu">
-        <div className="hub-jobs-chrome">
-          <SearchBar value={search} onChange={onSearch} placeholder="Search jobs or clients..." />
-        </div>
+    <div className="hub-jobs-list-find">
+      <div className="hub-jobs-chrome">
+        <SearchBar value={search} onChange={onSearch} placeholder="Search jobs or clients..." />
       </div>
-    </details>
+      <details ref={moreRef} className="hub-jobs-list-more">
+        <summary aria-label="Search">
+          <MoreHorizontal size={18} />
+        </summary>
+        <div className="hub-jobs-list-more-menu" role="menu" />
+      </details>
+    </div>
   );
 }
 

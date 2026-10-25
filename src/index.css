@@ -11303,9 +11303,9 @@
   .hub-jobs-hero,
   .hub-jobs-hours,
   .hub-jobs-ref {
-    font-family: var(--g-font-title);
-    font-weight: 700;
-    letter-spacing: 0.02em;
+    font-family: var(--g-font-sans);
+    font-weight: 600;
+    letter-spacing: -0.035em;
     line-height: 1.1;
     text-shadow: none;
     color: var(--job-look-ink);
@@ -11313,7 +11313,15 @@
 
   .hub-jobs .ops-page-title {
     font-size: 40px !important;
+    line-height: 44px;
     margin: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .hub-jobs .ops-page-title {
+      font-size: 56px !important;
+      line-height: 56px;
+    }
   }
 
   .hub-jobs .ops-page-head {
@@ -11336,14 +11344,14 @@
   .hub-jobs-document .hub-jobs-tools .btn-primary,
   .hub-jobs-document .hub-jobs-tools .ops-next-control-block,
   .hub-jobs .ops-sticky .ops-next-control-block {
-    background: #2E75B6;
-    color: #fff;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
     width: auto;
-    min-height: 44px;
-    height: 44px;
-    padding: 0 16px;
+    min-height: 48px;
+    height: 48px;
+    padding: 0 18px 0 16px;
     border: none;
-    border-radius: 12px;
+    border-radius: var(--g-radius-md);
     box-shadow: none;
     transform: none;
     font-family: var(--g-font-ui);
@@ -11359,8 +11367,8 @@
   .hub-jobs-document .hub-jobs-tools .btn-primary:hover,
   .hub-jobs-document .hub-jobs-tools .ops-next-control-block:hover,
   .hub-jobs .ops-sticky .ops-next-control-block:hover {
-    background: color-mix(in srgb, #2E75B6 86%, #0A2540);
-    color: #fff;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
   }
 
   .hub-jobs .ops-page-head .btn-primary:active,
@@ -11632,29 +11640,19 @@
   }
 
   .hub-jobs-document {
-    max-width: 1100px;
-    margin: 0 auto 24px;
-    background: var(--job-look-sheet);
-    border: 1px solid var(--job-look-line);
-    border-radius: 16px;
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
     padding: 0;
-    overflow: hidden;
-    box-shadow:
-      inset 0 1px 0 #fff,
-      0 10px 28px rgba(10, 37, 64, 0.08);
+    overflow: visible;
+    box-shadow: none;
   }
 
   .hub-jobs-sheet-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    height: 44px;
-    min-height: 44px;
-    padding: 0 24px;
-    background: var(--job-look-ink);
-    color: #fff;
-    border-radius: 0;
+    display: none;
   }
 
   .hub-jobs-sheet-bar .hub-jobs-hours {
@@ -11706,13 +11704,20 @@
   }
 
   .hub-jobs-hero {
-    font-family: var(--g-font-title);
-    font-weight: 700;
-    font-size: 22px !important;
-    letter-spacing: 0;
-    line-height: 1.2;
+    font-family: var(--g-font-sans);
+    font-weight: 600;
+    font-size: 40px !important;
+    letter-spacing: -0.035em;
+    line-height: 44px;
     color: var(--job-look-ink);
     margin: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .hub-jobs-hero {
+      font-size: 56px !important;
+      line-height: 56px;
+    }
   }
 
   .hub-jobs-tools {
@@ -12381,11 +12386,13 @@
     }
 
     .hub-jobs .ops-page-title {
-      font-size: 32px !important;
+      font-size: 40px !important;
+      line-height: 44px;
     }
 
     .hub-jobs-hero {
-      font-size: 20px !important;
+      font-size: 40px !important;
+      line-height: 44px;
     }
 
     .hub-jobs-document .hub-jobs-identity,
@@ -12499,57 +12506,64 @@
 
   /* Jobs list document only. Same paper kit as signed quote / clients list. Not the open record. */
   .hub-jobs-list-doc.ops-page {
-    background: #F5F0E6;
+    background: var(--g-bg);
   }
 
   .hub-jobs-list-doc .hub-jobs-sheet {
     position: relative;
     min-height: 620px;
-    margin: 0 auto;
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
-    border-radius: 16px;
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
     overflow: visible;
-    box-shadow:
-      inset 0 1px 0 #fff,
-      0 10px 28px rgba(10, 37, 64, 0.08);
+    box-shadow: none;
   }
 
   .hub-jobs-list-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    min-height: 44px;
-    padding: 8px 24px;
-    background: #0A2540;
-    color: #fff;
-    border-radius: 16px 16px 0 0;
+    display: none;
   }
 
   .hub-jobs-list-mark {
     font-family: var(--g-font-title);
-    font-weight: 700;
+    font-weight: 600;
     font-size: 16px;
-    letter-spacing: 0.02em;
-    color: #fff;
+    letter-spacing: -0.035em;
+    color: var(--g-ink-muted);
   }
 
   .hub-jobs-list-body {
-    padding: 32px 32px 24px;
-    background: #FFFDF8;
-    box-shadow: inset 0 1px 0 #fff;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
     overflow: visible;
   }
 
+  .hub-jobs-list-identity {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
   .hub-jobs-list-doc .ops-page-title {
-    font-family: var(--g-font-title);
-    font-weight: 700;
-    font-size: 56px !important;
-    letter-spacing: 0.02em;
-    line-height: 0.96;
-    color: #0A2540;
+    font-family: var(--g-font-sans);
+    font-weight: 600;
+    font-size: 40px !important;
+    letter-spacing: -0.035em;
+    line-height: 44px;
+    color: var(--g-ink);
     margin: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .hub-jobs-list-doc .ops-page-title {
+      font-size: 56px !important;
+      line-height: 56px;
+    }
   }
 
   .hub-jobs-list-whisper {
@@ -12557,37 +12571,47 @@
     margin: 8px 0 0;
     padding: 0;
     font-family: var(--g-font-ui);
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 24px;
     letter-spacing: 0;
     text-transform: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-jobs-list-tools {
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
+    margin-top: 0;
+  }
+
+  .hub-jobs-list-track {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
     margin-top: 24px;
   }
 
   .hub-jobs-list-tools-overflow {
-    margin-left: auto;
-    flex: 0 0 auto;
+    margin-left: 0;
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .hub-jobs-list-doc .hub-jobs-list-tools .btn-primary {
-    background: #2E75B6;
-    color: #fff;
-    min-height: 44px;
-    height: 44px;
-    padding: 0 16px;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    min-height: 48px;
+    height: 48px;
+    padding: 0 18px 0 16px;
     border: none;
-    border-radius: 12px;
+    border-radius: var(--g-radius-md);
     box-shadow: none;
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
   }
 
@@ -12597,7 +12621,7 @@
     align-items: stretch;
     gap: 4px;
     margin-top: 24px;
-    border-bottom: 1px solid #E2D9CC;
+    border-bottom: 1px solid var(--g-line);
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: none;
@@ -12616,9 +12640,9 @@
     border: none;
     border-radius: 0;
     background: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 500;
     white-space: nowrap;
     scroll-snap-align: start;
@@ -12631,17 +12655,17 @@
   }
 
   .hub-jobs-list-filter:hover {
-    color: #0A2540;
+    color: var(--g-ink);
   }
 
   .hub-jobs-list-filter.is-on {
-    color: #0A2540;
+    color: var(--g-ink);
     font-weight: 600;
-    box-shadow: inset 0 -2px 0 #2E75B6;
+    box-shadow: inset 0 -2px 0 var(--g-ink);
   }
 
   .hub-jobs-list-filter:focus-visible {
-    outline: 2px solid #2E75B6;
+    outline: 2px solid var(--g-ink);
     outline-offset: -2px;
   }
 
@@ -12651,7 +12675,7 @@
     align-items: stretch;
     gap: 4px;
     margin-top: 24px;
-    border-bottom: 1px solid #E2D9CC;
+    border-bottom: 1px solid var(--g-line);
     overflow-x: auto;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
@@ -12668,9 +12692,9 @@
     border: none;
     border-radius: 0;
     background: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
@@ -12680,13 +12704,23 @@
   }
 
   .hub-jobs-list-filter.is-on {
-    color: #0A2540;
+    color: var(--g-ink);
     font-weight: 600;
-    box-shadow: inset 0 -2px 0 #2E75B6;
+    box-shadow: inset 0 -2px 0 var(--g-ink);
   }
 
   .hub-jobs-list-doc .hub-jobs-list-filters + .hub-jobs-thead {
     margin-top: 8px;
+  }
+
+  .hub-jobs-list-find {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .hub-jobs-list-find > .hub-jobs-list-more {
+    display: none;
   }
 
   .hub-jobs-list-find .hub-jobs-chrome {
@@ -12696,6 +12730,9 @@
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
   }
 
   .hub-jobs-list-find .hub-jobs-chrome .relative,
@@ -12705,21 +12742,20 @@
   }
 
   .hub-jobs-list-find .hub-jobs-chrome .form-input {
-    min-height: 0;
-    height: auto;
-    padding: 4px 8px 4px 28px;
-    border: none;
-    border-bottom: 1px solid #E2D9CC;
-    border-radius: 0;
-    background: none;
-    color: #5B6B7C;
-    font-size: 12px !important;
-    font-weight: 500;
+    min-height: 48px;
+    height: 48px;
+    padding: 0 14px 0 40px;
+    border: 1px solid var(--g-line);
+    border-radius: var(--g-radius-md);
+    background: var(--g-surface);
+    color: var(--g-ink);
+    font-size: 15px !important;
+    font-weight: 400;
     box-shadow: none;
   }
 
   .hub-jobs-list-find .hub-jobs-chrome .form-input::placeholder {
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     opacity: 1;
   }
 
@@ -12730,14 +12766,14 @@
   }
 
   .hub-jobs-list-find .hub-jobs-chrome .relative svg {
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     left: 8px;
   }
 
   .hub-jobs-list-find .hub-jobs-chrome .hub-chrome-filter {
     min-height: 32px;
     padding: 0 8px;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     font-family: var(--g-font-ui);
     font-size: 12px;
     font-weight: 500;
@@ -12746,8 +12782,8 @@
   }
 
   .hub-jobs-list-find .hub-jobs-chrome .hub-chrome-filter-on {
-    color: #0A2540;
-    box-shadow: inset 0 -2px 0 #2E75B6;
+    color: var(--g-ink);
+    box-shadow: inset 0 -2px 0 var(--g-ink);
   }
 
   /* Customer absorbs the slack like the quote description column. Next sits tight as blue hub-next. */
@@ -12770,38 +12806,38 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     font-weight: 600;
-    color: #0A2540;
+    color: var(--g-ink);
   }
 
   .hub-jobs-list-doc .hub-jobs-job .hub-jobs-ref {
     font-family: var(--g-font-ui);
     font-size: 12px;
     font-weight: 500;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-jobs-list-doc .hub-jobs-thead {
     margin-top: 24px;
     padding: 8px 0;
     background: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     font-family: var(--g-font-ui);
     font-size: 12px;
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    border-bottom: 1px solid #E2D9CC;
+    border-bottom: 1px solid var(--g-line);
     box-shadow: inset 0 1px 0 #fff;
   }
 
   .hub-jobs-list-doc .hub-jobs-row {
     padding: 16px 0;
     background: none;
-    border-top: 1px solid #E2D9CC;
+    border-top: 1px solid var(--g-line);
     box-shadow: none;
-    color: #0A2540;
+    color: var(--g-ink);
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 15px;
   }
 
   .hub-jobs-list-doc .hub-jobs-thead + .hub-jobs-row {
@@ -12811,7 +12847,7 @@
   .hub-jobs-list-doc .hub-jobs-name {
     font-family: var(--g-font-ui);
     font-weight: 600;
-    color: #0A2540;
+    color: var(--g-ink);
   }
 
   .hub-jobs-list-doc .hub-jobs-status {
@@ -12819,7 +12855,7 @@
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-jobs-list-doc .hub-jobs-status.hub-crew-schedule-needs,
@@ -12847,7 +12883,7 @@
     border: none;
     border-radius: 12px;
     background: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     cursor: pointer;
   }
 
@@ -12864,8 +12900,8 @@
     z-index: 20;
     min-width: 200px;
     padding: 8px;
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
+    background: transparent;
+    border: 1px solid var(--g-line);
     border-radius: 16px;
     box-shadow: none;
   }
@@ -12889,7 +12925,7 @@
     border: none;
     border-radius: 12px;
     background: none;
-    color: #0A2540;
+    color: var(--g-ink);
     font-family: var(--g-font-ui);
     font-size: 12px;
     font-weight: 500;
@@ -12897,7 +12933,7 @@
   }
 
   .hub-jobs-list-more-menu button:hover {
-    background: #F5F0E6;
+    background: var(--g-bg);
   }
 
   .hub-jobs-list-doc .ops-section-title,
@@ -12988,12 +13024,12 @@
       gap: 12px;
       width: 100%;
       padding: 14px 0;
-      border-top: 1px solid #E2D9CC;
+      border-top: 1px solid var(--g-line);
       background: none;
       box-shadow: none;
       cursor: pointer;
       text-align: left;
-      color: #0A2540;
+      color: var(--g-ink);
       font-family: var(--g-font-ui);
     }
 
@@ -13008,17 +13044,17 @@
 
     .hub-jobs-phone-title {
       margin: 0;
-      font-weight: 700;
+      font-weight: 600;
       font-size: 16px;
       line-height: 1.35;
-      color: #0A2540;
+      color: var(--g-ink);
       overflow-wrap: anywhere;
       white-space: normal;
     }
 
     .hub-jobs-phone-ref {
       font-weight: 500;
-      color: #5B6B7C;
+      color: var(--g-ink-muted);
     }
 
     .hub-jobs-phone-meta,
@@ -13028,7 +13064,7 @@
       font-size: 13px;
       font-weight: 500;
       line-height: 1.4;
-      color: #5B6B7C;
+      color: var(--g-ink-muted);
       overflow-wrap: anywhere;
       white-space: normal;
     }
@@ -13046,8 +13082,8 @@
       min-height: 22px;
       padding: 0 8px;
       border-radius: 999px;
-      background: #F5F0E6;
-      color: #0A2540;
+      background: var(--g-bg);
+      color: var(--g-ink);
       font-family: var(--g-font-ui);
       font-size: 12px;
       font-weight: 600;

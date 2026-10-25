@@ -33,11 +33,11 @@ describe('job list cream paper look', () => {
     expect(css).toContain('--job-look-ink: var(--g-ink)');
     expect(css).toContain('--job-look-muted: var(--g-ink-muted)');
     expect(css).toContain('--job-look-line: var(--g-line)');
-    expect(css).toContain('#2E75B6');
+    expect(css).toContain('background: var(--g-inverse)');
     expect(css).toContain("font-family: var(--g-font-title)");
     expect(css).toContain("font-family: var(--g-font-ui)");
     expect(css).not.toMatch(/\.hub-jobs \.ops-page-title[\s\S]{0,160}Newsreader|Syne|Space Grotesk|IBM Plex/);
-    expect(css).toContain('letter-spacing: 0.12em');
+    expect(css).toContain('letter-spacing: -0.035em');
     expect(css).not.toContain('indigo-500');
     expect(css).not.toMatch(/\.hub-jobs[\s\S]{0,80}#111|#000\b/);
 
