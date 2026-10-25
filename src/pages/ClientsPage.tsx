@@ -461,9 +461,9 @@ function ClientsListFind({
         <summary aria-label="Find">
           <MoreHorizontal size={18} />
         </summary>
-        <div className="hub-clients-list-more-menu" role="menu">
-      </div>
-    </details>
+        <div className="hub-clients-list-more-menu" role="menu" />
+      </details>
+    </div>
   );
 }
 

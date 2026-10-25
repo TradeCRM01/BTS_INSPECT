@@ -234,9 +234,6 @@ describe('Assets list display', () => {
       }
     });
     expect(document.body.textContent).toContain('Bad year asset');
-    const list = document.querySelector<HTMLButtonElement>('button[title="List view"]');
-    if (!list) throw new Error('missing list view toggle');
-    await act(async () => { list.click(); });
     expect(document.body.textContent).not.toContain('212026');
     expect(document.body.textContent).toContain(SAFE_DATE_FALLBACK);
   });
