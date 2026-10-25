@@ -1,7 +1,6 @@
 import { format } from 'date-fns';
 import {
   compareScheduleJobs,
-  scheduleClockLabel,
   scheduleCrewLabel,
   scheduleDateKey,
   scheduleDayKey,
@@ -64,7 +63,11 @@ export function dashboardClockLabel(
   start: string | null | undefined,
   end?: string | null,
 ): string {
-  return scheduleClockLabel(start, end) ?? 'All day';
+  if (!start) return 'All day';
+  const from = start.slice(0, 5);
+  if (!from) return 'All day';
+  const to = end?.slice(0, 5);
+  return to ? `${from} – ${to}` : from;
 }
 
 export function dashboardJobSite(

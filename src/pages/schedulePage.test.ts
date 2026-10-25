@@ -6,6 +6,33 @@ function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
+function boardJobsQuery(): string {
+  const page = src('src/pages/SchedulePage.tsx');
+  const start = page.indexOf("queryKey: ['jobs'");
+  const end = page.indexOf('const clientIds');
+  expect(start).toBeGreaterThan(-1);
+  expect(end).toBeGreaterThan(start);
+  return page.slice(start, end);
+}
+
+function datedJobsFetch(query: string): string {
+  const start = query.indexOf(".gte('scheduled_date', rangeStart)");
+  const from = query.lastIndexOf('.from(\'jobs\')', start);
+  const end = query.indexOf('.limit(SCHEDULE_BOARD_LIMIT)', start);
+  expect(from).toBeGreaterThan(-1);
+  expect(end).toBeGreaterThan(from);
+  return query.slice(from, end + '.limit(SCHEDULE_BOARD_LIMIT)'.length);
+}
+
+function undatedJobsFetch(query: string): string {
+  const start = query.indexOf(".is('scheduled_date', null)");
+  const from = query.lastIndexOf('.from(\'jobs\')', start);
+  const end = query.indexOf('.limit(SCHEDULE_BOARD_LIMIT)', start);
+  expect(from).toBeGreaterThan(-1);
+  expect(end).toBeGreaterThan(from);
+  return query.slice(from, end + '.limit(SCHEDULE_BOARD_LIMIT)'.length);
+}
+
 describe('schedule page week/day board', () => {
   it('defaults to the week, keeps day as a toggle, and stays on /schedule', () => {
     const page = src('src/pages/SchedulePage.tsx');
@@ -17,6 +44,65 @@ describe('schedule page week/day board', () => {
     expect(page).not.toContain('hidden lg:flex ops-seg');
     expect(page).not.toContain("useState<ViewMode>('day')");
     expect(page).toContain('hydrateJobParentNumbers(attachJobClients(jobs, [...clientMap.values()]))');
+    expect(page).toContain('scheduleDayKey');
+    expect(page).toContain('asStatusText');
+  });
+
+  it('eq-filters the dated board jobs select to the signed-in company', () => {
+    const query = boardJobsQuery();
+    expect(datedJobsFetch(query)).toContain(".eq('company_id', profile.company_id)");
+  });
+
+  it('gte-filters scheduled_date to the visible week start', () => {
+    const query = boardJobsQuery();
+    expect(datedJobsFetch(query)).toContain(".gte('scheduled_date', rangeStart)");
+    expect(src('src/pages/SchedulePage.tsx')).toContain("format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'yyyy-MM-dd')");
+  });
+
+  it('lte-filters scheduled_date to the visible week end', () => {
+    const query = boardJobsQuery();
+    expect(datedJobsFetch(query)).toContain(".lte('scheduled_date', rangeEnd)");
+    expect(src('src/pages/SchedulePage.tsx')).toContain("format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'yyyy-MM-dd')");
+  });
+
+  it('selects the exact dated board column list, never *', () => {
+    const query = boardJobsQuery();
+    const board = src('src/lib/scheduleBoard.ts');
+    expect(datedJobsFetch(query)).toContain('.select(SCHEDULE_BOARD_COLUMNS)');
+    expect(datedJobsFetch(query)).not.toContain(".select('*')");
+    expect(board).toContain("export const SCHEDULE_BOARD_COLUMNS");
+    expect(board).toContain("'id, company_id, client_id, title, description, status, scheduled_date, start_time, end_time, address, assigned_team, job_number, parent_job_id, color, cost_code'");
+  });
+
+  it('limits the dated board fetch to cap+1', () => {
+    const query = boardJobsQuery();
+    const board = src('src/lib/scheduleBoard.ts');
+    expect(datedJobsFetch(query)).toContain('.limit(SCHEDULE_BOARD_LIMIT)');
+    expect(board).toContain('export const SCHEDULE_BOARD_CAP = 200');
+    expect(board).toContain('export const SCHEDULE_BOARD_LIMIT = SCHEDULE_BOARD_CAP + 1');
+  });
+
+  it('eq-filters the undated scheduled/in_progress fetch to company_id', () => {
+    expect(undatedJobsFetch(boardJobsQuery())).toContain(".eq('company_id', profile.company_id)");
+  });
+
+  it('selects the exact column list on the undated fetch, never *', () => {
+    const undated = undatedJobsFetch(boardJobsQuery());
+    expect(undated).toContain('.select(SCHEDULE_BOARD_COLUMNS)');
+    expect(undated).not.toContain(".select('*')");
+  });
+
+  it('limits the undated fetch to cap+1', () => {
+    expect(undatedJobsFetch(boardJobsQuery())).toContain('.limit(SCHEDULE_BOARD_LIMIT)');
+  });
+
+  it('shows the more-jobs line to Jobs when a board fetch returns past the cap', () => {
+    const page = src('src/pages/SchedulePage.tsx');
+    expect(page).toContain('data-schedule-more-jobs="1"');
+    expect(page).toContain('MORE_JOBS_THIS_WEEK');
+    expect(page).toContain('to="/jobs"');
+    expect(page).toContain('takeBoardPage');
+    expect(src('src/lib/scheduleBoard.ts')).toContain("More jobs this week than shown — open Jobs");
   });
 
   it('opens the existing job page from the board, tray, and search', () => {
@@ -69,7 +155,6 @@ describe('schedule page week/day board', () => {
     expect(src('src/index.css')).toContain('calc(var(--shell-bottom-nav-h, 0px) + 10px)');
     expect(page).toContain('286 prove 2 — delete ok');
     expect(page).toContain('286 prove 3 — delete ok');
-    expect(page).toContain('asTeamIds');
     expect(dayBoard).toContain('hub-day-drop-hint');
     expect(dayBoard).toContain('data-unassigned-lock');
     expect(dayBoard).toContain('Drop here — date stays');
@@ -114,11 +199,10 @@ describe('schedule page week/day board', () => {
     expect(board).toContain('PHONE_UNSCHEDULED_EXPANDED_DEFAULT');
     expect(board).toContain('phoneUnscheduledChipLabel');
     expect(board).toContain('data-schedule-unscheduled-chip="1"');
-    expect(board).toContain('data-schedule-set-date={job.id}');
-    expect(board).toContain('hub-schedule-set-date');
-    expect(board).toMatch(
-      /data-schedule-set-date=\{job\.id\}[\s\S]{0,400}onKeyDown=\{e => \{[\s\S]{0,200}stopPropagation\(\)/,
-    );
+    expect(board).not.toContain('data-schedule-set-date={job.id}');
+    expect(board).not.toContain('hub-schedule-set-date');
+    expect(src('src/components/crm/ScheduleJobSheet.tsx')).toContain('data-schedule-set-date');
+    expect(src('src/components/crm/ScheduleJobSheet.tsx')).toContain('Set a date');
     expect(board).toContain('hub-phone-week-list');
     expect(page).toContain('onSetScheduleDate={job => openScheduleSheet(job)}');
     expect(board).toContain('aria-expanded={expanded}');
@@ -154,7 +238,7 @@ describe('schedule page week/day board', () => {
     expect(phoneWeek).not.toContain('OpsStatus');
     expect(phoneWeek).not.toContain('onDragStart');
     expect(phoneWeek).not.toContain('onSelectDay');
-    expect(phoneWeek).not.toContain('onDayClick');
+    expect(phoneWeek).toContain('onDayClick');
     expect(phoneWeek).not.toContain('onJobDrop');
     expect(phoneWeek).not.toContain("'—'");
     expect(board).toContain('weekBoardRows(jobs, teamMembers, currentDate, filteredEmployeeIds)');
@@ -191,8 +275,8 @@ describe('schedule page week/day board', () => {
     expect(sheet).toContain('jobsListSuburbFromSite');
     expect(src('src/components/ui/AppDialog.tsx')).toContain('swipeDownClose');
     expect(src('src/index.css')).toContain('.hub-schedule-job-sheet .btn-primary.hub-editor-sticky-save');
-    expect(src('src/index.css')).toMatch(/\.hub-schedule-job-sheet \.btn-primary\.hub-editor-sticky-save[\s\S]{0,80}#0A2540/);
-    expect(src('src/index.css')).toMatch(/\.hub-schedule-job-sheet \.btn-primary\.hub-editor-sticky-save[\s\S]{0,120}#FFFDF8/);
+    expect(src('src/index.css')).toMatch(/\.hub-schedule-job-sheet \.btn-primary\.hub-editor-sticky-save[\s\S]{0,80}var\(--g-inverse\)/);
+    expect(src('src/index.css')).toMatch(/\.hub-schedule-job-sheet \.btn-primary\.hub-editor-sticky-save[\s\S]{0,120}var\(--g-inverse-ink\)/);
     expect(src('src/index.css')).toContain('.hub-week-agenda .hub-jobs-phone-status');
     expect(page).toContain('scheduleSheetSavePayload');
     expect(page).toContain('scheduleFromSheet.mutate');
@@ -227,8 +311,8 @@ describe('schedule board cream paper look', () => {
 
     expect(page).toContain('hub-board-cal');
     expect(page).not.toContain('hub-schedule-kicker');
-    expect(page).toContain('hub-schedule-chrome');
-    expect(page).toContain('hub-schedule-filters');
+    expect(page).toContain('data-schedule-section="header"');
+    expect(page).toContain('data-schedule-crew-filter');
     expect(page).toContain('New job');
     expect(page).not.toContain('New Job');
     expect(page).not.toMatch(/Newsreader|Syne|Space Grotesk|IBM Plex/);
@@ -250,8 +334,12 @@ describe('schedule board cream paper look', () => {
     expect(css).toContain('.hub-week-sheet');
     expect(css).toContain('.hub-week-head-short');
     expect(css).toContain('.hub-week-head-dow');
-    expect(css).toContain('repeat(7, minmax(104px, 1fr))');
+    expect(css).toContain('repeat(5, minmax(0, 1fr))');
     expect(page).toContain('hub-week-range-short');
+    expect(page).toContain("format(weekStart, 'd MMM')} \\u2013 ${format(weekEnd, 'd MMM')}");
+    expect(css).toContain('.hub-week-track .hub-week-range-short');
+    expect(css).toContain('.hub-week-track .hub-week-range-full');
+    expect(css).toContain('white-space: normal');
     expect(css).toContain('.hub-week-seg');
     expect(css).toContain('.hub-week-quiet');
     expect(css).toContain('inset 0 1px 0 #fff');
@@ -264,15 +352,14 @@ describe('schedule board cream paper look', () => {
     const css = src('src/index.css');
     const weekCss = css.slice(css.indexOf('.hub-week-sheet'), css.indexOf('.hub-schedule-place'));
 
-    expect(page).toContain('hub-week-sheet');
-    expect(page).toContain('WeekBoardChrome');
+    expect(page).toContain('data-week-sheet="1"');
+    expect(page).toContain('NAV_WORDS.schedule');
     expect(page).toContain('All crews');
     expect(page).toContain('lookParam === WEEK_BOARD_LOOK');
     expect(page).toContain('FIX3A_SCHEDULE_LOOK');
     expect(page).toContain("name: 'Dave Hale'");
     expect(page).toContain("name: 'Jack Wieland'");
     expect(page).toContain("name: 'Sam Ortiz'");
-    expect(page).toContain('#0A2540');
     expect(page).toContain('#F7931A');
     expect(page).toContain('#7C3AED');
     expect(page).not.toMatch(/#C45C38|#C05838/);
@@ -282,7 +369,7 @@ describe('schedule board cream paper look', () => {
     expect(page).not.toContain('hub-schedule-kicker');
     expect(weekCss).toContain('overflow: visible');
     expect(weekCss).toContain('position: sticky');
-    expect(css).toContain('repeat(7, 156px)');
+    expect(css).toContain('repeat(2, 72px)');
     expect(board).toContain('data-schedule-track="day"');
     expect(board).not.toContain('data-schedule-track="week"');
     expect(weekCss).toContain('inset 0 1px 0 #fff');

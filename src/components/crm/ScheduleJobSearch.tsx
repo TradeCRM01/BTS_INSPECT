@@ -94,7 +94,7 @@ export function ScheduleJobSearch({
       <SearchBar
         value={query}
         onChange={onQuery}
-        placeholder="Search jobs or clients..."
+        placeholder="Search jobs or clients"
       />
       {open && (
         <div className={`hub-schedule-search-panel absolute z-30 mt-2 w-full overflow-hidden ${

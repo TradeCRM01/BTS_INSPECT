@@ -287,6 +287,7 @@ export function partitionScheduleJobs<T extends {
   const needsDate: T[] = [];
   const onBoard: T[] = [];
   for (const job of jobs) {
+    if (job.status === 'cancelled') continue;
     const bucket = jobListBucket(job, now);
     if (bucket === 'needs_date') needsDate.push(job);
     else if (job.scheduled_date) onBoard.push(job);
