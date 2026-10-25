@@ -102,6 +102,8 @@ describe('jobs list laptop LOOK — quote paper, overflow on the sheet', () => {
     expect(css).not.toContain('#FFFFFF');
     expect(css).not.toContain('#F5F0E6');
     expect(css).not.toContain('#2E75B6');
+    expect(css).not.toContain('#B54708');
+    expect(css).not.toContain('var(--invoice-warn');
   });
 
   it('does not rewrite persist, search, or convert writes', () => {

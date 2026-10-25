@@ -1375,6 +1375,10 @@
     font-size: 14px;
   }
 
+  .hub-clients-list-doc .hub-clients-row:hover {
+    background: color-mix(in srgb, var(--g-surface) 70%, transparent);
+  }
+
   .hub-clients-list-doc .hub-clients-thead + .hub-clients-row {
     border-top: none;
   }
@@ -1425,17 +1429,37 @@
     content: '';
   }
 
+  .hub-clients-list-more.is-open::before,
+  .hub-jobs-list-more[open]::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(10, 10, 11, 0.18);
+  }
+
+  .hub-clients-list-more.is-open,
+  .hub-jobs-list-more[open] {
+    z-index: 50;
+  }
+
+  .hub-clients-row:has(.hub-clients-list-more.is-open),
+  .hub-jobs-row:has(.hub-jobs-list-more[open]) {
+    position: relative;
+    z-index: 50;
+  }
+
   .hub-clients-list-more-menu {
     position: absolute;
     right: 0;
     top: calc(100% + 8px);
-    z-index: 20;
+    z-index: 50;
     min-width: 200px;
     padding: 8px;
-    background: transparent;
-    border: none;
-    border-radius: 16px;
-    box-shadow: none;
+    background: var(--g-surface);
+    border: 1px solid var(--g-line);
+    border-radius: var(--g-radius-md);
+    box-shadow: 0 10px 28px rgba(10, 10, 11, 0.12);
   }
 
   .hub-clients-list-more.is-flip .hub-clients-list-more-menu {
@@ -1451,7 +1475,7 @@
     display: flex;
     align-items: center;
     width: 100%;
-    min-height: 32px;
+    min-height: 44px;
     text-align: left;
     padding: 0 12px;
     border: none;
@@ -13032,6 +13056,10 @@
     font-size: 15px;
   }
 
+  .hub-jobs-list-doc .hub-jobs-row:hover {
+    background: color-mix(in srgb, var(--g-surface) 70%, transparent);
+  }
+
   .hub-jobs-list-doc .hub-jobs-thead + .hub-jobs-row {
     border-top: none;
   }
@@ -13048,13 +13076,20 @@
     letter-spacing: 0;
     text-transform: none;
     color: var(--g-ink-muted);
+    background: none;
+    border: none;
+    padding: 0;
+    min-height: 0;
+    border-radius: 0;
   }
 
   .hub-jobs-list-doc .hub-jobs-status.hub-crew-schedule-needs,
   .hub-jobs-phone-status.hub-crew-schedule-needs {
-    background: color-mix(in srgb, var(--invoice-warn, #B54708) 12%, #fff);
-    color: var(--invoice-warn, #B54708);
-    border: 1px solid color-mix(in srgb, var(--invoice-warn, #B54708) 35%, #e2d9cc);
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--g-ink);
+    font-weight: 600;
   }
 
   .hub-jobs-list-doc .hub-jobs-pill {
@@ -13089,13 +13124,13 @@
     position: absolute;
     right: 0;
     top: calc(100% + 8px);
-    z-index: 20;
+    z-index: 50;
     min-width: 200px;
     padding: 8px;
-    background: transparent;
+    background: var(--g-surface);
     border: 1px solid var(--g-line);
-    border-radius: 16px;
-    box-shadow: none;
+    border-radius: var(--g-radius-md);
+    box-shadow: 0 10px 28px rgba(10, 10, 11, 0.12);
   }
 
   .hub-jobs-list-more.is-flip .hub-jobs-list-more-menu {
@@ -13269,16 +13304,16 @@
     }
 
     .hub-jobs-phone-status {
-      display: inline-flex;
-      align-items: center;
-      min-height: 22px;
-      padding: 0 8px;
-      border-radius: 999px;
-      background: var(--g-bg);
-      color: var(--g-ink);
+      display: inline;
+      min-height: 0;
+      padding: 0;
+      border-radius: 0;
+      background: none;
+      border: none;
+      color: var(--g-ink-muted);
       font-family: var(--g-font-ui);
-      font-size: 12px;
-      font-weight: 600;
+      font-size: 13px;
+      font-weight: 500;
       white-space: nowrap;
     }
 
