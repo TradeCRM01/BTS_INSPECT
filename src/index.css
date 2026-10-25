@@ -363,10 +363,10 @@
   }
 
   .hub-clients .btn-primary {
-    background: #2E75B6;
-    color: #fff;
-    min-height: 44px;
-    height: 44px;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    min-height: 48px;
+    height: 48px;
     padding: 0 16px;
     border: none;
     border-radius: 12px;
@@ -1165,57 +1165,64 @@
 
   /* Clients list document only. Same paper kit as signed quote / week-board. Not the open record. */
   .hub-clients-list-doc.ops-page {
-    background: #F5F0E6;
+    background: var(--g-bg);
   }
 
   .hub-clients-list-doc .hub-clients-sheet {
     position: relative;
     min-height: 620px;
-    margin: 0 auto;
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
-    border-radius: 16px;
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
     overflow: visible;
-    box-shadow:
-      inset 0 1px 0 #fff,
-      0 10px 28px rgba(10, 37, 64, 0.08);
+    box-shadow: none;
   }
 
   .hub-clients-list-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    min-height: 44px;
-    padding: 8px 24px;
-    background: #0A2540;
-    color: #fff;
-    border-radius: 16px 16px 0 0;
+    display: none;
   }
 
   .hub-clients-list-mark {
     font-family: var(--g-font-title);
-    font-weight: 700;
+    font-weight: 600;
     font-size: 16px;
-    letter-spacing: 0.02em;
-    color: #fff;
+    letter-spacing: -0.035em;
+    color: var(--g-inverse-ink);
   }
 
   .hub-clients-list-body {
-    padding: 32px 32px 24px;
-    background: #FFFDF8;
-    box-shadow: inset 0 1px 0 #fff;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
     overflow: visible;
   }
 
+  .hub-clients-list-identity {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
   .hub-clients-list-doc .ops-page-title {
-    font-family: var(--g-font-title);
-    font-weight: 700;
-    font-size: 56px !important;
-    letter-spacing: 0.02em;
-    line-height: 0.96;
-    color: #0A2540;
+    font-family: var(--g-font-sans);
+    font-weight: 600;
+    font-size: 40px !important;
+    letter-spacing: -0.035em;
+    line-height: 44px;
+    color: var(--g-ink);
     margin: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .hub-clients-list-doc .ops-page-title {
+      font-size: 56px !important;
+      line-height: 56px;
+    }
   }
 
   .hub-clients-list-whisper {
@@ -1223,34 +1230,46 @@
     margin: 8px 0 0;
     padding: 0;
     font-family: var(--g-font-ui);
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 24px;
     letter-spacing: 0;
     text-transform: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-clients-list-tools {
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
+    margin-top: 0;
+  }
+
+  .hub-clients-list-track {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
     margin-top: 24px;
+    width: 100%;
   }
 
   .hub-clients-list-tools-overflow {
-    margin-left: auto;
-    flex: 0 0 auto;
+    margin-left: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
   }
 
   .hub-clients-list-doc .hub-clients-list-tools .btn-primary {
-    background: #2E75B6;
-    color: #fff;
-    min-height: 44px;
-    height: 44px;
-    padding: 0 16px;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    min-height: 48px;
+    height: 48px;
+    padding: 0 18px 0 16px;
     border: none;
-    border-radius: 12px;
+    border-radius: var(--g-radius-md);
     box-shadow: none;
     font-family: var(--g-font-ui);
     font-size: 14px;
@@ -1272,40 +1291,49 @@
     width: 100%;
   }
 
+  .hub-clients-list-find {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .hub-clients-list-find > .hub-clients-list-more {
+    display: none;
+  }
+
   .hub-clients-list-find .hub-clients-chrome .form-input {
-    min-height: 0;
-    height: auto;
-    padding: 4px 8px 4px 28px;
-    border: none;
-    border-bottom: 1px solid #E2D9CC;
-    border-radius: 0;
-    background: none;
-    color: #5B6B7C;
-    font-size: 12px !important;
-    font-weight: 500;
+    min-height: 48px;
+    height: 48px;
+    padding: 0 14px 0 40px;
+    border: 1px solid var(--g-line);
+    border-radius: var(--g-radius-md);
+    background: var(--g-surface);
+    color: var(--g-ink);
+    font-size: 15px !important;
+    font-weight: 400;
     box-shadow: none;
   }
 
   .hub-clients-list-find .hub-clients-chrome .form-input::placeholder {
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     opacity: 1;
   }
 
   .hub-clients-list-find .hub-clients-chrome .form-input:focus {
-    border-color: #E2D9CC;
+    border-color: var(--g-ink);
     box-shadow: none;
     outline: none;
   }
 
   .hub-clients-list-find .hub-clients-chrome .relative svg {
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     left: 8px;
   }
 
   .hub-clients-list-find .hub-clients-chrome .hub-chrome-filter {
     min-height: 32px;
     padding: 0 8px;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     font-family: var(--g-font-ui);
     font-size: 12px;
     font-weight: 500;
@@ -1314,8 +1342,8 @@
   }
 
   .hub-clients-list-find .hub-clients-chrome .hub-chrome-filter-on {
-    color: #0A2540;
-    box-shadow: inset 0 -2px 0 #2E75B6;
+    color: var(--g-ink);
+    box-shadow: inset 0 -2px 0 var(--g-ink);
   }
 
   .hub-clients-list-doc .hub-clients-thead,
@@ -1327,22 +1355,22 @@
     margin-top: 24px;
     padding: 8px 0;
     background: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     font-family: var(--g-font-ui);
     font-size: 12px;
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    border-bottom: 1px solid #E2D9CC;
+    border-bottom: 1px solid var(--g-line);
     box-shadow: inset 0 1px 0 #fff;
   }
 
   .hub-clients-list-doc .hub-clients-row {
     padding: 16px 0;
     background: none;
-    border-top: 1px solid #E2D9CC;
+    border-top: 1px solid var(--g-line);
     box-shadow: none;
-    color: #0A2540;
+    color: var(--g-ink);
     font-family: var(--g-font-ui);
     font-size: 14px;
   }
@@ -1355,7 +1383,7 @@
     font-family: var(--g-font-ui);
     font-weight: 500;
     letter-spacing: 0;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-clients-list-doc .hub-clients-next {
@@ -1383,7 +1411,7 @@
     border: none;
     border-radius: 12px;
     background: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -1404,8 +1432,8 @@
     z-index: 20;
     min-width: 200px;
     padding: 8px;
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
+    background: transparent;
+    border: none;
     border-radius: 16px;
     box-shadow: none;
   }
@@ -1429,7 +1457,7 @@
     border: none;
     border-radius: 12px;
     background: none;
-    color: #0A2540;
+    color: var(--g-ink);
     font-family: var(--g-font-ui);
     font-size: 12px;
     font-weight: 500;
@@ -1437,7 +1465,7 @@
   }
 
   .hub-clients-list-more-menu button:hover {
-    background: #F5F0E6;
+    background: var(--g-bg);
   }
 
   .hub-clients-list-more-menu button.is-danger {
@@ -1447,7 +1475,7 @@
   .hub-clients-list-more-rule {
     height: 1px;
     margin: 4px 0;
-    background: #E2D9CC;
+    background: var(--g-line);
     box-shadow: inset 0 1px 0 #fff;
   }
 
@@ -1463,12 +1491,8 @@
       font-size: 40px !important;
     }
 
-    .hub-clients-list-bar {
-      padding: 8px 16px;
-    }
-
     .hub-clients-list-body {
-      padding: 24px 16px 16px;
+      padding: 0;
     }
 
     .hub-clients-list-doc .hub-clients-thead,
