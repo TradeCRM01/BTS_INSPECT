@@ -9947,9 +9947,9 @@
   .hub-quotes .ops-page-title,
   .hub-quote-editor-title,
   .hub-quote-display-total {
-    font-family: var(--g-font-title);
-    font-weight: 700;
-    letter-spacing: 0.02em;
+    font-family: var(--g-font-sans);
+    font-weight: 600;
+    letter-spacing: -0.035em;
     line-height: 1.1;
     text-shadow: none;
     color: var(--quote-ink);
@@ -9957,7 +9957,38 @@
 
   .hub-quotes .ops-page-title {
     font-size: 40px !important;
+    line-height: 44px;
     margin: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .hub-quotes .ops-page-title {
+      font-size: 56px !important;
+      line-height: 56px;
+    }
+  }
+
+  .hub-quotes-identity {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    max-width: none;
+    margin: 0 0 24px;
+  }
+
+  .hub-quotes-list-doc .hub-look-eyebrow {
+    display: none;
+  }
+
+  .hub-quotes-whisper {
+    margin: 8px 0 0;
+    font-family: var(--g-font-ui);
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 24px;
+    color: var(--quote-muted);
   }
 
   .hub-quotes .ops-page-head {
@@ -10042,12 +10073,12 @@
   }
 
   .hub-quick-quote-label {
-    font-family: var(--g-font-title);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: #0A2540;
+    font-family: var(--g-font-ui);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--quote-muted);
     white-space: nowrap;
   }
 
@@ -10322,13 +10353,13 @@
   .hub-quotes .btn-primary,
   .hub-quote-editor .btn-primary,
   .hub-quote-send .btn-primary {
-    background: #2E75B6;
-    color: #fff;
-    min-height: 44px;
-    height: 44px;
-    padding: 0 16px;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    min-height: 48px;
+    height: 48px;
+    padding: 0 18px 0 16px;
     border: none;
-    border-radius: 12px;
+    border-radius: var(--g-radius-md);
     box-shadow: none;
     transform: none;
     font-family: var(--g-font-ui);
@@ -10339,8 +10370,8 @@
   .hub-quotes .btn-primary:hover,
   .hub-quote-editor .btn-primary:hover,
   .hub-quote-send .btn-primary:hover {
-    background: color-mix(in srgb, #2E75B6 86%, #0A2540);
-    color: #fff;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
   }
 
   .hub-quotes .btn-primary:active,
@@ -10350,12 +10381,12 @@
   }
 
   .hub-quotes-chrome {
-    max-width: 1100px;
-    margin: 0 auto 24px;
+    max-width: none;
+    margin: 0 0 8px;
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px 16px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
   }
 
   .hub-quotes-chrome .relative svg {
@@ -10365,20 +10396,24 @@
 
   .hub-quotes-filters {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0;
+    flex-wrap: nowrap;
+    gap: 4px;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--quote-line);
   }
 
   .hub-quotes-chrome .form-input {
     background: var(--quote-sheet);
     color: var(--quote-ink);
     border: 1px solid var(--quote-line);
-    border-radius: 12px;
-    min-height: 44px;
-    height: auto;
+    border-radius: var(--g-radius-md);
+    min-height: 48px;
+    height: 48px;
     box-shadow: none;
     padding-left: 40px !important;
-    font-size: 14px;
+    font-size: 15px;
+    max-width: none;
+    width: 100%;
   }
 
   .hub-quotes-chrome .form-input::placeholder {
@@ -10386,7 +10421,7 @@
   }
 
   .hub-quotes-chrome .form-input:focus {
-    border-color: #2E75B6;
+    border-color: var(--quote-ink);
     box-shadow: none;
     outline: none;
   }
@@ -10404,20 +10439,18 @@
   }
 
   .hub-quotes-chrome .hub-chrome-filter-on {
-    color: #2E75B6;
-    box-shadow: inset 0 -2px 0 #2E75B6;
+    color: var(--quote-ink);
+    box-shadow: inset 0 -2px 0 var(--quote-ink);
   }
 
   .hub-quotes-sheet {
-    max-width: 1100px;
-    margin: 0 auto;
-    background: var(--quote-sheet);
-    border: 1px solid var(--quote-line);
-    border-radius: 16px;
-    overflow: hidden;
-    box-shadow:
-      inset 0 1px 0 #fff,
-      0 10px 28px rgba(10, 37, 64, 0.08);
+    max-width: none;
+    margin: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+    box-shadow: none;
   }
 
   .hub-quotes-thead,
@@ -10426,17 +10459,17 @@
     grid-template-columns: 72px minmax(0, 1.4fr) minmax(0, 1fr) 104px 140px minmax(188px, max-content);
     gap: 16px;
     align-items: center;
-    padding: 16px 24px;
+    padding: 16px 0;
   }
 
   .hub-quotes-thead {
     background: transparent;
     color: var(--quote-muted);
-    font-family: var(--g-font-title);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    font-family: var(--g-font-ui);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
     border-bottom: 1px solid var(--quote-line);
   }
 
@@ -10470,45 +10503,35 @@
     font-weight: 500;
   }
 
-  .hub-quotes-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 24px;
-    padding: 0 12px;
-    border: 1px solid transparent;
-    border-radius: 999px;
-    font-family: var(--g-font-title);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    line-height: 1;
-    width: fit-content;
+  .hub-quotes-pill,
+  .hub-quotes-pill.is-draft,
+  .hub-quotes-pill.is-sent,
+  .hub-quotes-pill.is-accepted,
+  .hub-quotes-pill.is-declined,
+  .hub-quotes-pill.is-expired {
+    display: inline;
+    align-items: unset;
+    justify-content: unset;
+    min-height: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: none;
+    font-family: var(--g-font-ui);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    line-height: 1.4;
+    width: auto;
     white-space: nowrap;
-  }
-
-  .hub-quotes-pill.is-draft {
     color: var(--quote-muted);
-    background: var(--quote-page);
-    border-color: var(--quote-line);
-  }
-
-  .hub-quotes-pill.is-sent {
-    color: #2E75B6;
-    background: color-mix(in srgb, #2E75B6 12%, #fff);
-  }
-
-  .hub-quotes-pill.is-accepted {
-    color: var(--quote-muted);
-    background: var(--quote-page);
-    border-color: var(--quote-line);
   }
 
   .hub-quotes-pill.is-declined,
   .hub-quotes-pill.is-expired {
-    color: var(--quote-fail);
-    background: color-mix(in srgb, #B42318 12%, #fff);
+    color: var(--quote-muted);
+    background: none;
   }
 
   .hub-quotes-total,
@@ -10667,11 +10690,11 @@
   }
 
   .hub-quotes .hub-next {
-    color: #fff;
-    background: #2E75B6;
+    color: var(--quote-ink);
+    background: none;
     border: none;
-    border-radius: 12px;
-    padding: 0 16px;
+    border-radius: var(--g-radius-md);
+    padding: 0 8px;
     min-height: 44px;
     height: 44px;
     cursor: pointer;
@@ -11758,7 +11781,7 @@
   }
 
   .hub-jobs .hub-next {
-    color: #2E75B6;
+    color: var(--job-look-ink);
     background: none;
     border: none;
     border-radius: 12px;
