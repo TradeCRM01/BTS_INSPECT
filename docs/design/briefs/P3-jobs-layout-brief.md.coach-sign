@@ -1,0 +1,18 @@
+Coach SIGN 2026-10-23 20:06 AEST, pinned to sha256 4b36740dc66f (base 30cb09d9). Ranking ee39a431b420 accepted.
+SEC (SMTP password in browser): thin SEC PR ranked FIRST, merges next after #398 CLOSE, ahead of P1b, full gates. Kill: the browser never receives the SMTP password (network payload + bundle). Report whether a real password is stored in prod and which roles can read it under RLS; rotation goes to Jack.
+1. 'Done' on Today, Schedule, Jobs (P2 updated to match). Undated: 'No date' pill + 'Set a date' action (replaces 'Not scheduled').
+2. Yes to 'Need crew' and 'Ready to invoice' chips; chips wrap, no sideways scroll.
+3. 'Create invoice · $X' on the job page only, owner/admin only.
+4. Bill lines load when the job page opens, errors checked; Overview shows totals.
+5. Paperwork excludes visit notes. Materials count = number of bill lines.
+6. Derived layouts accepted. Breadcrumbs at 1024+; exactly ONE back link at every width.
+7. Shared 'need crew' = not Done, not cancelled, no crew assigned (scheduled or in progress). One helper, one kill, used by Today, Schedule, Jobs; P2 count narrowed.
+8. Chunk extras lookups at <=100 ids per batch; no visible change.
+9. Drop unused cover-photo signing if a grep proves it unused.
+10. Overview two columns at 1024+, one below.
+11. Q-J1 approved.
+12. Fix the swallowed extras and list clients errors, with kills.
+13. Jack's 19 Oct locks HOLD until he answers (thin navy head bar on the open job, link text #296AA5), built as swappable tokens.
+
+## Coach ruling 21:45 AEST 2026-10-23
+- 560px form modal at >=768 ACCEPTED. Kill: modal rect fits viewport at 768 with gutters <=16px, no inner horizontal scroll.

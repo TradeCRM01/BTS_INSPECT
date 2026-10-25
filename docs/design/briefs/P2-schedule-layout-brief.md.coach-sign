@@ -1,0 +1,20 @@
+Coach SIGN 2026-10-23 19:59 AEST, pinned to sha256 b04c57ad7759 (base 30cb09d9). Merges after P1b -> LOOK-GATE.
+General: where the mockup and earlier BTS UI LOOK additions conflict, the MOCKUP wins. Jack's own locks beat both.
+1. Derived layouts accepted. Phone keeps Jack's 6 Oct lock: vertical day-by-day list; rows show time/job/client/crew/status; no sideways swipe; tapping a search result opens the small 'Schedule this job' form. Quick book: full-width row under the toolbar at 768+; on phone, behind a toolbar button so the agenda stays first.
+2. White card + crew-colour stripe OK; day blocks match. Saved crew colours drawn as-is (stripe only); any colour used for text >=4.5:1.
+3. Wording: 'need crew'; 'In progress'; KEEP 'Set a date'; '07:00–10:30' no spaces; 'jobs' not 'bookings' everywhere.
+4. Mockup wins: tinted status pills (text >=4.5:1; green/amber only on pills/icons) and black filled today circle. Supersedes BTS UI additions 4 and 10.
+5. Unassigned lane last. Weekends always drawn, 72px only when the week has no weekend jobs.
+6. Completed stays on board and in count; cancelled off board and out of count. Kill both.
+7. Remove ⋯ More only once 'All crews' is reachable from the toolbar crew filter. Reachability kill.
+8. Empty phone day says 'Nothing booked'. Thin strip OK only as tap-to-book/drop target, <= one row high.
+9. Q-S1 approved. Fix the unchecked clients-fetch error, with a kill.
+10. No new scroller at 1024. Line 1 wraps to at most 2 lines, time never truncated, kill at 1024.
+Build may proceed on the colour-layer draft in parallel with P1b.
+
+## Coach rulings 00:23 AEST 24 Oct
+- 20:43 beats S19/:87: card shows the No date pill only; Set a date goes in the sheet; K11 enforces it.
+- Unknown status is never Scheduled or Booked. Dated and crewless shows Needs crew; otherwise a neutral pill with the raw status, sentence-cased.
+- Drop the out-of-brief edits jobColors, JobFormModal aria and dashboardHome.ts:58.
+- needCrew comes from the #403 helper, never throws, and treats a malformed team as no crew.
+- Everything is reachable at 900 tall; the 390 agenda never collapses to 0.
