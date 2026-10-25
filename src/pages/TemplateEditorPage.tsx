@@ -636,7 +636,7 @@ export function TemplateEditorPage() {
               {schema.sections.length === 0 && (
                 <div className="px-3 py-6 text-center">
                   <p className="text-xs text-[#4A5568]">No sections yet</p>
-                  <button onClick={addSection} className="mt-2 text-xs text-[#2E75B6] hover:underline">
+                  <button onClick={addSection} className="hub-tmpl-link mt-2 text-xs hover:underline">
                     Add first section
                   </button>
                 </div>
@@ -652,7 +652,7 @@ export function TemplateEditorPage() {
                       key={pack.id}
                       type="button"
                       onClick={() => applyTradePack(pack.id)}
-                      className="w-full text-left px-2 py-1.5 rounded border border-[#E5E7EB] bg-white hover:border-[#2E75B6] transition-colors"
+                      className="w-full text-left px-2 py-1.5 rounded border border-[#E5E7EB] bg-white hover:border-[color:var(--g-ink)] transition-colors"
                       title={pack.description}
                     >
                       <p className="text-[11px] font-medium text-[#1A1A1A] leading-snug">{pack.name}</p>
@@ -673,7 +673,7 @@ export function TemplateEditorPage() {
                   <Settings2 size={13} className="text-[#4A5568]" />
                   <span className="text-xs font-semibold text-[#1A1A1A] uppercase tracking-wide">Job Details</span>
                 </div>
-                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${showMetaSettings ? 'bg-[#EFF6FF] text-[#2E75B6]' : 'bg-[#F3F4F6] text-[#6B7280]'}`}>
+                <span className="text-[10px] font-medium" style={{ color: 'var(--g-ink-muted)' }}>
                   {[schema.meta.requiresSiteName, schema.meta.requiresSiteAddress, schema.meta.requiresClientName, schema.meta.requiresJobNumber].filter(Boolean).length + (schema.meta.customFields?.length ?? 0)}
                 </span>
               </button>
@@ -700,7 +700,7 @@ export function TemplateEditorPage() {
                           type="button"
                           disabled={required}
                           onClick={() => updateMeta(key, !schema.meta[key])}
-                          className={`w-8 h-4 rounded-full relative transition-colors shrink-0 ${schema.meta[key] ? 'bg-[#2E75B6]' : 'bg-[#E5E7EB]'} ${required ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                          className={`w-8 h-4 rounded-full relative transition-colors shrink-0 ${schema.meta[key] ? 'hub-tmpl-toggle-on' : 'hub-tmpl-toggle-off'} ${required ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                         >
                           <div className={`w-3 h-3 bg-white rounded-full absolute top-0.5 transition-transform shadow-sm ${schema.meta[key] ? 'translate-x-4' : 'translate-x-0.5'}`} />
                         </button>
@@ -719,7 +719,7 @@ export function TemplateEditorPage() {
                               type="text"
                               value={field.label}
                               onChange={e => updateCustomField(field.id, { label: e.target.value })}
-                              className="flex-1 min-w-0 min-h-[44px] h-auto text-xs px-2 py-2 border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                              className="flex-1 min-w-0 min-h-[44px] h-auto text-xs px-2 py-2 border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[var(--g-ink)]"
                               placeholder="Field label"
                             />
                             <button
@@ -734,7 +734,7 @@ export function TemplateEditorPage() {
                             <select
                               value={field.type}
                               onChange={e => updateCustomField(field.id, { type: e.target.value as any })}
-                              className="flex-1 min-h-[44px] h-auto text-[10px] px-2 py-2 border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                              className="flex-1 min-h-[44px] h-auto text-[10px] px-2 py-2 border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[var(--g-ink)]"
                             >
                               <option value="text">Text</option>
                               <option value="long_text">Long Text</option>
@@ -760,7 +760,7 @@ export function TemplateEditorPage() {
                   <button
                     type="button"
                     onClick={addCustomField}
-                    className="w-full flex items-center justify-center gap-1.5 text-xs text-[#2E75B6] font-medium hover:text-[#0A2540] py-1.5 rounded border border-dashed border-[#2E75B6] hover:border-[#0A2540] transition-colors"
+                    className="hub-tmpl-add w-full flex items-center justify-center gap-1.5 text-xs font-medium py-1.5"
                   >
                     <Plus size={13} /> Add Custom Field
                   </button>
@@ -771,7 +771,7 @@ export function TemplateEditorPage() {
                     <select
                       value={schema.meta.layoutMode ?? 'checklist'}
                       onChange={e => setLayoutMode(e.target.value as LayoutMode)}
-                      className="w-full min-h-[44px] h-auto text-xs px-2 py-2 border border-[#E5E7EB] rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                      className="w-full min-h-[44px] h-auto text-xs px-2 py-2 border border-[#E5E7EB] rounded bg-white focus:outline-none focus:ring-2 focus:ring-[var(--g-ink)]"
                     >
                       <option value="checklist">Checklist</option>
                       <option value="test_schedule">Test schedule</option>
@@ -791,7 +791,7 @@ export function TemplateEditorPage() {
                             type="text"
                             value={role.label}
                             onChange={e => updateSignOffRole(role.id, { label: e.target.value })}
-                            className="flex-1 min-w-0 min-h-[44px] h-auto text-xs px-2 py-2 border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                            className="flex-1 min-w-0 min-h-[44px] h-auto text-xs px-2 py-2 border border-[#E5E7EB] rounded focus:outline-none focus:ring-2 focus:ring-[var(--g-ink)]"
                             placeholder="Role label"
                           />
                           <button
@@ -816,7 +816,7 @@ export function TemplateEditorPage() {
                     <button
                       type="button"
                       onClick={addSignOffRole}
-                      className="w-full flex items-center justify-center gap-1.5 text-xs text-[#2E75B6] font-medium hover:text-[#0A2540] py-1.5 rounded border border-dashed border-[#2E75B6] hover:border-[#0A2540] transition-colors"
+                      className="hub-tmpl-add w-full flex items-center justify-center gap-1.5 text-xs font-medium py-1.5"
                     >
                       <Plus size={13} /> Add role
                     </button>
@@ -838,7 +838,7 @@ export function TemplateEditorPage() {
                       <input
                         value={selectedSection.title}
                         onChange={e => updateSection({ title: e.target.value })}
-                        className="w-full min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                        className="w-full min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[var(--g-ink)] focus:border-transparent"
                         placeholder="e.g. Visual Inspection"
                       />
                     </div>
@@ -848,7 +848,7 @@ export function TemplateEditorPage() {
                         value={selectedSection.description ?? ''}
                         onChange={e => updateSection({ description: e.target.value })}
                         rows={2}
-                        className="w-full min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent resize-none"
+                        className="w-full min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[var(--g-ink)] focus:border-transparent resize-none"
                         placeholder="Instructions for this section..."
                       />
                     </div>
@@ -856,7 +856,7 @@ export function TemplateEditorPage() {
                   <div className="flex items-center gap-4">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <div
-                        className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer ${selectedSection.isRepeating ? 'bg-[#2E75B6]' : 'bg-[#E5E7EB]'}`}
+                        className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer ${selectedSection.isRepeating ? 'hub-tmpl-toggle-on' : 'hub-tmpl-toggle-off'}`}
                         onClick={() => updateSection({ isRepeating: !selectedSection.isRepeating })}
                       >
                         <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform shadow-sm ${selectedSection.isRepeating ? 'translate-x-5' : 'translate-x-0.5'}`} />
@@ -867,7 +867,7 @@ export function TemplateEditorPage() {
                       <input
                         value={selectedSection.repeatLabel ?? ''}
                         onChange={e => updateSection({ repeatLabel: e.target.value })}
-                        className="flex-1 min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-xs focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+                        className="flex-1 min-h-[44px] h-auto px-2.5 py-2 border border-[#E5E7EB] rounded text-xs focus:outline-none focus:ring-2 focus:ring-[var(--g-ink)]"
                         placeholder='Repeat label, e.g. "Circuit"'
                       />
                     )}
@@ -906,14 +906,14 @@ export function TemplateEditorPage() {
                 <div className="px-4 py-3 flex items-center justify-between gap-2">
                   <button
                     onClick={() => setShowQTypePicker(true)}
-                    className="flex items-center gap-2 text-sm text-[#2E75B6] font-medium hover:text-[#0A2540] transition-colors"
+                    className="hub-tmpl-link flex items-center gap-2 text-sm font-medium"
                   >
                     <Plus size={16} /> Add Question
                   </button>
                   {selectedSection && (
                     <button
                       onClick={() => setShowPreview(true)}
-                      className="lg:hidden text-sm text-[#2E75B6] font-medium hover:text-[#0A2540] transition-colors"
+                      className="hub-tmpl-link lg:hidden text-sm font-medium"
                     >
                       Preview
                     </button>
@@ -923,7 +923,7 @@ export function TemplateEditorPage() {
             ) : (
               <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm py-16 text-center">
                 <p className="text-[#4A5568] text-sm">Select or create a section to start adding questions</p>
-                <button onClick={addSection} className="mt-3 text-sm text-[#2E75B6] hover:underline">
+                <button onClick={addSection} className="hub-tmpl-link mt-3 text-sm hover:underline">
                   Add first section
                 </button>
               </div>
