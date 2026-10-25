@@ -51,9 +51,7 @@ describe('Take 5 open sheet LOOK', () => {
     expect(lookCss).toContain('--take5-look-ink: var(--g-ink)');
     expect(lookCss).toContain('--take5-look-muted: var(--g-ink-muted)');
     expect(lookCss).toContain('--take5-look-line: var(--g-line)');
-    expect(lookCss).toContain('#2E75B6');
-    expect(lookCss).toContain('box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08)');
-    expect(lookCss).toContain('box-shadow: inset 0 1px 0 #fff');
+    expect(lookCss).toContain('background: var(--g-inverse)');
     expect(lookCss).toContain('font-size: 56px !important');
     expect(lookCss).toContain("font-family: var(--g-font-title)");
     expect(lookCss).toContain("font-family: var(--g-font-ui)");
