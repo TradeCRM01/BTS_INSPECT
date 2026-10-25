@@ -15257,57 +15257,92 @@
 
   /* Inspections list document only. Same paper kit as signed reports / jobs / clients list. Not the open record. */
   .hub-inspections-list-doc.ops-page {
-    background: #F5F0E6;
+    background: var(--g-bg);
   }
 
   .hub-inspections-list-doc .hub-inspections-sheet {
     position: relative;
     min-height: 620px;
     margin: 0 auto;
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
-    border-radius: 16px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
     overflow: visible;
     box-shadow:
-      inset 0 1px 0 #fff,
-      0 10px 28px rgba(10, 37, 64, 0.08);
+      none;
   }
 
   .hub-inspections-list-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    min-height: 44px;
-    padding: 8px 24px;
-    background: #0A2540;
-    color: #fff;
+    display: none;
+    color: var(--g-ink-muted);
     border-radius: 16px 16px 0 0;
   }
 
   .hub-inspections-list-mark {
     font-family: var(--g-font-title);
-    font-weight: 700;
+    font-weight: 600;
     font-size: 16px;
-    letter-spacing: 0.02em;
-    color: #fff;
+    letter-spacing: -0.035em;
+    color: var(--g-ink-muted);
   }
 
-  .hub-inspections-list-body {
-    padding: 32px 32px 24px;
-    background: #FFFDF8;
-    box-shadow: inset 0 1px 0 #fff;
+  
+  .hub-inspections-list-identity {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .hub-inspections-list-track {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  .hub-inspections-list-find > .hub-inspections-list-more {
+    display: none;
+  }
+
+  .hub-inspections-list-more.is-open::before,
+  .hub-inspections-list-more[open]::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(10, 10, 11, 0.18);
+  }
+
+  .hub-inspections-list-more.is-open,
+  .hub-inspections-list-more[open] {
+    z-index: 50;
+  }
+
+.hub-inspections-list-body {
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
     overflow: visible;
   }
 
   .hub-inspections.hub-inspections-list-doc .ops-page-title {
-    font-family: var(--g-font-title);
-    font-weight: 700;
-    font-size: 56px !important;
-    letter-spacing: 0.02em;
-    line-height: 0.96;
-    color: #0A2540;
+    font-family: var(--g-font-sans);
+    font-weight: 600;
+    font-size: 40px !important;
+    letter-spacing: -0.035em;
+    line-height: 44px;
+    color: var(--g-ink);
     margin: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .hub-inspections.hub-inspections-list-doc .ops-page-title {
+      font-size: 56px !important;
+      line-height: 56px;
+    }
   }
 
   .hub-inspections-list-whisper {
@@ -15315,19 +15350,19 @@
     margin: 8px 0 0;
     padding: 0;
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-inspections-list-tools {
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 16px;
-    margin-top: 24px;
+    gap: 12px;
+    margin-top: 0;
   }
 
   .hub-inspections-list-tools-overflow {
@@ -15336,16 +15371,16 @@
   }
 
   .hub-inspections-list-doc .hub-inspections-list-tools .btn-primary {
-    background: #2E75B6;
-    color: #fff;
-    min-height: 44px;
-    height: 44px;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    min-height: 48px;
+    height: 48px;
     padding: 0 16px;
     border: none;
     border-radius: 12px;
     box-shadow: none;
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
   }
 
@@ -15369,45 +15404,45 @@
     height: auto;
     padding: 4px 8px 4px 28px;
     border: none;
-    border-bottom: 1px solid #E2D9CC;
+    border-bottom: 1px solid var(--g-line);
     border-radius: 0;
     background: none;
-    color: #5B6B7C;
-    font-size: 12px !important;
+    color: var(--g-ink-muted);
+    font-size: 15px !important;
     font-weight: 500;
     box-shadow: none;
   }
 
   .hub-inspections-list-find .hub-inspections-chrome .form-input::placeholder {
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     opacity: 1;
   }
 
   .hub-inspections-list-find .hub-inspections-chrome .form-input:focus {
-    border-color: #E2D9CC;
+    border-color: var(--g-line);
     box-shadow: none;
     outline: none;
   }
 
   .hub-inspections-list-find .hub-inspections-chrome .relative svg {
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     left: 8px;
   }
 
   .hub-inspections-list-find .hub-inspections-chrome .hub-chrome-filter {
     min-height: 32px;
     padding: 0 8px;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     font-family: var(--g-font-ui);
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
   }
 
   .hub-inspections-list-find .hub-inspections-chrome .hub-chrome-filter-on {
-    color: #0A2540;
-    box-shadow: inset 0 -2px 0 #2E75B6;
+    color: var(--g-ink);
+    box-shadow: inset 0 -2px 0 var(--g-ink);
   }
 
   .hub-inspections-list-doc .hub-inspections-thead,
@@ -15421,34 +15456,38 @@
     margin-top: 24px;
     padding: 8px 0;
     background: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     font-family: var(--g-font-ui);
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    border-bottom: 1px solid #E2D9CC;
-    box-shadow: inset 0 1px 0 #fff;
+    border-bottom: 1px solid var(--g-line);
+    box-shadow: none;
   }
 
   .hub-inspections-list-doc .hub-inspections-row {
     padding: 16px 0;
     background: none;
-    border-top: 1px solid #E2D9CC;
+    border-top: 1px solid var(--g-line);
     box-shadow: none;
-    color: #0A2540;
+    color: var(--g-ink);
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 15px;
   }
 
   .hub-inspections-list-doc .hub-inspections-thead + .hub-inspections-row {
     border-top: none;
   }
 
+  .hub-inspections-list-doc .hub-inspections-group {
+    display: none;
+  }
+
   .hub-inspections-list-doc .hub-inspections-site {
     font-family: var(--g-font-ui);
     font-weight: 600;
-    color: #0A2540;
+    color: var(--g-ink);
   }
 
   .hub-inspections-list-doc .hub-inspections-status {
@@ -15456,7 +15495,7 @@
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-inspections-list-doc .hub-inspections-pill,
@@ -15479,7 +15518,7 @@
     border: none;
     border-radius: 12px;
     background: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     cursor: pointer;
   }
 
@@ -15493,13 +15532,13 @@
     position: absolute;
     right: 0;
     top: calc(100% + 8px);
-    z-index: 20;
+    z-index: 50;
     min-width: 200px;
     padding: 8px;
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
-    border-radius: 16px;
-    box-shadow: none;
+    background: var(--g-surface);
+    border: 1px solid var(--g-line);
+    border-radius: var(--g-radius-md);
+    box-shadow: 0 10px 28px rgba(10, 10, 11, 0.12);
   }
 
   .hub-inspections-list-more.is-flip .hub-inspections-list-more-menu {
@@ -15521,15 +15560,15 @@
     border: none;
     border-radius: 12px;
     background: none;
-    color: #0A2540;
+    color: var(--g-ink);
     font-family: var(--g-font-ui);
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 500;
     cursor: pointer;
   }
 
   .hub-inspections-list-more-menu button:hover {
-    background: #F5F0E6;
+    background: var(--g-bg);
   }
 
   .hub-inspections-list-more-menu button.is-danger {
@@ -15539,7 +15578,7 @@
   .hub-inspections-list-more-rule {
     height: 1px;
     margin: 8px 0;
-    background: #E2D9CC;
+    background: var(--g-line);
   }
 
   .hub-inspections-list-doc .ops-section-title,
@@ -15559,7 +15598,7 @@
     }
 
     .hub-inspections-list-body {
-      padding: 24px 16px 16px;
+      padding: 0;
     }
 
     .hub-inspections-list-doc .hub-inspections-thead {
@@ -16461,57 +16500,98 @@
 
   /* JHA list document only. Same paper kit as signed inspections / reports / jobs / clients list. Not the open record. */
   .hub-jha-list-doc.ops-page {
-    background: #F5F0E6;
+    background: var(--g-bg);
   }
 
   .hub-jha-list-doc .hub-jha-sheet {
     position: relative;
     min-height: 620px;
     margin: 0 auto;
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
-    border-radius: 16px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
     overflow: visible;
     box-shadow:
-      inset 0 1px 0 #fff,
-      0 10px 28px rgba(10, 37, 64, 0.08);
+      none;
   }
 
   .hub-jha-list-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    min-height: 44px;
-    padding: 8px 24px;
-    background: #0A2540;
-    color: #fff;
+    display: none;
+    color: var(--g-ink-muted);
     border-radius: 16px 16px 0 0;
   }
 
   .hub-jha-list-mark {
     font-family: var(--g-font-title);
-    font-weight: 700;
+    font-weight: 600;
     font-size: 16px;
-    letter-spacing: 0.02em;
-    color: #fff;
+    letter-spacing: -0.035em;
+    color: var(--g-ink-muted);
   }
 
-  .hub-jha-list-body {
-    padding: 32px 32px 24px;
-    background: #FFFDF8;
-    box-shadow: inset 0 1px 0 #fff;
+  
+  .hub-jha-list-identity {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .hub-jha-list-track {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  .hub-jha-list-find > .hub-jha-list-more {
+    display: none;
+  }
+
+  .hub-jha-list-more.is-open::before,
+  .hub-jha-list-more[open]::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(10, 10, 11, 0.18);
+  }
+
+  .hub-jha-list-more.is-open,
+  .hub-jha-list-more[open] {
+    z-index: 50;
+  }
+
+.hub-jha-list-body {
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
     overflow: visible;
   }
 
   .hub-jha.hub-jha-list-doc .ops-page-title {
-    font-family: var(--g-font-title);
-    font-weight: 700;
-    font-size: 56px !important;
-    letter-spacing: 0.02em;
-    line-height: 0.96;
-    color: #0A2540;
+    font-family: var(--g-font-sans);
+    font-weight: 600;
+    font-size: 40px !important;
+    letter-spacing: -0.035em;
+    line-height: 44px;
+    color: var(--g-ink);
     margin: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .hub-jha.hub-jha-list-doc .ops-page-title {
+      font-size: 56px !important;
+      line-height: 56px;
+    }
+  }
+
+  .hub-jha-list-doc .hub-jha-start {
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
   }
 
   .hub-jha-list-whisper {
@@ -16519,19 +16599,19 @@
     margin: 8px 0 0;
     padding: 0;
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-jha-list-tools {
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 16px;
-    margin-top: 24px;
+    gap: 12px;
+    margin-top: 0;
   }
 
   .hub-jha-list-tools-overflow {
@@ -16541,16 +16621,16 @@
 
   .hub-jha-list-doc .hub-jha-list-tools .btn-primary,
   .hub-jha-list-doc .hub-jha-list-tools .hub-jha-start {
-    background: #2E75B6;
-    color: #fff;
-    min-height: 44px;
-    height: 44px;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    min-height: 48px;
+    height: 48px;
     padding: 0 16px;
     border: none;
     border-radius: 12px;
     box-shadow: none;
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
   }
 
@@ -16574,45 +16654,45 @@
     height: auto;
     padding: 4px 8px 4px 28px;
     border: none;
-    border-bottom: 1px solid #E2D9CC;
+    border-bottom: 1px solid var(--g-line);
     border-radius: 0;
     background: none;
-    color: #5B6B7C;
-    font-size: 12px !important;
+    color: var(--g-ink-muted);
+    font-size: 15px !important;
     font-weight: 500;
     box-shadow: none;
   }
 
   .hub-jha-list-find .hub-jha-chrome .form-input::placeholder {
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     opacity: 1;
   }
 
   .hub-jha-list-find .hub-jha-chrome .form-input:focus {
-    border-color: #E2D9CC;
+    border-color: var(--g-line);
     box-shadow: none;
     outline: none;
   }
 
   .hub-jha-list-find .hub-jha-chrome .relative svg {
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     left: 8px;
   }
 
   .hub-jha-list-find .hub-jha-chrome .hub-chrome-filter {
     min-height: 32px;
     padding: 0 8px;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     font-family: var(--g-font-ui);
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
   }
 
   .hub-jha-list-find .hub-jha-chrome .hub-chrome-filter-on {
-    color: #0A2540;
-    box-shadow: inset 0 -2px 0 #2E75B6;
+    color: var(--g-ink);
+    box-shadow: inset 0 -2px 0 var(--g-ink);
   }
 
   .hub-jha-list-take5 {
@@ -16623,28 +16703,28 @@
     margin: 24px 0 0;
     padding: 0;
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-jha-list-take5-link {
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     text-decoration: none;
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 500;
   }
 
   .hub-jha-list-take5-link:hover,
   .hub-jha-list-take5-link:focus {
-    color: #0A2540;
+    color: var(--g-ink);
   }
 
   .hub-jha-list-take5-muted {
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-jha-list-doc .hub-jha-thead,
@@ -16658,24 +16738,24 @@
     margin-top: 16px;
     padding: 8px 0;
     background: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     font-family: var(--g-font-ui);
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    border-bottom: 1px solid #E2D9CC;
-    box-shadow: inset 0 1px 0 #fff;
+    border-bottom: 1px solid var(--g-line);
+    box-shadow: none;
   }
 
   .hub-jha-list-doc .hub-jha-row {
     padding: 16px 0;
     background: none;
-    border-top: 1px solid #E2D9CC;
+    border-top: 1px solid var(--g-line);
     box-shadow: none;
-    color: #0A2540;
+    color: var(--g-ink);
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 15px;
   }
 
   .hub-jha-list-doc .hub-jha-thead + .hub-jha-row,
@@ -16690,7 +16770,7 @@
   .hub-jha-list-doc .hub-jha-site {
     font-family: var(--g-font-ui);
     font-weight: 600;
-    color: #0A2540;
+    color: var(--g-ink);
   }
 
   .hub-jha-list-doc .hub-jha-status {
@@ -16698,7 +16778,7 @@
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-jha-list-doc .hub-jha-pill,
@@ -16725,7 +16805,7 @@
     border: none;
     border-radius: 12px;
     background: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     cursor: pointer;
   }
 
@@ -16739,13 +16819,13 @@
     position: absolute;
     right: 0;
     top: calc(100% + 8px);
-    z-index: 20;
+    z-index: 50;
     min-width: 200px;
     padding: 8px;
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
-    border-radius: 16px;
-    box-shadow: none;
+    background: var(--g-surface);
+    border: 1px solid var(--g-line);
+    border-radius: var(--g-radius-md);
+    box-shadow: 0 10px 28px rgba(10, 10, 11, 0.12);
   }
 
   .hub-jha-list-more.is-flip .hub-jha-list-more-menu {
@@ -16768,9 +16848,9 @@
     border: none;
     border-radius: 12px;
     background: none;
-    color: #0A2540;
+    color: var(--g-ink);
     font-family: var(--g-font-ui);
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 500;
     cursor: pointer;
     text-decoration: none;
@@ -16778,11 +16858,11 @@
 
   .hub-jha-list-more-menu button:hover,
   .hub-jha-list-more-menu a:hover {
-    background: #F5F0E6;
+    background: var(--g-bg);
   }
 
   .hub-jha-list-more-menu button:disabled {
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     cursor: not-allowed;
   }
 
@@ -16808,7 +16888,7 @@
     }
 
     .hub-jha-list-body {
-      padding: 24px 16px 16px;
+      padding: 0;
     }
 
     .hub-jha-list-doc .hub-jha-thead {
@@ -19685,57 +19765,92 @@
 
   /* Take 5 list document only. Same paper kit as signed JHA / inspections / reports / jobs list. Not the open fill. */
   .hub-take5-list-doc.ops-page {
-    background: #F5F0E6;
+    background: var(--g-bg);
   }
 
   .hub-take5-list-doc .hub-take5-sheet {
     position: relative;
     min-height: 620px;
     margin: 0 auto;
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
-    border-radius: 16px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
     overflow: visible;
     box-shadow:
-      inset 0 1px 0 #fff,
-      0 10px 28px rgba(10, 37, 64, 0.08);
+      none;
   }
 
   .hub-take5-list-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    min-height: 44px;
-    padding: 8px 24px;
-    background: #0A2540;
-    color: #fff;
+    display: none;
+    color: var(--g-ink-muted);
     border-radius: 16px 16px 0 0;
   }
 
   .hub-take5-list-mark {
     font-family: var(--g-font-title);
-    font-weight: 700;
+    font-weight: 600;
     font-size: 16px;
-    letter-spacing: 0.02em;
-    color: #fff;
+    letter-spacing: -0.035em;
+    color: var(--g-ink-muted);
   }
 
-  .hub-take5-list-body {
-    padding: 32px 32px 24px;
-    background: #FFFDF8;
-    box-shadow: inset 0 1px 0 #fff;
+  
+  .hub-take5-list-identity {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .hub-take5-list-track {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  .hub-take5-list-find > .hub-take5-list-more {
+    display: none;
+  }
+
+  .hub-take5-list-more.is-open::before,
+  .hub-take5-list-more[open]::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(10, 10, 11, 0.18);
+  }
+
+  .hub-take5-list-more.is-open,
+  .hub-take5-list-more[open] {
+    z-index: 50;
+  }
+
+.hub-take5-list-body {
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
     overflow: visible;
   }
 
   .hub-take5.hub-take5-list-doc .ops-page-title {
-    font-family: var(--g-font-title);
-    font-weight: 700;
-    font-size: 56px !important;
-    letter-spacing: 0.02em;
-    line-height: 0.96;
-    color: #0A2540;
+    font-family: var(--g-font-sans);
+    font-weight: 600;
+    font-size: 40px !important;
+    letter-spacing: -0.035em;
+    line-height: 44px;
+    color: var(--g-ink);
     margin: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .hub-take5.hub-take5-list-doc .ops-page-title {
+      font-size: 56px !important;
+      line-height: 56px;
+    }
   }
 
   .hub-take5-list-whisper {
@@ -19743,19 +19858,19 @@
     margin: 8px 0 0;
     padding: 0;
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-take5-list-tools {
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 16px;
-    margin-top: 24px;
+    gap: 12px;
+    margin-top: 0;
   }
 
   .hub-take5-list-tools-overflow {
@@ -19764,16 +19879,16 @@
   }
 
   .hub-take5-list-doc .hub-take5-list-tools .btn-primary {
-    background: #2E75B6;
-    color: #fff;
-    min-height: 44px;
-    height: 44px;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    min-height: 48px;
+    height: 48px;
     padding: 0 16px;
     border: none;
     border-radius: 12px;
     box-shadow: none;
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
   }
 
@@ -19797,45 +19912,45 @@
     height: auto;
     padding: 4px 8px 4px 28px;
     border: none;
-    border-bottom: 1px solid #E2D9CC;
+    border-bottom: 1px solid var(--g-line);
     border-radius: 0;
     background: none;
-    color: #5B6B7C;
-    font-size: 12px !important;
+    color: var(--g-ink-muted);
+    font-size: 15px !important;
     font-weight: 500;
     box-shadow: none;
   }
 
   .hub-take5-list-find .hub-take5-chrome .form-input::placeholder {
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     opacity: 1;
   }
 
   .hub-take5-list-find .hub-take5-chrome .form-input:focus {
-    border-color: #E2D9CC;
+    border-color: var(--g-line);
     box-shadow: none;
     outline: none;
   }
 
   .hub-take5-list-find .hub-take5-chrome .relative svg {
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     left: 8px;
   }
 
   .hub-take5-list-find .hub-take5-chrome .hub-chrome-filter {
     min-height: 32px;
     padding: 0 8px;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     font-family: var(--g-font-ui);
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
   }
 
   .hub-take5-list-find .hub-take5-chrome .hub-chrome-filter-on {
-    color: #0A2540;
-    box-shadow: inset 0 -2px 0 #2E75B6;
+    color: var(--g-ink);
+    box-shadow: inset 0 -2px 0 var(--g-ink);
   }
 
   .hub-take5-list-doc .hub-take5-thead,
@@ -19849,24 +19964,24 @@
     margin-top: 16px;
     padding: 8px 0;
     background: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     font-family: var(--g-font-ui);
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    border-bottom: 1px solid #E2D9CC;
-    box-shadow: inset 0 1px 0 #fff;
+    border-bottom: 1px solid var(--g-line);
+    box-shadow: none;
   }
 
   .hub-take5-list-doc .hub-take5-row {
     padding: 16px 0;
     background: none;
-    border-top: 1px solid #E2D9CC;
+    border-top: 1px solid var(--g-line);
     box-shadow: none;
-    color: #0A2540;
+    color: var(--g-ink);
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 15px;
   }
 
   .hub-take5-list-doc .hub-take5-thead + [data-take5-group] .hub-take5-row:first-child {
@@ -19881,14 +19996,14 @@
   .hub-take5-list-doc .hub-take5-site-name {
     font-family: var(--g-font-ui);
     font-weight: 600;
-    color: #0A2540;
+    color: var(--g-ink);
   }
 
   .hub-take5-list-doc .hub-take5-muted {
     display: block;
     font-family: var(--g-font-ui);
     font-weight: 500;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-take5-list-doc .hub-take5-status {
@@ -19896,7 +20011,7 @@
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-take5-list-doc .hub-take5-pill,
@@ -19919,7 +20034,7 @@
     border: none;
     border-radius: 12px;
     background: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     cursor: pointer;
   }
 
@@ -19933,13 +20048,13 @@
     position: absolute;
     right: 0;
     top: calc(100% + 8px);
-    z-index: 20;
+    z-index: 50;
     min-width: 200px;
     padding: 8px;
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
-    border-radius: 16px;
-    box-shadow: none;
+    background: var(--g-surface);
+    border: 1px solid var(--g-line);
+    border-radius: var(--g-radius-md);
+    box-shadow: 0 10px 28px rgba(10, 10, 11, 0.12);
   }
 
   .hub-take5-list-more.is-flip .hub-take5-list-more-menu {
@@ -19962,9 +20077,9 @@
     border: none;
     border-radius: 12px;
     background: none;
-    color: #0A2540;
+    color: var(--g-ink);
     font-family: var(--g-font-ui);
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 500;
     cursor: pointer;
     text-decoration: none;
@@ -19972,11 +20087,11 @@
 
   .hub-take5-list-more-menu button:hover,
   .hub-take5-list-more-menu a:hover {
-    background: #F5F0E6;
+    background: var(--g-bg);
   }
 
   .hub-take5-list-more-menu button:disabled {
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
     cursor: not-allowed;
   }
 
@@ -19997,7 +20112,7 @@
     }
 
     .hub-take5-list-body {
-      padding: 24px 16px 16px;
+      padding: 0;
     }
 
     .hub-take5-list-doc .hub-take5-thead {
