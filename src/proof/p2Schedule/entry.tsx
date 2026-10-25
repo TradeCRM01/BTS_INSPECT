@@ -166,6 +166,31 @@ function opacityChain(el: Element | null): number {
   return o;
 }
 
+function contentWidth(el: Element | null): number {
+  if (!el || !visible(el)) return -1;
+  const kids = [...el.children].filter(kid => visible(kid));
+  const style = getComputedStyle(el);
+  const pad = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+  const border = (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.borderRightWidth) || 0);
+  const gap = parseFloat(style.columnGap) || 0;
+  if (!kids.length) return el.getBoundingClientRect().width;
+  const kidsW = kids.reduce((sum, kid) => sum + kid.getBoundingClientRect().width, 0);
+  return kidsW + pad + border + gap * (kids.length - 1);
+}
+
+function searchFillWidth(toolbar: Element | null, search: Element | null): number {
+  if (!toolbar || !search || !visible(search)) return -1;
+  const items = [...toolbar.children].filter(el => visible(el));
+  if (!items.includes(search)) return -1;
+  const style = getComputedStyle(toolbar);
+  const pad = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+  const gap = parseFloat(style.columnGap) || 0;
+  const content = toolbar.getBoundingClientRect().width - pad;
+  const others = items.filter(el => el !== search);
+  const othersW = others.reduce((sum, el) => sum + el.getBoundingClientRect().width, 0);
+  return content - othersW - gap * Math.max(0, items.length - 1);
+}
+
 function visible(el: Element): boolean {
   const r = el.getBoundingClientRect();
   if (r.width <= 1 || r.height <= 1) return false;
@@ -818,6 +843,7 @@ function chrome(): ChromeProbe {
     navCornerCut: false,
     range: (range?.textContent ?? '').replace(/\s+/g, ' ').trim(),
     searchWidth: search?.getBoundingClientRect().width ?? 0,
+    searchFillW: searchFillWidth(toolbar, search),
     todayRight: today?.getBoundingClientRect().right ?? -1,
     toolbarRight: toolbar ? toolbar.getBoundingClientRect().right - toolbarPadRight : -1,
     toolbarBottom: toolbar?.getBoundingClientRect().bottom ?? -1,
@@ -894,7 +920,9 @@ function chrome(): ChromeProbe {
     eyebrowLh: typeOf(eyebrow).lh,
     newJobY: newJobR?.y ?? -1,
     segW: seg?.getBoundingClientRect().width ?? 0,
+    segContentW: contentWidth(seg),
     rangeW: document.querySelector('.hub-week-range-row')?.getBoundingClientRect().width ?? 0,
+    rangeContentW: contentWidth(document.querySelector('.hub-week-range-row')),
     moreJobs: (document.querySelector('[data-schedule-more-jobs]')?.textContent ?? '').replace(/\s+/g, ' ').trim(),
     moreJobsHref: document.querySelector('[data-schedule-more-jobs] a')?.getAttribute('href') ?? '',
     unscheduledChip: (document.querySelector('[data-schedule-unscheduled-chip]')?.textContent ?? '').replace(/\s+/g, ' ').trim(),

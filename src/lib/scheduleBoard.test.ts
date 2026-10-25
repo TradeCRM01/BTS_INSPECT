@@ -111,7 +111,26 @@ describe('board page bounds', () => {
     expect(live).toContain('cost_code');
     expect(live).toContain('parent_job_id');
     expect(live).not.toContain('not_a_column');
-    for (const col of scheduleBoardColumnList()) {
+    const boardColumns = [
+      'id',
+      'company_id',
+      'client_id',
+      'title',
+      'description',
+      'status',
+      'scheduled_date',
+      'start_time',
+      'end_time',
+      'address',
+      'assigned_team',
+      'job_number',
+      'parent_job_id',
+      'color',
+      'cost_code',
+    ];
+    expect(scheduleBoardColumnList()).toEqual(boardColumns);
+    expect(SCHEDULE_BOARD_COLUMNS).toBe(boardColumns.join(', '));
+    for (const col of boardColumns) {
       expect(live, `jobs.${col} missing from supabase/migrations`).toContain(col);
     }
     expect(SCHEDULE_BOARD_COLUMNS.includes('*')).toBe(false);

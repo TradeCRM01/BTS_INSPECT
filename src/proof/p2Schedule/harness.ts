@@ -117,7 +117,8 @@ async function makeArtifacts(build: Build): Promise<Artifacts> {
           if (abs.startsWith(PROOF_DIR)) return null;
           const fromRoot = abs.startsWith(rootSrc) ? relative(rootSrc, abs) : abs.startsWith(branchSrc) ? relative(branchSrc, abs) : null;
           if (fromRoot === null) return null;
-          if (SWAPS.includes(fromRoot.replace(/\.tsx?$/, ''))) return { path: mocks };
+          const key = fromRoot.replace(/\\/g, '/').replace(/\.tsx?$/, '');
+          if (SWAPS.includes(key)) return { path: mocks };
           if (build === 'main') {
             const file = resolveFile(join(rootSrc, fromRoot));
             if (!file) throw new Error(`main has no ${fromRoot}`);
@@ -164,7 +165,11 @@ const browser = (engine: Engine = 'chromium') => {
       ? webkit.launch({ headless: true })
       : chromium.launch({
         headless: true,
-        executablePath: ['/usr/local/bin/google-chrome', '/usr/bin/google-chrome'].find(p => existsSync(p)),
+        executablePath: [
+          '/usr/local/bin/google-chrome',
+          '/usr/bin/google-chrome',
+          'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        ].find(p => existsSync(p)),
         args: ['--no-sandbox', '--disable-dev-shm-usage', '--force-color-profile=srgb', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1'],
       });
   }
@@ -379,8 +384,9 @@ export async function openState(id: StateId, build: Build = 'branch', height = v
     await ready(page);
     return { page, spec, notes, blocked, websockets, pageErrors, close: () => context.close() };
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     await context.close();
-    throw err;
+    throw new Error(`${message}\npageErrors: ${pageErrors.join(' | ') || 'none'}`);
   }
 }
 

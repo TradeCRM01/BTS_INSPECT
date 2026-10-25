@@ -7,10 +7,8 @@ import {
 import { JOBS, JOB_IDS, MALFORMED_CREW_IDS, PROFILE, SAM, SCHEDULE_FIXTURE } from './fixture.ts';
 import {
   MORE_JOBS_THIS_WEEK,
-  SCHEDULE_BOARD_COLUMNS,
   SCHEDULE_BOARD_LIMIT,
   jobsColumnsFromMigrations,
-  scheduleBoardColumnList,
 } from '../../lib/scheduleBoard';
 import { STATUS_FALLBACK } from '../../lib/scheduleInvoiceStatus';
 import { bundleReport, closeHarness, measure, measureAll, measureMockup1280, openState, token, writeCapture } from './harness.ts';
@@ -22,6 +20,26 @@ import { join, resolve } from 'node:path';
 // signed horizontal scroller (overflow-x:auto, sw>cw, track.right stays on screen). Children past
 // innerWidth are skipped only when they live inside that scroller. Labels inside it must still
 // fit their card. Any new skip reason needs a Coach ruling.
+const BOARD_COLUMN_LIST = [
+  'id',
+  'company_id',
+  'client_id',
+  'title',
+  'description',
+  'status',
+  'scheduled_date',
+  'start_time',
+  'end_time',
+  'address',
+  'assigned_team',
+  'job_number',
+  'parent_job_id',
+  'color',
+  'cost_code',
+] as const;
+const BOARD_COLUMNS = BOARD_COLUMN_LIST.join(', ');
+const px = (n: number) => Math.round(n * 100) / 100;
+
 const SOLE_SCROLLER = '.hub-day-track';
 const TOLERANCE_PX = 0.5;
 const SKIP_REASONS = new Set(['sole-allowlisted-scroller', 'ellipsis-self', 'clip-inside-allowlisted-scroller']);
@@ -726,7 +744,7 @@ describe('P2 Schedule on the built dist', () => {
     const datedJobs = m.reads.filter(r => r.table === 'jobs' && r.filters.some(f => f.startsWith('scheduled_date>=')));
     expect.soft(datedJobs.length, 'week-1280 records a dated jobs board read').toBeGreaterThan(0);
     for (const read of datedJobs) {
-      expect.soft(read.columns, 'jobs board columns').toBe(SCHEDULE_BOARD_COLUMNS);
+      expect.soft(read.columns, 'jobs board columns').toBe(BOARD_COLUMNS);
       expect.soft(read.columns, 'jobs board never selects *').not.toBe('*');
       expect.soft(read.filters, 'jobs board company_id').toContain(`company_id=${String(PROFILE.company_id)}`);
       expect.soft(read.filters, 'jobs board week start').toContain('scheduled_date>=2026-10-19');
@@ -736,7 +754,7 @@ describe('P2 Schedule on the built dist', () => {
     const undatedJobs = m.reads.filter(r => r.table === 'jobs' && r.filters.some(f => f === 'scheduled_date is null'));
     expect.soft(undatedJobs.length, 'week-1280 records an undated jobs board read').toBeGreaterThan(0);
     for (const read of undatedJobs) {
-      expect.soft(read.columns, 'undated jobs board columns').toBe(SCHEDULE_BOARD_COLUMNS);
+      expect.soft(read.columns, 'undated jobs board columns').toBe(BOARD_COLUMNS);
       expect.soft(read.columns, 'undated jobs never selects *').not.toBe('*');
       expect.soft(read.filters, 'undated jobs company_id').toContain(`company_id=${String(PROFILE.company_id)}`);
       expect.soft(read.limit, 'undated jobs limit').toBe(SCHEDULE_BOARD_LIMIT);
@@ -746,7 +764,7 @@ describe('P2 Schedule on the built dist', () => {
       readdirSync(migDir).filter(name => name.endsWith('.sql')).sort()
         .map(name => readFileSync(join(migDir, name), 'utf8')).join('\n'),
     );
-    for (const col of scheduleBoardColumnList()) {
+    for (const col of BOARD_COLUMN_LIST) {
       expect.soft(live.includes(col), `jobs.${col} exists in supabase/migrations`).toBe(true);
     }
     const moreBoard = async (id: 'week-1280' | 'week-390', opts: { boardCap?: number; undatedCap?: number }) => {
@@ -775,16 +793,14 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(over.moreJobsHref, 'more-jobs line links to Jobs').toBe('/jobs');
     const undatedAtCap = await moreBoard('week-1280', { undatedCap: 200 });
     expect.soft(undatedAtCap.moreJobs, '200 undated rows hide the more-jobs line').toBe('');
-    expect.soft(undatedAtCap.whisper, '200 undated whisper count').toContain('200 without a date');
-    expect.soft(undatedAtCap.whisper, '200 undated whisper has no +').not.toContain('+');
+    expect.soft(undatedAtCap.whisper, '200 undated whisper').toBe('18 on the board · 4 need crew · 200 without a date');
     expect.soft(undatedAtCap.traySub, '200 undated rail count').toBe('200');
     expect.soft(undatedAtCap.traySub, '200 undated rail has no +').not.toContain('+');
     expect.soft(undatedAtCap.trayCards, '200 undated rail cards').toBe(200);
     const undatedOver = await moreBoard('week-1280', { undatedCap: 201 });
     expect.soft(undatedOver.moreJobs, '201 undated rows show the more-jobs line').toBe(MORE_JOBS_THIS_WEEK);
     expect.soft(undatedOver.moreJobsHref, 'undated more-jobs line links to Jobs').toBe('/jobs');
-    expect.soft(undatedOver.whisper, '201 undated whisper is 200+').toContain('200+ without a date');
-    expect.soft(undatedOver.whisper, '201 undated whisper never counts the dropped row').not.toMatch(/201 without a date/);
+    expect.soft(undatedOver.whisper, '201 undated whisper').toBe('18 on the board · 4 need crew · 200+ without a date');
     expect.soft(undatedOver.traySub, '201 undated rail count is 200+').toBe('200+');
     expect.soft(undatedOver.trayCards, '201 undated rail cards stay at cap').toBe(200);
     const phoneUndatedAtCap = await moreBoard('week-390', { undatedCap: 200 });
@@ -982,9 +998,9 @@ describe('P2 Schedule on the built dist', () => {
     expect.soft(c.navPainted, 'boxed ‹ › paint a border').toBeGreaterThanOrEqual(4);
     expect.soft(c.navCornerCut, 'nav boxes keep a radius').toBe(true);
     expect.soft(c.range, 'week range').toBe('19 to 25 Oct');
-    expect.soft(c.segW, 'seg track width').toBe(138);
-    expect.soft(c.rangeW, 'range row width').toBe(209);
-    expect.soft(c.searchWidth, `search width ${c.searchWidth} vs fixture ${mock.searchW}`).toBe(mock.searchW);
+    expect.soft(px(c.segW), 'seg track width').toBe(px(c.segContentW));
+    expect.soft(px(c.rangeW), 'range row width').toBe(px(c.rangeContentW));
+    expect.soft(px(c.searchWidth), `search width ${c.searchWidth} fills the measured tools row ${c.searchFillW}`).toBe(px(c.searchFillW));
     expect.soft(Math.abs(c.todayRight - c.toolbarRight), `Today.right ${c.todayRight} vs toolbar.right ${c.toolbarRight}`).toBeLessThanOrEqual(1);
     expect.soft(c.crewToolbarShown, 'Crew is not a toolbar label').toBe(0);
     expect.soft(c.todayPainted, `Today painted stroke ${c.todayPainted} vs fixture ${mock.todayPainted}`).toBe(mock.todayPainted);

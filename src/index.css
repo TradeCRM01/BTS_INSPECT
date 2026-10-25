@@ -6863,32 +6863,11 @@
       min-width: 85.25px;
       height: 48px;
       min-height: 48px;
-      margin-left: auto;
+      margin-left: 0;
       padding: 0 20px;
       font-size: 16px;
       font-weight: 600;
       line-height: 20px;
-    }
-
-    .hub-board-cal.is-week-doc .hub-week-search {
-      flex: 1 1 755.265625px;
-      min-width: 755.265625px;
-      max-width: 755.265625px;
-      width: 755.265625px;
-      height: 48px;
-      min-height: 48px;
-    }
-
-    .hub-board-cal.is-week-doc .hub-week-seg {
-      width: 138px;
-      flex: 0 0 138px;
-      box-sizing: border-box;
-    }
-
-    .hub-board-cal.is-week-doc .hub-week-range-row {
-      width: 209px;
-      flex: 0 0 209px;
-      box-sizing: border-box;
     }
 
     .hub-board-cal.is-week-doc .hub-week-range {

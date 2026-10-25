@@ -1545,7 +1545,7 @@ python3 - <<'PY'
 from pathlib import Path
 p = Path("src/index.css")
 t = p.read_text()
-old = "    .hub-board-cal.is-week-doc .hub-week-search {\n      flex: 1 1 755.265625px;\n      min-width: 755.265625px;\n      max-width: 755.265625px;\n      width: 755.265625px;\n      height: 48px;\n      min-height: 48px;\n    }"
+old = "    .hub-board-cal.is-week-doc .hub-week-search {\n      flex: 1 1 auto;\n      min-width: 0;\n      height: 48px;\n      min-height: 48px;\n    }"
 new = "    .hub-board-cal.is-week-doc .hub-week-search {\n      flex: 0 0 200px;\n      min-width: 0;\n      max-width: 200px;\n      width: 200px;\n      height: 48px;\n      min-height: 48px;\n    }"
 if old not in t: raise SystemExit("search-fixed-width find missed")
 p.write_text(t.replace(old, new, 1))

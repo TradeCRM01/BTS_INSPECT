@@ -329,6 +329,9 @@ export type ChromeProbe = {
   navCornerCut: boolean;
   range: string;
   searchWidth: number;
+  searchFillW: number;
+  segContentW: number;
+  rangeContentW: number;
   todayRight: number;
   toolbarRight: number;
   toolbarBottom: number;
@@ -669,7 +672,7 @@ export const MUTANTS: readonly MutantSpec[] = [
   { id: 'seg-no-stroke', kill: 'K25', file: 'src/index.css', find: '  .hub-week-seg {\n    display: inline-flex;\n    align-items: stretch;\n    flex: 0 0 auto;\n    gap: 2px;\n    border: 1px solid var(--g-line-strong);\n    border-radius: 14px;', replace: '  .hub-week-seg {\n    display: inline-flex;\n    align-items: stretch;\n    flex: 0 0 auto;\n    gap: 2px;\n    border: none;\n    border-radius: 0;', brief: 'pill seg loses its painted stroke and radius' },
   { id: 'nav-no-stroke', kill: 'K25', file: 'src/index.css', find: '  .hub-week-nav-box {\n    border: 1px solid var(--g-line-strong);\n    border-radius: 10px;', replace: '  .hub-week-nav-box {\n    border: none;\n    border-radius: 0;', brief: 'nav boxes lose their painted stroke' },
   { id: 'today-no-stroke', kill: 'K25', file: 'src/index.css', find: '  .hub-week-today {\n    flex: 0 0 auto;\n    width: auto;\n    min-width: 44px;\n    height: 44px;\n    min-height: 44px;\n    border: 1px solid var(--g-line-strong);\n    border-radius: 10px;', replace: '  .hub-week-today {\n    flex: 0 0 auto;\n    width: auto;\n    min-width: 44px;\n    height: 44px;\n    min-height: 44px;\n    border: none;\n    border-radius: 10px;', brief: 'Today loses its painted border/ring at :7340' },
-  { id: 'search-fixed-width', kill: 'K25', file: 'src/index.css', find: '    .hub-board-cal.is-week-doc .hub-week-search {\n      flex: 1 1 755.265625px;\n      min-width: 755.265625px;\n      max-width: 755.265625px;\n      width: 755.265625px;\n      height: 48px;\n      min-height: 48px;\n    }', replace: '    .hub-board-cal.is-week-doc .hub-week-search {\n      flex: 0 0 200px;\n      min-width: 0;\n      max-width: 200px;\n      width: 200px;\n      height: 48px;\n      min-height: 48px;\n    }', brief: 'fix the laptop search at 200px' },
+  { id: 'search-fixed-width', kill: 'K25', file: 'src/index.css', find: '    .hub-board-cal.is-week-doc .hub-week-search {\n      flex: 1 1 auto;\n      min-width: 0;\n      height: 48px;\n      min-height: 48px;\n    }', replace: '    .hub-board-cal.is-week-doc .hub-week-search {\n      flex: 0 0 200px;\n      min-width: 0;\n      max-width: 200px;\n      width: 200px;\n      height: 48px;\n      min-height: 48px;\n    }', brief: 'fix the laptop search at 200px' },
   { id: 'today-beside-arrows', kill: 'K25', file: 'src/pages/SchedulePage.tsx', find: `      </div>
       <div className="hub-week-search" data-schedule-search="1">
         {weekSearch}
