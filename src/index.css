@@ -17093,6 +17093,35 @@
     border-radius: var(--g-radius-md);
   }
 
+  .hub-insp-template-bar {
+    background: var(--g-bg);
+    border-bottom: 1px solid var(--g-line);
+    box-shadow: none;
+  }
+
+  .hub-insp-template-back {
+    border: none;
+    background: none;
+    color: var(--g-ink-muted);
+    cursor: pointer;
+  }
+
+  .hub-insp-template-sub {
+    border: 1px solid var(--g-line);
+    border-radius: var(--g-radius-md);
+    background: transparent;
+    color: var(--g-ink);
+  }
+
+  .hub-insp-template-save {
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    min-height: 48px;
+    height: 48px;
+    border: none;
+    border-radius: var(--g-radius-md);
+  }
+
   /* End JHA list document */
 
   /* Field Work JHA list + open fill only. Same signed sheet lock as inspections. */

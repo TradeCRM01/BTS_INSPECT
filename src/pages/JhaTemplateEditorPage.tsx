@@ -637,7 +637,7 @@ export function JhaTemplateEditorPage() {
               <div className="space-y-2">
                 {(schema.stepLibrary ?? []).map((s, idx) => (
                   <div key={s.id} className="flex items-start gap-2 p-3 rounded-lg border border-[#E5E7EB]">
-                    <span className="text-xs font-semibold text-[#0A2540] bg-[#0A2540]/10 px-2 py-1 rounded shrink-0 mt-0.5">
+                    <span className="text-xs font-semibold shrink-0 mt-0.5" style={{ color: 'var(--g-ink-muted)' }}>
                       {idx + 1}
                     </span>
                     <div className="flex-1 min-w-0">

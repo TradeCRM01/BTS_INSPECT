@@ -520,16 +520,16 @@ export function TemplateEditorPage() {
   return (
     <AppShell>
       {/* Top bar */}
-      <div className="bg-white border-b border-[#E5E7EB] sticky top-0 z-30 shadow-sm">
+      <div className="hub-insp-template-bar sticky top-0 z-30">
         <div className="max-w-[1200px] mx-auto px-3 md:px-4 py-2 md:py-1 md:min-h-12 flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-3">
           <button
             type="button"
             onClick={() => navigate('/templates')}
-            className="text-[#4A5568] hover:text-[#1A1A1A] flex items-center gap-1 text-sm min-h-10 md:min-h-0"
+            className="hub-insp-template-back flex items-center gap-1 text-sm min-h-10 md:min-h-0"
           >
             <ChevronLeft size={16} /> Templates
           </button>
-          <span className="hidden md:block text-[#E5E7EB]">/</span>
+          <span className="hidden md:block" style={{ color: 'var(--g-line)' }}>/</span>
           <input
             value={templateName}
             onChange={e => { setTemplateName(e.target.value); setSaveState('unsaved'); }}
@@ -558,7 +558,7 @@ export function TemplateEditorPage() {
             <button
               onClick={() => setShowPdfPreview(true)}
               disabled={schema.sections.length === 0}
-              className="flex items-center gap-1.5 border border-[#2E75B6] text-[#2E75B6] px-2 md:px-3 py-2 md:py-1.5 rounded text-xs font-medium hover:bg-[#EFF6FF] disabled:opacity-50 transition-colors min-h-10 md:min-h-0 flex-1 md:flex-none justify-center md:justify-start"
+              className="hub-insp-template-sub flex items-center gap-1.5 px-2 md:px-3 py-2 md:py-1.5 text-xs font-medium disabled:opacity-50 min-h-10 md:min-h-0 flex-1 md:flex-none justify-center md:justify-start"
               title="Live PDF preview with sample answers"
             >
               <FileText size={13} /> <span className="hidden sm:inline">PDF Preview</span>
@@ -575,7 +575,7 @@ export function TemplateEditorPage() {
             <button
               onClick={() => saveMutation.mutate()}
               disabled={saveMutation.isPending}
-              className="flex items-center gap-1.5 bg-[#0A2540] text-white px-2 md:px-3 py-2 md:py-1.5 rounded text-xs font-medium hover:bg-[#0d2f4e] disabled:opacity-50 min-h-10 md:min-h-0 flex-1 md:flex-none justify-center md:justify-start"
+              className="hub-insp-template-save flex items-center gap-1.5 px-2 md:px-3 text-xs font-semibold disabled:opacity-50 min-h-10 md:min-h-0 flex-1 md:flex-none justify-center md:justify-start"
             >
               <Save size={13} /> <span className="hidden sm:inline">Save</span>
             </button>
