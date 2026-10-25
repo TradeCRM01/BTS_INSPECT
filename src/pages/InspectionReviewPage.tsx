@@ -347,7 +347,7 @@ export function InspectionReviewPage() {
   }
 
   return (
-    <div className="insp-doc-theme min-h-screen bg-[#F9FAFB]" style={themeStyle}>
+    <div className="insp-doc-theme min-h-screen" style={{ ...themeStyle, background: 'var(--g-bg)' }}>
       {/* Header */}
       <div className="insp-review-head text-white sticky top-0 z-40 h-14 flex items-center px-4 gap-3">
         <button onClick={() => navigate(`/inspections/${id}`)} className="p-1.5 rounded hover:bg-white/10">
@@ -369,8 +369,8 @@ export function InspectionReviewPage() {
 
       <div className="max-w-[720px] mx-auto px-4 py-6 pb-32">
         {alreadyFinalised ? (
-          <div className="bg-[#F5F0E6] border border-[#D9D2C5] rounded-lg p-4 mb-4" data-issued-lock="1">
-            <p className="text-sm font-medium text-[#0A2540]">
+          <div className="mb-4" data-issued-lock="1">
+            <p className="text-sm font-medium" style={{ color: 'var(--g-ink)' }}>
               Locked. Contact the office to amend.
             </p>
           </div>
@@ -419,8 +419,8 @@ export function InspectionReviewPage() {
         {schema.sections.map(sec => {
           if (!evaluateShowIf(sec.showIf, responses)) return null;
           return (
-            <div key={sec.id} className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm mb-4">
-              <div className="px-4 py-3 border-b border-[#E5E7EB] bg-[#F9FAFB] rounded-t-lg">
+            <div key={sec.id} className="mb-4" style={{ background: 'var(--g-surface)', border: '1px solid var(--g-line)', borderRadius: 'var(--g-radius-md)' }}>
+              <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--g-line)' }}>
                 <h3 className="font-semibold text-sm text-[#1A1A1A]">{sec.title}</h3>
               </div>
 
@@ -533,8 +533,8 @@ export function InspectionReviewPage() {
 
         {/* Countersignatures */}
         {signOffRoles.length > 0 && (
-          <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm mb-4">
-            <div className="px-4 py-3 border-b border-[#E5E7EB] bg-[#F9FAFB] rounded-t-lg">
+          <div className="mb-4" style={{ background: 'var(--g-surface)', border: '1px solid var(--g-line)', borderRadius: 'var(--g-radius-md)' }}>
+            <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--g-line)' }}>
               <h3 className="font-semibold text-sm text-[#1A1A1A]">Countersignatures</h3>
               <p className="text-xs text-[#6B7280] mt-0.5">Capture required close-out signatures before completing.</p>
             </div>
@@ -561,10 +561,11 @@ export function InspectionReviewPage() {
       </div>
 
       {/* Bottom bar */}
-      <div className="fixed left-0 right-0 bg-white border-t border-[#E5E7EB] px-4 py-3 flex items-center justify-between" style={{ bottom: 'var(--shell-bottom-nav-h, 0px)' }}>
+      <div className="fixed left-0 right-0 px-4 py-3 flex items-center justify-between" style={{ bottom: 'var(--shell-bottom-nav-h, 0px)', background: 'var(--g-surface)', borderTop: '1px solid var(--g-line)' }}>
         <button
           onClick={() => navigate(`/inspections/${id}`)}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-md border border-[#E5E7EB] text-sm font-medium text-[#4A5568] hover:bg-[#F9FAFB]"
+          className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium"
+          style={{ border: '1px solid var(--g-line)', borderRadius: 'var(--g-radius-md)', color: 'var(--g-ink-muted)' }}
         >
           <ChevronLeft size={16} /> Back to Inspection
         </button>
