@@ -45,13 +45,11 @@ describe('invoice list cream document look', () => {
     expect(css).not.toContain('indigo-500');
     expect(css).not.toMatch(/\.hub-invoices[\s\S]{0,80}#111|#000\b/);
 
-    expect(sheet).toContain('border-radius: 16px');
-    expect(sheet).toContain('inset 0 1px 0 #fff');
-    expect(sheet).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
+    expect(sheet).toContain('background: transparent');
+    expect(sheet).toContain('box-shadow: none');
     expect(sheet).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow|lacquer|gloss|glow|shine/);
-    expect(tabs).toContain('font-family: var(--g-font-title)');
-    expect(tabs).toContain('font-weight: 700');
-    expect(tabs).toContain('#2E75B6');
+    expect(tabs).toContain('color: var(--invoice-ink)');
+    expect(tabs).toContain('box-shadow: inset 0 -2px 0 var(--invoice-ink)');
   });
 
   it('does not ship a look screenshot harness and keeps the signed default', () => {

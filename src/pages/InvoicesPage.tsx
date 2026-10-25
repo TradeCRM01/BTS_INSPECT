@@ -22,7 +22,7 @@ import {
 import type { CommercialPdfData } from '../reports/commercial/CommercialDocumentPdf';
 import { asStringList } from '../lib/asStringList';
 import { checkPriceSendBlock } from '../lib/checkPriceGate';
-import { listQueryBusy } from '../lib/listQueryReady';
+import { listCountWhisper, listQueryBusy } from '../lib/listQueryReady';
 import { calcLineDocumentTotals, DEFAULT_TAX_RATE, gstDocumentLabel, lineExGstAmount, moneyRound } from '../lib/gst';
 import { commitDocumentLine, committedTaxRate } from '../lib/parseDecimal';
 import { commercialLinesForPreview, commitCommercialLines } from '../lib/commitCommercialLines';
@@ -394,20 +394,27 @@ export function InvoicesPage() {
 
   return (
     <AppShell>
-      <div className="ops-page hub-invoices">
-        <div className="ops-page-head">
+      <div className="ops-page hub-invoices hub-invoices-list-doc">
+        <div className="hub-invoices-identity">
           <div>
             <h1 className="ops-page-title">Invoices</h1>
+            <p className="hub-invoices-whisper">
+              {listCountWhisper({
+                busy,
+                filterLabel: STATUS_FILTERS.find(tab => tab.key === statusFilter)?.label ?? 'All',
+                count: filtered.length,
+                singular: 'invoice',
+                plural: 'invoices',
+              })}
+            </p>
           </div>
-          <button
-            onClick={() => openInvoice(null)}
-            className="btn-primary"
-          >
-            <Plus size={16} /> New invoice
+          <button type="button" onClick={() => openInvoice(null)} className="btn-primary">
+            <Plus size={20} /> New invoice
           </button>
         </div>
 
         <div className="hub-invoices-chrome">
+          <SearchBar value={search} onChange={setSearch} placeholder="Search invoices or clients..." />
           <div className="hub-invoices-filters">
             {STATUS_FILTERS.map(tab => (
               <button
@@ -420,7 +427,6 @@ export function InvoicesPage() {
               </button>
             ))}
           </div>
-          <SearchBar value={search} onChange={setSearch} placeholder="Search invoices or clients..." className="max-w-sm" />
         </div>
 
         {busy ? (
