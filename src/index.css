@@ -20325,58 +20325,75 @@
     width: 100%;
     min-height: calc(100dvh - 3.5rem);
     margin: 0;
-    background: #F5F0E6;
-    padding: 24px 24px 48px;
+    background: var(--g-bg);
+    padding: 0;
   }
 
   .hub-team-list-doc .hub-team-list-sheet {
     position: relative;
     min-height: 620px;
     margin: 0 auto;
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
-    border-radius: 16px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
     overflow: visible;
-    box-shadow:
-      inset 0 1px 0 #fff,
-      0 10px 28px rgba(10, 37, 64, 0.08);
+    box-shadow: none;
   }
 
   .hub-team-list-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    min-height: 44px;
-    padding: 8px 24px;
-    background: #0A2540;
-    color: #fff;
-    border-radius: 16px 16px 0 0;
+    display: none;
   }
 
   .hub-team-list-mark {
     font-family: var(--g-font-title);
-    font-weight: 700;
+    font-weight: 600;
     font-size: 16px;
-    letter-spacing: 0.02em;
-    color: #fff;
+    letter-spacing: -0.035em;
+    color: var(--g-ink-muted);
+  }
+
+  .hub-team-list-identity {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .hub-team-list-track {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  .hub-team-list-find > .hub-team-list-more {
+    display: none;
   }
 
   .hub-team-list-body {
-    padding: 32px 32px 24px;
-    background: #FFFDF8;
-    box-shadow: inset 0 1px 0 #fff;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
     overflow: visible;
   }
 
   .hub-team.hub-team-list-doc .ops-page-title {
-    font-family: var(--g-font-title);
-    font-weight: 700;
-    font-size: 56px !important;
-    letter-spacing: 0.02em;
-    line-height: 0.96;
-    color: #0A2540;
+    font-family: var(--g-font-sans);
+    font-weight: 600;
+    font-size: 40px !important;
+    letter-spacing: -0.035em;
+    line-height: 44px;
+    color: var(--g-ink);
     margin: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .hub-team.hub-team-list-doc .ops-page-title {
+      font-size: 56px !important;
+      line-height: 56px;
+    }
   }
 
   .hub-team-list-whisper {
@@ -20384,19 +20401,19 @@
     margin: 8px 0 0;
     padding: 0;
     font-family: var(--g-font-ui);
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 15px;
+    font-weight: 400;
     letter-spacing: 0;
     text-transform: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-team-list-tools {
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 16px;
-    margin-top: 24px;
+    gap: 12px;
+    margin-top: 0;
   }
 
   .hub-team-list-tools-overflow {
@@ -20405,10 +20422,10 @@
   }
 
   .hub-team-list-doc .hub-team-list-tools .btn-primary {
-    background: #2E75B6;
-    color: #fff;
-    min-height: 44px;
-    height: 44px;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    min-height: 48px;
+    height: 48px;
     padding: 0 16px;
     border: none;
     border-radius: 12px;
@@ -23394,58 +23411,75 @@
     width: 100%;
     min-height: calc(100dvh - 3.5rem);
     margin: 0;
-    background: #F5F0E6;
-    padding: 24px 24px 48px;
+    background: var(--g-bg);
+    padding: 0;
   }
 
   .hub-compliance-list-doc .hub-compliance-list-sheet {
     position: relative;
     min-height: 620px;
     margin: 0 auto;
-    background: #FFFDF8;
-    border: 1px solid #E2D9CC;
-    border-radius: 16px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
     overflow: visible;
-    box-shadow:
-      inset 0 1px 0 #fff,
-      0 10px 28px rgba(10, 37, 64, 0.08);
+    box-shadow: none;
   }
 
   .hub-compliance-list-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    min-height: 44px;
-    padding: 8px 24px;
-    background: #0A2540;
-    color: #fff;
-    border-radius: 16px 16px 0 0;
+    display: none;
   }
 
   .hub-compliance-list-mark {
     font-family: var(--g-font-title);
-    font-weight: 700;
+    font-weight: 600;
     font-size: 16px;
-    letter-spacing: 0.02em;
-    color: #fff;
+    letter-spacing: -0.035em;
+    color: var(--g-ink-muted);
+  }
+
+  .hub-compliance-list-identity {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .hub-compliance-list-track {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  .hub-compliance-list-find > .hub-compliance-list-more {
+    display: none;
   }
 
   .hub-compliance-list-body {
-    padding: 32px 32px 24px;
-    background: #FFFDF8;
-    box-shadow: inset 0 1px 0 #fff;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
     overflow: visible;
   }
 
   .hub-compliance.hub-compliance-list-doc .ops-page-title {
-    font-family: var(--g-font-title);
-    font-weight: 700;
-    font-size: 56px !important;
-    letter-spacing: 0.02em;
-    line-height: 0.96;
-    color: #0A2540;
+    font-family: var(--g-font-sans);
+    font-weight: 600;
+    font-size: 40px !important;
+    letter-spacing: -0.035em;
+    line-height: 44px;
+    color: var(--g-ink);
     margin: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .hub-compliance.hub-compliance-list-doc .ops-page-title {
+      font-size: 56px !important;
+      line-height: 56px;
+    }
   }
 
   .hub-compliance-list-whisper {
@@ -23453,19 +23487,19 @@
     margin: 8px 0 0;
     padding: 0;
     font-family: var(--g-font-ui);
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 15px;
+    font-weight: 400;
     letter-spacing: 0;
     text-transform: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-compliance-list-tools {
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 16px;
-    margin-top: 24px;
+    gap: 12px;
+    margin-top: 0;
   }
 
   .hub-compliance-list-tools-overflow {
@@ -23474,10 +23508,10 @@
   }
 
   .hub-compliance-list-doc .hub-compliance-list-tools .btn-primary {
-    background: #2E75B6;
-    color: #fff;
-    min-height: 44px;
-    height: 44px;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    min-height: 48px;
+    height: 48px;
     padding: 0 16px;
     border: none;
     border-radius: 12px;
