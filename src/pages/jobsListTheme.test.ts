@@ -17,11 +17,11 @@ describe('job list cream paper look', () => {
     expect(list).toContain('hub-jobs-list-doc');
     expect(list).toContain('jobOpenNext');
     expect(list).toContain('hub-next');
-    expect(list).toContain('to={next.href}');
+    expect(list).toContain('to={nextHref}');
     expect(list).not.toContain('function JobRowMore');
-    expect(list).toContain('Customer');
+    expect(list).toContain('Client');
     expect(list).toContain('Suburb');
-    expect(list).not.toContain('hub-jobs-pill');
+    expect(list).toContain('hub-jobs-pill');
     expect(list).not.toContain('btn-primary ops-next-control-block');
     expect(list).not.toContain('function JobCard');
     expect(list).not.toContain('ViewToggle');

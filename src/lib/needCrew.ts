@@ -22,10 +22,14 @@ export function isFinishedCrewStatus(status: string | null | undefined): boolean
 }
 
 export function needsCrew(job: CrewNeedJob | null | undefined): boolean {
-  if (job == null) return false;
-  if (!scheduledDateText(job.scheduled_date)) return false;
-  if (isFinishedCrewStatus(job.status)) return false;
-  return assignedTeamIds(job.assigned_team).length === 0;
+  try {
+    if (job == null) return false;
+    if (!scheduledDateText(job.scheduled_date)) return false;
+    if (isFinishedCrewStatus(job.status)) return false;
+    return assignedTeamIds(job.assigned_team).length === 0;
+  } catch {
+    return false;
+  }
 }
 
 export function countNeedsCrew(
@@ -33,4 +37,30 @@ export function countNeedsCrew(
 ): number {
   if (!Array.isArray(jobs)) return 0;
   return (jobs as readonly (CrewNeedJob | null | undefined)[]).filter(needsCrew).length;
+}
+
+export const NEED_CREW_COPY = 'need crew';
+
+/** Isolated until P1b lands. Swap is a one-line import onto #403's helper. */
+export function jobNeedsCrew(job: CrewNeedJob | null | undefined): boolean {
+  if (!job) return false;
+  return needsCrew({
+    ...job,
+    status: job.status === 'done' ? 'Done' : job.status,
+  });
+}
+
+export function countJobsNeedCrew(
+  jobs: readonly unknown[] | null | undefined | string | number | object,
+): number {
+  return countNeedsCrew(jobs);
+}
+
+export function jobsNeedCrewWhisper(count: number): string {
+  return count > 0 ? `${count} ${NEED_CREW_COPY}` : '';
+}
+
+export function withNeedCrewWhisper(base: string, count: number): string {
+  const extra = jobsNeedCrewWhisper(count);
+  return extra ? `${base} · ${extra}` : base;
 }

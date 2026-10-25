@@ -26,7 +26,7 @@ describe('jobs enquiries LOOK — same jobs paper', () => {
     expect(page).toContain('OverlayPortal');
     expect(page).toContain('data-dismiss-cancel');
     expect(page).toContain("showEnquiries ? null : (");
-    expect(page).toContain('hub-jobs-list-mark">List');
+    expect(page).not.toContain('hub-jobs-list-mark">List');
     expect(page).toContain("import.meta.env.DEV ? searchParams.get('look') : null");
     expect(page).toContain('ALREADY_APPROVED_TOAST');
     expect(page).not.toMatch(/\+614(?!18893602)\d+/);

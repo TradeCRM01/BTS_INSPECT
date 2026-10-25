@@ -375,12 +375,12 @@ export function JobFormModal({
 
   return (
     <OverlayPortal>
-    <div className="overlay-backdrop hub-ops-form-backdrop">
-      <div className="overlay-panel-xl hub-ops-form-sheet" onClick={e => e.stopPropagation()}>
+    <div className="overlay-backdrop hub-ops-form-backdrop job-form-overlay">
+      <div className="overlay-panel-xl hub-ops-form-sheet job-form-sheet" data-job-form="1" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#E2D9CC]">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold text-navy">
-              {job ? (detailsOnly ? 'Job details' : 'Edit Job') : presetParentJobId ? 'New stage' : 'New Job'}
+            <h2 className="text-base font-semibold">
+              {job ? (detailsOnly ? 'Job details' : 'Edit job') : presetParentJobId ? 'New stage' : 'New job'}
             </h2>
             {job && (
               <span className="ops-meta tabular-nums">
@@ -392,7 +392,7 @@ export function JobFormModal({
               </span>
             )}
           </div>
-          <button type="button" onClick={onClose} className="hub-ops-form-close flex items-center justify-center hover:bg-[#F5F0E6]">
+          <button type="button" onClick={onClose} className="hub-ops-form-close flex items-center justify-center hover:bg-[color:var(--ops-cream)]">
             <X size={18} />
           </button>
         </div>
@@ -679,7 +679,7 @@ export function JobFormModal({
                     aria-pressed={selected}
                     onClick={() => setForm(f => ({ ...f, color: hex }))}
                     className={`h-7 w-7 rounded-md border-2 ${
-                      selected ? 'border-navy' : 'border-transparent'
+                      selected ? 'border-[color:var(--ops-navy)]' : 'border-transparent'
                     }`}
                     style={{ background: hex }}
                   />
@@ -721,7 +721,7 @@ export function JobFormModal({
           </div>
         </div>
 
-        <div className="flex items-center justify-between px-5 py-4 border-t border-[#E2D9CC]">
+        <div className="hub-ops-form-footer job-form-footer flex items-center justify-between px-5 py-4 border-t border-[#E2D9CC]">
           <div>
             {job && !confirmDelete ? (
               <button onClick={() => setConfirmDelete(true)}
