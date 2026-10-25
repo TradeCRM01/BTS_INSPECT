@@ -22545,26 +22545,37 @@
     margin: 0;
     background: var(--ts-look-page);
     color: var(--ts-look-ink);
-    padding: 24px 24px 48px;
+    padding: 0 0 48px;
   }
 
   .hub-timesheets .ops-page-title {
-    font-family: var(--g-font-title);
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    line-height: 0.96;
+    font-family: var(--g-font-sans);
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    line-height: 44px;
     text-shadow: none;
     color: var(--ts-look-ink);
-    font-size: 56px !important;
+    font-size: 40px !important;
     margin: 0;
   }
 
+  @media (min-width: 1024px) {
+    .hub-timesheets .ops-page-title {
+      font-size: 56px !important;
+      line-height: 56px;
+    }
+  }
+
   .hub-timesheets .ops-page-head {
-    max-width: 1100px;
-    margin: 0 auto 32px;
-    padding-top: 16px;
+    max-width: none;
+    margin: 0 0 24px;
+    padding-top: 0;
     align-items: flex-end;
     gap: 16px;
+  }
+
+  .hub-timesheets .hub-look-eyebrow {
+    display: none;
   }
 
   .hub-timesheets-kicker,
@@ -22581,8 +22592,8 @@
   .hub-timesheets-lede {
     margin: 8px 0 0;
     color: var(--ts-look-muted);
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 15px;
+    font-weight: 400;
   }
 
   .hub-timesheets-tools {
@@ -22593,17 +22604,17 @@
   }
 
   .hub-timesheets-next {
-    background: #2E75B6;
-    color: #fff;
-    min-height: 44px;
-    height: 44px;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    min-height: 48px;
+    height: 48px;
     padding: 0 16px;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--g-radius-md);
     box-shadow: none;
     transform: none;
     font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     display: inline-flex;
     align-items: center;
@@ -22613,8 +22624,8 @@
   }
 
   .hub-timesheets-next:hover {
-    background: color-mix(in srgb, #2E75B6 86%, #0A2540);
-    color: #fff;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
   }
 
   .hub-timesheets-next:active {
@@ -22755,8 +22766,8 @@
   }
 
   .hub-timesheets-chrome .hub-chrome-filter-on {
-    color: #2E75B6;
-    box-shadow: inset 0 -2px 0 #2E75B6;
+    color: var(--ts-look-ink);
+    box-shadow: inset 0 -2px 0 var(--ts-look-ink);
   }
 
   .hub-timesheets-days {
@@ -22828,23 +22839,16 @@
   }
 
   .hub-timesheets-sheet {
-    background: var(--ts-look-sheet);
-    border: 1px solid var(--ts-look-line);
-    border-radius: 16px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
     padding: 0;
-    overflow: hidden;
-    box-shadow: 0 10px 28px rgba(10, 37, 64, 0.08);
+    overflow: visible;
+    box-shadow: none;
   }
 
   .hub-timesheets-sheet-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    min-height: 44px;
-    padding: 8px 24px;
-    background: var(--ts-look-ink);
-    color: #fff;
+    display: none;
   }
 
   .hub-timesheets-sheet-bar .hub-timesheets-hours {
@@ -22858,24 +22862,24 @@
   }
 
   .hub-timesheets-sheet-body {
-    padding: 32px 32px 24px;
-    background: var(--ts-look-sheet);
-    box-shadow: inset 0 1px 0 #fff;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   .hub-timesheets-hero {
-    font-family: var(--g-font-title);
-    font-weight: 700;
-    font-size: 56px !important;
-    letter-spacing: 0.02em;
-    line-height: 0.96;
+    font-family: var(--g-font-sans);
+    font-weight: 600;
+    font-size: 40px !important;
+    letter-spacing: -0.035em;
+    line-height: 44px;
     color: var(--ts-look-ink);
     margin: 0;
   }
 
   .hub-timesheets-jobline {
     margin: 8px 0 0;
-    color: #2E75B6;
+    color: var(--ts-look-muted);
     font-size: 16px;
     font-weight: 500;
   }
@@ -22992,13 +22996,11 @@
     display: flex;
     flex-direction: column;
     gap: 0;
-    background: var(--ts-look-sheet);
-    border: 1px solid var(--ts-look-line);
-    border-radius: 16px;
-    overflow: hidden;
-    box-shadow:
-      inset 0 1px 0 #fff,
-      0 10px 28px rgba(10, 37, 64, 0.08);
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+    box-shadow: none;
   }
 
   .hub-timesheets-tile,

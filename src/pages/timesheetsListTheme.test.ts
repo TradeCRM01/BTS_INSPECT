@@ -40,8 +40,6 @@ describe('Timesheets list cream paper look', () => {
     expect(css).toContain('.hub-timesheets-sheet');
     expect(css).toContain('.hub-timesheets-sheet-bar');
     expect(css).toContain('.hub-timesheets-sheet-body');
-    expect(css).toContain('box-shadow: inset 0 1px 0 #fff');
-    expect(css).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
     expect(css).toContain('.hub-timesheets.is-day-open');
     const timesheetsCss = css.slice(css.indexOf('/* Timesheets list only'));
     expect(timesheetsCss).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow/);
@@ -50,7 +48,7 @@ describe('Timesheets list cream paper look', () => {
     expect(css).toContain('--ts-look-ink: var(--g-ink)');
     expect(css).toContain('--ts-look-muted: var(--g-ink-muted)');
     expect(css).toContain('--ts-look-line: var(--g-line)');
-    expect(css).toContain('#2E75B6');
+    expect(css).toContain('background: var(--g-inverse)');
     expect(css).toContain('font-size: 56px !important');
     expect(css).toContain("font-family: var(--g-font-title)");
     expect(css).toContain("font-family: var(--g-font-ui)");
@@ -59,9 +57,7 @@ describe('Timesheets list cream paper look', () => {
     expect(css).toContain('.hub-timesheets-tiles .hub-timesheets-hours');
     expect(css).toContain('font-size: 32px');
     const tilesCss = css.slice(css.indexOf('  .hub-timesheets-tiles {'), css.indexOf('  .hub-timesheets-sheet .hub-timesheets-tile {'));
-    expect(tilesCss).toContain('border-radius: 16px');
-    expect(tilesCss).toContain('inset 0 1px 0 #fff');
-    expect(tilesCss).toContain('0 10px 28px rgba(10, 37, 64, 0.08)');
+    expect(tilesCss).toContain('background: transparent');
     expect(tilesCss).not.toMatch(/radial-gradient|backdrop-filter|filter:\s*drop-shadow|lacquer|gloss|glow/);
     expect(css).not.toMatch(/\.hub-timesheets \.ops-page-title[\s\S]{0,160}Newsreader|Syne|Space Grotesk|IBM Plex/);
     expect(css).toContain('letter-spacing: 0.12em');
