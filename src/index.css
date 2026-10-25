@@ -6567,7 +6567,7 @@
 
   /* Week-board document only. Same paper kit as signed quote / job sheet. */
   .hub-board-cal.is-week-doc.ops-page {
-    background: #F5F0E6;
+    background: var(--g-bg);
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
@@ -6599,6 +6599,10 @@
     flex-direction: column;
     min-height: 0;
     overflow: hidden;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .hub-board-cal.is-week-doc .hub-week-sheet-body {
@@ -6606,11 +6610,13 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   @media (min-width: 1024px) {
     .hub-board-cal.is-week-doc .hub-week-identity-row {
-      align-items: flex-start;
+      align-items: flex-end;
       gap: 8px 16px;
       margin-bottom: 2px;
     }
@@ -6746,7 +6752,7 @@
   }
 
   .hub-week-sheet-bar {
-    display: flex;
+    display: none;
     align-items: baseline;
     justify-content: space-between;
     gap: 16px;
@@ -6797,20 +6803,32 @@
   }
 
   .hub-week-document .hub-week-hero {
-    font-size: 20px !important;
-    line-height: 1;
+    font-family: var(--g-font-sans);
+    font-weight: 600;
+    font-size: 40px !important;
+    letter-spacing: -0.035em;
+    line-height: 44px;
+    color: var(--g-ink);
+  }
+
+  @media (min-width: 1024px) {
+    .hub-week-document .hub-week-hero {
+      font-size: 56px !important;
+      line-height: 56px;
+    }
   }
 
   .hub-week-status-whisper {
     display: block;
-    margin: 2px 0 0;
+    margin: 6px 0 0;
     padding: 0;
-    font-family: var(--g-font-ui);
-    font-size: 13px;
-    font-weight: 500;
+    font-family: var(--g-font-sans);
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 24px;
     letter-spacing: 0;
     text-transform: none;
-    color: #5B6B7C;
+    color: var(--g-ink-muted);
   }
 
   .hub-week-page-tools {
@@ -6823,16 +6841,16 @@
   }
 
   .hub-week-document .hub-week-page-tools .btn-primary {
-    background: #2E75B6;
-    color: #fff;
-    min-height: 44px;
-    height: 44px;
-    padding: 0 16px;
+    background: var(--g-inverse);
+    color: var(--g-inverse-ink);
+    min-height: 48px;
+    height: 48px;
+    padding: 0 18px 0 16px;
     border: none;
-    border-radius: 12px;
+    border-radius: var(--g-radius-md);
     box-shadow: none;
-    font-family: var(--g-font-ui);
-    font-size: 14px;
+    font-family: var(--g-font-sans);
+    font-size: 16px;
     font-weight: 600;
   }
 
@@ -6860,13 +6878,14 @@
 
   .hub-week-id-label {
     margin: 0;
-    font-family: var(--g-font-ui);
+    font-family: var(--g-font-sans);
     font-size: 13px;
     font-weight: 500;
-    letter-spacing: 0;
-    text-transform: none;
-    font-variant: normal;
-    color: #5B6B7C;
+    letter-spacing: 0.1em;
+    line-height: 16px;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+    color: var(--g-ink-muted);
   }
 
   .hub-week-id-value {
@@ -7973,6 +7992,39 @@
   }
 
   @media (max-width: 639px) {
+    .hub-week-identity-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: end;
+      column-gap: 12px;
+    }
+
+    .hub-week-identity-col {
+      display: contents;
+    }
+
+    .hub-week-id-label {
+      grid-column: 1 / -1;
+      grid-row: 1;
+    }
+
+    .hub-week-document .hub-week-hero {
+      grid-column: 1;
+      grid-row: 2;
+    }
+
+    .hub-week-status-whisper {
+      grid-column: 1 / -1;
+      grid-row: 3;
+    }
+
+    .hub-week-page-tools {
+      grid-column: 2;
+      grid-row: 2;
+      margin-left: 0;
+      align-self: end;
+    }
+
     .hub-board-cal.is-week-doc.ops-page {
       padding: 0;
       height: calc(100dvh - 4.25rem);
